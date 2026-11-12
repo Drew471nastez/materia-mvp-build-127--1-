@@ -492,6 +492,8 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/header-buttons.test.ts",
+  /* Round 3 (sign in pages and scrollbars): Log in, Sign up and a stranger's Sell on Storelib open whole on their first frame (no loading screen, no session spinner without a session cookie, no fade, no Suspense spinner streamed first, drawn per request), the photo preloaded for wide screens only over a blurred copy of itself, the logo's violet under it, and every scroller inside the page thin with a quiet thumb on no track while the page keeps its charcoal bar. scripts/check-auth-arrival-r3.mjs films the presses and cold opens frame by frame on a production build; scripts/check-app-scrollbars-r3.mjs photographs the Share your OnePage dialog, a sheet, a dropdown and a dark panel. */
+  "tests/auth-arrival-r3.test.ts",
   /* Cinematic homepage: fixed first line, reserved rotating phrases, one deferred video, native signup. scripts/check-home-hero.mjs measures real SSR/hydration and media fallbacks. */
   "tests/home-hero.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */

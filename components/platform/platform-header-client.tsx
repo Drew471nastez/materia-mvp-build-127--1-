@@ -36,6 +36,8 @@ import { useLocale } from "@/components/locale-provider"
 import "@/lib/i18n/locale-words-shell"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { headerAuthBack } from "@/lib/auth/return-to"
+import { SELL_INTENT, withCarry } from "@/lib/auth/continue"
+import { warmAuthPhoto } from "@/components/auth/auth-photo"
 import { hasStoredSessionToken, signedOutForSure, storedSessionKey } from "@/lib/auth/session-read"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -189,10 +191,20 @@ const DARK_FOCUS =
   "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113]"
 
 /** Where a header link goes, and the click that gets it there (canonical host, native shell). */
-export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void; prefetch?: false }
+export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void; prefetch?: false; onPointerEnter?: () => void }
 
 /* Log in and Sign up are read when pressed, not on sight: on a stranger's Explore every copy of each asked the server for its page, five Sign ups at once (round 54, scripts/check-cdn-r54.mjs). */
 const READ_ON_PRESS = /^\/(?:login|signup)(?:[/?#]|$)/
+
+/*
+  SELL ON STORELIB, FOR SOMEBODY SIGNED OUT, GOES STRAIGHT TO SIGN UP (round 3).
+  /sell sends a stranger to exactly this address (lib/auth/continue.ts
+  sellDecision), but only after a server round trip of its own that showed
+  /sell's spinner first: a white screen between the press and the form. The
+  buttons that carry it are only drawn for somebody the header knows is
+  signed out; a session it missed is sent on by the sign up page anyway.
+*/
+const GUEST_SELL = withCarry("/signup", { intent: SELL_INTENT })
 
 /*
   ═══════════════════════════════════════════════════════════════════════════
@@ -231,7 +243,7 @@ function GuestHeaderActions({
       <span aria-hidden data-guest-divider="" className={cn("ml-1 h-6 w-px", chrome.guestDivider)} />
       {/* "Sell" alone on a tablet, where the bar has no room for three words; the name stays whole for a screen reader. */}
       <Link
-        {...link("/sell")}
+        {...link(GUEST_SELL)}
         data-guest-sell=""
         aria-label="Sell on Storelib"
         className={cn("ml-5 whitespace-nowrap rounded-md px-2 py-2 text-[15px] font-medium transition-colors", chrome.guestSell, chrome.focus)}
@@ -811,7 +823,7 @@ function GuestSheetActions({ second, link, onDone }: { second: "discover" | "log
           Log in
         </Link>
       )}
-      <Link {...go("/sell")} data-menu-sell="" className={cn(SHEET_BUTTON, "h-11 font-medium text-violet-600 active:bg-violet-50")}>
+      <Link {...go(GUEST_SELL)} data-menu-sell="" className={cn(SHEET_BUTTON, "h-11 font-medium text-violet-600 active:bg-violet-50")}>
         Sell on Storelib
       </Link>
     </div>
@@ -2086,7 +2098,7 @@ export function PlatformHeaderClient({
 
   /* The href and the click for one path, in the form the buttons above take. */
   const headerLink: HeaderLink = useCallback(
-    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path), ...(READ_ON_PRESS.test(path) ? { prefetch: false as const } : {}) }),
+    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path), ...(READ_ON_PRESS.test(path) ? { prefetch: false as const, onPointerEnter: () => warmAuthPhoto(path) } : {}) }),
     [getCanonicalOrRelativePath, onCanonicalNav],
   )
   /*

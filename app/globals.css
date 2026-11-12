@@ -759,11 +759,39 @@ html.capacitor body {
     scrollbar-width: thin;
     scrollbar-color: #777777 #292929;
   }
+  /*
+    EVERY SCROLLER INSIDE THE PAGE: ONE SLIM, QUIET BAR (round 3).
+
+    `scrollbar-color` is INHERITED. Set on <html> for the page's own bar, the
+    charcoal track above reached every element that scrolls: the Share your
+    OnePage dialog, /app's sheets, panels and dropdowns, each drawing a black
+    track at the platform's full width (`scrollbar-width` is not inherited),
+    and, since Chrome 121, ignoring the ::-webkit-scrollbar rules written for
+    them, because a standard value now applied. The page's own bar is read
+    from the root alone, so it keeps the charcoal; everything under <body>
+    is given its own:
+
+      - the thumb in the surface's own text colour at a quarter strength, so
+        it is a light grey on a white dialog and a dark grey on a dark sheet
+        with no rule per theme (`currentColor` is resolved per element);
+      - no track at all;
+      - thin, at zero specificity (:where), so any class that hides a bar
+        (`scrollbar-hide`, [scrollbar-width:none], .page-scroll on a phone) or
+        draws its own (.wb-slim-scroll, .site-slim-scroll) still wins.
+
+    Pointer screens only, as before: a touch screen keeps the platform's own
+    overlay indicator. scripts/check-app-scrollbars-r3.mjs measures it.
+  */
+  body {
+    scrollbar-color: auto;
+  }
   @media (hover: hover) and (pointer: fine) {
-    [data-post-overlay-scroll],
-    [data-bell-list] {
+    body {
+      scrollbar-color: rgba(120, 120, 128, 0.4) transparent;
+      scrollbar-color: color-mix(in srgb, currentColor 26%, transparent) transparent;
+    }
+    :where(body *) {
       scrollbar-width: thin;
-      scrollbar-color: #777777 #292929;
     }
   }
 
@@ -794,8 +822,7 @@ html.capacitor body {
   }
   @media (forced-colors: active) {
     html,
-    [data-post-overlay-scroll],
-    [data-bell-list] {
+    body {
       scrollbar-color: auto;
     }
   }

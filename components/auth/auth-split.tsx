@@ -1,5 +1,5 @@
 import type React from "react"
-import Image from "next/image"
+import { AuthPhoto, LOGIN_PHOTO } from "@/components/auth/auth-photo"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { HtmlClass } from "@/components/platform/html-class"
@@ -23,7 +23,7 @@ import { HtmlClass } from "@/components/platform/html-class"
  * details can be taller than a phone.
  */
 
-export const AUTH_PHOTO = "https://storelib.com/media/platform%20images/collage%20imags/eemo.png"
+export const AUTH_PHOTO = LOGIN_PHOTO
 
 export { AUTH_BTN_PRIMARY, AUTH_BTN_SECONDARY, AUTH_LINK } from "@/components/auth/auth-buttons"
 
@@ -32,14 +32,12 @@ export function AuthSplit({ page, children }: { page: string; children: React.Re
     <main data-page={page} className="flex min-h-svh w-full bg-white font-sans lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       <HtmlClass name="with-page-auth" />
       <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24 auth-stack auth-shell">
-        <div className="mx-auto w-full max-w-[400px] py-2 pb-[max(8px,env(safe-area-inset-bottom))] sm:py-3 lg:py-4 animate-fade-in-up" data-auth-column="">
+        <div className="mx-auto w-full max-w-[400px] py-2 pb-[max(8px,env(safe-area-inset-bottom))] sm:py-3 lg:py-4" data-auth-column="">
           <AuthLogo />
           {children}
         </div>
       </div>
-      <div className="relative hidden shrink-0 overflow-hidden bg-neutral-900 lg:block lg:h-[100dvh] lg:w-1/2" aria-hidden>
-        <Image src={AUTH_PHOTO} alt="" fill className="object-cover object-center" sizes="(min-width: 1024px) 50vw, 0px" quality={75} priority decoding="async" />
-      </div>
+      <AuthPhoto src={AUTH_PHOTO} />
     </main>
   )
 }
