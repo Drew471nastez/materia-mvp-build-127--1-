@@ -909,7 +909,7 @@ const BlockSheetView = memo(function BlockSheetView({
         className={cn(
           "relative mx-2 flex w-full origin-bottom flex-col overflow-hidden rounded-t-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] outline-none will-change-[translate,scale,opacity]",
           "sm:mx-0 sm:origin-center sm:rounded-[24px] sm:shadow-[0_24px_64px_rgba(0,0,0,0.24),0_2px_8px_rgba(0,0,0,0.08)]",
-          fill ? "h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:h-[min(760px,calc(100dvh-64px))] sm:max-w-[520px]" : "max-h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:max-h-[min(760px,calc(100dvh-64px))] sm:max-w-[480px]",
+          fill ? "h-[calc(100dvh-var(--op-safe-top,0px)-16px)] sm:h-[min(760px,calc(100dvh-64px))] sm:max-w-[520px]" : "max-h-[calc(100dvh-var(--op-safe-top,0px)-16px)] sm:max-h-[min(760px,calc(100dvh-64px))] sm:max-w-[480px]",
           /*
             ON THE KEYBOARD ON A PHONE (round AN, a form in the sheet). The
             panel stays at the foot of the screen and its content is pushed
@@ -922,8 +922,8 @@ const BlockSheetView = memo(function BlockSheetView({
           */
           "max-sm:pb-[var(--kb-inset,0px)] max-sm:transition-[padding-bottom,max-height,height] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           fill
-            ? "max-sm:h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]"
-            : "max-sm:max-h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]",
+            ? "max-sm:h-[calc(min(100dvh_-_var(--op-safe-top,0px)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]"
+            : "max-sm:max-h-[calc(min(100dvh_-_var(--op-safe-top,0px)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]",
         )}
       >
         <span tabIndex={0} data-focus-guard="" aria-hidden onFocus={guard("last")} className="sr-only" />

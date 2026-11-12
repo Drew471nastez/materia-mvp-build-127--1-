@@ -53,7 +53,7 @@ import { iconDepth, primaryDepth } from "@/components/ui/depth-button"
 import type { OnePage } from "@/lib/onepage/types"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
-import { openExternal } from "@/lib/native-bridge"
+import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import {
   Dialog,
   DialogContent,
@@ -137,6 +137,8 @@ const EXIT_HREF = "/app"
 
 /** The loader on the way in waits for the preview this long at most. */
 const ARRIVE_CAP_MS = 2500
+/** Round AT: on a phone the Preview's frame is warmed once the editor is idle, or after this long at the latest. */
+const PREVIEW_WARM_MS = 2500
 
 /*
   THE EDITOR'S TWO QUESTIONS, ON THE APP'S OWN SHEET ON A PHONE.
@@ -782,7 +784,46 @@ function EditorLayout() {
   useEffect(() => {
     if (showMobilePreview) setMobilePreviewKept(true)
   }, [showMobilePreview])
+  /*
+    ROUND AT, THE OWNER: "make sure that the preview and edit when I click on the one page editor is more smooth and
+    clean." Three things made the switch blink:
+      - the first Preview loaded its frame on the tap: the page's colour, empty, until the frame had drawn;
+      - Edit came back from display:none, so the whole tab was laid out again on the tap;
+      - the tab bar was unmounted and mounted again each way.
+    Now, once the editor has arrived and a phone's main thread is idle, the preview's frame is loaded and drawn, unseen,
+    at its real size (PREVIEW_WARM_MS at the latest), and a press on Preview starts it at once if that has not happened
+    yet. Preview and Edit are then two layers that are both laid out: a switch only changes which one is visible and
+    which one is inert, so nothing is laid out, loaded or mounted on the tap (scripts/check-onepage-at2.mjs times it).
+  */
+  useEffect(() => {
+    if (!arrived || mobilePreviewKept) return
+    if (!window.matchMedia("(max-width: 767px)").matches) return
+    const warm = () => setMobilePreviewKept(true)
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(warm, { timeout: PREVIEW_WARM_MS })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(warm, PREVIEW_WARM_MS)
+    return () => window.clearTimeout(t)
+  }, [arrived, mobilePreviewKept])
+  /* Widened past a phone with Preview up (a tablet turned): the editor is the editor again, with its phone beside it. */
+  useEffect(() => {
+    if (!showMobilePreview) return
+    const mq = window.matchMedia("(min-width: 768px)")
+    const back = () => {
+      if (mq.matches) setShowMobilePreview(false)
+    }
+    back()
+    mq.addEventListener("change", back)
+    return () => mq.removeEventListener("change", back)
+  }, [showMobilePreview])
   const [showLinkModal, setShowLinkModal] = useState(false)
+  /* Round AT: Share your OnePage ticks in the iOS and Android apps (lib/native-bridge hapticTap); a browser feels nothing. */
+  const openShare = () => {
+    if (isNativeApp()) hapticTap("light")
+    setShowLinkModal(true)
+  }
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
@@ -1548,7 +1589,7 @@ function EditorLayout() {
           <button
             type="button"
             className={cn(iconDepth, "md:hidden h-8 w-8 rounded-[9px] text-[#374151]")}
-            onClick={() => setShowLinkModal(true)}
+            onClick={openShare}
             aria-label={tt("Share your OnePage")}
             title={tt("Share your OnePage")}
             data-onepage-share=""
@@ -1577,7 +1618,7 @@ function EditorLayout() {
           {/* Share your OnePage Button - Desktop */}
           <div className="hidden md:block">
             <button
-              onClick={() => setShowLinkModal(true)}
+              onClick={openShare}
               data-onepage-share-desk=""
               className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-[background-color,box-shadow] cursor-pointer whitespace-nowrap"
             >
@@ -1595,6 +1636,11 @@ function EditorLayout() {
               !showMobilePreview && "bg-gray-900 hover:bg-gray-800 text-white"
             )}
             onClick={togglePreview}
+            /* The press starts the frame if idle time has not yet (round AT): it is loading by the time the finger lifts. */
+            onPointerDown={() => {
+              if (!mobilePreviewKept) setMobilePreviewKept(true)
+            }}
+            data-onepage-preview-toggle=""
           >
             {showMobilePreview ? (
               <>
@@ -1620,9 +1666,11 @@ function EditorLayout() {
         */}
         <div
           className={cn(
-            "relative flex-1 min-h-0 overflow-hidden bg-white isolate",
-            showMobilePreview ? "hidden" : "block"
+            "relative flex-1 min-h-0 overflow-hidden bg-white isolate block",
+            /* Round AT: laid out under the preview, not taken away, so Edit comes back without a layout. */
+            showMobilePreview && "max-md:invisible"
           )}
+          inert={showMobilePreview || undefined}
           data-onepage-panels=""
         >
           {TAB_ORDER.filter((t) => t === panels.tab || t === panels.leaving || panels.built.includes(t)).map((t) => {
@@ -1713,7 +1761,11 @@ function EditorLayout() {
         {/* Mobile Preview - NO phone mockup, just real page content like Linktree.
             Kept once opened (hidden, not unmounted), so its frame is not loaded again. */}
         {(showMobilePreview || mobilePreviewKept) && (
-          <div className={cn("md:hidden flex-1 flex-col overflow-hidden", showMobilePreview ? "flex" : "hidden")}>
+          <div
+            className={cn("absolute inset-0 z-[3] flex flex-col overflow-hidden md:hidden", !showMobilePreview && "invisible pointer-events-none")}
+            inert={!showMobilePreview || undefined}
+            data-onepage-mobile-layer={showMobilePreview ? "shown" : "warm"}
+          >
             <MobilePreviewContent />
           </div>
         )}
@@ -1780,9 +1832,10 @@ function EditorLayout() {
         ellipsis rather than spill out of a narrow button
         (scripts/check-onepage-tabbar.mjs measures both).
       */}
-      {!showMobilePreview && (
         <div
-          className="md:hidden fixed bottom-0 left-0 right-0 z-20 h-[var(--op-tabbar-h)] border-t border-[#e5e7eb] bg-white shadow-[0_-1px_2px_rgba(16,24,40,0.03),0_-6px_16px_rgba(16,24,40,0.04)]"
+          className={cn("md:hidden fixed bottom-0 left-0 right-0 z-20 h-[var(--op-tabbar-h)] border-t border-[#e5e7eb] bg-white shadow-[0_-1px_2px_rgba(16,24,40,0.03),0_-6px_16px_rgba(16,24,40,0.04)]", showMobilePreview && "invisible")}
+          /* Round AT: kept mounted under Preview, only hidden, so Edit does not build it again. */
+          inert={showMobilePreview || undefined}
           data-onepage-tabbar=""
         >
           {/* 9px under the bar's 1px hairline: 10px over the buttons, as --op-tabbar-h counts it. */}
@@ -1829,7 +1882,6 @@ function EditorLayout() {
             })}
           </div>
         </div>
-      )}
 
       {/*
         SHARE YOUR ONEPAGE. On a phone it is the app's own sheet

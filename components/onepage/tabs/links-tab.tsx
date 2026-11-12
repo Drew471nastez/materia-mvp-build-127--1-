@@ -191,6 +191,8 @@ import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
 import { parseSocialInput, socialFieldIsLink, socialFieldValue, socialFormat } from "@/lib/onepage/social-input"
 import { LinkIcon, SocialIcon, hasLinkIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
+import { rowPictureOf } from "@/lib/onepage/row-picture"
+import { RowPictureView } from "@/components/onepage/row-picture"
 import { tt } from "@/lib/i18n/text"
 import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia, classifyMedia } from "@/lib/onepage/media-rules"
 import { UploadError, openableImage, prepareImage, uploadErrorText, uploadMessage, uploadOnePageMedia } from "@/lib/onepage/media-upload"
@@ -3481,6 +3483,8 @@ function BlockItem({
     "Not on your page", beside PRODUCTS' Unavailable badge (ProductRowBadge).
   */
   const rowProducts = useCreatorProducts(block.type === "product" && !!(block.data as ProductBlockData)?.product_id)
+  /* A shelf's row shows its first product's picture, from the same shared read of the catalogue. */
+  const shelfProducts = useCreatorProducts(block.type === "storelib_shelf")
   const productGone = block.type === "product" && !!(block.data as ProductBlockData)?.product_id && editorProductState((block.data as ProductBlockData).product_id, rowProducts) === "unavailable"
   const [showButtonTextMenu, setShowButtonTextMenu] = useState(false)
   const [showStatsModal, setShowStatsModal] = useState(false)
@@ -3638,8 +3642,13 @@ function BlockItem({
   const preview = getBlockPreview()
   const tile = rowTile(block, preview.icon)
   const Icon = tile.Icon
+  /*
+    Round AT: the block's own picture (lib/onepage/row-picture): a map of the place, a video's still, a song's cover,
+    a link's preview image, the shelf's first product, the creator's photo on the header. A glyph only when there is none.
+  */
+  const picture = rowPictureOf(block, { avatarUrl: onepage?.avatar_url, products: shelfProducts })
   /* The tile's colours, when the row draws its glyph (not a picture or a service's mark). */
-  const tileStyle = !(preview as any).thumbnail_url && !hasLinkIcon((preview as any).iconId) ? tile.style : undefined
+  const tileStyle = !picture && !hasLinkIcon((preview as any).iconId) ? tile.style : undefined
 
   const isHeaderBlock = block.type === "header"
   const isLinkButton = block.type === "link_button"
@@ -3654,7 +3663,6 @@ function BlockItem({
   const hasStats = ROW_COUNT_TYPES.has(block.type)
   /* What its stats are called: a link's, a form's, a document's, or the block's. */
   const statsTitle = isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : isSocialRow ? tt("Social Stats") : isLinkButton ? tt("Link Stats") : tt("Block stats")
-  const hasThumbnail = (preview as any).thumbnail_url || hasLinkIcon((preview as any).iconId)
 
   return (
     <div
@@ -3714,13 +3722,8 @@ function BlockItem({
             data-row-thumbnail=""
             data-block-fade=""
           >
-            {(preview as any).thumbnail_url ? (
-              <img
-                src={onePageImageSrc((preview as any).thumbnail_url, 80)}
-                alt=""
-                decoding="async"
-                className="w-full h-full object-cover"
-              />
+            {picture ? (
+              <RowPictureView picture={picture} size={40} />
             ) : hasLinkIcon((preview as any).iconId) ? (
               <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
@@ -3735,12 +3738,8 @@ function BlockItem({
           </button>
         ) : (
           <div className={cn("w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !block.enabled && "opacity-50")} style={tileStyle} data-row-tile={tileStyle ? "" : undefined} data-block-fade="">
-            {(preview as any).thumbnail_url ? (
-              <img
-                src={(preview as any).thumbnail_url}
-                alt=""
-                className="w-full h-full object-cover"
-              />
+            {picture ? (
+              <RowPictureView picture={picture} size={40} />
             ) : hasLinkIcon((preview as any).iconId) ? (
               <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
@@ -6512,7 +6511,9 @@ function BlockEditor({
                     const preview = getChildBlockPreview(child)
                     const childTile = rowTile(child, preview.icon)
                     const ChildIcon = childTile.Icon
-                    const childTileStyle = !preview.thumbnail_url && !hasLinkIcon(preview.iconId) ? childTile.style : undefined
+                    /* Round AT: a child's own picture too (lib/onepage/row-picture), as the list's rows draw it. */
+                    const childPicture = rowPictureOf(child)
+                    const childTileStyle = !childPicture && !hasLinkIcon(preview.iconId) ? childTile.style : undefined
                     return (
                       <div key={child.id} data-group-child-item={child.id}>
                       <div
@@ -6538,8 +6539,8 @@ function BlockEditor({
                           <GripVertical className="h-4 w-4" />
                         </div>
                         <div className={cn("w-8 h-8 rounded-[9px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} style={childTileStyle} data-row-tile={childTileStyle ? "" : undefined} data-block-fade="">
-                          {preview.thumbnail_url ? (
-                            <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          {childPicture ? (
+                            <RowPictureView picture={childPicture} size={32} imageWidth={64} />
                           ) : hasLinkIcon(preview.iconId) ? (
                             <LinkIcon name={preview.iconId} size={16} className="text-[#1a1a2e]" tone="brand" />
                           ) : (
