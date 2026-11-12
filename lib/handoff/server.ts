@@ -12,6 +12,9 @@ import { handoffAcceptedEmail, handoffInviteEmail } from "./email"
 import {
   BLOCKER_TEXT,
   DEFAULT_TTL_DAYS,
+  TOKEN_BYTES,
+  canonicalToken,
+  makeToken,
   RESEND_COOLDOWN_MS,
   claimPath,
   claimStateOf,
@@ -51,10 +54,14 @@ import {
  * link makes a new token and the old one stops working.
  */
 
+/** The statuses of a Storelib plan that is still billed: the transfer refuses while one is (blockersOf, business_handoff_accept). */
+export const LIVE_PLAN_STATUSES = ["active", "trialing", "past_due", "unpaid", "incomplete"] as const
+
 export const NOT_SET_UP = "Handing over a business is not set up on Storelib yet. Try again later."
 
+/** The SHA-256 of a token's canonical form (rules canonicalToken), so k7m2-x9qp-4hfd-w3nc and K7M2X9QP4HFDW3NC are the same link. */
 export function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex")
+  return createHash("sha256").update(canonicalToken(token) ?? token).digest("hex")
 }
 
 export function claimLink(token: string): string {
@@ -142,21 +149,19 @@ export interface BusinessPreview {
   products: number
   websites: number
   domains: string[]
-  sender: string | null
 }
 
-/** What the claim page shows before anybody accepts: read only, a handful of reads. */
+/** What the claim page shows before anybody accepts: read only, a handful of reads. Never the founder's name: the page speaks as the Storelib Team. */
 export async function previewOf(db: Db, handoff: HandoffRow): Promise<BusinessPreview> {
   const creator = await creatorOf(db, handoff.business_user_id).catch(() => null)
   const shown = await businessShown(db, handoff.business_user_id, creator).catch(() => ({ name: "A Storelib business", avatarUrl: null, handle: null }))
   const none = { data: null, count: 0 }
   const safe = (p: PromiseLike<unknown>) => Promise.resolve(p).then((r) => r as { data: unknown; count?: number | null }, () => none)
-  const [page, products, sites, domains, sender] = await Promise.all([
+  const [page, products, sites, domains] = await Promise.all([
     safe(db.from("onepages").select("slug").eq("owner_id", handoff.business_user_id).limit(1).maybeSingle()),
     creator ? safe(db.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creator.id)) : Promise.resolve(none),
     creator ? safe(db.from("sites").select("id", { count: "exact", head: true }).eq("creator_id", creator.id)) : Promise.resolve(none),
     creator ? safe(db.from("custom_domains").select("domain, status").eq("creator_id", creator.id).limit(10)) : Promise.resolve(none),
-    safe(db.from("profiles").select("display_name").eq("id", handoff.from_owner_id).maybeSingle()),
   ])
   const pageSlug = (page.data as { slug?: string | null } | null)?.slug ?? null
   const domainRows = Array.isArray(domains.data) ? (domains.data as { domain?: string | null }[]) : []
@@ -168,7 +173,6 @@ export async function previewOf(db: Db, handoff: HandoffRow): Promise<BusinessPr
     products: typeof products.count === "number" ? products.count : 0,
     websites: typeof sites.count === "number" ? sites.count : 0,
     domains: domainRows.map((d) => (d.domain ?? "").trim()).filter(Boolean),
-    sender: ((sender.data as { display_name?: string | null } | null)?.display_name ?? "").trim() || null,
   }
 }
 
@@ -182,7 +186,7 @@ export async function blockersOf(deps: HandoffDeps, creator: Pick<CreatorRow, "i
   if (!creator) return []
   const out: Blocker[] = []
   const [plan, members] = await Promise.all([
-    deps.db.from("subscriptions").select("id").eq("creator_id", creator.id).not("stripe_subscription_id", "is", null).in("status", ["active", "trialing", "past_due", "unpaid", "incomplete"]).limit(1),
+    deps.db.from("subscriptions").select("id").eq("creator_id", creator.id).not("stripe_subscription_id", "is", null).in("status", [...LIVE_PLAN_STATUSES]).limit(1),
     deps.db.from("memberships").select("id").eq("creator_id", creator.id).in("status", ["active", "trialing", "past_due"]).limit(1),
   ])
   if (!plan.error && Array.isArray(plan.data) && plan.data.length > 0) out.push("paid_plan")
@@ -277,11 +281,8 @@ export async function panelFor(deps: HandoffDeps, sessionUserId: string): Promis
 async function sendInvite(deps: HandoffDeps, row: { recipient_email: string | null; ttl_days: number; from_owner_id: string; business_user_id: string }, token: string): Promise<boolean> {
   if (!row.recipient_email) return false
   const creator = await creatorOf(deps.db, row.business_user_id).catch(() => null)
-  const [shown, sender] = await Promise.all([
-    businessShown(deps.db, row.business_user_id, creator).catch(() => ({ name: "A Storelib business", avatarUrl: null, handle: null })),
-    deps.db.from("profiles").select("display_name").eq("id", row.from_owner_id).maybeSingle().then((r: { data: unknown }) => r.data as { display_name?: string | null } | null, () => null),
-  ])
-  const mail = handoffInviteEmail({ businessName: shown.name, senderName: sender?.display_name ?? null, email: row.recipient_email, link: claimLink(token), days: row.ttl_days })
+  const shown = await businessShown(deps.db, row.business_user_id, creator).catch(() => ({ name: "A Storelib business", avatarUrl: null, handle: null }))
+  const mail = handoffInviteEmail({ businessName: shown.name, email: row.recipient_email, link: claimLink(token), days: row.ttl_days })
   return deps.sendEmail({ to: row.recipient_email, subject: mail.subject, text: mail.text, html: mail.html })
 }
 
@@ -316,7 +317,7 @@ export async function createHandoff(
     await deps.db.from("business_handoffs").update({ status: "expired", updated_at: new Date(deps.now()).toISOString() }).eq("id", open.row.id).eq("status", "pending")
   }
 
-  const token = deps.randomBytes(32).toString("base64url")
+  const token = makeToken(deps.randomBytes(TOKEN_BYTES))
   const nowIso = new Date(deps.now()).toISOString()
   const row = {
     business_user_id: sessionUser.id,
@@ -370,7 +371,7 @@ export async function renewHandoff(deps: HandoffDeps, sessionUser: { id: string 
   if (opts.send && Number.isFinite(sentAt) && deps.now() - sentAt < RESEND_COOLDOWN_MS) {
     return { ok: false, status: 429, error: `It was just sent. You can send it again in ${Math.ceil((sentAt + RESEND_COOLDOWN_MS - deps.now()) / 1000)} seconds.` }
   }
-  const token = deps.randomBytes(32).toString("base64url")
+  const token = makeToken(deps.randomBytes(TOKEN_BYTES))
   const nowIso = new Date(deps.now()).toISOString()
   const changes: Record<string, unknown> = { token_hash: hashToken(token), expires_at: new Date(deps.now() + row.ttl_days * 86_400_000).toISOString(), updated_at: nowIso }
   const { data: updated, error: upErr } = await deps.db.from("business_handoffs").update(changes).eq("id", row.id).eq("status", "pending").select(HANDOFF_COLUMNS)
@@ -486,6 +487,26 @@ export async function acceptClaim(deps: HandoffDeps, token: unknown, sessionUser
 }
 
 /**
+ * BILLING STARTS FRESH FOR THE NEW OWNER. The transfer detaches the founder's
+ * billing customer from the creator row, but the subscriptions row the
+ * webhook wrote for the founder's ended plan still named the founder's Stripe
+ * customer, and Billing reads a plan from either (lib/billing
+ * subscription-reader): the new owner's Billing asked Stripe about the
+ * founder's customer and showed the founder's old plan. The plan had ended
+ * (the transfer refuses a live one), so its row is removed here; a plan the
+ * new owner starts writes its own. Never a live plan, whoever's it is.
+ */
+async function forgetEndedPlan(db: Db, creatorId: string | null): Promise<boolean> {
+  if (!creatorId) return true
+  try {
+    const { error } = await db.from("subscriptions").delete().eq("creator_id", creatorId).not("status", "in", `(${LIVE_PLAN_STATUSES.join(",")})`)
+    return !error || handoffMissing(error)
+  } catch {
+    return false
+  }
+}
+
+/**
  * What the database cannot do inside its transaction, after it committed:
  * the business's sign in address is made from the new owner's (so seller
  * emails reach them, not the founder), every session the business had is
@@ -511,6 +532,7 @@ export async function finishHandoff(deps: HandoffDeps, handoffId: string, viewer
     steps.profile = !error
   }
   steps.sessions = await deps.signOutEverywhere(row.business_user_id)
+  steps.billing = await forgetEndedPlan(deps.db, row.creator_id)
   await deps.forgetCaches({ userId: row.business_user_id, creatorId: row.creator_id }).catch(() => undefined)
   const done = Object.values(steps).every(Boolean)
   if (!done) {

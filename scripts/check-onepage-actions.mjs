@@ -165,11 +165,16 @@ try {
         e.focus()
         e.setSelectionRange(e.value.length, e.value.length)
       })
-      await page.evaluate(() => document.querySelector('[data-variable="{visitor_name}"]').click())
+      await page.evaluate(() => document.querySelector('[data-variable="{name}"]').click())
       await new Promise((r) => setTimeout(r, 100))
       const value = await page.evaluate(() => window.__action)
       /* Changed on purpose (round AN): a chip that would touch the word before it gets a space. */
-      assert.equal(value.message, "Hi, I'm interested in {product_name}. Is it available? {visitor_name}")
+      assert.equal(value.message, "Hi, I'm interested in {product_name}. Is it available? {name}")
+      /* Each variable the message uses says what it puts in, and the message is shown as a visitor would send it. */
+      const meant = await page.evaluate(() => [...document.querySelectorAll("[data-variable-meaning]")].map((e) => e.getAttribute("data-variable-meaning")))
+      assert.deepEqual(meant, ["{name}", "{product_name}"], "the meanings of the variables in use, in order")
+      const example = await page.$eval("[data-message-example]", (e) => e.textContent)
+      assert.ok(/Alex/.test(example) && !/\{/.test(example), example)
       /* Unfilled variables are removed from the address. */
       assert.equal(await probeHref(page), "https://wa.me/447700900123?text=" + encodeURIComponent("Hi, I'm interested in. Is it available?"))
       assert.ok((await page.$eval("[data-action-opens]", (e) => e.textContent)).startsWith("Opens wa.me/447700900123"))
@@ -182,6 +187,8 @@ try {
       await new Promise((r) => setTimeout(r, 100))
       const mid = await page.$eval(message, (e) => ({ value: e.value, caret: e.selectionStart, focused: document.activeElement === e }))
       assert.ok(mid.value.startsWith("Hi, {service} I'm interested"), mid.value)
+      /* {service} in the message brings its own field: the service this button books, in the address too. */
+      assert.ok(await page.$("[data-variable-service] input"), "a Service field once {service} is used")
       assert.equal(mid.caret, 13, "the caret lands after the token")
       assert.equal(mid.focused, true, "the message keeps the focus")
       /* The chips sit clear of the message (the owner: "glued"), and the message is the 12px-cornered field. */

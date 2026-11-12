@@ -54,7 +54,7 @@ check("a field in view is left alone", revealDelta({ top: 200, bottom: 260 }, { 
 
 const sheet = read("components/onepage/block-sheet.tsx")
 check("the sheet reads the keyboard through keyboardState with the visible height and its own fixed box", /keyboardState\(\s*\{ field, touch: touch\(\), inset: readPublishedKeyboardInset\(\), layoutHeight, visibleHeight: Math\.round\(vv\?\.height \?\? layoutHeight\) \}/.test(sheet) && /rootRef\.current\?\.clientHeight/.test(sheet))
-check("the foot bar with the round Close is hidden while typing", /typing \? "hidden" : "flex"/.test(sheet))
+check("the foot bar with the round Close is hidden while typing", /typing( \|\| footless)? \? "hidden" : "flex"/.test(sheet))
 check("the focused field is brought above the keys inside the sheet's scroll", /revealDelta\(field\.getBoundingClientRect\(\), body\.getBoundingClientRect\(\), visibleBottom\)/.test(sheet))
 
 /* ── Sheets open with their content ── */

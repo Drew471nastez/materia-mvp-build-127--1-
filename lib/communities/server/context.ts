@@ -18,6 +18,7 @@ import "server-only"
  * and every decision is can() (lib/communities/permissions.ts).
  */
 import { NextResponse } from "next/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 import { requireCreator, type CreatorContext } from "@/lib/email-campaigns/route-auth"
 import { parseAccessRule } from "../access"
 import { allowedActions, can, type CommunityAction, type RolePermissions } from "../permissions"
@@ -27,6 +28,7 @@ import { admin, missing, reasonOf, type Db } from "./db"
 import { communityIdForOldSlug } from "./slug-history"
 import { staffPermissions } from "./creator-roles"
 import { TEAM_COMMUNITY_ROLE, teamAuditDb, teamCommunityIdentity } from "./team"
+import { communityPublicChangedAfter } from "./public-cache"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -235,7 +237,8 @@ export async function requireMember(db: Db, communityId: string, userId: string 
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return answer(404, "not_found")
   if (!communityOpen(community)) return answer(403, "suspended")
-  if (!userId) return answer(401, "sign_in")
+  /* No id: "sign_in" only when Auth said nobody; when it could not say, 503 Try again (round rel2-auth, lib/auth/route-user signedOutOrRetry). */
+  if (!userId) return signedOutOrRetry(answer(401, "sign_in"))
   const viewer = await viewerContext(db, community, userId)
   if (!viewer.active) return answer(403, viewer.banned ? "banned" : viewer.status === "pending" ? "pending" : "not_member")
   if (viewer.mutedUntil && MUTED_ACTIONS.includes(action)) return answer(403, "muted", { until: viewer.mutedUntil })
@@ -264,7 +267,8 @@ const SUSPENDED_REFUSES: readonly CommunityAction[] = ["invite", "post", "announ
 export async function requireCreatorCommunity(communityId: string, action: CommunityAction): Promise<CreatorCommunityGate | NextResponse> {
   const ctx = await requireCreator("community")
   /* requireCreator's own words are about email; a community route answers in its own codes. */
-  if (ctx instanceof NextResponse) return ctx.status === 401 ? answer(401, "sign_in") : answer(403, "not_creator")
+  /* A 503 (Auth or the store could not be read) passes through as itself: it was "not_creator" before, a false refusal (round rel2-auth). */
+  if (ctx instanceof NextResponse) return ctx.status === 401 ? answer(401, "sign_in") : ctx.status === 503 ? ctx : answer(403, "not_creator")
   const db = ctx.admin ?? admin()
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return answer(404, "not_found")
@@ -281,6 +285,12 @@ export async function requireCreatorCommunity(communityId: string, action: Commu
     announcements, no events. Only publishing refused this before, so a taken down community could still send invites.
   */
   if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
+  /*
+    EVERY STAFF WRITE CLEARS THE PUBLIC PAGE (round rel2-public). Each route under /api/app/community/[id] passes here
+    before it writes (tiers, settings, the page, the gallery, a deletion), so the community's held public reads are
+    expired once the request has answered (./public-cache.ts), and the next visitor reads what was saved.
+  */
+  communityPublicChangedAfter(community.id, community.creator_id)
   return { ok: true, ctx, community, viewer: ownsIt ? { ...viewer, role: "owner", active: true } : viewer, role }
 }
 
@@ -298,5 +308,7 @@ export async function teamCommunityGate(ctx: CreatorContext, db: Parameters<type
   if (!can(role, action, perms)) return answer(403, "forbidden")
   if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
   const viewer: Viewer = { ...NOBODY, userId: identity, role, active: true, status: "active", perms }
+  /* A team member's write clears the public page as the owner's does (requireCreatorCommunity). */
+  communityPublicChangedAfter(community.id, community.creator_id)
   return { ok: true, ctx: { ...ctx, userId: identity, admin: teamAuditDb(db, ctx.userId) }, community, viewer, role }
 }

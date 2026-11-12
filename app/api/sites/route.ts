@@ -13,6 +13,7 @@ import { routeCreatorId } from "@/lib/creators/current"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { blankProject } from "@/lib/sites/starter"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -47,7 +48,9 @@ export async function POST(request: NextRequest) {
    */
   const prompt = typeof body.prompt === "string" ? body.prompt.trim().slice(0, MAX_PROMPT) : ""
 
-  const plan = await creatorSitePlan(creatorId)
+  /* A plan read that failed is a 503 Try again, never the Free site limit for a paying store (round rel2-auth). */
+  const plan = await creatorSitePlan(creatorId).catch(() => null)
+  if (plan === null) return storeUnavailableResponse()
   const result = await createSite(
     {
       name,

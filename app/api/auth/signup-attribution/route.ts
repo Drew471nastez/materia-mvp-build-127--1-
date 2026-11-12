@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { createClient } from "@/lib/supabase/server"
+import { routeUser } from "@/lib/auth/route-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { accountAttributionRow, isNewAccount, platformTouchesFrom } from "@/lib/attribution/account"
@@ -21,9 +21,9 @@ export const dynamic = "force-dynamic"
 export async function POST(request: Request) {
   const done = () => new NextResponse(null, { status: 204 })
   try {
-    const supabase = await createClient()
-    const { data } = await supabase.auth.getUser()
-    const user = data.user
+    /* Supabase Auth itself, as before (it carries created_at) (round rel2-auth); not knowing is "nothing to record", as before. */
+    const who = await routeUser({ fresh: true })
+    const user = who.kind === "user" ? who.user : null
     if (!user || !isNewAccount(user.created_at)) return done()
     const text = await request.text()
     if (text.length > 4000) return done()

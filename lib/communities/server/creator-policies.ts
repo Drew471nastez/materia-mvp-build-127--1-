@@ -79,7 +79,7 @@ async function slotHolders(db: Db, creatorId: string): Promise<{ id: string; cre
  * `plan` is for a caller (or a test) that already knows it.
  */
 export async function communityRoom(db: Db, creatorId: string, plan?: CommunityPlan): Promise<{ ok: boolean; limit: CommunityLimitView }> {
-  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId), slotHolders(db, creatorId)])
+  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId, db), slotHolders(db, creatorId)])
   const limit = { max: communityLimitFor(p), owned: holders.length }
   return { ok: mayCreateCommunity(p, limit.owned), limit }
 }
@@ -92,7 +92,7 @@ export async function communityRoom(db: Db, creatorId: string, plan?: CommunityP
  * takes it back. Never more communities than the plan holds.
  */
 export async function madeWithinLimit(db: Db, creatorId: string, communityId: string, plan?: CommunityPlan): Promise<boolean> {
-  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId), slotHolders(db, creatorId)])
+  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId, db), slotHolders(db, creatorId)])
   const max = communityLimitFor(p)
   if (max === null) return true
   const at = holders.findIndex((h) => h.id === communityId)
@@ -111,7 +111,10 @@ export async function madeWithinLimit(db: Db, creatorId: string, communityId: st
  * only, and it counts against the plan's limit like any new community.
  */
 export async function duplicateCommunity(db: Db, a: { source: CommunityRow; creatorId: string; userId: string }): Promise<Result<{ community: CommunityRow }>> {
-  if (!(await communityRoom(db, a.creatorId)).ok) return no(402, PLAN_LIMIT_ERROR)
+  /* The plan could not be read: 503 Try again, never "your plan is full" to a paying store (round rel2-auth, lib/sites/plan-server). */
+  const room = await communityRoom(db, a.creatorId).catch(() => null)
+  if (!room) return no(503, "Storelib is not answering right now. Try again.")
+  if (!room.ok) return no(402, PLAN_LIMIT_ERROR)
   const src = a.source
   const name = `${src.name.trim().slice(0, 74)} copy`
   const made = await createCommunity(db, {
@@ -125,9 +128,11 @@ export async function duplicateCommunity(db: Db, a: { source: CommunityRow; crea
     coverUrl: src.cover_url ?? undefined,
   })
   if (made.ok === false) return made.error === "not_set_up" ? no(503, "Communities are not set up on Storelib yet.") : no(500, "The copy could not be made. Try again.")
-  if (!(await madeWithinLimit(db, a.creatorId, made.community.id))) {
+  /* The plan could not be read the second time: taken back with Try again, never kept past a plan nobody could check (round rel2-auth). */
+  const within = await madeWithinLimit(db, a.creatorId, made.community.id).catch(() => null)
+  if (within !== true) {
     await db.from("communities").delete().eq("id", made.community.id)
-    return no(402, PLAN_LIMIT_ERROR)
+    return within === null ? no(503, "Storelib is not answering right now. Try again.") : no(402, PLAN_LIMIT_ERROR)
   }
   const copied = {
     description: src.description,

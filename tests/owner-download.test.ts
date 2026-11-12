@@ -162,7 +162,8 @@ async function main() {
   console.log("\nThe route\n")
   {
     const route = code("app/api/products/files/[assetId]/download/route.ts")
-    const auth = route.indexOf("auth.getUser()")
+    /* Changed on purpose (rel2-auth): still Supabase Auth itself, through routeUser({ fresh: true }), so Auth not answering is 503 and not 401. */
+    const auth = route.indexOf("routeUser({ fresh: true })")
     check("it reads the caller from the session, and answers 401 before the service role is made", auth > 0 && route.indexOf("status: 401") > auth && route.indexOf("createAdminClient()") > route.indexOf("status: 401"))
     check("rate limited per person and per address, in Postgres", /rateLimit\(\{[\s\S]*bucket: "owner-download"[\s\S]*`user:\$\{userId\}`, addressSubject\(request\)/.test(route))
     check("never cached", /"Cache-Control": "no-store"/.test(route))

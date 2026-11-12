@@ -48,7 +48,9 @@ import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
+import { scheduleLabel, videoAutoplays, videoEmbedUrl, videoSource } from "@/lib/onepage/extra-blocks"
+import { mapEmbedSrc, mapPlaceOf } from "@/lib/onepage/map-place"
+import { MapPlaceField } from "@/components/onepage/map-place-field"
 import { viewerZone, zoneLabel } from "@/lib/onepage/schedule"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
@@ -85,6 +87,7 @@ import { hapticTap } from "@/lib/native-bridge"
 import { SHEET_BLOCKS, blockInteraction, interactionPatch, offersInteraction, type BlockInteraction } from "@/lib/onepage/block-sheet"
 import { ModeChoice, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { BlockSheetButton } from "@/components/onepage/block-sheet-trigger"
+import { FRAME_FADE_MS, frameFade, useFrameShown } from "@/components/onepage/embed-shell"
 
 export { EXTRA_BLOCK_TYPES, extraBlockHasContent, isExtraBlock, isScheduledNow, scheduleLabel, videoSource, type ExtraBlockType } from "@/lib/onepage/extra-blocks"
 
@@ -262,7 +265,6 @@ function useSettled<T>(value: T, ms: number, active: boolean): T {
 }
 
 /* Round AR3: the map block's own settings, how close and how tall (Google's z levels, CSS pixels). */
-const MAP_ZOOM: Record<string, number> = { street: 17, area: 15, city: 12 }
 const MAP_HEIGHT: Record<string, number> = { short: 150, medium: 190, tall: 300 }
 
 function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
@@ -270,7 +272,10 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
   /* In the editor the map follows the address once the typing stops, not on every letter: each change reloads the map. */
   const address = useSettled(typed, 700, !!look.preview)
   if (!typed) return null
-  const q = encodeURIComponent(address || typed)
+  /* A typed address or a Google Maps link, short ones read once in the editor (lib/onepage/map-place). */
+  const place = mapPlaceOf({ address: address || typed, place: data.place })
+  const src = place ? mapEmbedSrc(place, data.zoom || "area") : null
+  const openHref = place?.href ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(typed)}`
   /* Round 41: Open in Maps is the page's button, hover and size included (lib/onepage/block-look); the frame stops short of an oval. */
   const press = pressableProps(look.theme, look.still)
   const pad = buttonPadScale(look.theme)
@@ -283,11 +288,11 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
         </p>
       ) : null}
       <div className="relative w-full overflow-hidden bg-black/5" data-map-height={data.map_height || "medium"} style={{ borderRadius: radius, height: px(MAP_HEIGHT[data.map_height || "medium"] ?? 190, look.scale) }}>
-        {address ? (
+        {address && src ? (
           <iframe
-            key={`${address}:${data.zoom || "area"}`}
-            title={tt("Map of {address}", { address })}
-            src={`https://maps.google.com/maps?q=${q}&z=${MAP_ZOOM[data.zoom || "area"] ?? 15}&output=embed`}
+            key={`${src}`}
+            title={tt("Map of {address}", { address: place?.label || address })}
+            src={src}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             className="h-full w-full border-0"
@@ -296,7 +301,7 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
       </div>
       {data.show_button !== false ? (
         <a
-          href={`https://www.google.com/maps/search/?api=1&query=${q}`}
+          href={openHref}
           target="_blank"
           rel="noopener noreferrer"
           data-hover={press["data-hover"]}
@@ -312,11 +317,49 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
   )
 }
 
+/** A map in the sheet (round AS): the sheet's quiet fill until the map has loaded, then the map faded in over it. */
+function MapSheetFrame({ title, src }: { title: string; src: string }) {
+  const [shown, onLoad] = useFrameShown(src)
+  return (
+    <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-[16px]" data-map-sheet="" data-embed-shown={shown ? "" : undefined} style={{ background: "var(--sheet-field, rgba(127,127,127,0.12))" }}>
+      <iframe title={title} src={src} onLoad={onLoad} referrerPolicy="no-referrer-when-downgrade" className="absolute inset-0 block h-full w-full border-0" style={frameFade(shown)} />
+    </div>
+  )
+}
+
 /* ─── Video ────────────────────────────────────────────────────────────── */
 
 function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; look: ExtraBlockLook; /** In the sheet: the tap that opened it was the press. */ autoplay?: boolean }) {
   const source = videoSource(data.url)
   const [playing, setPlaying] = React.useState(autoplay)
+  /* Round AS (./embed-shell): the video's own picture under the player until the player has loaded. */
+  const [shown, onLoad] = useFrameShown(playing && source && source.kind !== "file" ? data.url : null)
+  /*
+    PLAYS BY ITSELF, MUTED (VideoBlockData autoplay, on for a new block). A
+    browser only lets a video start without a press when it is muted, so
+    the player is loaded muted once half of it is on screen, and never for
+    someone who asked for less motion or inside a carousel. The sheet's own
+    player (autoplay, above) was pressed for, so it keeps its sound.
+  */
+  const [muted, setMuted] = React.useState(false)
+  const box = React.useRef<HTMLDivElement>(null)
+  const startsAlone = !autoplay && !!data.autoplay && !look.still && !!source && source.kind !== "file" && videoAutoplays(source)
+  React.useEffect(() => {
+    const el = box.current
+    if (!startsAlone || playing || !el || typeof IntersectionObserver === "undefined") return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        io.disconnect()
+        setMuted(true)
+        setPlaying(true)
+      },
+      { threshold: 0.5 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [startsAlone, playing])
   if (!source) return null
   const radius = `${boxRadius(look.theme)}px`
   /* Round AR3: a video Storelib holds plays in Storelib's own light player (./media-blocks). */
@@ -333,12 +376,7 @@ function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; loo
     )
   }
   const tall = source.kind === "tiktok"
-  const src =
-    source.kind === "youtube"
-      ? `https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&rel=0&playsinline=1`
-      : source.kind === "vimeo"
-        ? `https://player.vimeo.com/video/${source.id}?autoplay=1`
-        : tiktokPlayerUrl(source.id)
+  const src = videoEmbedUrl(source, { muted }) ?? tiktokPlayerUrl(source.id)
   const poster = source.kind === "youtube" ? `https://i.ytimg.com/vi/${source.id}/hqdefault.jpg` : null
   return (
     <div data-onepage-video="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
@@ -348,17 +386,28 @@ function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; loo
         </p>
       ) : null}
       <div
+        ref={box}
         className={cn("relative mx-auto w-full overflow-hidden bg-black", tall ? "aspect-[9/16] max-w-[320px]" : "aspect-video")}
         style={{ borderRadius: radius }}
+        data-embed-shown={playing && shown ? "" : undefined}
+        data-video-autoplay={startsAlone ? (playing ? "playing" : "waiting") : undefined}
       >
         {playing ? (
-          <iframe
-            title={data.title || tt("Video")}
-            src={src}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full border-0"
-          />
+          <>
+            {poster ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={poster} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover motion-safe:transition-opacity" style={{ opacity: shown ? 0 : 1, transitionDuration: `${FRAME_FADE_MS}ms` }} />
+            ) : null}
+            <iframe
+              title={data.title || tt("Video")}
+              src={src}
+              onLoad={onLoad}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full border-0"
+              style={frameFade(shown)}
+            />
+          </>
         ) : (
           /*
             THE PLAYER LOADS ON THE FIRST PRESS. A YouTube player is close to a
@@ -461,6 +510,7 @@ function SheetBlock({ block, look, mode }: { block: OnePageBlock; look: ExtraBlo
       still={look.still}
       small={look.scale === "small"}
       sheet={() => ({ title: plan.title, body: plan.body(), cta: plan.cta, shareUrl: plan.href, fill: plan.fill })}
+      prewarm={block.type !== "video" && block.type !== "contact_form"}
     />
   )
 }
@@ -571,24 +621,20 @@ function sheetPlan(block: OnePageBlock, look: ExtraBlockLook): SheetPlan | null 
     }
     case "map": {
       const d = block.data as MapBlockData
-      const address = (d.address || "").trim()
-      if (!address) return null
-      const q = encodeURIComponent(address)
-      const href = `https://www.google.com/maps/search/?api=1&query=${q}`
+      const typed = (d.address || "").trim()
+      if (!typed) return null
+      const place = mapPlaceOf(d)
+      const address = place?.label || typed
+      const href = place?.href ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(typed)}`
+      const src = place ? mapEmbedSrc(place, d.zoom || "area") : null
       return {
         title: d.title?.trim() || address,
         subtitle: d.title?.trim() ? address : undefined,
         icon: <MapPin aria-hidden className="h-[22px] w-[22px]" />,
         href,
         fill: true,
-        body: () => (
-          <iframe
-            title={tt("Map of {address}", { address })}
-            src={`https://maps.google.com/maps?q=${q}&z=${MAP_ZOOM[d.zoom || "area"] ?? 15}&output=embed`}
-            referrerPolicy="no-referrer-when-downgrade"
-            className="block h-full min-h-[320px] w-full rounded-[16px] border-0"
-          />
-        ),
+        /* A short link not read yet has no place to draw: the sheet keeps its Open in Maps. */
+        body: () => (!src ? null : <MapSheetFrame title={tt("Map of {address}", { address })} src={src} />),
         cta: { label: tt("Open in Maps"), href, icon: <MapPin aria-hidden /> },
       }
     }
@@ -822,7 +868,7 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
     }
     case "map": {
       const d = block.data as MapBlockData
-      return { title: d.title?.trim() || tt("Map"), subtitle: d.address?.trim() || tt("Add an address"), icon: GlyphMap }
+      return { title: d.title?.trim() || tt("Map"), subtitle: (d.address?.trim() && (mapPlaceOf(d)?.label || d.address.trim())) || tt("Add an address"), icon: GlyphMap }
     }
     case "video": {
       const d = block.data as VideoBlockData
@@ -959,10 +1005,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>{tt("Title (optional)")}</Label>
             <Input value={d.title ?? ""} maxLength={80} placeholder={tt("Visit the studio")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
-          <div className={field}>
-            <Label className={label}>{tt("Address or place")}</Label>
-            <Input value={d.address || ""} maxLength={200} placeholder={tt("Strada Lipscani 12, Bucharest")} onChange={(e) => updateData({ address: e.target.value })} />
-          </div>
+          <MapPlaceField data={d} updateData={updateData} />
           <LabeledRow label={tt("How close")}>
             <Segmented label={tt("How close")} value={d.zoom || "area"} options={[{ id: "street", label: tt("Street") }, { id: "area", label: tt("Area") }, { id: "city", label: tt("City") }]} onChange={(zoom) => updateData({ zoom: zoom as MapBlockData["zoom"] })} />
           </LabeledRow>

@@ -27,7 +27,7 @@ import { FilesLibraryChooser, LibraryButton } from "@/components/onepage/library
 import { UploadProgress, useMediaUpload } from "@/components/onepage/upload-progress"
 import { ONEPAGE_VIDEO_ACCEPT } from "@/lib/onepage/media-rules"
 import { videoFileUrl } from "@/lib/onepage/media-layout"
-import { videoSource } from "@/lib/onepage/extra-blocks"
+import { videoAutoplays, videoSource } from "@/lib/onepage/extra-blocks"
 import type { VideoBlockData } from "@/lib/onepage/types"
 
 const fieldInput =
@@ -89,6 +89,15 @@ export function VideoSourceFields({ data, blockId, updateData }: { data: VideoBl
         }}
       />
       <FilesLibraryChooser open={choosing} onClose={() => setChoosing(false)} kind="video" selectedUrl={file} onPick={(url) => { setChoosing(false); updateData({ url }) }} />
+      {!file && videoAutoplays(videoSource(data.url)) ? (
+        <div className="flex min-h-11 items-center justify-between gap-3 border-t border-[#eef0f2] pt-3" data-video-autoplay-option="">
+          <span className="min-w-0">
+            <span className="block text-[14px] font-medium text-[#1a1a2e]">{tt("Play by itself")}</span>
+            <span className="block text-[12.5px] text-[#6b7280]">{tt("Starts muted when it is on screen")}</span>
+          </span>
+          <Switch label={tt("Play by itself")} checked={!!data.autoplay} onChange={(autoplay) => updateData({ autoplay })} />
+        </div>
+      ) : null}
       {file ? (
         <div className="space-y-3 border-t border-[#eef0f2] pt-3" data-video-file-options="">
           <div className="space-y-1.5">

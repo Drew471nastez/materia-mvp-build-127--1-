@@ -52,7 +52,8 @@ type Db = { from: (table: string) => any }
 
 /** For the upload routes: whose folder, read from the cookie and the database on each request. No read at all without the cookie. */
 export async function uploadStore(db: Db, userId: string): Promise<UploadStore> {
-  const acting = await actingStore(db, userId).catch(() => null)
+  /* A membership read that failed throws (round rel2-auth): never an upload into their own folder in the store's place. */
+  const acting = await actingStore(db, userId)
   return uploadStoreOf(acting)
 }
 
@@ -71,7 +72,8 @@ export async function uploadCreator(db: Db, userId: string, store: UploadStore, 
  * when they have Products, else null (refused, never their own in its place).
  */
 export async function productCreator(db: Db, userId: string, columns: string): Promise<Record<string, unknown> | null> {
-  const acting = await actingStore(db, userId).catch(() => null)
+  /* A membership read that failed throws (round rel2-auth): never their own store's row in the team store's place. */
+  const acting = await actingStore(db, userId)
   return productCreatorFor(db, userId, acting, columns)
 }
 

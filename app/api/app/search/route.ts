@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { emptyResult, isSearchable, normalizeQuery, searchCreator, type SearchGroupId } from "@/lib/search/app-search"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { actingStore } from "@/lib/team/server"
+import { actingStoreRead, storeUnavailableResponse } from "@/lib/team/server"
 import { permits, type TeamArea } from "@/lib/team/permissions"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { communitiesEnabled } from "@/lib/communities/flag"
@@ -77,11 +77,14 @@ export async function POST(request: Request) {
     account, which has nothing in it, so search found nothing at all.
   */
   const admin = createAdminClient()
-  const [acting, physical, communities] = await Promise.all([
-    actingStore(admin, user.id).catch(() => null),
+  const [actingRead, physical, communities] = await Promise.all([
+    actingStoreRead(admin, user.id),
     isPhysicalCommerceEnabled().catch(() => false),
     communitiesEnabled().catch(() => false),
   ])
+  /* The membership read failed: 503, never a search of their own account in the store's place (round rel2-auth). */
+  if (actingRead.failed) return storeUnavailableResponse()
+  const acting = actingRead.acting
   if (acting) {
     /* A teammate never finds the owner's communities: those are the owner's account, not the store. */
     const groups = new Set((Object.keys(GROUP_AREA) as SearchGroupId[]).filter((g) => {

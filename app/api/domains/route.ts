@@ -40,6 +40,8 @@ import { publicPagesChanged, readPublicNames } from "@/lib/delivery/public-pages
 import { getMainDomain } from "@/lib/url-helpers"
 import { COMMUNITY_TARGET, communityDomainTag, communityIdOf } from "@/lib/custom-domains/community"
 import { ownedCommunities, ownedCommunity, type OwnedCommunity } from "@/lib/custom-domains/community-server"
+import { isServiceUnavailable } from "@/lib/net/service-error"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 /**
  * ===========================================================================
@@ -148,6 +150,8 @@ export async function GET() {
     const gate = siteGate(await creatorSitePlan(owner.creatorId), "customDomain")
     return NextResponse.json({ ...views(rows, schema, { targets, communities }), canConnect: gate === null })
   } catch (error) {
+    /* The plan (or another row) could not be read: 503 Try again, never "upgrade" to a paying store (round rel2-auth). */
+    if (isServiceUnavailable(error)) return storeUnavailableResponse()
     console.error("Domains GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
@@ -313,6 +317,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ domain: { ...toView(newRow, schema), records } })
   } catch (error) {
+    /* The plan (or another row) could not be read: 503 Try again, never "upgrade" to a paying store (round rel2-auth). */
+    if (isServiceUnavailable(error)) return storeUnavailableResponse()
     console.error("Domains POST error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

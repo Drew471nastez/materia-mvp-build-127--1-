@@ -14,7 +14,7 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 import { signupLooksAutomated, signupName } from "@/lib/onepage/creator-blocks"
 import { signupFileFor } from "@/lib/onepage/signup-file"
 import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
-import { readUserForRoute } from "@/lib/auth/route-user"
+import { authUnavailableResponse, readUserForRoute } from "@/lib/auth/route-user"
 import { checkSignupPhone, signupProductId } from "@/lib/onepage/signup-fields"
 import { findPageBlock, publishedBlocksOf } from "@/lib/onepage/page-block"
 import { grantSignupProduct } from "@/lib/onepage/signup-grant-server"
@@ -340,8 +340,8 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await readUserForRoute()
-
+    const { data: { user }, unavailable } = await readUserForRoute()
+    if (unavailable) return authUnavailableResponse()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

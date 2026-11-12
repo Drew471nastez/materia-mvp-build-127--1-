@@ -181,8 +181,9 @@ async function main() {
     ["payouts, bank details, billing and Stripe Connect (every manage through moneyCaller)", "lib/team/money.ts", /routeUser\(\{ fresh: level !== "view" && !opts\.read \}\)/],
     ["Stripe Connect disconnect", "app/api/stripe/connect/disconnect/route.ts", /routeUser\(\{ fresh: true \}\)/],
     ["refunds", "app/api/stripe/refund/route.ts", /routeUser\(\{ fresh: true \}\)/],
-    ["team roles, invites and removals (requestUser)", "lib/businesses/server.ts", /auth\.getUser\(\)/],
-    ["statement descriptor", "app/api/settings/statement-descriptor/route.ts", /auth\.getUser\(\)/],
+    /* Changed on purpose (rel2-auth): still Supabase Auth itself, through routeUser({ fresh: true }), so a slow Auth is a 503 Try again and not 401 (tests/auth-reliability.test.ts section 6). */
+    ["team roles, invites and removals (requestUser)", "lib/businesses/server.ts", /routeUser\(\{ fresh: true \}\)/],
+    ["statement descriptor", "app/api/settings/statement-descriptor/route.ts", /routeUser\(\{ fresh: true \}\)/],
     ["web push subscriptions (app_metadata merge)", "app/api/push/web/route.ts", /await readCurrentUser\(supabase\)/],
     ["admin (its own signed cookie, not Supabase)", "lib/admin/gate.ts", /isAdminAuthenticated/],
   ]

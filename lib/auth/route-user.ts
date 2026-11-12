@@ -3,12 +3,14 @@ import "server-only"
 import { NextResponse } from "next/server"
 import type { User } from "@supabase/supabase-js"
 import { cache } from "react"
+import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
 import { AUTH_UNAVAILABLE_HEADER } from "@/lib/auth/recovery-backoff"
 import { currentUserForRequest, fullUserForRequest, oncePerRequest } from "@/lib/auth/request-scope"
 import { verifierKind } from "@/lib/auth/verify-token"
 import { AUTH_CHECK_HEADER } from "@/lib/auth/auth-check-header"
+import { carriesSignIn } from "@/lib/auth/no-session-paths"
 
 export { AUTH_CHECK_HEADER }
 
@@ -92,11 +94,13 @@ export const fullReaderForRequest = cache(
  * person; now they take a page's answer (round 49). Row level security still
  * applies to every query, through the token in the cookie.
  */
-export async function readUserForRoute({ full = false }: { full?: boolean } = {}): Promise<{ data: { user: CurrentUser["user"] } }> {
+export async function readUserForRoute({ full = false }: { full?: boolean } = {}): Promise<{ data: { user: CurrentUser["user"] }; unavailable: boolean }> {
   try {
-    return { data: { user: (await (full ? fullReaderForRequest() : readerForRequest())).user } }
+    const current = await (full ? fullReaderForRequest() : readerForRequest())
+    return { data: { user: current.user }, unavailable: !current.user && current.state !== "anonymous" }
   } catch {
-    return { data: { user: null } }
+    /* The read threw (no client, no cookie store): unsure only when there was a session to be unsure about. */
+    return { data: { user: null }, unavailable: await requestCarriesSignIn() }
   }
 }
 
@@ -200,4 +204,71 @@ export function authUnavailableResponse(): NextResponse {
     /* X-Storelib-Auth-Check: "none" here, since nothing could say who this is (authCheckHeader above). */
     { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "2", [AUTH_UNAVAILABLE_HEADER]: "unavailable", [AUTH_CHECK_HEADER]: "none" } },
   )
+}
+
+/*
+  ===========================================================================
+   NO USER IS ONLY "SIGN IN" WHEN AUTH SAID NOBODY (round rel2-auth)
+  ===========================================================================
+  `readUserForRoute()` handed back `{ user: null }` for "Supabase Auth did not
+  answer" as well as for "signed out", and helpers built on it (a community's
+  sessionUserId, a course's) did the same, so every route behind them said
+  401 "Sign in" to a signed in person whenever Auth had a slow minute.
+  readUserForRoute now says `unavailable` too, and a helper that can only
+  hand back an id asks the request's one answer again here (it is kept per
+  request, lib/auth/request-scope oncePerRequest, so this costs nothing).
+
+  Nothing is ever allowed on this answer. It only changes the reason a
+  refusal gives: 503 with Try again instead of 401 Sign in.
+*/
+
+/** Whether this request carries a Supabase session cookie at all (lib/auth/no-session-paths carriesSignIn). Outside a request: no. */
+async function requestCarriesSignIn(): Promise<boolean> {
+  try {
+    const jar = (await cookies()) as { getAll?: () => { name: string }[] }
+    return carriesSignIn((jar.getAll?.() ?? []).map((c) => c.name))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether this request's read of who is asking could not tell (a session
+ * cookie nobody could check), as against signed out. Outside a request (a
+ * script, a suite with no cookie store) there is nobody to ask about: false.
+ */
+export async function authUnavailableForRequest({ full = false, fresh = !full }: { full?: boolean; fresh?: boolean } = {}): Promise<boolean> {
+  /* No session cookie: nobody to be unsure about, whatever else failed. */
+  if (!(await requestCarriesSignIn())) return false
+  try {
+    /* The same read the route asked (each is kept once per request), so the answer here is the one it refused on. */
+    const current = await (fresh ? strictUserForRequest() : full ? fullReaderForRequest() : readerForRequest())
+    return !current.user && current.state !== "anonymous"
+  } catch {
+    return true
+  }
+}
+
+/**
+ * For a route that found nobody: its own 401 when Auth said nobody, 503 Try
+ * again when Auth could not say. It asks the same read the route refused on:
+ * Supabase Auth itself by default (`fresh`, what requestUserId, sessionUserId,
+ * requestViewer and every route that used to call getUser() ask), the
+ * signature path with `{ fresh: false }`, Auth first with `{ full: true }`.
+ */
+export async function signedOutOrRetry(signedOut: NextResponse, opts: { full?: boolean; fresh?: boolean } = {}): Promise<NextResponse> {
+  /* Only a 401 is ever changed, so a route may hand any refusal through here. */
+  if (signedOut.status !== 401) return signedOut
+  return (await authUnavailableForRequest(opts)) ? authUnavailableResponse() : signedOut
+}
+
+/**
+ * The signed in person's id, Supabase Auth itself (`fresh`, as the getUser()
+ * calls this replaced asked, so a session ended within the token's life is
+ * refused), or null for signed out and could not tell alike; pair with
+ * signedOutOrRetry.
+ */
+export async function requestUserId(): Promise<string | null> {
+  const who = await routeUser({ fresh: true })
+  return who.kind === "user" ? who.user.id : null
 }

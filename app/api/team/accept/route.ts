@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { requestUser } from "@/lib/businesses/server"
+import { requestUser, signedOutAnswer } from "@/lib/businesses/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { TEAM_STORE_COOKIE, acceptInvite } from "@/lib/team/server"
 
 /** POST { token }: accept an invite, signed in with the email it was sent to. Opens that store straight away. */
 export async function POST(req: Request) {
   const user = await requestUser(req)
-  if (!user) return NextResponse.json({ error: "Sign in to accept the invite." }, { status: 401 })
+  if (!user) return signedOutAnswer(req, NextResponse.json({ error: "Sign in to accept the invite." }, { status: 401 }))
   const limited = await rateLimit({ bucket: "team-accept", subjects: [`user:${user.id}`], windows: LIMITS.claim, message: "Too many tries. Wait a few minutes and open the link again." })
   if (limited) return limited
   const body = (await req.json().catch(() => null)) as { token?: unknown } | null

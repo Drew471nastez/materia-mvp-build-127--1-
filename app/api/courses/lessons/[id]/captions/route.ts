@@ -5,6 +5,7 @@ import { isLessonMediaPath, isUuid } from "@/lib/courses/access"
 import { CAPTION_MAX_BYTES, toWebVtt } from "@/lib/courses/captions"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
 import { lessonContext } from "@/lib/courses/server"
+import { authUnavailableForRequest, authUnavailableResponse } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,6 +23,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params
   if (!isUuid(id)) return new NextResponse("", { status: 404, headers: PRIVATE })
   const userId = await sessionUserId()
+  /* A visitor sees the preview; a signed in person Auth could not check is asked to try again, not shown the locked view (round rel2-auth). */
+  if (!userId && (await authUnavailableForRequest())) return authUnavailableResponse()
   try {
     const admin = createAdminClient()
     const ctx = await lessonContext(admin, userId, id)

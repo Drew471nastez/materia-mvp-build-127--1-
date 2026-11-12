@@ -40,6 +40,8 @@ export const THEME_SKINS = [
   "aero", "aqua", "messenger", "y2k", "playful", "grunge",
   "aero2", "aqua2", "messenger2", "y2k2", "playful2", "grunge2",
   "classic98", "vaporwave", "arcade",
+  /* Renaissance: an old master's canvas, ivory panels in gilt frames (scripts/onepage-skins/renaissance.mjs). */
+  "renaissance",
 ] as const
 export type ThemeSkin = (typeof THEME_SKINS)[number]
 

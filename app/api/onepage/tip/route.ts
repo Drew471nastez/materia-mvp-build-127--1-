@@ -30,7 +30,7 @@ function returnTo(request: Request, rawPath: unknown): { origin: string; returnP
 
 /**
  * POST /api/onepage/tip
- *   { onepage_id, block_id, amount_cents, name?, message?, return_path }
+ *   { onepage_id, block_id, amount_cents, name?, message?, source?, return_path }
  *     -> { url }: the Stripe Checkout page to send the visitor to
  *   { confirm: true, onepage_id, session_id }
  *     -> { amount_cents, currency }: the paid tip, read back from Stripe
@@ -86,6 +86,8 @@ export async function POST(request: Request) {
       amountCents: body.amount_cents,
       name: body.name,
       message: body.message,
+      /* Round AS: which way in, the page's host and where the visitor came from; kept as labels only (lib/onepage/tips tipSource). */
+      source: body.source,
       ...returnTo(request, body.return_path),
       visitor: createHash("sha256").update(address || "unknown").digest("hex").slice(0, 24),
     },

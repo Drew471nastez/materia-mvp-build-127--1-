@@ -58,10 +58,60 @@ export function ttlDays(v: unknown): number | null {
   return Number.isInteger(n) && n >= MIN_TTL_DAYS && n <= MAX_TTL_DAYS ? n : null
 }
 
-/** A claim token: 32 random bytes as base64url, 43 characters. Anything else is not one of ours. */
-export const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
+/**
+ * A CLAIM TOKEN, AS PEOPLE SEE IT. Ten random bytes (80 bits) written in
+ * Crockford's base32, lower case, in four groups of four:
+ * storelib.com/team/claim/k7m2-x9qp-4hfd-w3nc. Short enough to read out or
+ * paste into a chat, and still far past guessing: only its SHA-256 is
+ * stored, the page answers thirty looks per address in ten minutes, and a
+ * link works once. The canonical form (what is hashed) is the sixteen
+ * characters without dashes, so a link pasted in capitals or without its
+ * dashes still opens. Links made before this were 32 random bytes in
+ * base64url (43 characters); those keep working exactly as they were.
+ */
+export const TOKEN_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz"
+/** The canonical token: sixteen of TOKEN_ALPHABET. */
+export const TOKEN_PATTERN = /^[0-9a-hjkmnp-tv-z]{16}$/
+const SHOWN_TOKEN = /^[0-9a-hjkmnp-tv-z]{4}(?:-?[0-9a-hjkmnp-tv-z]{4}){3}$/i
+const LEGACY_TOKEN = /^[A-Za-z0-9_-]{43}$/
+export const TOKEN_BYTES = 10
+
+/** A new token from TOKEN_BYTES random bytes: canonical, sixteen characters. */
+export function makeToken(bytes: Uint8Array): string {
+  if (bytes.length < TOKEN_BYTES) throw new Error("makeToken needs ten random bytes") // i18n-ignore: a programming error
+  let out = ""
+  let bits = 0
+  let value = 0
+  for (let i = 0; i < TOKEN_BYTES; i++) {
+    value = (value << 8) | bytes[i]
+    bits += 8
+    while (bits >= 5) {
+      out += TOKEN_ALPHABET[(value >>> (bits - 5)) & 31]
+      bits -= 5
+    }
+    value &= (1 << bits) - 1
+  }
+  return out
+}
+
+/** The token a link carries, as it is hashed: a new one lower case without dashes, an older one as it was. Null when it is not one of ours. */
+export function canonicalToken(token: unknown): string | null {
+  if (typeof token !== "string") return null
+  const t = token.trim()
+  if (LEGACY_TOKEN.test(t)) return t
+  if (SHOWN_TOKEN.test(t)) return t.toLowerCase().replace(/-/g, "")
+  return null
+}
+
 export function tokenShapeOk(token: unknown): token is string {
-  return typeof token === "string" && TOKEN_PATTERN.test(token)
+  return canonicalToken(token) !== null
+}
+
+/** The token as a link shows it: k7m2-x9qp-4hfd-w3nc. An older token as it was. */
+export function shownToken(token: string): string {
+  const c = canonicalToken(token)
+  if (!c) return token
+  return TOKEN_PATTERN.test(c) ? c.match(/.{4}/g)!.join("-") : c
 }
 
 /** An email as a handoff keeps it: trimmed, lower case, or null when it is not one. */
@@ -81,7 +131,7 @@ export function sameEmail(a: string | null | undefined, b: string | null | undef
 /** The page a claim link opens. Under /team, a word no creator can hold, so no creator's page is ever shadowed by it. */
 export const CLAIM_PREFIX = "/team/claim/"
 export function claimPath(token: string): string {
-  return `${CLAIM_PREFIX}${encodeURIComponent(token)}`
+  return `${CLAIM_PREFIX}${encodeURIComponent(shownToken(token))}`
 }
 
 /**

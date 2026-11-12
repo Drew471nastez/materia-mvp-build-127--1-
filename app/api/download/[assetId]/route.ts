@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { SIGNED_URL_EXPIRY_SECONDS } from "@/lib/security"
 import { callerAddress } from "@/lib/api/rate-limit"
@@ -12,6 +11,7 @@ import { gateDownload } from "@/lib/storage/scan-gate"
 import { logSecurityEvent } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { DOWNLOAD_TRY_AGAIN } from "@/lib/security/uploads/policy"
+import { routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -43,10 +43,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
 
     let userId: string | null = null
     try {
-      const supabase = await createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const who = await routeUser({ fresh: true })
+      const user = who.kind === "user" ? who.user : null
       userId = user?.id ?? null
     } catch {
       /* No session is the normal case for a guest with a receipt. */

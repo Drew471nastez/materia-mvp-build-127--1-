@@ -5,6 +5,7 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { readJson, sessionUserId } from "@/lib/communities/server/feed"
 import { markRead, markSeen, unreadCount } from "@/lib/notifications/user-inbox"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,7 +23,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  */
 export async function POST(request: Request) {
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }))
   const limited = await rateLimit({ bucket: "notifications-read", subjects: [`user:${userId}`], windows: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }], message: "Too many at once. Try again in a minute." })
   if (limited) return limited
   const body = await readJson(request)

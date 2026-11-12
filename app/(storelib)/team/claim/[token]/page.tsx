@@ -2,24 +2,25 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
-import { JOIN_BTN_PRIMARY } from "@/components/team/join-actions"
-import { Frame, Plain } from "@/components/team/join-card"
+import { AUTH_BTN_PRIMARY, AuthHeading, AuthSplit } from "@/components/auth/auth-split"
 import { ClaimCard } from "@/components/handoff/claim-card"
 import { handoffDeps } from "@/lib/handoff/deps"
 import { finishHandoff, logEvent, readClaim, viewerOf } from "@/lib/handoff/server"
-import { claimPath, tokenShapeOk } from "@/lib/handoff/rules"
+import { claimPath, shownToken, tokenShapeOk } from "@/lib/handoff/rules"
 
 /**
  * ===========================================================================
  *  A CLAIM LINK, OPENED
  * ===========================================================================
- * Where a founder's handover link lands (lib/handoff). Under /team, a word
- * no creator can hold, so it never covers a creator's page. Every way the
- * link can be has its own card with the next step (lib/handoff/rules
- * claimStateOf, components/handoff/claim-card):
+ * Where a founder's handover link lands (lib/handoff):
+ * storelib.com/team/claim/k7m2-x9qp-4hfd-w3nc. Under /team, a word no
+ * creator can hold, so it never covers a creator's page. Drawn in the log in
+ * page's layout (components/auth/auth-split), as the Storelib Team, never
+ * as the founder's own note. Every way the link can be has its heading and
+ * its next step (lib/handoff/rules claimStateOf, components/handoff/claim-card):
  *
  *   ready         the business, its addresses, what comes with it and what
- *                 stays with the sender; Accept ownership
+ *                 the new owner sets up (payouts, a plan); Accept ownership
  *   signed_out    Create account or Log in, back here after (the email the
  *                 link was sent to is filled in)
  *   wrong_email   signed in with another email: Switch account
@@ -38,7 +39,7 @@ import { claimPath, tokenShapeOk } from "@/lib/handoff/rules"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Business handover",
+  title: "Accept a business",
   robots: { index: false, follow: false },
   /* same-origin, as the team invite: the token never leaves in a Referer, and Accept keeps its Origin (lib/team/own-page.ts). */
   referrer: "same-origin",
@@ -62,9 +63,9 @@ export default async function ClaimPage({ params, searchParams }: Props) {
     : null
   if (limited) {
     return (
-      <Frame>
-        <Plain title="Too many tries" body="Wait a few minutes, then open the link again." />
-      </Frame>
+      <AuthSplit page="team-claim">
+        <AuthHeading title="Too many tries" sub="Wait a few minutes, then open the link again." />
+      </AuthSplit>
     )
   }
 
@@ -79,11 +80,10 @@ export default async function ClaimPage({ params, searchParams }: Props) {
   const read = await readClaim(deps, token, viewer).catch(() => null)
   if (!read || read.ok === false) {
     return (
-      <Frame>
-        <Plain title="This link can't be opened right now" body={read && read.ok === false ? read.error : "Something went wrong on our side. Try again in a moment."}>
-          <Link href={tokenShapeOk(token) ? claimPath(token) : "/"} className={JOIN_BTN_PRIMARY}>Try again</Link>
-        </Plain>
-      </Frame>
+      <AuthSplit page="team-claim">
+        <AuthHeading title="This link can't be opened right now" sub={read && read.ok === false ? read.error : "Something went wrong on our side. Try again in a moment."} />
+        <Link href={tokenShapeOk(token) ? claimPath(token) : "/"} className={AUTH_BTN_PRIMARY}>Try again</Link>
+      </AuthSplit>
     )
   }
 
@@ -96,8 +96,16 @@ export default async function ClaimPage({ params, searchParams }: Props) {
   }
 
   return (
-    <Frame>
-      <ClaimCard state={read.state} token={token} note={note} signedIn={!!sessionUser} preview={read.preview} />
-    </Frame>
+    <AuthSplit page="team-claim">
+      <ClaimCard
+        state={read.state}
+        token={tokenShapeOk(token) ? shownToken(token) : token}
+        note={note}
+        signedIn={!!sessionUser}
+        preview={read.preview}
+        expiresAt={read.handoff?.status === "pending" ? read.handoff.expires_at : null}
+        founderAccess={read.handoff?.founder_access}
+      />
+    </AuthSplit>
   )
 }

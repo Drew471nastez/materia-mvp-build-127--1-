@@ -1,4 +1,5 @@
 "use client"
+import { signupEmailReady } from "@/lib/onepage/email-signup"
 import {VisualLinkCard} from "./block-presentation"
 import { ColorRow, LabeledRow, Segmented, Switch } from "./editor-kit"
 import { OnePageProductBlock } from "./product-block"
@@ -93,7 +94,6 @@ import {
   shelfTakes,
   shelfUsesProductCards,
   socialPost,
-  youtubeChannel,
   type FollowerEntry,
   type FollowerNetwork,
   type FollowersBlockData,
@@ -262,7 +262,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
             <span key={`g${i}`} aria-hidden className="block w-full animate-pulse motion-reduce:animate-none" style={{ ...look.button, borderRadius: radius, aspectRatio: "16 / 11", opacity: 0.5 }} />
           ))}
         </div>
-      ) : shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
+      ) : shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"op-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
        {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
       </div> : list ? (        <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
@@ -283,7 +283,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
           ))}
         </div>
       ) : (
-        <div data-shelf-arrange={simpleGrid ? "grid" : "carousel"} className={simpleGrid ? "grid grid-cols-2" : "-mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
+        <div data-shelf-arrange={simpleGrid ? "grid" : "carousel"} className={simpleGrid ? "grid grid-cols-2" : "op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
           {items.map((item) => (
             <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: simpleGrid ? "100%" : shelfSlideWidth(data.carousel_view, 10) ?? px(158, look.scale), minWidth: 0, borderRadius: radius, padding: px(6, look.scale) }}>
               <span className="relative block w-full overflow-hidden bg-black/10" data-picture-fit={shelfFit} style={{ aspectRatio: shelfFit === "full" && item.image ? undefined : "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
@@ -543,7 +543,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
                 className="h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#111113] outline-none transition-[border-color,box-shadow] focus:border-[#111113] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.08)]"
               />
               {error ? <p role="alert" className="text-[13px] text-[#b42318]">{error}</p> : null}
-              <button type="submit" disabled={sending} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-opacity disabled:opacity-60">
+              {/* Round AS: waits, faded, until the address could be taken (lib/onepage/email-signup signupEmailReady). */}
+              <button type="submit" disabled={sending || !signupEmailReady(email)} data-email-ready={signupEmailReady(email) ? "" : undefined} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-opacity duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45">
                 {sending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
                 {button}
               </button>
@@ -610,8 +611,8 @@ function postCardLook(raw: SocialPostsBlockData, image: string | undefined): Blo
 
 function PostsView({ block, look }: { block: OnePageBlock; look: StorelibBlockLook }) {
   const raw = block.data as SocialPostsBlockData
-  /* Pasted posts need no server unless a TikTok wants its picture or a channel is named. */
-  const ready = (d: SocialPostsBlockData) => Array.isArray(d.items) || (!(d.network === "youtube" && youtubeChannel(d.channel_url)) && !pastedPosts(d).some((p) => p.kind === "tiktok"))
+  /* Pasted posts need no server unless a TikTok wants its picture. Nothing is pulled from a profile or a channel. */
+  const ready = (d: SocialPostsBlockData) => Array.isArray(d.items) || !pastedPosts(d).some((p) => p.kind === "tiktok")
   const { data, loading } = useLiveData<SocialPostsBlockData>(block, look, ready)
   const items = Array.isArray(data.items) ? data.items : pastedPosts(raw)
   if (!loading && items.length === 0) return null
@@ -620,7 +621,7 @@ function PostsView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
   return (
     <div data-onepage-posts={raw.network} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       <BlockTitle text={raw.title} look={look} />
-      <div className={raw.layout==="grid"?(cardish?"grid grid-cols-2 gap-3":"grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-3"):raw.layout==="list"||raw.layout==="single"?"flex flex-col gap-3":"flex w-full snap-x snap-mandatory items-start overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
+      <div className={raw.layout==="grid"?(cardish?"grid grid-cols-2 gap-3":"grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-3"):raw.layout==="list"||raw.layout==="single"?"flex flex-col gap-3":"op-rail flex snap-x snap-mandatory items-start overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
         {loading
           ? [0, 1, 2].map((i) => <span key={i} aria-hidden className="block shrink-0 animate-pulse rounded-xl bg-[rgba(127,127,127,0.14)] motion-reduce:animate-none" style={{ width: "100%", maxHeight: tall || raw.network === "instagram" ? 380 : undefined, aspectRatio: tall ? "9 / 16" : raw.network === "instagram" ? "326 / 470" : "16 / 9" }} />)
           : (raw.layout==="single"?items.slice(0,1):items).map((item) => <div key={`${item.kind}:${item.id}`} className={raw.layout&&raw.layout!=="carousel"?(cardish?"min-w-0":"min-w-0 flex justify-center"):"w-full min-w-0 shrink-0 snap-start"}>
@@ -789,8 +790,7 @@ export function storelibBlockRow(block: OnePageBlock): { title: string; subtitle
     case "social_posts": {
       const data = d as unknown as SocialPostsBlockData
       const n = pastedPosts(data).length
-      const synced = data.network === "youtube" && youtubeChannel(data.channel_url)
-      return { title: data.title?.trim() || tt("Posts"), subtitle: synced ? tt("Latest videos, synced") : n ? tt("{count, plural, one {# post} other {# posts}}", { count: n }) : tt("Paste your posts"), icon: GlyphSocial }
+      return { title: data.title?.trim() || tt("Posts"), subtitle: n ? tt("{count, plural, one {# post} other {# posts}}", { count: n }) : tt("Paste your posts"), icon: GlyphSocial }
     }
     case "followers": {
       const total = followerTotal((d as unknown as FollowersBlockData).networks)
@@ -1292,7 +1292,8 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
   const [text, setText] = React.useState(urls.join("\n"))
   const valid = pastedPosts({ post_urls: text.split(/\s+/), network })
   const bad = text.split(/\s+/).filter((u) => u.trim() && !socialPost(u)).length
-  const channelOk = !data.channel_url?.trim() || youtubeChannel(data.channel_url) !== null
+  /* A block from before posts were picked by hand: its channel is no longer read, so it says so until posts are pasted. */
+  const oldChannel = network === "youtube" && !!data.channel_url?.trim() && urls.length === 0
   const shown = data.presentation || "native"
   const settingsHalf = (
     <div className="space-y-4" data-posts-settings="">
@@ -1300,19 +1301,13 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
         <Label className={fieldLabel}>{tt("Network")}</Label>
         <Segmented<SocialPostsNetwork> label={tt("Network")} value={network} options={[{ id: "youtube", label: "YouTube" }, { id: "instagram", label: "Instagram" }, { id: "tiktok", label: "TikTok" }]} onChange={(v) => updateData({ network: v })} />
       </div>
-      {network === "youtube" ? (
-        <div className={fieldBox}>
-          <Label className={fieldLabel}>{tt("Your channel")}</Label>
-          <Input value={data.channel_url || ""} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="https://www.youtube.com/@you" onChange={(e) => updateData({ channel_url: e.target.value.trim() })} aria-invalid={!channelOk || undefined} />
-          <p className={cn("text-[12px]", channelOk ? "text-[#6b7280]" : "text-[#b42318]")}>{channelOk ? tt("Your latest videos show by themselves, checked every hour.") : tt("Paste your channel link, like youtube.com/@you.")}</p>
-        </div>
-      ) : (
-        <p className="rounded-xl bg-[#f6f6f7] p-3 text-[12.5px] leading-relaxed text-[#4b5563]">
-          {network === "instagram" ? tt("Instagram has no public feed to read, so paste the posts and reels you want to show.") : tt("Paste the TikToks you want to show. Each shows its cover and plays on a tap.")}
+      {oldChannel ? (
+        <p className="rounded-xl bg-[#f6f6f7] p-3 text-[12.5px] leading-relaxed text-[#4b5563]" data-posts-old-channel="">
+          {tt("Videos no longer come from your channel by themselves. Paste the ones you want to show.")}
         </p>
-      )}
-      <div className={fieldBox}>
-        <Label className={fieldLabel}>{network === "youtube" ? tt("Or pick videos (one link a line)") : tt("Post links (one a line)")}</Label>
+      ) : null}
+      <div className={fieldBox} data-posts-paste="">
+        <Label className={fieldLabel}>{network === "youtube" ? tt("Video links (optional, one a line)") : network === "instagram" ? tt("Post and reel links (optional, one a line)") : tt("TikTok links (optional, one a line)")}</Label>
         <Textarea
           value={text}
           rows={4}

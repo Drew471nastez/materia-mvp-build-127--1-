@@ -53,6 +53,7 @@ import { bucketLabel, type Grain } from "@/lib/analytics/buckets"
 import type { ChannelRow, FulfillmentFigures, SalesBreakdown } from "@/lib/analytics/commerce"
 import { COMMERCE_FRESH_MS, askCommerce, commerceKey, commerceQuestionOf, keptCommerce } from "@/lib/analytics/commerce-cache"
 import { percentText } from "@/lib/analytics/percent"
+import type { TipSourceRow } from "@/lib/analytics/tip-sources"
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
 import { EmptyState } from "@/components/analytics/empty-state"
 import { ReportFill, ReportTabs } from "./analytics-reports"
@@ -78,6 +79,8 @@ interface Answer {
   placeUnknown?: boolean
   /** The breakdown of each kind, with every kind counted together (lib/analytics/commerce). */
   kinds?: { digital: SalesBreakdown; physical: SalesBreakdown } | null
+  /** Round AS: the period's tips by source, order tips by channel and OnePage tips by block (lib/analytics/tip-sources). */
+  tipSources?: TipSourceRow[]
 }
 
 /** The channels Storelib names itself, in the dashboard's language; a website keeps the name its seller gave it. */
@@ -89,6 +92,19 @@ const CHANNEL_NAME: Record<string, () => string> = {
   admin: () => tt("Test sales"),
 }
 const channelName = (c: ChannelRow) => (CHANNEL_NAME[c.key] ? CHANNEL_NAME[c.key]() : c.label === "Online store" ? tt("Online store") : c.label)
+
+/*
+  Round AS: a tip's source as the card names it. An order's tip by its channel ("Checkout, Online store"), a OnePage
+  tips block's by the block ("OnePage, Tip jar"), with where its tippers came from under it.
+*/
+const tipSourceName = (r: TipSourceRow) =>
+  r.kind === "onepage" ? tt("OnePage, {block}", { block: r.label === "Tips" ? tt("Tips") : r.label }) : tt("Checkout, {channel}", { channel: channelName({ key: r.key.slice("checkout:".length), label: r.label, total: 0, orders: 0 }) })
+const tipFromText = (r: TipSourceRow) =>
+  r.from
+    .slice(0, 3)
+    .map((f) => `${f.key === "direct" ? tt("Direct") : f.label} ${f.count}`)
+    .join(", ")
+const TIP_HELP = () => tt("Tips added at checkout are part of total sales. Tips on your OnePage are paid to you on their own and are not in total sales.")
 
 const ACCENT = "#8b5cf6"
 const CHANNEL_ROWS = 5
@@ -284,6 +300,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   const shownRows = rows.filter((r) => r.key === "gross" || r.key === "net" || r.key === "total" || (!!b && (b[r.key] as number) !== 0) || (!!p && (p[r.key] as number) !== 0))
   const signed = (v: number, sign?: "-") => (sign && v > 0 ? `−${money(v)}` : money(v))
   const channels = (data?.channels ?? []).slice(0, CHANNEL_ROWS)
+  const tipSources = data?.tipSources ?? []
   const channelMax = Math.max(1, ...channels.map((c) => c.total))
   const hours = data?.fulfillment.hours ?? null
   const waitText = hours === null ? null : hours < 1 ? tt("{n} min", { n: Math.max(1, Math.round(hours * 60)) }) : hours < 48 ? tt("{n} h", { n: Math.round(hours * 10) / 10 }) : tt("{n} days", { n: Math.round((hours / 24) * 10) / 10 })
@@ -413,6 +430,9 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         sections: [
           { title: kinds ? tt("Total") : tt("Sales breakdown"), format: money, rows: line(b, p) },
           ...(kinds ? [{ title: tt("Digital"), format: money, rows: line(kinds.digital, null) }, { title: tt("Physical"), format: money, rows: line(kinds.physical, null) }] : []),
+          ...(data.tipSources?.length
+            ? [{ title: tt("Tips by source"), format: money, bars: true, valueLabel: tt("Tips"), rows: data.tipSources.map((r) => ({ key: r.key, label: tipSourceName(r), value: r.cents, note: [tt("{count, plural, one {# tip} other {# tips}}", { count: r.count }), tipFromText(r)].filter(Boolean).join(" · ") })) }]
+            : []),
         ],
         help: tt("Gross sales less discounts and returns is net sales. Add shipping, taxes and tips for total sales."),
       }
@@ -576,6 +596,24 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
             </div>
           ))}
         </div>
+        {tipSources.length ? (
+          <div data-tip-sources="" className="mt-3 border-t border-[#f1f2f4] pt-3">
+            <HelpLabel as="h3" label={tt("Tips by source")} description={TIP_HELP()} className="text-[12.5px] font-medium text-[#6b7280]" />
+            <div className="mt-1 divide-y divide-[#f1f2f4]">
+              {tipSources.map((r) => (
+                <div key={r.key} data-tip-source={r.kind} className="flex min-h-[37px] items-center justify-between gap-3 py-1.5 text-[13.5px] text-[#374151]">
+                  <span className="min-w-0">
+                    <span className="block truncate">{tipSourceName(r)}</span>
+                    {r.from.length ? <span className="block truncate text-[12px] text-[#9ca3af]">{tipFromText(r)}</span> : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-[#1a1a2e]">
+                    {money(r.cents)} <span className="text-[12px] text-[#9ca3af]">· {tt("{count, plural, one {# tip} other {# tips}}", { count: r.count })}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </Card>
       {shippingCard ? (
         /*

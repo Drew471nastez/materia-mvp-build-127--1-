@@ -49,6 +49,7 @@ async function owner(userId: string, linkStore?: string): Promise<Who> {
   const admin = createAdminClient()
   if (linkStore) {
     const access = await storeAccessOf(admin, userId, linkStore, "analytics")
+    if (!access.ok && access.failed) return { ok: false, status: 503, error: "Storelib is not answering right now. Try again." }
     if (!access.ok) return { ok: false, status: 403, error: "You don't have access to this store's analytics any more." }
     const { data } = await admin.from("creators").select("display_name, slug").eq("id", linkStore).maybeSingle()
     const c = (data ?? {}) as { display_name?: string | null; slug?: string | null }
@@ -148,7 +149,8 @@ export async function GET(request: Request) {
       return await fileFor(link.u, link.q, link.c)
     }
     const supabase = await createClient()
-    const { data: { user } } = await readUserForRoute()
+    const { data: { user }, unavailable } = await readUserForRoute()
+    if (unavailable) return authUnavailableResponse()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     return await fileFor(user.id, questionOf(url.searchParams))
   } catch (error) {

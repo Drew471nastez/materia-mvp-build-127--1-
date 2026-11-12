@@ -38,6 +38,7 @@ import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.generated"
 import { linksNotSetUp, ownInstall } from "@/lib/github-sync/own-install"
+import { storeUnavailableResponse } from "@/lib/team/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
@@ -117,6 +118,7 @@ function explain(e: unknown, link?: Pick<GitHubLink, "repo_full_name" | "branch"
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
+  if (own === "unavailable") return storeUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const cfg = githubConfig()
   const db = createAdminClient()
@@ -173,6 +175,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
+  if (own === "unavailable") return storeUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const cfg = githubConfig()
   if (!cfg) return NextResponse.json({ error: "GitHub is not set up on this server yet." }, { status: 503 })
@@ -362,6 +365,7 @@ export async function POST(req: Request, { params }: Params) {
 export async function DELETE(_req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
+  if (own === "unavailable") return storeUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const { error } = await createAdminClient().from("theme_github_links").delete().eq("install_id", own.installId)
   if (error && !linksNotSetUp(error.message)) return NextResponse.json({ error: "Could not disconnect" }, { status: 500 })

@@ -27,6 +27,7 @@
  * out and the done state in, a check settles onto the photo, and the words
  * change under it. Opacity, translate and scale only.
  */
+import { signupEmailReady } from "@/lib/onepage/email-signup"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -187,9 +188,11 @@ export function OnePageSubscribeSheet({
               ) : null}
               <button
                 type="submit"
-                disabled={busy || done || !email.trim()}
+                /* Round AS: waits, faded, until the address could be taken (lib/onepage/email-signup signupEmailReady). */
+                disabled={busy || done || !signupEmailReady(email)}
+                data-email-ready={signupEmailReady(email) ? "" : undefined}
                 tabIndex={done ? -1 : undefined}
-                className="mt-3 h-12 w-full rounded-2xl bg-[var(--sheet-ink)] text-[15px] font-semibold text-[var(--sheet-on-ink)] transition-opacity hover:opacity-90 disabled:opacity-40"
+                className="mt-3 h-12 w-full rounded-2xl bg-[var(--sheet-ink)] text-[15px] font-semibold text-[var(--sheet-on-ink)] transition-opacity duration-200 ease-out hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
               >
                 {busy ? "Subscribing" : "Subscribe"}
               </button>

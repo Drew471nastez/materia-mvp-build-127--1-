@@ -1,6 +1,7 @@
 import "server-only"
 import type { User } from "@supabase/supabase-js"
-import { createClient } from "@/lib/supabase/server"
+import { routeUser } from "@/lib/auth/route-user"
+import { classifyAuthError } from "@/lib/auth/auth-error"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
@@ -13,20 +14,24 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * so its token was never saved and no push ever reached it. lib/push/client.ts
  * sends the access token as well, read here as app/api/onboarding/finalize
  * reads it.
+ *
+ * `unavailable`: nobody could check the session (Auth slow or down), so the
+ * route answers 503 Try again, never 401 (round rel2-auth).
  */
-export async function pushRequestUser(req: Request): Promise<{ user: User | null; via: "cookie" | "bearer" | null; authError: string | null }> {
-  const {
-    data: { user: cookieUser },
-    error,
-  } = await (await createClient()).auth.getUser()
-  if (cookieUser) return { user: cookieUser, via: "cookie", authError: null }
+export async function pushRequestUser(req: Request): Promise<{ user: User | null; via: "cookie" | "bearer" | null; authError: string | null; unavailable: boolean }> {
+  /* Round rel2-auth: Supabase Auth itself, as before (lib/auth/route-user `fresh`, retries and a ceiling); it says when Auth could not tell. */
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "user") return { user: who.user, via: "cookie", authError: null, unavailable: false }
+  let unavailable = who.kind === "unavailable"
   const header = req.headers.get("authorization")
   const bearer = header?.startsWith("Bearer ") ? header.slice(7).trim() : ""
   if (bearer) {
-    const { data } = await createAdminClient()
+    const { data, error } = await createAdminClient()
       .auth.getUser(bearer)
-      .catch(() => ({ data: { user: null } }))
-    if (data.user) return { user: data.user, via: "bearer", authError: null }
+      .catch((e: unknown) => ({ data: { user: null }, error: e }))
+    if (data.user) return { user: data.user, via: "bearer", authError: null, unavailable: false }
+    /* The app's token: Auth refusing it is nobody, Auth not answering is "could not tell". */
+    if (error && !classifyAuthError(error).signedOut) unavailable = true
   }
-  return { user: null, via: null, authError: error?.message ?? null }
+  return { user: null, via: null, authError: who.kind === "unavailable" ? who.reason : null, unavailable }
 }

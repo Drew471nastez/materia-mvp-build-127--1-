@@ -73,6 +73,8 @@ export interface OnePageTheme {
   cover_crop?: { x: number; y: number; zoom: number } | null
   cover_previous_header_layout?: "classic" | "hero"
   cover_profile_layout?: boolean
+  /* Round AS (lib/onepage/theme-layout coverFades): the creator's own cover fades into the page at its foot. Missing is on. */
+  cover_fade?: boolean
   font_family: string
   // Title customization
   title_font?: string | null
@@ -124,7 +126,7 @@ export interface OnePageTheme {
   // Animated gradient
   animated_gradient?: boolean
   /* Round W9 (lib/onepage/theme-skin): the material a theme draws its blocks in and the scene behind them. Missing is none. */
-  theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | "aero2" | "aqua2" | "messenger2" | "y2k2" | "playful2" | "grunge2" | "classic98" | "vaporwave" | "arcade" | null
+  theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | "aero2" | "aqua2" | "messenger2" | "y2k2" | "playful2" | "grunge2" | "classic98" | "vaporwave" | "arcade" | "renaissance" | null
   /** Wave 10: the Design groups the creator changed after picking a skinned theme, shown over the skin (lib/onepage/skin-own). */
   skin_own?: string[] | null
 }
@@ -526,7 +528,10 @@ export interface CountdownBlockData {
 
 export interface MapBlockData {
   title?: string | null
+  /** A typed address or a Google Maps link (lib/onepage/map-place). */
   address: string
+  /** A short Google Maps link read once in the editor: the whole link it leads to, for the short link it was read from. */
+  place?: { from: string; url: string } | null
   show_button?: boolean
   /** Round AR3: how close the map starts (the street, the area, the city) and how tall it is. Missing: the area, medium. */
   zoom?: "street" | "area" | "city"
@@ -541,7 +546,7 @@ export interface VideoBlockData {
   layout?: "player" | "card" | "button"
   /** The picture shown before an uploaded video plays (and on the card). */
   poster_url?: string | null
-  /** An uploaded video starts by itself, muted, once it is on screen. */
+  /** The video starts by itself, muted, once it is on screen: an upload, YouTube or Vimeo. On for a new block. */
   autoplay?: boolean
   loop?: boolean
 }
@@ -1016,7 +1021,8 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
       return {
         ...baseBlock,
         /* Round AR3: a new video plays on the page (the owner: "play it right on the page"); its Layout offers the card and the button. */
-        data: { url: "", title: "", layout: "player", open_mode: "inline" } as VideoBlockData,
+        /* A new video starts by itself, muted, once it is on screen (the owner: "autoplay on by default"); a block saved before keeps its own choice. */
+        data: { url: "", title: "", layout: "player", open_mode: "inline", autoplay: true } as VideoBlockData,
       }
     case "course":
       return {

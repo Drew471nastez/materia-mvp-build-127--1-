@@ -20,11 +20,11 @@
  */
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { isValidUsername } from "@/lib/reserved-words"
 import { handleAvailable } from "@/lib/profile/ensure-username"
 import { normalizeHandle } from "@/lib/profile/username-rules"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -33,16 +33,14 @@ const NO_STORE = { "Cache-Control": "no-store" }
 
 /* The signed in person, from the session the auth server confirms; never an id from the request. */
 async function signedIn() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  const user = who.kind === "user" ? who.user : null
   return user ?? null
 }
 
 export async function GET(request: Request) {
   const user = await signedIn()
-  if (!user) return NextResponse.json({ error: "Sign in first" }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutOrRetry(NextResponse.json({ error: "Sign in first" }, { status: 401, headers: NO_STORE }))
   const limited = await rateLimit({ bucket: "username-check", subjects: [`user:${user.id}`], windows: [{ limit: 90, seconds: 60 }] })
   if (limited) return limited
   const handle = normalizeHandle(new URL(request.url).searchParams.get("handle"))
@@ -54,7 +52,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   const user = await signedIn()
-  if (!user) return NextResponse.json({ error: "Sign in first" }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutOrRetry(NextResponse.json({ error: "Sign in first" }, { status: 401, headers: NO_STORE }))
   const limited = await rateLimit({
     bucket: "username-save",
     subjects: [`user:${user.id}`],

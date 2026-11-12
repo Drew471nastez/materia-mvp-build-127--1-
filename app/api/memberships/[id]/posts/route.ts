@@ -5,6 +5,7 @@ import { feedPosts } from "@/lib/memberships/library"
 import { grantsAccess } from "@/lib/memberships/state"
 import { requestViewer } from "@/lib/memberships/viewer"
 import { NOT_SET_UP } from "@/lib/memberships/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -18,7 +19,7 @@ export const runtime = "nodejs"
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await requestViewer()
-  if (!viewer) return NextResponse.json({ error: "Sign in first." }, { status: 401 })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401 }), { fresh: true })
   const before = new URL(request.url).searchParams.get("before")
   if (before && !Number.isFinite(Date.parse(before))) return NextResponse.json({ error: "Bad date" }, { status: 400 })
   const admin = createAdminClient()

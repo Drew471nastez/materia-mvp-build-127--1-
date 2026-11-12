@@ -14,11 +14,14 @@ export function inviteSignInPath(v: { token: string; email: string; hasAccount: 
   return `${v.hasAccount ? "/login" : "/signup"}?${params.toString()}`
 }
 
-/** The invited email a login or signup page keeps, or null: only while it is on its way back to an invite. */
+/** Where a business handover's link opens (lib/handoff/rules CLAIM_PREFIX): its email is kept the same way, since only that email can accept it. */
+const CLAIM_PATH = "/team/claim/"
+
+/** The invited email a login or signup page keeps, or null: only while it is on its way back to a team invite or a business handover sent to that email. */
 export function inviteEmailFrom(params: { get(name: string): string | null }): string | null {
   const next = params.get("next") ?? ""
   const email = (params.get("email") ?? "").trim().toLowerCase()
-  if (!next.startsWith(`${JOIN_PATH}?`) || !email) return null
+  if (!(next.startsWith(`${JOIN_PATH}?`) || next.startsWith(CLAIM_PATH)) || !email) return null
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254 ? email : null
 }
 

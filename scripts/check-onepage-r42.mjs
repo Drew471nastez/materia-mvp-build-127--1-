@@ -190,7 +190,11 @@ async function measureClips(p, label) {
         /* A horizontal scroller clips sideways by design (that is its job); only top and bottom are asked of it, and the left of its first slide at rest. */
         const scrollerX = a.scrollWidth > a.clientWidth + 1
         const firstAtRest = scrollerX && box.left - left < 40 && box.left - left > -1
-        const cut = { top: top - r.top, bottom: r.bottom - bottom, left: scrollerX && !firstAtRest ? 0 : left - r.left, right: scrollerX ? 0 : r.right - right }
+        /* Round AS (changed on purpose): a sideways row runs out to the page's own edge (app/globals.css .op-rail), so a slide that peeks past it is cut by the screen or the card, as the row is. */
+        const rail = el.closest(".op-rail")
+        const railR = rail && a.contains(rail) ? rail.getBoundingClientRect() : null
+        const toEdge = (side) => !!railR && Math.abs(railR[side] - (side === "left" ? left : right)) <= 1
+        const cut = { top: top - r.top, bottom: r.bottom - bottom, left: (scrollerX && !firstAtRest) || toEdge("left") ? 0 : left - r.left, right: scrollerX || toEdge("right") ? 0 : r.right - right }
         if (Object.values(cut).some((v) => v > 0.5)) {
           out.push({ el: (el.getAttribute("data-product-block") ? "product:" : "link:") + (el.textContent || "").trim().slice(0, 24), by: `${a.tagName.toLowerCase()}.${String(a.className).slice(0, 60)}`, cut: Object.fromEntries(Object.entries(cut).map(([k, v]) => [k, Math.round(v * 10) / 10])) })
           break
@@ -269,13 +273,15 @@ console.log("\nSlideshow and carousel, dragged with a mouse at 1280")
     const start = Math.round(await left())
     await p.mouse.down()
     const trail = []
+    /* Round AS (changed on purpose): rows run to the page's edge and slides are the column's width, so the drag is a share of the row, not a fixed 180px. */
+    const step = Math.max(15, Math.round(box.w * 0.035))
     for (let i = 1; i <= 12; i++) {
-      await p.mouse.move(x0 - i * 15, y)
+      await p.mouse.move(x0 - i * step, y)
       await sleep(16)
       trail.push(Math.round(await left()))
     }
-    const follows = trail.every((v, i) => Math.abs(v - start - (i + 1) * 15) <= 3)
-    expect(follows, `${name}: the row moves with the pointer while it is held (scrollLeft per 15px step)`, trail)
+    const follows = trail.every((v, i) => Math.abs(v - start - (i + 1) * step) <= 3)
+    expect(follows, `${name}: the row moves with the pointer while it is held (scrollLeft per ${step}px step)`, trail)
     const selected = await p.evaluate(() => String(window.getSelection()))
     await p.mouse.up()
     await sleep(900)

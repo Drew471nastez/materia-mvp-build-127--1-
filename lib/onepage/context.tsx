@@ -15,6 +15,7 @@ import type {
   GroupBlockData,
 } from "./types"
 import { defaultTheme, defaultSettings, defaultSocialLinks, createDefaultBlock } from "./types"
+import { withoutRetiredThemes } from "./retired-themes"
 import { lookFromTemplate, type ThemeTemplateLike } from "./theme-apply"
 import {
   canStepBack,
@@ -182,7 +183,9 @@ async function serverError(res: Response): Promise<string | null> {
   }
 }
 
-export function OnePageProvider({ children, initialOnePage }: OnePageProviderProps) {
+export function OnePageProvider({ children, initialOnePage: givenOnePage }: OnePageProviderProps) {
+  /* A page still on a theme no longer offered (Editorial) opens on its successor, the creator's own changes kept; the next save keeps it (lib/onepage/retired-themes). */
+  const initialOnePage = useMemo(() => withoutRetiredThemes(givenOnePage), [givenOnePage])
   const [onepage, setOnePageState] = useState<OnePage | null>(initialOnePage || null)
   const team = useOnePageTeam()
   const shellAvatar = useShellAvatar(onepage?.avatar_url, onepage?.owner_id)

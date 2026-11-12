@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { canDeliver } from "@/lib/receipts/rules"
 import { accountForOrder, existingReview, orderByReceipt, type ReviewRow } from "@/lib/reviews/access"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * May this person review this product, and have they already?
@@ -42,12 +42,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "productId required" }, { status: 400 })
   }
 
-  const supabase = await createClient()
   const admin = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   const order = receiptToken ? await orderByReceipt(admin, receiptToken) : null
   if (order && (!productId || productId === order.product_id)) {

@@ -175,6 +175,63 @@ for speed in round 48. The lever is fewer database round trips per creator
 and product render (11 for `/<handle>`), or letting the CDN hold those pages
 for visitors without a session.
 
+## Anonymous traffic, then a slow and a down database: `scripts/load-public.mjs`
+
+A local, single process measurement: one `next start` on this machine, the
+Supabase stub in the same process, no CDN and no real Postgres. It shows what
+one server process does per page and how it behaves when its database is slow
+or refuses; it is not production capacity. Targets: a OnePage (`/l/satori`), a
+product page, Explore, `POST /api/track-view` (a new visitor address per
+request) and `/app/products` signed in. Then, at 50 in flight, every database
+answer 3 s late, then every answer a 503, then back to normal. `page` is the
+share of answers that carried the page's own words: an error screen answers
+200 too. The stub's control (`stub.control.set({ delayMs, failStatus })`,
+`stub.control.requests()`, or `controlPath` over HTTP) is in
+scripts/supabase-stub-server.mjs.
+
+```bash
+node scripts/load-public.mjs --stub &          # while building, as above
+node scripts/load-public.mjs --seconds 20 --levels 50,200 --degraded-levels 50 --json /tmp/load.json
+```
+
+### Measured 2026-11-11 (round rel2-db), 4 cores, 20 s each
+
+| Phase | Page | In flight | req/s | p50 | p95 | p99 | max (ms) | errors | page | db req/s |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| normal | onepage | 50 | 46.6 | 1029 | 1367 | 2289 | 2489 | 0 | 100% | 0 |
+| normal | onepage | 200 | 48.9 | 3992 | 7162 | 10382 | 10767 | 0 | 100% | 0 |
+| normal | product | 50 | 27.1 | 1805 | 2556 | 2586 | 2606 | 0 | 100% | 155 |
+| normal | product | 200 | 26.7 | 7451 | 13308 | 14234 | 14510 | 0 | 100% | 107 |
+| normal | explore | 50 | 48.3 | 1026 | 1362 | 1399 | 2056 | 0 | 100% | 22 |
+| normal | explore | 200 | 47.0 | 4092 | 7244 | 8190 | 11231 | 0 | 100% | 7 |
+| normal | track | 50 | 261.7 | 187 | 243 | 278 | 379 | 0 | - | 523 |
+| normal | track | 200 | 280.2 | 629 | 885 | 3483 | 7561 | 0 | - | 559 |
+| normal | app | 50 | 33.7 | 1495 | 1644 | 1655 | 1663 | 0 | 100% | 509 |
+| normal | app | 200 | 33.3 | 5978 | 6604 | 11797 | 12110 | 0 | 100% | 508 |
+| slow 3 s | onepage | 50 | 41.3 | 1172 | 1763 | 1772 | 1778 | 0 | 100% | 134 |
+| slow 3 s | product | 50 | 3.6 | 10338 | 10744 | 10756 | 10757 | 0 | 100% | 54 |
+| slow 3 s | explore | 50 | 33.0 | 1187 | 3993 | 4385 | 4519 | 0 | 100% | 132 |
+| slow 3 s | track | 50 | 8.2 | 6047 | 6159 | 6178 | 6179 | 0 | - | 25 |
+| slow 3 s | app | 50 | 3.3 | 13092 | 17246 | 17256 | 17268 | 0 | 0% | 23 |
+| down 503 | onepage | 50 | 32.9 | 1473 | 2178 | 2186 | 2277 | 0 | 100% | 374 |
+| down 503 | product | 50 | 33.7 | 1271 | 2960 | 3314 | 3999 | 0 | 0% (404) | 339 |
+| down 503 | explore | 50 | 36.5 | 1329 | 1623 | 1659 | 2374 | 0 | 100% | 218 |
+| down 503 | track | 50 | 346.3 | 142 | 183 | 219 | 504 | 0 | - | 346 |
+| down 503 | app | 50 | 30.3 | 1356 | 2810 | 3091 | 3862 | 0 | 0% | 267 |
+| recovered | onepage | 50 | 43.7 | 1070 | 1714 | 2545 | 2671 | 0 | 100% | 19 |
+| recovered | product | 50 | 25.5 | 1851 | 2747 | 2793 | 2803 | 0 | 100% | 142 |
+| recovered | explore | 50 | 44.1 | 1116 | 1636 | 1665 | 2299 | 0 | 100% | 22 |
+| recovered | track | 50 | 274.7 | 174 | 230 | 439 | 633 | 0 | - | 549 |
+| recovered | app | 50 | 31.9 | 1512 | 1990 | 1993 | 2726 | 0 | 100% | 482 |
+
+Read it as: one process renders 25 to 50 pages a second whatever the
+concurrency, so 200 in flight only queues (p50 four times 50's). The OnePage and
+Explore are served from their caches through a slow or a down database. A
+product page with the database refusing answers 404, not a 503: a crawler
+told the page is gone. `/app/products` waits for the slow database (13 s at
+p50) and, slow or down, answers 200 without the product list in it. Every page was the real
+page again within the first run after recovery.
+
 ## Where the cache ratio for real traffic comes from
 
 The script measures the cache for its own requests. For real visitors,

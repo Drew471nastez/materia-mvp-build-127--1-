@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { loadSubscriptionView } from "@/lib/billing/subscription-reader"
 import { readPlanOverride } from "@/lib/billing/plan-override"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { isServiceUnavailable } from "@/lib/net/service-error"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 const FREE_PLAN = {
   id: "free",
@@ -112,6 +114,8 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "private, no-store" } },
     )
   } catch (error) {
+    /* The plan override (or the store) could not be read: 503 Try again, never Free (round rel2-auth). */
+    if (isServiceUnavailable(error)) return storeUnavailableResponse()
     console.error("Error in GET /api/billing/subscription:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

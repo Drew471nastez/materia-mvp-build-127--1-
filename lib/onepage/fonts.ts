@@ -84,6 +84,9 @@ export const ONEPAGE_FONTS: Readonly<Record<string, string | null>> = {
   /* Round W10: two pixel faces, for Classic 98 and Arcade (components/onepage/themes/r40-themes W10_THEMES). */
   "Pixelify Sans": "400;500;600;700",
   "Press Start 2P": null,
+  /* Renaissance: a Garamond display for the name and a Garamond for reading (components/onepage/themes/r40-themes). */
+  "Cormorant Garamond": "400;500;600;700",
+  "EB Garamond": "400;500;600;700",
 }
 
 /** The family a CSS value names first: "'Playfair Display', serif" is Playfair Display. */
@@ -141,7 +144,7 @@ export function onePageFontSampleHref(names: string[], text?: string): string | 
  * creator who had chosen Inter. `fontStack` adds the right generic family
  * to a name that has none; a value that already ends in one is left as it is.
  */
-const SERIF = new Set(["Playfair Display", "Merriweather", "Lora", "Crimson Text", "Source Serif Pro", "Abril Fatface", "Alfa Slab One", "Fraunces", "Newsreader", "Bodoni Moda", "DM Serif Display", "Instrument Serif"])
+const SERIF = new Set(["Playfair Display", "Merriweather", "Lora", "Crimson Text", "Source Serif Pro", "Abril Fatface", "Alfa Slab One", "Fraunces", "Newsreader", "Bodoni Moda", "DM Serif Display", "Instrument Serif", "Cormorant Garamond", "EB Garamond"])
 const SCRIPT = new Set(["Dancing Script", "Caveat", "Pacifico", "Lobster", "Permanent Marker", "Satisfy", "Great Vibes", "Yellowtail"])
 const MONO = new Set(["JetBrains Mono", "Geist Mono", "Press Start 2P"])
 const GENERIC = /(^|,)\s*(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace)\s*$/i

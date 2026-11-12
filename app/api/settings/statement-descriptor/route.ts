@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
 import { pushStatementName } from "@/lib/payments/stripe/descriptor"
 import { followsStoreName, sellerStatementName } from "@/lib/payments/statement-name-server"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 /**
  * The name on buyers' bank statements, from Settings > Payments. Empty means
@@ -12,11 +12,10 @@ import { followsStoreName, sellerStatementName } from "@/lib/payments/statement-
  * and written to the creator's own Stripe account (what a statement shows
  * for a sale made on their behalf). Answers whether Stripe took it.
  */
+/* Round rel2-auth: Supabase Auth itself, as the getUser() this replaced (`fresh`, Stripe settings are on the strict list); a refusal says 503 Try again when Auth did not answer (signedOutOrRetry). */
 async function owner() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  const user = who.kind === "user" ? who.user : null
   if (!user) return null
   const admin = createAdminClient()
   const { data: creator } = await admin.from("creators").select("id, stripe_account_id, statement_descriptor, display_name, slug").eq("user_id", user.id).maybeSingle()
@@ -25,7 +24,7 @@ async function owner() {
 
 export async function GET() {
   const o = await owner()
-  if (!o) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!o) return signedOutOrRetry(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), { fresh: true })
   const { data: store } = await o.admin.from("store_settings").select("store_name").eq("creator_id", o.creator.id).maybeSingle()
   const storeName = statementDescriptorSuffix((store as { store_name?: string | null } | null)?.store_name)
   const follows = followsStoreName({ custom: o.creator.statement_descriptor, storeName, displayName: o.creator.display_name, slug: o.creator.slug })
@@ -38,7 +37,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const o = await owner()
-  if (!o) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!o) return signedOutOrRetry(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), { fresh: true })
 
   const body = (await request.json().catch(() => ({}))) as { descriptor?: unknown }
   const descriptor = statementDescriptorSuffix(typeof body.descriptor === "string" ? body.descriptor : "")

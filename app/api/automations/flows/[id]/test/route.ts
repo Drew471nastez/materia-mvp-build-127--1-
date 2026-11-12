@@ -14,7 +14,7 @@ export const runtime = "nodejs"
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const me = await signedInCreator()
-  if (!me) return NextResponse.json({ error: "Sign in again." }, { status: 401 })
+  if (me instanceof Response) return me
   if (!me.userEmail) return NextResponse.json({ error: "Your account has no email address to send a test to." }, { status: 400 })
 
   const limited = await rateLimit({

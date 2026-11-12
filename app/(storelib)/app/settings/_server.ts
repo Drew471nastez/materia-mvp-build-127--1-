@@ -9,9 +9,9 @@ import { accountTimeZone } from "@/lib/account/time-zone"
 import { connectedBioPlatforms } from "@/components/app/share/share-data"
 import { businessGroup } from "@/lib/businesses/server"
 import { groupIds } from "@/lib/businesses/rules"
-import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
+import { teamStoreForRequest, teamStoresReadForRequest } from "@/lib/team/server"
 import { memberSettingsTabs } from "@/lib/team/settings"
-import { dataOrThrow } from "@/lib/net/service-error"
+import { ServiceUnavailable, dataOrThrow } from "@/lib/net/service-error"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "domains"
 
@@ -67,7 +67,8 @@ export async function loadSettingsData() {
     businessGroup(user.id).catch(() => null),
     /* The store a team member is working in (lib/team), beside the rest rather than after it (round 48): its
        own reads are only made when the team cookie names a store, and the answer is the request's cached one. */
-    teamStoreForRequest(user.id).catch(() => null),
+    /* A failed read throws (round rel2-auth): Settings' error boundary says Try again, never the member's own account or onboarding. */
+    teamStoreForRequest(user.id),
   ])
   const profile = dataOrThrow("settings profile", profileRead) // i18n-ignore: a label for the log
   const creator = dataOrThrow("settings creator", creatorRead) // i18n-ignore: a label for the log
@@ -78,8 +79,10 @@ export async function loadSettingsData() {
     would ask them to make a store they did not come here for.
   */
   if (!creator) {
-    const stores = await teamStoresForRequest(user.id)
-    if (actingTeam || stores.length > 0) return { memberOnly: true as const }
+    const stores = await teamStoresReadForRequest(user.id)
+    if (actingTeam || stores.stores.length > 0) return { memberOnly: true as const }
+    /* Their memberships could not be read: not "on no team", so never onboarding (round rel2-auth). */
+    if (stores.failed) throw new ServiceUnavailable("settings team stores", "upstream") // i18n-ignore: a label for the log
     redirect("/onboarding")
   }
   /* Working in another store as a team member: Settings is about them (their account), not the store they work in, and (round 41) Store details too when they hold Store settings (lib/team/settings). */

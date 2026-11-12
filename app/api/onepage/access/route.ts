@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { liveAppBlockData, pageCreatorId, publishedBlocksOf } from "@/lib/onepage/page-block"
 import { readLivePage } from "@/lib/onepage/tips-server"
@@ -8,6 +7,7 @@ import { lockedContent } from "@/lib/onepage/paid-access"
 import { ownsProduct } from "@/lib/courses/server"
 import { guestOwns } from "@/lib/receipts/guest-access-server"
 import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -51,10 +51,9 @@ export async function POST(request: Request) {
   if (!product) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
 
   let allowed = false
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }))
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (user) allowed = user.id === page.owner_id || (await ownsProduct(db, user.id, productId).catch(() => false))
   if (!allowed) {
     const held = await guestOwns(db, guestAccessFromCookieHeader(request.headers.get("cookie")), { creatorId }, [productId]).catch(() => ({}) as Record<string, { whole: boolean }>)

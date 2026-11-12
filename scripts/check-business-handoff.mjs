@@ -1,6 +1,7 @@
 /**
  * The handover's two surfaces, drawn in headless Chromium with the app's own
- * stylesheet and measured: every claim page card and Settings › Team's
+ * stylesheet and measured: every claim page state (in the log in page's
+ * layout, components/auth/auth-split) and Settings › Team's
  * Transfer ownership (new and with an open link), at 320, 390 and 1440 wide.
  *
  *   no sideways scroll, the card inside the 16px gutters on a phone and no
@@ -22,6 +23,12 @@ const { base, server } = await serveEditorProbe({
   entry: "scripts/render-business-handoff.tsx",
   api: (req) => {
     if (!req.url.startsWith("/api/handoff")) return null
+    if (panelMode === "first") return { body: { ready: true, eligible: false, reason: "first_business" } }
+    /* Create link: the link once, and the panel open from then on. */
+    if (req.method === "POST") {
+      panelMode = "open"
+      return { body: { link: "https://storelib.com/team/claim/k7m2-x9qp-4hfd-w3nc", pending: { ...pending, lastSentAt: new Date().toISOString() }, emailed: true } }
+    }
     const open = panelMode === "open"
     return { body: { ready: true, eligible: true, business: { name: "Glow Studio" }, blockers: [], blockerText: [], pending: open ? pending : null, events: open ? [{ event: "viewed", at: "2026-11-07T13:00:00Z" }, { event: "sent", at: "2026-11-07T12:00:00Z" }, { event: "created", at: "2026-11-07T12:00:00Z" }] : [] } }
   },
@@ -29,22 +36,29 @@ const { base, server } = await serveEditorProbe({
 const browser = await puppeteer.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox"] })
 const shots = process.env.SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
-const views = ["claim-ready", "claim-signed_out", "claim-wrong_email", "claim-verify_email", "claim-limit", "claim-not_ready", "claim-own", "claim-accepted", "claim-expired", "claim-gone", "panel-new", "panel-open"]
+const views = ["claim-ready", "claim-signed_out", "claim-wrong_email", "claim-verify_email", "claim-limit", "claim-not_ready", "claim-own", "claim-accepted", "claim-expired", "claim-gone", "join-ready", "join-signed_out", "panel-new", "panel-open", "panel-first", "panel-made"]
 const problems = []
 let measured = 0
 try {
   for (const width of [320, 390, 1440]) {
     for (const view of views) {
-      panelMode = view === "panel-open" ? "open" : "new"
+      panelMode = view === "panel-open" ? "open" : view === "panel-first" ? "first" : "new"
       const page = await browser.newPage()
       const errors = []
       page.on("pageerror", (e) => errors.push(e.message))
       await page.setViewport({ width, height: 900, isMobile: width < 640, hasTouch: width < 640 })
       await page.goto(`${base}/app/probe?view=${view}`)
-      await page.waitForSelector(view.startsWith("panel") ? "[data-handoff-panel]" : "[data-join-card]", { timeout: 8000 }).catch(() => errors.push("never drawn"))
+      await page.waitForSelector(view.startsWith("panel") ? "[data-handoff-panel]" : "[data-claim-state]", { timeout: 8000 }).catch(() => errors.push("never drawn"))
+      if (view === "panel-made") {
+        await page.type("#handoff-email", "tom@example.com")
+        await page.click("[data-handoff-create]")
+        await page.waitForSelector("[data-handoff-link]", { timeout: 8000 }).catch(() => errors.push("the link never showed"))
+        const shown = await page.$eval("[data-handoff-link]", (el) => el.getAttribute("data-handoff-link")).catch(() => "")
+        if (!/^https:\/\/storelib\.com\/team\/claim\/[0-9a-z]{4}(-[0-9a-z]{4}){3}$/.test(shown)) errors.push(`link shown as ${shown}`)
+      }
       await new Promise((r) => setTimeout(r, 250))
       const m = await page.evaluate(() => {
-        const card = document.querySelector("[data-join-card]") || document.querySelector("[data-handoff-panel]")?.closest("section")
+        const card = document.querySelector("[data-auth-column]") || document.querySelector("[data-handoff-panel]")?.closest("section")
         const r = card?.getBoundingClientRect()
         const buttons = [...document.querySelectorAll("button:not([role=switch]), a[class*='h-1']")].filter((b) => b.getBoundingClientRect().width > 0).map((b) => Math.round(b.getBoundingClientRect().height))
         const overflowing = [...(card?.querySelectorAll("*") ?? [])].filter((el) => r && el.getBoundingClientRect().right > r.right + 0.5).length
@@ -54,9 +68,10 @@ try {
       const tag = `${view} @${width}`
       if (errors.length) problems.push(`${tag}: ${errors.join("; ")}`)
       if (m.scroll > 0) problems.push(`${tag}: sideways scroll ${m.scroll}px`)
-      if (view.startsWith("claim") && width < 640 && m.left < 16) problems.push(`${tag}: card ${m.left}px from the edge`)
-      if (view.startsWith("claim") && m.width > 420) problems.push(`${tag}: card ${m.width}px wide`)
-      if (m.minButton !== null && m.minButton < 40) problems.push(`${tag}: a button ${m.minButton}px tall`)
+      if (!view.startsWith("panel") && width < 640 && m.left < 16) problems.push(`${tag}: card ${m.left}px from the edge`)
+      if (!view.startsWith("panel") && m.width > 420) problems.push(`${tag}: card ${m.width}px wide`)
+      /* A phone is pressed with a thumb (40px at least); a computer's row buttons are the Team card's 36px. */
+      if (m.minButton !== null && m.minButton < (width < 640 ? 40 : 36)) problems.push(`${tag}: a button ${m.minButton}px tall`)
       if (m.overflowing) problems.push(`${tag}: ${m.overflowing} elements past the card's edge`)
       console.log(`${tag.padEnd(28)} card ${m.width}px at ${m.left}px, sideways ${m.scroll}px, smallest button ${m.minButton}px, past the edge ${m.overflowing}`)
       if (shots) await page.screenshot({ path: `${shots}/${view}-${width}.png`, fullPage: true })

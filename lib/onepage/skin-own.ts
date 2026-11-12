@@ -76,7 +76,7 @@ const RAISE: Record<SkinOwnGroup, { boxes: string; props: string[]; clear?: Reco
   button_shape: { boxes: ".op-btn, [data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit], .op-card", props: ["border-radius"], clear: { "clip-path": "none" } },
   button_shadow: { boxes: ".op-btn, [data-product-cta], .op-card", props: ["box-shadow"] },
   button_border: { boxes: ".op-btn, [data-product-cta], .op-card", props: ["border-width", "border-style", "border-color"] },
-  socials: { boxes: "[data-op-social-icon]", props: ["background-color", "border-color", "border-radius", "color", "border-width", "box-shadow"], clear: { "background-image": "none" } },
+  socials: { boxes: "[data-op-social-icon]", props: ["background-color", "border-color", "border-radius", "color", "border-width", "border-style", "box-shadow", "backdrop-filter"], clear: { "background-image": "none" } },
   text: { boxes: "[data-op-header] h1, [data-op-header] p, [data-onepage-heading], [data-block-title], [data-email-layout] h3, [data-email-layout] p", props: ["color"] },
   font: { boxes: "[data-op-header] h1, [data-onepage-heading], [data-block-title], .op-btn, .op-label", props: ["font-family"] },
 }

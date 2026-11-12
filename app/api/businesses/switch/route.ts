@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { businessGroup, maySwitch, recordSwitch, requestUser, sessionFor } from "@/lib/businesses/server"
+import { businessGroup, maySwitch, recordSwitch, requestUser, sessionFor, signedOutAnswer } from "@/lib/businesses/server"
 import { setSessionCookies } from "@/lib/businesses/session-cookies"
 
 /**
@@ -35,7 +35,7 @@ const NO_STORE = { "Cache-Control": "no-store" }
 
 export async function POST(request: Request) {
   const user = await requestUser(request)
-  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutAnswer(request, NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
 
   let to: unknown = null
   let arrival: { name?: unknown; photo?: unknown } | null = null

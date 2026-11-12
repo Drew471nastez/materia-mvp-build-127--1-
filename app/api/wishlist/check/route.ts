@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cookies } from "next/headers"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const GUEST_ID_COOKIE = "materia_guest_id"
 
@@ -33,14 +33,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Try to get authenticated user
-    let userId: string | null = null
-    try {
-      const supabase = await createClient()
-      const { data } = await supabase.auth.getUser()
-      userId = data?.user?.id || null
-    } catch {
-      // Not authenticated
-    }
+    /* Supabase Auth itself, as before; Auth not answering is a 503 Try again, never the guest list in a signed in person's place (round rel2-auth). */
+    const who = await routeUser({ fresh: true })
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const userId: string | null = who.kind === "user" ? who.user.id : null
 
     if (userId) {
       const { data } = await adminClient

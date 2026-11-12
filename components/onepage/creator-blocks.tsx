@@ -67,6 +67,7 @@ import type {
 import { tt } from "@/lib/i18n/text"
 import { isDarkColor } from "@/lib/onepage/storelib-blocks"
 import { EMBED_MAX_WIDTH, EmbedFrame } from "@/components/onepage/embed-frame"
+import { PlayerShape, frameFade, useFrameLoading, useFrameShown } from "@/components/onepage/embed-shell"
 import { StorelibBlock, StorelibBlockEditor } from "@/components/onepage/storelib-blocks"
 import { SignupTools } from "@/components/onepage/page-integrations"
 import { useCoverFromPreview } from "@/components/onepage/cover-from-preview"
@@ -144,7 +145,11 @@ function CourseView({ data, look }: { data: CourseBlockData; look: CreatorBlockL
 
 function MusicView({ data, look }: { data: MusicBlockData; look: CreatorBlockLook }) {
   const source = musicSource(data.url)
+  /* Round AS (./embed-shell): the player's shape at its own height until it has loaded, at once in the sheet. */
+  const [shown, onLoad] = useFrameShown(source?.embedUrl)
+  const loading = useFrameLoading()
   if (!source) return null
+  const radius = source.kind === "spotify" ? 12 : 10
   return (
     <div data-onepage-music={source.kind} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
@@ -153,14 +158,18 @@ function MusicView({ data, look }: { data: MusicBlockData; look: CreatorBlockLoo
         </p>
       ) : null}
       {/* The height is the player's own, set before it loads: nothing below it moves. */}
-      <iframe
-        title={data.title?.trim() || tt("{value} player", { value: MUSIC_PROVIDER_NAME[source.kind] })}
-        src={source.embedUrl}
-        loading="lazy"
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-        className="block w-full border-0 bg-transparent"
-        style={{ height: source.height, borderRadius: source.kind === "spotify" ? 12 : 10, colorScheme: "normal" }}
-      />
+      <div className="relative w-full" style={{ height: source.height }} data-embed-shown={shown ? "" : undefined}>
+        <PlayerShape single={source.height < 200} shown={shown} radius={radius} />
+        <iframe
+          title={data.title?.trim() || tt("{value} player", { value: MUSIC_PROVIDER_NAME[source.kind] })}
+          src={source.embedUrl}
+          loading={loading}
+          onLoad={onLoad}
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          className="absolute inset-0 block h-full w-full border-0 bg-transparent"
+          style={{ borderRadius: radius, colorScheme: "normal", ...frameFade(shown) }}
+        />
+      </div>
     </div>
   )
 }
@@ -230,7 +239,7 @@ function TestimonialsView({ data, look }: { data: TestimonialsBlockData; look: C
         </p>
       ) : null}
       <div
-        className={cn("flex w-full", many && "snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden")}
+        className={cn("flex w-full", many && "op-rail snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden")}
         style={{ gap: px(10, look.scale) }}
       >
         {items.map((item) => (

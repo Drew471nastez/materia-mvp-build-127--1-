@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { fulfilCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { checkoutReturnTarget, paidReturnUrl } from "@/lib/checkout/return-url"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
 import { rememberOnSiteUrl } from "@/lib/receipts/guest-access"
+import { routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -42,10 +42,8 @@ export async function GET(request: Request) {
   if (!sessionId) return NextResponse.redirect(`${platform}/explore`)
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser({ fresh: true })
+    const user = who.kind === "user" ? who.user : null
 
     const result = await fulfilCartSession(createAdminClient(), sessionId, { baseUrl: platform, request, viewerId: user?.id ?? null })
     if (result.ok === false) {

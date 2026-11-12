@@ -13,7 +13,6 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor, statementParams } from "@/lib/payments/platform-descriptor"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
@@ -42,6 +41,7 @@ import { stripeIdempotencyKey, stripeIdentityKey } from "@/lib/stripe/resilience
 import { applyAttemptTokens, attemptIdFrom, isIdempotencyMismatch, openCheckoutAttempt, orderHash, pruneExpiredAttempts, recordAttemptIntent, renewCheckoutAttempt, type AttemptScope, type AttemptTokens, type CheckoutAttempt } from "@/lib/checkout/checkout-attempts"
 import { trustedRequestOrigin } from "@/lib/billing/return-url"
 import { prepareBookingCheckout } from "@/lib/forms/booking-payment"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * POST /api/checkout/stripe-session
@@ -96,11 +96,10 @@ async function handlePOST(request: Request) {
 
   let business: ReturnType<typeof checkBusiness> | null = body.business !== undefined && body.business !== null ? checkBusiness(body.business) : null
 
-  const supabase = await createClient()
   const admin = createAdminClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   const priced = await priceOrder(
     admin,

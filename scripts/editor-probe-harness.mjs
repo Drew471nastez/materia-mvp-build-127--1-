@@ -100,6 +100,8 @@ if (!existsSync(bundle)) {
     `--alias:next/cache=${join(stubs, "cache.js")}`, `--alias:@/lib/supabase/client=${join(stubs, "supabase-client.js")}`,
     `--alias:node:crypto=${join(stubs, "node-crypto.js")}`, `--alias:crypto=${join(stubs, "node-crypto.js")}`,
     `--alias:node:fs=${join(stubs, "node-empty.js")}`, `--alias:fs=${join(stubs, "node-empty.js")}`, `--alias:node:path=${join(stubs, "node-empty.js")}`, `--alias:path=${join(stubs, "node-empty.js")}`,
+    /* EDITOR_REACT=next: the React the app really runs, Next's vendored canary, rather than the one in package.json (scripts/check-section-drag-canvas.mjs). */
+    ...(process.env.EDITOR_REACT === "next" ? [`--alias:react=${join(root, "node_modules/next/dist/compiled/react")}`, `--alias:react-dom=${join(root, "node_modules/next/dist/compiled/react-dom")}`] : []),
     `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
     { stdio: ["ignore", "ignore", "inherit"] })
 }

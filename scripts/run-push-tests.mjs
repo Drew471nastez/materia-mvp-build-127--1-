@@ -65,7 +65,7 @@ const SUITES = [
   "tests/ai-builder-runtime.test.ts",
   /* Round AL4: the OnePage cover edge to edge at 5:2 and fetched first, Your files for the cover, the pattern kept out from behind the header, the gradient drifting on one composited layer (still for reduced motion, paused in a hidden tab), the avatar viewer, a Classic theme keeping a Hero, the Design tab's sticky way back; scripts/check-onepage-header-al4.mjs measures them. */
   "tests/onepage-header-al4.test.ts",
-  /* Round AK6: a founder hands a business they built to a client's own login: a single use, expiring claim link kept only as its SHA-256, wrong email, self claim and the three business limit refused, every table with a creator_id or user_id decided, every route asks who is signing in, sign up and an existing account through the real route handlers, a failed transfer changes nothing (SQL 20271131, run on the harness by scripts/check-business-handoff-sql.sh). */
+  /* Round AK6: a founder hands a business they built to a client's own login: a single use, expiring claim link kept only as its SHA-256, wrong email, self claim and the three business limit refused, every table with a creator_id or user_id decided, every route asks who is signing in, sign up and an existing account through the real route handlers, a failed transfer changes nothing (SQL 20271131, run on the harness by scripts/check-business-handoff-sql.sh). Round op-app: the link is storelib.com/team/claim/k7m2-x9qp-4hfd-w3nc (80 random bits, older 43 character links still open), the page and email speak as the Storelib Team without the founder's name, the founder's ended plan row is cleared so the new owner's billing starts fresh, a used link answers "used", and the whole story end to end through the real routes: send, track, sign up from the email, a payout balance holding it, accept, ownership, team role, billing, sign in address, single use, then resend, cancel and expiry. */
   "tests/business-handoff.test.ts",
   "tests/onepage-link-metadata.test.ts",
   "tests/native-forms-actions-prices.test.ts",
@@ -886,6 +886,8 @@ const SUITES = [
   "tests/onepage-patterns-w10.test.ts",
   /* Round W10: the skins fixed at the source (every word on a form, a card and the legal links in a colour picked for that surface, 4.5:1 even at 70%), a second version of each of the six (Aero Aquarium, Aqua Graphite, Messenger Olive, Y2K Kawaii, Playful Night, Grunge Zine) drawn by the same rules with another palette, and Classic 98, Vaporwave and Arcade. */
   "tests/onepage-themes-w10.test.ts",
+  /* OnePage themes (op-themes): Editorial retired and a page still on it drawn as Paper with the creator's own changes kept (lib/onepage/retired-themes, the live page and the editor), Renaissance (its settings, fonts, contrast at rest and on hover, its skin over every kind of block, its scene and every pair of words and paint), the picker's All in five groups with the quiet, most chosen first, and Aero Aquarium made quieter. scripts/shot-onepage-skins.mjs THEMES=renaissance,aero2 photographs them. */
+  "tests/onepage-themes-renaissance.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",
@@ -1096,7 +1098,7 @@ const SUITES = [
   "tests/ops-safety-nets.test.ts",
   /* Indexes for the reads that searched a whole table (SQL part 187), the wishlist's one profile read, More from seller's columns */
   "tests/db-indexes.test.ts",
-  /* Round rel-db: database load and store isolation, SQL part 334 (indexes for reads and deletes that searched whole tables, functions and policies that opened every store's rows, statement timeouts); Orders reads the store's currency once per request. */
+  /* Round rel-db: database load and store isolation, SQL part 334 (indexes for reads and deletes that searched whole tables, functions and policies that opened every store's rows, statement timeouts); Orders reads the store's currency once per request. Round rel2-db: SQL part 443 (indexes for the foreign keys an account, store, website, product, order or message delete walked, community_space_counts for the service role only, open insert policies closed) and loadSpaces counting every space in one read, falling back to the old counts where the function is missing. */
   "tests/db-load-isolation.test.ts",
   /* Round rel-db (fix): every server Supabase client with a deadline, analytics that fall back to raw events only when the function is missing, Home without waiting on all time sales, Customers, Payouts and the tax summary past 1,000 rows, the /app shell's lean reads, the Products page's columns and paging. */
   "tests/rel-db-dashboard.test.ts",
@@ -1143,6 +1145,8 @@ const SUITES = [
   "tests/round-bc-checkout.test.ts",
   "tests/round-bc-accounts.test.ts",
   "tests/round-bc-sidebar.test.ts",
+  /* Rel2: a section or block reordered in the sidebar moves on the canvas. Every reorder (the grip, Move up and down in the menu and on the toolbar, a block's drag) sets the editor's one list; in Chromium, the imported theme's frame (canvas-bridge.ts) and Storelib's canvas (live-order.ts) end with the sections in order and nothing held whatever order the drop and the patch arrive in, with no drop heard at all, and under a second drag; scripts/check-section-drag-canvas.mjs measures the real editor. */
+  "tests/section-drag-canvas.test.ts",
   "tests/round-bc-canvas.test.ts",
   /* Round 13 (THEMESET): ten new fonts in every picker, previews fetched for the rows in view; a swatch choice in an imported theme's settings shown at once; scripts/check-themeset-r13.mjs measures them. */
   "tests/themeset-r13.test.ts",
@@ -1246,6 +1250,8 @@ const SUITES = [
   "tests/onepage-app-blocks-al.test.ts",
   /* Round AR (track 4): the OnePage data and money blocks. The newsletter's phone and first name (checked, kept, sent to the tools) and its fields in each layout's shape, one of the creator's own products given to joiners; tips through Storelib checkout to the creator's own connected account with the amount checked on the server and one tip per Checkout Session; a poll's one vote each and the owner's totals; Pay to unlock with the locked part never in the page and access checked on the server; show from / until on the server and in every route; stats counted from real numbers; RSS, Bandsintown and Trustpilot read from recorded answers; each tap counted once and never from the preview. scripts/check-onepage-ar4.mjs measures them at 390 and 1440. */
   "tests/onepage-ar4.test.ts",
+  /* Round AS: OnePage sheets, tips and subscribe. A button that opens an embed warms its service's hosts and starts the sheet hidden on a press or a resting mouse (never a video), a closed sheet with an embed is kept hidden with its players paused and shown again without asking twice, frames in the sheet load eagerly over the player's own shape; the tips card and its amount sheet (stepper, keypad, floor, the store currency's own unit), where each tip came from carried into onepage_tips (SQL part 442) and shown by source in Storelib analytics and a tips block's stats; every signup button waits for a valid address. scripts/check-onepage-embed-speed.mjs, check-onepage-tips-as.mjs and check-onepage-signup-ready.mjs measure them at 390 and 1440. */
+  "tests/onepage-sheets-as.test.ts",
   /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
   "tests/wb-perf-r12.test.ts",
   /* Round 12 (website builder): Add block between two blocks in the canvas, the collection pickers' Add collection, a menu link's new tab on the live site, product descriptions bound to Storelib, the shop's filters from real products; scripts/check-wb-ux-r12.mjs measures them. */
@@ -1451,8 +1457,12 @@ const STRICT_SUITES = [
   "tests/onepage-ap1.test.ts",
   /* Round AR (track 6): the OnePage editor's one compact picture row (cover, group picture), descriptions that grow, the form builder's save round trip for every question type and setting, a block clicked in the phone preview opening in the list, Share's Add link to Instagram bio and its public page, the handoff's token rules and its row in the editor, and the AI's edits to social icons, the social links block and link blocks checked as a change by hand. scripts/check-onepage-ar6.mjs measures them at 390 and 1440. */
   "tests/onepage-ar6.test.ts",
+  /* The OnePage editor round after AR: a block clicked in the phone preview opens with nothing drawn over the page (scripts/check-onepage-editor-op.mjs measures the glide), no AI in the editor, and the inputs a creator types into: the Instagram handle, posts added by hand, the booking message and its placeholders in every channel, YouTube autoplay, the Canva mark, addresses and phone numbers. */
+  "tests/onepage-editor-op.test.ts",
   /* Round AR, track 1: how a OnePage feels. No round Close over the keyboard once Safari pans, sheets read while idle and opened with their content (no grey bars), one press on every button from pointerdown, Back a step inside a form sheet, the Hero darkening under the page with a bar once it has gone, a removed block folding away, a shelf kept drawn while a setting changes. scripts/check-onepage-ar1.mjs measures them. */
   "tests/onepage-ar1.test.ts",
+  /* Round AS: the OnePage shell. The profile bar forms over the name as it scrolls under (every header layout, the verified badge in it, floating inside the computer's card), Share and Subscribe from one listener after real travel, faded on the button while the box only moves, the fade layout's large melting picture from the top of a phone's page, the own cover's fade and its switch, the 550px card, every sideways row out to the column's edge. scripts/check-onepage-header-as.mjs measures them frame by frame at 390 and 1440 and in the preview. */
+  "tests/onepage-header-as.test.ts",
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",
@@ -1460,6 +1470,8 @@ const STRICT_SUITES = [
   "tests/onepage-blocks-w9.test.ts",
   /* Wave 10 (legible): every word on a OnePage reads on what is painted under it (lib/onepage/legible, components/onepage/legible-guard), the creator's own Design shown over a skinned theme (lib/onepage/skin-own), the product sheet's square gallery, thumbnails and Buy bar, the share sheet as one surface, and one gap between every tool on a block's row. scripts/check-onepage-legible-w10.mjs walks every theme in the picker on pixels. */
   "tests/onepage-legible-w10.test.ts",
+  /* OnePage style stability: a button's colour animates only on a Fill or Pop hover, the page holds still while it takes on a look, the legibility guard's pass starts no transition and leaves a hovered button alone; social icons from one rule (lib/onepage/social-look); entrances where they can be seen, still under reduced motion; a narrow product card restacks; Instagram's current colours. scripts/check-onepage-style-stability.mjs reads every button and icon each frame on every theme. */
+  "tests/onepage-style-stability.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
   "tests/onepage-editor-r43.test.ts",
   /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */

@@ -5,6 +5,7 @@ import { isUuid } from "@/lib/courses/access"
 import { externalVideo } from "@/lib/courses/external"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
 import { VIDEO_URL_SECONDS, kindOf, lessonContext, signLessonFile } from "@/lib/courses/server"
+import { authUnavailableForRequest, authUnavailableResponse } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -28,6 +29,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!isUuid(id)) return NextResponse.json({ error: "Lesson not found" }, { status: 404, headers: PRIVATE })
 
   const userId = await sessionUserId()
+  /* A visitor sees the preview; a signed in person Auth could not check is asked to try again, not shown the locked view (round rel2-auth). */
+  if (!userId && (await authUnavailableForRequest())) return authUnavailableResponse()
   const limited = await rateLimit({
     bucket: "course-play",
     subjects: [addressSubject(request), userId ? `user:${userId}` : null],

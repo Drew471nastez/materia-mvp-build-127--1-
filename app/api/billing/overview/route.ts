@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { loadBillingOverview } from "@/lib/billing/overview"
 import { moneyCaller } from "@/lib/team/money"
 import { withBillingRequest } from "@/lib/billing/request-reads"
+import { isServiceUnavailable } from "@/lib/net/service-error"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 /**
  * GET /api/billing/overview
@@ -25,8 +27,13 @@ export async function GET() {
   if (!who.ok) return who.response.status === 401 ? NextResponse.json({ error: "Not signed in" }, { status: 401 }) : who.response
   const canManage = who.isOwner || !!who.acting?.permissions.includes("billing_manage")
   /* The creator, its subscription row and its override are read once for this request and dropped with it (lib/billing/request-reads). */
-  const overview = await withBillingRequest(() => loadBillingOverview({ creatorId: who.creatorId }))
-  if (!overview) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
+  /* A read that failed (the store, its plan override) is a 503 Try again, never "Not signed in" or Free (round rel2-auth). */
+  const overview = await withBillingRequest(() => loadBillingOverview({ creatorId: who.creatorId })).catch((e: unknown) => {
+    if (isServiceUnavailable(e)) return "unavailable" as const
+    throw e
+  })
+  if (overview === "unavailable") return storeUnavailableResponse()
+  if (!overview) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
   /* canManage: whether the tab shows the buttons that change the plan; the change routes ask again. */
   return NextResponse.json({ ...overview, canManage }, {
     /* Private and never cached: this is one person's invoices. */

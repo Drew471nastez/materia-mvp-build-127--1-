@@ -186,18 +186,9 @@ function List({ rows: given, available, limit, canCreate = true }: { rows: Commu
         {!available ? (
           <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")}>{tt("Communities are not set up on Storelib yet. They appear here once they are.")}</div>
         ) : rows.length === 0 && !canCreate ? (
-          <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")} data-empty="">{tt("This store has no communities yet. The owner makes them.")}</div>
+          <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")} data-empty="team">{tt("This store has no communities yet. The owner makes them.")}</div>
         ) : rows.length === 0 ? (
-          <div className={cn(card, "mt-3 px-6 py-12 text-center")} data-empty="">
-            <p className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Start a community")}</p>
-            <p className="mx-auto mt-1.5 max-w-md text-[14px] leading-relaxed text-[#6b7280]">
-              {tt("A place for your members: posts, chat, Learn and live events. Free, paid every month or year, or by invite only.")}
-            </p>
-            <Link href="/app/community/new" onClick={askNew} className={cn(NEW_LOOK, "mt-5 inline-flex h-10 px-4 text-[14px]")}>
-              <Plus aria-hidden className="h-4 w-4" />
-              {tt("New community")}
-            </Link>
-          </div>
+          <EmptyCommunities onNew={askNew} limit={limit} />
         ) : (
           <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3" data-community-grid="">
             {rows.map((r) => (
@@ -228,6 +219,51 @@ function List({ rows: given, available, limit, canCreate = true }: { rows: Commu
         busy={busy}
         onConfirm={() => archiving && void archive(archiving)}
       />
+    </div>
+  )
+}
+
+/**
+ * NO COMMUNITY YET. Not a centred sentence in an empty box: the page's own
+ * card, holding what the first community will look like on this page (the
+ * list's card itself, its cover drawn from the name, the logo on its edge,
+ * Draft, the state a new one starts in; no members, no money, nothing that
+ * is not true yet) beside one heading, one line and New community. On a
+ * phone the preview sits above the words, as the list's single column would
+ * draw it. Read only: the preview is a picture, the button is the way in.
+ */
+function EmptyCommunities({ onNew, limit }: { onNew: (e: React.MouseEvent) => void; limit: CommunityLimitView }) {
+  return (
+    <div className={cn(card, "mt-3 overflow-hidden p-3 sm:p-4")} data-empty="owner">
+      <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,280px)_minmax(0,1fr)] sm:gap-7 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+        <div aria-hidden className="pointer-events-none overflow-hidden rounded-xl border border-[#eef0f2] bg-white select-none" data-empty-preview="">
+          <div className="relative aspect-[5/2] w-full overflow-hidden bg-[#eef0f2] sm:aspect-[2/1]">
+            <CoverFill name={tt("Your community")} />
+          </div>
+          <div className="px-4 pb-3">
+            <div className="-mt-6 flex">
+              <span className="relative grid h-12 w-12 place-items-center rounded-[13px] text-[18px] font-semibold text-white shadow-[0_0_0_3px_#fff,0_1px_3px_rgba(16,24,40,0.12)] [text-shadow:0_1px_1px_rgba(0,0,0,0.18)]" style={{ backgroundImage: nameCoverGradient(tt("Your community")) }}>
+                {(Array.from(tt("Your community").trim())[0] || "C").toUpperCase()}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-[22px] text-[#1a1a2e]">{tt("Your community")}</p>
+              <CommunityStatusBadge state="draft" />
+            </div>
+          </div>
+        </div>
+        <div className="px-1 pb-2 sm:px-0 sm:pb-0">
+          <p className="text-[16px] font-semibold leading-6 text-[#1a1a2e] lg:text-[17px]">{tt("No community yet")}</p>
+          <p className="mt-1 max-w-[420px] text-[14px] leading-5 text-[#6b7280]">{tt("Posts, chat, courses and live events for your members. Free, paid or invite only.")}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Link href="/app/community/new" onClick={onNew} className={cn(NEW_LOOK, "max-md:h-10 max-md:px-4 max-md:text-[14px]")} data-new-community="">
+              <Plus aria-hidden className="h-4 w-4" />
+              {tt("New community")}
+            </Link>
+            {limit.max !== null ? <span className="text-[12.5px] text-[#9ca3af]" data-limit-note="">{tt("{max} on the Free plan", { max: limit.max })}</span> : null}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

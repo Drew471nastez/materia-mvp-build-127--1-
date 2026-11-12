@@ -72,8 +72,10 @@ import { CompactInstagramPost } from "@/components/onepage/compact-post"
 import { AppMark, INSTAGRAM_FILL, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
 import { APP_GLYPHS, RoundTile } from "@/components/onepage/block-icons"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
-import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataTipsView, DataPaidView } from "@/components/onepage/data-blocks"
+import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataPaidView } from "@/components/onepage/data-blocks"
+import { DataTipsView } from "@/components/onepage/tip-block"
 import { tipModeOf } from "@/lib/onepage/tips"
+import { useFrameLoading } from "@/components/onepage/embed-shell"
 
 type Scale = "small" | "normal" | "live"
 
@@ -264,6 +266,8 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
   const host = React.useSyncExternalStore(noHost, readHost, serverHost)
   const [loaded, setLoaded] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
+  /* Round AS: at once in the sheet (./embed-shell). */
+  const loading = useFrameLoading()
   React.useEffect(() => {
     if (loaded || embed.embedKind) return
     const t = window.setTimeout(() => setFailed(true), 15000)
@@ -299,7 +303,7 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
       <iframe
         title={title}
         src={src}
-        loading="lazy"
+        loading={loading}
         onLoad={() => setLoaded(true)}
         allow="autoplay; encrypted-media; picture-in-picture; clipboard-write; fullscreen"
         allowFullScreen
@@ -568,7 +572,7 @@ function LinkView({ block, data, provider, look }: ViewProps) {
       return (
         <div data-onepage-app={provider.id} data-app-layout="carousel" className="w-full">
           {titled ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-          <div className="-mx-1 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="op-rail flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {embeds.map((e) => (
               <div key={e.embed.src} className="w-[78%] max-w-[320px] shrink-0 snap-start">
                 <AppEmbedView embed={e.embed} href={e.href} title={title} radius={radius} compact fallback={null} />
@@ -809,7 +813,7 @@ function ItemsView({ block, data, provider, look }: ViewProps) {
   return (
     <div data-onepage-app={provider.id} data-app-layout={layout} className="w-full">
       {heading}
-      <div className={carousel ? "-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "grid grid-cols-2"} style={{ gap: px(10, look.scale) }}>
+      <div className={carousel ? "op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "grid grid-cols-2"} style={{ gap: px(10, look.scale) }}>
         {items.map((item) => {
           const href = itemHref(item)
           return (
@@ -846,7 +850,7 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
   return (
     <div data-onepage-app="events" data-app-layout={layout} className="w-full">
       {data.title?.trim() ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-      <div className={carousel ? "-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex flex-col"} style={{ gap: px(10, look.scale) }}>
+      <div className={carousel ? "op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex flex-col"} style={{ gap: px(10, look.scale) }}>
         {events.map((ev) => {
           const day = eventDay(ev.date, locale)
           const href = ev.sold_out ? null : itemHref(ev)

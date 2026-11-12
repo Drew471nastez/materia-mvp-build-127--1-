@@ -60,7 +60,7 @@ import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
 import { skinOwnRootProps } from "@/lib/onepage/skin-own"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
-import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, mixedTileSizes, pairLinkTiles } from "@/lib/onepage/theme-layout"
+import { blockGapClass, blockLayoutOf, coverAspect, coverFades, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, mixedTileSizes, pairLinkTiles } from "@/lib/onepage/theme-layout"
 import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
@@ -68,12 +68,15 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/onepage/block-activity"
 import { canvasRule, heroHeaderShown, pageCanvasColour } from "@/lib/onepage/page-frame"
-import { HeroTopBar } from "@/components/onepage/hero-scroll"
+import { HeroTopBar, useCornerButtonsShown } from "@/components/onepage/hero-scroll"
 import { usePressFeel } from "@/components/onepage/press-feel"
+import { useLookStill } from "@/components/onepage/look-still"
+import { useBlockEntrance } from "@/components/onepage/block-entrance"
+import { pageGroundIsLight, socialIconColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
 import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
-import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
+import { COVER_FADE_MASK, HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { photoVeil, readableInk, readableTheme, signupCard, smallPrintAlpha } from "@/lib/onepage/contrast"
 import { pressableProps } from "@/lib/onepage/block-look"
@@ -102,6 +105,7 @@ import { bookingProviderName, bookingSource, tiktokPlayerUrl } from "@/lib/onepa
 import { BookingFrame } from "@/components/onepage/embed-frame"
 import { BlockSheetProvider, useBlockSheet } from "@/components/onepage/block-sheet"
 import { MusicPlayer, appleMusicEmbedUrl, musicSheetRequest, spotifyEmbedUrl } from "@/components/onepage/music-sheet"
+import { warmEmbed } from "@/lib/onepage/embed-warm"
 import { PdfOnPage, PdfPages } from "@/components/onepage/pdf-pages"
 import { blockInteraction } from "@/lib/onepage/block-sheet"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
@@ -112,7 +116,7 @@ import { checkSignupPhone, signupExtraFields } from "@/lib/onepage/signup-fields
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
 import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
-import { emailSignupImage, emailSignupLayout, emailSignupStacked } from "@/lib/onepage/email-signup"
+import { emailSignupImage, emailSignupLayout, emailSignupStacked, signupEmailReady, signupWait } from "@/lib/onepage/email-signup"
 import { pixelLead } from "@/lib/analytics/pixels"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 
@@ -330,17 +334,38 @@ const GLASS_ON_LIGHT_SHARE = {
  * the average of a gradient's colours, brighter than the middle. A picture
  * or a video counts as dark, as glass was made for it.
  */
+/** The blocks a page item draws: a block, or each block of a pair of links or products (components/onepage/leaving-block). */
+function blocksOfItem(item: unknown): string[] {
+  const i = item as { id?: string; links?: { id: string }[]; tiles?: { id: string }[] }
+  if (Array.isArray(i.links)) return i.links.map((b) => b.id)
+  if (Array.isArray(i.tiles)) return i.tiles.map((b) => b.id)
+  return i.id ? [i.id] : []
+}
+
 export function pageIsLight(theme: { background_type?: string | null; background_color?: string | null; background_gradient?: string | null }): boolean {
-  if (theme.background_type === "image" || theme.background_type === "video") return false
-  const src = theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#ffffff"
-  const hexes = src.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g)
-  if (!hexes) return true
-  const lum = hexes.map((h) => {
-    let x = h.slice(1)
-    if (x.length === 3) x = x.split("").map((c) => c + c).join("")
-    return (0.299 * parseInt(x.slice(0, 2), 16) + 0.587 * parseInt(x.slice(2, 4), 16) + 0.114 * parseInt(x.slice(4, 6), 16)) / 255
-  })
-  return lum.reduce((a, b) => a + b, 0) / lum.length > 0.6
+  return pageGroundIsLight(theme)
+}
+
+/*
+  THE CORNER BUTTONS COME AND GO IN ONE MOVE (round AS, the owner: "the share
+  and subscribe icons must not interfere with the header, flash or stutter").
+
+  A phone: 10px under the status bar, so each sits at an end of the profile
+  bar's 60px row (components/onepage/hero-scroll) rather than half over its
+  edge. A computer: in the window's corners, outside the card and its bar.
+
+  The box only moves (translate); the fade is on the button itself. A box that
+  fades is, while it fades, the edge of what a frosted button can blur, so
+  the frost went off when the fade began and came back when it ended: the
+  flash. The button fading on its own keeps its frost the whole way. Both
+  layers are kept by the compositor (will-change), so neither is made or
+  dropped as the move starts and ends. One 240ms move, from one listener
+  that waits for real travel one way (lib/onepage/feel cornerNext).
+*/
+const CORNER_BOX_CLASS = "fixed top-[calc(env(safe-area-inset-top)+10px)] sm:top-[calc(env(safe-area-inset-top)+8px)] md:top-6 z-[20] will-change-[translate] transition-[translate] duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const CORNER_BUTTON_CLASS = "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full will-change-[opacity] transition-opacity duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+function cornerButtonStyle(shown: boolean): React.CSSProperties {
+  return { opacity: shown ? 1 : 0 }
 }
 
 // Notification Bell Component with Subscribe Form
@@ -355,6 +380,8 @@ function NotificationBell({
   avatarVideoUrl = null,
 }: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black"; isVisible?: boolean; onLight?: boolean; avatarUrl?: string | null; avatarVideoUrl?: string | null }) {
   const [isOpen, setIsOpen] = useState(false)
+  /* Round AS: from the one shared listener (components/onepage/hero-scroll), so a scroll renders the buttons and not the page. */
+  const scrolledIn = useCornerButtonsShown()
   const styles = {
     glass: {
       buttonBg: "rgba(255, 255, 255, 0.15)",
@@ -450,7 +477,7 @@ function NotificationBell({
   // On mobile, hide smoothly when PDF modal is open
   const hideForModal = pdfModalOpen && isMobile
   // Show when visible OR when panel is open (so it doesn't vanish mid-interaction)
-  const shouldShow = (isVisible || isOpen) && !hideForModal
+  const shouldShow = ((isVisible && scrolledIn) || isOpen) && !hideForModal
 
   /*
     THE PANEL IS A SHEET NOW (components/onepage/subscribe-sheet): its own
@@ -459,12 +486,8 @@ function NotificationBell({
   */
   return (
     <div
-      className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-[opacity,translate] duration-500 ease-out"
-      style={{
-        opacity: shouldShow ? 1 : 0,
-        translate: shouldShow ? "0 0" : "0 -10px",
-        pointerEvents: shouldShow ? "auto" : "none",
-      }}
+      className={CORNER_BOX_CLASS + " right-[10px] sm:right-2 md:right-6"}
+      style={{ translate: shouldShow ? "0 0" : "0 -10px", pointerEvents: shouldShow ? "auto" : "none" }}
     >
       {/* Bell Button */}
       <button
@@ -474,7 +497,7 @@ function NotificationBell({
         aria-label={`Subscribe to ${sellerName}`}
         aria-haspopup="dialog"
         className={cn(
-          "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-opacity duration-200 hover:opacity-85",
+          CORNER_BUTTON_CLASS,
           style === "glass" && "backdrop-blur-md",
         )}
         style={{
@@ -483,6 +506,7 @@ function NotificationBell({
           /* Round 41: the fill stops inside the ring, so the round edge is the ring's alone (no hair of fill outside it). */
           backgroundClip: "padding-box",
           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+          ...cornerButtonStyle(shouldShow),
         }}
       >
         <Bell
@@ -550,6 +574,7 @@ function ShareButton({
   onLight?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const scrolledIn = useCornerButtonsShown()
   const styles = {
     glass: {
       buttonBg: "rgba(255, 255, 255, 0.15)",
@@ -584,8 +609,8 @@ function ShareButton({
 
   // Share icon is always positioned on the TOP LEFT (both mobile and desktop)
   // Subscribe icon stays on TOP RIGHT
-  // Desktop (md): top-[22px] to align 2px above the subscribe button which is at top-6 (24px)
-  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-[20]"
+  // Desktop (md): 2px above the subscribe button, as it always sat
+  const positionClass = CORNER_BOX_CLASS + " left-[10px] sm:left-2 md:left-8 md:-mt-0.5"
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -608,18 +633,13 @@ function ShareButton({
   // On mobile, hide smoothly when PDF modal is open
   const hideForModal = pdfModalOpen && isMobile
   // Show when visible OR when share modal is open (don't vanish mid-interaction)
-  const shouldShow = (isVisible || isOpen) && !hideForModal
+  const shouldShow = ((isVisible && scrolledIn) || isOpen) && !hideForModal
 
   return (
     <>
       <div
         className={positionClass}
-        style={{
-          transition: "opacity 500ms ease-out, translate 500ms ease-out",
-          opacity: shouldShow ? 1 : 0,
-          translate: shouldShow ? "0 0" : "0 -10px",
-          pointerEvents: shouldShow ? "auto" : "none",
-        }}
+        style={{ translate: shouldShow ? "0 0" : "0 -10px", pointerEvents: shouldShow ? "auto" : "none" }}
       >
         <div>
           {/* Share Button - icons 3px smaller on desktop */}
@@ -630,7 +650,7 @@ function ShareButton({
             aria-label={`Share ${pageTitle}`}
             aria-haspopup="dialog"
             className={cn(
-              "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-opacity duration-200 hover:opacity-85",
+              CORNER_BUTTON_CLASS,
               style === "glass" && "backdrop-blur-md",
             )}
             style={{
@@ -638,6 +658,7 @@ function ShareButton({
               border: s.buttonBorder,
               backgroundClip: "padding-box",
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+              ...cornerButtonStyle(shouldShow),
             }}
           >
             {/* Mobile: 18px (2px smaller than 20), Desktop: 17px (3px smaller than 20) */}
@@ -877,22 +898,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
   const modalVisibilityContextValue = { isAnyModalOpen, setIsAnyModalOpen }
 
-  // Scroll-based fade for share/notification buttons (same as editor preview)
-  const [buttonsVisible, setButtonsVisible] = useState(true)
-  const lastScrollY = useRef(0)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const nearTop = currentScrollY < 50
-      const scrollingUp = currentScrollY < lastScrollY.current - 5
-
-      setButtonsVisible(nearTop || scrollingUp)
-      lastScrollY.current = currentScrollY
-    }
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+  /* The Share and Subscribe buttons follow the scroll on their own (components/onepage/hero-scroll useCornerButtonsShown): the page is never rendered by a scroll. */
 
   /* Below 640px the music and checkout panels are the shared sheet (see THE SPOTIFY, APPLE MUSIC below). */
   const isPhone = usePhoneWidth()
@@ -1104,6 +1110,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* The page holds still while it takes on a look: no transition on its first paint, at hydration or as a new theme arrives (components/onepage/look-still). */
+  const lookStill = useLookStill(safeTheme)
+  /* Each block arrives as it comes into view, in the preview once the editor shows it (components/onepage/block-entrance). */
+  useBlockEntrance()
+
   /* Round AR: the least opacity the page's small print may have and still read (lib/onepage/contrast smallPrintAlpha, app/globals.css). */
   const smallPrint = smallPrintAlpha(safeTheme)
   /* Round AR: a photo or video wallpaper's effect, tint and blur (lib/onepage/wallpaper wallpaperMediaLook): CSS filters and plain layers, nothing per frame. */
@@ -1166,8 +1177,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
    * the old tree away and build a new one. So every state change in this
    * component unmounted and rebuilt the entire page.
    *
-   * There is a state change on almost every scroll — `buttonsVisible` above
-   * flips as you move — and on a phone you are always scrolling. Measured on
+   * There was a state change on almost every scroll (the corner buttons'
+   * visibility, held here until round AS gave it to the buttons themselves)
+   * and on a phone you are always scrolling. Measured on
    * the real page in scripts/check-onepage-stability.mjs: ONE scroll event
    * destroyed 12 <img> elements and built 12 fresh ones. A rebuilt <img>
    * repaints from nothing, the avatar drops back to the grey disc Radix shows
@@ -1198,13 +1210,15 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const mixedSizes = mixedTileSizes(laid, blockLayoutOf(safeTheme))
   const pageItemsNow = pairLinkTiles(laid, blockLayoutOf(safeTheme))
   /* Round AR: in the editor's preview a block taken off folds away instead of vanishing (components/onepage/leaving-block). */
-  const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview)
+  const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview, blocksOfItem)
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
       style={{
-        paddingLeft: isDesktop ? "28px" : "20px",
-        paddingRight: isDesktop ? "28px" : "20px",
+        /* The side padding, once: a row that slides sideways runs out to it (app/globals.css .op-rail). */
+        ["--op-gutter" as string]: isDesktop ? "28px" : "20px",
+        paddingLeft: "var(--op-gutter)",
+        paddingRight: "var(--op-gutter)",
         // More top padding on mobile to push avatar/content down
         /* No top padding only above a hero that is really drawn: without a
            picture the header is the classic one and needs the same 50px it
@@ -1228,7 +1242,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             /* The Grid layout: plain links that follow one another, two to a row, each a tile (app/globals.css [data-link-tile]). */
             if (isLinkTilePair(item)) {
               return (
-                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="" {...leavingProps(leaving)}>
+                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-link-pair="" {...leavingProps(leaving)}>
                   {(item.links as OnePageBlock[]).map((block) => (
                     <div key={block.id} className="min-w-0" data-link-tile="" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       {inEditorPreview && isIncompleteLink(block) ? (
@@ -1511,7 +1525,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           sellerId={seller_id}
           onepageId={onepage.id}
           style={safeSettings.subscribe_style || "glass"}
-          isVisible={buttonsVisible}
           onLight={pageIsLight(safeTheme)}
           avatarUrl={avatar_url}
           avatarVideoUrl={avatar_video_url}
@@ -1531,28 +1544,32 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           themeBackgroundType={safeTheme.background_type}
           themeBackgroundColor={safeTheme.background_color}
           themeBackgroundGradient={safeTheme.background_gradient}
-          isVisible={buttonsVisible}
           onLight={pageIsLight(safeTheme)}
         />
       )}
 
-      {/* Round AR: once a full picture hero has scrolled away, a slim bar with the creator's picture and name (components/onepage/hero-scroll). */}
+      {/* Round AR: once the profile has scrolled away, a slim bar with the creator's picture and name (components/onepage/hero-scroll); round AS, on every header layout, with the badge. */}
       <HeroTopBar
-        enabled={heroScrollEffect((safeTheme as any).header_layout, heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) && safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b)))}
+        enabled={safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b))}
+        heroEffect={heroScrollEffect((safeTheme as any).header_layout, heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) && safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b)))}
         name={sellerName}
         avatarUrl={avatar_url}
+        /* The picture's own corner, at the bar's 32px: a rounded square stays a rounded square. */
+        avatarRadius={heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) ? "9999px" : barAvatarRadius(avatarLook(safeTheme as never, false))}
+        badge={safeSettings.verified_badge_enabled ? <VerifiedBadge size={16} badgeType={safeSettings.verified_badge_type} tip={false} /> : null}
         logoUrl={(safeTheme as any).title_style === "logo" ? (safeTheme as any).title_logo_url : null}
         background={pageCanvasColour(safeTheme)}
         ink={(safeTheme as any).title_color || safeTheme.text_color || "#111111"}
         fontFamily={(safeTheme as any).title_font || safeTheme.font_family}
       />
       {/* Wave 10: every word on the page and in its sheets reads on what it sits on (components/onepage/legible-guard, lib/onepage/legible). */}
-      <LegibleGuard />
+      <LegibleGuard look={lookStill} />
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally. Only built where it is shown (lib/onepage/live-layout). */}
       {liveLayout !== "phone" && (
       <div
         className="onepage-live hidden md:block min-h-screen w-full relative [overflow-x:clip]"
+        data-op-still={lookStill}
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         {...skinRootProps(safeTheme)}
         {...skinOwnRootProps(safeTheme)}
@@ -1648,12 +1665,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
-          {/* Phone-like card - wider than before (500px instead of 420px) */}
+          {/* The page as a card: 420px, then 500px, then (round AS, the owner: "about 10% more width") 550px. */}
           <div
             ref={cardRef}
             data-onepage-drag-scope=""
             /* Round AR: clipped, not hidden: a box with overflow hidden is a scroll container, and the Hero's scroll timeline (components/onepage/hero-scroll) would follow it instead of the page. */
-            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-clip relative"
+            className="w-full max-w-[550px] mx-4 rounded-[40px] overflow-clip relative"
             style={{
               background: getBackgroundStyle(),
               boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
@@ -1728,6 +1745,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {liveLayout !== "desktop" && (
       <div
         className="onepage-live md:hidden min-h-screen w-full relative"
+        data-op-still={lookStill}
         data-onepage-drag-scope=""
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         {...skinRootProps(safeTheme)}
@@ -1881,10 +1899,16 @@ function getAnimationClassForProduct(animationType?: string) {
   }
 }
 
+/** The header picture's corner at the profile bar's 32px (components/onepage/hero-scroll). */
+function barAvatarRadius(look: { size: number; radius: string }): string {
+  if (look.radius === "9999px") return "9999px"
+  return `${Math.round((parseFloat(look.radius) / look.size) * 32 * 10) / 10}px`
+}
+
 // Verified Badge Component with tooltip
-function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; badgeType?: string }) {
-  // 10% bigger: desktop 22 -> 24, mobile 18 -> 20
-  const size = isDesktop ? 24 : 20
+function VerifiedBadge({ isDesktop = false, badgeType, size: sizeOwn, tip = true }: { isDesktop?: boolean; badgeType?: string; size?: number; tip?: boolean }) {
+  // 10% bigger: desktop 22 -> 24, mobile 18 -> 20; the profile bar's is its own (round AS)
+  const size = sizeOwn ?? (isDesktop ? 24 : 20)
   const badgeLabels: Record<string, string> = {
     verified_creator: "Verified Creator",
     verified_brand: "Verified Brand",
@@ -1895,8 +1919,8 @@ function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; 
   const label = badgeLabels[badgeType || "verified_creator"] || "Verified"
 
   return (
-    <span className="group relative inline-flex items-center ml-1.5">
-      <svg viewBox="0 0 22 22" width={size} height={size}>
+    <span className="group relative inline-flex items-center ml-1.5" data-verified-badge="">
+      <svg viewBox="0 0 22 22" width={size} height={size} role={tip ? undefined : "img"} aria-label={tip ? undefined : label}>
         {/* Blue badge background */}
         <path
           fill="#3b82f6"
@@ -1908,12 +1932,14 @@ function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; 
           d="M9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"
         />
       </svg>
-      <span
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
-        style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}
-      >
-        {label}
-      </span>
+      {tip ? (
+        <span
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
+          style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}
+        >
+          {label}
+        </span>
+      ) : null}
     </span>
   )
 }
@@ -2069,7 +2095,7 @@ function GroupBlockRenderer({
         <div
           ref={scrollContainerRef}
           data-group-carousel=""
-          className="w-full scrollbar-hide snap-x snap-mandatory select-none cursor-grab data-[dragging]:cursor-grabbing"
+          className="op-rail scrollbar-hide snap-x snap-mandatory select-none cursor-grab data-[dragging]:cursor-grabbing"
           /*
             ROOM FOR EVERY EDGE (round 42, "buttons still have cut borders").
             A scroller clips on all four sides, and the first slide used to
@@ -2087,9 +2113,11 @@ function GroupBlockRenderer({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
-            margin: `-${CAROUSEL_ROOM}px -${CAROUSEL_ROOM - 8}px`,
-            padding: `${CAROUSEL_ROOM + 12}px ${CAROUSEL_ROOM}px ${CAROUSEL_ROOM + 20}px`,
-            scrollPaddingInline: `${CAROUSEL_ROOM}px`,
+            /* Round AS: to the column's edge sideways (app/globals.css .op-rail); the room above and below stays. */
+            marginTop: -CAROUSEL_ROOM,
+            marginBottom: -CAROUSEL_ROOM,
+            paddingTop: CAROUSEL_ROOM + 12,
+            paddingBottom: CAROUSEL_ROOM + 20,
             ...(data.carousel_fade_edges ? { maskImage: SOFT_EDGES, WebkitMaskImage: SOFT_EDGES } : {}),
           }}
           onScroll={handleScroll}
@@ -2104,7 +2132,8 @@ function GroupBlockRenderer({
               <div
                 key={child.id}
                 className="shrink-0 snap-start"
-                style={itemStyle}
+                /* A row inside a slide stays inside it. */
+                style={{ ...itemStyle, ["--op-gutter" as string]: "4px" }}
                 data-sensitive-label={sensitiveLabel(child)}
               >
                 <div className="w-full" style={{ overflow: 'visible' }}>
@@ -2200,7 +2229,8 @@ function GroupBlockRenderer({
   return (
     <div 
       className="w-full flex flex-col gap-3"
-      style={{
+      /* A carousel lines up with the column itself and runs out to its edge (app/globals.css .op-rail); a stack keeps its 8px either side. */
+      style={data.layout === "carousel" ? { overflow: 'visible' } : {
         marginLeft: '-8px',
         marginRight: '-8px',
         width: 'calc(100% + 16px)',
@@ -2229,7 +2259,7 @@ function GroupBlockRenderer({
 /** The room a group carousel's scroller keeps around its slides: the widest glow or hard shadow a button draws, and a lift. */
 const CAROUSEL_ROOM = 16
 /* A group carousel's soft edges, as a mask: no colour of its own, so it suits any page background. */
-const SOFT_EDGES = `linear-gradient(to right, transparent 0, #000 ${CAROUSEL_ROOM + 12}px, #000 calc(100% - ${CAROUSEL_ROOM + 12}px), transparent 100%)`
+const SOFT_EDGES = "linear-gradient(to right, transparent 0, #000 var(--op-gutter, 28px), #000 calc(100% - var(--op-gutter, 28px)), transparent 100%)"
 
 /**
  * A COLLECTION'S OPTIONAL PICTURE AND LINE (GroupBlockData image_url and
@@ -2568,7 +2598,7 @@ function PublicImageCarousel({
         onTouchStart={hold}
         onPointerDown={hold}
         data-onepage-slides=""
-        className={cn("w-full scrollbar-hide select-none", images.length > 1 && "cursor-grab data-[dragging]:cursor-grabbing")}
+        className={cn("op-rail scrollbar-hide select-none", images.length > 1 && "cursor-grab data-[dragging]:cursor-grabbing")}
         style={{
           display: 'flex',
           gap: `${gap}px`,
@@ -2739,10 +2769,9 @@ function CoreBlockRenderer({
   /* Round AN: a Spotify or Apple Music link's player opens in the block sheet (components/onepage/music-sheet), as every block's does. */
   const pageSheet = useBlockSheet()
 
-  const socialStyle = (theme as any).social_icon_style || "filled"
-  const socialColor = (theme as any).social_icon_color || theme.text_color
-  /* Design › Social icons: each mark in its brand's colour, or all in the icon colour. A page saved before the choice existed has none, and stays one colour. */
-  const socialTone: "brand" | "mono" = (theme as any).social_icon_tone === "brand" ? "brand" : "mono"
+  /* Design › Social icons (lib/onepage/social-look): Solid, Outline or Glass; each mark in its brand's colour, or all in the icon colour. */
+  const socialColor = socialIconColorOf(theme as never)
+  const socialTone = socialIconToneOf(theme as never)
 
   // Button hover animation - based on theme setting, disabled inside carousel or group
   const buttonHoverAnimation = (theme as any).button_hover_animation || "default"
@@ -2804,17 +2833,18 @@ function CoreBlockRenderer({
   }
 
   /* The player in the block sheet; with "Show streaming", the other services under it. */
+  const spotifyRequest = (data: LinkButtonBlockData) => ({
+    blockId: block.id,
+    ...musicSheetRequest({
+      service: "spotify",
+      url: data.url,
+      title: data.label || "Spotify",
+      streaming: data.spotify_mode === "show_streaming" ? data.streaming_services : null,
+    }),
+  })
   const openSpotifyModal = (data: LinkButtonBlockData) => {
     if (!spotifyEmbedUrl(data.url)) return
-    pageSheet.open({
-      blockId: block.id,
-      ...musicSheetRequest({
-        service: "spotify",
-        url: data.url,
-        title: data.label || "Spotify",
-        streaming: data.spotify_mode === "show_streaming" ? data.streaming_services : null,
-      }),
-    })
+    pageSheet.open(spotifyRequest(data))
   }
 
   // Apple Music URL helper
@@ -2836,10 +2866,14 @@ function CoreBlockRenderer({
     return match ? match[1] : null
   }
 
+  const appleMusicRequest = (data: LinkButtonBlockData) => ({ blockId: block.id, ...musicSheetRequest({ service: "apple_music", url: data.url, title: data.label || "Apple Music" }) })
   const openAppleMusicModal = (data: LinkButtonBlockData) => {
     if (!appleMusicEmbedUrl(data.url)) return
-    pageSheet.open({ blockId: block.id, ...musicSheetRequest({ service: "apple_music", url: data.url, title: data.label || "Apple Music" }) })
+    pageSheet.open(appleMusicRequest(data))
   }
+  /* Round AS (lib/onepage/embed-warm): the player's hosts warmed on screen, and the player itself started hidden on a press or a resting mouse. */
+  const musicWarm = (data: LinkButtonBlockData, service: "spotify" | "apple_music") =>
+    warmEmbed(data.url, () => pageSheet.prewarm(service === "spotify" ? spotifyRequest(data) : appleMusicRequest(data)))
 
   // Parse gradient to get colors for fade
   const getGradientBottomColor = () => {
@@ -2871,9 +2905,15 @@ function CoreBlockRenderer({
 
       // Hero layout: the picture fades into the page itself (a mask), so any wallpaper under it, a pattern included, carries on
       if (heroHeaderShown(theme as any, profile)) {
-        // Desktop: +10% taller (14/11 vs old 7/5), Mobile: +20% taller (10/9 vs old 4/3)
-        const aspectRatio = isDesktop ? "14/11" : "10/9"
-        const heroMargin = isDesktop ? "-mx-7 -mt-0" : "-mx-5 -mt-8"
+        /*
+          Round AS, the owner's "fade" layout, as link.me draws it: a large picture that melts into the page, the name
+          over the melted part. Taller than it was (10/9 on a phone, 14/11 on a computer): 4/5 and square.
+        */
+        const aspectRatio = isDesktop ? "1/1" : "4/5"
+        /* The words over the melted part get a halo of the page's own colour, not a black shadow: dark words on a light page stay crisp. */
+        const halo = `color-mix(in srgb, ${pageCanvasColour(theme as any)} 72%, transparent)`
+        /* Round AS: from the very top of a phone's page; it was pulled 32px above it, and the top of the picture was never seen. */
+        const heroMargin = isDesktop ? "-mx-7 -mt-0" : "-mx-5"
         const heroWidth = isDesktop ? "w-[calc(100%+56px)]" : "w-[calc(100%+40px)]"
         const heroPosition = { objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }
 
@@ -2938,6 +2978,7 @@ function CoreBlockRenderer({
                   <img
                     src={onePageImageSrc((theme as any).title_logo_url, 320) || "/placeholder.svg"}
                     alt={profile.title || "Logo"}
+                    data-op-bar-anchor=""
                     className="mx-auto w-auto"
                     style={{
                       maxHeight:
@@ -2968,11 +3009,12 @@ function CoreBlockRenderer({
                       style={{
                         color: (theme as any).title_color || theme.text_color,
                         fontFamily: fontStack((theme as any).title_font || theme.font_family),
-                        textShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                        textShadow: `0 1px 14px ${halo}, 0 0 2px ${halo}`,
                         ...titleTypeStyle(theme as never),
                         ...(nameStyleOf(theme as never) ? nameStyleReset(true) : null),
                       }}
                       data-name-style={nameStyleOf(theme as never) ?? undefined}
+                      data-op-bar-anchor=""
                     >
                       <NameWords theme={theme} title={profile.title} />
                       {settings?.verified_badge_enabled && (
@@ -2986,7 +3028,7 @@ function CoreBlockRenderer({
                   className={cn("mt-2 max-w-sm mx-auto", bioSizeClass(theme as never, true, isDesktop))}
                   style={{
                     color: theme.secondary_text_color || theme.text_color,
-                    textShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                    textShadow: `0 1px 10px ${halo}`,
                     ...bioTypeStyle(theme as never),
                   }}
                 >
@@ -3023,6 +3065,9 @@ function CoreBlockRenderer({
       const ownCover = (theme as any).cover_profile_layout === true
       const heroCover = heroCoverShown(theme as any)
       const coverRatio = coverAspect(theme as any, isDesktop)
+      /* Round AS: the creator's own cover melts into the page at its foot, unless switched off (lib/onepage/theme-layout coverFades). */
+      const coverFade = coverFades(theme as any)
+      const coverMask = heroCover ? HERO_FADE_MASK : coverFade ? COVER_FADE_MASK : undefined
 
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="" data-op-cover={cover ? (heroCover ? "hero" : "") : undefined}>
@@ -3053,11 +3098,12 @@ function CoreBlockRenderer({
               <div
                 className="relative w-full overflow-hidden"
                 data-cover-band={heroCover ? "hero" : ownCover ? "own" : "theme"}
+                data-cover-fade={coverMask ? "" : undefined}
                 style={{
                   aspectRatio: String(coverRatio),
-                  backgroundColor: heroCover ? undefined : `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)`,
-                  maskImage: heroCover ? HERO_FADE_MASK : undefined,
-                  WebkitMaskImage: heroCover ? HERO_FADE_MASK : undefined,
+                  backgroundColor: coverMask ? undefined : `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)`,
+                  maskImage: coverMask,
+                  WebkitMaskImage: coverMask,
                 }}
               >
                 <ProfileImage
@@ -3190,6 +3236,7 @@ function CoreBlockRenderer({
               <img
                 src={onePageImageSrc((theme as any).title_logo_url, 320) || "/placeholder.svg"}
                 alt={profile.title || "Logo"}
+                data-op-bar-anchor=""
                 className="mx-auto w-auto my-2"
                 style={{
                   maxHeight:
@@ -3217,6 +3264,7 @@ function CoreBlockRenderer({
                     ...(nameStyleOf(theme as never) ? nameStyleReset(false) : null),
                   }}
                   data-name-style={nameStyleOf(theme as never) ?? undefined}
+                  data-op-bar-anchor=""
                 >
                   <NameWords theme={theme} title={profile.title} />
                   {settings?.verified_badge_enabled && (
@@ -3308,16 +3356,12 @@ function CoreBlockRenderer({
                   changes: nothing about its box, or anything beside it, moves.
                 */
                 className={cn(
-                  "flex items-center justify-center transition-opacity duration-150 ease-out",
+                  "flex w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] items-center justify-center transition-opacity duration-150 ease-out",
                   !isInsideCarousel && "hover:opacity-70",
-                  socialStyle === "filled" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full",
-                  socialStyle === "outline" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full border-2",
-                  socialStyle === "minimal" && "p-2.5",
                 )}
-                style={{
-                  backgroundColor: socialStyle === "filled" ? `${socialColor}20` : "transparent",
-                  borderColor: socialStyle === "outline" ? `${socialColor}40` : "transparent",
-                }}
+                /* Every value inline, so a skin's tile gives way to the creator's choice once it is theirs (lib/onepage/skin-own). */
+                style={socialTileStyle(theme as never, { onLight: pageIsLight(theme as never) })}
+                data-social-style={socialIconStyleOf(theme as never)}
               >
                 {/* Mobile: 20px (+2px), Desktop: 19px (+2px) */}
                 <span className="w-[20px] h-[20px] sm:w-[19px] sm:h-[19px] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">
@@ -3668,6 +3712,7 @@ function CoreBlockRenderer({
                 trackClick(block.id, data.url)
                 openSpotifyModal(data)
               }}
+              {...musicWarm(data, "spotify")}
               className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
@@ -3691,6 +3736,7 @@ function CoreBlockRenderer({
                 trackClick(block.id, data.url)
                 openAppleMusicModal(data)
               }}
+              {...musicWarm(data, "apple_music")}
               className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
@@ -3754,6 +3800,7 @@ function CoreBlockRenderer({
               trackClick(block.id, data.url)
               openSpotifyModal(data)
             }}
+            {...musicWarm(data, "spotify")}
             {...buttonHoverAttrs}
             className={cn(
               "op-btn w-full flex items-center font-medium cursor-pointer",
@@ -3809,6 +3856,7 @@ function CoreBlockRenderer({
               trackClick(block.id, data.url)
               openAppleMusicModal(data)
             }}
+            {...musicWarm(data, "apple_music")}
             {...buttonHoverAttrs}
             className={cn(
               "op-btn w-full relative flex items-center justify-center font-medium cursor-pointer",
@@ -4499,6 +4547,12 @@ function CoreBlockRenderer({
       */
       const renderEmailFields = ({ stacked, inverted, outlined, shape, avatar }: EmailSignupFormOptions) => {
         const buttonText = getButtonText()
+        /*
+          Round AS (lib/onepage/email-signup signupEmailReady): the button waits, faded, until an address could be taken,
+          then eases in. The page's button fades by a filter (signupWait), not its opacity, which the page's own button
+          rules and the blocks' arrival also move.
+        */
+        const emailReady = signupEmailReady(email)
         /* Round AR: the page's words as they read on the signup's card (signupInk above). */
         const pageInk = signupInk
         /*
@@ -4529,8 +4583,9 @@ function CoreBlockRenderer({
                 <button
                   type={done ? "button" : "submit"}
                   onClick={done ? handleDownloadClick : undefined}
-                  disabled={!done && (isSubmitting || emailSubmitted)}
-                  className="inline-flex h-10 max-w-[58%] shrink-0 items-center gap-2 rounded-full bg-[#ececef] pl-4 pr-1 text-[14px] font-medium text-[#111113] transition-[background-color,opacity] duration-150 disabled:cursor-not-allowed disabled:opacity-60 [@media(hover:hover)]:hover:bg-[#e2e2e6]"
+                  disabled={!done && (isSubmitting || emailSubmitted || !emailReady)}
+                  data-email-ready={emailReady ? "" : undefined}
+                  className="inline-flex h-10 max-w-[58%] shrink-0 items-center gap-2 rounded-full bg-[#ececef] pl-4 pr-1 text-[14px] font-medium text-[#111113] transition-[background-color,opacity] duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45 [@media(hover:hover)]:hover:bg-[#e2e2e6]"
                   data-email-connect=""
                 >
                   <span className="truncate">{done ? "Download" : isSubmitting ? "..." : buttonText}</span>
@@ -4567,9 +4622,10 @@ function CoreBlockRenderer({
                 <button
                   type={done ? "button" : "submit"}
                   onClick={done ? handleDownloadClick : undefined}
-                  disabled={!done && (isSubmitting || emailSubmitted)}
-                  className="group/send inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{ color: pageInk }}
+                  disabled={!done && (isSubmitting || emailSubmitted || !emailReady)}
+                  data-email-ready={emailReady ? "" : undefined}
+                  className="group/send inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold duration-200 ease-out disabled:cursor-not-allowed motion-reduce:transition-none"
+                  style={{ color: pageInk, ...signupWait(done || emailReady || isSubmitting) }}
                   data-email-send=""
                 >
                   {done ? "Download" : isSubmitting ? "..." : buttonText}
@@ -4605,7 +4661,7 @@ function CoreBlockRenderer({
                   Download
                 </button>
               ) : (
-                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles} {...submitAttrs}>
+                <button type="submit" disabled={isSubmitting || emailSubmitted || !emailReady} data-email-ready={emailReady ? "" : undefined} data-email-submit="" className={cn(buttonClass, "disabled:cursor-not-allowed")} style={{ ...submitStyles, ...signupWait(emailReady || isSubmitting) }} {...submitAttrs}>
                   {isSubmitting ? "..." : buttonText}
                 </button>
               )}
@@ -4731,6 +4787,8 @@ function CoreBlockRenderer({
                 <div
                   key={child.id}
                   className="w-full px-3"
+                  /* A row in a collection runs out past its 12px to the page's edge too (app/globals.css .op-rail). */
+                  style={{ ["--op-gutter" as string]: isDesktop ? "40px" : "32px" }}
                   data-sensitive-label={sensitiveLabel(child)}
                 >
                   {inGroupPreview && isIncompleteLink(child) ? (

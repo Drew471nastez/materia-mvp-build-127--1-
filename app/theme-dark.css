@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 909 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 911 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -566,6 +566,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#f5f6f7\]:not([data-own-look], [data-own-look] *) { background-color: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#f5f6f8\]:not([data-own-look], [data-own-look] *) { background-color: #111113; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#f6f5ff\]:not([data-own-look], [data-own-look] *) { background-color: #111113; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#f6f6f7\]:not([data-own-look], [data-own-look] *) { background-color: #111113; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#f6f7f8\]:not([data-own-look], [data-own-look] *) { background-color: #111113; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#f6f7f9\]:not([data-own-look], [data-own-look] *) { background-color: #111113; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#f6f7fb\]:not([data-own-look], [data-own-look] *) { background-color: #111113; }
@@ -887,6 +888,8 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:ring-\[\#1a1a2e\]\/30:not([data-own-look], [data-own-look] *):focus-visible { --tw-ring-color: rgba(255,255,255,0.072); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:ring-\[\#1a1a2e\]\/40:not([data-own-look], [data-own-look] *):focus-visible { --tw-ring-color: rgba(255,255,255,0.096); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:ring-black\/10:not([data-own-look], [data-own-look] *):focus-visible { --tw-ring-color: rgba(255,255,255,0.024); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:ring-neutral-300:not([data-own-look], [data-own-look] *):focus-visible { --tw-ring-color: rgba(255,255,255,0.07); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:ring-neutral-900\/30:not([data-own-look], [data-own-look] *):focus-visible { --tw-ring-color: rgba(255,255,255,0.072); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:ring-violet-200\/80:not([data-own-look], [data-own-look] *):focus-visible { --tw-ring-color: hsla(251,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:ring-white:not([data-own-look], [data-own-look] *):focus-visible { --tw-ring-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:ring-white\/40:not([data-own-look], [data-own-look] *):focus-visible { --tw-ring-color: rgba(255,255,255,0.035); }
@@ -953,7 +956,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-\[\#1a1a2e\]\/15:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.036); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-\[\#e4e7ec\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .ring-\[\#e5e7eb\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-\[\#f5f6f8\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-\[\#f8f9fa\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-\[\#fafafa\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }

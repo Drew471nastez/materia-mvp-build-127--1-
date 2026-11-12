@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { pushRequestUser } from "@/lib/push/request-user"
+import { authUnavailableResponse } from "@/lib/auth/route-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { maskEmail } from "@/lib/privacy/mask-email"
 
@@ -13,10 +14,11 @@ export async function POST(req: Request) {
   console.log("[push/register] Request received")
 
   /* The cookie, or the app's own access token when the web view's cookie is missing (lib/push/request-user.ts). */
-  const { user, via, authError } = await pushRequestUser(req)
+  const { user, via, authError, unavailable } = await pushRequestUser(req)
 
   console.log("[push/register] Auth user:", user ? `id=${user.id.slice(0, 8)}... email=${maskEmail(user.email)}${via === "bearer" ? " (bearer)" : ""}` : "null", authError ? `authError=${authError}` : "")
 
+  if (!user && unavailable) return authUnavailableResponse()
   if (!user) {
     console.error("[push/register] Unauthorized — no session cookie and no valid bearer token")
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

@@ -100,7 +100,8 @@ export async function shopCaller(area: TeamArea | readonly TeamArea[] = "store",
 
 /** creatorFor for the first of these areas the member holds (the first named when none). The owner, in their own account, as with one area. */
 async function creatorForAny(db: Db, userId: string, areas: readonly TeamArea[]) {
-  const acting = await actingStore(db, userId).catch(() => null)
+  /* A membership read that failed throws (round rel2-auth); shopCaller answers it 503, never their own store. */
+  const acting = await actingStore(db, userId)
   const area = (acting && areas.find((a) => a !== "store" && permits(acting.permissions, a))) || areas[0] || "store"
   return creatorFor(db, userId, area, "id", acting)
 }

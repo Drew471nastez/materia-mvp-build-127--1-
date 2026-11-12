@@ -257,7 +257,8 @@ for (const t of THEME_TEMPLATES) {
 }
 check(`no two of the ${THEME_TEMPLATES.length} themes share a structure (header, cover, layout, products, alignment, button, corners, skin)`, twins.length === 0, twins.join("; "))
 const kinds = (k: (t: T) => boolean) => THEME_TEMPLATES.filter((t) => k(t.theme_config as T)).length
-check("some open on a full-bleed Hero, some on a cover picture", kinds((t) => t.header_layout === "hero") >= 5 && kinds((t) => !!t.cover_image_url) >= 4)
+/* Editorial, one of the four with a cover, was retired (lib/onepage/retired-themes). */
+check("some open on a full-bleed Hero, some on a cover picture", kinds((t) => t.header_layout === "hero") >= 5 && kinds((t) => !!t.cover_image_url) >= 3)
 check("every links layout is used by three themes or more", ["grid", "cards", "compact", "masonry"].every((l) => kinds((t) => t.block_layout === l) >= 3))
 check("products as tiles and as rows, each in four themes or more", kinds((t) => t.product_layout === "grid") >= 4 && kinds((t) => t.product_layout === "rows") >= 4)
 check("a Hero theme names its Hero", THEME_TEMPLATES.filter((t) => (t.theme_config as T).header_layout === "hero").every((t) => (t as T).profile_layout === "hero"))
@@ -316,7 +317,9 @@ console.log("\nRound AR7: the signup, the chips and the cards' own buttons read 
   check("the signup's words are held to its card", /theme=\{signupTheme\}/.test(email) && /const pageInk = signupInk/.test(email))
   const data = read("components/onepage/data-blocks.tsx")
   check("poll options are the page's button made to read on the card", /const option = pressableProps\(parts\.onCard, look\.still\)/.test(data) && /className=\{cn\(option\.className/.test(data))
-  check("tip amounts and Send are the page's button; nothing reads a part that is gone", /const amount = pressableProps\(parts\.onCard, look\.still\)/.test(data) && /data=\{\{ "data-tip-send": "" \}\}/.test(data) && !/parts\.(ink|paper)\b/.test(data))
+  /* Round AS: the tips card is its own file; its amounts are the card's own words turned round (contrast measured by scripts/check-onepage-tips-as.mjs), Send is the page's button. */
+  const tips = read("components/onepage/tip-block.tsx")
+  check("tip amounts read on the card and Send is the page's button; nothing reads a part that is gone", /inkOn\(pickedFill,/.test(tips) && /data=\{\{ "data-tip-send": "" \}\}/.test(tips) && /<CardButton/.test(tips) && !/parts\.(ink|paper)\b/.test(tips) && !/parts\.(ink|paper)\b/.test(data))
   check("an event's date chip reads on the card, in both event blocks", /: parts\.chip\)/.test(data) && /\.\.\.parts\.chip/.test(read("components/onepage/app-block.tsx")))
   const shelf = read("components/onepage/storelib-blocks.tsx")
   check("a discount code's Copy is the page's button", /const copyPress = pressableProps\(onCardButtonTheme\(look\.theme\), look\.still\)/.test(shelf) && !/border-dashed border-current\/40/.test(shelf))

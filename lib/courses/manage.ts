@@ -96,7 +96,9 @@ export async function ownerOf(db: Db, userId: string, productId: unknown, teamSt
   }
   const creatorId = (product as { creator_id?: string | null } | null)?.creator_id
   if (!creatorId) throw new ManageError("Product not found", 404)
-  const { data: creator } = await db.from("creators").select("id, user_id, subscription_plan_id").eq("id", creatorId).maybeSingle()
+  const { data: creator, error: creatorError } = await db.from("creators").select("id, user_id, subscription_plan_id").eq("id", creatorId).maybeSingle()
+  /* A read that failed is not "not found" and not Free (round rel2-auth). */
+  if (creatorError) throw new ManageError("Storelib is not answering right now. Try again.", 503)
   const c = creator as { user_id?: string | null; subscription_plan_id?: string | null } | null
   if (!c || (c.user_id !== userId && creatorId !== teamStore)) throw new ManageError("Product not found", 404)
   return { userId, creatorId, planId: c.subscription_plan_id ?? null, productId }

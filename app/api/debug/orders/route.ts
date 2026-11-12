@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
-    const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
     // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated", userError }, { status: 401 })
+    const who = await routeUser({ fresh: true })
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    if (who.kind !== "user") {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
+    const user = who.user
 
     // Get creator for this user
     const { data: creator, error: creatorError } = await adminSupabase

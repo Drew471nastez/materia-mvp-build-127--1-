@@ -245,7 +245,11 @@ try {
       await page.click('[data-tip-amount="500"]')
       const label = await page.$eval("[data-tip-send]", (b) => b.textContent)
       expect(label === "Tip $5", "the button says the amount", label)
-      await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }).catch(() => {}), page.click("[data-tip-send]")])
+      /* Round AS: a block that asks for a note opens the amount sheet on Tip; Continue there pays. */
+      await page.click("[data-tip-send]")
+      await page.waitForSelector("[data-tip-continue]", { timeout: 4000 }).catch(() => {})
+      await new Promise((r) => setTimeout(r, 450))
+      await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }).catch(() => {}), page.click("[data-tip-continue]")])
       expect(sent.tips.length === 1 && sent.tips[0].amount_cents === 500 && sent.tips[0].block_id === "tips1" && sent.tips[0].return_path === "/app/onepage", "Tip sends the chosen amount, the block and the page's own path", sent.tips[0])
       await page.waitForSelector("[data-tip-thanks]", { timeout: 8000 }).catch(() => {})
       const thanks = await page.$eval("[data-tip-thanks]", (e) => e.textContent).catch(() => null)

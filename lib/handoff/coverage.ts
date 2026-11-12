@@ -91,7 +91,7 @@ export const DETACHED_TABLES: Readonly<Record<string, string>> = {
 
 /** Read by the function and never changed: a running one refuses the handoff. */
 export const CHECKED_TABLES: Readonly<Record<string, string>> = {
-  subscriptions: "A Storelib plan that is still running is billed to the founder's card, so the handoff is refused until it ends.",
+  subscriptions: "A Storelib plan that is still running is billed to the founder's card, so the handoff is refused until it ends. The ended plan's row, which names the founder's billing customer, is removed once the transfer commits (lib/handoff/server finishHandoff), so the new owner's billing starts fresh.",
   memberships: "Live paid memberships are billed into the founder's payout account, so the handoff is refused until they end.",
 }
 

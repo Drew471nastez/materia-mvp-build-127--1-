@@ -8,6 +8,7 @@ import { scheduleWeeklyDigest } from "@/lib/communities/server/notify"
 import { deviceCount, readChoice, readPushEnabled, saveChoice, setPushEnabled } from "@/lib/notifications/push-bridge"
 import { applyNotifyChange, communityKindStates, emailStates, kindStates, type NotifyChoice } from "@/lib/notifications/push-kinds"
 import { setPreference } from "@/lib/notify/preferences"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -45,7 +46,7 @@ const COMMUNITIES_SHOWN = 30
  */
 export async function GET() {
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }))
   const db = admin()
   const [enabled, devices, choice, moderates, on] = await Promise.all([readPushEnabled(db, userId), deviceCount(db, userId), readChoice(db, userId), reviewsReports(db, userId), communitiesEnabled().catch(() => false)])
   const communities = on ? await myCommunities(db, userId, choice) : []
@@ -89,7 +90,7 @@ async function myCommunities(db: ReturnType<typeof admin>, userId: string, choic
 
 export async function PATCH(request: Request) {
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }))
   const limited = await rateLimit({ bucket: "me-push", subjects: [`user:${userId}`], windows: [{ limit: 30, seconds: 60 }, { limit: 300, seconds: 86400 }], message: "Too many changes at once. Try again in a minute." })
   if (limited) return limited
   const body = await readJson(request)

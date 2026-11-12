@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { requestUser } from "@/lib/businesses/server"
+import { requestUser, requestUserUnavailable } from "@/lib/businesses/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { TEAM_STORE_COOKIE, acceptInvite, declineInvite, joinPath } from "@/lib/team/server"
 import { fromOwnPage } from "@/lib/team/own-page"
@@ -57,7 +57,8 @@ export async function POST(req: Request) {
   }
 
   const user = await requestUser(req)
-  if (!user) return back(req, token)
+  /* Auth could not say who pressed: back to the invite with "Try again", never to sign in (round rel2-auth). */
+  if (!user) return back(req, token, requestUserUnavailable(req) ? "failed" : undefined)
   const limited = await rateLimit({ bucket: "team-accept", subjects: [`user:${user.id}`], windows: LIMITS.claim, message: "Too many tries." })
   if (limited) return back(req, token, "slow")
   const out = await acceptInvite(createAdminClient(), token, user)

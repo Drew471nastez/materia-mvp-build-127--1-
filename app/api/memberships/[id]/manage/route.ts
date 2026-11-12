@@ -7,6 +7,7 @@ import { retrieveSubscription, syncSubscription } from "@/lib/memberships/sync"
 import { requestViewer } from "@/lib/memberships/viewer"
 import { NOT_SET_UP, type MembershipRow } from "@/lib/memberships/server"
 import { grantsAccess } from "@/lib/memberships/state"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -30,7 +31,7 @@ export const runtime = "nodejs"
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await requestViewer()
-  if (!viewer) return NextResponse.json({ error: "Sign in to manage your membership." }, { status: 401 })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to manage your membership." }, { status: 401 }), { fresh: true })
   let body: { action?: unknown }
   try {
     body = await request.json()

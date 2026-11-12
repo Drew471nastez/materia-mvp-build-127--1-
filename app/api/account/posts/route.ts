@@ -3,6 +3,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, sessionUserId } from "@/lib/communities/server/feed"
 import { myPostsPage } from "@/lib/communities/server/member-profile"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: NO_STORE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "unauthorized" }, { status: 401, headers: NO_STORE }))
   const raw = new URL(request.url).searchParams.get("cursor")
   const page = await myPostsPage(admin(), userId, raw && raw.length <= 400 ? raw : null)
   return NextResponse.json(page, { headers: NO_STORE })

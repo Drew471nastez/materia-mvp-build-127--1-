@@ -50,7 +50,8 @@ section("Embeds: a frame is as tall as its document, and does not scroll")
 section("Buttons in a carousel: room on every side")
 {
   const page = code("components/onepage/public-onepage.tsx")
-  check("the scroller reaches past its slides and the snap stops inside that room", /const CAROUSEL_ROOM = 16/.test(page) && /scrollPaddingInline: `\$\{CAROUSEL_ROOM\}px`/.test(page) && /margin: `-\$\{CAROUSEL_ROOM\}px -\$\{CAROUSEL_ROOM - 8\}px`/.test(page))
+  /* Changed on purpose (round AS): sideways the scroller now runs to the page's edge on the shared rail (app/globals.css .op-rail, its snap stopping at the column); the room above and below is as it was. */
+  check("the scroller reaches past its slides and the snap stops inside that room", /const CAROUSEL_ROOM = 16/.test(page) && /data-group-carousel=""\s*className="op-rail /.test(page) && /marginTop: -CAROUSEL_ROOM,\s*marginBottom: -CAROUSEL_ROOM,\s*paddingTop: CAROUSEL_ROOM \+ 12,\s*paddingBottom: CAROUSEL_ROOM \+ 20,/.test(page))
   check("  the old flush 5px gutter is gone", !/padding: '12px 5px 20px 5px'/.test(page))
 }
 

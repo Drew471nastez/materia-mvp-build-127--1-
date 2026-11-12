@@ -119,7 +119,8 @@ for (const table of ["entitlements", "orders"]) {
 
 check(
   "the product page asks nobody who is looking; the purchase check does",
-  !/supabase\.auth\.getUser\(\)|currentUserForRequest\(\)/.test(pageSrc) && /supabase\.auth\.getUser\(\)/.test(verifySrc),
+  /* Changed on purpose (rel2-auth): the purchase check still asks Supabase Auth itself, through routeUser({ fresh: true }), so Auth not answering is "could not tell"; the page still asks nobody. */
+  !/supabase\.auth\.getUser\(\)|currentUserForRequest\(\)|routeUser\(/.test(pageSrc) && /routeUser\(\{ fresh: true \}\)/.test(verifySrc),
   PAGE,
 )
 

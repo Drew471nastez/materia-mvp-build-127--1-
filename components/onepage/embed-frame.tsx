@@ -77,6 +77,7 @@
 
 import * as React from "react"
 import { bookingFrameUrl, bookingHeightFromMessage, embedHeightFromMessage, embedWidthFromMessage, type EmbedKind } from "@/lib/onepage/creator-blocks"
+import { useFrameLoading } from "./embed-shell"
 
 /** The widest each service draws its card. Wider than this, the service centres it in white. */
 export const EMBED_MAX_WIDTH: Partial<Record<EmbedKind, number>> = { instagram: 540, x: 550 }
@@ -177,6 +178,8 @@ export function EmbedFrame({
   const [shown, setShown] = React.useState(false)
   const measuredOnce = React.useRef(false)
   const settle = React.useRef<number | null>(null)
+  /* Round AS: at once in the sheet, which is on screen the moment it exists. */
+  const loading = useFrameLoading()
 
   /* What this browser saw last time, read after the first render so the server's markup and the first client render agree. */
   React.useEffect(() => {
@@ -252,7 +255,7 @@ export function EmbedFrame({
         ref={frameRef}
         title={title}
         src={src}
-        loading="lazy"
+        loading={loading}
         referrerPolicy="strict-origin-when-cross-origin"
         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture; web-share"
         allowFullScreen
@@ -284,6 +287,7 @@ export function BookingFrame({ url, title, radius, fallbackHeight = 650 }: { url
   const src = host ? bookingFrameUrl(url, host) : null
   const frameRef = React.useRef<HTMLIFrameElement>(null)
   const [h, setH] = React.useState<number | null>(null)
+  const loading = useFrameLoading()
   React.useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.source !== frameRef.current?.contentWindow) return
@@ -300,7 +304,7 @@ export function BookingFrame({ url, title, radius, fallbackHeight = 650 }: { url
           ref={frameRef}
           src={src}
           title={title}
-          loading="lazy"
+          loading={loading}
           scrolling={h ? "no" : undefined}
           className="absolute inset-0 block h-full w-full border-0"
         />

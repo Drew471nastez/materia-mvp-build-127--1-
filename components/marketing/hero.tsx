@@ -20,11 +20,8 @@ export function Hero() {
       }
     >
       <style>{HERO_CSS}</style>
-      <link
-        rel="preconnect"
-        href="https://skgtqglupjcnfhfscink.supabase.co"
-        crossOrigin="anonymous"
-      />
+      {/* The video's own host, read from its address, so a rotated link keeps its warm connection. */}
+      <link rel="preconnect" href={new URL(HERO_VIDEO.src).origin} crossOrigin="anonymous" />
       <HeroVideo />
       <div className="cinematic-tint" aria-hidden="true" />
       <div className="cinematic-grain" aria-hidden="true" />

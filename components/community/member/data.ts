@@ -9,7 +9,7 @@ import { welcomeVideoSrc } from "@/lib/communities/post-media"
  */
 import { cache } from "react"
 import { communitiesEnabled } from "@/lib/communities/flag"
-import { communityOpen, loadCommunity, viewerContext, type Viewer } from "@/lib/communities/server/context"
+import { communityOpen, viewerContext, type Viewer } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { listSpaces, spaceViews } from "@/lib/communities/server/feed"
 import { unreadCounts } from "@/lib/communities/server/chat"
@@ -18,7 +18,7 @@ import { loadChatSettings } from "@/lib/communities/server/chat-settings"
 import { chatTabOf } from "@/lib/communities/chat-rules"
 import { librarySettings } from "@/lib/communities/server/library"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
-import { warmTopBar } from "@/lib/communities/server/public"
+import { communityBySlug, warmTopBar } from "@/lib/communities/server/public"
 import { warmWall } from "@/lib/communities/server/wall"
 export { eventHrefFor } from "@/lib/communities/server/wall"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
@@ -45,7 +45,11 @@ export const memberPage = cache(async (slug: string): Promise<MemberPage> => {
     included) waited on one and then the other: one round trip to the database and one to the sign in, in a row, before
     anything else could start (scripts/measure-community-member-server.mjs).
   */
-  const [community, current] = await Promise.all([loadCommunity(db, { slug }), currentUserForRequest()])
+  /*
+    The same read the page and its metadata make (communityBySlug, round rel2-public): the community's row once per
+    request, live, so who may see it is always decided from the row as it is now.
+  */
+  const [community, current] = await Promise.all([communityBySlug(slug), currentUserForRequest()])
   if (!community) return { state: "missing", community: null, viewer: null }
   const userId = current.user?.id ?? null
   /*

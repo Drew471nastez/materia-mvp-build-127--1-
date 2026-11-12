@@ -993,9 +993,10 @@ export const W9_THEMES = [
  * style, so people have more choices", "a new one Windows 98, and 2 more
  * that are missing, 100% very popular".
  *
- *   Aero Aquarium    Aero's glass under water at night: light shafts,
- *                    rising bubbles, goldfish, weed and sand; goldfish
- *                    orange gel on the products.
+ *   Aero Aquarium    Aero's glass under water at night: soft light shafts,
+ *                    rising bubbles, a few small goldfish, weed and sand; a
+ *                    smooth coral button on the products, the name in
+ *                    Manrope (round op-themes: made quieter and cleaner).
  *   Aqua Graphite    Aqua's sober setting: brushed metal, graphite gel, grey
  *                    window lights.
  *   Messenger Olive  the buddy list in olive green, a sunny gel button.
@@ -1028,7 +1029,7 @@ export const W10_THEMES = [
     theme_config: {
       background_type: "gradient" as const,
       background_color: "#06395a",
-      background_gradient: "linear-gradient(180deg, #06324f 0%, #074466 38%, #06395a 70%, #04263f 100%)",
+      background_gradient: "linear-gradient(180deg, #05314d 0%, #08486a 34%, #063a5a 68%, #032237 100%)",
       background_image_url: "",
       text_color: "#eafaff",
       secondary_text_color: "#bfe9f7",
@@ -1037,14 +1038,14 @@ export const W10_THEMES = [
       button_style: "filled" as const,
       button_border_radius: 16,
       button_border_width: 1,
-      button_border_color: "#7fd6f5",
+      button_border_color: "#5fb8d6",
       button_shadow: "subtle",
       button_shadow_color: "#00121f",
       button_hover_animation: "pop",
       button_hover_fill: "#ffb04a",
       button_hover_text: "#2e1300",
       font_family: "'Open Sans', sans-serif",
-      title_font: "'Comfortaa', cursive",
+      title_font: "'Manrope', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#eafaff",
       social_icon_style: "filled",
@@ -1056,7 +1057,7 @@ export const W10_THEMES = [
       block_layout: "list",
       header_align: "center",
       theme_skin: "aero2",
-      title_weight: 700,
+      title_weight: 600,
       avatar_border_width: 4,
       avatar_border_color: "#bff4ff",
     },

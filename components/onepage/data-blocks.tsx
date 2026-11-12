@@ -6,7 +6,7 @@
  * ===========================================================================
  * App blocks (lib/onepage/app-blocks) whose drawing does more than link:
  *
- *   Tips      amounts and Tip, through Storelib checkout (lib/onepage/tips)
+ *   Tips      amounts and Tip, through Storelib checkout (./tip-block, round AS)
  *   Poll      a vote kept on the server, one each, the totals after
  *   Stats     numbers counted, rolled or faded in as they come into view
  *   Event     one event: the day, a live countdown, tickets, RSVP, calendar
@@ -28,10 +28,9 @@ import { tt } from "@/lib/i18n/text"
 import { useBlockSheet } from "@/components/onepage/block-sheet"
 import { CardButton, MIX, px, useParts, useTrack, type AppBlockLook } from "@/components/onepage/app-block"
 import { pressableProps } from "@/lib/onepage/block-look"
-import { chipColors, inkOn } from "@/lib/onepage/contrast"
+import { chipColors } from "@/lib/onepage/contrast"
 import { socialLinkId } from "@/lib/onepage/link-keys"
 import { appItems, appLayoutOf, pollOptions, type AppBlockData, type AppItem } from "@/lib/onepage/app-blocks"
-import { checkTipAmount, tipAmounts, tipLabel, typedTipCents } from "@/lib/onepage/tips"
 import { pollShowsResults, type PollTally } from "@/lib/onepage/poll"
 import { countDuration, easeOutCubic, parseStatValue, statAnimationOf, statFrame, type StatAnimation } from "@/lib/onepage/stat-count"
 import { readTrustBox, reviewSourceOf, starShares, trustBoxSrc } from "@/lib/onepage/reviews-block"
@@ -93,7 +92,7 @@ function useSeen<T extends Element>(): [React.RefObject<T | null>, boolean] {
  * the editor's preview asks /api/onepage/blocks-live for the same once the
  * typing stops. On the live page `filled` is already true and nothing is asked.
  */
-function useFilled(block: OnePageBlock, data: AppBlockData, look: AppBlockLook, filled: boolean): AppBlockData {
+export function useFilled(block: OnePageBlock, data: AppBlockData, look: AppBlockLook, filled: boolean): AppBlockData {
   const need = !filled && !!look.preview && !!look.sellerId
   const key = need ? JSON.stringify(data) : ""
   const [answer, setAnswer] = React.useState<{ key: string; data: AppBlockData } | null>(null)
@@ -143,178 +142,7 @@ function StarRow({ value, size, color = "#F5A524" }: { value: number; size: numb
 
 /* ─── Tips ────────────────────────────────────────────────────────────── */
 
-/* One confirm per return from Stripe, however many tips blocks the page has. */
-const confirming = new Map<string, Promise<{ amount_cents: number; currency: string } | null>>()
-
-export function DataTipsView({ block, data: given, look }: Props) {
-  const data = useFilled(block, given, look, given.tip_ready !== undefined)
-  const parts = useParts(look)
-  const track = useTrack(look)
-  const presets = tipAmounts(data)
-  const currency = data.tip_currency || "usd"
-  const [locale, setLocale] = React.useState("en-US")
-  const [picked, setPicked] = React.useState<number | "other">(presets[Math.min(1, presets.length - 1)])
-  const [typed, setTyped] = React.useState("")
-  const [message, setMessage] = React.useState("")
-  const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [thanks, setThanks] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    setLocale(navigator.language || "en-US")
-    if (look.preview || !look.onepageId) return
-    /* Back from Stripe: the tip read back from Stripe, the address tidied so a reload does not say it twice. */
-    const url = new URL(window.location.href)
-    const state = url.searchParams.get("tip")
-    if (!state) return
-    const session = url.searchParams.get("tip_session")
-    const tidy = () => {
-      url.searchParams.delete("tip")
-      url.searchParams.delete("tip_session")
-      window.history.replaceState(window.history.state, "", url.toString())
-    }
-    if (state !== "thanks" || !session) {
-      tidy()
-      return
-    }
-    let p = confirming.get(session)
-    if (!p) {
-      p = fetch("/api/onepage/tip", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirm: true, onepage_id: look.onepageId, session_id: session }) })
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null)
-      confirming.set(session, p)
-    }
-    let live = true
-    p.then((d) => {
-      if (!live) return
-      if (d && typeof d.amount_cents === "number") setThanks(tipLabel(d.amount_cents, d.currency, navigator.language || "en-US"))
-      tidy()
-    })
-    return () => {
-      live = false
-    }
-  }, [look.preview, look.onepageId])
-
-  const cents = picked === "other" ? typedTipCents(typed) : picked
-  const allowed = cents !== null && checkTipAmount(data, cents, 50).ok
-  const send = async () => {
-    if (busy) return
-    if (cents === null || !allowed) {
-      setError(tt("Enter an amount."))
-      return
-    }
-    if (look.preview || !look.onepageId) {
-      showPreviewNotice("payment")
-      return
-    }
-    setBusy(true)
-    setError(null)
-    track(block.id, "#tip")
-    try {
-      const r = await fetch("/api/onepage/tip", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ onepage_id: look.onepageId, block_id: block.id, amount_cents: cents, message: data.tip_message ? message : undefined, return_path: window.location.pathname }),
-      })
-      const d = await r.json().catch(() => null)
-      if (r.ok && typeof d?.url === "string") {
-        window.location.assign(d.url)
-        return
-      }
-      setError(typeof d?.error === "string" ? d.error : tt("That did not go through. Try again."))
-    } catch {
-      setError(tt("That did not go through. Try again."))
-    }
-    setBusy(false)
-  }
-
-  const title = data.title?.trim() || tt("Leave a tip")
-  /*
-    Round AR: each amount is the page's button made to read on the card
-    (parts.onCard: fill, border, corners, shadow and the page's hover); the
-    one picked is filled with those words' colour, with words that read on it
-    (lib/onepage/contrast inkOn). They were the card's words and paper turned
-    round from a part that no longer existed, so the picked one had no fill,
-    and on mid-tone pages the others fell to 3.8:1
-    (scripts/check-onepage-contrast-ar5.mjs). Send is the page's button too.
-  */
-  const amount = pressableProps(parts.onCard, look.still)
-  const pickedFill = String(parts.onCard.button_text_color || "#111113")
-  /* White, or the nearest shade toward black that reads on the fill: the button colour can be see-through (a glass theme), which read grey on it. */
-  const pickedInk = inkOn(pickedFill, "#ffffff")
-  const chip = (on: boolean): React.CSSProperties => ({
-    ...amount.style,
-    ...(on ? { backgroundColor: pickedFill, color: pickedInk, backdropFilter: undefined } : null),
-    fontSize: px(14.5, look.scale),
-    minHeight: px(42, look.scale),
-  })
-  return (
-    <div data-onepage-app="tips" data-tip-mode="storelib" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(16, look.scale) }}>
-      <p className="font-semibold" style={{ fontSize: px(16, look.scale) }} data-block-title="">{title}</p>
-      {data.subtitle?.trim() ? <p className="mt-0.5 opacity-75" style={{ fontSize: px(13, look.scale) }}>{data.subtitle}</p> : null}
-      {thanks ? (
-        <p className="mt-3 flex items-center gap-2 font-medium" style={{ fontSize: px(14.5, look.scale) }} data-tip-thanks="" role="status">
-          <Check aria-hidden style={{ width: px(18, look.scale), height: px(18, look.scale) }} />
-          {tt("Thank you for the {amount} tip.", { amount: thanks })}
-        </p>
-      ) : (
-        <>
-          <div role="radiogroup" aria-label={tt("Amount")} className="mt-3 grid grid-cols-4" style={{ gap: px(8, look.scale) }}>
-            {presets.map((c) => (
-              <button key={c} type="button" role="radio" aria-checked={picked === c} onClick={() => { setPicked(c); setError(null) }} data-tip-amount={c} data-hover={amount["data-hover"]} data-shadow={amount["data-shadow"]} className={cn(amount.className, "font-semibold tabular-nums")} style={chip(picked === c)}>
-                {tipLabel(c, currency, locale)}
-              </button>
-            ))}
-            {data.tip_custom ? (
-              <button type="button" role="radio" aria-checked={picked === "other"} onClick={() => { setPicked("other"); setError(null) }} data-tip-amount="other" data-hover={amount["data-hover"]} data-shadow={amount["data-shadow"]} className={cn(amount.className, "font-semibold")} style={chip(picked === "other")}>
-                {tt("Other")}
-              </button>
-            ) : null}
-          </div>
-          {picked === "other" ? (
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={typed}
-              onChange={(e) => { setTyped(e.target.value.slice(0, 9)); setError(null) }}
-              placeholder={tt("Amount")}
-              aria-label={tt("Amount")}
-              data-tip-custom=""
-              className="mt-2.5 w-full border-0 bg-white px-4 text-[16px] text-[#111113] outline-none placeholder:text-[#8b8f98] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.14)]"
-              style={{ borderRadius: Math.min(parts.radius, 14), height: px(46, look.scale) }}
-            />
-          ) : null}
-          {data.tip_message ? (
-            <input
-              type="text"
-              value={message}
-              maxLength={280}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={tt("Say something (optional)")}
-              aria-label={tt("Message")}
-              data-tip-message=""
-              className="mt-2.5 w-full border-0 bg-white px-4 text-[16px] text-[#111113] outline-none placeholder:text-[#8b8f98] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.14)]"
-              style={{ borderRadius: Math.min(parts.radius, 14), height: px(46, look.scale) }}
-            />
-          ) : null}
-          <div className="mt-3 flex">
-            <CardButton
-              look={look}
-              onClick={send}
-              disabled={busy}
-              wide
-              big
-              data={{ "data-tip-send": "" }}
-              label={busy ? tt("Opening checkout...") : cents !== null && allowed ? tt("Tip {amount}", { amount: tipLabel(cents, currency, locale) }) : tt("Tip")}
-            />
-          </div>
-          {error ? <p className="mt-2 font-medium" style={{ fontSize: px(13, look.scale) }} role="alert" data-tip-error="">{error}</p> : null}
-        </>
-      )}
-    </div>
-  )
-}
+/* Round AS: the tips card and its amount sheet are their own file (./tip-block). */
 
 /* ─── A poll ──────────────────────────────────────────────────────────── */
 
@@ -570,7 +398,7 @@ export function DataStatsView({ block, data, look }: Props) {
       {layout === "single" ? (
         tile(stats[0], 0, true)
       ) : layout === "carousel" ? (
-        <div className="-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
+        <div className="op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
           {stats.map((s, i) => (
             <div key={s.id} className="w-[42%] shrink-0 snap-start">{tile(s, i)}</div>
           ))}
@@ -1070,7 +898,7 @@ export function DataReviewsView({ block, data: given, look }: Props) {
       <div data-onepage-app="reviews" data-app-layout="carousel" className="w-full">
         <Title text={data.title} look={look} />
         {head}
-        <div className="-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
+        <div className="op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
           {items.map((r) => (
             <div key={r.id} className="w-[82%] shrink-0 snap-start sm:w-[62%]">
               <ReviewCard r={r} look={look} />
