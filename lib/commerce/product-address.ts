@@ -59,3 +59,48 @@ export function productAddressStep(f: ProductAddressFacts): ProductAddressStep {
   if (f.elsewhere) return { kind: "redirect", to: f.elsewhere, permanent: false }
   return { kind: "missing" }
 }
+
+/*
+  ===========================================================================
+   ONLY A READ THAT ANSWERED DECIDES AN ADDRESS (round AW)
+  ===========================================================================
+  The door read the owner with the lenient lookups, where a read that failed
+  is null, the same null as "nobody has this handle". So when the database
+  was slow (production, Nov 13: "creators_public: no answer in 4000ms") a
+  creator's real product was decided as a handle nobody has: a 307 to
+  wherever the slug is sold (the address itself, which loops; /p/<slug>; or
+  another seller's product with the same slug, the oldest one), or a 404.
+  The CDN keeps both for every visitor (next.config.mjs EDGE_PAGE: Vercel
+  stores a 307 and a 404, and a refresh behind a visitor replaces the good
+  copy with them), so one slow read broke the product for minutes.
+
+  Each read below THROWS when it got no answer (lib/website-builder/site-read
+  SiteReadError, the creator page's strict lookups). A throw is the shop's
+  error screen, a 5xx, which Vercel never stores, so the CDN goes on serving
+  its last good copy. The decision itself is productAddressStep, unchanged.
+*/
+export interface ProductAddressReads {
+  /** The public profile the handle names, or null when the read answered "no such name". Throws when it got no answer. */
+  profile: (handle: string) => Promise<{ id?: string | null; username?: string | null } | null>
+  /** That profile's creator row, or null when it has none. Throws when it got no answer. */
+  creator: (userId: string) => Promise<{ id?: string | null } | null>
+  /** The creator's published product by this slug (or a slug it had), or null. Throws when it got no answer. */
+  product: (slug: string, creatorId: string) => Promise<{ slug: string; viaHistory: boolean } | null>
+  /** The handle's new name when somebody renamed away from it, or null. Throws when it got no answer. */
+  renamed: (handle: string) => Promise<string | null>
+  /** The canonical address of the product sold under this slug, or null. */
+  elsewhere: (slug: string) => Promise<string | null>
+}
+
+/** The door's reads, in its order, then productAddressStep. A read that throws is thrown on: never a redirect or a 404 from a failure. */
+export async function resolveProductAddress(handle: string, slug: string, reads: ProductAddressReads): Promise<ProductAddressStep> {
+  const profile = await reads.profile(handle)
+  const creator = profile?.id ? await reads.creator(profile.id) : null
+  const owner = creator?.id && profile?.username ? { creatorId: creator.id, handle: profile.username } : null
+  const found = owner ? await reads.product(slug, owner.creatorId) : null
+  /* The handle is a creator's: their product, or a 404. */
+  if (owner) return productAddressStep({ slug, owner, found, renamedTo: null, elsewhere: null })
+  /* Nobody sells under the handle: a renamed account first, then wherever the slug is sold. */
+  const renamedTo = profile ? null : await reads.renamed(handle)
+  return productAddressStep({ slug, owner, found, renamedTo, elsewhere: renamedTo ? null : await reads.elsewhere(slug) })
+}
