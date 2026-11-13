@@ -142,3 +142,19 @@ assert.ok(
   !read("app/(storelib)/(marketing)/page.tsx").includes("overflow-x-hidden"),
 )
 assert.ok(read("components/marketing/hero.tsx").includes("overflow: clip"))
+
+/* Round 62: Vercel regenerates the cached home page as "/index"; the header and footer read the path through
+   normalizeRoutePath, so the server's HTML has the header the browser draws and React keeps it instead of
+   drawing the whole page again. */
+{
+  const { normalizeRoutePath } = await import("../lib/navigation/route-path")
+  assert.equal(normalizeRoutePath("/index"), "/")
+  assert.equal(normalizeRoutePath("/pricing"), "/pricing")
+  assert.equal(normalizeRoutePath(null), "/")
+  const { readFileSync: rf } = await import("node:fs")
+  for (const f of ["components/marketing/conditional-header.tsx", "components/platform/platform-header-client.tsx", "components/marketing/conditional-footer.tsx"]) {
+    const src = rf(f, "utf8")
+    assert.ok(/const pathname = useRoutePath\(\)/.test(src) && !/usePathname\(\)/.test(src), `${f} reads the path through useRoutePath`)
+  }
+  console.log("Home page path: /index reads as / in the header and footer, so the server render is kept")
+}

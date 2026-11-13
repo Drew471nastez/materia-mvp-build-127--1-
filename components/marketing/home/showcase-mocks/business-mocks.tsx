@@ -1,22 +1,18 @@
 import {
   Bell,
-  Calendar,
   ChevronLeft,
-  Globe,
   Heart,
-  Instagram,
   Menu,
   MessageCircle,
   MoreHorizontal,
-  Music2,
   Play,
   Search,
   ShoppingBag,
   Star,
   User,
-  Youtube,
 } from "lucide-react"
 import { Pic, u } from "./frame"
+import { HomeOnePage, HomeOnePageStyle, PRIYA } from "../onepage-sample"
 
 /*
   FIVE REAL-LOOKING STOREFRONTS, ONE PER KIND OF BUSINESS.
@@ -28,7 +24,8 @@ import { Pic, u } from "./frame"
     Saltlight          Lightroom presets by a travel photographer
     Brush & Bloom      a watercolor course (sales page / lesson player)
     The Darkroom Club  a film photography community (the member area)
-    Sol & Sage         a cook's OnePage (link in bio)
+    Sol & Sage         a cook's OnePage (link in bio), the Notebook theme
+                       drawn by ThemePreview (../onepage-sample)
     Hollow Pines       an indie folk band's merch shop
 
   Photographs: Unsplash (free licence), re-encoded small in public/home/showcase.
@@ -485,105 +482,18 @@ export function DarkroomMobile() {
 }
 
 /* ================================================================ OnePage: Sol & Sage */
-function SolPage() {
-  return (
-    <div className="zo-page">
-      <Pic n="av-priya" w={160} h={160} className="zo-av" />
-      <h3>Sol &amp; Sage</h3>
-      <p className="zo-bio">Priya Raman · plant-based weeknight cooking for busy people. New recipes every Sunday.</p>
-      <span className="zo-socials">
-        <Instagram />
-        <Youtube />
-        <Music2 />
-        <Globe />
-      </span>
-      <span className="zo-product">
-        <span className="zo-book">
-          <i>Priya Raman</i>
-          <b>Weeknight Green</b>
-          <em>60 plant-based dinners</em>
-        </span>
-        <span className="zo-pinfo">
-          <b>The cookbook</b>
-          <i>PDF + printable shopping lists</i>
-          <em>$18</em>
-        </span>
-      </span>
-      <span className="zo-link">
-        Free 7-day meal plan <i>Get it</i>
-      </span>
-      <span className="zo-link">
-        <Calendar /> Live class: Sunday 5pm <i>$15</i>
-      </span>
-      <div className="zo-recipes">
-        <span>
-          <Pic n="ss-pasta" w={480} h={480} />
-          Lemon basil farfalle
-        </span>
-        <span>
-          <Pic n="ss-bowl" w={480} h={480} />
-          Green goddess bowl
-        </span>
-      </div>
-    </div>
-  )
-}
-
-/** Maya Okafor's OnePage (the page in the OnePage editor's preview). `.zo-new` is the email signup the editor turns on. */
-export function MayaPage() {
-  return (
-    <div className="zo-page zo-maya">
-      <Pic n="av-maya" w={160} h={160} className="zo-av" />
-      <h3>Maya Okafor</h3>
-      <p className="zo-bio">Run coach · 6 marathons · Brooklyn, NY. Training plans that fit real life.</p>
-      <span className="zo-socials">
-        <Instagram />
-        <Youtube />
-        <Music2 />
-        <Globe />
-      </span>
-      <span className="zo-feature">
-        <Pic n="mr-run" w={800} h={600} />
-        <em>Bestseller</em>
-        <span>
-          <b>16-Week Marathon Plan</b>
-          <i>PDF + app sync · 1,920 runners</i>
-        </span>
-        <strong>$39</strong>
-      </span>
-      <span className="zo-link">
-        Join Saturday Run Club <i>Free</i>
-      </span>
-      <span className="zo-link">
-        <Calendar /> Book a 1:1 gait review <i>$60</i>
-      </span>
-      <span className="zo-link zo-new">
-        <span className="zo-signup">
-          <b>Monday training notes</b>
-          <span className="zo-form">
-            <span className="zo-input">Your email</span>
-            <span className="zo-sub">Subscribe</span>
-          </span>
-        </span>
-      </span>
-      <span className="zo-video zo-after">
-        <Pic n="mr-race" w={800} h={600} />
-        <span className="zo-vplay">
-          <Play fill="currentColor" strokeWidth={0} />
-        </span>
-        <em>How I ran a 3:08 marathon · 12:41</em>
-      </span>
-    </div>
-  )
-}
-
+/*
+  Priya's OnePage in Notebook, a theme the OnePage picker ships, drawn by the
+  picker's own ThemePreview (../onepage-sample): the theme decides the
+  header, the buttons, the tiles and the wallpaper, as it would on her page.
+  On a computer the live page is a card on the theme's own wallpaper.
+*/
 export function SolDesktop() {
   return (
     <div className="bz zo">
+      <HomeOnePageStyle />
       <div className="zo-wall" />
-      <div className="zo-card">
-        <SolPage />
-      </div>
+      <HomeOnePage theme="notebook" who={PRIYA} className="zo-card" />
     </div>
   )
 }
@@ -591,7 +501,8 @@ export function SolDesktop() {
 export function SolMobile() {
   return (
     <div className="bz zo zo-m">
-      <SolPage />
+      <HomeOnePageStyle />
+      <HomeOnePage theme="notebook" who={PRIYA} className="zo-full" />
     </div>
   )
 }
@@ -914,52 +825,10 @@ export const BUSINESS_MOCK_CSS = u(`
 .zd-mpic{height:290u;margin:12u -14u 0;overflow:hidden}
 
 /* ---------- Sol & Sage (OnePage) */
-.zo{background:#dfe7d6;color:#24301f}
-.zo-wall{position:absolute;inset:0;background:radial-gradient(60% 70% at 12% 18%,#b9d7a8 0,transparent 70%),radial-gradient(55% 65% at 92% 80%,#f6c9a6 0,transparent 70%),radial-gradient(40% 50% at 80% 10%,#f3e2a4 0,transparent 70%),#dfe9d4}
-.zo-card{position:absolute;left:50%;top:44u;width:440u;bottom:-60u;margin-left:-220u;border-radius:34u;background:#f6f1e7;overflow:hidden;box-shadow:0 30u 70u -16u rgba(20,40,20,.45)}
-.zo-page{display:flex;flex-direction:column;align-items:center;padding:30u 24u;text-align:center;background:#f6f1e7}
-.zo-av{width:88u!important;height:88u!important;border-radius:50%;box-shadow:0 0 0 3u #fff}
-.zo-page h3{margin-top:12u!important;font-family:${SERIF};font-weight:400;font-size:28u}
-.zo-bio{max-width:330u;margin-top:6u!important;font-size:13u;line-height:1.5;color:#5d6656}
-.zo-socials{display:flex;gap:16u;margin-top:12u;color:#24301f}
-.zo-socials svg{width:18u;height:18u}
-.zo-product{display:flex;gap:14u;width:100%;margin-top:20u;padding:12u;border-radius:20u;background:#fff;text-align:left;box-shadow:0 1u 2u rgba(36,48,31,.06)}
-.zo-book{flex:none;display:flex;flex-direction:column;justify-content:flex-end;width:86u;height:112u;padding:9u;border-radius:6u 10u 10u 6u;background:linear-gradient(160deg,#4d6b45,#2b3f27);color:#eef3e6;box-shadow:inset 4u 0 0 rgba(0,0,0,.18)}
-.zo-book i{margin-bottom:auto;font-size:7.5u;font-style:normal;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
-.zo-book b{font-family:${SERIF};font-weight:400;font-size:15u;line-height:1.05}
-.zo-book em{margin-top:4u;font-size:7.5u;font-style:normal;opacity:.75}
-.zo-pinfo{display:flex;flex-direction:column;justify-content:center;gap:3u}
-.zo-pinfo b{font-size:15u}
-.zo-pinfo i{font-size:12.5u;font-style:normal;color:#6d7566}
-.zo-pinfo em{align-self:flex-start;margin-top:8u;padding:6u 13u;border-radius:999u;background:#3d5a36;color:#fff;font-size:13u;font-style:normal;font-weight:700}
-.zo-link{display:flex;align-items:center;justify-content:center;gap:7u;position:relative;width:100%;height:52u;margin-top:10u;border-radius:16u;background:#fff;font-size:14u;font-weight:600;box-shadow:0 1u 2u rgba(36,48,31,.06)}
-.zo-link svg{width:15u;height:15u}
-.zo-link i{position:absolute;right:16u;font-size:12u;font-style:normal;font-weight:600;color:#6d7566}
-.zo-recipes{display:grid;grid-template-columns:1fr 1fr;gap:10u;width:100%;margin-top:10u}
-.zo-recipes span{display:grid;gap:7u;padding-bottom:10u;border-radius:16u;background:#fff;overflow:hidden;font-size:12.5u;font-weight:600}
-.zo-recipes img{height:120u!important}
-.zo-maya{--zo-acc:#e8562a;background:#f3ede4;color:#231f1a}
-.zo-maya .zo-bio{color:#6b6157}
-.zo-feature{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 10u;width:100%;margin-top:18u;padding:0 0 12u;border-radius:20u;background:#fff;overflow:hidden;text-align:left}
-.zo-feature img{grid-column:1/-1;height:150u!important;margin-bottom:10u}
-.zo-feature>em{position:absolute;left:10u;top:10u;padding:3u 8u;border-radius:999u;background:var(--zo-acc);color:#fff;font-size:10.5u;font-style:normal;font-weight:700}
-.zo-feature>span{display:grid;padding-left:14u}
-.zo-feature b{font-size:14.5u}
-.zo-feature i{font-size:11.5u;font-style:normal;color:#8a8073}
-.zo-feature strong{margin-right:12u;padding:6u 12u;border-radius:999u;background:var(--zo-acc);color:#fff;font-size:13u}
-.zo-signup{display:grid;gap:8u;width:100%;padding:0 12u;text-align:left}
-.zo-signup b{font-size:13.5u}
-.zo-form{display:flex;gap:6u}
-.zo-input{flex:1;height:34u;display:flex;align-items:center;padding:0 12u;border-radius:10u;background:#f3ede4;font-size:12.5u;font-weight:400;color:#8a8073}
-.zo-sub{display:grid;place-items:center;padding:0 14u;border-radius:10u;background:#231f1a;color:#fff;font-size:12.5u}
-.zo-link.zo-new{height:94u}
-.zo-video{position:relative;display:block;width:100%;height:160u;margin-top:10u;border-radius:18u;overflow:hidden}
-.zo-video>em{position:absolute;left:12u;bottom:10u;color:#fff;font-size:12u;font-style:normal;font-weight:600;text-shadow:0 1u 4u rgba(0,0,0,.5)}
-.zo-vplay{position:absolute;left:50%;top:50%;width:44u;height:44u;margin:-22u 0 0 -22u;border-radius:50%;display:grid;place-items:center;background:#fff;color:#231f1a}
-.zo-vplay svg{width:16u;height:16u;margin-left:2u}
-.zo-m{background:#f6f1e7}
-.zo-m .zo-page{padding:44u 20u 0}
-.zo-m .zo-recipes img{height:104u!important}
+.zo{background:#ece6d6}
+.zo-wall{position:absolute;inset:0;background:#f8f5ec;background-image:radial-gradient(70% 80% at 50% 0%,rgba(255,255,255,.7),transparent 70%)}
+.zo-card{position:absolute!important;left:50%;top:44u;width:400u;bottom:-60u;margin-left:-200u;border-radius:30u;box-shadow:0 0 0 1u rgba(60,48,20,.08),0 30u 70u -20u rgba(60,48,20,.35)}
+.zo-full{position:absolute!important;inset:0}
 
 /* ---------- Hollow Pines */
 .zh{background:#f6f0e4;color:#1e2a22}

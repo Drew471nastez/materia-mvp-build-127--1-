@@ -48,8 +48,8 @@ export const LazyHowItWorks = lazySection(() => import("./how-it-works").then((m
 
 export const LazyCheckoutScene = lazySection(() => import("./checkout-scene").then((m) => m.CheckoutScene), {
   name: "checkout",
-  /* Wave 13 perf: the pinned scene and the tabs under it, one column below 900px (961px at 390, 1144 at 768), beside each other from 900 (679 at 1024, 862 at 1440). Wave 14: the pin is 150vh (was 170vh), so the scene is 100svh + 150vh. */
-  minHeight: "calc(250vh + max(calc(48.4vw + 772px - clamp(0px, (100vw - 899px) * 100000, 100000px)), min(46vw + 240px, 860px)))",
+  /* Wave 13 perf: the pinned scene and the tabs under it, one column below 900px (961px at 390, 1144 at 768), beside each other from 900 (702 at 900, 736 at 1024, 898 at 1280, 933 at 1440, 926 from 1600: the wider desktop checkout picture). Wave 14: the pin is 150vh (was 170vh), so the scene is 100svh + 150vh. */
+  minHeight: "calc(250vh + max(calc(48.4vw + 772px - clamp(0px, (100vw - 899px) * 100000, 100000px)), min(60vw + 128px, 930px)))",
   styles: () => import("./checkout-scene").then((m) => m.CHECKOUT_STYLES),
 })
 
@@ -61,8 +61,8 @@ export const LazyAudienceOwnership = lazySection(() => import("./audience-owners
 
 export const LazyAnalyticsShowcase = lazySection(() => import("./analytics-showcase").then((m) => m.AnalyticsShowcase), {
   name: "analytics",
-  /* Wave 13 perf: measured 1481px at 390, 1644 at 768, 1101 at 1024, 1383 at 1440, 1424 at 1920. */
-  minHeight: "max(calc(min(100vw + 1090px, 1660px) - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(70vw + 380px, 1424px))",
+  /* Wave 14 (a caption under each of the three cards): measured 1583px at 390, 1754 at 768, 1211 at 1024, 1473 at 1440, 1514 at 1920. */
+  minHeight: "max(calc(min(100vw + 1193px, 1754px) - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(63vw + 566px, 1514px))",
 })
 
 export const LazySellEverywhereMap = lazySection(() => import("./sell-everywhere-map").then((m) => m.SellEverywhereMap), {

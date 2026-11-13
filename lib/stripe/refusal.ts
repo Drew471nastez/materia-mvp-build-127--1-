@@ -24,7 +24,7 @@
  */
 export interface StripeRefusal {
   status: number
-  code: "platform_rejected" | "account_rejected" | "platform_cannot_charge" | "platform_restricted"
+  code: "platform_rejected" | "account_rejected" | "platform_cannot_charge" | "platform_restricted" | "platform_needs_transfers_approval"
   error: string
 }
 
@@ -38,6 +38,9 @@ export function stripeRefusal(error: unknown): StripeRefusal | null {
     return { status: 503, code: "platform_restricted", error: "Payouts cannot be set up just now. This is on our side, not yours, and nothing you entered caused it. Try again a little later." }
   if (/account link cannot be created for this account because the account has been rejected/i.test(message) || /this account has been rejected/i.test(message))
     return { status: 409, code: "account_rejected", error: `Stripe has closed this payout account, so it cannot be opened from here. Write to ${SUPPORT} and we will sort out your payouts.` }
+  /* Stripe has not approved Storelib for transfers-only accounts, the only shape a seller in another country can be paid out through (lib/payments/stripe/setup-errors needsPlatformApproval). */
+  if (/needs approval for accounts to have requested the .?transfers.? capability without/i.test(message))
+    return { status: 503, code: "platform_needs_transfers_approval", error: `Payouts to your country are not open on Storelib yet. Stripe has to approve this on our side, so there is nothing you need to change, and nothing was saved. Write to ${SUPPORT} and we will tell you when it opens.` }
   if (/cannot currently make live charges/i.test(message))
     return { status: 503, code: "platform_cannot_charge", error: "Plans cannot be bought right now. This is on our side, and nothing was charged." }
   return null

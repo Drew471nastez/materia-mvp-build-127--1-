@@ -10,8 +10,24 @@ export function countryIsUnsupported(message: string): boolean {
   return /\bcountry\b.*\b(not supported|is invalid|unknown)\b|\b(not|isn't|is not) supported\b.*\bcountry\b/i.test(message)
 }
 
+/*
+  STRIPE HAS NOT APPROVED STORELIB FOR TRANSFERS-ONLY ACCOUNTS (round AV).
+  A seller in another country than the platform can only be paid out through
+  an account with transfers and no card_payments (./payout-regions), and Stripe
+  opens that shape only after it approves the platform for it. Until then every
+  attempt answers this same sentence. Production, Nov 6 to 10: the same seller
+  pressed Start again and again and was told "Try again in a moment", which
+  could never work. It is the platform's approval, not the seller's input.
+*/
+export function needsPlatformApproval(message: string): boolean {
+  return /needs approval for accounts to have requested the .?transfers.? capability without/i.test(message)
+}
+
 export function paymentsSetupErrorMessage(error: unknown): string {
   const message = stripeErrorMessage(error)
+  if (needsPlatformApproval(message)) {
+    return "Payouts to your country are not open on Storelib yet. Stripe has to approve this on our side, so there is nothing you need to change, and nothing was saved. Write to support@storelib.com and we will tell you when it opens."
+  }
   if (/cannot create new accounts because your account has been rejected/i.test(message)) {
     return "Payouts cannot be set up on Storelib right now. This is on our side, not yours, and nothing you entered caused it."
   }

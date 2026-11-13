@@ -129,7 +129,7 @@ export function SellEverywhereMap() {
       </style>
       <div className="cmm-wrap">
         <div className="cmm-head">
-          <StoryHeading id="cmm-title" text="Your store never closes. Fans buy from anywhere." accent={["anywhere"]} />
+          <StoryHeading id="cmm-title" text="Your store never closes. Orders come from anywhere." accent={["anywhere"]} />
         </div>
 
         <div className="cmm-card">
@@ -186,7 +186,7 @@ export function SellEverywhereMap() {
 
           <div className="cmm-copy">
             <h3>Checkout in their language</h3>
-            <p>Fans buy in their own language and currency, with cards, Apple Pay and Google Pay. Digital orders arrive the second they pay, whatever the time zone.</p>
+            <p>Customers pay in their own language and currency, with cards, Apple Pay and Google Pay. Digital orders arrive the second they pay, whatever the time zone.</p>
           </div>
           <p className="cmm-fine">Example store and orders</p>
         </div>

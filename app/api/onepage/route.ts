@@ -183,19 +183,36 @@ export async function PUT(request: Request) {
       widens what a caller can reach. A read that fails is not a conflict.
     */
     const base = sentBaseVersion(base_version)
+    /*
+      AND THE CHECK HOLDS UNTIL THE WRITE (round AV). The read above and the
+      write below were two steps: a phone and a computer saving within the
+      same moment could both pass the check against the same row, and the
+      second write replaced the first without a word. So the row's
+      updated_at, read with the check, is a condition of the write: the
+      write lands only on the row the check saw, and moves updated_at on, so
+      the other save finds nothing to write and is answered the same 409.
+    */
+    let checkedAt: string | null = null
+    const conflictAnswer = () =>
+      NextResponse.json(
+        { error: "This page was saved somewhere else since you opened it", conflict: true },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      )
     if (base && draft_blocks !== undefined) {
-      const { data: current, error: currentError } = await db
+      let read = await db
         .from("onepages")
-        .select("draft_blocks, archived_blocks, theme, bio")
+        .select("draft_blocks, archived_blocks, theme, bio, updated_at")
         .eq("id", id)
         .eq("owner_id", ownerId)
         .maybeSingle()
-      if (!currentError && current && onePageEditVersion(current) !== base) {
-        return NextResponse.json(
-          { error: "This page was saved somewhere else since you opened it", conflict: true },
-          { status: 409, headers: { "Cache-Control": "no-store" } },
-        )
+      /* A database without onepages.updated_at: the check as it was, without the hold. */
+      if (read.error && missingColumn(read.error, "updated_at")) {
+        read = await db.from("onepages").select("draft_blocks, archived_blocks, theme, bio").eq("id", id).eq("owner_id", ownerId).maybeSingle()
       }
+      const { data: current, error: currentError } = read
+      if (!currentError && current && onePageEditVersion(current) !== base) return conflictAnswer()
+      const at = (current as { updated_at?: unknown } | null)?.updated_at
+      if (!currentError && typeof at === "string" && at) checkedAt = at
     }
 
     /*
@@ -307,8 +324,18 @@ export async function PUT(request: Request) {
       }
     }
 
-    const write = (row: typeof updates) => db.from("onepages").update(row).eq("id", id).eq("owner_id", ownerId).select().single()
+    const write = (row: typeof updates) => {
+      const q = db.from("onepages").update(row).eq("id", id).eq("owner_id", ownerId)
+      return (checkedAt ? q.eq("updated_at", checkedAt) : q).select().single()
+    }
+    if (checkedAt) {
+      /* Moved on by this write, always to a later value than the one checked (two saves in one millisecond included). */
+      const next = Math.max(Date.now(), Date.parse(checkedAt) + 1)
+      updates.updated_at = new Date(next).toISOString()
+    }
     let { data: updated, error } = await write(updates)
+    /* The row moved between the check and the write: another save landed first. Nothing was written. */
+    if (checkedAt && error && (error as { code?: string }).code === "PGRST116") return conflictAnswer()
 
     /*
       A DATABASE WITHOUT onepages.share_image_mode YET (run-now part 57 adds

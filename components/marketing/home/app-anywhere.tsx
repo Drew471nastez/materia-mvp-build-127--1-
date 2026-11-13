@@ -90,7 +90,7 @@ export function AppAnywhere() {
       <div className="mx-auto grid max-w-[1400px] items-center gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
         <div className="min-w-0">
           <StoryHeading id="app-anywhere-title" text="Run your business from anywhere" accent={["anywhere"]} />
-          <p className="mt-5 max-w-[48ch] text-[clamp(16px,1.4vw,19px)] leading-[1.6] text-[#5f5d66]">
+          <p className="mt-5 max-w-[48ch] text-[clamp(16px,1.4vw,19px)] leading-[1.6] text-[var(--band-muted,#5f5d66)]">
             The Storelib app puts your sales, orders and visitors on your phone, so you can step away from the desk without stepping away from the business.
           </p>
           <ul className={`${s.points} mt-8`}>

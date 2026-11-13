@@ -165,17 +165,35 @@ function Rows({ rows, format = count }: { rows: Row[]; format?: (n: number) => s
   )
 }
 
-function Card({ title, tabs, index, children }: { title: string; tabs?: ReactNode; index: number; children: ReactNode }) {
+/*
+  Wave 14 (the owner's three-card reference): the breakdowns are a row of
+  three, each card the picture and, under it, a short title and one grey line
+  saying what it shows. The card's own label stays inside it, as the
+  dashboard draws it.
+*/
+type Caption = { title: string; line: string }
+
+function Card({ title, tabs, index, caption, children }: { title: string; tabs?: ReactNode; index: number; caption: Caption; children: ReactNode }) {
   return (
-    <article className={`${s.card} ${m.reveal} flex min-w-0 flex-col p-4 sm:p-5`} style={{ "--i": index } as CSSProperties}>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <h3 className="whitespace-nowrap text-[14.5px] font-semibold text-[#1a1a2e]">{title}</h3>
-        {tabs}
+    <article className={`${s.item} ${m.reveal} flex min-w-0 flex-col`} style={{ "--i": index } as CSSProperties}>
+      <div className={`${s.card} flex min-h-0 flex-1 flex-col p-4 sm:p-5`}>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="whitespace-nowrap text-[14.5px] font-semibold text-[#1a1a2e]">{title}</div>
+          {tabs}
+        </div>
+        {children}
       </div>
-      {children}
+      <h3 className="mt-5 text-[clamp(17px,1.35vw,19px)] font-medium leading-snug tracking-[-0.015em] text-[var(--band-ink,#18181b)]">{caption.title}</h3>
+      <p className="mt-1.5 max-w-[40ch] text-[14.5px] leading-[1.55] text-[var(--band-muted,#5f5d66)]">{caption.line}</p>
     </article>
   )
 }
+
+export const ANALYTICS_CAPTIONS = {
+  sources: { title: "Where visitors come from", line: "Social, search and direct visits, side by side." },
+  countries: { title: "Where they buy from", line: "Visitors and orders by country." },
+  devices: { title: "What they shop on", line: "Phone, desktop or tablet, and which browser." },
+} satisfies Record<string, Caption>
 
 const iconClass = "h-[15px] w-[15px]"
 const Dot = ({ c }: { c: string }) => <span className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />
@@ -208,7 +226,7 @@ function Countries({ live, index }: { live: boolean; index: number }) {
   }, [live])
   const rows = COUNTRIES.map((c) => ({ key: c.code, label: c.name, value: tab ? c.orders : c.visitors, lead: flag(c.code) }))
   return (
-    <Card title="Countries" index={index} tabs={<Tabs options={["Visitors", "Orders"]} value={tab} />}>
+    <Card title="Countries" index={index} caption={ANALYTICS_CAPTIONS.countries} tabs={<Tabs options={["Visitors", "Orders"]} value={tab} />}>
       <Rows rows={rows} />
     </Card>
   )
@@ -223,7 +241,7 @@ const DEVICES: Row[] = [
 function Devices({ index }: { index: number }) {
   const total = DEVICES.reduce((t, d) => t + d.value, 0)
   return (
-    <Card title="Devices" index={index} tabs={<Tabs options={["Device", "Browser"]} value={0} />}>
+    <Card title="Devices" index={index} caption={ANALYTICS_CAPTIONS.devices} tabs={<Tabs options={["Device", "Browser"]} value={0} />}>
       <Rows rows={DEVICES} />
       <div className="mt-auto flex h-2 gap-1 overflow-hidden rounded-full pt-0" aria-hidden="true">
         {DEVICES.map((d, i) => (
@@ -310,7 +328,7 @@ export function AnalyticsShowcase() {
       <div className="mx-auto max-w-[1400px]">
         <div className="mb-10 max-w-[920px] sm:mb-14">
           <StoryHeading id="analytics-showcase-title" text="Know what's working, as it happens." accent={["as", "it", "happens"]} />
-          <p className="mt-5 max-w-[56ch] text-[clamp(16px,1.4vw,19px)] leading-[1.6] text-[#55525e]">
+          <p className="mt-5 max-w-[56ch] text-[clamp(16px,1.4vw,19px)] leading-[1.6] text-[var(--band-muted,#55525e)]">
             Every visit, tap and sale on your OnePage, website and store, counted by Storelib. No setup, no extra app.
           </p>
         </div>
@@ -320,8 +338,8 @@ export function AnalyticsShowcase() {
           <Dashboard seen={seen} />
         </div>
 
-        <div className={`${s.cards} mt-4`}>
-          <Card title="Traffic sources" index={1} tabs={<Tabs options={["Source", "Social", "Campaign"]} value={0} />}>
+        <div className={`${s.cards} mt-6 sm:mt-8`}>
+          <Card title="Traffic sources" index={1} caption={ANALYTICS_CAPTIONS.sources} tabs={<Tabs options={["Source", "Social", "Campaign"]} value={0} />}>
             <Rows rows={SOURCES} />
           </Card>
           <Countries live={live} index={2} />

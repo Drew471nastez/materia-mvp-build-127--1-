@@ -1,5 +1,7 @@
 "use client"
 
+import { useRoutePath } from "@/lib/navigation/route-path"
+
 import { endDeviceSession } from "@/lib/auth/log-out"
 import { AppearanceMenuRow } from "@/components/platform/appearance-switch"
 import { displayEmail, emailLocalPart } from "@/lib/businesses/email-alias"
@@ -8,7 +10,7 @@ import type React from "react"
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
@@ -97,21 +99,6 @@ const SEARCH_BACKDROP =
 const SEARCH_BACKDROP_OPEN = "opacity-100 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0"
 const SEARCH_BACKDROP_LEAVING =
   "pointer-events-none opacity-0 duration-150 ease-[cubic-bezier(0.4,0,1,1)]"
-
-/*
- * Wave 14: "/" where Vercel's ISR renders the home page under the name
- * "/index" (its payload's canonical URL parts are ["", "index"]); the
- * browser hydrates at "/", so the header drew nothing on the server and
- * React re-drew the whole page (#418). Kept in this file, a plain function
- * and no hook, so the header's code is bundled as it was. With the marketing
- * layout's segment (null on its own page), a creator called "index" keeps
- * its path. The same rule is in components/marketing/conditional-header.tsx
- * and components/platform/platform-header-client.tsx.
- */
-function homePathname(pathname: string, segmentBelow?: string | null): string {
-  if (pathname !== "/index") return pathname
-  return segmentBelow === undefined || segmentBelow === null ? "/" : pathname
-}
 
 function useBelowMd(): boolean {
   const [below, setBelow] = useState(false)
@@ -487,7 +474,7 @@ export function DesktopAccountMenu({
   /** Drawn right under who is signed in (a community's member links, round 26); its rows carry role="menuitem". */
   under?: React.ReactNode
 }) {
-  const pathname = homePathname(usePathname())
+  const pathname = useRoutePath()
   const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [present, setPresent] = useState(false)
@@ -1067,7 +1054,7 @@ export function PlatformHeaderClient({
   buyerHeaderLight?: boolean
 }) {
   const router = useRouter()
-  const pathname = homePathname(usePathname())
+  const pathname = useRoutePath()
   /* Not useSearchParams: that suspends the whole bar, so the account page painted an empty header and the real one arrived late. */
   const { t } = useLocale()
   const exploreMarketplaceOn = useExploreMarketplaceEnabled()
@@ -1901,33 +1888,38 @@ export function PlatformHeaderClient({
     const el = headerRootRef.current
     if (!el) return
     let was: boolean | null = null
-    const read = () => {
-      const now = window.scrollY > 2
+    const set = (now: boolean) => {
       if (now === was) return
       was = now
       if (now) el.setAttribute("data-scrolled", "")
       else el.removeAttribute("data-scrolled")
     }
-    read()
-    /* Read after the frame, not in the scroll event: scrollY there made the
-       browser restyle and lay out on the spot, before the frame did the same
-       again (2 to 5 ms of each frame of a scroll at 4x CPU on the home page).
-       After the frame the layout is fresh and the read is free; the shadow
-       comes a frame later, which nobody can see. */
-    let frame = 0
-    let later: ReturnType<typeof setTimeout> | undefined
-    const onScroll = () => {
-      if (frame) return
-      frame = requestAnimationFrame(() => {
-        frame = 0
-        later = setTimeout(read, 0)
-      })
+    /*
+      Round 62: NO SCROLL LISTENER AND NO scrollY. Reading scrollY makes the
+      browser bring style and layout up to date on the spot, so whenever
+      anything else had just changed (a section arriving, an observer
+      writing an attribute) the read after each frame became a full restyle:
+      58ms of one frame at 4x CPU on the home page. A 3px marker at the top
+      of the document says the same thing: once it is off screen the page is
+      scrolled past 2px. The browser answers that on its own schedule and
+      nothing is read.
+    */
+    if (typeof IntersectionObserver !== "function") {
+      const read = () => set(window.scrollY > 2)
+      read()
+      window.addEventListener("scroll", read, { passive: true })
+      return () => window.removeEventListener("scroll", read)
     }
-    window.addEventListener("scroll", onScroll, { passive: true })
+    const marker = document.createElement("div")
+    marker.setAttribute("aria-hidden", "true")
+    marker.setAttribute("data-scroll-marker", "")
+    marker.style.cssText = "position:absolute;top:0;left:0;width:1px;height:3px;pointer-events:none;visibility:hidden"
+    document.body.prepend(marker)
+    const io = new IntersectionObserver(([entry]) => set(!entry.isIntersecting))
+    io.observe(marker)
     return () => {
-      window.removeEventListener("scroll", onScroll)
-      cancelAnimationFrame(frame)
-      clearTimeout(later)
+      io.disconnect()
+      marker.remove()
     }
   }, [])
   /*
