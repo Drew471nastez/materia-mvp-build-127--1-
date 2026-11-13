@@ -11,6 +11,7 @@
 import { lazy, Suspense, useLayoutEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { NATIVE_FORM_ATTR, formIslandOf, type FormIslandSpec } from "@/lib/website-builder/form-islands"
+import { dressFormSurface } from "./form-surface"
 
 const NativeFormBlock = lazy(() => import("@/components/forms/native-form-block").then((m) => ({ default: m.NativeFormBlock })))
 
@@ -30,6 +31,10 @@ export function FormIslands({ root, html, preview }: { root: HTMLElement | null;
       }),
     )
   }, [root, html])
+  /* Every render: a colour scheme changed in Theme settings changes no markup, and the form still has to follow it. */
+  useLayoutEffect(() => {
+    for (const i of islands) if (i.el.isConnected) dressFormSurface(i.el, i.presentation === "inline")
+  })
   if (islands.length === 0) return null
   return (
     <>

@@ -25,6 +25,7 @@
  */
 
 import { iconBaseCss } from "./storelib-icons"
+import { ownPanelCss } from "./own-panel-css"
 import { homeChromeOnly } from "./universal-chrome"
 import { buttonSelector, themeTypography, typographyStylesheet, typographyVars } from "@/lib/storelib-theme/typography"
 import { cleanCustomCss } from "@/lib/storelib-theme/custom-css"
@@ -747,6 +748,10 @@ export function chromePlatformCss(root: string): string {
     `${root} [data-storelib-over="hero"][data-storelib-sticky="up"][data-scrolled="true"][data-scroll-dir="down"]:not(:focus-within){translate:0 -100%;}`,
     `@media (prefers-reduced-motion:reduce){${own("up")},${root} [data-storelib-sticky="up"]{transition:none;}}`,
     iconBaseCss(root),
+    /* A cart, search window or menu drawer of the site's own: not drawn while shut, and held by no ancestor while open (sections/own-panel-layer.ts). */
+    ownPanelCss(root, ["[data-storelib-cart-panel]", "[data-storelib-search-panel]", "[data-storelib-menu-panel]"]),
+    /* A native form drawn into a section keeps its own title size: the section's `h2` rule made "Book a call" a second, giant headline inside the form (tests/form-surface.test.ts). */
+    `${root} [data-storelib-native-form] h2{font-size:1.25rem!important;line-height:1.3!important;letter-spacing:normal!important;text-transform:none!important;margin:0!important;}`,
     `:where(${root} [data-storelib-dropdown]){position:relative;display:inline-block;}`,
     `:where(${root} [data-storelib-dropdown-toggle]){display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 10px;border:0;background:none;color:inherit;font:inherit;cursor:pointer;}`,
     `:where(${root} [data-storelib-dropdown-toggle] .sl-icon){width:1em;height:1em;transition:rotate .2s ease;}`,

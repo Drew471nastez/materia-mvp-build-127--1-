@@ -545,3 +545,20 @@ file calls `createAdminClient()`, `helper` when a helper gives it.
 | `app/(storelib)/receipt/cart/[sessionId]/page.tsx` | direct | :sessionId | :5 token or signed link is the credential | OK: the Stripe Checkout session id is the credential |
 | `app/(storelib)/review/[token]/page.tsx` | direct | :token | :50 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
 | `app/(storelib)/review/confirm/[token]/page.tsx` | direct | :token | :35 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
+
+## Addendum, Nov 13 (round AW): the 95 routes added since this sweep
+
+`git diff --diff-filter=A 1df74e77 HEAD -- app/api` lists 95 new `route.ts` files (website-builder 29, admin 15, forms 9, onepage 8, handoff 5, contacts 5, leads 4, bookings 4, google-calendar 3, auth 3, and ten single ones). Each exported method was read with the same method as above, helpers followed into `lib/`.
+
+**No route reads or writes another store's rows with an id from the request, and none is missing its gate.** Every admin method calls `isAdminAuthenticated` or `requireAdmin` first, the cron route checks the secret, the builder routes prove the install or job by `id` and `creator_id`, forms and leads filter by `owner_id` from the session, contacts take the store from the session or a verified membership, the Google OAuth state is signed and bound to the user and a nonce cookie.
+
+Found and fixed in round AW (IMPLEMENTATION_LOG.md): the generate and start over cost limits (AW-2, AW-3), the founder's Google Calendar kept across a handoff (AW-4), a booking form pricing another store's product (AW-5).
+
+Left for the owner to decide, not cross-tenant:
+
+- `/api/creator-contact`: claiming a free product counts as having bought, so it shows the creator's contact address (the login email when none was typed). The page's stated rule, widened by free products.
+- `/api/track/ai-visit`: a request with no Origin header can add counts, inside 20 per 10 minutes and 100 a day per address. Aggregate numbers only.
+- `/api/media/[...path]`: no rate limit; a made up query string is a new CDN entry. Public files only, fixed upstream host, no SSRF.
+- `/api/email/recipients` and `/api/admin/blog/posts/bulk` have no `maxDuration`; both bounded at 200 ids.
+- Handoff preview lists custom domains whatever their status, and is still drawn for a used or revoked link.
+- Round AV removed `/api/debug/orders`, which this sweep's base did not have.
