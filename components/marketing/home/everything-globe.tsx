@@ -1,34 +1,36 @@
 "use client"
 
 /*
-  THE "SELL TO FANS ANYWHERE" GLOBE (home section 3, card 3).
+  THE "SELL ANYWHERE" GLOBE (home section 3, card 3).
 
-  A dotted Earth on one canvas, drawn from the same 2 degree land bitmap the
-  analytics globe uses (platform-globe-land.ts), with the cities orders come
-  from lit up. Every couple of seconds an order arcs from the creator's studio
-  (Brooklyn) to a buyer on the near side, the buyer's city rings, and a pill
-  with the city and what they paid (in a currency Storelib's checkout
-  charges in) rides on it.
+  A dotted Earth on one canvas: one dot per 1.15 degrees, evenly spaced over
+  the sphere, kept where Natural Earth's 1:50m land outline says there is
+  land (everything-globe-land.ts, written by
+  scripts/build-everything-globe-land.mjs). The cities orders come from are
+  lit up. Every couple of seconds an order shoots from the creator's studio
+  (Brooklyn) to a buyer on the near side along the great circle between
+  them, lands with a pulse, and a pill with the city and what they paid (in
+  a currency Storelib's checkout charges in) rides on the city.
 
   It is the visitor's to play with: drag it (mouse, pen or a sideways swipe;
   an up and down swipe still scrolls the page) and it turns under the finger,
   keeps the throw's momentum when let go and eases back into its slow spin;
   under a mouse it leans toward the pointer.
 
-  Cost (wave 13 perf): the turning and drawing is the engine in
-  everything-globe-draw.ts, run in a worker that owns the canvas where the
-  browser can hand one over (everything-globe-worker.ts, shipped as a string
-  built by scripts/build-globe-worker.mjs), so the page's own thread does
-  nothing per frame: it only passes the pointer on and moves the order pill
-  (transform only) when the worker says where, every 100ms with a glide of
-  as long, every frame while the globe is being turned. Elsewhere the same
-  engine runs here. It draws only while the section is on screen, the tab
-  is visible and the globe itself is in view. Under reduced motion it stands
-  still (one frame), and redraws only while dragged.
+  Cost: the turning and drawing is the engine in everything-globe-draw.ts,
+  run in a worker that owns the canvas where the browser can hand one over
+  (everything-globe-worker.ts, shipped as a string built by
+  scripts/build-globe-worker.mjs), timed by the display's own frames, so it
+  is as smooth at 144Hz as at 60. The page's own thread only passes the
+  pointer on and moves the order pill (a transform, set as the worker
+  reports the city's place each frame, so it sits exactly on the city).
+  Elsewhere the same engine runs here. It draws only while the section is on
+  screen, the tab is visible and the globe itself is in view. Under reduced
+  motion it stands still (one frame), and redraws only while dragged.
 */
 
 import { useEffect, useRef } from "react"
-import { PLATFORM_LAND_B64, PLATFORM_LAND_H, PLATFORM_LAND_W } from "./platform-globe-land"
+import { EVERYTHING_LAND_B64, EVERYTHING_LAND_COUNT, EVERYTHING_LAND_NORTH, EVERYTHING_LAND_SOUTH, EVERYTHING_LAND_STEP } from "./everything-globe-land"
 import { createGlobeEngine, type GlobeEngine, type GlobePill, type GlobePointer, type V3 } from "./everything-globe-draw"
 import { EVERYTHING_GLOBE_WORKER_SOURCE } from "./everything-globe-worker-source"
 
@@ -70,31 +72,33 @@ const toV = (lat: number, lng: number): V3 => {
 }
 
 let landCache: Float32Array | null = null
-function landPoints(): Float32Array {
+/** Every land dot as a unit vector (x east, y up, z toward longitude 0), read once from the bitmask; the same row walk as scripts/build-everything-globe-land.mjs. */
+export function everythingLandPoints(): Float32Array {
   if (landCache) return landCache
-  const bin = atob(PLATFORM_LAND_B64)
-  const bits = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bits[i] = bin.charCodeAt(i)
-  const isLand = (lat: number, lng: number) => {
-    const row = Math.min(PLATFORM_LAND_H - 1, Math.max(0, Math.floor((90 - lat) / 2)))
-    const col = Math.min(PLATFORM_LAND_W - 1, Math.max(0, Math.floor((((lng + 180) % 360) + 360) % 360 / 2)))
-    const k = row * PLATFORM_LAND_W + col
-    return (bits[k >> 3] >> (k & 7)) & 1
-  }
-  const out: number[] = []
-  /* A dot every 1.2 degrees of latitude, spaced evenly along each row; Antarctica left off. */
-  for (let lat = 80; lat >= -56; lat -= 1.2) {
-    const n = Math.max(1, Math.round(300 * Math.cos(lat * DEG)))
-    const shift = Math.round(lat / 1.2) % 2 ? 0.5 : 0
-    for (let j = 0; j < n; j++) {
-      const lng = -180 + (j + shift) * (360 / n)
-      if (!isLand(lat, lng)) continue
-      out.push(...toV(lat, lng))
+  const bin = atob(EVERYTHING_LAND_B64)
+  const out = new Float32Array(EVERYTHING_LAND_COUNT * 3)
+  const step = EVERYTHING_LAND_STEP
+  const rows = Math.floor((EVERYTHING_LAND_NORTH - EVERYTHING_LAND_SOUTH) / step) + 1
+  let k = 0
+  let n = 0
+  for (let r = 0; r < rows; r++) {
+    const lat = EVERYTHING_LAND_NORTH - r * step
+    const count = Math.max(1, Math.round((360 * Math.cos(lat * DEG)) / step))
+    const cl = Math.cos(lat * DEG)
+    const sl = Math.sin(lat * DEG)
+    for (let i = 0; i < count; i++, k++) {
+      if (!((bin.charCodeAt(k >> 3) >> (k & 7)) & 1)) continue
+      const lam = (-180 + ((i + (r % 2) * 0.5) * 360) / count) * DEG
+      out[n++] = cl * Math.sin(lam)
+      out[n++] = sl
+      out[n++] = cl * Math.cos(lam)
     }
   }
-  landCache = new Float32Array(out)
+  landCache = n === out.length ? out : out.subarray(0, n)
   return landCache
 }
+
+const handedOver = new WeakSet<HTMLCanvasElement>()
 
 /** What drives the globe: a worker holding the canvas, or the engine on this thread. */
 type Driver = {
@@ -107,7 +111,7 @@ type Driver = {
 }
 
 function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, onDrawn: () => void): Driver | null {
-  const pts = landPoints()
+  const pts = everythingLandPoints()
   const cities = EVERYTHING_GLOBE_ORDERS.map((o) => toV(o.lat, o.lng))
   const home = toV(HOME[0], HOME[1])
   if (typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof canvas.transferControlToOffscreen === "function") {
@@ -118,6 +122,7 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
       worker = new Worker(url)
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
       const off = canvas.transferControlToOffscreen()
+      handedOver.add(canvas)
       worker.postMessage({ type: "init", canvas: off, pts, cities, home }, [off])
     } catch {
       worker?.terminate()
@@ -139,7 +144,12 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
       }
     }
   }
-  const ctx = canvas.getContext("2d")
+  let ctx: CanvasRenderingContext2D | null = null
+  try {
+    ctx = canvas.getContext("2d")
+  } catch {
+    /* A canvas already handed to a worker: no globe rather than a broken page. */
+  }
   if (!ctx) return null
   const engine: GlobeEngine = createGlobeEngine(
     {
@@ -176,30 +186,42 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
 
   useEffect(() => {
     const box = wrap.current
-    const canvas = canvasRef.current
+    const first = canvasRef.current
     const pills = pillsRef.current
-    if (!box || !canvas || !pills) return
-    const st = { w: 0, h: 0, pill: -1, half: 0, visible: true, live: false, reduced: false, dragging: -1 }
+    if (!box || !first || !pills) return
+    let canvas: HTMLCanvasElement = first
+    /* A canvas handed to a worker can never be drawn on again, from here or another worker: on a second mount (Strict Mode, a remount) it is swapped for a fresh one. */
+    if (handedOver.has(canvas)) {
+      const fresh = document.createElement("canvas")
+      fresh.className = canvas.className
+      canvas.replaceWith(fresh)
+      canvas = fresh
+    }
+    const st = { w: 0, h: 0, pill: -1, pw: 0, shift: 0, visible: true, shown: true, live: false, reduced: false, dragging: -1 }
 
-    /* The pill: kept inside the card (its half width measured once, when it is first shown), moved by transform only. */
+    /* The pill: its anchor (the stem) sits exactly on the city, moved by transform only; its body is nudged sideways, also by transform, only when it would leave the card. */
     const onPill = (p: GlobePill) => {
       const el = pills.children[p.i] as HTMLElement | undefined
       if (!el) return
-      let first = false
       if (p.i !== st.pill) {
-        const prev = pills.children[st.pill] as HTMLElement | undefined
-        prev?.removeAttribute("data-on")
-        prev?.removeAttribute("data-glide")
+        ;(pills.children[st.pill] as HTMLElement | undefined)?.removeAttribute("data-on")
         st.pill = p.i
-        st.half = 0
-        first = true
+        st.pw = 0
+        st.shift = 0
+        ;(el.firstElementChild as HTMLElement | null)?.style.removeProperty("transform")
       }
-      if (!st.half) st.half = ((el.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0) / 2
-      const x = Math.max(16 + st.half, Math.min(st.w - 16 - st.half, p.x))
-      const y = Math.max(52, p.y)
-      /* Between interactions the place comes every GLOBE_PILL_EVERY_MS and the pill glides there; a first placement or a drag puts it there at once. */
-      el.toggleAttribute("data-glide", !first && !p.now)
-      el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`
+      const body = el.firstElementChild as HTMLElement | null
+      /* The body's width, read once per pill as it is first shown. */
+      if (!st.pw) st.pw = (body?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0
+      const half = st.pw / 2
+      const lo = 12 + half
+      const hi = st.w - 12 - half
+      const shift = Math.round((p.x < lo ? lo - p.x : p.x > hi ? hi - p.x : 0) * 2) / 2
+      if (shift !== st.shift && body) {
+        st.shift = shift
+        body.style.transform = shift ? `translate(${shift}px,0)` : ""
+      }
+      el.style.transform = `translate(${p.x.toFixed(2)}px,${p.y.toFixed(2)}px)`
       el.toggleAttribute("data-on", p.on)
     }
     const driver = startDriver(canvas, onPill, () => {
@@ -207,7 +229,13 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
     })
     if (!driver) return
 
-    const sync = () => driver.run(st.visible && st.live && !st.reduced)
+    const sync = () => driver.run(st.visible && st.shown && st.live && !st.reduced)
+    const onVisibility = () => {
+      st.shown = document.visibilityState !== "hidden"
+      sync()
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    st.shown = document.visibilityState !== "hidden"
 
     /* Pointer: drag to turn (with momentum), lean toward a hovering mouse. */
     const onDown = (e: PointerEvent) => {
@@ -254,7 +282,7 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
             if (!w || !h) return
             st.w = w
             st.h = h
-            driver.size(w, h, Math.min(1.5, window.devicePixelRatio || 1))
+            driver.size(w, h, Math.min(2, window.devicePixelRatio || 1))
           })
         : null
     ro?.observe(box)
@@ -285,6 +313,7 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
 
     return () => {
       driver.stop()
+      document.removeEventListener("visibilitychange", onVisibility)
       ro?.disconnect()
       io?.disconnect()
       box.removeEventListener("pointerdown", onDown)
@@ -306,11 +335,13 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       <div ref={pillsRef} className="ev-globe-pills">
         {EVERYTHING_GLOBE_ORDERS.map((o) => (
           <div key={o.city} className="ev-globe-pill">
-            <span className="ev-globe-pill-in">
+            <span className="ev-globe-pill-shift">
+              <span className="ev-globe-pill-in">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="ev-globe-flag" src={`/flags/${o.cc}.svg`} alt="" width={16} height={12} loading="lazy" decoding="async" />
               <span className="ev-globe-city">New order, {o.city}</span>
-              <span className="ev-globe-price">{o.price}</span>
+                <span className="ev-globe-price">{o.price}</span>
+              </span>
             </span>
           </div>
         ))}
