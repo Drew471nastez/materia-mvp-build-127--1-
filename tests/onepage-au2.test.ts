@@ -84,7 +84,7 @@ section("CONFLICT: the edit version")
 
   const route = read("app/api/onepage/route.ts")
   check("PUT reads base_version from the body", /base_version,\s*\} = body/.test(route))
-  check("PUT compares it with the row found by id and owner, and answers 409 writing nothing", /const base = sentBaseVersion\(base_version\)[\s\S]{0,400}\.eq\("id", id\)\s*\.eq\("owner_id", ownerId\)[\s\S]{0,200}onePageEditVersion\(current\) !== base[\s\S]{0,200}status: 409/.test(route))
+  check("PUT compares it with the row found by id and owner, and answers 409 writing nothing", /const base = sentBaseVersion\(base_version\)[\s\S]{0,1600}\.eq\("id", id\)\s*\.eq\("owner_id", ownerId\)[\s\S]{0,600}onePageEditVersion\(current\) !== base\) return conflictAnswer\(\)/.test(route) && /status: 409/.test(route)) // Changed on purpose (round AV): the 409 is one answer, also given when the row moved between the check and the write
   check("the conflict check comes after the ownership read and before any write", route.indexOf("if (!existing)") < route.indexOf("sentBaseVersion(base_version)") && route.indexOf("sentBaseVersion(base_version)") < route.indexOf("const write = (row"))
   check("PUT answers with the new edit version", /edit_version: onePageEditVersion\(updated/.test(route))
   const pageTsx = read("app/(storelib)/app/onepage/page.tsx")

@@ -319,7 +319,7 @@ async function run() {
       "app/api/community/[communityId]/moderation/members/route.ts",
       "app/api/community/[communityId]/moderation/reports/route.ts",
       "app/api/community/[communityId]/onboarding/route.ts",
-      "app/api/debug/orders/route.ts",
+      /* app/api/debug/orders/route.ts was here: deleted in round AV (it showed any signed in account the newest orders of every store). */
       "app/api/download/[assetId]/route.ts",
       "app/api/help/me/route.ts",
       "app/api/memberships/checkout/route.ts",
