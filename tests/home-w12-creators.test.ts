@@ -11,6 +11,12 @@
  * "next could be you" tile) and for a realistic Storelib sale notification.
  * The morphing pill and orbit badge primitives had no other user and were
  * removed with them.
+ *
+ * Changed on purpose (landing round): the owner asked for the card's foot to
+ * be as it was before the product tiles (the name, the kind and what they
+ * sell on a shade inside the photo), for no lift or zoom on hover, and for
+ * the "New sale" notifications under the rail to go (they read as AI); the
+ * sale-pop primitive had no other user and was removed with them.
  */
 import assert from "node:assert/strict"
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs"
@@ -23,7 +29,6 @@ import {
   CREATORS_HEADING,
   CREATORS_STYLES,
 } from "../components/marketing/home/creators-carousel"
-import { SalePop, SALE_POP_CSS } from "../components/marketing/home/motion/sale-pop"
 
 let passed = 0
 const check = (label: string, fn: () => void) => {
@@ -35,19 +40,17 @@ const read = (p: string) => readFileSync(p, "utf8")
 const text = (html: string) => html.replace(/<!-- -->/g, "").replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&")
 
 const SRC = "components/marketing/home/creators-carousel.tsx"
-const MOTION = [
-  "components/marketing/home/motion/sale-pop.tsx",
-  "components/marketing/home/motion/use-motion-gate.ts",
-]
+/* Changed on purpose (landing round): the sale notification and its primitive are gone. */
+const MOTION: string[] = []
 const KINDS = ["YouTubers", "Musicians", "Authors", "Educators", "Influencers", "Podcasters", "Artists", "Streamers", "Coaches", "Agencies", "Photographers", "Fitness"]
 
 const light = renderToString(createElement(CreatorsCarousel))
 const dark = renderToString(createElement(CreatorsCarousel, { tone: "dark" }))
 
-check("twelve creator types, in order, each with a line of what they sell and one real product with a price", () => {
+/* Changed on purpose (landing round): no product tile on the card any more. */
+check("twelve creator types, in order, each with a line of what they sell and a name", () => {
   assert.deepEqual(CREATORS.map((c) => c.kind), KINDS)
   for (const c of CREATORS) assert.ok(c.sells.length > 5 && c.sells.length <= 34, c.slug)
-  for (const c of CREATORS) assert.ok(c.product.title.length > 3 && c.product.title.length <= 26 && /^\$\d+(\.\d\d)?(\/mo)?$/.test(c.product.price), c.slug)
   assert.equal(new Set(CREATORS.map((c) => c.name)).size, CREATORS.length)
 })
 
@@ -55,7 +58,7 @@ check("server markup: one heading, no eyebrow, no subheading, one CTA, region wi
   assert.equal((light.match(/<h2/g) || []).length, 1)
   assert.ok(light.includes(`aria-label="${CREATORS_HEADING}"`))
   const t = text(light)
-  for (const c of CREATORS) assert.ok(t.includes(c.kind) && t.includes(c.sells) && t.includes(c.product.title) && t.includes(c.name), c.kind)
+  for (const c of CREATORS) assert.ok(t.includes(c.kind) && t.includes(c.sells) && t.includes(c.name), c.kind)
   assert.ok(/<a class="cc-cta" href="\/signup">Start selling for free/.test(light))
   /* Changed on purpose (wave 13): the eyebrow, the subheading, the rotating "Sell …" pill and "See creator shops" are gone. */
   assert.ok(!/story-eyebrow|For creators|cc-sub|mp-root|See creator shops|href="\/explore"/.test(light))
@@ -74,7 +77,6 @@ check("seamless loop: exactly two copies, the second hidden from assistive tech 
 })
 
 check("photos: local, responsive, lazy, async, sized, alt text only on the first copy", () => {
-  /* The creator photos (the sale notification draws the Storelib icon too). */
   const imgs = light.match(/<img class="cc-img"[^>]*>/g) || []
   assert.equal(imgs.length, CREATORS.length * 2)
   for (const img of imgs) {
@@ -117,50 +119,35 @@ check("reduced motion: a still grid, one copy, no transitions", () => {
   assert.ok(/\.cc-track\{display:grid/.test(rm) && /transform:none!important/.test(rm))
   assert.ok(/\.cc-card\[aria-hidden="true"\]\{display:none\}/.test(rm))
   assert.ok(/transition:none!important/.test(rm))
-  assert.ok(SALE_POP_CSS.includes("prefers-reduced-motion:reduce"))
   const src = read(SRC)
   assert.ok(src.includes('matchMedia("(prefers-reduced-motion: reduce)")') && /const live = \(\) => visible && !document\.hidden && !reduce\.matches/.test(src))
 })
 
-/* Changed on purpose (wave 13): the bubble morph (corners springing into domes and leaves) read as a gimmick; a card now lifts a little and its photo eases in, on fine pointers only. */
-check("cards: a plain lift on hover for fine pointers, no border-radius morph, no data-active", () => {
-  assert.ok(CREATORS_CSS.includes("@media(hover:hover) and (pointer:fine)"))
+/* Changed on purpose (landing round): the owner did not like the bump on hover; a card stays still under the pointer (no lift, no zoom), and its foot is the shade with the name, the kind and what they sell, as before the product tiles. */
+check("cards: still under the pointer, the creator's words on a shade inside the photo, no product tile", () => {
+  assert.ok(!/:hover \.cc-(body|img|photo|card)/.test(CREATORS_CSS) && !/\.cc-img\{[^}]*transition/.test(CREATORS_CSS))
   assert.ok(!/--cc-on|data-shape|data-active|transition:border-radius/.test(CREATORS_CSS + read(SRC)))
-  /* Changed on purpose (wave 13 perf): a 2D lift, and no 3D transform on a card at rest, so the cards are not a compositor layer each. */
-  assert.ok(/\.cc-card:hover \.cc-body\{transform:translate\(0,-6px\)\}/.test(CREATORS_CSS) && !/\.cc-(body|photo)\{[^}]*(translate3d|translateZ)/.test(CREATORS_CSS))
+  assert.ok(!/\.cc-(body|photo)\{[^}]*(translate3d|translateZ)/.test(CREATORS_CSS))
+  assert.ok(/\.cc-shade\{position:absolute;inset:0;background:linear-gradient\(to top/.test(CREATORS_CSS) && /\.cc-meta\{position:absolute/.test(CREATORS_CSS))
+  assert.equal((light.match(/class="cc-meta"/g) || []).length, CREATORS.length * 2)
+  assert.ok(!/cc-prod|cc-info/.test(light + CREATORS_CSS))
   assert.ok(read(SRC).includes('matchMedia("(hover: none), (pointer: coarse)")'))
 })
 
-check("the CTA: one solid pill to /signup with its arrow in a disc, focus ring", () => {
-  assert.ok(/\.cc-cta\{[^}]*border-radius:999px/.test(CREATORS_CSS) && /\.cc-cta-ic\{[^}]*background:#7c3aed/.test(CREATORS_CSS))
+/* Changed on purpose (landing round): the owner did not want the button black; it takes Storelib's own primary look, as the page's other Start for free and Sign Up buttons draw it (violet #7c3aed, 12px corners, white words). */
+check("the CTA: Storelib's violet primary button to /signup, not black, focus ring", () => {
+  assert.ok(/\.cc-cta\{[^}]*border-radius:12px;background:#7c3aed;color:#fff/.test(CREATORS_CSS) && !/\.cc-cta\{[^}]*background:var\(--cc-ink\)/.test(CREATORS_CSS))
   assert.ok(/\.cc-cta:focus-visible/.test(CREATORS_CSS))
 })
 
-check("sale notification: Storelib's own words, a stack in a fixed box, transitions on transform and opacity only", () => {
-  const items = [
-    { who: "Maya Ross", what: "Drum Kit Vol. 2", amount: "$29.00" },
-    { who: "Tom Kessler", what: "Spanish in 6 Weeks", amount: "$149.00" },
-    { who: "Priya Shah", what: "Autumn Drop hoodie", amount: "$58.00" },
-    { who: "Leo Martin", what: "60-min strategy call", amount: "$120.00" },
-    { who: "Hana Wright", what: "Film Tones presets", amount: "$24.00" },
-  ]
-  const html = renderToString(createElement(SalePop, { items }))
-  const t = text(html).replace(/\s+/g, " ")
-  assert.ok(t.includes("New sale: $29.00") && t.includes("Maya Ross bought Drum Kit Vol. 2 for $29.00."))
-  /* Changed on purpose (wave 13 integration): the notice's icon is the real logo drawn through StorelibLogo (tests/brand-logo.test.ts forbids the old /storelib-mark.svg file). */
-  assert.ok(html.includes("data-storelib-logo"))
-  /* One card in front, two behind, the rest waiting; only the front one is read out. */
-  const cards = html.replace(/<style[\s\S]*?<\/style>/g, "")
-  assert.deepEqual([...cards.matchAll(/data-pos="(\d)"/g)].map((m) => m[1]), ["0", "4", "3", "2", "1"])
-  assert.equal((cards.match(/aria-hidden="true"/g) || []).length, 4)
-  assert.ok(/\.sp-root\{[^}]*height:100px/.test(SALE_POP_CSS) && /\.sp-card\{position:absolute/.test(SALE_POP_CSS))
-  for (const m of SALE_POP_CSS.matchAll(/transition:([^;}]+)/g)) for (const part of m[1].split(",")) assert.ok(/^\s*(transform|opacity|none)\b/.test(part), m[1])
-  assert.ok(!/@keyframes/.test(SALE_POP_CSS))
-  assert.ok(read("lib/notify/templates/catalog.ts").includes("`New sale: ${total}`"))
+/* Changed on purpose (landing round): the owner found the "New sale: $6.00, Sam Ortiz bought Signal+ membership" notifications AI looking; nothing replaces them. */
+check("no sale notification under the rail", () => {
+  assert.ok(!/New sale|sp-root|sp-card|cc-salepop|bought/.test(light) && !/sale-pop|SalePop/.test(read(SRC)))
+  assert.ok(!existsSync("components/marketing/home/motion/sale-pop.tsx"))
 })
 
 check("keyframes animate only transform and opacity", () => {
-  for (const css of [CREATORS_CSS, SALE_POP_CSS]) {
+  for (const css of [CREATORS_CSS]) {
     for (const block of css.match(/@keyframes [\w-]+\{(?:[^{}]*\{[^{}]*\})+\}/g) || []) {
       const props = [...block.matchAll(/[{;]\s*([a-z-]+)\s*:/g)].map((m) => m[1])
       for (const p of props) assert.ok(p === "transform" || p === "opacity", `${block.slice(0, 30)} animates ${p}`)
@@ -180,13 +167,11 @@ check("engine: one rAF, transform only, IO and visibility pause, drag with captu
   assert.ok(!/offset(Left|Width)|getBoundingClientRect|clientWidth/.test(frame))
 })
 
-check("the sale notification renders on the server and stays readable, with no animation library", () => {
-  const pop = renderToString(createElement(SalePop, { items: [{ who: "Maya R.", what: "a beat pack", amount: "$29.00" }] }))
-  assert.ok(text(pop).replace(/\s+/g, " ").includes("Maya R. bought a beat pack for $29.00.") && pop.includes("$29.00"))
-  for (const f of MOTION) assert.ok(!/from ["'](?:framer-motion|three|lottie[\w-]*|gsap)["']/.test(read(f)), f)
+check("no animation library, and one stylesheet", () => {
+  for (const f of [SRC, ...MOTION]) assert.ok(!/from ["'](?:framer-motion|three|lottie[\w-]*|gsap)["']/.test(read(f)), f)
   /* Changed on purpose (wave 13): the morphing pill and orbit badge went with the rotating "Sell …" pill and the overlays. */
   assert.ok(!existsSync("components/marketing/home/motion/morph-pill-cluster.tsx") && !existsSync("components/marketing/home/motion/orbit-badge.tsx"))
-  assert.deepEqual(CREATORS_STYLES.map((s) => s.href), ["w12-creators-carousel", "w12-sale-pop"])
+  assert.deepEqual(CREATORS_STYLES.map((s) => s.href), ["w12-creators-carousel"])
 })
 
 check("registered in the push suite", () => {

@@ -2,38 +2,34 @@
 
 /**
  * ===========================================================================
- *  HIGH-CONVERTING CHECKOUT: THE SCROLL SCENE (home, section 9, wave 13)
+ *  HIGH-CONVERTING CHECKOUT: THE SCROLL SCENE (home, section 9)
  * ===========================================================================
  * Black. A modern iPhone with Storelib's own instant checkout on it (the
  * window components/checkout/instant-checkout.tsx draws: the grey head with
  * the product and the seller, Your details, the line and its price, Payment
- * method with the wallet and Card, "Pay $19.00 with Apple Pay") is already
- * on screen, a little bigger, when the section arrives. Six things creators
- * sell (a cap, a record, a preset pack, a tee, a course, a membership card)
- * orbit slowly around it. As the page scrolls the phone settles into its
- * place beside the headline, Pay is pressed, the Apple Pay sheet comes up,
- * Face ID confirms, and the window turns to "Payment complete". Under the
- * scene, five tabs, each a true thing checkout does, each with its own
- * small mock: the same checkout in a desktop browser, both wallets, five
+ * method with the wallet and Card, "Pay $19.00 with Apple Pay") stands beside
+ * the headline. The stage holds still while the page scrolls past it, and the
+ * scroll moves the purchase on, one step at a time: Pay is pressed and the
+ * Apple Pay sheet comes up, Face ID confirms, the sheet goes and the window
+ * turns to "Payment complete". Scroll back and it steps back. Under the
+ * scene, five tabs, each a true thing checkout does, each with its own small
+ * mock: the same checkout in a desktop browser, both wallets, five
  * currencies with their flags, the reminder email, the paid confirmation.
  *
- * MOTION, CHEAPLY.
- *   scroll   CSS scroll-driven animations on one named view timeline (the
- *            track), transform and opacity only, run by the compositor.
- *            Where animation-timeline is not supported, one rAF per scroll
- *            frame (only while the track is on screen) writes a single
- *            custom property, --cmc-p, and the same transforms read it.
- *   orbit    every product rides one ellipse around the phone: two nested
- *            sine loops (x, then y a quarter turn later) make a constant,
- *            seamless circle with no stop and no jump; the y loop carries
- *            the depth (smaller, dimmer and softer at the back, a cross fade
- *            to a pre-blurred webp, never a live filter); a third loop
- *            turns the product in 3D. All time based, paused off screen
- *            and in a background tab (data-commerce-live on the track).
- *   sizes    the phone is sized from the viewport alone (no measuring), so
- *            nothing in the scene moves once it is drawn.
- *   reduced  prefers-reduced-motion: no pinning, loops held still, the
- *            finished layout drawn: phone in place, headline in.
+ * SMOOTH BY CONSTRUCTION (the owner: the scroll "feels very bad").
+ *   Nothing is tied to the scroll position frame by frame. Three invisible
+ *   bands in the track cross the middle of the screen as the page scrolls;
+ *   one IntersectionObserver notices and sets data-step on the track (four
+ *   attribute changes over the whole scene, never a scroll listener, never a
+ *   layout read, never React state). Each step's change then plays as a CSS
+ *   transition of transform and opacity, on the compositor, at its own
+ *   unhurried pace whatever the speed of the scroll: a fast flick and a slow
+ *   drag look the same, and nothing scrubs half way.
+ *   The products that used to orbit the phone (eighteen endless 3D loops) are
+ *   gone, and so is the purple glow under the phone.
+ *   The phone is sized from the viewport alone (no measuring), so nothing in
+ *   the scene moves once it is drawn.
+ *   Reduced motion: no pinning, no steps, the checkout drawn still.
  *
  * TRUE FIGURES. The tabs say what the code does: email, name and a wallet
  * button in one window (instant checkout), Apple Pay and Google Pay
@@ -48,24 +44,14 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import type { SectionStyle } from "./lazy-section"
 import { useEffect, useRef, useState } from "react"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_KIT_STYLE, CommerceKitStyle, useCommerceLive, useCommerceReducedMotion } from "./commerce-kit"
+import { EBOOK, EBOOK_COVER_CSS, EbookCover, EbookCoverStyle } from "./ebook-cover"
 
 const IMG = "/home/commerce"
+const PRODUCT = EBOOK.title
+const SELLER = EBOOK.author
 
-/**
- * The orbiting products: their size, their place on the ring (phase 0 to 1,
- * and a second set for phones, which show four), how far out they ride (k),
- * a small lift off the ring, how long one 3D turn takes, and the object's size
- * inside the blurred file (for lining the two files up).
- */
-const FLOATS = [
-  { id: "cap", obj: [220, 109], w: "clamp(120px,13vw,210px)", wm: "36vw", ph: 0, phm: 0, k: 1, oy: "-2svh", r: -10, m: true },
-  { id: "vinyl", obj: [220, 159], w: "clamp(130px,14vw,230px)", wm: "38vw", ph: 1 / 6, phm: 0.25, k: 0.94, oy: "1svh", r: 8, m: true },
-  { id: "box", obj: [201, 220], w: "clamp(96px,10vw,165px)", wm: "28vw", ph: 2 / 6, phm: 0.5, k: 1.04, oy: "0svh", r: -6, m: true },
-  { id: "tee", obj: [151, 220], w: "clamp(100px,10.5vw,170px)", wm: "30vw", ph: 3 / 6, phm: 0.75, k: 0.98, oy: "2svh", r: 7, m: true },
-  { id: "course", obj: [220, 193], w: "clamp(120px,12vw,200px)", wm: "0px", ph: 4 / 6, phm: 0, k: 1.02, oy: "-1svh", r: -5, m: false },
-  { id: "member", obj: [220, 143], w: "clamp(120px,12.5vw,205px)", wm: "0px", ph: 5 / 6, phm: 0, k: 0.96, oy: "1svh", r: 9, m: false },
-] as const
-const BLUR_PAD = 24
+/** The scroll steps, as data-step on the track: 0 the checkout, 1 Pay pressed and the Apple Pay sheet up, 2 confirmed, 3 paid. */
+export const CHECKOUT_STEPS = ["Tap Pay", "Confirm with Face ID", "Paid, receipt sent"] as const
 
 const TABS = [
   {
@@ -73,7 +59,7 @@ const TABS = [
     label: "Built to convert",
     stat: "1 screen",
     title: "One screen, then paid",
-    body: "No account to make and no cart to visit. Email, name, pay, in a window that opens over your page on a phone or a computer, so fans never lose sight of what they came for.",
+    body: "No account to make and no cart to visit. Email, name, pay, in a window that opens over your page on a phone or a computer, so buyers never lose sight of what they came for.",
   },
   {
     id: "tap",
@@ -86,7 +72,7 @@ const TABS = [
     id: "currency",
     label: "Local currencies",
     stat: `${COMMERCE_CURRENCY_COUNT} currencies`,
-    title: "Prices fans read without a calculator",
+    title: "Prices people read without a calculator",
     body: "Your website can show prices in a visitor's own currency and charge in it: dollars, euros, pounds, yen, Canadian dollars and more.",
   },
   {
@@ -107,102 +93,97 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"]
 const AUTO_MS = 7000
 
-export function CheckoutScene() {
-  const [trackRef] = useCommerceLive<HTMLDivElement>("120px 0px", false)
-  const rootRef = useRef<HTMLElement>(null)
-  const reduced = useCommerceReducedMotion()
-
-  /* The fallback for browsers without scroll-driven animations. */
+/**
+ * The steps. Four bands lie end to end down the track (0 the checkout, 1 Pay
+ * and the sheet, 2 confirmed, 3 paid); whichever one is across the middle of
+ * the screen is the step. When none is (the middle of the screen is above or
+ * below the whole track), the step is 0 before it and 3 after it, read from
+ * the rectangle the observer hands over. A second observer, on the screen as
+ * a whole, catches a jump that skips the track (an anchor, Home or End). It
+ * runs once per crossing, never per frame, and reads no layout.
+ */
+function useScrollSteps(trackRef: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     const track = trackRef.current
-    const root = rootRef.current
-    if (!track || !root) return
+    if (!track || typeof IntersectionObserver !== "function") return
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    if (typeof CSS !== "undefined" && CSS.supports?.("animation-timeline: view()")) return
-    root.setAttribute("data-cmc-js", "")
-    let frame = 0
-    let active = false
-    let vh = innerHeight
-    const paint = () => {
-      frame = 0
-      const r = track.getBoundingClientRect()
-      const span = Math.max(1, r.height - vh)
-      const p = Math.max(-1, Math.min(1.6, -r.top / span))
-      track.style.setProperty("--cmc-p", p.toFixed(4))
+    const bands = [...track.querySelectorAll<HTMLElement>("[data-cmc-band]")]
+    const across = new Set<number>()
+    const set = (step: number) => {
+      if (track.dataset.step !== String(step)) track.dataset.step = String(step)
     }
-    const schedule = () => {
-      if (active && !frame) frame = requestAnimationFrame(paint)
+    const outside = (e: IntersectionObserverEntry) => {
+      const mid = e.rootBounds ? e.rootBounds.top + e.rootBounds.height / 2 : innerHeight / 2
+      return e.boundingClientRect.top > mid ? 0 : 3
     }
-    const resize = () => {
-      vh = innerHeight
-      schedule()
-    }
-    const io = new IntersectionObserver((e) => {
-      active = e[e.length - 1].isIntersecting
-      schedule()
+    const middle = new IntersectionObserver(
+      (entries) => {
+        let edge = -1
+        for (const e of entries) {
+          const n = Number((e.target as HTMLElement).dataset.cmcBand)
+          if (e.isIntersecting) across.add(n)
+          else {
+            across.delete(n)
+            edge = outside(e)
+          }
+        }
+        if (across.size) set(Math.max(...across))
+        else if (edge >= 0) set(edge)
+      },
+      { rootMargin: "-50% 0px -49% 0px" },
+    )
+    /* The first band coming on screen with the middle still above its foot is the start; the last band with the middle past its top is the end. */
+    const screen = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting || across.size) continue
+        const mid = e.rootBounds ? e.rootBounds.top + e.rootBounds.height / 2 : innerHeight / 2
+        const n = Number((e.target as HTMLElement).dataset.cmcBand)
+        if (n === 0 && e.boundingClientRect.bottom > mid) set(0)
+        else if (n === bands.length - 1 && e.boundingClientRect.top < mid) set(n)
+      }
     })
-    io.observe(track)
-    addEventListener("scroll", schedule, { passive: true })
-    addEventListener("resize", resize)
+    for (const b of bands) middle.observe(b)
+    for (const b of [bands[0], bands[bands.length - 1]]) if (b) screen.observe(b)
     return () => {
-      cancelAnimationFrame(frame)
-      io.disconnect()
-      removeEventListener("scroll", schedule)
-      removeEventListener("resize", resize)
-      root.removeAttribute("data-cmc-js")
+      middle.disconnect()
+      screen.disconnect()
     }
   }, [trackRef])
+}
+
+export function CheckoutScene() {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const reduced = useCommerceReducedMotion()
+  useScrollSteps(trackRef)
 
   return (
-    <section ref={rootRef} className="cmc" data-story-section="checkout" aria-labelledby="cmc-title">
+    <section className="cmc" data-story-section="checkout" aria-labelledby="cmc-title">
       <CommerceKitStyle />
+      <EbookCoverStyle />
       <style href="w12-commerce-checkout" precedence="default">
         {CHECKOUT_CSS}
       </style>
-      <div ref={trackRef} className="cmc-track">
+      <div ref={trackRef} className="cmc-track" data-step="0">
+        {[0, 1, 2, 3].map((n) => (
+          <span key={n} className="cmc-band" data-cmc-band={n} aria-hidden="true" />
+        ))}
         <div className="cmc-stage">
-          <div className="cmc-floats" aria-hidden="true">
-            <div className="cmc-orbit">
-              {FLOATS.map((f) => (
-                <div
-                  key={f.id}
-                  className="cmc-o"
-                  data-m={f.m || undefined}
-                  style={{ "--w": f.w, "--wm": f.wm, "--ph": f.ph, "--phm": f.phm, "--k": f.k, "--oy": f.oy, "--r": `${f.r}deg` } as React.CSSProperties}
-                >
-                  <div className="cmc-lap">
-                    <div className="cmc-obj" style={{ aspectRatio: `${f.obj[0]} / ${f.obj[1]}` }}>
-                      <img
-                        className="cmc-soft"
-                        src={`${IMG}/float-${f.id}-blur.webp`}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        width={f.obj[0] + BLUR_PAD * 2}
-                        height={f.obj[1] + BLUR_PAD * 2}
-                        style={{
-                          left: `${(-BLUR_PAD / f.obj[0]) * 100}%`,
-                          top: `${(-BLUR_PAD / f.obj[1]) * 100}%`,
-                          width: `${((f.obj[0] + BLUR_PAD * 2) / f.obj[0]) * 100}%`,
-                          height: `${((f.obj[1] + BLUR_PAD * 2) / f.obj[1]) * 100}%`,
-                        }}
-                      />
-                      <img className="cmc-sharp" src={`${IMG}/float-${f.id}.webp`} alt="" loading="lazy" decoding="async" width={f.obj[0] * 2} height={f.obj[1] * 2} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div className="cmc-copy">
             <h2 id="cmc-title" className="cmc-title">
               Checkout that turns a tap into a sale
             </h2>
+            <ol className="cmc-steps" aria-hidden="true">
+              {CHECKOUT_STEPS.map((s, i) => (
+                <li key={s} className="cmc-step" data-n={i + 1}>
+                  <span className="cmc-step-n">{i + 1}</span>
+                  {s}
+                </li>
+              ))}
+            </ol>
           </div>
 
           <div className="cmc-phone-wrap">
-            <Phone label="A Storelib checkout on a phone (an iPhone): Golden Hour presets by Maya Ellis Studio, $19.00, paid with Apple Pay." />
+            <Phone label={`A Storelib checkout on a phone (an iPhone): ${PRODUCT}, an e-book by ${SELLER}, $19.00, paid with Apple Pay.`} />
           </div>
         </div>
       </div>
@@ -271,7 +252,7 @@ function Phone({ label }: { label?: string }) {
                   </svg>
                 </div>
                 <div className="cmc-sheet-row">
-                  <span>Pay Maya Ellis Studio</span>
+                  <span>Pay {SELLER}</span>
                   <b>$19.00</b>
                 </div>
                 <div className="cmc-confirm">
@@ -314,9 +295,9 @@ function CheckoutUI({ wallet, desktop = false, cursor = false, only }: { wallet:
             </svg>
           </span>
         </div>
-        <img className="ck-mark" src={`${IMG}/golden-cover.webp`} alt="" loading="lazy" decoding="async" width={120} height={120} />
-        <div className="ck-title">Golden Hour presets</div>
-        <div className="ck-sub">Maya Ellis Studio</div>
+        <EbookCover className="ck-mark" />
+        <div className="ck-title">{PRODUCT}</div>
+        <div className="ck-sub">{SELLER}</div>
       </div>
       <div className="ck-body">
         {only === "done" ? null : (
@@ -341,7 +322,7 @@ function CheckoutUI({ wallet, desktop = false, cursor = false, only }: { wallet:
             </div>
           </div>
           <div className="ck-sum">
-            <span className="ck-sum-t">Golden Hour presets</span>
+            <span className="ck-sum-t">{PRODUCT}</span>
             <b>$19.00</b>
           </div>
           <div className="ck-code">
@@ -509,7 +490,6 @@ function CheckoutTabs({ reduced }: { reduced: boolean }) {
           </div>
         ))}
       </div>
-      <p className="cmc-foot">Card payments are processed by Stripe. Wallets show where the buyer&apos;s device and browser offer them. Prices in other currencies are examples.</p>
     </div>
   )
 }
@@ -535,25 +515,27 @@ function Browser({ wallet, cursor = false, className }: { wallet: "apple" | "goo
         <div className="cmv-page">
           <div className="cmv-nav">
             <img src={`${IMG}/creator-maya.webp`} alt="" loading="lazy" decoding="async" width={64} height={64} />
-            <b>Maya Ellis Studio</b>
+            <b>{SELLER}</b>
             <span className="cmv-links">
               <span>Shop</span>
-              <span>Presets</span>
+              <span>Recipes</span>
               <span>About</span>
             </span>
           </div>
           <div className="cmv-prod">
-            <img className="cmv-prod-img" src={`${IMG}/golden-cover.webp`} alt="" loading="lazy" decoding="async" width={240} height={240} />
+            <span className="cmv-prod-img">
+              <EbookCover className="cmv-prod-cover" />
+            </span>
             <div className="cmv-prod-t">
-              <small>Lightroom presets</small>
-              <b>Golden Hour presets</b>
+              <small>E-book</small>
+              <b>{PRODUCT}</b>
               <span className="cmv-prod-p">$19.00</span>
-              <p>12 presets for warm, low sun light. Desktop and mobile, with a short guide to each one.</p>
+              <p>42 pasta recipes for busy evenings, most ready in about 30 minutes. A PDF for your phone, tablet or printer.</p>
               <span className="cmv-buy">
                 Buy now
                 {cursor ? <Cursor className="cmv-cur1" /> : null}
               </span>
-              <small className="cmv-prod-n">Instant download · .xmp and .dng</small>
+              <small className="cmv-prod-n">Instant download · PDF, {EBOOK.pages} pages</small>
             </div>
           </div>
           <span className="cmv-dim" />
@@ -605,10 +587,12 @@ function VisCurrency() {
   return (
     <div className="cmv-cur">
       <div className="cmv-pcard">
-        <img className="cmv-pcard-img" src={`${IMG}/golden-cover.webp`} alt="" loading="lazy" decoding="async" width={240} height={240} />
+        <span className="cmv-pcard-img">
+          <EbookCover className="cmv-pcard-cover" />
+        </span>
         <div className="cmv-pcard-b">
-          <b>Golden Hour presets</b>
-          <small>Maya Ellis Studio</small>
+          <b>{PRODUCT}</b>
+          <small>{SELLER}</small>
           <div className="cmv-pcard-row">
             <span className="cmv-stack cmv-price">
               {PRICES.map((p, i) => (
@@ -655,17 +639,17 @@ function VisRecover() {
         <div className="cmv-mail-from">
           <img src={`${IMG}/creator-maya.webp`} alt="" loading="lazy" decoding="async" width={64} height={64} />
           <span>
-            <b>Maya Ellis Studio</b>
+            <b>{SELLER}</b>
             <small>to Sam · 3:14 PM</small>
           </span>
         </div>
-        <div className="cmv-mail-subj">You left Golden Hour presets at checkout</div>
+        <div className="cmv-mail-subj">You left {PRODUCT} at checkout</div>
         <div className="cmv-mail-h">Still thinking it over?</div>
         <p>Hi Sam, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.</p>
         <span className="cmv-mail-btn">Finish checkout</span>
         <div className="cmv-mail-line">
-          <img src={`${IMG}/golden-cover.webp`} alt="" loading="lazy" decoding="async" width={96} height={96} />
-          <span>Golden Hour presets</span>
+          <EbookCover className="cmv-thumb" />
+          <span>{PRODUCT}</span>
           <b>$19.00</b>
         </div>
       </div>
@@ -678,10 +662,10 @@ function VisRecover() {
         </span>
         <span className="cmv-note-t">
           <span className="cmv-note-top">
-            <b>Maya Ellis Studio</b>
+            <b>{SELLER}</b>
             <small>now</small>
           </span>
-          <span className="cmv-note-s">You left Golden Hour presets at checkout</span>
+          <span className="cmv-note-s">You left {PRODUCT} at checkout</span>
           <span className="cmv-note-p">Hi Sam, you got as far as checkout and stopped there.</span>
         </span>
       </div>
@@ -719,8 +703,8 @@ function VisPaid() {
         <small className="cmv-rcpt-s">We sent your receipt and your access to sam.rivera@mail.com.</small>
         <div className="cmv-rcpt-rows">
           <div>
-            <img src={`${IMG}/golden-cover.webp`} alt="" loading="lazy" decoding="async" width={96} height={96} />
-            <span>Golden Hour presets</span>
+            <EbookCover className="cmv-thumb" />
+            <span>{PRODUCT}</span>
             <b>$19.00</b>
           </div>
           <div>
@@ -740,8 +724,8 @@ function VisPaid() {
             <b>Storelib</b>
             <small>now</small>
           </span>
-          <span className="cmv-note-s">You sold Golden Hour presets for $19.00</span>
-          <span className="cmv-note-p">Sam bought Golden Hour presets.</span>
+          <span className="cmv-note-s">You sold {PRODUCT} for $19.00</span>
+          <span className="cmv-note-p">Sam bought {PRODUCT}.</span>
         </span>
       </div>
     </div>
@@ -750,123 +734,61 @@ function VisPaid() {
 
 /* ── Styles ──────────────────────────────────────────────────────────── */
 
-/**
- * ONE LAP OF THE RING, BAKED. Each product rides the same keyframes, a
- * negative delay putting it at its own place on the lap: 40 points of an
- * ellipse (x = -cos, y = sin, so the front of the ring is its lower half),
- * the depth that goes with each point (smaller and dimmer at the back), and a
- * slow 3D turn, five to a lap, so the loop closes on itself with no seam. One
- * animated layer per product moves it, and two cross fade its sharp and its
- * pre-blurred file with the depth: compositor work only, little for the main
- * thread to update. Every value is transform or opacity.
+/*
+ * The scene. The track is the stage's height plus 150vh of scroll; three
+ * bands mark where each step begins (the middle of the screen crossing them:
+ * a band's top is 50vh plus its share of the 150vh). The stage holds still
+ * (position:sticky) and only data-step changes, which the transitions below
+ * play on the compositor.
  */
-const LAP_POINTS = 40
-function orbitKeyframes(): string {
-  const f = (v: number) => String(+v.toFixed(3))
-  let lap = ""
-  let sharp = ""
-  let soft = ""
-  for (let i = 0; i <= LAP_POINTS; i++) {
-    const t = (i / LAP_POINTS) * Math.PI * 2
-    const x = -Math.cos(t)
-    const y = Math.sin(t)
-    const d = (1 + y) / 2
-    const turn = t * 5
-    const at = `${f((i / LAP_POINTS) * 100)}%`
-    lap += `${at}{transform:perspective(900px) translate3d(calc(var(--rk) * ${f(x)}),calc(var(--ry) * ${f(y)} + var(--oy)),0) scale(${f(0.6 + 0.46 * d)}) rotateX(${f(11 * Math.sin(turn + 1.3))}deg) rotateY(${f(24 * Math.sin(turn))}deg) rotateZ(calc(var(--r) * ${f(Math.cos(turn))}));opacity:${f(0.42 + 0.58 * d)}}`
-    sharp += `${at}{opacity:${f(Math.min(1, d * 2))}}`
-    soft += `${at}{opacity:${f(Math.min(1, Math.max(0, (0.62 - d) / 0.37)))}}`
-  }
-  return `@keyframes cmc-lap{${lap}}\n@keyframes cmc-focus-sharp{${sharp}}\n@keyframes cmc-focus-soft{${soft}}\n`
-}
-
-/* The scene: stage, orbit, headline, phone placement, scroll choreography. */
 const SCENE_CSS = `
 .cmc{position:relative;background:#000;color:#fff;border-radius:clamp(28px,4vw,56px);overflow:clip;padding-block:0!important;isolation:isolate}
-.cmc[data-story-section] > .cmc-track.cmc-track{position:relative;max-width:none;margin:0;padding:0;height:calc(100svh + 170vh);view-timeline-name:--cmc;--cmc-p:1}
-.cmc-stage{position:sticky;top:0;height:100svh;overflow:hidden;
-  --hd:60px;--pw:min(84vw,360px,calc((100svh - 200px) / 2.07));
-  --dx:0px;--sy:15svh;--s0:1.1;--ocx:0px;--ocy:7svh;
-  --rx:50vw;--ry:38svh;--lap:64s}
-.cmc-floats{position:absolute;inset:0;pointer-events:none}
-.cmc-orbit{position:absolute;left:50%;top:calc(50% + var(--ocy));width:0;height:0}
-.cmc-o{position:absolute;left:0;top:0;width:var(--w);transform:translate(-50%,-50%)}
-.cmc-o{--rk:calc(var(--rx) * var(--k))}
-.cmc-lap,.cmc-sharp,.cmc-soft{animation:cmc-lap var(--lap) linear infinite both;animation-delay:calc(var(--ph) * var(--lap) * -1);animation-play-state:paused}
-.cmc-obj{position:relative}
-.cmc-obj img{position:absolute;display:block;max-width:none}
-.cmc-sharp{inset:0;width:100%;height:100%;animation-name:cmc-focus-sharp}
-.cmc-soft{animation-name:cmc-focus-soft}
-.cmc-track[data-commerce-live] .cmc-lap,.cmc-track[data-commerce-live] .cmc-sharp,.cmc-track[data-commerce-live] .cmc-soft{animation-play-state:running}
-${orbitKeyframes()}
+.cmc[data-story-section] > .cmc-track.cmc-track{position:relative;max-width:none;margin:0;padding:0;height:calc(100svh + 150vh)}
+.cmc-band{position:absolute;left:0;width:1px;pointer-events:none}
+.cmc-band[data-cmc-band="0"]{top:0;height:74vh}
+.cmc-band[data-cmc-band="1"]{top:74vh;height:39vh}
+.cmc-band[data-cmc-band="2"]{top:113vh;height:30vh}
+.cmc-band[data-cmc-band="3"]{top:143vh;bottom:0}
+.cmc-stage{position:sticky;top:0;height:100svh;overflow:hidden;--hd:60px;--pw:min(80vw,330px,calc((100svh - 230px) / 2.07))}
 
-.cmc-copy{position:absolute;z-index:2;left:20px;right:20px;top:calc(var(--hd) + clamp(14px,3svh,32px));text-align:center}
+.cmc-copy{position:absolute;z-index:2;left:20px;right:20px;top:calc(var(--hd) + clamp(16px,3svh,32px));text-align:center}
 .cmc-title{margin:0 auto;font-size:clamp(30px,8.6vw,46px);font-weight:300;line-height:1.04;letter-spacing:-.045em;text-wrap:balance;color:#fff}
-.cmc-phone-wrap{position:absolute;z-index:3;left:calc(50% + var(--dx));top:calc(100% - 22px - var(--pw) * 1.035);transform:translate(-50%,-50%)}
+.cmc-steps{display:none}
+.cmc-phone-wrap{position:absolute;z-index:3;left:50%;bottom:22px;transform:translateX(-50%)}
 
 @media (min-width:900px){
-  .cmc-stage{--hd:68px;--pw:min(372px,calc((100svh - 150px) / 2.07));--dx:min(18vw,270px);--sy:13svh;--s0:1.12;--ocx:var(--dx);--ocy:calc(var(--hd) / 2);--rx:min(24vw,345px);--ry:31svh}
-  .cmc-copy{left:max(var(--landing-gutter,48px),calc(50% - 620px));right:calc(50% - var(--dx) + var(--pw) / 2 + clamp(40px,5vw,88px));top:calc(50% + var(--hd) / 2);transform:translateY(-50%);text-align:left}
+  .cmc-stage{--hd:68px;--pw:min(360px,calc((100svh - 160px) / 2.07))}
+  .cmc-copy{left:max(var(--landing-gutter,48px),calc(50% - 600px));right:auto;width:min(44vw,560px);top:calc(50% + var(--hd) / 2);transform:translateY(-50%);text-align:left}
   .cmc-title{margin:0;font-size:clamp(42px,4.5vw,72px)}
-  .cmc-phone-wrap{top:calc(50% + var(--hd) / 2)}
+  .cmc-steps{display:grid;gap:16px;margin:clamp(28px,4svh,44px) 0 0;padding:0;list-style:none}
+  .cmc-phone-wrap{left:auto;right:max(var(--landing-gutter,48px),calc(50% - 540px));bottom:auto;top:calc(50% + var(--hd) / 2);transform:translateY(-50%)}
 }
-@media (max-width:899px){
-  .cmc-o{width:var(--wm)}
-  .cmc-o:not([data-m]){display:none}
-  .cmc-lap,.cmc-sharp,.cmc-soft{animation-delay:calc(var(--phm) * var(--lap) * -1)}
-}
+.cmc-step{display:flex;align-items:center;gap:14px;font-size:17px;letter-spacing:-.01em;color:#fff;opacity:.4;transition:opacity .5s ease}
+.cmc-step-n{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;font-size:13px;font-variant-numeric:tabular-nums;box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)}
+.cmc-track[data-step="1"] .cmc-step[data-n="1"],.cmc-track[data-step="2"] .cmc-step[data-n="2"],.cmc-track[data-step="3"] .cmc-step[data-n="3"]{opacity:1}
 
-/* Scroll-driven, where the browser runs it on the compositor. */
-@media (prefers-reduced-motion:no-preference){
-  @supports (animation-timeline:view()){
-    .cmc-floats{animation:cmc-par linear both;animation-timeline:--cmc;animation-range:cover 0% cover 100%}
-    .cmc-orbit{animation:cmc-orbit linear both,cmc-dim linear both;animation-timeline:--cmc,--cmc;animation-range:entry 55% contain 24%,contain 14% contain 30%}
-    .cmc-phone{animation:cmc-phone linear both;animation-timeline:--cmc;animation-range:entry 55% contain 24%}
-    .cmc-title{animation:cmc-copy linear both;animation-timeline:--cmc;animation-range:contain 2% contain 22%}
-    .cmc-stage .ck-pay{animation:cmc-press linear both;animation-timeline:--cmc;animation-range:contain 28% contain 34%}
-    .cmc-stage .cmc-scrim{animation:cmc-scrim linear both;animation-timeline:--cmc;animation-range:contain 32% contain 64%}
-    .cmc-stage .cmc-sheet-in{animation:cmc-sheet-up linear both;animation-timeline:--cmc;animation-range:contain 32% contain 40%}
-    .cmc-stage .cmc-sheet{animation:cmc-sheet-down linear both;animation-timeline:--cmc;animation-range:contain 56% contain 63%}
-    .cmc-stage .cmc-dbl{animation:cmc-dbl linear both;animation-timeline:--cmc;animation-range:contain 38% contain 50%}
-    .cmc-stage .cmc-fid{animation:cmc-fade-out linear both;animation-timeline:--cmc;animation-range:contain 46% contain 49%}
-    .cmc-stage .cmc-sheet-ok{animation:cmc-pop linear both;animation-timeline:--cmc;animation-range:contain 48% contain 52%}
-    .cmc-stage .ck-form{animation:cmc-fade-out linear both;animation-timeline:--cmc;animation-range:contain 58% contain 63%}
-    .cmc-stage .ck-done{animation:cmc-done linear both;animation-timeline:--cmc;animation-range:contain 61% contain 70%}
-  }
-}
-@keyframes cmc-par{from{transform:translate3d(0,5vh,0)}to{transform:translate3d(0,-9vh,0)}}
-@keyframes cmc-orbit{from{transform:translate3d(0,calc(var(--sy) * .4),0)}to{transform:translate3d(var(--ocx),0,0)}}
-@keyframes cmc-dim{from{opacity:1}to{opacity:.78}}
-@keyframes cmc-phone{from{transform:translate3d(calc(var(--dx) * -1),var(--sy),0) scale(var(--s0))}to{transform:translate3d(0,0,0) scale(1)}}
-@keyframes cmc-copy{from{opacity:0;transform:translate3d(0,28px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmc-fade-out{from{opacity:1}to{opacity:0}}
+/* The purchase, one step at a time: transitions of transform and opacity only, each at its own pace. */
+.cmc-stage .cmc-scrim{transition:opacity .45s ease}
+.cmc-track:is([data-step="1"],[data-step="2"]) .cmc-scrim{opacity:1}
+.cmc-stage .cmc-sheet-in{transition:transform .7s cubic-bezier(.32,.72,0,1)}
+.cmc-track:is([data-step="1"],[data-step="2"]) .cmc-sheet-in{transform:translate3d(0,0,0)}
+.cmc-stage .cmc-dbl{transform:translate3d(.6em,0,0);transition:opacity .3s ease,transform .45s cubic-bezier(.22,1,.36,1)}
+.cmc-track[data-step="1"] .cmc-dbl{opacity:1;transform:translate3d(0,0,0);transition-delay:.4s}
+.cmc-stage .cmc-fid{transition:opacity .3s ease}
+.cmc-track:is([data-step="2"],[data-step="3"]) .cmc-fid{opacity:0}
+.cmc-stage .cmc-sheet-ok{transform:scale(.8);transition:opacity .3s ease,transform .5s cubic-bezier(.3,1.4,.5,1)}
+.cmc-track:is([data-step="2"],[data-step="3"]) .cmc-sheet-ok{opacity:1;transform:scale(1);transition-delay:.15s}
+.cmc-stage .ck-form{transition:opacity .35s ease}
+.cmc-track[data-step="3"] .ck-form{opacity:0;transition-delay:.25s}
+.cmc-stage .ck-done{transform:translate3d(0,.8em,0) scale(.98);transition:opacity .45s ease,transform .6s cubic-bezier(.22,1,.36,1)}
+.cmc-track[data-step="3"] .ck-done{opacity:1;transform:translate3d(0,0,0) scale(1);transition-delay:.45s}
+.cmc-track[data-step="1"] .cmc-stage .ck-pay{animation:cmc-press .35s ease both}
 @keyframes cmc-press{0%,100%{transform:scale(1)}50%{transform:scale(.96)}}
-@keyframes cmc-scrim{0%{opacity:0}20%,80%{opacity:1}100%{opacity:0}}
-@keyframes cmc-sheet-up{from{transform:translate3d(0,108%,0)}to{transform:translate3d(0,0,0)}}
-@keyframes cmc-sheet-down{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,108%,0)}}
-@keyframes cmc-dbl{0%{opacity:0;transform:translate3d(.6em,0,0)}25%,75%{opacity:1;transform:translate3d(0,0,0)}100%{opacity:0;transform:translate3d(0,0,0)}}
-@keyframes cmc-pop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
-@keyframes cmc-done{from{opacity:0;transform:translate3d(0,.8em,0) scale(.98)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
-
-/* The same scene from one custom property, for browsers without scroll timelines (p: 0 when the stage pins, 1 when it lets go). */
-.cmc[data-cmc-js] .cmc-track{--a:clamp(0,calc((var(--cmc-p) + .26) / .5),1);--h:clamp(0,calc((var(--cmc-p) - .02) / .2),1);--dm:clamp(0,calc((var(--cmc-p) - .14) / .16),1);--pr:clamp(0,calc(1 - max(var(--cmc-p) - .31,.31 - var(--cmc-p)) / .03),1);--u:clamp(0,calc((var(--cmc-p) - .32) / .08),1);--sc:clamp(0,min(calc((var(--cmc-p) - .32) / .06),calc((.64 - var(--cmc-p)) / .06)),1);--k:clamp(0,calc((var(--cmc-p) - .48) / .04),1);--fi:clamp(0,calc((var(--cmc-p) - .46) / .03),1);--o:clamp(0,calc((var(--cmc-p) - .56) / .07),1);--x:clamp(0,calc((var(--cmc-p) - .58) / .05),1);--dn:clamp(0,calc((var(--cmc-p) - .61) / .09),1)}
-.cmc[data-cmc-js] .cmc-phone{transform:translate3d(calc((1 - var(--a)) * var(--dx) * -1),calc((1 - var(--a)) * var(--sy)),0) scale(calc(1 + (1 - var(--a)) * (var(--s0) - 1)))}
-.cmc[data-cmc-js] .cmc-orbit{transform:translate3d(calc(var(--a) * var(--ocx)),calc((1 - var(--a)) * var(--sy) * .4),0);opacity:calc(1 - var(--dm) * .22)}
-.cmc[data-cmc-js] .cmc-floats{transform:translate3d(0,calc(2vh - var(--cmc-p) * 7vh),0)}
-.cmc[data-cmc-js] .cmc-title{opacity:var(--h);transform:translate3d(0,calc((1 - var(--h)) * 28px),0)}
-.cmc[data-cmc-js] .cmc-stage .ck-pay{transform:scale(calc(1 - var(--pr) * .04))}
-.cmc[data-cmc-js] .cmc-stage .cmc-scrim{opacity:var(--sc)}
-.cmc[data-cmc-js] .cmc-stage .cmc-sheet-in{transform:translate3d(0,calc((1 - var(--u)) * 108%),0)}
-.cmc[data-cmc-js] .cmc-stage .cmc-fid{opacity:calc(1 - var(--fi))}
-.cmc[data-cmc-js] .cmc-stage .cmc-sheet-ok{opacity:var(--k)}
-.cmc[data-cmc-js] .cmc-stage .cmc-sheet{transform:translate3d(0,calc(var(--o) * 108%),0)}
-.cmc[data-cmc-js] .cmc-stage .ck-form{opacity:calc(1 - var(--x))}
-.cmc[data-cmc-js] .cmc-stage .ck-done{opacity:var(--dn);transform:translate3d(0,calc((1 - var(--dn)) * .8em),0)}
 `
 
 /* The iPhone and the checkout window inside it (and inside the browser mocks). */
 const PHONE_CSS = `
-.cmc-phone{position:relative;width:var(--pw);aspect-ratio:100/207;border-radius:calc(var(--pw) * .178);padding:calc(var(--pw) * .0135);background:linear-gradient(140deg,#77777c 0%,#36363a 14%,#1d1d20 42%,#232326 62%,#3c3c40 86%,#808086 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 0 calc(var(--pw) * .01) rgba(255,255,255,.12),0 calc(var(--pw) * .12) calc(var(--pw) * .3) calc(var(--pw) * -.08) rgba(124,58,237,.42),0 calc(var(--pw) * .08) calc(var(--pw) * .16) rgba(0,0,0,.6)}
+.cmc-phone{position:relative;width:var(--pw);aspect-ratio:100/207;border-radius:calc(var(--pw) * .178);padding:calc(var(--pw) * .0135);background:linear-gradient(140deg,#77777c 0%,#36363a 14%,#1d1d20 42%,#232326 62%,#3c3c40 86%,#808086 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 0 calc(var(--pw) * .01) rgba(255,255,255,.12),0 calc(var(--pw) * .08) calc(var(--pw) * .16) rgba(0,0,0,.6)}
 .cmc-key{position:absolute;width:calc(var(--pw) * .012);border-radius:2px;background:linear-gradient(90deg,#2a2a2d,#6a6a70 60%,#3a3a3e)}
 .cmc-key-act{left:calc(var(--pw) * -.0095);top:17.5%;height:5%}
 .cmc-key-up{left:calc(var(--pw) * -.0095);top:25.5%;height:9%}
@@ -890,7 +812,7 @@ const PHONE_CSS = `
 .cmc-ap{display:inline-flex;align-items:center;gap:.08em;font-size:1.45em;font-weight:600;letter-spacing:-.02em}
 .cmc-close{display:grid;place-items:center;width:1.9em;height:1.9em;border-radius:50%;background:#ededf0;color:#7a7a80}
 .cmc-card{display:flex;align-items:center;gap:.85em;padding:.8em .9em;border-radius:1em;background:#f4f4f7;color:#8a8a90}
-.cmc-cardart{position:relative;flex:none;width:3.1em;height:2em;border-radius:.32em;background:linear-gradient(135deg,#8b5cf6,#4338ca);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.cmc-cardart{position:relative;flex:none;width:3.1em;height:2em;border-radius:.32em;background:linear-gradient(135deg,#46464d,#1f1f23);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
 .cmc-cardart span{position:absolute;left:.35em;bottom:.35em;width:.7em;height:.5em;border-radius:.12em;background:rgba(255,255,255,.75)}
 .cmc-card-t{flex:1;min-width:0;color:#000}
 .cmc-card-t b{display:block;font-size:.95em;font-weight:600}
@@ -910,7 +832,7 @@ const PHONE_CSS = `
 .ck[data-desk] .ck-head{padding:1em 2em 1.25em;border-radius:1.25em 1.25em 0 0}
 .ck-top{align-self:stretch;display:flex;justify-content:flex-end;align-items:center;height:2.75em;margin-right:-.5em;color:#4b5563}
 .ck-x{display:grid;place-items:center;width:2.75em;height:2.75em}
-.ck-mark{display:block;width:4.75em;height:4.75em;margin-top:-.75em;border-radius:.75em;object-fit:cover;box-shadow:0 0 0 1px rgba(17,17,19,.06)}
+.ck-mark{width:4.75em;margin-top:-.75em;border-radius:.75em;box-shadow:0 0 0 1px rgba(17,17,19,.06)}
 .ck-title{margin-top:.48em;font-size:1.3125em;font-weight:600;letter-spacing:-.01em;line-height:1.3}
 .ck-sub{margin-top:.15em;font-size:.84375em;color:#6b7280}
 .ck-body{position:relative;padding:1.25em 1.25em 0}
@@ -946,26 +868,25 @@ const PHONE_CSS = `
 const TABS_CSS = `
 .cmc[data-story-section] > .cmc-cards.cmc-cards{position:relative;z-index:4;max-width:1320px;margin:0 auto;padding:clamp(28px,4vw,56px) var(--landing-gutter,clamp(20px,5vw,72px)) clamp(64px,8vw,120px)}
 .cmc-tablist{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-.cmc-tab{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:44px;padding:20px 20px 24px;border-radius:22px;background:rgba(24,24,27,.94);border:1px solid rgba(255,255,255,.08);color:#a1a1aa;text-align:left;cursor:pointer;overflow:hidden;transition:background-color .3s,border-color .3s,color .3s;-webkit-tap-highlight-color:transparent}
+.cmc-tab{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:44px;padding:20px 20px 24px;border-radius:21px;background:rgba(24,24,27,.94);border:1px solid rgba(255,255,255,.08);color:#a1a1aa;text-align:left;cursor:pointer;overflow:hidden;transition:background-color .3s,border-color .3s,color .3s;-webkit-tap-highlight-color:transparent}
 .cmc-tab:hover{border-color:rgba(255,255,255,.18);color:#e4e4e7}
-.cmc-tab[data-on]{background:#1d1d21;border-color:rgba(188,163,255,.35);color:#fff}
-.cmc-tab:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}
+.cmc-tab[data-on]{background:#1d1d21;border-color:rgba(255,255,255,.26);color:#fff}
+.cmc-tab:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .cmc-tab-l{font-size:14px;font-weight:500}
 .cmc-tab-s{font-size:clamp(24px,2.3vw,34px);font-weight:300;letter-spacing:-.04em;line-height:1;color:#fff;white-space:nowrap}
 .cmc-tab-bar{position:absolute;left:20px;right:20px;bottom:12px;height:2px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
-.cmc-tab-fill{position:absolute;inset:0;background:linear-gradient(90deg,#a78bfa,#818cf8);transform-origin:0 50%;transform:scaleX(1)}
+.cmc-tab-fill{position:absolute;inset:0;background:#e4e4e7;transform-origin:0 50%;transform:scaleX(1)}
 .cmc-tab-fill[data-run]{animation:cmc-fill linear both}
 @keyframes cmc-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .cmc-panels{display:grid;margin-top:12px}
-.cmc-panel{grid-area:1/1;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(24px,3.5vw,56px);align-items:center;padding:clamp(28px,3.6vw,52px);border-radius:32px;background:#141416;border:1px solid rgba(255,255,255,.07);opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s linear .35s}
+.cmc-panel{grid-area:1/1;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(24px,3.5vw,56px);align-items:center;padding:clamp(28px,3.6vw,52px);border-radius:31px;background:#141416;border:1px solid rgba(255,255,255,.07);opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s linear .35s}
 .cmc-panel[data-on]{opacity:1;visibility:visible;transition:opacity .45s ease .05s,visibility 0s}
 .cmc-panel h3{margin:0;font-size:clamp(26px,3vw,42px);font-weight:400;line-height:1.1;letter-spacing:-.035em;color:#fff;text-wrap:balance}
 .cmc-panel p{margin:16px 0 0;max-width:44ch;font-size:clamp(15.5px,1.25vw,18px);line-height:1.6;color:#a1a1aa}
-.cmc-vis{position:relative;aspect-ratio:4/3;border-radius:24px;background:radial-gradient(120% 90% at 85% 0%,rgba(124,58,237,.3),transparent 60%),radial-gradient(100% 80% at 0% 100%,rgba(79,70,229,.2),transparent 60%),#0c0c0f;overflow:hidden;container-type:inline-size}
+.cmc-vis{position:relative;aspect-ratio:4/3;border-radius:23px;background:#101012;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);overflow:hidden;container-type:inline-size}
 .cmc-vis-in{position:absolute;inset:0;font-size:calc(100cqw / 48);color:#fff;line-height:1.35}
 /* Wave 13 perf: a panel's mock is drawn only while its panel shows (and through its fade out): the four hidden mocks cost the page their style, layout and 80 font sizes the moment the section was laid out, 300ms at 4x CPU. The box keeps its size (aspect-ratio), so nothing moves. */
 .cmc-panel:not([data-on]) .cmc-vis-in{content-visibility:hidden;transition:content-visibility 0s linear .35s allow-discrete}
-.cmc-foot{margin:16px 4px 0;font-size:13px;color:#71717a}
 
 /* Desktop browser */
 .cmv-brw{position:absolute;container-type:inline-size}
@@ -982,7 +903,8 @@ const TABS_CSS = `
 .cmv-nav b{font-size:1.05em;font-weight:600}
 .cmv-links{display:flex;gap:2em;margin-left:auto;font-size:.95em;color:#4b5563}
 .cmv-prod{display:grid;grid-template-columns:30em 1fr;gap:3.5em;padding:3em 4.5em}
-.cmv-prod-img{display:block;width:30em;height:30em;border-radius:1em;object-fit:cover}
+.cmv-prod-img{display:grid;place-items:center;width:30em;height:30em;border-radius:1em;background:#f1f1f3}
+.cmv-prod-cover{width:19em;border-radius:.3em;box-shadow:0 .1em .2em rgba(24,24,27,.12),0 1.4em 2.6em -1.2em rgba(24,24,27,.45)}
 .cmv-prod-t{display:flex;flex-direction:column;align-items:flex-start;padding-top:1.5em}
 .cmv-prod-t small{font-size:.9em;color:#6b7280}
 .cmv-prod-t b{margin-top:.3em;font-size:2.4em;font-weight:600;letter-spacing:-.025em;line-height:1.15}
@@ -1003,7 +925,8 @@ const TABS_CSS = `
 /* Currencies */
 .cmv-cur{position:absolute;inset:0;display:grid;grid-template-columns:19em 1fr;gap:2.2em;align-items:center;padding:0 2.6em}
 .cmv-pcard{border-radius:1.2em;background:#fff;color:#1a1a2e;overflow:hidden;box-shadow:0 1.5em 3em rgba(0,0,0,.45)}
-.cmv-pcard-img{display:block;width:100%;height:12em;object-fit:cover}
+.cmv-pcard-img{display:grid;place-items:center;height:12em;background:#f1f1f3}
+.cmv-pcard-cover{width:9em;border-radius:.2em;box-shadow:0 .05em .1em rgba(24,24,27,.12),0 .8em 1.4em -.7em rgba(24,24,27,.45)}
 .cmv-pcard-b{display:flex;flex-direction:column;padding:1.1em 1.2em 1.25em}
 .cmv-pcard-b b{font-size:1.2em;font-weight:600;letter-spacing:-.01em}
 .cmv-pcard-b small{font-size:.9em;color:#6b7280}
@@ -1017,7 +940,7 @@ const TABS_CSS = `
 .cmv-pcard-buy{display:flex;align-items:center;justify-content:center;height:2.6em;margin-top:1em;border-radius:.7em;background:#1a1a2e;color:#fff;font-size:.95em;font-weight:600}
 .cmv-flag{display:block;flex:none;width:1.5em;height:1em;border-radius:.2em;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
 .cmv-list{position:relative;display:flex;flex-direction:column}
-.cmv-hl{position:absolute;left:0;right:0;top:0;height:20%;border-radius:.9em;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(188,163,255,.35);animation:cmv-hl 12.5s ease infinite both;animation-play-state:paused}
+.cmv-hl{position:absolute;left:0;right:0;top:0;height:20%;border-radius:.9em;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);animation:cmv-hl 12.5s ease infinite both;animation-play-state:paused}
 .cmv-row{position:relative;display:flex;align-items:center;gap:.9em;height:4.2em;padding:0 1.1em}
 .cmv-row .cmv-flag{width:2.1em;height:1.4em;border-radius:.25em}
 .cmv-row-t{flex:1;min-width:0}
@@ -1040,8 +963,8 @@ const TABS_CSS = `
 .cmv-mail p{margin:.4em 0 0;font-size:.82em;line-height:1.55;color:#6b7280}
 .cmv-mail-btn{display:flex;align-items:center;justify-content:center;width:10em;height:2.5em;margin-top:.9em;border-radius:.6em;background:#1a1a2e;color:#fff;font-size:.88em;font-weight:600}
 .cmv-mail-line{display:flex;align-items:center;gap:.7em;margin-top:1em;padding-top:.9em;border-top:1px solid #f0f0f2;font-size:.85em}
-.cmv-mail-line img{width:2.4em;height:2.4em;border-radius:.4em;object-fit:cover}
-.cmv-mail-line span{flex:1}
+.cmv-mail-line .cmv-thumb{width:2.4em;flex:none;border-radius:.4em}
+.cmv-mail-line>span:not(.ebc){flex:1}
 .cmv-note,.cmv-sale{position:absolute;display:flex;gap:.75em;align-items:flex-start;padding:.85em 1em;border-radius:1.25em;background:rgba(246,246,248,.97);color:#111;box-shadow:0 1em 2.5em rgba(0,0,0,.45)}
 .cmv-note{left:6em;right:6em;top:1.4em}
 .cmv-note-icon{display:grid;place-items:center;flex:none;width:2.4em;height:2.4em;border-radius:.6em;background:linear-gradient(180deg,#1e9bff,#0a6cff)}
@@ -1066,8 +989,8 @@ const TABS_CSS = `
 .cmv-rcpt-rows{align-self:stretch;margin-top:1em;border:1px solid #eceef1;border-radius:.8em;text-align:left}
 .cmv-rcpt-rows div{display:flex;align-items:center;gap:.6em;height:2.9em;padding:0 .9em;font-size:.85em}
 .cmv-rcpt-rows div+div{border-top:1px solid #f1f2f4}
-.cmv-rcpt-rows img{width:1.9em;height:1.9em;border-radius:.35em;object-fit:cover}
-.cmv-rcpt-rows span{flex:1;color:#6b7280}
+.cmv-rcpt-rows .cmv-thumb{width:1.9em;flex:none;border-radius:.35em}
+.cmv-rcpt-rows div>span:not(.ebc){flex:1;color:#6b7280}
 .cmv-rcpt-rows b{font-weight:600}
 .cmv-rcpt-ap{display:inline-flex;align-items:center;gap:.1em}
 .cmv-rcpt-btn{display:flex;align-items:center;justify-content:center;height:2.6em;padding:0 1.2em;margin-top:1em;border-radius:.65em;background:#1a1a2e;color:#fff;font-size:.85em;font-weight:600}
@@ -1149,10 +1072,10 @@ const TABS_CSS = `
 @media (max-width:899px){
   .cmc-tablist{grid-template-columns:repeat(2,1fr);gap:10px}
   .cmc-tab:last-child{grid-column:1/-1}
-  .cmc-tab{padding:16px 16px 22px;border-radius:20px}
+  .cmc-tab{padding:16px 16px 22px;border-radius:19px}
   .cmc-tab-bar{left:16px;right:16px}
-  .cmc-panel{grid-template-columns:1fr;align-content:start;gap:24px;border-radius:24px;padding:24px}
-  .cmc-vis{margin:0 -10px;border-radius:18px}
+  .cmc-panel{grid-template-columns:1fr;align-content:start;gap:24px;border-radius:23px;padding:24px}
+  .cmc-vis{margin:0 -10px;border-radius:17px}
 }
 @media (max-width:639px){
   .cmc-tab-s{font-size:min(6.2vw,26px)}
@@ -1164,9 +1087,10 @@ const TABS_CSS = `
 const STILL_CSS = `
 @media (prefers-reduced-motion:reduce){
   .cmc[data-story-section] > .cmc-track.cmc-track{height:auto}
+  .cmc-band{display:none}
   .cmc-stage{position:relative;height:max(100svh,calc(var(--pw) * 2.07 + 200px))}
-  .cmc-lap,.cmc-sharp,.cmc-soft,.cmc-track[data-commerce-live] .cmc-lap,.cmc-track[data-commerce-live] .cmc-sharp,.cmc-track[data-commerce-live] .cmc-soft{animation-play-state:paused!important}
-  .cmc-orbit{opacity:.7;transform:translate3d(var(--ocx),0,0)}
+  .cmc-stage *{transition:none!important;animation:none!important}
+  .cmc-step{opacity:.7}
   .cmv-cyc,.cmv-hl,.cmc-panel{animation:none!important;transition:none!important}
 }
 `
@@ -1174,4 +1098,8 @@ const STILL_CSS = `
 const CHECKOUT_CSS = SCENE_CSS + PHONE_CSS + TABS_CSS + STILL_CSS
 
 /** This section's stylesheets, as it draws them: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
-export const CHECKOUT_STYLES: readonly SectionStyle[] = [COMMERCE_KIT_STYLE, { href: "w12-commerce-checkout", precedence: "default", css: CHECKOUT_CSS }]
+export const CHECKOUT_STYLES: readonly SectionStyle[] = [
+  COMMERCE_KIT_STYLE,
+  { href: "w13-ebook-cover", precedence: "default", css: EBOOK_COVER_CSS },
+  { href: "w12-commerce-checkout", precedence: "default", css: CHECKOUT_CSS },
+]
