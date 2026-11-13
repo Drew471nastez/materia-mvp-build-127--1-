@@ -182,7 +182,7 @@ Components:
 
 Tests:
 - New: `tests/onepage-production-audit.test.ts` (strict list). The journey harness learned the email-capture route. `scripts/check-onepage-avatar-routes.mjs` stubs the save route's two new server modules.
-- Updated: seventeen existing suites whose source assertions or module stubs described behaviour that changed on purpose. Each changed assertion carries a "Changed on purpose (OnePage production audit, …)" note.
+- Updated: eighteen existing suites whose source assertions or module stubs described behaviour that changed on purpose. Each changed assertion carries a "Changed on purpose (OnePage production audit, …)" note.
 
 ## E. Performance
 
@@ -211,14 +211,36 @@ All runs are on this branch merged with `main` at `5f1db86b`.
 | Before (HEAD `c51a69cc`) | success | 206 s | 7,967 MB |
 | After (this work merged with `main` at `5f1db86b`) | success | 205 s | 7,886 MB |
 | After, final tree (with the last test and email-capture fixes) | success | 198 s | 7,889 MB |
+| Pushed tree `69d55bd3` (merged with `main` at `c495a553`) | success | 200 s | 7,827 MB |
 
-Both runs are under 8 GB. The repository's own budget in `docs/reliability/PERFORMANCE.md` is 7,600 MB, and both runs were over it before and after this work. This round did not try to cut build memory. Which build phase reaches the peak was not measured, and the changes here add only a few small modules.
+Every run is under 8 GB. The repository's own budget in `docs/reliability/PERFORMANCE.md` is 7,600 MB, and every run was over it, before this work and after. This round did not try to cut build memory. Which build phase reaches the peak was not measured, and the changes here add only a few small modules.
 
 Warnings: the same five as before (`lib/api/public-fetch.ts` reaching the Edge instrumentation through `node:dns`, `node:http`, `node:https` and `node:net`). This work adds none.
 
 ## H. Deployment results
 
-_Filled in after the push._
+- **Pushed:** `main` at `69d55bd3`, a fast-forward from `c495a553` (this work merged with the latest `main`). Also pushed to `claude/youthful-dijkstra-y3u1e3`.
+- **Vercel:** production deployment `dpl_7VpgqKxELoFnj25LFtiWc1FEU7De` (project `v0-materia-mvp-build`) for commit `69d55bd3`. It is READY and aliased to storelib.com, www.storelib.com, storelib.me and the connected creator domains.
+- **Runtime errors** (`get_runtime_errors`, last 15 minutes after it went live): none.
+
+Smoke checks on production. These are read-only or invalid-input requests, so nothing was written.
+
+| Request | Before this deploy | After |
+| --- | --- | --- |
+| `GET storelib.me/api/onepage/poll?…` | 404 `{"error":"Not found"}` (the proxy) | 200 `{"voted":null,"tally":null,"open":false}` (the route) |
+| `POST storelib.me/api/onepage/tip` `{}` | 404 (the proxy) | 404 `This page is not available.` (the route's own answer for no page) |
+| `POST storelib.me/api/onepage/rsvp` `{}` | 404 (the proxy) | 400 `Enter a valid email address.` |
+| `POST storelib.me/api/onepage/access` `{}` | 404 (the proxy) | 404 `not_found` (the route's own answer for no page) |
+| `POST storelib.me/api/onepage/email-capture` `{}` | 404 (the proxy) | 400 `Missing required fields` |
+| `POST storelib.me/api/onepage/lead-magnet` `{}` | 404 (the proxy) | 400 `Missing required fields` |
+| `PUT storelib.me/api/onepage`, `POST …/publish` | | 404 (still closed on the OnePage host) |
+| `PUT storelib.com/api/onepage`, `POST …/publish`, signed out | | 401 |
+| `POST storelib.com/api/onepage/track`, body not JSON | 500 (read from the old code, not requested) | 400 `Missing required fields` |
+| `GET storelib.com/` | | 200 |
+| `GET storelib.com/app`, signed out | | 307 to `/login?next=%2Fapp` |
+| `GET storelib.me/andrewrullz` (a live OnePage) | | 200 |
+
+**Not verified in production:** the signed-in editor (saving, publishing, uploads), and a visitor completing a signup, poll, RSVP, tip or purchase. No test account was available in this environment, and the brief rules out writing real customer data. The journey harness covers these paths against the real route handlers (F).
 
 ## I. Remaining issues and recommended actions
 
