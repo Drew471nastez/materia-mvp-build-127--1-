@@ -18,7 +18,7 @@ export const IDEAS_TABS = [
     label: "Website",
     more: " builder",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the sections of the Brush & Bloom home page in the sidebar, and the page itself with the Hero section selected, then Curriculum, then published.",
+    alt: "Storelib's website builder: the dark bar with Publish, the sections of Elena Ruiz's watercolor course home page in the sidebar, and the page itself with the Hero section selected, then Curriculum, then published.",
     Mock: WebsiteBuilderMock,
   },
   {

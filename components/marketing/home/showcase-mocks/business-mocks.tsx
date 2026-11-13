@@ -21,17 +21,23 @@ import { HomeOnePage, HomeOnePageStyle, LUCIA_DESKTOP, LUCIA_PHONE } from "../on
   are the creator's own pages, in their own colours and photographs, built
   on Storelib: no device frames, no browser chrome, no placeholder art.
 
-    Saltlight          Lightroom presets by a travel photographer
-    Brush & Bloom      a watercolor course (sales page / lesson player)
+    Low Season         Lightroom presets by a travel photographer
+    Elena Ruiz         a watercolor course (sales page / lesson player)
     The Darkroom Club  a film photography community (the member area)
     Lucía Ferrer       a voice actor's OnePage (link in bio), the Gazette
                        theme, captures of the live page (../onepage-sample)
-    Hollow Pines       an indie folk band's merch shop
+    Wren & Ash         an indie folk duo's merch shop
 
   Photographs: Unsplash (free licence), re-encoded small in public/home/showcase.
+
+  The two shops' product cards are the website's own Product Grid card
+  (themes/default/sections/product_grid.storelib): the photo with the
+  wishlist heart and a Sale or custom tag, the title, the stars with the
+  review count, and the price with cents, the compare-at price struck
+  through, as ThemePage draws them (landing round 2).
 */
 
-/** Hollow Pines' mark: a three-tier pine. */
+/** Wren & Ash's mark: a three-tier pine. */
 const Pine = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M12 2 7 9h3l-4 6h4l-5 6h14l-5-6h4l-4-6h3z" fill="currentColor" />
@@ -46,12 +52,35 @@ const Stars = ({ n = 5 }: { n?: number }) => (
   </span>
 )
 
-/* ================================================================ Digital products: Saltlight */
+/** A Product Grid card as a Storelib website draws it. */
+function GridCard({ n, name, rating, count, price, was = "", tag = "", cls }: { n: string; name: string; rating: string; count: string; price: string; was?: string; tag?: string; cls: string }) {
+  return (
+    <span className={`bz-pc ${cls}`}>
+      <span className="bz-pc-img">
+        <Pic n={n} w={520} h={640} />
+        {tag && <em>{tag}</em>}
+        <i className="bz-pc-heart">
+          <Heart />
+        </i>
+      </span>
+      <b>{name}</b>
+      <span className="bz-pc-rate">
+        <Stars /> {rating} <i>({count})</i>
+      </span>
+      <span className="bz-pc-price">
+        {price}
+        {was && <s>{was}</s>}
+      </span>
+    </span>
+  )
+}
+
+/* ================================================================ Digital products: Low Season */
 const SL_PACKS = [
-  ["sl-coast", "Golden Coast", "12 presets", "$24", "Bestseller"],
-  ["sl-desert", "Desert Film", "10 presets", "$19", "New"],
-  ["sl-tokyo", "Tokyo Neon", "10 presets", "$19", ""],
-  ["sl-lake", "Alpine Blue", "8 presets", "$19", ""],
+  ["sl-coast", "Algarve Coast, 12 presets", "4.8", "1,127", "$24.00", "$34.00", "Sale"],
+  ["sl-desert", "Desert Film, 10 presets", "4.9", "386", "$19.00", "", "New"],
+  ["sl-tokyo", "Shinjuku Night, 10 presets", "4.7", "512", "$19.00", "", ""],
+  ["sl-lake", "Dolomites Blue, 8 presets", "4.8", "241", "$16.00", "", ""],
 ] as const
 
 /** A photo shown before and after the preset: the left half is the flat original. */
@@ -71,14 +100,14 @@ function BeforeAfter({ n, w, h, at = 50 }: { n: string; w: number; h: number; at
   )
 }
 
-export function SaltlightDesktop() {
+export function LowSeasonDesktop() {
   return (
     <div className="bz zs">
-      <p className="zs-ann">Spring sale: 30% off every pack until Sunday</p>
+      <p className="zs-ann">Spring sale: 30% off Algarve Coast until Sunday</p>
       <div className="zs-nav">
         <span className="zs-logo">
           <i />
-          saltlight
+          low season
         </span>
         <span className="zs-links">
           <b>Presets</b>
@@ -98,7 +127,7 @@ export function SaltlightDesktop() {
       </div>
       <div className="zs-hero">
         <div className="zs-copy">
-          <p className="zs-eyebrow">New · Desert Film pack</p>
+          <p className="zs-eyebrow">New · Desert Film</p>
           <h3>Make every trip look the way it felt.</h3>
           <p className="zs-sub">Lightroom presets for warm skin, deep blues and honest color. One tap on your phone or desktop.</p>
           <span className="zs-btns">
@@ -106,7 +135,7 @@ export function SaltlightDesktop() {
             <span>Try the free pack</span>
           </span>
           <span className="zs-proof">
-            <Stars /> 4.9 from 3,412 photographers
+            <Stars /> 4.8 from 2,906 reviews
           </span>
         </div>
         <div className="zs-shot">
@@ -118,17 +147,8 @@ export function SaltlightDesktop() {
           Bestsellers <span>View all 18 packs</span>
         </p>
         <div className="zs-grid">
-          {SL_PACKS.map(([n, name, count, price, tag]) => (
-            <span className="zs-card" key={n}>
-              <span className="zs-img">
-                <Pic n={n} w={520} h={640} />
-                {tag && <em>{tag}</em>}
-              </span>
-              <b>{name}</b>
-              <span className="zs-meta">
-                {count} · Mobile + Desktop <i>{price}</i>
-              </span>
-            </span>
+          {SL_PACKS.map(([n, name, rating, count, price, was, tag]) => (
+            <GridCard key={n} cls="zs-card" n={n} name={name} rating={rating} count={count} price={price} was={was} tag={tag} />
           ))}
         </div>
       </div>
@@ -136,14 +156,14 @@ export function SaltlightDesktop() {
   )
 }
 
-export function SaltlightMobile() {
+export function LowSeasonMobile() {
   return (
     <div className="bz zs zs-m">
       <div className="zs-mnav">
         <Menu />
         <span className="zs-logo">
           <i />
-          saltlight
+          low season
         </span>
         <span className="zs-bag">
           <ShoppingBag />
@@ -160,22 +180,22 @@ export function SaltlightMobile() {
         </span>
       </div>
       <div className="zs-mbody">
-        <p className="zs-eyebrow">Lightroom presets · 12 pack</p>
-        <h3>Golden Coast</h3>
+        <p className="zs-eyebrow">Lightroom presets · 12 presets</p>
+        <h3>Algarve Coast</h3>
         <span className="zs-proof">
-          <Stars /> 4.9 · 1,284 reviews
+          <Stars /> 4.8 · 1,127 reviews
         </span>
         <p className="zs-price">
-          $24 <s>$34</s> <em>Save 30%</em>
+          $24.00 <s>$34.00</s> <em>Sale</em>
         </p>
-        <span className="zs-cta">Add to cart · $24</span>
+        <span className="zs-cta">Add to cart · $24.00</span>
         <p className="zs-note">Instant download · Lightroom mobile and desktop</p>
       </div>
     </div>
   )
 }
 
-/* ================================================================ Courses: Brush & Bloom */
+/* ================================================================ Courses: Elena Ruiz Watercolor */
 const BB_MODULES = [
   ["bb-brushes", "Module 1", "Brushes, paper and water"],
   ["bb-palette", "Module 2", "Mixing clean greens"],
@@ -183,11 +203,11 @@ const BB_MODULES = [
   ["bb-bouquet", "Module 4", "A full loose bouquet"],
 ] as const
 
-export function BloomDesktop() {
+export function WatercolorDesktop() {
   return (
     <div className="bz zb">
       <div className="zb-nav">
-        <span className="zb-logo">Brush &amp; Bloom</span>
+        <span className="zb-logo">Elena Ruiz</span>
         <span className="zb-links">
           <b>Courses</b>
           <span>Live workshops</span>
@@ -207,7 +227,7 @@ export function BloomDesktop() {
           </h3>
           <p className="zb-sub">42 short lessons, printable tracing sheets and a private studio where Elena reviews your paintings every Friday.</p>
           <span className="zb-btns">
-            <b>Enroll · $129</b>
+            <b>Enroll · $129.00</b>
             <span>
               <Play fill="currentColor" strokeWidth={0} /> Watch lesson 1
             </span>
@@ -219,7 +239,7 @@ export function BloomDesktop() {
               <Pic n="av-n" w={96} h={96} />
             </span>
             <span>
-              <Stars /> <b>4.9</b> · 2,140 painters
+              <Stars /> <b>4.8</b> · 1,962 painters
             </span>
           </span>
         </div>
@@ -255,7 +275,7 @@ const BB_LESSONS = [
   ["next", "9", "Leaves and negative space", "8:30"],
 ] as const
 
-export function BloomMobile() {
+export function WatercolorMobile() {
   return (
     <div className="bz zb zb-m">
       <div className="zb-mbar">
@@ -506,18 +526,18 @@ export function LuciaMobile() {
   )
 }
 
-/* ================================================================ Physical products: Hollow Pines */
+/* ================================================================ Physical products: Wren & Ash */
 const HP_ITEMS = [
-  ["hp-hoodie", "Pinewood Heavyweight Hoodie", "$68", "Bestseller", ["#9ca3a8", "#2f4a3c", "#e7dcc6"]],
-  ["hp-tee", "Long Winter Tour Tee", "$32", "", ["#151515", "#f3efe6"]],
-  ["hp-vinyl", "Long Winter on vinyl", "$30", "Signed", []],
-  ["hp-capgrey", "Washed Pine Cap", "$26", "Low stock", ["#6b7075", "#d8b25a"]],
+  ["hp-hoodie", "Ashgrove Heavyweight Hoodie", "4.8", "187", "$68.00", "", ""],
+  ["hp-tee", "Long Winter Tour Tee", "4.7", "94", "$32.00", "", ""],
+  ["hp-vinyl", "Long Winter on vinyl, signed", "5.0", "63", "$30.00", "", "Signed"],
+  ["hp-capgrey", "Washed Field Cap", "4.6", "41", "$22.00", "$26.00", "Sale"],
 ] as const
 
-export function HollowDesktop() {
+export function WrenAshDesktop() {
   return (
     <div className="bz zh">
-      <p className="zh-ann">Long Winter tour merch ships Oct 28 · Free US shipping over $75</p>
+      <p className="zh-ann">Long Winter tour merch ships Oct 28. Free US shipping over $75</p>
       <div className="zh-nav">
         <span className="zh-links">
           <b>Shop</b>
@@ -526,7 +546,7 @@ export function HollowDesktop() {
           <span>Journal</span>
         </span>
         <span className="zh-logo">
-          <Pine /> Hollow Pines
+          <Pine /> Wren &amp; Ash
         </span>
         <span className="zh-icons">
           <Search />
@@ -553,22 +573,8 @@ export function HollowDesktop() {
           New arrivals <span>View all</span>
         </p>
         <div className="zh-grid">
-          {HP_ITEMS.map(([n, name, price, tag, colors]) => (
-            <span className="zh-card" key={n}>
-              <span className="zh-img">
-                <Pic n={n} w={520} h={640} />
-                {tag && <em>{tag}</em>}
-              </span>
-              <b>{name}</b>
-              <span className="zh-meta">
-                {price}
-                <span>
-                  {colors.map((c) => (
-                    <i key={c} style={{ background: c }} />
-                  ))}
-                </span>
-              </span>
-            </span>
+          {HP_ITEMS.map(([n, name, rating, count, price, was, tag]) => (
+            <GridCard key={n} cls="zh-card" n={n} name={name} rating={rating} count={count} price={price} was={was} tag={tag} />
           ))}
         </div>
       </div>
@@ -576,13 +582,13 @@ export function HollowDesktop() {
   )
 }
 
-export function HollowMobile() {
+export function WrenAshMobile() {
   return (
     <div className="bz zh zh-m">
       <div className="zh-mnav">
         <Menu />
         <span className="zh-logo">
-          <Pine /> Hollow Pines
+          <Pine /> Wren &amp; Ash
         </span>
         <span className="zs-bag">
           <ShoppingBag />
@@ -602,10 +608,10 @@ export function HollowMobile() {
       </div>
       <div className="zh-mbody">
         <p className="zh-mtitle">
-          Pinewood Heavyweight Hoodie <b>$68</b>
+          Ashgrove Heavyweight Hoodie <b>$68.00</b>
         </p>
         <span className="zh-rating">
-          <Stars /> 4.9 · 312 reviews
+          <Stars /> 4.8 · 187 reviews
         </span>
         <p className="zh-label">
           Color <b>Fog grey</b>
@@ -625,7 +631,7 @@ export function HollowMobile() {
           <i>XL</i>
           <i className="out">XXL</i>
         </span>
-        <span className="zh-cta">Add to cart · $68</span>
+        <span className="zh-cta">Add to cart · $68.00</span>
       </div>
     </div>
   )
@@ -656,7 +662,7 @@ export const BUSINESS_MOCK_CSS = u(`
 .zs-bag{position:relative;display:flex}
 .zs-bag em{position:absolute;right:-6u;top:-5u;min-width:15u;height:15u;padding:0 4u;border-radius:8u;background:#e2553b;color:#fff;font-size:9.5u;font-style:normal;font-weight:700;display:grid;place-items:center}
 
-/* ---------- Saltlight */
+/* ---------- Low Season */
 .zs{background:#f7f1e8;color:#1d1b19}
 .zs-ann{height:32u;display:grid;place-items:center;background:#e2553b;color:#fff;font-size:12u;font-weight:600}
 .zs-nav{height:64u;display:flex;align-items:center;gap:36u;padding:0 36u;border-bottom:1u solid #e8ddcd}
@@ -679,12 +685,18 @@ export const BUSINESS_MOCK_CSS = u(`
 .zs-h{display:flex;align-items:baseline;justify-content:space-between;font-size:20u;font-weight:800;letter-spacing:-.02em}
 .zs-h span{font-size:13u;font-weight:600;color:#e2553b;letter-spacing:0}
 .zs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
-.zs-card{display:grid;gap:4u}
-.zs-img{position:relative;height:214u;border-radius:14u;overflow:hidden}
-.zs-img em{position:absolute;left:10u;top:10u;padding:4u 9u;border-radius:999u;background:#fff;font-size:11u;font-style:normal;font-weight:700}
-.zs-card>b{margin-top:6u;font-size:15u;font-weight:700}
-.zs-meta{display:flex;justify-content:space-between;font-size:12.5u;color:#7a6f63}
-.zs-meta i{font-style:normal;font-weight:700;color:#1d1b19}
+.bz-pc{display:grid;gap:3u;min-width:0}
+.bz-pc-img{position:relative;height:196u;overflow:hidden}
+.bz-pc-img em{position:absolute;left:10u;top:10u;padding:3u 9u;border-radius:999u;background:#111;color:#fff;font-size:11u;font-style:normal;font-weight:600}
+.bz-pc-heart{position:absolute;right:10u;top:10u;width:30u;height:30u;display:grid;place-items:center;background:#fff;border-radius:6u;color:#111}
+.bz-pc-heart svg{width:15u;height:15u}
+.bz-pc>b{margin-top:8u;font-size:14u;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bz-pc-rate{display:flex;align-items:center;gap:5u;font-size:12u;color:inherit;opacity:.75}
+.bz-pc-rate i{font-style:normal}
+.bz-pc-price{display:flex;align-items:baseline;gap:8u;font-size:14u;font-weight:600}
+.bz-pc-price s{font-size:12.5u;font-weight:400;opacity:.55}
+.zs-card .bz-pc-img{border-radius:12u}
+.zs-card .bz-pc-img em{background:#e2553b}
 .zs-m .zs-logo{font-size:19u}
 .zs-mnav{height:56u;display:flex;align-items:center;justify-content:space-between;padding:0 18u}
 .zs-mshot{position:relative;height:392u}
@@ -697,7 +709,7 @@ export const BUSINESS_MOCK_CSS = u(`
 .zs-cta{display:grid;place-items:center;height:50u;margin-top:16u;border-radius:14u;background:#e2553b;color:#fff;font-size:15.5u;font-weight:700}
 .zs-note{margin-top:10u!important;text-align:center;font-size:12u;color:#7a6f63}
 
-/* ---------- Brush & Bloom */
+/* ---------- Elena Ruiz Watercolor */
 .zb{background:#fbf7f1;color:#2b2a26}
 .zb-nav{height:66u;display:flex;align-items:center;gap:34u;padding:0 40u;border-bottom:1u solid #ece4d8}
 .zb-logo{font-family:${SERIF};font-style:italic;font-size:23u;color:#3f5a45}
@@ -827,7 +839,7 @@ export const BUSINESS_MOCK_CSS = u(`
 .zo{background:#edeae0}
 .zo-full{position:absolute!important;inset:0}
 
-/* ---------- Hollow Pines */
+/* ---------- Wren & Ash */
 .zh{background:#f6f0e4;color:#1e2a22}
 .zh-ann{height:32u;display:grid;place-items:center;background:#f2b53a;color:#1e2a22;font-size:12u;font-weight:600}
 .zh-nav{height:62u;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 36u;background:#1d3a2f;color:#f6f0e4}
@@ -850,13 +862,8 @@ export const BUSINESS_MOCK_CSS = u(`
 .zh-h{display:flex;align-items:baseline;justify-content:space-between;font-size:20u;font-weight:800;letter-spacing:-.02em}
 .zh-h span{font-size:13u;font-weight:600;color:#1d3a2f;text-decoration:underline;letter-spacing:0}
 .zh-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
-.zh-card{display:grid;gap:4u}
-.zh-img{position:relative;height:214u;border-radius:14u;overflow:hidden;background:#e9e1d1}
-.zh-img em{position:absolute;left:10u;top:10u;padding:4u 9u;border-radius:999u;background:#1d3a2f;color:#f6f0e4;font-size:11u;font-style:normal;font-weight:700}
-.zh-card>b{margin-top:6u;font-size:14.5u;font-weight:700}
-.zh-meta{display:flex;align-items:center;justify-content:space-between;font-size:14u;font-weight:600;color:#3d4a41}
-.zh-meta span{display:flex;gap:5u}
-.zh-meta i{width:13u;height:13u;border-radius:50%;box-shadow:inset 0 0 0 1u rgba(0,0,0,.15)}
+.zh-card .bz-pc-img{background:#e9e1d1}
+.zh-card .bz-pc-img em{background:#1d3a2f;color:#f6f0e4}
 .zh-m .zh-logo{font-size:14u;letter-spacing:.18em}
 .zh-mnav{height:56u;display:flex;align-items:center;justify-content:space-between;padding:0 18u;background:#1d3a2f;color:#f6f0e4}
 .zh-mnav .zs-bag em{background:#f2b53a;color:#1e2a22}

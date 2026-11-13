@@ -6,14 +6,14 @@ import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
 import {
   BUSINESS_MOCK_CSS,
-  BloomDesktop,
-  BloomMobile,
+  WatercolorDesktop,
+  WatercolorMobile,
   DarkroomDesktop,
   DarkroomMobile,
-  HollowDesktop,
-  HollowMobile,
-  SaltlightDesktop,
-  SaltlightMobile,
+  WrenAshDesktop,
+  WrenAshMobile,
+  LowSeasonDesktop,
+  LowSeasonMobile,
   LuciaDesktop,
   LuciaMobile,
 } from "./showcase-mocks/business-mocks"
@@ -37,18 +37,18 @@ export const BUSINESS_SLIDES: Slide[] = [
   {
     id: "digital",
     label: "Digital Products",
-    desktop: <SaltlightDesktop />,
-    mobile: <SaltlightMobile />,
-    desktopAlt: "Saltlight, a travel photographer's Lightroom preset shop on Storelib: a before and after desert photo and four bestselling preset packs from $19.",
-    mobileAlt: "Saltlight's Golden Coast preset pack on a phone: a before and after beach photo, 4.9 stars, $24 and an Add to cart button.",
+    desktop: <LowSeasonDesktop />,
+    mobile: <LowSeasonMobile />,
+    desktopAlt: "Low Season, a travel photographer's Lightroom preset shop on Storelib: a before and after desert photo and four bestselling preset packs from $16.",
+    mobileAlt: "Low Season's Algarve Coast preset pack on a phone: a before and after beach photo, 4.8 stars from 1,127 reviews, $24 and an Add to cart button.",
   },
   {
     id: "courses",
     label: "Courses",
-    desktop: <BloomDesktop />,
-    mobile: <BloomMobile />,
-    desktopAlt: "Brush & Bloom's course page for Loose Florals in 21 Days: a free first lesson, Enroll for $129 and the four modules students paint.",
-    mobileAlt: "A student inside the Brush & Bloom course on a phone: lesson 7, Three-stroke petals, 38% complete, with the lessons that come next.",
+    desktop: <WatercolorDesktop />,
+    mobile: <WatercolorMobile />,
+    desktopAlt: "Elena Ruiz's watercolor course page for Loose Florals in 21 Days: a free first lesson, Enroll for $129 and the four modules students paint.",
+    mobileAlt: "A student inside Elena Ruiz's watercolor course on a phone: lesson 7, Three-stroke petals, 38% complete, with the lessons that come next.",
   },
   {
     id: "communities",
@@ -69,10 +69,10 @@ export const BUSINESS_SLIDES: Slide[] = [
   {
     id: "physical",
     label: "Physical Products",
-    desktop: <HollowDesktop />,
-    mobile: <HollowMobile />,
-    desktopAlt: "Hollow Pines, an indie folk band's merch shop: the Long Winter Tour 2026 and new arrivals, a hoodie, a tour tee, the album on vinyl and a cap.",
-    mobileAlt: "The Pinewood Heavyweight Hoodie on a phone: $68, three colors, sizes S to XXL and Add to cart.",
+    desktop: <WrenAshDesktop />,
+    mobile: <WrenAshMobile />,
+    desktopAlt: "Wren & Ash, an indie folk duo's merch shop: the Long Winter Tour 2026 and new arrivals, a hoodie, a tour tee, the album on vinyl and a cap.",
+    mobileAlt: "The Ashgrove Heavyweight Hoodie on a phone: $68, three colors, sizes S to XXL and Add to cart.",
   },
 ]
 

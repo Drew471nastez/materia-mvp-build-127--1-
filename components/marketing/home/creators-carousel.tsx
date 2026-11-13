@@ -20,30 +20,30 @@ export type CreatorCard = {
 /** Photos: Unsplash (free licence), cropped 4:5 and stored as 400w/720w WebP
  * under public/home/creators. Every name and product is fictional. */
 export const CREATORS: readonly CreatorCard[] = [
-  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lena Marsh", alt: "Lena, a YouTuber, laughing in a red sweater", product: { title: "Cozy Edit LUT pack", price: "$18", icon: Video } },
+  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lucía Romero", alt: "Lucía, a YouTuber, laughing in a red sweater", product: { title: "Kitchen Vlog LUT pack", price: "$18", icon: Video } },
   { slug: "musicians", kind: "Musicians", sells: "Beats & sample packs", name: "Jalen Brooks", alt: "Jalen performing on stage through a cloud of light and smoke", product: { title: "Drum Kit Vol. 2", price: "$29", icon: Music2 } },
-  { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Clara Whitfield", alt: "An open paperback beside reading glasses and a latte", product: { title: "The Salt Year, e-book", price: "$14.99", icon: BookOpen } },
+  { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Margaret Doyle", alt: "An open paperback beside reading glasses and a latte", product: { title: "The Salt Year, e-book", price: "$14.99", icon: BookOpen } },
   { slug: "educators", kind: "Educators", sells: "Online courses", name: "Rosa Delgado", alt: "Rosa, an educator, smiling in a striped cardigan", product: { title: "Spanish in 6 Weeks", price: "$149", icon: PlayCircle } },
-  { slug: "influencers", kind: "Influencers", sells: "Merch drops", name: "Amara Osei", alt: "Amara, an influencer, in a bold patterned top", product: { title: "Autumn Drop hoodie", price: "$58", icon: Shirt } },
-  { slug: "podcasters", kind: "Podcasters", sells: "Bonus episodes & memberships", name: "The Late Signal", alt: "A studio microphone on a boom arm against a dark wall", product: { title: "Signal+ membership", price: "$6/mo", icon: Mic } },
-  { slug: "artists", kind: "Artists", sells: "Prints & original pieces", name: "Iris Calder", alt: "Paint brushes dragging bright orange paint across a canvas", product: { title: "Ember, A3 giclée print", price: "$85", icon: Frame } },
+  { slug: "influencers", kind: "Influencers", sells: "Merch drops", name: "Adaeze Nwosu", alt: "Adaeze, an influencer, in a bold patterned top", product: { title: "Sunday Club hoodie", price: "$62", icon: Shirt } },
+  { slug: "podcasters", kind: "Podcasters", sells: "Bonus episodes & memberships", name: "The Late Signal", alt: "A studio microphone on a boom arm against a dark wall", product: { title: "Late Signal Plus", price: "$5/mo", icon: Mic } },
+  { slug: "artists", kind: "Artists", sells: "Prints & original pieces", name: "Iris Calder", alt: "Paint brushes dragging bright orange paint across a canvas", product: { title: "Low Sun, A3 giclée print", price: "$85", icon: Frame } },
   { slug: "streamers", kind: "Streamers", sells: "Sub perks & emote packs", name: "Kai Navarro", alt: "Kai streaming at a glowing desk setup with a headset on", product: { title: "Season 4 emote pack", price: "$4.99", icon: Smile } },
   { slug: "coaches", kind: "Coaches", sells: "1:1 calls & programs", name: "Dev Mehta", alt: "Dev, a coach, smiling in a white tee against a concrete wall", product: { title: "60-min strategy call", price: "$120", icon: CalendarClock } },
-  { slug: "agencies", kind: "Agencies", sells: "Storefronts for every client", name: "Northfield Studio", alt: "Two agency partners high-fiving across a desk", product: { title: "Shop setup, done for you", price: "$640", icon: Store } },
+  { slug: "agencies", kind: "Agencies", sells: "Storefronts for every client", name: "Bramble & Finch", alt: "Two agency partners high-fiving across a desk", product: { title: "Shop setup, done for you", price: "$640", icon: Store } },
   { slug: "photographers", kind: "Photographers", sells: "Photo presets & prints", name: "Jonah Price", alt: "Jonah tossing a camera toward the lens in an autumn forest", product: { title: "Film Tones presets", price: "$24", icon: SlidersHorizontal } },
-  { slug: "fitness", kind: "Fitness", sells: "Training plans & challenges", name: "Sasha Ivanova", alt: "Sasha holding a plank on a pink mat in a sunlit studio", product: { title: "21-day core challenge", price: "$39", icon: Dumbbell } },
+  { slug: "fitness", kind: "Fitness", sells: "Training plans & challenges", name: "Sasha Ivanova", alt: "Sasha holding a plank on a pink mat in a sunlit studio", product: { title: "21-day core challenge", price: "$27", icon: Dumbbell } },
 ]
 
 export const CREATORS_HEADING = "Storelib is for creators. Whatever you make."
 
 /** The sale notifications under the rail, worded as Storelib's own in-app "new sale" notice (lib/notify/templates/catalog.ts). */
 const SALES: readonly SalePopItem[] = [
-  { who: "Maya Ross", what: "Drum Kit Vol. 2", amount: "$29.00" },
+  { who: "Femi Adeyemi", what: "Drum Kit Vol. 2", amount: "$29.00" },
   { who: "Tom Kessler", what: "Spanish in 6 Weeks", amount: "$149.00" },
-  { who: "Priya Shah", what: "Autumn Drop hoodie", amount: "$58.00" },
+  { who: "Aiko Sato", what: "Sunday Club hoodie", amount: "$62.00" },
   { who: "Leo Martin", what: "60-min strategy call", amount: "$120.00" },
   { who: "Hana Wright", what: "Film Tones presets", amount: "$24.00" },
-  { who: "Sam Ortiz", what: "Signal+ membership", amount: "$6.00" },
+  { who: "Diego Ortiz", what: "Late Signal Plus", amount: "$5.00" },
 ]
 
 const SIZES = "(max-width: 640px) 66vw, (max-width: 1280px) 24vw, 300px"
