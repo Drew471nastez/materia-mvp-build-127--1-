@@ -1,7 +1,11 @@
 /**
  * ===========================================================================
- *  TWO PLANS: FREE, AND PRO AT $29 A MONTH
+ *  THREE PLANS: FREE, PRO AT $29 A MONTH, SCALE AT $99 A MONTH
  * ===========================================================================
+ * Wave 13: the owner re-opened the $99 plan (internal id `pro`) under the name
+ * Scale. The sections below that held "two plans only" now hold three, and
+ * each change says so where it is made.
+ *
  * Pricing was three plans (Free, Growth at $29, Professional at $99) and is now
  * two. What is offered as "Pro" is the internal plan id `growth`, because that
  * is the only $29 price in Stripe. The $99 plan (id `pro`) is not sold any
@@ -26,9 +30,12 @@ import {
   OFFERED_PLANS,
   OFFERED_PLAN_IDS,
   PRO_CHECKOUT_PLAN_ID,
+  SCALE_CHECKOUT_PLAN_ID,
+  SCALE_PRICE_CENTS,
   PRO_PRICE_CENTS,
   planDisplayName,
   planHighlights,
+  planComparison,
   formatPlanPrice,
   withPlanLabel,
   pricedFor,
@@ -37,7 +44,9 @@ import {
   YEARLY_BILLING_LIVE,
   YEARLY_SAVING_PERCENT,
 } from "@/lib/billing/plans"
-import { getFeePreview, formatFeePercent, getFeeDescription } from "@/lib/billing/fee-calculator"
+import { getFeePreview, formatFeePercent, getFeeDescription, computeApplicationFee, calculateFeeWithPlan, toStorelibPlan } from "@/lib/billing/fee-calculator"
+import { calculateStorelibFeeWithConfig } from "@/lib/payments/fees/engine"
+import { codeDefaultFeeConfig } from "@/lib/payments/fees/defaults"
 import { siteLimits } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
 
@@ -83,12 +92,14 @@ const MENTION_SURFACES: Record<string, string[]> = {
 }
 
 function main() {
-  console.log("\nExactly two plans are offered")
+  console.log("\nExactly three plans are offered")
 
-  check("the offered ids are free and growth, in that order", JSON.stringify(OFFERED_PLAN_IDS) === '["free","growth"]', JSON.stringify(OFFERED_PLAN_IDS))
-  check("the cards are drawn from those same two", OFFERED_PLANS.map((p) => p.id).join() === OFFERED_PLAN_IDS.join())
-  check("named Free and Pro", OFFERED_PLANS.map((p) => p.name).join() === "Free,Pro", OFFERED_PLANS.map((p) => p.name).join())
-  check("priced $0 and $29", OFFERED_PLANS.map((p) => p.price).join() === "$0,$29", OFFERED_PLANS.map((p) => p.price).join())
+  /* Changed on purpose (wave 13): the owner re-opened the $99 plan, id `pro`, sold as Scale. */
+  check("the offered ids are free, growth and pro, in that order", JSON.stringify(OFFERED_PLAN_IDS) === '["free","growth","pro"]', JSON.stringify(OFFERED_PLAN_IDS))
+  check("the cards are drawn from those same three", OFFERED_PLANS.map((p) => p.id).join() === OFFERED_PLAN_IDS.join())
+  check("named Free, Pro and Scale", OFFERED_PLANS.map((p) => p.name).join() === "Free,Pro,Scale", OFFERED_PLANS.map((p) => p.name).join())
+  check("priced $0, $29 and $99", OFFERED_PLANS.map((p) => p.price).join() === "$0,$29,$99", OFFERED_PLANS.map((p) => p.price).join())
+  check("Scale checks out as the existing pro plan, at the $99 the Stripe price charges", SCALE_CHECKOUT_PLAN_ID === "pro" && SCALE_PRICE_CENTS === 9900 && OFFERED_PLANS[2].period === "/month")
   check("Pro is $29 a month, not $29.90", PRO_PRICE_CENTS === 2900 && formatPlanPrice(PRO_PRICE_CENTS) === "$29")
   check("and says so per month", OFFERED_PLANS[1].period === "/month")
   check("Pro checks out as the growth plan", PRO_CHECKOUT_PLAN_ID === "growth")
@@ -181,8 +192,9 @@ function main() {
   )
   check("what Free is shown without is its own domain, which it lacks and Pro has", freePlan.excluded.join() === "Your own domain" && !siteLimits("free").customDomain && g.customDomain)
   check("Pro claims nothing as missing", proPlan.excluded.length === 0)
-  /* "Start here" and "For growing stores" read as if Free were somewhere to stay. */
-  check("the labels point to Pro: Basics on Free, Everything included on Pro", freePlan.pill === "Basics" && proPlan.pill === "Everything included")
+  /* "Start here" and "For growing stores" read as if Free were somewhere to stay.
+     Changed on purpose (wave 13): with Scale above it, Pro no longer has "Everything included"; it is the plan for your own brand. */
+  check("the labels are plain facts: Basics on Free, Your own brand on Pro, Most room on Scale", freePlan.pill === "Basics" && proPlan.pill === "Your own brand" && OFFERED_PLANS[2].pill === "Most room")
   check("under the price: no fee, or per month", freePlan.priceNote === "No monthly fee" && proPlan.priceNote === "per month")
   check(
     "Free's small print: no card, because Free never reaches a checkout",
@@ -234,10 +246,13 @@ function main() {
   }
   const cards = readCode("components/billing/plan-cards.tsx")
   check("the cards come from OFFERED_PLANS", /OFFERED_PLANS\.map\(/.test(cards))
-  check("two columns from md up, one on a phone", /grid-cols-1 md:grid-cols-2/.test(cards))
+  /* Changed on purpose (wave 13): three plans, three across from md up, in a wider row. */
+  check("three columns from md up, one on a phone, in a row up to 1180px", /grid-cols-1 md:grid-cols-3/.test(cards) && /max-w-\[1180px\]/.test(cards))
   /* The headers are the owner's pictures, not a CSS gradient, and nothing floats over a card.
      The one gradient allowed is the fade laid over the bottom of the picture, which the owner asked for. */
   const gradientLines = cards.split("\n").filter((l) => /bg-gradient|linear-gradient/.test(l))
+  /* Added (wave 13): the owner asked for the checks simpler and lighter: thin, not bold, not in filled circles. */
+  check("the plan checks are thin lines, not filled circles", /<Check className=\{`mt-\[2px\] h-4 w-4 shrink-0 \$\{look\.dot\}`\} strokeWidth=\{1\.75\}/.test(cards) && !/rounded-full \$\{look\.dot\}/.test(cards) && !/strokeWidth=\{3\.25\}/.test(cards))
   check("no glow or floated badge on the cards", !/radial-gradient|glow|btn-shine|absolute -top-3/.test(cards))
   check("the only gradients are the fade over the bottom of the picture", gradientLines.length > 0 && gradientLines.every((l) => /absolute inset-x-0 bottom-0 -z-10/.test(l)))
   /* Safari draws a backdrop blur but not the mask that fades it, so a blurred band ended in a hard edge across the picture. */
@@ -245,7 +260,7 @@ function main() {
   /* Grain in overlay all but vanished over the dark pictures, and a blended layer is one a phone composites against the picture under every animation. */
   check("a film grain over each picture, drawn as a tile, not fetched, and not blended", /data-plan-grain/.test(cards) && /feTurbulence/.test(cards) && /backgroundImage: PLAN_GRAIN/.test(cards) && !/mix-blend/.test(cards))
   check("monthly and yearly are both laid out, so switching never resizes a card", /<TextSwap value=\{interval\} items=\{\{ monthly: monthly\.price, yearly: yearly\.price \}\} \/>/.test(cards) && !/key=\{priced\.price\}/.test(cards))
-  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{sizes\}/.test(cards) && /sizes=\{PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 360px, calc\(100vw - 32px\)"/.test(cards))
+  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{sizes\}/.test(cards) && /sizes=\{PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 1180px\) 390px, \(min-width: 768px\) 33vw, calc\(100vw - 32px\)"/.test(cards))
   /* Storelib's own address for the pictures (lib/storage/media-url.ts), a host next.config lets the optimizer fetch under /media/. */
   check("both pictures are on the host next.config lets the optimizer fetch", (cards.match(/https:\/\/storelib\.com\/media\//g) ?? []).length === 1 && !/supabase\.co/.test(cards) && /hostname: process\.env\.NEXT_PUBLIC_MAIN_DOMAIN \|\| 'storelib\.com',\s*pathname: '\/media\/\*\*'/.test(readSource("next.config.mjs")))
   check("the billing tab no longer upsells from Pro to the $99 plan", !/nextUpgradePlan/.test(readCode("components/app/billing/billing-page-client.tsx")))
@@ -257,19 +272,52 @@ function main() {
   check("and never names the pro id", !/["']pro["']/.test(section))
   const client = readCode("app/(storelib)/(marketing)/pricing/pricing-client.tsx")
   check("/pricing posts the plan it was handed as planId", /body: JSON\.stringify\(\{\s*planId,/.test(client))
-  check("and is typed to the growth id only", /type CheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID/.test(client) && !/["']pro["']/.test(client))
+  /* Changed on purpose (wave 13): /pricing checks out Scale too, typed to the two paid ids through their constants. */
+  check("and is typed to the two paid ids, named by their constants", /type CheckoutPlanId = PaidCheckoutPlanId/.test(client) && /export type PaidCheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID \| typeof SCALE_CHECKOUT_PLAN_ID/.test(section) && !/["']pro["']/.test(client))
+  check("the pricing section starts Scale's checkout with SCALE_CHECKOUT_PLAN_ID", /onPlanSelect\(SCALE_CHECKOUT_PLAN_ID\)/.test(section) && /\[SCALE_CHECKOUT_PLAN_ID\]: "Get Scale"/.test(section))
   const upgrade = readCode("components/app/billing/upgrade-page-client.tsx")
-  check("the upgrade page offers growth and free only", /actionFor\("free"\)/.test(upgrade) && /actionFor\("growth"\)/.test(upgrade) && !/actionFor\("pro"\)/.test(upgrade))
+  /* Changed on purpose (wave 13): the upgrade page offers Scale (id pro) as well. */
+  check("the upgrade page offers free, growth and pro", /actionFor\("free"\)/.test(upgrade) && /actionFor\("growth"\)/.test(upgrade) && /actionFor\("pro"\)/.test(upgrade))
+  check("the Billing tab offers the same three", /actions=\{\{ free: actionFor\("free"\), growth: actionFor\("growth"\), pro: actionFor\("pro"\) \}\}/.test(readCode("components/app/billing/billing-page-client.tsx")))
   check("and posts that id to checkout", /body: JSON\.stringify\(\{\s*planId,/.test(upgrade))
   const onboarding = readCode("components/app/creator-onboarding-modal.tsx")
-  check("onboarding labels only Free and Pro", /growth: "Get Pro"/.test(onboarding) && !/pro: "Get/.test(onboarding))
+  /* Changed on purpose (wave 13): onboarding offers Scale too. */
+  check("onboarding labels Free, Pro and Scale", /growth: "Get Pro"/.test(onboarding) && /pro: "Get Scale"/.test(onboarding))
 
-  console.log("\nThe $99 plan still works for the people on it")
+  console.log("\nThe $99 plan, sold again as Scale, still works for the people already on it")
 
-  /* Changed on purpose: the fee engine has one paid rate, so the $99 plan pays Pro's 3% (2a8b4df92; tests/fees-free-plan pins it). In dollars, as this suite is written. */
-  check("its fee still resolves to Pro's 3%", getFeePreview(1000, "pro", "USD").feePercent === 0.03 && getFeePreview(1000, "pro", "USD").feePercent === getFeePreview(1000, "growth", "USD").feePercent && getFeePreview(1000, "pro", "USD").planId === "pro")
+  /* Changed on purpose (wave 13): owner set Scale to 1.5% + $0.25. Until now the fee engine had one paid rate and the $99 plan paid Pro's 3% (2a8b4df92). In dollars, as this suite is written. */
+  {
+    const usd = (cents: number, plan: "free" | "growth" | "pro") => getFeePreview(cents, plan, "USD")
+    check("Scale (pro) is charged 1.5% + $0.25 on a $10 sale: 40c", usd(1000, "pro").feePercent === 0.015 && usd(1000, "pro").feeFixedCents === 25 && usd(1000, "pro").platformFeeCents === 40 && usd(1000, "pro").planId === "pro", JSON.stringify(usd(1000, "pro")))
+    check("Pro (growth) stays 3% + $0.25 on a $10 sale: 55c", usd(1000, "growth").feePercent === 0.03 && usd(1000, "growth").feeFixedCents === 25 && usd(1000, "growth").platformFeeCents === 55)
+    check("Free stays 5% + $0.25 on a $10 sale: 75c", usd(1000, "free").feePercent === 0.05 && usd(1000, "free").feeFixedCents === 25 && usd(1000, "free").platformFeeCents === 75)
+    check("Scale's small orders pay 7.75% and no fixed fee, meeting the standard fee at $4.00 (31c either side)", usd(100, "pro").feePercent === 0.0775 && usd(100, "pro").feeFixedCents === 0 && usd(399, "pro").platformFeeCents === 31 && usd(400, "pro").platformFeeCents === 31)
+    check("the old id professional is charged as Scale", usd(1000, "professional" as "pro").feePercent === 0.015)
+    /* Every path a seller's fee is worked out on: the pure fee, the one for a stored plan row, the application fee, and the engine's tier for each id. */
+    check("computeApplicationFee: free 75c, growth 55c, pro 40c on $10", computeApplicationFee({ unitAmount: 1000, sellerPlan: "free", currency: "USD" }) === 75 && computeApplicationFee({ unitAmount: 1000, sellerPlan: "growth", currency: "USD" }) === 55 && computeApplicationFee({ unitAmount: 1000, sellerPlan: "pro", currency: "USD" }) === 40)
+    check("calculateFeeWithPlan reads the id, not the row's fee_percent", calculateFeeWithPlan(1000, { id: "pro", name: "x", fee_percent: 0.5, fee_fixed_cents: 0 }, "USD").platformFeeCents === 40 && calculateFeeWithPlan(1000, { id: "growth", name: "x", fee_percent: 0.5, fee_fixed_cents: 0 }, "USD").platformFeeCents === 55)
+    check("the plan ids map to the engine's tiers: free, paid, scale", toStorelibPlan("free") === "free" && toStorelibPlan("growth") === "paid" && toStorelibPlan("pro") === "scale")
+    check("the engine charges a stored fee version without Scale rates Scale's code rate", calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "scale" }, { ...codeDefaultFeeConfig(), scaleStandardRate: undefined, scaleMicroRate: undefined }).totalStorelibFeeMinor === 40)
+    check("the engine honours a version's own Scale rate", calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "scale" }, { ...codeDefaultFeeConfig(), scaleStandardRate: 0.02 }).totalStorelibFeeMinor === 45)
+    check("getFeeDescription: Free 5%, Pro 3%, Scale 1.5%, each + $0.25 per sale", getFeeDescription("free") === "5% + $0.25 per sale" && getFeeDescription("growth") === "3% + $0.25 per sale" && getFeeDescription("pro") === "1.5% + $0.25 per sale")
+    check("the Scale card and the comparison table say 1.5% + $0.25", OFFERED_PLANS[2].features[1] === "1.5% + $0.25 per sale" && planComparison()[0].rows[0].scale === "1.5% + $0.25 per sale" && planComparison()[0].rows[0].pro === "3% + $0.25 per sale")
+    check("checkout's fee for a stored plan goes through the same mapping", /sellerPlan: toStorelibPlan\(effectivePlan\)/.test(readCode("lib/billing/fee-calculator.ts")) && /calculatePlatformFee\(amountCents, creatorId, admin, currency, config\)/.test(readCode("lib/billing/platform-fee-server.ts")))
+    check("the payouts screen names a Scale fee", /\["free", "paid", "scale"\] as const/.test(readCode("app/(storelib)/app/payouts/payouts-client.tsx")))
+    check("the admin simulator charges pro as Scale", /body\.plan === "scale" \|\| body\.plan === "pro" \? "scale"/.test(readCode("app/api/admin/payments/simulate/route.ts")))
+  }
   check("its site limits are untouched", siteLimits("pro").customCode === true && siteLimits("pro").maxSites === 10)
-  check("its name on billing screens is Pro", planDisplayName("pro") === "Pro" && planDisplayName("professional") === "Pro")
+  /* Changed on purpose (wave 13): the $99 plan is named Scale everywhere, its existing subscribers included. */
+  check("its name on billing screens is Scale", planDisplayName("pro") === "Scale" && planDisplayName("professional") === "Scale")
+  {
+    const scale = OFFERED_PLANS[2]
+    const sl = siteLimits("pro")
+    check("the Scale card starts with Everything in Pro, then its own fee from the fee table", scale.features[0] === "Everything in Pro" && scale.features[1] === getFeeDescription("pro"), scale.features.join(" | "))
+    check("the Scale card's websites, storage and AI lines come from its tables", scale.features.includes(`${sl.maxSites} websites, ${sl.maxPages} pages each`) && scale.features.includes(`${formatBytes(PLAN_LIMITS.pro.storageQuotaBytes)} of file storage`) && scale.features.includes(`${sl.aiEditsPerMonth} AI edits a month`))
+    check("the Scale card claims nothing the code does not enforce (no custom code, Shopify, API or priority lines)", !scale.features.some((l) => /custom code|shopify|api access|priority|white.?label/i.test(l)))
+    check("Scale has no yearly price, so yearly shows its monthly price and says yearly opens soon", pricedFor(scale, "yearly").price === "$99" && /opens soon/.test(pricedFor(scale, "yearly").note))
+    check("the admin plan picker names it Scale", /\{ id: "pro", label: "Scale, \$99" \}/.test(readCode("lib/billing/plan-override.ts")))
+  }
   check("growth is also named Pro", planDisplayName("growth") === "Pro" && withPlanLabel({ id: "growth", name: "Growth" })!.name === "Pro")
   /* Changed on purpose: the card's fee line is the plan's own rate, read from
      the fee table, and only "per sale" (the under $4 tier is in the terms). */
@@ -281,6 +329,8 @@ function main() {
   for (const file of ["lib/billing/overview.ts", "app/(storelib)/app/settings/billing/upgrade/page.tsx", "app/api/billing/subscription/route.ts"]) {
     const code = readCode(file)
     check(`${file}: the pro fallback is still there`, /id: "pro",[\s\S]{0,40}price_cents: 9900/.test(code))
+    /* Added (wave 13): the stored fallback's fee is the engine's Scale rate, so the Billing tab says what checkout charges. */
+    check(`${file}: the pro fallback's fee is SCALE_STANDARD_RATE`, /price_cents: 9900,\s*billing_period: "month",\s*fee_percent: SCALE_STANDARD_RATE,/.test(code))
     check(`${file}: growth's fallback is 2900, not 2990`, /id: "growth",[\s\S]{0,40}price_cents: 2900/.test(code) && !/2990/.test(code))
   }
 

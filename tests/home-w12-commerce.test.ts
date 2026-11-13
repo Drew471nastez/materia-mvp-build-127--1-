@@ -126,6 +126,9 @@ console.log("\nCommerce: the sections render on the server")
   check("calculator: Start earning goes to /signup", /<a[^>]*href="\/signup"[^>]*>Start earning/.test(earn))
   check("calculator: price and sales sliders, typed fields, a plan choice", (earn.match(/type="range"/g) ?? []).length === 2 && earn.includes('aria-label="Selling price in dollars"') && earn.includes('aria-label="Sales a day"') && earn.includes(">Pro<"))
   check("calculator: the default month is $2,850", earn.includes("$2,850"))
+  /* Added (wave 13): the owner asked for the pill and the subheading gone, and a smoother result than the bar chart. */
+  check("calculator: no eyebrow pill and no subheading", !/story-eyebrow|Earnings calculator|The math uses/.test(earn))
+  check("calculator: one smooth line of the year, drawn in by a transform, not bars", /cme-line/.test(earn) && !/cme-bar/.test(earn) && /@keyframes cme-draw\{from\{transform:scaleX\(1\)\}to\{transform:scaleX\(0\)\}\}/.test(src.earn))
   check("/signup exists", existsSync(join(ROOT, "app/(storelib)/(auth)/signup")) || readdirSync(join(ROOT, "app/(storelib)"), { recursive: true }).some((f) => String(f).replace(/\\/g, "/").endsWith("signup/page.tsx")))
 }
 

@@ -1,18 +1,17 @@
 "use client"
 
 import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react"
-import { PricingSection } from "@/components/marketing/pricing-section"
+import { PricingSection, type PaidCheckoutPlanId } from "@/components/marketing/pricing-section"
 import { FeaturesBadgesSection } from "@/components/marketing/features-badges-section"
 import { ProductMarquee } from "@/components/marketing/product-marquee"
 import { SplitFeaturesSection } from "@/components/marketing/split-features-section"
 import { ToolStackSection } from "@/components/marketing/tool-stack-section"
 import { FaqSection } from "@/components/marketing/faq-section"
 import { CtaSection } from "@/components/marketing/cta-section"
-import { PRO_CHECKOUT_PLAN_ID } from "@/lib/billing/plans"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 
-/** Pro checkout sends the internal plan id "growth": the $29 Stripe price. */
-type CheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID
+/** Pro checkout sends the internal plan id "growth" (the $29 Stripe price), Scale sends SCALE_CHECKOUT_PLAN_ID (the existing $99 price). */
+type CheckoutPlanId = PaidCheckoutPlanId
 
 /** Signed in, as the header last knew it (the footer and the tab bar read the same record). */
 const readSignedIn = () => !!readAuthSnapshot()?.signedIn

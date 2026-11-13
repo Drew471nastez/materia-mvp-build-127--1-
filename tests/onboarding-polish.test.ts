@@ -161,8 +161,9 @@ function main() {
     /isJoinStep\(currentStep\) \? "overflow-hidden" : currentStep === 4 \? "overflow-y-auto" : "max-sm:overflow-y-auto sm:overflow-hidden"/.test(creator)
       && /const SCROLL_EDGE_FADE = "12px"/.test(creator) && !/data-onboarding-veil|VEIL_BLURS|veilRef/.test(creator))
   const cards = read("components/billing/plan-cards.tsx")
-  check("in the onboarding the plans are a hair narrower (668px for the pair, 6px more air on a phone) with 20 to 24px under the pill",
-    /compact \? "mx-auto max-w-\[668px\] max-md:px-1\.5"/.test(cards) && /data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6"/.test(cards))
+  /* Changed on purpose (wave 13): three plans now (Scale re-opened), so the onboarding row is 920px for the three, still with 6px more air on a phone. */
+  check("in the onboarding the plans fit a 920px row for the three (6px more air on a phone) with 20 to 24px under the pill",
+    /compact \? "mx-auto max-w-\[920px\] max-md:px-1\.5"/.test(cards) && /data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6"/.test(cards))
   /* The line used to be remounted per phase and faded in from nothing, so each change had a blank beat; now it is the shared swap. */
   check("its line crossfades from phase to phase (the shared TextSwap, no blank beat) over marks that fill on translate, and says plainly when it failed",
     /import \{ TextSwap \} from "@\/components\/ui\/text-swap"/.test(creator) && /<TextSwap\s+as="div"\s+align="center"\s+value=\{state\}/.test(creator)

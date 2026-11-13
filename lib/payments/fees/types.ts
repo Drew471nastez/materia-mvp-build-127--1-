@@ -2,7 +2,12 @@
  * Central fee configuration model (code defaults + DB versions share this shape).
  */
 
-export type StorelibSellerPlan = "free" | "paid"
+/**
+ * The fee tiers. "paid" is Pro (plan id `growth`), "scale" is Scale (plan id
+ * `pro`, the $99 plan). "paid" keeps its old name because stored fee
+ * versions (storelib_fee_rule_versions.config) and the admin tools use it.
+ */
+export type StorelibSellerPlan = "free" | "paid" | "scale"
 export type PricingTier = "standard" | "micro"
 
 export interface CurrencyFeeRuleConfig {
@@ -18,6 +23,13 @@ export interface StorelibFeeConfig {
   freeMicroRate: number
   paidStandardRate: number
   paidMicroRate: number
+  /**
+   * Scale's rates. Optional: a version stored before Scale had its own rate
+   * has none, and the code's rates apply (lib/payments/fees/engine.ts), so
+   * Scale is charged its rate whichever version is active.
+   */
+  scaleStandardRate?: number
+  scaleMicroRate?: number
   currencies: CurrencyFeeRuleConfig[]
 }
 

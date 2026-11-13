@@ -7,7 +7,7 @@ import { effectivePlanId, readPlanOverride } from "@/lib/billing/plan-override"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { teamPageStore } from "@/lib/team/server"
 import { TeamAreaClosed } from "@/components/app/team-area-closed"
-import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { FREE_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 import { msg } from "@/lib/i18n/text"
 import { dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 
@@ -37,15 +37,15 @@ const GROWTH_PLAN = {
 }
 
 const PRO_PLAN = {
+  // The $99 plan, offered again (wave 13) and sold as "Scale". The id stays "pro": it is the $99 Stripe price.
   id: "pro",
-  // The earlier $99 plan. No longer offered; kept so its subscribers still resolve.
-  name: "Pro",
+  name: "Scale",
   price_cents: 9900,
   billing_period: "month",
-  fee_percent: 0.015,
+  fee_percent: SCALE_STANDARD_RATE,
   fee_fixed_cents: 25,
   // i18n-ignore-next-line
-  features: ["1.5% + $0.25 per transaction", msg("Premium analytics"), msg("Dedicated support"), msg("White-label"), msg("API access")],
+  features: [`${ratePercentLabel(SCALE_STANDARD_RATE)} + $0.25 per transaction`, msg("Premium analytics"), msg("Dedicated support"), msg("White-label"), msg("API access")],
   is_active: true,
 }
 

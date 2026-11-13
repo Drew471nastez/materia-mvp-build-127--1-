@@ -105,7 +105,7 @@ export default function StorelibLanding() {
         <LazyAppAnywhere />
 
         {/* 16 PRICING (kept as it was, without its See full pricing button here) */}
-        <LazySection name="pricing" minHeight="1300px">
+        <LazySection name="pricing" minHeight="clamp(1130px, 2400px - 90vw, 2120px)">
           <PricingSection editorial hideDetailsLink />
         </LazySection>
 

@@ -13390,7 +13390,19 @@ const words: Record<string, string> = {
  "Big amount": "Importo grande",
  "Below": "Sotto",
  "On the picture": "Sull'immagine",
- "Title, caption and a button on a fade at the bottom of each picture.": "Titolo, didascalia e un pulsante su una sfumatura in fondo a ogni immagine."
+ "Title, caption and a button on a fade at the bottom of each picture.": "Titolo, didascalia e un pulsante su una sfumatura in fondo a ogni immagine.",
+ "Get Scale": "Passa a Scale",
+ "Everything in Pro": "Tutto ciò che c'è in Pro",
+ "Your own brand": "Il tuo marchio",
+ "Most room": "Più spazio",
+ "Room for a bigger business.": "Spazio per un'attività più grande.",
+ "Who is Scale for?": "Per chi è Scale?",
+ "A bigger business: the lowest fee on every sale ({scaleFee}), {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.": "Un'attività più grande: la commissione più bassa su ogni vendita ({scaleFee}), {maxSites} siti da {maxPages} pagine ciascuno, {storage} di spazio per i file e {aiEdits} modifiche IA al mese, a {price} al mese.",
+ "Storelib's fee for your plan ({freeFee} on Free, {proFee} on Pro, {scaleFee} on Scale), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.": "La commissione Storelib del tuo piano ({freeFee} su Free, {proFee} su Pro, {scaleFee} su Scale) e la commissione di elaborazione carte di Stripe, applicata su ogni piano. Nient'altro.",
+ "From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, your paid plan stays active until the end of the period you paid for, then your account moves to Free.": "Da Fatturazione in Impostazioni, in qualsiasi momento. Un upgrade parte subito. Se annulli, il tuo piano a pagamento resta attivo fino alla fine del periodo pagato, poi l'account passa a Free.",
+ "Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only paid plans have, like your own domain and hidden branding, stop at the end of your paid period.": "Prodotti, pagine, clienti e ordini restano esattamente come sono. La commissione Free si applica alle nuove vendite, e ciò che hanno solo i piani a pagamento, come il dominio e il marchio nascosto, termina alla fine del periodo pagato.",
+ "No. Free asks for no card. You only add one when you upgrade to Pro or Scale.": "No. Free non chiede la carta. La aggiungi solo passando a Pro o Scale.",
+ "Scale plan": "Piano Scale"
 }
 
 export default words

@@ -1,4 +1,4 @@
-/* Section 13, integrations: three marquee rows of tiles that flip in 3D. */
+/* Section 13, integrations: three marquee rows of app icons on a light ground. */
 
 /* The section clips its rows without being a scroll box (clip, not hidden;
    hidden first for browsers without clip), so its heading's scroll-driven
@@ -11,8 +11,18 @@
 .rows {
   position: relative;
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  --tile: 112px;
+  --gap: 16px;
 }
+@media (max-width: 639px) {
+  .rows {
+    gap: 12px;
+    --tile: 84px;
+    --gap: 12px;
+  }
+}
+/* The rows fade into the page at both ends. */
 .rows::before,
 .rows::after {
   content: "";
@@ -25,19 +35,57 @@
 }
 .rows::before {
   left: 0;
-  background: linear-gradient(90deg, #0b0b0c, rgba(11, 11, 12, 0));
+  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0));
 }
 .rows::after {
   right: 0;
-  background: linear-gradient(270deg, #0b0b0c, rgba(11, 11, 12, 0));
+  background: linear-gradient(270deg, #fff, rgba(255, 255, 255, 0));
+}
+
+/*
+  THE LIGHT THAT FOLLOWS THE POINTER. Two fixed-size layers at the rows'
+  top left, moved to the pointer by transform (one write per frame, in
+  integrations-section.tsx): a violet glow under the tiles and a white
+  flash over them. They fade in when a pointer enters and out when it leaves.
+*/
+.glow,
+.spot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 360ms ease;
+  will-change: transform;
+}
+.glow {
+  z-index: 0;
+  width: 420px;
+  height: 420px;
+  margin: -210px 0 0 -210px;
+  background: radial-gradient(closest-side, rgba(124, 58, 237, 0.22), rgba(124, 58, 237, 0.08) 55%, rgba(124, 58, 237, 0));
+}
+.spot {
+  z-index: 3;
+  width: 220px;
+  height: 220px;
+  margin: -110px 0 0 -110px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.14) 55%, rgba(255, 255, 255, 0));
+}
+.rows[data-lit] .glow,
+.rows[data-lit] .spot {
+  opacity: 1;
 }
 
 .row {
+  position: relative;
+  z-index: 1;
   overflow: hidden;
-  /* Room for a tile's lift and shadow. */
-  padding-block: 6px;
+  /* Room for a tile's turn and shadow. */
+  padding-block: 8px;
 }
-/* Each tile carries its own 14px on the right (no flex gap), so the four
+/* Each tile carries its own gap on the right (no flex gap), so the four
    copies are four equal quarters and one loop is exactly -50%. */
 .track {
   display: flex;
@@ -52,107 +100,81 @@
     transform: translate3d(-50%, 0, 0);
   }
 }
-/* A row stops while a pointer is over it, or while a tapped tile is turned. */
+/* A row stops while a pointer is over it. */
 @media (hover: hover) and (pointer: fine) {
   .row:hover .track {
     animation-play-state: paused;
   }
 }
-.row[data-held] .track {
-  animation-play-state: paused;
-}
 
 /*
-  THE FLIP COSTS NOTHING AT REST. Three rows of a hundred tiles must not be
-  a hundred 3D layers: at rest no tile has a 3D transform (the back face is
-  hidden and flat), so the whole row is one composited track. Only the tile
-  being turned gets its perspective and its rotated back face, and the back
-  keeps them until the turn back has finished (the 700ms delays).
+  THE TILE IS THE ICON. At rest a tile is flat (no 3D transform, no layer
+  of its own), so a row is one composited track. Only the tile being turned
+  is given a 3D turn, for the 760ms it lasts (Web Animations, in the tsx).
 */
 .tile {
   position: relative;
   flex: none;
-  margin-right: 14px;
-  width: var(--tile, 132px);
-  height: var(--tile, 132px);
-  border: 0;
-  padding: 0;
-  background: none;
-  cursor: pointer;
+  display: block;
+  margin-right: var(--gap);
+  width: var(--tile);
+  height: var(--tile);
+  cursor: default;
   -webkit-tap-highlight-color: transparent;
-}
-@media (max-width: 639px) {
-  .tile {
-    --tile: 108px;
-  }
-}
-.tile:focus-visible {
-  outline: 2px solid #a78bfa;
-  outline-offset: 3px;
-  border-radius: 28px;
 }
 .inner {
   position: absolute;
   inset: 0;
-  transform-style: preserve-3d;
-  transform: none;
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 24%;
+  box-shadow:
+    0 0 0 1px rgba(17, 17, 26, 0.07),
+    0 10px 24px -14px rgba(17, 17, 26, 0.35);
 }
-.face {
+/* A square app icon covers the tile, a hair over, so no edge of its own shows. */
+.cover {
+  position: absolute;
+  inset: -2%;
+  width: 104%;
+  height: 104%;
+  object-fit: cover;
+  user-select: none;
+}
+.contain {
+  width: calc(var(--tile) * var(--scale, 0.64));
+  height: calc(var(--tile) * var(--scale, 0.64));
+  object-fit: contain;
+  user-select: none;
+}
+.mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 54%;
+  height: 54%;
+}
+.glyph,
+.echoA,
+.echoB {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+}
+.echoA {
+  transform: translate3d(-3%, -2.5%, 0);
+}
+.echoB {
+  transform: translate3d(3%, 2.5%, 0);
+}
+/* The flash a tile carries through its turn. */
+.shine {
   position: absolute;
   inset: 0;
-  border-radius: 28px;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  overflow: hidden;
-}
-@media (max-width: 639px) {
-  .face {
-    border-radius: 24px;
-  }
-}
-.front {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: #fff;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 18px 36px -22px rgba(0, 0, 0, 0.9);
-}
-.back {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 12px;
-  text-align: left;
-  color: #fff;
-  background:
-    radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%),
-    linear-gradient(150deg, #4f46e5 0%, #7c3aed 55%, #a855f7 100%);
-  visibility: hidden;
-  transform: none;
-  transition:
-    visibility 0s linear 700ms,
-    transform 0s linear 700ms;
-}
-.tile[aria-pressed="true"] .inner {
-  transform: perspective(700px) rotateY(180deg);
-}
-.tile[aria-pressed="true"] .back {
-  visibility: visible;
-  transform: rotateY(180deg);
-  transition: none;
-}
-@media (hover: hover) and (pointer: fine) {
-  .tile:hover .inner {
-    transform: perspective(700px) rotateY(180deg);
-  }
-  .tile:hover .back {
-    visibility: visible;
-    transform: rotateY(180deg);
-    transition: none;
-  }
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 70%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -161,15 +183,15 @@
     flex-wrap: wrap;
     justify-content: center;
     width: auto;
+    row-gap: var(--gap);
   }
   .track > [data-copy] {
     display: none;
   }
   .rows::before,
-  .rows::after {
+  .rows::after,
+  .glow,
+  .spot {
     display: none;
-  }
-  .inner {
-    transition: none;
   }
 }

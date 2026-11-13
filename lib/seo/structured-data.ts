@@ -15,7 +15,7 @@
 import { normalizeSocialUrl } from "@/lib/onepage/social-url"
 import { plainSummary } from "@/lib/html-entities"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
-import { OFFERED_PLANS, PRO_PRICE_CENTS } from "@/lib/billing/plans"
+import { OFFERED_PLANS } from "@/lib/billing/plans"
 import { PLAN_CURRENCY } from "@/lib/money/product-currency"
 import { storelibLogoUrl } from "@/lib/brand/logo"
 import { STORELIB_SOCIAL } from "./storelib-social"
@@ -189,7 +189,7 @@ export function schemaPrice(cents: number): string {
   return (Math.round(cents) / 100).toFixed(2)
 }
 
-/** Each plan on sale, from OFFERED_PLANS: Free at 0, Pro at its monthly price. */
+/** Each plan on sale, from OFFERED_PLANS: Free at 0, Pro and Scale at their monthly prices. */
 export function storelibPlanOffers() {
   return OFFERED_PLANS.map((plan) => ({
     "@type": "Offer",
@@ -226,7 +226,7 @@ export function storelibApplicationJsonLd() {
 }
 
 /** The lowest and highest monthly prices the Offers name, for tests and llms.txt. */
-export const STORELIB_PRICE_RANGE = { lowCents: 0, highCents: PRO_PRICE_CENTS }
+export const STORELIB_PRICE_RANGE = { lowCents: 0, highCents: Math.max(...OFFERED_PLANS.map((p) => p.priceCents)) }
 
 /** A trail on storelib.com, Storelib first: [{ name: "Pricing", path: "/pricing" }]. */
 export function storelibBreadcrumbJsonLd(trail: { name: string; path: string }[]) {

@@ -95,7 +95,12 @@ const own = readdirSync(join(root, "public/home/platform"))
 const ownBytes = own.reduce((n, f) => n + statSync(join(root, "public/home/platform", f)).size, 0)
 check("the track's photos are .webp", own.length > 0 && own.every((f) => f.endsWith(".webp")), own)
 check("the track's photos stay under 6 MB together, 400 KB each", ownBytes <= 6 * 1024 * 1024 && own.every((f) => statSync(join(root, "public/home/platform", f)).size <= 400 * 1024), ownBytes)
-check("the phone photo is lazy, async, sized and has sizes", /hands-phone-640\.webp[^>]*/.test(html["app-anywhere"] ?? "") && /<img[^>]*hands-phone[^>]*loading="lazy"[^>]*decoding="async"/.test(html["app-anywhere"] ?? "") && /sizes="[^"]+"/.test(html["app-anywhere"] ?? ""))
+/* Changed on purpose (wave 13): the section's visual is the owner's own photograph of the app, in public/home/app. */
+check("the app photo is lazy, async, sized and has sizes", /<img[^>]*storelib-app-720\.webp[^>]*/.test(html["app-anywhere"] ?? "") && /<img[^>]*storelib-app[^>]*loading="lazy"[^>]*decoding="async"/.test(html["app-anywhere"] ?? "") && /sizes="[^"]+"/.test(html["app-anywhere"] ?? ""))
+{
+  const appFiles = readdirSync(join(root, "public/home/app"))
+  check("the app photo is .webp, each file under 120 KB", appFiles.length >= 2 && appFiles.every((f) => f.endsWith(".webp") && statSync(join(root, "public/home/app", f)).size <= 120 * 1024), appFiles)
+}
 check("every <img> carries width and height", [...page.matchAll(/<img [^>]*>/g)].every((m) => /width="\d+"/.test(m[0]) && /height="\d+"/.test(m[0])))
 
 console.log("\n── truth: integrations ──")
@@ -121,7 +126,15 @@ check("brand marks come one by one from the trimmed generated set, never react-i
 const generated = read("components/icons/brand-icons.generated.ts")
 const used = [...allSrc.matchAll(/\b(Si[A-Z][A-Za-z0-9]+)\b/g)].map((m) => m[1])
 check("every mark used is in the generated file", used.every((n) => generated.includes(`export function ${n}(`)), used.filter((n) => !generated.includes(`export function ${n}(`)))
-check("tiles flip on tap with aria-pressed, copies are hidden from assistive tech", /aria-pressed/.test(html["integrations-section"] ?? "") && /aria-hidden="true" tabindex="-1"/.test(html["integrations-section"] ?? ""))
+/* Changed on purpose (wave 13): a tile is the app's icon alone, named for assistive tech, and its turn lands on the same icon (no text back). */
+{
+  const ih = html["integrations-section"] ?? ""
+  check("each app is one named icon, copies are hidden from assistive tech", PLATFORM_INTEGRATION_APPS.every((a) => ih.includes(`role="img" aria-label="${a.name}"`)) && /aria-hidden="true" data-copy=""/.test(ih))
+  check("no count, no hover hint, no subheading, no text on a tile", !/\d+ apps|hover or tap|Paste a key/i.test(text(ih)) && !/aria-pressed/.test(ih))
+  check("the section is light", /bg-white/.test(ih) && !/bg-\[#0b0b0c\]/.test(ih))
+  check("the turn lands where it started: edge on at the half, round from the other side", /rotateY\(90deg\)", offset: 0\.5/.test(integ) && /rotateY\(-90deg\)", offset: 0\.5/.test(integ) && /rotateY\(0deg\)" \},?\s*\]/.test(integ))
+  check("the light follows the pointer by transform, one write per frame", /requestAnimationFrame\(paint\)/.test(integ) && /translate3d\(\$\{x\}px, \$\{y\}px, 0\)/.test(integ))
+}
 
 console.log("\n── truth: audience and emails ──")
 const aud = text(html["audience-ownership"] ?? "")
@@ -169,8 +182,9 @@ const app = html["app-anywhere"] ?? ""
 check("App Store link follows the footer's env (none set here)", PLATFORM_APP_STORE_HREF === null && /NEXT_PUBLIC_IOS_APP_STORE_ID/.test(read(`${DIR}/app-anywhere.tsx`)) && /NEXT_PUBLIC_IOS_APP_STORE_URL/.test(read(`${DIR}/app-anywhere.tsx`)))
 check("the App Store badge is there", /Download on the/.test(app) && /App Store/.test(app))
 check("Google Play says Coming soon and is not a link", /Google Play/.test(app) && /Coming soon/.test(app) && !/play\.google\.com/.test(app) && !/<a [^>]*>[^]*?Google Play[^]*?<\/a>/.test(app.replace(/<a [^>]*App Store[\s\S]*?<\/a>/, "")))
-check("the screen is Home: greeting, live, tabs", ["Good morning, Maya", "live", "Home", "Orders", "Products", "Analytics", "Try Pro"].every((w) => text(app).includes(w)))
-check("a sale is announced the way the app says it", /You sold .+ for \$/.test(text(app)) && /You sold /.test(read("lib/notify/templates/catalog.ts")))
+/* Changed on purpose (wave 13): no drawn screen any more (the owner's photo is the visual); the points are titles only, with no check marks; Google Play is not faded. */
+check("the three points are titles only, with no check marks", ["A ping for every sale", "Orders, products and numbers", "Your community, in your pocket"].every((w) => text(app).includes(w)) && !/M3\.5 8\.5 6\.5 11\.5 12\.5 4\.5/.test(app) && !/A notification the moment/.test(app))
+check("the Google Play badge is drawn at full strength", !/opacity-40|grayscale/.test(read(`${DIR}/app-anywhere.tsx`)))
 
 console.log("\n── motion ──")
 const cssFiles = readdirSync(join(root, DIR)).filter((f) => f.endsWith(".module.css"))
@@ -209,7 +223,8 @@ check("the globe is drawn off the page's thread where the browser can hand it a 
 const globeWorker = await import(pathToFileURL(join(process.cwd(), "scripts/build-globe-worker.mjs")).href)
 check("the worker's string is up to date (node scripts/build-globe-worker.mjs)", read(`${DIR}/platform-globe-worker-source.ts`) === globeWorker.globeWorkerModule(await globeWorker.globeWorkerSource()))
 check("no scroll listeners in the track's code", !/addEventListener\(\s*["']scroll/.test(strip(allSrc + motion)))
-check("integration tiles have no 3D layer at rest", /\.back \{[\s\S]*?visibility: hidden;[\s\S]*?transform: none;/.test(read(`${DIR}/integrations-section.module.css`)))
+/* Changed on purpose (wave 13): no back face any more; the turn is a Web Animation that exists only while it runs. */
+check("integration tiles have no 3D layer at rest", !/perspective|rotateY|preserve-3d/.test(read(`${DIR}/integrations-section.module.css`)) && /inner\.animate\(FLIP/.test(integ))
 check("no new dependency", !/three|lottie|framer-motion|gsap/.test(strip(allSrc)))
 
 console.log(`\n${passed} passed, ${failed} failed`)
