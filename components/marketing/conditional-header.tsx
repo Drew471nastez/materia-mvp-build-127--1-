@@ -1,6 +1,8 @@
 "use client"
 
-import { usePathname, useSelectedLayoutSegment } from "next/navigation"
+import { useRoutePath } from "@/lib/navigation/route-path"
+
+import { useSelectedLayoutSegment } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
@@ -169,7 +171,7 @@ export function ConditionalHeader({
    */
   onPlatformDomain?: boolean
 }) {
-  const pathname = usePathname()
+  const pathname = useRoutePath()
   /* null when the page under this layout is its own page.tsx (Next's page segment), "u" for /u/<name>, and so on. */
   const segmentBelow = useSelectedLayoutSegment()
   const onPlatformDomain = hostSaysPlatform || (platformHomeFromRoute && segmentBelow === null)
