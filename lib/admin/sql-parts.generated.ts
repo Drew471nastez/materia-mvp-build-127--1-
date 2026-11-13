@@ -259,4 +259,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "444", file: "444_cache_ping_real_changes.sql", sha256: "00fd4f487b539d97f3e70dd3a5b4fc7e10fbc1b3142b2d8d50ea1f395f094a4c" },
   { part: "445", file: "445_explore_newest_index.sql", sha256: "d2bcfe497a79433da072db91dc580693bf1414b1dee89e990bf42a85a924c48a" },
   { part: "451", file: "451_explore_catalogue_index.sql", sha256: "6c9295c37c0c7d3950d76cf81916f9039006c97a3f639a9dd613ef4d2577d2b9" },
+  { part: "452", file: "452_deletes_through_the_server.sql", sha256: "fc74e7254146000c92f24a38d886d005d3579721ac12353a38861c72e413801a" },
+  { part: "453", file: "453_onepage_own_store_only.sql", sha256: "d20bd3721b8620c846fe9ae8988dbaed868483522f2965542a61bc708ec7432c" },
+  { part: "454", file: "454_product_counters_server_owned.sql", sha256: "33df1145b48d20abb23415cb7ed9a62fab643b4c5275b374540d550302422790" },
 ]
