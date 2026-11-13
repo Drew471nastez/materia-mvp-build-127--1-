@@ -56,7 +56,7 @@ const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|
 const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ")
 
 const SECTIONS: Array<{ file: string; name: string; C: ComponentType; id: string; heading: string }> = [
-  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Everything in one place" },
+  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Make the work. Skip the busywork." },
   { file: "audience-ownership", name: "AudienceOwnership", C: AudienceOwnership, id: "audience-ownership", heading: "Your audience belongs to you." },
   { file: "analytics-showcase", name: "AnalyticsShowcase", C: AnalyticsShowcase, id: "analytics-showcase", heading: "Know what's working, as it happens." },
   { file: "integrations-section", name: "IntegrationsSection", C: IntegrationsSection, id: "integrations", heading: "Connect your favorite apps" },
@@ -76,7 +76,8 @@ for (const s of SECTIONS) {
     continue
   }
   html[s.file] = out
-  check(`${s.file}: renders with its id and heading`, out.includes(`id="${s.id}"`) && out.includes(`aria-label="${s.heading.replace(/'/g, "&#x27;")}"`), out.slice(0, 300))
+  /* Changed on purpose (wave 13): section 3's heading is a plain two-tone <h2> (dark lead, grey rest), not a scroll-inked StoryHeading, so its words are read from the heading itself. */
+  check(`${s.file}: renders with its id and heading`, out.includes(`id="${s.id}"`) && (out.includes(`aria-label="${s.heading.replace(/'/g, "&#x27;")}"`) || text(out.match(/<h2[\s\S]*?<\/h2>/)?.[0] ?? "").trim() === s.heading), out.slice(0, 300))
   check(`${s.file}: no em dash in the words`, !/—/.test(text(out)))
   check(`${s.file}: no lorem`, !/lorem|ipsum/i.test(out))
 }
@@ -156,7 +157,18 @@ check("a sale is announced the way the app says it", /You sold .+ for \$/.test(t
 
 console.log("\n── motion ──")
 const cssFiles = readdirSync(join(root, DIR)).filter((f) => f.endsWith(".module.css"))
-check("each section has its own CSS module, plus the shared one", ["platform", ...SECTIONS.map((s) => s.file)].every((f) => cssFiles.includes(`${f}.module.css`)), cssFiles)
+/* Changed on purpose (wave 13): section 3 draws its stylesheet as a React <style href precedence> (EVERYTHING_STYLES, preloaded by lazy-sections), not a CSS module; it is held to the same rules below. */
+check("each section has its own CSS module, plus the shared one", ["platform", ...SECTIONS.filter((s) => s.file !== "everything-in-one-place").map((s) => s.file)].every((f) => cssFiles.includes(`${f}.module.css`)), cssFiles)
+{
+  const ev = read(`${DIR}/everything-in-one-place.tsx`)
+  const css = ev.split("const CSS = `")[1]?.split("\n`")[0] ?? ""
+  const frames = [...css.matchAll(/@keyframes\s+[\w-]+\s*\{([\s\S]*?\})\s*\}/g)].map((m) => m[1])
+  const props = frames.flatMap((body) => [...body.matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1]))
+  check("everything-in-one-place: keyframes animate only transform and opacity (and time their own steps)", frames.length >= 6 && props.every((p) => p === "transform" || p === "opacity" || p === "animation-timing-function"), [...new Set(props)])
+  check("everything-in-one-place: every loop pauses while the section is not live", /\.ev\[data-platform-live="false"\] \.ev-loop,\.ev:not\(\[data-platform-live\]\) \.ev-loop\{animation-play-state:paused\}/.test(css))
+  check("everything-in-one-place: has a reduced-motion path that stops every loop", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-loop,[^{]*\{animation:none !important\}/.test(css))
+  check("everything-in-one-place: no :has() and no selector ending in *", !/:has\(/.test(css) && !/\*\s*\{/.test(css))
+}
 for (const f of cssFiles) {
   const css = read(`${DIR}/${f}`)
   const frames = [...css.matchAll(/@keyframes\s+[\w-]+\s*\{([\s\S]*?)\n\}/g)].map((m) => m[1])

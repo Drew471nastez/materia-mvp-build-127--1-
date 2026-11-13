@@ -13,7 +13,9 @@ import { lazySection } from "./lazy-section"
 
 export const LazyEverythingInOnePlace = lazySection(() => import("./everything-in-one-place").then((m) => m.EverythingInOnePlace), {
   name: "everything",
-  minHeight: "clamp(640px, 90vh, 900px)",
+  /* Wave 13: four cards in one column below 768px (the first term), two by two above it (the second); the first term drops out above 768px. */
+  minHeight: "max(calc(clamp(1900px, 279vw + 1010px, 2215px) - clamp(0px, (100vw - 767px) * 100000, 100000px)), clamp(1110px, 84vw + 305px, 1515px))",
+  styles: () => import("./everything-in-one-place").then((m) => m.EVERYTHING_STYLES),
 })
 
 export const LazyIdeasComeToLife = lazySection(() => import("./ideas-come-to-life").then((m) => m.IdeasComeToLife), {
