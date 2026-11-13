@@ -1345,6 +1345,8 @@ const SUITES = [
   "tests/ai-agent-quality-p5.test.ts",
   /* Wave 12, platform track: the home page's Everything in one place, Your audience belongs to you, analytics (dotted globe), integrations (flipping tiles) and the app sections (components/marketing/home). Server render, truth against the catalog, the Analytics page and the app's Home, no hotlinked pictures and the photo budget, keyframes on transform and opacity only, loops paused off screen and under reduced motion, nothing inserted per frame. */
   "tests/home-w12-platform.test.ts",
+  /* Wave 13: home section 3 rebuilt as the owner's 2 x 2 grid (Make the work. Skip the busywork.): four cards, captions in two tones, product slides whose light changes, the draggable order globe in checkout's currencies, storefronts and support; loops paused off screen, its box's height. */
+  "tests/home-w13-everything.test.ts",
 ]
 
 /**

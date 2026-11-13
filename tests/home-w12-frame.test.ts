@@ -79,14 +79,20 @@ async function main() {
     const labels = MARQUEE_ROWS.flatMap((r) => r.items.map((i) => i.label))
     check("at least 36 different things, none twice", labels.length >= 36 && new Set(labels).size === labels.length, labels.length)
     check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 9 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 6)
-    check("every chip has an icon", (html.match(/class="um-chip"/g) ?? []).length === labels.length * 3 && (html.match(/<svg/g) ?? []).length === labels.length * 3)
+    /* Changed on purpose (wave 13): the owner wanted the emoji back, the way the chips looked before wave 12, in place of the drawn icons. */
+    check("every chip has its emoji", (html.match(/class="um-chip"/g) ?? []).length === labels.length * 3 && (html.match(/<span class="um-emoji" aria-hidden="true">/g) ?? []).length === labels.length * 3 && !/<svg/.test(html))
+    check("each emoji is one picture, different in every row", MARQUEE_ROWS.every((r) => r.items.every((i) => /^\p{Extended_Pictographic}/u.test(i.emoji)) && new Set(r.items.map((i) => i.emoji)).size === r.items.length))
     check("communities, never memberships", labels.includes("Communities") && !labels.includes("Memberships"))
     check("the loop moves by exactly one copy, with transform only", /@keyframes um-left\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(calc\(-100% \/ 3\),0,0\)\}\}/.test(src) && !/@keyframes um-[a-z]+\{[^}]*\b(left|margin|width):/.test(src))
     check("copies are spaced by the chip's own margin, not a gap on the track", /\.um-track\{display:flex;width:max-content;/.test(src) && !/\.um-track\{[^}]*gap:/.test(src) && /\.um-chip\{[^}]*margin-right:12px/.test(src))
     check("edge to edge: the rows escape the page's 1400px column", /\[data-landing-story\] \[data-story-section\] > \.um-rows,\.um-rows\{max-width:none;margin:0;padding:0/.test(src))
-    check("pauses under the pointer, off screen and in a background tab", /\.um-row:hover \.um-track,\.um\[data-um-paused\] \.um-track/.test(src) && /new IntersectionObserver/.test(src) && /document\.hidden/.test(src))
+    /* Changed on purpose (wave 13): a row under the mouse glides to a stop (its animation's playback rate eased) instead of freezing, and the purple hover is gone. */
+    check("pauses off screen and in a background tab", /\.um\[data-um-paused\] \.um-track/.test(src) && /new IntersectionObserver/.test(src) && /document\.hidden/.test(src))
+    check("a row under the mouse eases to a stop and back, on the compositor", /addEventListener\("pointerenter"/.test(src) && /easeRow\(track, 0,/.test(src) && /easeRow\(track, 1,/.test(src) && /updatePlaybackRate/.test(src) && !/\.um-row:hover \.um-track/.test(src))
+    check("the chip under the mouse lifts with transform, its shadow fades by opacity, no purple", /\.um-chip:hover\{z-index:1;transform:translate3d\(0,-3px,0\) scale\(1\.06\)/.test(src) && /\.um-chip:hover::after\{opacity:1\}/.test(src) && !/\.um-chip\{[^}]*transition:[^}]*(border-color|box-shadow)/.test(src) && !/124,\s*58,\s*237|#d6c8fb|violet/i.test(src))
     check("reduced motion: still, one copy, wrapped and centred", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.um-track\{animation:none[\s\S]*\.um-copy\{flex:1 1 auto;flex-wrap:wrap;justify-content:center[\s\S]*\.um-copy\[aria-hidden\]\{display:none\}/.test(src))
-    check("no emoji in the chips any more", !/\p{Extended_Pictographic}/u.test(labels.join("")) && !/emoji:/.test(src))
+    /* Changed on purpose (wave 13): the emoji are back, beside the words (never inside them). */
+    check("the words carry no emoji; the emoji sit beside them", !/\p{Extended_Pictographic}/u.test(labels.join("")) && /emoji:/.test(src))
   }
 
   console.log("\nThe closing call")
@@ -145,8 +151,10 @@ async function main() {
     /* Every stylesheet a lazy section lists is one it draws: the same href, so React finds it in <head> and adds none on mount. */
     const lazy = read("components/marketing/home/lazy-sections.tsx")
     const listed = [...lazy.matchAll(/styles: \(\) => import\("\.\/([\w-]+)"\)\.then\(\(m\) => m\.(\w+)\)/g)]
-    check("the sections that draw their own stylesheets list them", listed.length === 7, listed.map((m) => m[1]))
+    /* Changed on purpose (wave 13): section 3 (everything-in-one-place) now draws its own stylesheet too, so it is listed. */
+    check("the sections that draw their own stylesheets list them", listed.length === 8 && listed.some((m) => m[1] === "everything-in-one-place"), listed.map((m) => m[1]))
     const modules: Record<string, Record<string, unknown>> = {
+      "everything-in-one-place": await import("@/components/marketing/home/everything-in-one-place"),
       "ideas-come-to-life": await import("@/components/marketing/home/ideas-come-to-life"),
       "business-carousel": await import("@/components/marketing/home/business-carousel"),
       "creators-carousel": await import("@/components/marketing/home/creators-carousel"),
@@ -159,7 +167,7 @@ async function main() {
       const mod = modules[file] ?? {}
       const styles = mod[name] as { href: string; precedence: string; css: string }[]
       const own = read(`components/marketing/home/${file}.tsx`)
-      check(`${file}: ${name} names real stylesheets it draws`, Array.isArray(styles) && styles.length > 0 && styles.every((s) => s.css.length > 100 && /^w12-/.test(s.href) && (own.includes(`href="${s.href}"`) || own.includes(`"${s.href}"`) || /CommerceKitStyle/.test(own))), styles?.map((s) => s.href))
+      check(`${file}: ${name} names real stylesheets it draws`, Array.isArray(styles) && styles.length > 0 && styles.every((s) => s.css.length > 100 && /^w1[23]-/.test(s.href) && (own.includes(`href="${s.href}"`) || own.includes(`"${s.href}"`) || /CommerceKitStyle/.test(own))), styles?.map((s) => s.href))
     }
     const html = renderToStaticMarkup(createElement(modules["ideas-come-to-life"].IdeasComeToLife as () => null))
     check("the showcase sections draw their mocks' styles as React stylesheets (href and precedence), once each", !/<style>/.test(html) && !/\.smk-frame\{[\s\S]*\.smk-frame\{/.test(html))
