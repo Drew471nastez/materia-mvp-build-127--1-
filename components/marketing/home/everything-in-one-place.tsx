@@ -12,7 +12,8 @@
     1. Sell anything you make: a product card that slides through merch, a
        preset pack, a course and a community, the light behind it changing
        with each; the tabs pick one, and it plays by itself while on screen.
-    2. A store that looks like you: four creators' storefronts gliding past.
+    2. A store that looks like you: three creators' storefronts and three
+       OnePages (real OnePage themes, ./onepage-sample) gliding past.
     3. Sell in every country: a globe the visitor can spin, with orders
        arcing to buyers in currencies checkout charges in.
     4. Real support: a creator's question answered by a person at Storelib
@@ -30,6 +31,8 @@ import { useCallback, useRef, useState, type CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { usePlatformSection } from "./platform-motion"
 import { EverythingGlobe } from "./everything-globe"
+import { CLARA, HomeOnePage, HomeOnePageStyle, NOA, THEO, type HomeThemeId } from "./onepage-sample"
+import type { PreviewAccount } from "@/components/onepage/themes/preview-account"
 
 export const EVERYTHING_HEADING = { lead: "Make the work.", rest: "Skip the busywork." } as const
 
@@ -281,36 +284,38 @@ function StoreLumen() {
   )
 }
 
-function StoreTheo() {
-  return (
-    <div className="ev-ph ev-ph-theo">
-      <Bar logo="Theo Marsh" />
-      <div className="ev-ph-hero">
-        <Pic className="ev-ph-hero-img" src="store-street.webp" w={420} h={520} />
-        <div className="ev-ph-hero-copy">
-          <span className="ev-ph-kicker">Online course</span>
-          <span className="ev-ph-title">Shoot in Manual, in a Week</span>
-        </div>
+/*
+  Between the stores, three OnePages (the land round, the owner: "use some of
+  the themes that we have on OnePage ... actually representative"): Ember,
+  Halo and Atlas as the theme picker ships them, drawn by the picker's own
+  ThemePreview (./onepage-sample). Each sits under the link it is shared by (storelib.me/<handle>,
+  lib/url-helpers getLinksShareUrl), in a browser's address bar.
+*/
+function onePage(theme: HomeThemeId, who: PreviewAccount, handle: string) {
+  return function OnePagePhone() {
+    return (
+      <div className="ev-ph ev-ph-op">
+        <span className="ev-ph-op-bar">
+          <span className="ev-ph-op-link">storelib.me/{handle}</span>
+        </span>
+        <HomeOnePage theme={theme} who={who} className="ev-ph-op-page" />
       </div>
-      <div className="ev-ph-cta">Enroll for $129</div>
-      <div className="ev-ph-row">
-        <Pic className="ev-ph-sq" src="store-cam.webp" w={220} h={220} />
-        <div>
-          <span className="ev-ph-pn">Film Look Presets</span>
-          <span className="ev-ph-pp">$24.00</span>
-        </div>
-      </div>
-    </div>
-  )
+    )
+  }
 }
+const OnePageNoa = onePage("ember", NOA, "noalind")
+const OnePageClara = onePage("halo", CLARA, "clarapaints")
+const OnePageTheo = onePage("atlas", THEO, "theomarsh")
 
-const STORES = [StoreNorthbound, StoreKiln, StoreLumen, StoreTheo]
+/* A store, a OnePage, a store, a OnePage: what the caption says, both ways to sell. */
+const STORES = [StoreNorthbound, OnePageNoa, StoreKiln, OnePageClara, StoreLumen, OnePageTheo]
 
 function Storefronts() {
-  /* The last store, the four, then the first two again: the strip glides one store at a time and starts over where it looks the same. */
-  const strip = [STORES[3], ...STORES, STORES[0], STORES[1]]
+  /* The last one, the six, then the first two again: the strip glides one phone at a time and starts over where it looks the same. */
+  const strip = [STORES[5], ...STORES, STORES[0], STORES[1]]
   return (
     <div className="ev-vis ev-s" aria-hidden="true">
+      <HomeOnePageStyle />
       <div className="ev-s-track ev-loop">
         {strip.map((Store, i) => (
           <div key={i} className="ev-s-slot">
@@ -500,15 +505,17 @@ const CSS = `
 
 /* 2. Storefronts */
 .ev-s{background:#ececef;container-type:inline-size}
-.ev-s-track{--slot:46cqw;position:absolute;top:30px;bottom:0;left:calc(50% - 1.5 * var(--slot));display:flex;animation:ev-stores 18s infinite}
+.ev-s-track{--slot:46cqw;position:absolute;top:30px;bottom:0;left:calc(50% - 1.5 * var(--slot));display:flex;animation:ev-stores 27s infinite}
 @media(max-width:767px){.ev-s-track{--slot:54cqw;top:24px}}
 .ev-s-slot{flex:none;width:var(--slot);height:100%;padding:0 7px;box-sizing:border-box}
 @keyframes ev-stores{
-  0%,19%{transform:translate3d(0,0,0);animation-timing-function:${GLIDE}}
-  25%,44%{transform:translate3d(calc(-100% / 7),0,0);animation-timing-function:${GLIDE}}
-  50%,69%{transform:translate3d(calc(-200% / 7),0,0);animation-timing-function:${GLIDE}}
-  75%,94%{transform:translate3d(calc(-300% / 7),0,0);animation-timing-function:${GLIDE}}
-  100%{transform:translate3d(calc(-400% / 7),0,0)}
+  0%,12.67%{transform:translate3d(0,0,0);animation-timing-function:${GLIDE}}
+  16.67%,29.33%{transform:translate3d(calc(-100% / 9),0,0);animation-timing-function:${GLIDE}}
+  33.33%,46%{transform:translate3d(calc(-200% / 9),0,0);animation-timing-function:${GLIDE}}
+  50%,62.67%{transform:translate3d(calc(-300% / 9),0,0);animation-timing-function:${GLIDE}}
+  66.67%,79.33%{transform:translate3d(calc(-400% / 9),0,0);animation-timing-function:${GLIDE}}
+  83.33%,96%{transform:translate3d(calc(-500% / 9),0,0);animation-timing-function:${GLIDE}}
+  100%{transform:translate3d(calc(-600% / 9),0,0)}
 }
 .ev-ph{--u:calc(var(--slot) / 25);position:relative;height:calc(100% + 40px);overflow:hidden;border-radius:calc(var(--u) * 2.6) calc(var(--u) * 2.6) 0 0;background:#fff;font-size:var(--u);line-height:1.3;box-shadow:0 20px 40px -24px rgba(20,14,40,.35),0 0 0 1px rgba(20,14,40,.06)}
 .ev-ph-bar{display:flex;align-items:center;justify-content:space-between;height:4.6em;padding:0 1.5em}
@@ -547,10 +554,10 @@ const CSS = `
 .ev-ph-track{display:flex;align-items:center;gap:1em;padding:.75em 0;border-top:1px solid rgba(255,255,255,.08);font-size:1.1em}
 .ev-ph-tn{width:1em;opacity:.5}
 .ev-ph-td{margin-left:auto;opacity:.5}
-.ev-ph-theo{background:#fafaf7;color:#18181b}
-.ev-ph-theo .ev-ph-logo{letter-spacing:.02em;font-weight:600;font-size:1.45em}
-.ev-ph-theo .ev-ph-cta{background:#18181b;color:#fff}
-.ev-ph-theo .ev-ph-row{background:#f0efea}
+.ev-ph-op{background:#f6f6f7}
+.ev-ph-op-bar{display:flex;align-items:center;justify-content:center;height:4.6em;color:#18181b}
+.ev-ph-op-link{padding:.45em 1.3em;border-radius:999px;background:#e8e8ec;font-size:1.1em;font-weight:600;white-space:nowrap}
+.ev-ph-op-page{position:absolute;left:0;right:0;top:calc(var(--u) * 4.6);bottom:0}
 
 /* 3. Globe */
 .ev-g{background:#060608}
