@@ -14,6 +14,9 @@
   the section itself until it is set, as the footer does. Google Play is not
   live: its badge is drawn at full strength (not faded), carries a Coming
   soon label, and is not a link.
+
+  Landing round, the owner: the line under the heading was too long, so it
+  is one short sentence now, and the photo's corner is a pixel tighter.
 */
 
 import { useRef, type CSSProperties } from "react"
@@ -91,7 +94,7 @@ export function AppAnywhere() {
         <div className="min-w-0">
           <StoryHeading id="app-anywhere-title" text="Run your business from anywhere" accent={["anywhere"]} />
           <p className="mt-5 max-w-[48ch] text-[clamp(16px,1.4vw,19px)] leading-[1.6] text-[#5f5d66]">
-            The Storelib app puts your sales, orders and visitors on your phone, so you can step away from the desk without stepping away from the business.
+            Your sales, orders and visitors on your phone, wherever you are.
           </p>
           <ul className={`${s.points} mt-8`}>
             {POINTS.map((title, i) => (

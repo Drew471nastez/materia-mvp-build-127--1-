@@ -160,7 +160,8 @@ async function main() {
     const lazy = read("components/marketing/home/lazy-sections.tsx")
     const listed = [...lazy.matchAll(/styles: \(\) => import\("\.\/([\w-]+)"\)\.then\(\(m\) => m\.(\w+)\)/g)]
     /* Changed on purpose (wave 13): section 3 (everything-in-one-place) now draws its own stylesheet too, so it is listed. */
-    check("the sections that draw their own stylesheets list them", listed.length === 8 && listed.some((m) => m[1] === "everything-in-one-place"), listed.map((m) => m[1]))
+    /* Changed on purpose (landing round): the new Your AI tools work here too section (ai-tools-section) draws its own stylesheet too, so nine are listed. */
+    check("the sections that draw their own stylesheets list them", listed.length === 9 && listed.some((m) => m[1] === "everything-in-one-place") && listed.some((m) => m[1] === "ai-tools-section"), listed.map((m) => m[1]))
     const modules: Record<string, Record<string, unknown>> = {
       "everything-in-one-place": await import("@/components/marketing/home/everything-in-one-place"),
       "ideas-come-to-life": await import("@/components/marketing/home/ideas-come-to-life"),
@@ -170,6 +171,7 @@ async function main() {
       "checkout-scene": await import("@/components/marketing/home/checkout-scene"),
       "sell-everywhere-map": await import("@/components/marketing/home/sell-everywhere-map"),
       "earnings-calculator": await import("@/components/marketing/home/earnings-calculator"),
+      "ai-tools-section": await import("@/components/marketing/home/ai-tools-section"),
     }
     for (const [, file, name] of listed) {
       const mod = modules[file] ?? {}

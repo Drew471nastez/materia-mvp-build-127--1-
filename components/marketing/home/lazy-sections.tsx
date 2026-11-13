@@ -78,15 +78,22 @@ export const LazyIntegrationsSection = lazySection(() => import("./integrations-
   minHeight: "clamp(536px, 16.5vw + 472px, 715px)",
 })
 
+export const LazyAiToolsSection = lazySection(() => import("./ai-tools-section").then((m) => m.AiToolsSection), {
+  name: "ai-tools",
+  /* Landing round: measured 931px at 390 and 939 at 768 (the terminal under the words), 698 at 1024, 780 at 1440 and 782 at 1920 (beside them). */
+  minHeight: "max(calc(923px + 2vw - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(19.7vw + 496px, 782px))",
+  styles: () => import("./ai-tools-section").then((m) => m.AI_TOOLS_STYLES),
+})
+
 export const LazyEarningsCalculator = lazySection(() => import("./earnings-calculator").then((m) => m.EarningsCalculator), {
   name: "earnings",
-  /* Wave 13 perf: one column below 900px (1471px at 390, 1330 at 768), two from 900 (844 at 1024, 937 at 1440, 1024 at 1920). */
-  minHeight: "max(calc(1600px - 35vw - clamp(0px, (100vw - 899px) * 100000, 100000px)), clamp(845px, 30vw + 520px, 1024px))",
+  /* Landing round (the photo): one column below 900px (1613px at 390 and 768), the photo a band over two columns to 1279 (1138 at 1024), three columns from 1280 (901 at 1440, 988 at 1920). */
+  minHeight: "max(calc(1613px - clamp(0px, (100vw - 899px) * 100000, 100000px)), calc(831px + min(30vw, 320px) - clamp(0px, (100vw - 1279px) * 100000, 100000px)), min(640px + 18.1vw, 988px))",
   styles: () => import("./earnings-calculator").then((m) => m.EARNINGS_STYLES),
 })
 
 export const LazyAppAnywhere = lazySection(() => import("./app-anywhere").then((m) => m.AppAnywhere), {
   name: "app-anywhere",
-  /* Wave 13 perf: one column below 1024px (877px at 390, 1072 at 768), two from 1024 (695 at 1024, 810 at 1440, 823 at 1920). */
-  minHeight: "max(calc(58vw + 651px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(30vw + 380px, 823px))",
+  /* Landing round (the shorter line): one column below 1024px (826px at 390, 1047 at 768), two from 1024 (644 at 1024, 779 at 1440, 792 at 1920). */
+  minHeight: "max(calc(58vw + 600px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(30vw + 348px, 792px))",
 })

@@ -209,6 +209,24 @@ function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: O
   )
 }
 
+/**
+ * THE PUBLIC CARDS' LINES AND TICKS (landing round). The home page and
+ * /pricing hand their own plain lines (components/marketing/pricing-lines)
+ * and a quiet ink tick in place of the plan coloured check: one short,
+ * rounded stroke in the text's own grey, no circle, no colour. Every other
+ * surface draws the plan's lines and checks as before.
+ */
+export type PlanCardLines = { features: string[]; excluded: string[] }
+export type PlanCardTick = "plan" | "ink"
+
+function InkTick() {
+  return (
+    <svg viewBox="0 0 16 16" className="mt-[2px] h-4 w-4 shrink-0 text-[#3f3f46]" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-plan-tick="ink">
+      <path d="M3.5 8.4 6.6 11.4 12.5 4.8" />
+    </svg>
+  )
+}
+
 function PlanCard({
   plan,
   action,
@@ -218,8 +236,12 @@ function PlanCard({
   sizes,
   nameLevel = 3,
   pictureLoading = "eager",
+  lines,
+  tick = "plan",
 }: {
   pictureLoading?: "eager" | "lazy"
+  lines?: PlanCardLines
+  tick?: PlanCardTick
   plan: OfferedPlan
   action: PlanCardAction
   label?: string
@@ -247,13 +269,14 @@ function PlanCard({
     keyboard and a screen reader, so the card adds no second tab stop.
   */
   const shown = interval === "yearly" ? yearlyAction : monthlyAction
+  /* The public cards (tick "ink") are a pixel less round, as the owner asked of the landing page's cards. */
   const pick = compact && shown.onClick && !shown.href && !shown.disabled && !shown.settled && !shown.loading ? shown.onClick : undefined
 
   return (
     <article
       data-plan-card={plan.id}
       onClick={pick ? (e) => { if (!(e.target as Element).closest("[data-plan-action]")) pick() } : undefined}
-      className={`flex w-full flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_36px_72px_-30px_rgba(16,24,40,0.34),0_10px_24px_-12px_rgba(16,24,40,0.12),0_1px_3px_rgba(16,24,40,0.06)] ring-1 ring-[#0f172a]/[0.07] ${pick ? "cursor-pointer transition-[box-shadow] duration-200 hover:ring-[#0f172a]/[0.16]" : ""}`}
+      className={`flex w-full flex-col overflow-hidden ${tick === "ink" ? "rounded-[21px]" : "rounded-[22px]"} bg-white shadow-[0_36px_72px_-30px_rgba(16,24,40,0.34),0_10px_24px_-12px_rgba(16,24,40,0.12),0_1px_3px_rgba(16,24,40,0.06)] ring-1 ring-[#0f172a]/[0.07] ${pick ? "cursor-pointer transition-[box-shadow] duration-200 hover:ring-[#0f172a]/[0.16]" : ""}`}
     >
       <div
         data-plan-header=""
@@ -306,13 +329,17 @@ function PlanCard({
 
       <div className={`flex flex-1 flex-col ${pad} ${compact ? "pb-5 pt-5" : "pb-6 pt-5"}`}>
         <ul className={`flex flex-col ${compact ? "gap-2" : "gap-2.5"}`}>
-          {plan.features.map((feature) => (
+          {(lines?.features ?? plan.features).map((feature) => (
             <li key={feature} className={`flex items-start gap-3 ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-[#1a1a2e]`}>
-              <Check className={`mt-[2px] h-4 w-4 shrink-0 ${look.dot}`} strokeWidth={1.75} aria-hidden="true" />
+              {tick === "ink" ? (
+                <InkTick />
+              ) : (
+                <Check className={`mt-[2px] h-4 w-4 shrink-0 ${look.dot}`} strokeWidth={1.75} aria-hidden="true" />
+              )}
               {tt(feature)}
             </li>
           ))}
-          {plan.excluded.map((feature) => (
+          {(lines?.excluded ?? plan.excluded).map((feature) => (
             <li key={feature} className={`flex items-start gap-3 ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-[#6b7280]`}>
               <X className="mt-[2px] h-4 w-4 shrink-0 text-[#9ca3af]" strokeWidth={1.75} aria-hidden="true" />
               <span>
@@ -365,7 +392,13 @@ export function PlanCards({
   onInterval,
   nameLevel,
   pictureLoading,
+  lines,
+  tick,
 }: {
+  /** The public cards' own plain lines per plan (home page and /pricing); every other surface leaves it out. */
+  lines?: Partial<Record<OfferedPlanId, PlanCardLines>>
+  /** "ink" for the public cards' quiet tick; the plan coloured check otherwise. */
+  tick?: PlanCardTick
   /**
    * "lazy" where the cards are far down a page (the home page's pricing
    * section). Eager there put a preload for each picture into the home page's
@@ -443,6 +476,8 @@ export function PlanCards({
               sizes={PLAN_PICTURE_SIZES}
               nameLevel={nameLevel}
               pictureLoading={pictureLoading}
+              lines={lines?.[plan.id]}
+              tick={tick}
             />
           </div>
         ))}
