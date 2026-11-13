@@ -39,7 +39,8 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    ...(["Saltlight", "Bloom", "Darkroom", "Sol", "Hollow"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
+    /* Changed on purpose (landing round 2): the community slide is Charla Circle, Storelib's real member frame photographed, in place of the hand-drawn Darkroom Club. */
+    ...(["Saltlight", "Bloom", "Charla", "Sol", "Hollow"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
     createElement(WebsiteBuilderMock),
     createElement(OnePageEditorMock),
     createElement(CommunityBuilderMock),
@@ -50,7 +51,8 @@ const everyMock = renderToString(
 const ownMock = everyMock.replace(/<img[^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
 assert.ok(/data-home-onepage="notebook"/.test(everyMock) && /data-home-onepage="lagoon"/.test(everyMock), "the OnePages are real themes")
 const srcs = new Set([...ownMock.matchAll(/<img(?![^>]*data-storelib-logo)[^>]*src="([^"]+)"/g)].map((m) => m[1]))
-assert.ok(srcs.size >= 36, `${srcs.size} pictures`)
+/* Changed on purpose (landing round 2): the community slide is two photographs of the real member frame, not a dozen drawn pieces, so the mocks hold fewer separate pictures. */
+assert.ok(srcs.size >= 30, `${srcs.size} pictures`)
 for (const src of srcs) assert.ok(src.startsWith("/home/showcase/") && existsSync(`public${src}`), `${src} exists`)
 /* The logo goes through next/image (lazy by default there; the test stub leaves the attribute out), so the photos are checked here. */
 const photos = ownMock.replace(/<img[^>]*data-storelib-logo[^>]*>/g, "")

@@ -6,10 +6,11 @@ import { StoryHeading } from "./story-heading"
   TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 13).
   The stores are drawn in the layout of a real Storelib creator store (the
   newsletter bar, the cover, the round avatar, Home / Products / Communities
-  and the product cards, in the store's own colour scheme) and the
-  communities in the layout of a real Storelib community (the community card
-  and places, the space chips and feed, the next event and the leaderboard),
-  for fictional creators, with stock photography. The course page and three
+  and the product cards, in the store's own colour scheme), for fictional
+  creators, with stock photography. The communities (landing round 2) are
+  not drawn: they are Storelib's own member frame and feed (components/
+  community/member) rendered with a fictional community's data and
+  photographed at 2x, one of them in the reader's dark look. The course page and three
   OnePages are the shared showcase mocks (components/marketing/home/
   showcase-mocks); Satori Studio is a real OnePage, storelib.me/satori-studio,
   as a phone shows it.
@@ -44,17 +45,17 @@ const GROUPS = [
   [
     wide("neonmoth", "Sell merch people actually wear", "Neon Moth's Storelib store: a tour tee, a vinyl LP and a track set under a neon concert cover"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
-    wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community with a critique post, a roll swap event and a leaderboard"),
+    wide("slowrise", "Bring your community together", "Slow Rise Bakers, a sourdough community on Storelib: a pinned poll for the December bake-along, a crumb shot question, the next live shaping session and the top contributors"),
   ],
   [
     wide("mila", "Sell digital downloads", "Mila Draws' Storelib store with a gouache brush pack, a digital planner and texture scans"),
     portrait("maya", "Links that sell", "Maya Okafor's OnePage with a marathon plan, run club and coaching links"),
-    wide("founders", "A members' club for founders", "Founders After Five, a community where a member shares a $10k MRR milestone"),
+    wide("nightshift", "Gather people around a craft", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
     wide("bloom", "Teach what you know", "Brush & Bloom's watercolor course site with modules and reviews"),
     portrait("lio", "Show your work", "Lio Tanaka's dark OnePage with photos, presets and print links"),
-    wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes and a live glaze night"),
+    wide("pinchgrip", "Run a members' club", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
   ],
   [
     wide("gridline", "Sell templates and kits", "Gridline Studio's Storelib store with workspace templates and a wireframe kit"),

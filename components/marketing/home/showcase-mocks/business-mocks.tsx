@@ -1,9 +1,7 @@
 import {
-  Bell,
   ChevronLeft,
   Heart,
   Menu,
-  MessageCircle,
   MoreHorizontal,
   Play,
   Search,
@@ -23,7 +21,8 @@ import { HomeOnePage, HomeOnePageStyle, PRIYA } from "../onepage-sample"
 
     Saltlight          Lightroom presets by a travel photographer
     Brush & Bloom      a watercolor course (sales page / lesson player)
-    The Darkroom Club  a film photography community (the member area)
+    Charla Circle      a Spanish conversation circle: Storelib's real community
+                       frame and feed, photographed (no hand drawing)
     Sol & Sage         a cook's OnePage (link in bio), the Notebook theme
                        drawn by ThemePreview (../onepage-sample)
     Hollow Pines       an indie folk band's merch shop
@@ -297,188 +296,22 @@ export function BloomMobile() {
   )
 }
 
-/* ================================================================ Communities: The Darkroom Club */
-const DC_SPACES = [
-  ["Critique corner", "#e8772e"],
-  ["Roll swap", "#2f8f83"],
-  ["Darkroom chemistry", "#7c5cd6"],
-  ["Gear and glass", "#c2410c"],
-] as const
-
-function DarkroomTabs() {
-  return (
-    <div className="zd-tabs">
-      <b>Community</b>
-      <span>Learn</span>
-      <span>Calendar</span>
-      <span>Members</span>
-      <span>Leaderboards</span>
-      <span>About</span>
-    </div>
-  )
+/* ================================================================ Communities: Charla Circle */
+/*
+  NOT DRAWN BY HAND (landing round 2). The community is Storelib's own member
+  frame and feed (components/community/member/shell-frame.tsx and feed.tsx),
+  rendered with a fictional community's data and photographed at 2x: a
+  computer at 1024 x 768 and a phone at 390 x 693, a little way down its feed.
+  So the bar, the row of places, the community card, the next event, the space
+  chips, the composer, the poll and the post cards are the product's, not an
+  imitation of them. Re-shoot them when the member frame changes.
+*/
+export function CharlaDesktop() {
+  return <Pic n="ch-desktop" w={2048} h={1536} className="zc-shot" />
 }
 
-export function DarkroomDesktop() {
-  return (
-    <div className="bz zd">
-      <div className="zd-bar">
-        <span className="zd-mark">DC</span>
-        <span className="zd-name">
-          <b>The Darkroom Club</b>
-          <i>by Theo Marsh</i>
-        </span>
-        <span className="zd-search">
-          <Search /> Search posts and members
-        </span>
-        <MessageCircle className="zd-ico" />
-        <Bell className="zd-ico" />
-        <Pic n="av-g" w={96} h={96} className="zd-me" />
-      </div>
-      <DarkroomTabs />
-      <div className="zd-body">
-        <aside className="zd-left">
-          <div className="zd-card">
-            <Pic n="dr-cover" w={640} h={300} className="zd-cover" />
-            <b>The Darkroom Club</b>
-            <i>darkroom.club</i>
-            <span className="zd-stats">
-              <span>
-                <b>2,318</b>Members
-              </span>
-              <span>
-                <b>142</b>Online
-              </span>
-              <span>
-                <b>3</b>Admins
-              </span>
-            </span>
-            <span className="zd-faces">
-              {["av-k", "av-e", "av-h", "av-l", "av-j"].map((a) => (
-                <Pic key={a} n={a} w={96} h={96} />
-              ))}
-              <em>+137 here today</em>
-            </span>
-          </div>
-          <div className="zd-event">
-            <p>Next event</p>
-            <span className="zd-ev">
-              <span className="zd-date">
-                <b>14</b>Nov
-              </span>
-              <span>
-                <b>Roll swap night</b>
-                <i>Thu · 7:00 PM ET · 86 going</i>
-              </span>
-            </span>
-            <span className="zd-rsvp">RSVP</span>
-          </div>
-        </aside>
-        <main className="zd-main">
-          <div className="zd-chips">
-            <b>All</b>
-            {DC_SPACES.map(([s, c]) => (
-              <span key={s}>
-                <i style={{ background: c }} />
-                {s}
-              </span>
-            ))}
-          </div>
-          <span className="zd-compose">
-            <Pic n="av-g" w={96} h={96} />
-            Share something...
-          </span>
-          <article className="zd-post">
-            <header>
-              <Pic n="av-k" w={96} h={96} />
-              <span>
-                <b>Sana Iqbal</b>
-                <i>
-                  in <em>Critique corner</em> · 2h
-                </i>
-              </span>
-              <MoreHorizontal />
-            </header>
-            <p className="zd-title">First roll through the Pentax since the light seal fix</p>
-            <p className="zd-text">Portra 400 at box speed, metered for the shadows. Tokyo at dusk, Lisbon in the rain. Too warm, or does it work?</p>
-            <div className="zd-pics">
-              <Pic n="dr-tokyo" w={560} h={700} />
-              <Pic n="lt-street" w={480} h={600} />
-              <Pic n="dr-coast" w={560} h={700} />
-            </div>
-            <footer>
-              <span className="zd-liked">
-                <Heart fill="currentColor" /> 48
-              </span>
-              <span>
-                <MessageCircle /> 17 comments
-              </span>
-            </footer>
-          </article>
-        </main>
-      </div>
-    </div>
-  )
-}
-
-export function DarkroomMobile() {
-  return (
-    <div className="bz zd zd-m">
-      <div className="zd-bar">
-        <span className="zd-mark">DC</span>
-        <span className="zd-name">
-          <b>The Darkroom Club</b>
-          <i>2,318 members</i>
-        </span>
-        <Bell className="zd-ico" />
-      </div>
-      <DarkroomTabs />
-      <div className="zd-mbody">
-        <div className="zd-chips">
-          <b>All</b>
-          {DC_SPACES.slice(0, 3).map(([s, c]) => (
-            <span key={s}>
-              <i style={{ background: c }} />
-              {s}
-            </span>
-          ))}
-        </div>
-        <span className="zd-pin">
-          <span className="zd-date">
-            <b>14</b>Nov
-          </span>
-          <span>
-            <b>Roll swap night</b>
-            <i>Thu · 7:00 PM ET · 86 going</i>
-          </span>
-          <em>RSVP</em>
-        </span>
-        <article className="zd-post">
-          <header>
-            <Pic n="av-e" w={96} h={96} />
-            <span>
-              <b>Marco Bellini</b>
-              <i>
-                in <em>Critique corner</em> · 5h
-              </i>
-            </span>
-            <MoreHorizontal />
-          </header>
-          <p className="zd-text">Shinjuku after the rain, Cinestill 800T. The halation finally behaved.</p>
-          <div className="zd-mpic">
-            <Pic n="dr-neon" w={560} h={700} />
-          </div>
-          <footer>
-            <span className="zd-liked">
-              <Heart fill="currentColor" /> 112
-            </span>
-            <span>
-              <MessageCircle /> 31
-            </span>
-          </footer>
-        </article>
-      </div>
-    </div>
-  )
+export function CharlaMobile() {
+  return <Pic n="ch-phone" w={780} h={1386} className="zc-shot" />
 }
 
 /* ================================================================ OnePage: Sol & Sage */
@@ -758,71 +591,8 @@ export const BUSINESS_MOCK_CSS = u(`
 .zb-lesson em{font-size:12u;font-style:normal;color:#8a8273}
 .zb-cta{display:grid;place-items:center;height:48u;margin-top:16u;border-radius:14u;background:#3f5a45;color:#fff;font-size:15u;font-weight:600}
 
-/* ---------- The Darkroom Club */
-.zd{background:#f4f4f5;color:#18181b}
-.zd-bar{height:62u;display:flex;align-items:center;gap:12u;padding:0 24u;background:#fff}
-.zd-mark{flex:none;width:36u;height:36u;border-radius:10u;display:grid;place-items:center;background:linear-gradient(135deg,#f59e4a,#d9582b);color:#fff;font-size:13u;font-weight:800}
-.zd-name{display:grid;line-height:1.2}
-.zd-name b{font-size:15.5u;font-weight:700}
-.zd-name i{font-size:12u;font-style:normal;color:#71717a}
-.zd-search{display:flex;align-items:center;gap:8u;width:300u;height:38u;margin:0 auto;padding:0 14u;border-radius:999u;background:#f4f4f5;font-size:13u;color:#a1a1aa}
-.zd-search svg{width:15u;height:15u}
-.zd-ico{width:19u!important;height:19u!important;color:#52525b}
-.zd-me{width:32u!important;height:32u!important;border-radius:50%}
-.zd-tabs{height:44u;display:flex;align-items:stretch;gap:24u;padding:0 24u;background:#fff;border-bottom:1u solid #e4e4e7;font-size:14u;color:#71717a;white-space:nowrap;overflow:hidden}
-.zd-tabs>*{display:flex;align-items:center}
-.zd-tabs b{color:#18181b;font-weight:600;box-shadow:inset 0 -2u 0 #18181b}
-.zd-body{display:grid;grid-template-columns:262u 1fr;gap:20u;padding:20u 24u}
-.zd-card,.zd-event,.zd-post,.zd-compose{background:#fff;border-radius:16u;box-shadow:0 0 0 1u #e4e4e7}
-.zd-card{display:grid;padding:0 0 16u;overflow:hidden}
-.zd-cover{height:92u!important}
-.zd-card>b{margin:12u 16u 0;font-size:16u}
-.zd-card>i{margin:0 16u;font-size:12.5u;font-style:normal;color:#71717a}
-.zd-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:14u 16u 0;padding:10u 0;border-block:1u solid #f0f0f2;text-align:center;font-size:11.5u;color:#71717a}
-.zd-stats b{display:block;font-size:16u;color:#18181b}
-.zd-faces{display:flex;align-items:center;margin:12u 16u 0}
-.zd-faces img{width:26u!important;height:26u!important;margin-left:-6u;border-radius:50%;box-shadow:0 0 0 2u #fff}
-.zd-faces img:first-child{margin-left:0}
-.zd-faces em{margin-left:8u;font-size:12u;font-style:normal;color:#71717a}
-.zd-event{margin-top:14u;padding:14u 16u}
-.zd-event>p{font-size:12u;font-weight:600;color:#71717a}
-.zd-ev{display:flex;gap:12u;align-items:center;margin-top:10u}
-.zd-ev>span:last-child{display:grid;font-size:14u}
-.zd-ev i,.zd-pin i{font-size:12u;font-style:normal;color:#71717a}
-.zd-date{flex:none;width:44u;height:46u;border-radius:11u;display:grid;place-content:center;text-align:center;background:#fff1e6;color:#c2410c;font-size:10.5u;font-weight:700;text-transform:uppercase}
-.zd-date b{font-size:18u;line-height:1}
-.zd-rsvp{display:grid;place-items:center;height:36u;margin-top:12u;border-radius:10u;background:#18181b;color:#fff;font-size:13u;font-weight:600}
-.zd-main{display:flex;flex-direction:column;gap:14u;min-width:0}
-.zd-chips{display:flex;gap:8u;white-space:nowrap;overflow:hidden}
-.zd-chips>*{display:flex;align-items:center;gap:7u;height:32u;padding:0 13u;border-radius:999u;background:#fff;box-shadow:0 0 0 1u #e4e4e7;font-size:13u;color:#3f3f46}
-.zd-chips b{background:#18181b;color:#fff;box-shadow:none;font-weight:600}
-.zd-chips i{width:8u;height:8u;border-radius:50%}
-.zd-compose{display:flex;align-items:center;gap:12u;height:56u;padding:0 14u;font-size:14u;color:#a1a1aa}
-.zd-compose img{width:32u!important;height:32u!important;border-radius:50%}
-.zd-post{padding:16u}
-.zd-post header{display:flex;align-items:center;gap:10u}
-.zd-post header img{width:38u!important;height:38u!important;border-radius:50%}
-.zd-post header>span{display:grid;flex:1;line-height:1.25}
-.zd-post header b{font-size:14u}
-.zd-post header i{font-size:12u;font-style:normal;color:#71717a}
-.zd-post header em{font-style:normal;font-weight:600;color:#c2410c}
-.zd-post header svg{color:#a1a1aa}
-.zd-title{margin-top:12u!important;font-size:16.5u;font-weight:700;letter-spacing:-.01em}
-.zd-text{margin-top:4u!important;font-size:14u;line-height:1.5;color:#3f3f46}
-.zd-pics{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:6u;height:230u;margin-top:12u;border-radius:12u;overflow:hidden}
-.zd-post footer{display:flex;gap:18u;margin-top:12u;font-size:13u;color:#52525b}
-.zd-post footer span{display:flex;align-items:center;gap:6u}
-.zd-post footer svg{width:16u;height:16u}
-.zd-liked{color:#e11d48}
-.zd-m .zd-bar{height:58u;padding:0 16u}
-.zd-m .zd-ico{margin-left:auto}
-.zd-m .zd-tabs{padding:0 16u;gap:20u}
-.zd-mbody{display:flex;flex-direction:column;gap:12u;padding:12u}
-.zd-pin{display:flex;align-items:center;gap:11u;padding:11u;border-radius:14u;background:#fff;box-shadow:0 0 0 1u #e4e4e7}
-.zd-pin>span:nth-child(2){display:grid;flex:1;font-size:13.5u}
-.zd-pin em{padding:7u 13u;border-radius:999u;background:#18181b;color:#fff;font-size:12u;font-style:normal;font-weight:600}
-.zd-m .zd-post{padding:14u}
-.zd-mpic{height:290u;margin:12u -14u 0;overflow:hidden}
+/* ---------- Charla Circle (the real community frame, photographed) */
+.zc-shot{position:absolute;inset:0;object-position:top center;background:#f7f7f8}
 
 /* ---------- Sol & Sage (OnePage) */
 .zo{background:#ece6d6}

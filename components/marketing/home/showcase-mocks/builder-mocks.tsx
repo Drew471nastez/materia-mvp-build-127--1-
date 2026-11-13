@@ -9,14 +9,16 @@ import {
   Calendar,
   Check,
   ChevronDown,
+  Clapperboard,
+  Clock,
   Code2,
   ExternalLink,
   Eye,
   FileText,
   Globe,
   GripVertical,
+  Heart,
   Home,
-  ImageIcon,
   Inbox,
   Instagram,
   Layers,
@@ -24,15 +26,16 @@ import {
   Link2,
   Mail,
   Maximize2,
+  MessageCircle,
   Monitor,
   MoreHorizontal,
-  Music2,
   MousePointerClick,
+  Music2,
   Package,
+  Palette,
   PanelBottom,
   PanelTop,
   Paperclip,
-  Palette,
   Pencil,
   Plus,
   RectangleHorizontal,
@@ -46,6 +49,7 @@ import {
   Trash2,
   Undo2,
   Users,
+  Wallet,
   Youtube,
 } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
@@ -490,31 +494,38 @@ const APP_NAV: [string, typeof Home, boolean?][] = [
   ["OnePage", Link2],
   ["Contacts", Users],
   ["Emails", Mail],
+  ["Payouts", Wallet],
 ]
 
-const CB_TABS = ["Overview", "Page", "Posts", "Spaces", "Learn", "Calendar", "Members", "Analytics", "Settings"]
+/* The owner's row of sections (components/community/creator/community-shell.tsx sectionTabs), Moderation included. */
+const CB_TABS = ["Overview", "Page", "Posts", "Spaces", "Learn", "Calendar", "Members", "Moderation", "Analytics", "Settings"]
 
-type PostRow = { who: string; av: string; space: string; when: string; title: string; text: string; pic?: string; stats: string }
+/* A row of the admin's Posts list (feed-section.tsx): name, the space's emoji and name, when; the title, the start of the words, likes and comments; the picture, with +N for more. */
+type PostRow = { who: string; av: string; glyph: string; space: string; when: string; title: string; text: string; pics?: string[]; likes: number; comments: number }
 const CB_ROWS: PostRow[] = [
   {
-    who: "Hana Okada",
-    av: "av-j",
-    space: "Glaze recipes",
+    who: "Arjun Pillai",
+    av: "bw-av-arjun",
+    glyph: "🐦",
+    space: "Sightings",
     when: "1h",
-    title: "Speckled oatmeal on B-mix, finally",
-    text: "Cone 6, slow cool from 1900°F. The recipe card is in Learn if you want to try it this week.",
-    pic: "cm-plates",
-    stats: "73 likes · 26 comments",
+    title: "Kingfisher on the post by the second bridge",
+    text: "Sat there for a good ten minutes. Shot handheld, settings in the comments if anyone wants them.",
+    pics: ["bw-kingfisher"],
+    likes: 73,
+    comments: 26,
   },
   {
-    who: "Oliver Grant",
-    av: "av-f",
-    space: "Wheel help",
+    who: "Fiona McRae",
+    av: "bw-av-fiona",
+    glyph: "🏡",
+    space: "Garden birds",
     when: "4h",
-    title: "Walls collapsing past 8 inches",
-    text: "Am I throwing too wet? Video of my pull is in the comments.",
-    pic: "cm-wheel",
-    stats: "18 likes · 14 comments",
+    title: "Robin singing at 2am outside my window?",
+    text: "Every night this week, right under the streetlight. Apparently that is normal. I am not sleeping.",
+    pics: ["bw-robin"],
+    likes: 18,
+    comments: 14,
   },
 ]
 
@@ -524,27 +535,41 @@ function CbRow({ r, className = "" }: { r: PostRow; className?: string }) {
       <Pic n={r.av} w={96} h={96} className="cb-av" />
       <span className="cb-row-main">
         <span className="cb-row-meta">
-          <b>{r.who}</b> · {r.space} · {r.when}
+          <b>{r.who}</b> · <span aria-hidden="true">{r.glyph}</span> {r.space} · {r.when}
         </span>
         <b className="cb-row-t">{r.title}</b>
         <i>{r.text}</i>
-        <em>{r.stats}</em>
+        <em>
+          <span>
+            <Heart /> {r.likes}
+          </span>
+          <span>
+            <MessageCircle /> {r.comments}
+          </span>
+        </em>
       </span>
-      {r.pic && <Pic n={r.pic} w={640} h={480} className="cb-thumb" />}
+      {r.pics && (
+        <span className="cb-thumb">
+          <Pic n={r.pics[0]} w={400} h={300} />
+          {r.pics.length > 1 && <span className="cb-plus">+{r.pics.length - 1}</span>}
+        </span>
+      )}
       <MoreHorizontal className="cb-more" />
     </span>
   )
 }
 
 const NEW_POST: PostRow = {
-  who: "Mei Lin",
-  av: "av-o",
-  space: "Studio news",
-  when: "now",
-  title: "Glaze night is back: Thursday at 7pm",
-  text: "Bring two bisqued pieces and we will glaze together on camera. Oatmeal and a new copper red.",
-  pic: "cm-cups",
-  stats: "Seen by 96",
+  who: "Denise Walker",
+  av: "bw-av-denise",
+  glyph: "🥾",
+  space: "Walks",
+  when: "just now",
+  title: "Saturday walk: Epping Forest, 7:30am",
+  text: "Meet at the High Beach car park. Bring layers and a flask, it is cold under the trees before nine.",
+  pics: ["bw-forest", "bw-singer"],
+  likes: 0,
+  comments: 0,
 }
 
 function CommunityHead() {
@@ -552,9 +577,12 @@ function CommunityHead() {
     <>
       <div className="cb-head">
         <ArrowLeft className="cb-back" />
-        <Pic n="cm-vases" w={640} h={480} className="cb-logo" />
-        <b className="cb-name">Kiln &amp; Clay Collective</b>
-        <span className="cb-live">Live</span>
+        <Pic n="bw-logo" w={120} h={120} className="cb-logo" />
+        <b className="cb-name">Dawn Chorus Birders</b>
+        <span className="cb-live">
+          <i />
+          Published
+        </span>
         <span className="cb-view">
           <ExternalLink /> View page
         </span>
@@ -563,7 +591,7 @@ function CommunityHead() {
         {CB_TABS.map((t) => (
           <span key={t} className={t === "Posts" ? "on" : ""}>
             {t}
-            {t === "Members" && <i>1,204</i>}
+            {t === "Members" && <i>947</i>}
           </span>
         ))}
       </div>
@@ -579,12 +607,12 @@ export function CommunityBuilderMock() {
           <StorelibTile />
           <b>Storelib</b>
           <span className="cb-biz">
-            Mei Lin Ceramics <ChevronDown />
+            Denise Walker <ChevronDown />
           </span>
           <span className="cb-search">
             <Search /> Search
           </span>
-          <Pic n="av-o" w={160} h={160} className="cb-me" />
+          <Pic n="bw-av-denise" w={96} h={96} className="cb-me" />
         </div>
         <nav className="cb-rail">
           {APP_NAV.map(([label, Icon, on]) => (
@@ -597,30 +625,34 @@ export function CommunityBuilderMock() {
           <CommunityHead />
           <div className="cb-composer">
             <span className="cb-who">
-              <Pic n="av-o" w={160} h={160} className="cb-av" />
-              <b>Mei Lin</b>
+              <Pic n="bw-av-denise" w={96} h={96} className="cb-av" />
+              <b>Denise Walker</b>
               <span className="cb-space">
-                Studio news <ChevronDown />
+                <span aria-hidden="true">🥾</span> Walks <ChevronDown />
               </span>
             </span>
             <span className="cb-title">
-              <span>Glaze night is back: Thursday at 7pm</span>
+              <span>Saturday walk: Epping Forest, 7:30am</span>
               <i className="cb-type" />
             </span>
             <p className="cb-text">
-              Bring two bisqued pieces and we will glaze together on camera. I will demo the oatmeal and a new copper red, then answer
-              questions live.
+              Meet at the High Beach car park. Bring layers and a flask, it is cold under the trees before nine. Last week we had nuthatch,
+              treecreeper and a very loud wren. Spare binoculars if you need them.
             </p>
             <span className="cb-attach">
-              <Pic n="cm-cups" w={800} h={600} />
-              <Pic n="cm-vases" w={640} h={480} />
+              <Pic n="bw-forest" w={400} h={300} />
+              <Pic n="bw-singer" w={400} h={300} />
             </span>
             <span className="cb-foot">
-              <ImageIcon />
               <Paperclip />
+              <Link2 />
+              <Clapperboard />
               <BarChart3 />
               <Smile />
+              <b className="cb-gif">GIF</b>
+              <Clock />
               <span className="cb-draft">Save draft</span>
+              <span className="cb-cancel">Cancel</span>
               <span className="cb-post">Post</span>
             </span>
           </div>
@@ -646,7 +678,7 @@ export function CommunityBuilderMock() {
           </div>
         </div>
         <span className="cb-toast">
-          <Check /> Posted to Studio news
+          <Check /> Posted
         </span>
         <Cursor className="cb-cur" />
       </div>
@@ -654,12 +686,12 @@ export function CommunityBuilderMock() {
         <div className="cbm-appbar">
           <StorelibTile />
           <b>Storelib</b>
-          <Pic n="av-o" w={160} h={160} className="cb-me" />
+          <Pic n="bw-av-denise" w={96} h={96} className="cb-me" />
         </div>
         <div className="cbm-main">
           <CommunityHead />
           <span className="cbm-compose">
-            <Pic n="av-o" w={160} h={160} className="cb-av" />
+            <Pic n="bw-av-denise" w={96} h={96} className="cb-av" />
             Share something...
           </span>
           <div className="cb-list">
@@ -881,7 +913,8 @@ export const BUILDER_CSS = u(`
 .cb-back{width:20u!important;height:20u!important;color:#1a1a2e}
 .cb-logo{width:36u!important;height:36u!important;border-radius:10u}
 .cb-name{font-size:22u;font-weight:700}
-.cb-live{padding:3u 9u;border-radius:999u;background:#ecfdf3;color:#067647;font-size:12u;font-weight:600;box-shadow:inset 0 0 0 1u #abefc6}
+.cb-live{display:flex;align-items:center;gap:6u;padding:3u 9u;border-radius:999u;background:#ecfdf3;color:#067647;font-size:12u;font-weight:600;box-shadow:inset 0 0 0 1u #abefc6}
+.cb-live i{width:6u;height:6u;border-radius:50%;background:#22a06b}
 .cb-view{display:flex;align-items:center;gap:7u;margin-left:auto;height:36u;padding:0 14u;border-radius:10u;background:#fff;border:1u solid #d9dbe0;font-size:13.5u;font-weight:500;box-shadow:inset 0 -2u 0 rgba(0,0,0,.05)}
 .cb-view svg{width:15u;height:15u}
 .cb-tabs{display:flex;gap:2u;padding-bottom:8u;white-space:nowrap;overflow:hidden}
@@ -902,7 +935,9 @@ export const BUILDER_CSS = u(`
 .cb-attach img{width:120u!important;height:84u!important;border-radius:10u}
 .cb-foot{display:flex;align-items:center;gap:16u;margin-top:14u;padding-top:12u;border-top:1u solid #f1f2f4;color:#6b7280}
 .cb-foot svg{width:18u;height:18u}
+.cb-gif{font-size:11u;font-weight:700;letter-spacing:.02em;padding:1u 4u;border-radius:4u;box-shadow:inset 0 0 0 1.5u currentColor}
 .cb-draft{margin-left:auto;font-size:13.5u;font-weight:500;color:#374151}
+.cb-cancel{font-size:13.5u;font-weight:500;color:#4b5563}
 .cb-post{display:grid;place-items:center;width:78u;height:36u;border-radius:10u;background:#1a1a2e;color:#fff;font-size:14u;font-weight:600;box-shadow:inset 0 1u 0 rgba(255,255,255,.14),0 1u 2u rgba(16,24,40,.25)}
 .cb-list{margin-top:16u;overflow:hidden}
 .cb-list-head{display:flex;align-items:center;justify-content:space-between;padding:10u 14u;border-bottom:1u solid #f1f2f4}
@@ -919,8 +954,11 @@ export const BUILDER_CSS = u(`
 .cb-row-meta b{color:#1a1a2e;font-weight:500}
 .cb-row-t{font-size:15u;font-weight:600}
 .cb-row i{font-size:14u;font-style:normal;line-height:1.4;color:#4b5563}
-.cb-row em{margin-top:4u;font-size:12u;font-style:normal;color:#9ca3af}
-.cb-thumb{flex:none;width:96u!important;height:72u!important;border-radius:10u}
+.cb-row em{display:flex;gap:14u;margin-top:6u;font-size:12.5u;font-style:normal;color:#6b7280}
+.cb-row em span{display:flex;align-items:center;gap:4u}
+.cb-row em svg{width:14u;height:14u}
+.cb-thumb{position:relative;flex:none;width:84u;height:84u;border-radius:10u;overflow:hidden}
+.cb-plus{position:absolute;right:4u;bottom:4u;padding:0 6u;border-radius:6u;background:rgba(0,0,0,.6);color:#fff;font-size:11u;font-weight:600;line-height:18u}
 .cb-more{flex:none;color:#9ca3af}
 .cb-new{position:relative;z-index:1;background:#fcfbff}
 .cb-toast{position:absolute;z-index:20;left:0;right:0;bottom:26u;width:max-content;margin:0 auto;display:flex;align-items:center;gap:8u;padding:10u 16u;border-radius:999u;background:#1a1a2e;color:#fff;font-size:12.5u;font-weight:500;opacity:0;box-shadow:0 12u 30u rgba(0,0,0,.2)}
