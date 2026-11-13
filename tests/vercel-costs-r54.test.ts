@@ -91,6 +91,11 @@ const seo = read("app/api/ai/seo/route.ts")
 check("the SEO description helper is limited per account, after sign in, before the model call", /bucket: "ai-seo"/.test(seo) && seo.indexOf('bucket: "ai-seo"') > seo.indexOf('"Sign in to use this."') && seo.indexOf('bucket: "ai-seo"') < seo.indexOf("request.json()"))
 check("the CDN check script asks every kind of public address", ["website (crawler)", "live marker", "picture"].every((k) => read("scripts/check-cdn-cache.mjs").includes(k)))
 
+/* Scale: Explore's newest products by index */
+const p445 = read("supabase/sql/run-now/445_explore_newest_index.sql")
+check("part 445 adds Explore's newest-products index, published rows only, and runs again safely", /CREATE INDEX IF NOT EXISTS products_explore_newest_idx ON public\.products \(created_at DESC\) WHERE status = 'published'/.test(p445) && p445 === read("supabase/migrations/20271445_explore_newest_index.sql") && / as p445_explore_newest_index;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+check("Explore still reads published products newest first, which the index serves", /\.eq\("status", "published"\)/.test(read("app/(storelib)/(marketing)/explore/page.tsx")) && /order\("created_at", \{ ascending: false \}\)\.limit\(100\)/.test(read("app/(storelib)/(marketing)/explore/page.tsx")))
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
