@@ -67,6 +67,8 @@ import { SaveNotification, ToastSpot } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt } from "@/lib/i18n/text"
+import { formatDateTime } from "@/lib/i18n/format"
+import { EditorPartBoundary } from "@/components/onepage/editor-part-boundary"
 import { SocialIcon } from "./brand-icons"
 import { shareBandBackground } from "./share-sheet"
 import { useStoryShare } from "./use-story-share"
@@ -195,6 +197,43 @@ function EditorQuestion({
         {children}
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * WORK ON THIS DEVICE THAT NEVER REACHED A SAVE, ON A PAGE SAVED ELSEWHERE
+ * SINCE (round AU, lib/onepage/local-draft). Neither copy is thrown away
+ * unasked: the creator picks. This device's changes come back unsaved, so
+ * the next Save is still theirs to press, and undo takes them away again.
+ */
+function DraftQuestionDialog({ at, onAnswer }: { at: number; onAnswer: (useDevice: boolean) => void }) {
+  return (
+    <EditorQuestion open onClose={() => onAnswer(false)} label={tt("Unsaved changes on this device")} desktopWidth="md:max-w-[380px]">
+      <div className="px-6 pt-5 pb-5 text-center md:pt-6" data-draft-question="">
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Unsaved changes on this device")}</h2>
+        <p className="text-sm text-[#6b7280]">
+          {tt("You made changes here on {when} that were never saved. The page has been saved somewhere else since.", { when: formatDateTime(at) })}
+        </p>
+      </div>
+      <div className="px-5 pb-5 space-y-2.5 md:px-6 md:pb-6">
+        <button
+          type="button"
+          onClick={() => onAnswer(true)}
+          data-draft-use-device=""
+          className="w-full h-12 px-4 bg-[#1a1a2e] text-white font-medium rounded-xl hover:bg-[#2a2a40] active:bg-[#0f0f1c] transition-colors flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.25)]"
+        >
+          {tt("Use the changes from this device")}
+        </button>
+        <button
+          type="button"
+          onClick={() => onAnswer(false)}
+          data-draft-keep-saved=""
+          className="w-full h-12 px-4 bg-white text-[#1a1a2e] font-medium rounded-xl border border-[#e5e7eb] hover:bg-[#fafafa] transition-colors"
+        >
+          {tt("Keep the saved page")}
+        </button>
+      </div>
+    </EditorQuestion>
   )
 }
 
@@ -480,6 +519,10 @@ function EditorLayout() {
     save,
     saveError,
     updateSettings,
+    retrying,
+    draftQuestion,
+    answerDraftQuestion,
+    draftRestoredAt,
   } = useOnePage()
 
   /*
@@ -860,7 +903,7 @@ function EditorLayout() {
     each caller having to remember to.
   */
   useEffect(() => {
-    if (saveError) showSaveFailure(saveError.message)
+    if (saveError) showSaveFailure(tt(saveError.message))
   }, [saveError, showSaveFailure])
 
   // =====================================================
@@ -1308,10 +1351,11 @@ function EditorLayout() {
     the tab on screen or the preview. Each still renders when the page it
     reads changes.
   */
-  const designPanel = useMemo(() => <DesignTab userPlan={userPlan} />, [userPlan])
-  const linksPanel = useMemo(() => <LinksTab />, [])
-  const productsPanel = useMemo(() => <ProductsTab onGoToLinks={() => handleTabChange("links")} />, [handleTabChange])
-  const phonePreview = useMemo(() => <PhonePreview onDrawn={() => setPreviewDrawn(true)} />, [])
+  /* Round AU: each tab and the preview break on their own (components/onepage/editor-part-boundary), never the whole editor and its Save. */
+  const designPanel = useMemo(() => <EditorPartBoundary part="design"><DesignTab userPlan={userPlan} /></EditorPartBoundary>, [userPlan])
+  const linksPanel = useMemo(() => <EditorPartBoundary part="links"><LinksTab /></EditorPartBoundary>, [])
+  const productsPanel = useMemo(() => <EditorPartBoundary part="products"><ProductsTab onGoToLinks={() => handleTabChange("links")} /></EditorPartBoundary>, [handleTabChange])
+  const phonePreview = useMemo(() => <EditorPartBoundary part="preview"><PhonePreview onDrawn={() => setPreviewDrawn(true)} /></EditorPartBoundary>, [])
 
   if (!onepage) {
     return (
@@ -1364,10 +1408,11 @@ function EditorLayout() {
     /* The last save failed and nothing has been typed since: the button says
        so, and pressing it is the retry. The next edit or save clears it. */
     if (saveState === "error" && isDirty) {
+      /* Round AU: a save that failed for the network is being tried again on its own; pressing still tries now. */
       return (
         <>
           <AlertCircle className="h-4 w-4" />
-          <span className="hidden sm:inline ml-2">{tt("Try again")}</span>
+          <span className="hidden sm:inline ml-2">{retrying ? tt("Not saved, retrying") : tt("Try again")}</span>
         </>
       )
     }
@@ -1436,6 +1481,12 @@ function EditorLayout() {
         show={historyToastSequence > 0}
         message={historyToastMessage}
         duration={2200}
+      />
+      <SaveNotification
+        key={`draft-restored-${draftRestoredAt ?? 0}`}
+        show={draftRestoredAt !== null}
+        message={tt("Unsaved changes restored")}
+        duration={4000}
       />
       <SaveNotification
         key={`save-failed-${saveFailure.sequence}`}
@@ -1617,6 +1668,7 @@ function EditorLayout() {
           <Button
             onClick={handleSaveWithProCheck}
             disabled={isSaveDisabled}
+            data-onepage-save={saveState === "error" && isDirty ? (retrying ? "retrying" : "failed") : saveState}
             className={cn(
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-[background-color,color,opacity] duration-200",
               saveState === "saved" && !isDirty
@@ -1731,7 +1783,7 @@ function EditorLayout() {
                   )}
                 >
                   {t === "settings" ? (
-                    <SettingsTab ref={settingsTabRef} pageUrl={pageUrl} onSave={handleSaveWithProCheck} userPlan={userPlan} section={settingsSection.current} jump={settingsJump} onSectionChange={onSettingsSection} />
+                    <EditorPartBoundary part="settings"><SettingsTab ref={settingsTabRef} pageUrl={pageUrl} onSave={handleSaveWithProCheck} userPlan={userPlan} section={settingsSection.current} jump={settingsJump} onSectionChange={onSettingsSection} /></EditorPartBoundary>
                   ) : (
                     <Activity mode={shown ? "visible" : "hidden"}>
                       {t === "design" && designPanel}
@@ -1782,7 +1834,7 @@ function EditorLayout() {
             inert={!showMobilePreview || undefined}
             data-onepage-mobile-layer={showMobilePreview ? "shown" : "warm"}
           >
-            <MobilePreviewContent />
+            <EditorPartBoundary part="preview"><MobilePreviewContent /></EditorPartBoundary>
           </div>
         )}
 
@@ -1918,6 +1970,8 @@ function EditorLayout() {
       />
 
       {/* Unsaved Changes Dialog */}
+      {draftQuestion ? <DraftQuestionDialog at={draftQuestion.at} onAnswer={answerDraftQuestion} /> : null}
+
       <UnsavedChangesDialog
         open={showUnsavedDialog}
         onClose={() => { setShowUnsavedDialog(false); setPendingNavigation(null); }}

@@ -95,7 +95,8 @@ check("each tab has its own scroll box, the one on screen is the editor's scroll
 check("Links, Design and Products are kept, out of sight in React's Activity", /<Activity mode=\{shown \? "visible" : "hidden"\}>/.test(editor) && /const KEPT_TABS: TabType\[\] = \["links", "design", "products"\]/.test(editor))
 check("and built ahead while the page is idle", /requestIdleCallback\(build/.test(editor))
 /* Changed on purpose (round 10): it also opens on the last section chosen, or the one the address names. */
-check("Settings is still built each time it opens, and saves through the editor's own Save", /t === "settings" \? \(\s*<SettingsTab ref=\{settingsTabRef\} pageUrl=\{pageUrl\} onSave=\{handleSaveWithProCheck\} userPlan=\{userPlan\} section=\{settingsSection\.current\}/.test(editor))
+/* Changed on purpose (round AU): Settings sits in its own error boundary (components/onepage/editor-part-boundary). */
+check("Settings is still built each time it opens, and saves through the editor's own Save", /t === "settings" \? \(\s*<EditorPartBoundary part="settings"><SettingsTab ref=\{settingsTabRef\} pageUrl=\{pageUrl\} onSave=\{handleSaveWithProCheck\} userPlan=\{userPlan\} section=\{settingsSection\.current\}/.test(editor))
 check("each tab comes back to where it was scrolled", /scrollMemory\.current\[from\] = outgoing\.scrollTop/.test(editor) && /incoming\.scrollTop = scrollMemory\.current\[to\] \?\? 0/.test(editor))
 /*
   "Even when I'm switching in the bottom tabs, make sure it's smooth and

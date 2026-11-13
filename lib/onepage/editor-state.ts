@@ -196,10 +196,29 @@ export function serializeSaves<R>(
 export function describeSaveFailure(status: number | null, serverMessage: string | null | undefined): string {
   if (status === null) return "No connection. Nothing was saved"
   if (status === 401) return "You are signed out. Sign in to save"
+  /* Round AU: the page was saved from another tab or device since this editor opened it (app/api/onepage PUT). */
+  if (status === 409) return "This page was saved somewhere else. Save again to keep this version"
   if (status === 400 && /slug/i.test(serverMessage || "")) return "That page address is taken"
   /* The editor's own route words a refusal as a sentence to show (app/api/onepage, lib/onepage/settings-rules). */
   if (status === 400 && serverMessage && serverMessage.length <= 120 && !/[{}<>]/.test(serverMessage)) return serverMessage
   return "Couldn't save. Try again"
+}
+
+/**
+ * WHETHER A FAILED SAVE IS TRIED AGAIN ON ITS OWN (round AU). No answer at
+ * all (a dropped connection, a tunnel, the app in the background) and a
+ * server that was busy or down are worth another go; a refusal (signed out,
+ * a field the server will not take, a conflict, a paid setting) says the
+ * same thing however often it is asked.
+ */
+export function retryableSave(status: number | null): boolean {
+  return status === null || status === 408 || status === 429 || status >= 500
+}
+
+/** How long before the next try: 2s, 5s, 10s, 20s, 40s, then a minute. */
+export function retryDelay(attempt: number): number {
+  const steps = [2000, 5000, 10000, 20000, 40000]
+  return attempt < steps.length ? steps[Math.max(0, attempt)] : 60000
 }
 
 /* ──────────────────────────────── Links ──────────────────────────────── */
