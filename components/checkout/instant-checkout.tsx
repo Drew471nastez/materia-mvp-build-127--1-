@@ -291,7 +291,8 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
     setBusy(true)
     setError(null)
     try {
-      const res = await postJson<{ receiptToken?: string }>("/api/checkout/process", order(true))
+      /* This window's attempt id: pressed again after an answer that never came, the same order is answered, not a second one (lib/checkout/free-claim). */
+      const res = await postJson<{ receiptToken?: string }>("/api/checkout/process", { ...order(true), attemptId: attemptIdOf(attemptRef) })
       if (!res.ok || !res.data.receiptToken) throw new Error(res.data.error || "The order could not be finished. Try again.")
       paid(res.data.receiptToken, 0, true)
     } catch (e) {

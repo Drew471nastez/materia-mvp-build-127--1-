@@ -20,3 +20,7 @@ export const cartFingerprint = (sessionId: string) => derived("cart-session", se
 
 /** A buyer's private link to their case about an order (lib/support/cases-server.ts): the same for every email about it, and only its hash is stored. */
 export const orderCaseSecret = (caseId: string) => derived("order-case", caseId)
+
+/** A free claim's receipt token for one press of the page (lib/checkout/free-claim.ts): the same press sent again names the same order. */
+export const freeClaimReceiptToken = (attemptId: string, productId: string, variantId: string | null, email: string) =>
+  derived("free-claim", `${attemptId}:${productId}:${variantId ?? ""}:${email.trim().toLowerCase()}`)
