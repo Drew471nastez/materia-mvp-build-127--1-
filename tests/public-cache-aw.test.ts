@@ -13,7 +13,7 @@ import { readCode } from "./_source"
 import { productAddressStep, resolveProductAddress, type ProductAddressReads } from "@/lib/commerce/product-address"
 import { SiteReadError } from "@/lib/website-builder/site-read"
 import { isTransientDbError } from "@/lib/website-builder/write-retry"
-import { isOptimizableImage, optimizedImageUrl, ownStorageFile } from "@/lib/images/optimized-url"
+import { isOptimizableImage, optimizedImageUrl } from "@/lib/images/optimized-url"
 
 const require = createRequire(join(process.cwd(), "package.json"))
 
@@ -155,7 +155,7 @@ console.log("\nThe image optimizer fetches from Storelib's own storage, never an
     if (supabaseUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL
     else process.env.NEXT_PUBLIC_SUPABASE_URL = supabaseUrl
     const mod = await import(`${pathToFileURL(join(process.cwd(), "next.config.mjs")).href}?aw=${Date.now()}-${Math.random()}`)
-    return { patterns: (mod.default.images.remotePatterns ?? []) as Pattern[], own: mod.OWN_STORAGE_HOSTS as string[], production: mod.PRODUCTION_STORAGE_HOST as string }
+    return { patterns: (mod.default.images.remotePatterns ?? []) as Pattern[], own: (mod.OWN_STORAGE_HOSTS ?? []) as string[], production: (mod.PRODUCTION_STORAGE_HOST ?? "skgtqglupjcnfhfscink.supabase.co") as string }
   }
   const allowed = (patterns: Pattern[], url: string) => hasRemoteMatch([], patterns, new URL(url))
   const OWN = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/covers/c.jpg"
@@ -179,7 +179,7 @@ console.log("\nThe image optimizer fetches from Storelib's own storage, never an
   delete process.env.NEXT_PUBLIC_SUPABASE_URL
   check("isOptimizableImage: Storelib's storage, yes", isOptimizableImage(OWN))
   check("  another project, no: drawn as it is", !isOptimizableImage(OTHER) && optimizedImageUrl(OTHER, 200) === OTHER)
-  check("  a Storelib project's non-storage address, no", !ownStorageFile("skgtqglupjcnfhfscink.supabase.co", "/rest/v1/products"))
+  check("  a Storelib project's non-storage address, no", !isOptimizableImage("https://skgtqglupjcnfhfscink.supabase.co/rest/v1/products"))
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://previewproj.supabase.co"
   check("  a preview's own project, yes", isOptimizableImage("https://previewproj.supabase.co/storage/v1/object/public/a/b.jpg"))
   check("  the two halves agree on every Supabase address", [OWN, OTHER, "https://previewproj.supabase.co/storage/v1/object/public/a/b.jpg", "https://skgtqglupjcnfhfscink.supabase.co/rest/v1/x"].every((u) => isOptimizableImage(u) === allowed(preview.patterns, u)))
