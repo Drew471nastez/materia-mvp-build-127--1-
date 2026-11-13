@@ -15,6 +15,8 @@ import { prefetchCommunities } from "@/lib/explore/communities-cache"
 import { prefetchBudget, whenIdle } from "@/lib/explore/prefetch-budget"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
+import { useCatalogueRetry } from "./use-catalogue-retry"
+import { CatalogueUnavailable } from "./catalogue-unavailable"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Code } from "lucide-react"
 import { ExploreCategoryPicker } from "./explore-category-picker"
 import { ExploreFilters, DEFAULT_SORT, PRICE_FILTERS, SORT_OPTIONS } from "./explore-filters"
@@ -377,6 +379,8 @@ interface ExplorePageClientProps {
   communityResults?: CommunityCard[]
   /** Communities mode's first page, drawn on the server when the page opens in that mode. */
   initialCommunities?: CommunitiesFirstPage | null
+  /** The server had no catalogue to give, not even a last good one (lib/explore/catalogue-cache.ts): the browser asks again. */
+  catalogueUnavailable?: boolean
 }
 
 export function ExplorePageClient({
@@ -389,8 +393,10 @@ export function ExplorePageClient({
   communitiesEnabled = false,
   communityResults = [],
   initialCommunities = null,
+  catalogueUnavailable = false,
 }: ExplorePageClientProps) {
   const router = useRouter()
+  const catalogueRetry = useCatalogueRetry(catalogueUnavailable && initialProducts.length === 0)
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
   /*
@@ -1738,6 +1744,9 @@ export function ExplorePageClient({
                 </div>
               )}
             </>
+          ) : catalogueRetry.state ? (
+            /* The server had no products to give (round AU): the browser asks again, and the box never says none were found. */
+            <CatalogueUnavailable retry={catalogueRetry} />
           ) : (
             /*
               MIN-HEIGHT, SO AN EMPTY RESULT CANNOT PULL THE FOOTER UP INTO
@@ -1811,6 +1820,8 @@ export function ExplorePageClient({
                 />
               ))}
             </div>
+          ) : catalogueRetry.state ? (
+            <CatalogueUnavailable retry={catalogueRetry} className="min-h-0" />
           ) : (
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
               <p className="text-neutral-500">No products found for "{urlSearchQuery}"</p>

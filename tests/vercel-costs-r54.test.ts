@@ -68,7 +68,7 @@ check("the report-only policy is sent on storelib.com only, so creator sites do 
 const part = read("supabase/sql/run-now/444_cache_ping_real_changes.sql")
 check("part 444 skips an UPDATE that changes nothing but updated_at, before anything else", /BEGIN IF TG_OP = 'UPDATE' AND \(to_jsonb\(OLD\) - 'updated_at'\) = \(to_jsonb\(NEW\) - 'updated_at'\) THEN RETURN NULL; END IF;/.test(part))
 check("and is otherwise part 179's function, triggers untouched", part.includes("PERFORM net.http_post(url := v_url") && !/CREATE TRIGGER/.test(part) && part === read("supabase/migrations/20271444_cache_ping_real_changes.sql"))
-check("the check after has its column", / as p444_cache_ping_real_changes;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+check("the check after has its column", /* Changed on purpose (round AU: part 451 follows it) */ / as p444_cache_ping_real_changes[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 check("an email being sent is checked every 5 s at first, slower if it waits", /slowingPoll\(\(\) => void ask\(\), 5000\)/.test(read("components/email/compose/composer.tsx")) && /slowingPoll\(\(\) => \{\s*if \(!document\.hidden\) refresh/.test(read("app/(storelib)/app/emails/email-detail.tsx")))
 check("Settings is warmed at most every four minutes, on a computer too", /if \(Date\.now\(\) - settingsWarmedAt < 4 \* 60_000\) return/.test(read("components/app/sidebar.tsx")))
 

@@ -29,6 +29,7 @@ import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { exploreIndexing } from "@/lib/seo/explore-indexing"
 import { LeaveCopy } from "@/components/navigation/leave-copy"
 import { logEvent } from "@/lib/net/log"
+import { readTwice, type ReadError, type ReadResult } from "@/lib/onepage/bounded-read"
 
 /** How long Explore waits for a signed in person's own ordering before showing the ordinary one. */
 
@@ -127,6 +128,15 @@ const PROFILE_FIELDS = "id, display_name, avatar_url, username"
 /* The anon key, no session (lib/supabase/public-read): the catalogue is the same for everybody. */
 type Supabase = ReturnType<typeof createPublicReadClient>
 
+/** One try of the products read, and both tries together (readCatalog). */
+const CATALOGUE_ATTEMPT_MS = 4000
+const CATALOGUE_BUDGET_MS = 7000
+
+/** PostgREST refusing the creators embed (a renamed key), as opposed to a read that got no answer. */
+function refusedEmbed(error: ReadError): boolean {
+  return error.code === "PGRST200" || error.code === "PGRST201" || /relationship/i.test(error.message ?? "")
+}
+
 /*
   THE CATALOGUE IN TWO ROUND TRIPS, NEITHER OF THEM REFUSED. The products with
   their creators in one read; then, together, the creators' faces, the
@@ -136,25 +146,44 @@ type Supabase = ReturnType<typeof createPublicReadClient>
   read alone and the creators beside the faces, so the page is never empty.
 */
 async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any[]> {
+  /*
+    EACH TRY ENDS AT CATALOGUE_ATTEMPT_MS AND IS ASKED ONCE MORE INSIDE
+    CATALOGUE_BUDGET_MS (round AU, lib/onepage/bounded-read readTwice). It had
+    only the 20 second deadline every Supabase read has, and production
+    logged "products took longer than 20s" here: a visitor with no held copy
+    waited all of it. A hundred newest rows answer in well under a second
+    when the database is there; a second try catches a blip, and past the
+    budget the read fails and Explore shows its last good catalogue
+    (lib/explore/catalogue-cache.ts).
+  */
   const read = (columns: string) =>
-    excludingCommunityProducts((exclude) => {
-      let query = supabase.from("products").select(columns).eq("status", "published").neq("type", "physical")
-      /* A product that sells a community tier is found through its community, not in this list (lib/communities/listing). */
-      if (exclude) query = query.is("community_id", null)
-      query = query.order("created_at", { ascending: false }).limit(100)
-      /* A search is applied here, by ILIKE, rather than fetching a hundred rows to keep a few. */
-      if (searchQuery) query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
-      return query
-    })
+    readTwice(
+      (signal) =>
+        excludingCommunityProducts((exclude) => {
+          let query = supabase.from("products").select(columns).eq("status", "published").neq("type", "physical")
+          /* A product that sells a community tier is found through its community, not in this list (lib/communities/listing). */
+          if (exclude) query = query.is("community_id", null)
+          query = query.order("created_at", { ascending: false }).limit(100)
+          /* A search is applied here, by ILIKE, rather than fetching a hundred rows to keep a few. */
+          if (searchQuery) query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+          return query.abortSignal(signal)
+        }) as PromiseLike<ReadResult<any[]>>,
+      { attemptMs: CATALOGUE_ATTEMPT_MS, budgetMs: CATALOGUE_BUDGET_MS },
+    )
 
-  let { data: products, error } = (await read(`${PRODUCT_COLUMNS}, ${CREATOR_EMBED}`)) as { data: any[] | null; error: { message: string } | null }
+  let { data: products, error } = await read(`${PRODUCT_COLUMNS}, ${CREATOR_EMBED}`)
   let embedded = !error
-  if (error) {
+  /* Only PostgREST refusing the embed is read again without it; a read that got no answer would only wait twice. */
+  if (error && refusedEmbed(error)) {
     logEvent("warn", "explore_creators_embed_refused", { msg: "[ExplorePage] Creators embed refused, reading them on their own", reason: error.message })
-    ;({ data: products, error } = (await read(PRODUCT_COLUMNS)) as { data: any[] | null; error: { message: string } | null })
+    ;({ data: products, error } = await read(PRODUCT_COLUMNS))
     embedded = false
   }
-  if (error) console.error("[ExplorePage] Products error:", error.message)
+  if (error) {
+    console.error("[ExplorePage] Products error:", error.message ?? error.code)
+    /* Thrown, not an empty list: the caller shows the last good catalogue, or says the products did not load. */
+    throw new Error(`products: ${error.message ?? error.code ?? "the read failed"}`) // i18n-ignore: for the log
+  }
   if (!products || products.length === 0) return []
   products = await withVariantPrices(supabase,products)
 
@@ -252,8 +281,11 @@ export default async function ExplorePage({
   const catalogRead = searchQuery
     ? readCatalog(createPublicReadClient(), searchQuery)
     : cachedExploreCatalogue(() => readCatalog(createPublicReadClient(), ""))
+  /* No catalogue and no last good one: the grid says the products did not load and the browser asks again (components/explore/use-catalogue-retry.ts), never "No products found". */
+  let catalogueUnavailable = false
   const catalogPromise = catalogRead.catch((error: unknown) => {
     console.error("[ExplorePage] Exception:", (error as { message?: string })?.message || error)
+    catalogueUnavailable = true
     return [] as any[]
   })
   const [discoverModeSwitcherEnabled, communitiesOn] = await Promise.all([
@@ -341,6 +373,7 @@ export default async function ExplorePage({
         {/* Main content */}
         <ExplorePageClient
           initialProducts={filteredProducts}
+          catalogueUnavailable={catalogueUnavailable}
           initialCategory={category}
           interests={EMPTY_INTERESTS}
           searchQuery={searchQuery}
