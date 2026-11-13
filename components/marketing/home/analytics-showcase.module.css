@@ -94,12 +94,16 @@
 .cards > article {
   scroll-snap-align: start;
 }
+/* Each item: the card (which takes the row's spare height, so the three line up) and its caption under it. */
+.item {
+  min-width: 0;
+}
 @media (min-width: 768px) {
   .cards {
     grid-auto-flow: row;
     grid-auto-columns: auto;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+    gap: 16px clamp(16px, 1.8vw, 24px);
     overflow: visible;
     padding: 0;
     margin-inline: 0;

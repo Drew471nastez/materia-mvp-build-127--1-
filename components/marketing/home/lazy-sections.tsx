@@ -61,8 +61,8 @@ export const LazyAudienceOwnership = lazySection(() => import("./audience-owners
 
 export const LazyAnalyticsShowcase = lazySection(() => import("./analytics-showcase").then((m) => m.AnalyticsShowcase), {
   name: "analytics",
-  /* Wave 13 perf: measured 1481px at 390, 1644 at 768, 1101 at 1024, 1383 at 1440, 1424 at 1920. */
-  minHeight: "max(calc(min(100vw + 1090px, 1660px) - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(70vw + 380px, 1424px))",
+  /* Wave 14 (a caption under each of the three cards): measured 1583px at 390, 1754 at 768, 1211 at 1024, 1473 at 1440, 1514 at 1920. */
+  minHeight: "max(calc(min(100vw + 1193px, 1754px) - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(63vw + 566px, 1514px))",
 })
 
 export const LazySellEverywhereMap = lazySection(() => import("./sell-everywhere-map").then((m) => m.SellEverywhereMap), {
