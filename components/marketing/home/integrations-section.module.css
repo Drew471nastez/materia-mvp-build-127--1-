@@ -41,16 +41,18 @@
   top: 0;
   bottom: 0;
   z-index: 2;
-  width: calc(var(--solid) + clamp(40px, 9vw, 136px));
+  /* An eased fade, wide enough that a tile melts into the page rather than being cut (round 54, the owner: "the fade shadow doesn't get cutted"). */
+  --ramp: clamp(56px, 12vw, 190px);
+  width: calc(var(--solid) + var(--ramp));
   pointer-events: none;
 }
 .rows::before {
   left: 0;
-  background: linear-gradient(90deg, #fff calc(var(--solid) + 4px), rgba(255, 255, 255, 0));
+  background: linear-gradient(90deg, #fff var(--solid), rgba(255, 255, 255, 0.92) calc(var(--solid) + var(--ramp) * 0.18), rgba(255, 255, 255, 0.7) calc(var(--solid) + var(--ramp) * 0.38), rgba(255, 255, 255, 0.42) calc(var(--solid) + var(--ramp) * 0.6), rgba(255, 255, 255, 0.16) calc(var(--solid) + var(--ramp) * 0.82), rgba(255, 255, 255, 0));
 }
 .rows::after {
   right: 0;
-  background: linear-gradient(270deg, #fff calc(var(--solid) + 4px), rgba(255, 255, 255, 0));
+  background: linear-gradient(270deg, #fff var(--solid), rgba(255, 255, 255, 0.92) calc(var(--solid) + var(--ramp) * 0.18), rgba(255, 255, 255, 0.7) calc(var(--solid) + var(--ramp) * 0.38), rgba(255, 255, 255, 0.42) calc(var(--solid) + var(--ramp) * 0.6), rgba(255, 255, 255, 0.16) calc(var(--solid) + var(--ramp) * 0.82), rgba(255, 255, 255, 0));
 }
 
 .row {

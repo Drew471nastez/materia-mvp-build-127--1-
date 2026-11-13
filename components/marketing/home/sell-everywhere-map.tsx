@@ -218,7 +218,6 @@ export function SellEverywhereMap() {
             <h3>Local prices, one checkout</h3>
             <p>Buyers see your prices in their own currency and pay by card, Apple Pay or Google Pay. Digital orders arrive the moment they pay, day or night.</p>
           </div>
-          <p className="cmm-fine">Example store and orders</p>
         </div>
       </div>
     </section>
@@ -267,7 +266,6 @@ const MAP_CSS = `
 .cmm-copy{position:absolute;z-index:2;left:clamp(28px,3vw,40px);bottom:36px;max-width:clamp(270px,calc(32vw - 64px),380px)}
 .cmm-copy h3{margin:0;font-size:clamp(20px,1.7vw,24px);font-weight:500;letter-spacing:-.02em;line-height:1.2}
 .cmm-copy p{margin:8px 0 0;font-size:15px;line-height:1.55;color:#a3a1ad}
-.cmm-fine{position:absolute;z-index:2;right:28px;bottom:22px;margin:0;font-size:12px;color:#6f6c79}
 @media (max-width:1023px){
   .cmm-card{height:auto;display:flex;flex-direction:column;padding:24px 0 26px;border-radius:25px}
   .cmm-world{position:relative;right:auto;top:auto;width:auto;margin:0 16px;transform:none;order:1}
@@ -278,7 +276,6 @@ const MAP_CSS = `
   .cmm-flags .cmm-flag-lit{transform:translate3d(calc(var(--a) * 48px),0,0)}
   .cmm-prod{width:min(210px,64%)}
   .cmm-copy{position:relative;left:auto;bottom:auto;order:3;margin:24px 24px 0;max-width:none}
-  .cmm-fine{position:relative;right:auto;bottom:auto;order:4;margin:12px 24px 0}
   .cmm-say{height:22px;bottom:10px;padding:0 8px;font-size:11px;gap:5px}
   .cmm-core{left:-3px;top:-3px;width:6px;height:6px}
   .cmm-dot::before{left:-2px;top:-2px;width:4px;height:4px}
@@ -291,7 +288,6 @@ const MAP_CSS = `
   .cmm-world{margin:0 10px}
   .cmm-copy{margin:22px 20px 0}
   .cmm-copy p{font-size:14.5px}
-  .cmm-fine{margin:12px 20px 0}
 }
 @media (prefers-reduced-motion:reduce){
   .cmm-ring,.cmm-say-shipped{animation:none!important;opacity:0}

@@ -93,7 +93,7 @@ check("the CDN check script asks every kind of public address", ["website (crawl
 
 /* Scale: Explore's newest products by index */
 const p445 = read("supabase/sql/run-now/445_explore_newest_index.sql")
-check("part 445 adds Explore's newest-products index, published rows only, and runs again safely", /CREATE INDEX IF NOT EXISTS products_explore_newest_idx ON public\.products \(created_at DESC\) WHERE status = 'published'/.test(p445) && p445 === read("supabase/migrations/20271445_explore_newest_index.sql") && / as p445_explore_newest_index[,;]/.test(read("supabase/sql/run-now/99_check_after.sql"))) // Changed on purpose (round AU): part 451 now follows 445 in the check list
+check("part 445 is superseded by 451 and only removes its own earlier index", /DROP INDEX IF EXISTS public\.products_explore_newest_idx;/.test(p445) && !/CREATE INDEX/.test(p445) && p445 === read("supabase/migrations/20271445_explore_newest_index.sql") && /to_regclass\('public\.products_explore_newest_idx'\) is null as p445_explore_newest_index[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")) && /products_explore_catalogue_idx ON public\.products \(created_at DESC\) WHERE status = 'published'/.test(read("supabase/sql/run-now/451_explore_catalogue_index.sql")))
 check("Explore still reads published products newest first, which the index serves", /\.eq\("status", "published"\)/.test(read("app/(storelib)/(marketing)/explore/page.tsx")) && /order\("created_at", \{ ascending: false \}\)\.limit\(100\)/.test(read("app/(storelib)/(marketing)/explore/page.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
