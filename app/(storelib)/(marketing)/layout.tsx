@@ -7,6 +7,7 @@ import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { LeaveIntoApp } from "@/components/navigation/leave-into-app"
+import { HomePathname } from "@/components/navigation/home-pathname"
 
 export default async function MarketingLayout({
   children,
@@ -61,6 +62,8 @@ export default async function MarketingLayout({
       nothing looked broken. A crawler that does not run JavaScript saw an
       empty document, and everybody else saw a blank frame first.
     */
+    /* The homepage's pathname is "/" on the server as in the browser, even when its regeneration was handed /index (see the component). */
+    <HomePathname>
     <div className="flex min-h-svh flex-col marketing-flex-wrapper">
       {/*
         No preconnect here. There was one to cdn.sanity.io, which nothing in
@@ -118,5 +121,6 @@ export default async function MarketingLayout({
           those are, and brings the room it takes at the end of the page. */}
       <BuyerTabBar />
     </div>
+    </HomePathname>
   )
 }

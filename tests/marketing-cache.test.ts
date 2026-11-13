@@ -82,6 +82,17 @@ const postData = read("lib/blog/post.ts")
 check("fetchPost is one read per render: the layout, generateMetadata and the page share it through cache()", /import \{ cache \} from "react"/.test(postData) && /export const fetchPost = cache\(async \(slug: string\) =>/.test(postData) && /import \{[^}]*\bfetchPost\b[^}]*\} from "@\/lib\/blog\/post"/.test(post) && /blogPostExists\(slug\)/.test(read("app/(storelib)/(marketing)/blog/[slug]/layout.tsx")))
 check("  and both still call it", (post.match(/await fetchPost\(slug\)/g) ?? []).length === 2)
 
+console.log("\nThe homepage is \"/\" on the server, even when its regeneration is handed /index")
+/* storelib.com's background regeneration reached Next as /index, so its cached HTML said "c":["","index"] and every
+   usePathname() under this layout read "/index" on the server and "/" in the browser: the header missing from the HTML
+   and React #418 on every load, the whole document drawn again on the client. */
+const homePathname = code("components/navigation/home-pathname.tsx")
+check("the layout puts everything it draws under HomePathname", /import \{ HomePathname \} from "@\/components\/navigation\/home-pathname"/.test(layout) && /<HomePathname>\s*<div className="flex min-h-svh flex-col marketing-flex-wrapper">/.test(layout) && /<BuyerTabBar \/>\s*<\/div>\s*<\/HomePathname>/.test(layout))
+check("it re-provides the pathname usePathname() reads, from the module Next reads it from", /import \{ PathnameContext \} from "next\/dist\/shared\/lib\/hooks-client-context\.shared-runtime"/.test(homePathname) && /const pathname = useContext\(PathnameContext\)/.test(homePathname) && /<PathnameContext\.Provider value=\{value\}>\{children\}<\/PathnameContext\.Provider>/.test(homePathname))
+check("  \"/\" only for the layout's own page handed /index, every other pathname unchanged", /const value = segmentBelow === null && pathname === "\/index" \? "\/" : pathname/.test(homePathname) && /const segmentBelow = useSelectedLayoutSegment\(\)/.test(homePathname))
+check("  and Next's usePathname() is still that context and nothing more", /function usePathname\(\) \{[\s\S]{0,600}useContext\)\(_hooksclientcontextsharedruntime\.PathnameContext\)/.test(read("node_modules/next/dist/client/components/navigation.js")))
+check("  so a creator whose handle is \"index\" keeps /index: their page is [sellername], a segment of its own under this layout", /segmentBelow === null && /.test(homePathname) && read("app/(storelib)/(marketing)/[sellername]/page.tsx").length > 0)
+
 console.log("\nWhat stays per request, and why")
 /* Changed on purpose (round 49): both still render per request, but read nobody; the CDN holds one copy for everybody (next.config.mjs edgeRule) and For you and ownership are asked after load. */
 check("/explore: rendered per request (its search screen reads useSearchParams), For you asked after load", /export const dynamic = "force-dynamic"/.test(code("app/(storelib)/(marketing)/explore/layout.tsx")) && /export const dynamic = "force-dynamic"/.test(code("app/(storelib)/(marketing)/explore/page.tsx")) && !/readInterests/.test(code("app/(storelib)/(marketing)/explore/page.tsx")) && /readInterests/.test(code("app/api/explore/interests/route.ts")))
