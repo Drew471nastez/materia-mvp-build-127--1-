@@ -1,3 +1,6 @@
+import { routeUser } from "@/lib/auth/route-user"
+import { createClient } from "@/lib/supabase/server"
+
 /**
  * The signed-in creator's own site, or null. Every GitHub route that acts on
  * a site starts here: a site id in a request is only a claim.
