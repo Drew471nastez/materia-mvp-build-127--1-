@@ -83,7 +83,8 @@ check("every order is in a currency checkout charges in", EVERYTHING_GLOBE_ORDER
 check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSync(join(root, "public/flags", `${o.cc}.svg`))))
 
 console.log("\n── card 2 and 4 ──")
-check("four storefronts glide past, the strip seamless (last, the four, first two)", /const strip = \[STORES\[3\], \.\.\.STORES, STORES\[0\], STORES\[1\]\]/.test(src) && /100%\{transform:translate3d\(calc\(-400% \/ 7\),0,0\)\}/.test(css))
+/* Changed on purpose (landing round): the owner asked for a continuous carousel, like the creators rail; the stores drift without a stop, the set twice over moved by half its width in one linear loop. */
+check("the storefronts drift past without a stop, the strip seamless (the set twice, half its width a loop)", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && /@keyframes ev-stores\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(-50%,0,0\)\}\}/.test(css) && /animation:ev-stores \d+s linear infinite/.test(css))
 check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /From a buyer/.test(html) && /data-storelib-logo/.test(html)) /* Changed on purpose (wave 13 integration): Storelib's reply avatar is the logo through StorelibLogo, not the old /storelib-mark.svg file brand-logo.test.ts forbids. */
 const pics = [...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])
 check("every picture is local and exists", pics.length > 20 && pics.every((u) => u.startsWith("/") && existsSync(join(root, "public", u))), pics.filter((u) => !existsSync(join(root, "public", u))))

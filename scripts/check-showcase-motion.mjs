@@ -8,7 +8,8 @@
  *
  *   FOLLOW     while dragging, the rail is exactly where the pointer says
  *              (no lag, no smoothing): the error is under half a pixel
- *   SLOW       150px over a second, released: back to the group it left
+ *   PULL       (wave 13, a pager) a pull past 40px, however slow, goes on
+ *              to the next group; a pull under it settles back
  *   FLICK      350px in 150ms, released: on to the next group, one group,
  *              never past it, and still within 2px in under half a second
  *   REVERSE    a press during that settle stops the rail where it is drawn
@@ -116,6 +117,14 @@ async function mouseDrag(p, from, dx, ms, { step = 8, release = true, hold = 0, 
   return follow
 }
 
+/* Back to the first group by the keyboard's Home, then the focus leaves the rail so autoplay is as it was. */
+const home = async (p) => {
+  await p.focus(".build-showcase-track")
+  await p.keyboard.press("Home")
+  await sleep(900)
+  await p.evaluate(() => document.activeElement?.blur())
+}
+
 const restAt = async (p, ms = 1200) => {
   await sleep(ms)
   return p.evaluate(() => window.__rail.offset())
@@ -143,13 +152,22 @@ try {
     const errors = follow.filter((f) => Math.abs(f.want) > 12).map((f) => Math.abs(f.at - -f.want))
     expect(errors.length > 10 && Math.max(...errors) < 0.75, "while dragging, the rail is under the pointer to half a pixel", { worst: Math.max(...errors).toFixed(2), samples: errors.length })
     await p.mouse.up()
+    /* Changed on purpose (landing round): since wave 13 the rail is a pager, so a slow pull past 40px is a whole step; these read the round 60 rule (back to the group left) and failed on production too. */
     const back = await restAt(p)
-    expect(near(back, 0, period) < 0.6, "SLOW: 300px over 600ms and let go settles back to its group", back)
+    expect(near(back, pitch, period) < 0.6, "PULL: 300px over 600ms and let go goes on to the next group", back)
 
-    /* SLOW: 150px over a second. */
+    /* PULL: 150px over a second, from the first group again. */
+    await home(p)
     await mouseDrag(p, mid, -150, 1000, { step: 16 })
     const slow = await restAt(p)
-    expect(near(slow, 0, period) < 0.6, "SLOW: 150px over a second settles back to its group", slow)
+    expect(near(slow, pitch, period) < 0.6, "PULL: 150px over a second goes on to the next group", slow)
+
+    /* SHORT: 24px, under the swipe distance, settles back. */
+    await home(p)
+    await mouseDrag(p, mid, -24, 400, { step: 16 })
+    const short = await restAt(p)
+    expect(near(short, 0, period) < 0.6, "SHORT: a 24px pull settles back to its group", short)
+    await home(p)
 
     /* FLICK: 350px in 150ms, recorded every frame. */
     const log = await record(p, async () => {
@@ -184,7 +202,8 @@ try {
     }
     await p.mouse.up()
     const reversed = await restAt(p)
-    expect(near(reversed, pitch, period) < 0.6 || near(reversed, 0, period) < 0.6 || near(reversed, 2 * pitch, period) < 0.6, "and a drag back takes it back to a group", reversed)
+    /* Changed on purpose (landing round): any group counts (the old list left out the one behind the first). */
+    expect(Math.abs(wd(reversed, 0, pitch)) < 0.6, "and a drag back takes it back to a group", reversed)
     expect(wd(reversed, stillAt, period) < 0, "in the new direction", { from: stillAt.toFixed(1), to: reversed.toFixed(1) })
 
     /* REPEATED: five flicks in turn, each one group. */
@@ -259,10 +278,10 @@ try {
     await sleep(1100)
     const at = await p.evaluate(() => window.__rail.offset())
     expect(at > 10, "TOUCH: a horizontal swipe moves the rail", at.toFixed(1))
-    /* A swipe of most of a card at speed may carry one card past the one under the finger, as on the computer, and no further. */
+    /* Changed on purpose (landing round): a hard flick on a phone carries momentum through up to three cards (SHOWCASE_RAIL.swipeMaxSteps), as a native scroller would, and no further. */
     const snaps = await p.evaluate(() => { const s = [...document.querySelectorAll(".build-showcase-slide")]; return s.map((e) => e.offsetLeft - s[0].offsetLeft) })
     const on = snaps.findIndex((x) => near(at, x, period) < 0.6)
-    expect(on === 1 || on === 2, "and rests with a card on the gutter, the next one or the one after, no further", { at: at.toFixed(1), card: on })
+    expect(on >= 1 && on <= 3, "and rests with a card on the gutter, at most three cards on, no further", { at: at.toFixed(1), card: on })
     const xScroll = await p.evaluate(() => document.scrollingElement.scrollWidth - innerWidth)
     expect(xScroll <= 0, "PAGE: nothing scrolls sideways on a phone", xScroll)
     const touchAction = await p.evaluate(() => getComputedStyle(document.querySelector(".build-showcase-track")).touchAction)

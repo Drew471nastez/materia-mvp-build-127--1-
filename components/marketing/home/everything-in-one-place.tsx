@@ -10,10 +10,12 @@
   products and numbers:
 
     1. Sell anything you make: a product card that slides through merch, a
-       preset pack, a course and a community, the light behind it changing
-       with each; the tabs pick one, and it plays by itself while on screen.
-    2. A store that looks like you: four creators' storefronts gliding past.
-    3. Sell to fans anywhere: a globe the visitor can spin, with orders
+       PDF guide, a course and a community, the calm colour behind it
+       changing with each; the tabs pick one, and it plays by itself while
+       on screen.
+    2. A store that looks like you: creators' storefronts drifting past
+       without a stop.
+    3. Sell anywhere in the world: a globe the visitor can spin, with orders
        arcing to buyers in currencies checkout charges in.
     4. Real support: a creator's question answered by a person at Storelib
        (app/support), and a buyer's question answered by the store.
@@ -40,23 +42,29 @@ const IMG = "/home/everything"
 type Slide = {
   tab: string
   name: string
+  /** How the product's picture is drawn in the card: a photo on its own, or a cover built from one. */
+  kind: "tee" | "guide" | "course" | "community"
   img: string
   w: number
   h: number
-  cutout: boolean
   stats: Array<[string, string]>
   status: string
 }
 
-/** Each product's numbers add up: sold times price is the revenue. */
+/*
+  Landing round: four real-looking products, each a calm photograph or a
+  plain cover on a light grey tile, in place of the preset box render and
+  the gradient membership card the owner read as AI. Each product's numbers
+  add up: sold times price is the revenue.
+*/
 export const EVERYTHING_SLIDES: Slide[] = [
   {
     tab: "Merch",
     name: "Midnight Studio Tee",
+    kind: "tee",
     img: `${IMG}/tee.webp`,
-    w: 360,
-    h: 360,
-    cutout: false,
+    w: 480,
+    h: 480,
     stats: [
       ["Price", "$32.00"],
       ["Sold", "214"],
@@ -66,25 +74,25 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
   {
     tab: "Digital",
-    name: "Golden Hour Preset Pack",
-    img: `${IMG}/presets.webp`,
-    w: 274,
-    h: 300,
-    cutout: true,
+    name: "Sourdough at Home",
+    kind: "guide",
+    img: `${IMG}/guide-bread.webp`,
+    w: 400,
+    h: 361,
     stats: [
-      ["Price", "$24.00"],
-      ["Downloads", "486"],
-      ["Revenue", "$11,664.00"],
+      ["Price", "$19.00"],
+      ["Downloads", "612"],
+      ["Revenue", "$11,628.00"],
     ],
     status: "Live",
   },
   {
     tab: "Course",
-    name: "Shoot in Manual, in a Week",
+    name: "Wheel Throwing Basics",
+    kind: "course",
     img: `${IMG}/course.webp`,
-    w: 360,
-    h: 360,
-    cutout: false,
+    w: 480,
+    h: 480,
     stats: [
       ["Price", "$129.00"],
       ["Students", "92"],
@@ -94,19 +102,47 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
   {
     tab: "Community",
-    name: "Inner Circle",
+    name: "Saturday Run Club",
+    kind: "community",
     img: `${IMG}/community.webp`,
-    w: 400,
-    h: 261,
-    cutout: true,
+    w: 480,
+    h: 480,
     stats: [
       ["Price", "$12 / month"],
       ["Members", "418"],
       ["Monthly", "$5,016.00"],
     ],
-    status: "Live",
+    status: "Open",
   },
 ]
+
+/** The product's picture: the photo, or for the PDF guide its cover, standing on the tile. */
+function ProductPicture({ s }: { s: Slide }) {
+  const photo = (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img src={s.img} alt="" width={s.w} height={s.h} loading="lazy" decoding="async" draggable={false} />
+  )
+  if (s.kind === "guide")
+    return (
+      <span className="ev-p-book">
+        <span className="ev-p-book-photo">{photo}</span>
+        <span className="ev-p-book-title">Sourdough at Home</span>
+        <span className="ev-p-book-sub">A 52 page guide</span>
+      </span>
+    )
+  if (s.kind === "course")
+    return (
+      <>
+        {photo}
+        <span className="ev-p-lesson">
+          <span className="ev-p-play" />
+          <span className="ev-p-lesson-t">Lesson 3 · Centering</span>
+        </span>
+        <span className="ev-p-progress" />
+      </>
+    )
+  return photo
+}
 
 function ProductSlides() {
   const [active, setActive] = useState(0)
@@ -122,18 +158,9 @@ function ProductSlides() {
           {EVERYTHING_SLIDES.map((s, i) => {
             const pos = (i - active + n) % n
             return (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                key={s.tab}
-                src={s.img}
-                alt=""
-                width={s.w}
-                height={s.h}
-                loading="lazy"
-                decoding="async"
-                className={`ev-p-img${s.cutout ? " ev-p-cut" : ""}`}
-                data-pos={pos === 0 ? "on" : pos === n - 1 ? "prev" : "next"}
-              />
+              <div key={s.tab} className={`ev-p-img ev-p-${s.kind}`} data-pos={pos === 0 ? "on" : pos === n - 1 ? "prev" : "next"}>
+                <ProductPicture s={s} />
+              </div>
             )
           })}
         </div>
@@ -176,145 +203,149 @@ function ProductSlides() {
 
 /* ── 2. A store that looks like you ─────────────────────────────────── */
 
-function Bar({ logo }: { logo: string }) {
-  return (
-    <div className="ev-ph-bar">
-      <span className="ev-ph-burger" />
-      <span className="ev-ph-logo">{logo}</span>
-      <span className="ev-ph-bag" />
-    </div>
-  )
+/*
+  Landing round: storefronts in the layout of a real Storelib store as a
+  phone shows it (the cover, the round avatar, the name and handle, Home /
+  Products / Communities, the product cards), each in its creator's own
+  colours, drifting past without a stop, like the creators rail further
+  down. Fictional creators, stock photography.
+*/
+type StoreProduct = { src: string; w: number; h: number; name: string; price: string; rating: string }
+type Storefront = {
+  key: string
+  name: string
+  handle: string
+  bio: string
+  cover: string
+  avatar: string
+  look: "light" | "cream" | "dark" | "sage" | "blush"
+  products: [StoreProduct, StoreProduct]
 }
+
+const SC = "/home/showcase"
+export const EVERYTHING_STORES: readonly Storefront[] = [
+  {
+    key: "northbound",
+    name: "Northbound",
+    handle: "@northbound",
+    bio: "Outdoor layers, small runs",
+    cover: `${SC}/lt-field.webp`,
+    avatar: `${SC}/av-g.webp`,
+    look: "light",
+    products: [
+      { src: `${IMG}/store-hoodie.webp`, w: 420, h: 520, name: "Trail Hoodie", price: "$64", rating: "4.9" },
+      { src: `${IMG}/store-cap.webp`, w: 220, h: 220, name: "Ridge Cap", price: "$28", rating: "5.0" },
+    ],
+  },
+  {
+    key: "kiln",
+    name: "Kiln & Clay",
+    handle: "@kilnandclay",
+    bio: "Stoneware, made by hand",
+    cover: `${SC}/cm-cups.webp`,
+    avatar: `${SC}/av-o.webp`,
+    look: "cream",
+    products: [
+      { src: `${SC}/cm-vases.webp`, w: 640, h: 480, name: "Vase Set", price: "$86", rating: "4.9" },
+      { src: `${SC}/cm-plates.webp`, w: 640, h: 480, name: "Dinner Plates", price: "$54", rating: "4.8" },
+    ],
+  },
+  {
+    key: "lumen",
+    name: "Lumen Harbor",
+    handle: "@lumenharbor",
+    bio: "Indie band from Bristol",
+    cover: `${SC}/hp-stage.webp`,
+    avatar: `${SC}/av-e.webp`,
+    look: "dark",
+    products: [
+      { src: `${SC}/hp-vinyl.webp`, w: 520, h: 640, name: "Night Swim LP", price: "$28", rating: "5.0" },
+      { src: `${SC}/hp-tee.webp`, w: 480, h: 600, name: "Tour Tee", price: "$32", rating: "4.8" },
+    ],
+  },
+  {
+    key: "solsage",
+    name: "Sol & Sage",
+    handle: "@solandsage",
+    bio: "Home cooking and classes",
+    cover: `${SC}/ss-bowl.webp`,
+    avatar: `${SC}/av-priya.webp`,
+    look: "sage",
+    products: [
+      { src: `${IMG}/guide-bread.webp`, w: 400, h: 361, name: "Sourdough Guide", price: "$19", rating: "4.9" },
+      { src: `${SC}/ss-pasta.webp`, w: 480, h: 480, name: "Weeknight Pasta", price: "$14", rating: "4.7" },
+    ],
+  },
+  {
+    key: "mila",
+    name: "Mila Draws",
+    handle: "@miladraws",
+    bio: "Illustrator in Lisbon",
+    cover: `${SC}/bb-brush.webp`,
+    avatar: `${SC}/av-j.webp`,
+    look: "blush",
+    products: [
+      { src: `${SC}/bb-brushes.webp`, w: 520, h: 400, name: "Brush Pack", price: "$18", rating: "5.0" },
+      { src: `${SC}/bb-palette.webp`, w: 520, h: 400, name: "Color Course", price: "$49", rating: "4.9" },
+    ],
+  },
+  {
+    key: "theo",
+    name: "Theo Marsh",
+    handle: "@theomarsh",
+    bio: "Landscape prints from the road",
+    cover: `${SC}/sl-hero.webp`,
+    avatar: `${SC}/av-l.webp`,
+    look: "light",
+    products: [
+      { src: `${SC}/sl-lake.webp`, w: 520, h: 640, name: "Lake Morning", price: "$45", rating: "5.0" },
+      { src: `${SC}/sl-desert.webp`, w: 520, h: 640, name: "Red Rock", price: "$45", rating: "4.9" },
+    ],
+  },
+]
 
 function Pic({ src, w, h, className }: { src: string; w: number; h: number; className: string }) {
   /* eslint-disable-next-line @next/next/no-img-element */
-  return <img className={className} src={`${IMG}/${src}`} alt="" width={w} height={h} loading="lazy" decoding="async" />
+  return <img className={className} src={src} alt="" width={w} height={h} loading="lazy" decoding="async" draggable={false} />
 }
 
-function StoreNorthbound() {
+function StoreCard({ store }: { store: Storefront }) {
   return (
-    <div className="ev-ph ev-ph-north">
-      <Bar logo="NORTHBOUND" />
-      <div className="ev-ph-hero">
-        <Pic className="ev-ph-hero-img" src="store-hoodie.webp" w={420} h={520} />
-        <div className="ev-ph-hero-copy">
-          <span className="ev-ph-kicker">Fall 26</span>
-          <span className="ev-ph-title">Layers for long walks</span>
-        </div>
-      </div>
-      <div className="ev-ph-cta">Shop the drop</div>
-      <div className="ev-ph-grid">
-        <div>
-          <Pic className="ev-ph-thumb" src="store-crew.webp" w={220} h={220} />
-          <span className="ev-ph-pn">Trail Crew</span>
-          <span className="ev-ph-pp">$58</span>
-        </div>
-        <div>
-          <Pic className="ev-ph-thumb" src="store-cap.webp" w={220} h={220} />
-          <span className="ev-ph-pn">Ridge Cap</span>
-          <span className="ev-ph-pp">$28</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StoreKiln() {
-  return (
-    <div className="ev-ph ev-ph-kiln">
-      <Bar logo="Kiln & Clay" />
-      <div className="ev-ph-serif">
-        Spring
-        <br />
-        Glaze Drop
-      </div>
-      <Pic className="ev-ph-wide" src="store-cups.webp" w={420} h={340} />
-      <div className="ev-ph-row">
-        <Pic className="ev-ph-sq" src="store-vases.webp" w={220} h={220} />
-        <div>
-          <span className="ev-ph-pn">Speckled vase set</span>
-          <span className="ev-ph-pp">$86.00</span>
-        </div>
-      </div>
-      <div className="ev-ph-row">
-        <span className="ev-ph-sq ev-ph-swatch" />
-        <div>
-          <span className="ev-ph-pn">Wheel class, Sat 10am</span>
-          <span className="ev-ph-pp">$65.00</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StoreLumen() {
-  return (
-    <div className="ev-ph ev-ph-lumen">
-      <Bar logo="LUMEN HARBOR" />
-      <Pic className="ev-ph-album" src="store-album.webp" w={400} h={400} />
-      <div className="ev-ph-album-copy">
-        <span className="ev-ph-title">Night Swim</span>
-        <span className="ev-ph-sub">New album · 10 tracks</span>
-      </div>
-      <div className="ev-ph-buy">
-        <span>Vinyl LP</span>
-        <span>$28.00</span>
-      </div>
-      <div className="ev-ph-buy ev-ph-buy-ghost">
-        <span>Digital album</span>
-        <span>$9.00</span>
-      </div>
-      <div className="ev-ph-tracks">
-        {[
-          ["1", "Low Tide", "3:42"],
-          ["2", "Harbor Lights", "4:05"],
-          ["3", "Undertow", "3:18"],
-        ].map(([n, t, d]) => (
-          <div key={n} className="ev-ph-track">
-            <span className="ev-ph-tn">{n}</span>
-            {t}
-            <span className="ev-ph-td">{d}</span>
-          </div>
+    <div className={`ev-st ev-st-${store.look}`}>
+      <Pic className="ev-st-cover" src={store.cover} w={600} h={240} />
+      <Pic className="ev-st-av" src={store.avatar} w={96} h={96} />
+      <span className="ev-st-name">{store.name}</span>
+      <span className="ev-st-handle">{store.handle}</span>
+      <span className="ev-st-bio">{store.bio}</span>
+      <span className="ev-st-tabs">
+        <span data-on="">Home</span>
+        <span>Products</span>
+        <span>Communities</span>
+      </span>
+      <span className="ev-st-h">Products</span>
+      <span className="ev-st-grid">
+        {store.products.map((p) => (
+          <span key={p.name} className="ev-st-prod">
+            <Pic className="ev-st-img" src={p.src} w={p.w} h={p.h} />
+            <span className="ev-st-rate">★ {p.rating}</span>
+            <span className="ev-st-pn">{p.name}</span>
+            <span className="ev-st-pp">{p.price}</span>
+          </span>
         ))}
-      </div>
+      </span>
     </div>
   )
 }
-
-function StoreTheo() {
-  return (
-    <div className="ev-ph ev-ph-theo">
-      <Bar logo="Theo Marsh" />
-      <div className="ev-ph-hero">
-        <Pic className="ev-ph-hero-img" src="store-street.webp" w={420} h={520} />
-        <div className="ev-ph-hero-copy">
-          <span className="ev-ph-kicker">Online course</span>
-          <span className="ev-ph-title">Shoot in Manual, in a Week</span>
-        </div>
-      </div>
-      <div className="ev-ph-cta">Enroll for $129</div>
-      <div className="ev-ph-row">
-        <Pic className="ev-ph-sq" src="store-cam.webp" w={220} h={220} />
-        <div>
-          <span className="ev-ph-pn">Film Look Presets</span>
-          <span className="ev-ph-pp">$24.00</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const STORES = [StoreNorthbound, StoreKiln, StoreLumen, StoreTheo]
 
 function Storefronts() {
-  /* The last store, the four, then the first two again: the strip glides one store at a time and starts over where it looks the same. */
-  const strip = [STORES[3], ...STORES, STORES[0], STORES[1]]
+  /* The stores twice over: the strip drifts by one set's width and starts again where it looks the same. */
+  const strip = [...EVERYTHING_STORES, ...EVERYTHING_STORES]
   return (
     <div className="ev-vis ev-s" aria-hidden="true">
       <div className="ev-s-track ev-loop">
-        {strip.map((Store, i) => (
+        {strip.map((store, i) => (
           <div key={i} className="ev-s-slot">
-            <Store />
+            <StoreCard store={store} />
           </div>
         ))}
       </div>
@@ -368,7 +399,7 @@ function Support() {
       <Thread
         variant="b"
         title="From a buyer"
-        sub="Order #4821 · Golden Hour Preset Pack"
+        sub="Order #4821 · Sourdough at Home"
         ask="The download link in my email won't open on my iPad. Could you send it again?"
         askAv={`${IMG}/av-buyer.webp`}
         reply="Just sent a fresh one. Your files are also in your Storelib library, so you can download them again anytime."
@@ -383,7 +414,7 @@ function Support() {
 export const EVERYTHING_CARDS = [
   { key: "sell", wide: true, lead: "Sell anything you make.", rest: "Merch, downloads, courses and communities live in one catalog, with one checkout for all of them." },
   { key: "store", wide: false, lead: "Build a store that looks like you.", rest: "Start from a template and make every part yours, or skip the website and share a OnePage link." },
-  { key: "world", wide: false, lead: "Sell to fans anywhere.", rest: "Buyers see your prices in their currency and your pages in their language, wherever they find you." },
+  { key: "world", wide: false, lead: "Sell anywhere in the world.", rest: "Buyers see your prices in their currency and your pages in their language, wherever they find you." },
   { key: "support", wide: true, lead: "Real support for you and your buyers.", rest: "A person at Storelib reads and answers every request, and buyers reach you right from their order page." },
 ] as const
 
@@ -453,20 +484,31 @@ const CSS = `
 .ev[data-platform-live="false"] .ev-loop,.ev:not([data-platform-live]) .ev-loop{animation-play-state:paused}
 .ev[data-platform-live="false"] .ev-tab[data-on] .ev-tab-fill,.ev:not([data-platform-live]) .ev-tab[data-on] .ev-tab-fill{animation-play-state:paused}
 
-/* 1. Product slides */
-.ev-p{background:#5b2a8a}
+/* 1. Product slides: a calm, plain colour behind each product (landing round: no purple gradients), the product on a light grey tile */
+.ev-p{background:#d9d5ce}
 .ev-p-bg{position:absolute;inset:0;opacity:0;transition:opacity 1s cubic-bezier(.4,0,.2,1)}
 .ev-p-bg[data-on]{opacity:1}
-.ev-p-bg0{background:radial-gradient(60% 70% at 18% 20%,#ff9cbd 0%,rgba(255,156,189,0) 70%),radial-gradient(55% 65% at 88% 88%,#ffbb8f 0%,rgba(255,187,143,0) 70%),linear-gradient(135deg,#c2417a 0%,#a947a8 55%,#e27a86 100%)}
-.ev-p-bg1{background:radial-gradient(60% 70% at 82% 16%,#ffd89c 0%,rgba(255,216,156,0) 70%),radial-gradient(60% 70% at 12% 92%,#f58ab5 0%,rgba(245,138,181,0) 70%),linear-gradient(140deg,#e9884f 0%,#cb5a8d 55%,#7b3fc4 100%)}
-.ev-p-bg2{background:radial-gradient(60% 70% at 18% 14%,#93b6ff 0%,rgba(147,182,255,0) 70%),radial-gradient(55% 65% at 88% 88%,#bda2ff 0%,rgba(189,162,255,0) 70%),linear-gradient(135deg,#2d3a9e 0%,#4a3fbf 50%,#7b5bd9 100%)}
-.ev-p-bg3{background:radial-gradient(60% 70% at 86% 14%,#dccaff 0%,rgba(220,202,255,0) 70%),radial-gradient(55% 65% at 10% 88%,#8f6bff 0%,rgba(143,107,255,0) 70%),linear-gradient(135deg,#5b21b6 0%,#7c3aed 50%,#a78bfa 100%)}
-.ev-p-card{position:absolute;left:50%;top:44%;display:flex;align-items:center;gap:clamp(12px,1.8vw,20px);width:min(88%,470px);padding:10px;border-radius:14px;background:#fff;box-shadow:0 30px 60px -28px rgba(30,10,60,.55),0 2px 6px rgba(30,10,60,.08);transform:translate(-50%,-50%)}
-.ev-p-media{position:relative;flex:0 0 42%;aspect-ratio:1;border-radius:9px;overflow:hidden;background:#f3f2f4}
-.ev-p-img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:translate(32%,0) scale(.9);transition:opacity .4s ease,transform .9s ${EASE}}
-.ev-p-cut{left:12%;top:12%;width:76%;height:76%;object-fit:contain}
+.ev-p-bg0{background:linear-gradient(180deg,#e2ded8,#d4cfc7)}
+.ev-p-bg1{background:linear-gradient(180deg,#e3e1d6,#d3d2c3)}
+.ev-p-bg2{background:linear-gradient(180deg,#e6ddd3,#d6cabd)}
+.ev-p-bg3{background:linear-gradient(180deg,#dfe3e4,#ccd3d6)}
+.ev-p-card{position:absolute;left:50%;top:44%;display:flex;align-items:center;gap:clamp(12px,1.8vw,20px);width:min(88%,470px);padding:10px;border-radius:18px;background:#fff;box-shadow:0 24px 48px -30px rgba(40,32,20,.45),0 1px 3px rgba(40,32,20,.08);transform:translate(-50%,-50%)}
+.ev-p-media{position:relative;flex:0 0 42%;aspect-ratio:1;border-radius:12px;overflow:hidden;background:#ededed}
+.ev-p-img{position:absolute;inset:0;opacity:0;transform:translate(32%,0) scale(.9);transition:opacity .4s ease,transform .9s ${EASE}}
+.ev-p-img > img{display:block;width:100%;height:100%;object-fit:cover}
 .ev-p-img[data-pos="prev"]{transform:translate(-32%,0) scale(.9)}
 .ev-p-img[data-pos="on"]{opacity:1;transform:none;transition:opacity .6s ease .1s,transform 1s ${EASE} .06s}
+.ev-p-guide{display:grid;place-items:center;background:#ecebe7}
+.ev-p-book{position:relative;display:flex;flex-direction:column;width:60%;aspect-ratio:3/4;padding:6% 6% 0;box-sizing:border-box;border-radius:3px 5px 5px 3px;background:#fbf8f2;box-shadow:inset 3px 0 0 rgba(0,0,0,.05),2px 0 0 #f1ede5,3px 0 0 #e2ddd2,0 14px 22px -12px rgba(40,30,15,.45)}
+.ev-p-book-photo{display:block;overflow:hidden;aspect-ratio:400/361;border-radius:2px}
+.ev-p-book-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.ev-p-book-title{margin-top:9%;font-family:Georgia,"Times New Roman",serif;font-size:clamp(10px,1.05vw,13px);line-height:1.1;color:#2b2419}
+.ev-p-book-sub{margin-top:5%;font-size:clamp(6.5px,.62vw,8px);letter-spacing:.06em;text-transform:uppercase;color:#8a8070}
+.ev-p-lesson{position:absolute;left:8px;bottom:12px;display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;border-radius:999px;background:rgba(20,20,20,.55);color:#fff;font-size:10.5px;line-height:1;white-space:nowrap}
+.ev-p-play{position:relative;width:16px;height:16px;border-radius:99px;background:#fff}
+.ev-p-play::after{content:"";position:absolute;left:6px;top:4.5px;border-left:6px solid #18181b;border-top:3.5px solid transparent;border-bottom:3.5px solid transparent}
+.ev-p-progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.35)}
+.ev-p-progress::after{content:"";position:absolute;inset:0 62% 0 0;background:#fff}
 .ev-p-info{position:relative;display:grid;flex:1 1 auto;min-width:0;align-self:stretch;align-items:center}
 .ev-p-text{grid-area:1/1;min-width:0}
 .ev-p-rise{opacity:0;transform:translate(0,10px);transition:opacity .25s ease,transform .3s ease}
@@ -475,17 +517,17 @@ const CSS = `
 .ev-p-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin:0}
 .ev-p-k{margin:0 0 2px;font-size:11px;color:#8b8994}
 .ev-p-v{margin:0;display:flex;align-items:center;gap:6px;font-size:clamp(12.5px,1.15vw,14.5px);font-weight:500;color:#18181b;white-space:nowrap;font-variant-numeric:tabular-nums}
-.ev-p-money{color:#6d28d9}
+.ev-p-money{color:#18181b}
 .ev-p-dot{width:7px;height:7px;flex:none;border-radius:99px;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
-.ev-tabs{position:absolute;left:50%;bottom:16px;display:flex;gap:2px;padding:4px;border-radius:999px;background:rgba(18,8,36,.3);transform:translate(-50%,0)}
-.ev-tab{position:relative;overflow:hidden;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.88);font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
+.ev-tabs{position:absolute;left:50%;bottom:16px;display:flex;gap:2px;padding:4px;border-radius:999px;background:rgba(255,255,255,.5);transform:translate(-50%,0)}
+.ev-tab{position:relative;overflow:hidden;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
 .ev-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s ${EASE}}
 .ev-tab[data-on]{color:#18181b}
 .ev-tab[data-on]::before{opacity:1;transform:none}
-@media(hover:hover){.ev-tab:not([data-on]):hover{color:#fff}}
-.ev-tab:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media(hover:hover){.ev-tab:not([data-on]):hover{color:#18181b}}
+.ev-tab:focus-visible{outline:2px solid #18181b;outline-offset:2px}
 .ev-tab-label{position:relative}
-.ev-tab-fill{position:absolute;inset:0;border-radius:inherit;background:rgba(124,58,237,.16);transform:scaleX(0);transform-origin:0 50%;opacity:0}
+.ev-tab-fill{position:absolute;inset:0;border-radius:inherit;background:rgba(24,24,27,.07);transform:scaleX(0);transform-origin:0 50%;opacity:0}
 .ev-tab[data-on] .ev-tab-fill{opacity:1;animation:ev-fill 4.6s linear both}
 @media(hover:hover){.ev-p:hover .ev-tab-fill{animation-play-state:paused}}
 @keyframes ev-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
@@ -498,59 +540,36 @@ const CSS = `
   .ev-p-v{font-size:12px}
 }
 
-/* 2. Storefronts */
-.ev-s{background:#ececef;container-type:inline-size}
-.ev-s-track{--slot:46cqw;position:absolute;top:30px;bottom:0;left:calc(50% - 1.5 * var(--slot));display:flex;animation:ev-stores 18s infinite}
-@media(max-width:767px){.ev-s-track{--slot:54cqw;top:24px}}
+/*
+  2. Storefronts (landing round): the stores twice over in one row, moved by
+  one set's width in a single linear animation, so the drift never stops or
+  steps and the compositor plays it alone. Paused off screen like every loop.
+*/
+.ev-s{background:#ebeae6;container-type:inline-size}
+.ev-s-track{--slot:43cqw;position:absolute;top:28px;bottom:0;left:0;display:flex;width:max-content;animation:ev-stores 52s linear infinite}
+@media(max-width:767px){.ev-s-track{--slot:58cqw;top:22px}}
 .ev-s-slot{flex:none;width:var(--slot);height:100%;padding:0 7px;box-sizing:border-box}
-@keyframes ev-stores{
-  0%,19%{transform:translate3d(0,0,0);animation-timing-function:${GLIDE}}
-  25%,44%{transform:translate3d(calc(-100% / 7),0,0);animation-timing-function:${GLIDE}}
-  50%,69%{transform:translate3d(calc(-200% / 7),0,0);animation-timing-function:${GLIDE}}
-  75%,94%{transform:translate3d(calc(-300% / 7),0,0);animation-timing-function:${GLIDE}}
-  100%{transform:translate3d(calc(-400% / 7),0,0)}
-}
-.ev-ph{--u:calc(var(--slot) / 25);position:relative;height:calc(100% + 40px);overflow:hidden;border-radius:calc(var(--u) * 2.6) calc(var(--u) * 2.6) 0 0;background:#fff;font-size:var(--u);line-height:1.3;box-shadow:0 20px 40px -24px rgba(20,14,40,.35),0 0 0 1px rgba(20,14,40,.06)}
-.ev-ph-bar{display:flex;align-items:center;justify-content:space-between;height:4.6em;padding:0 1.5em}
-.ev-ph-burger{position:relative;width:1.6em;height:1.1em;border-top:.18em solid currentColor;border-bottom:.18em solid currentColor;box-sizing:border-box}
-.ev-ph-burger::after{content:"";position:absolute;left:0;right:0;top:50%;height:.18em;margin-top:-.09em;background:currentColor}
-.ev-ph-bag{width:1.5em;height:1.6em;border:.18em solid currentColor;border-radius:.2em .2em .4em .4em;box-sizing:border-box}
-.ev-ph-logo{font-size:1.35em;font-weight:700;letter-spacing:.12em;white-space:nowrap}
-.ev-ph-hero{position:relative;margin:0 1em;border-radius:1.4em;overflow:hidden}
-.ev-ph-hero-img{display:block;width:100%;height:21em;object-fit:cover}
-.ev-ph-hero-copy{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:.35em;padding:3.4em 1.3em 1.3em;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.6));color:#fff}
-.ev-ph-kicker{font-size:.95em;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
-.ev-ph-title{font-size:1.8em;font-weight:700;line-height:1.08;letter-spacing:-.02em}
-.ev-ph-cta{display:grid;place-items:center;height:3.7em;margin:1em 1em 0;border-radius:.9em;font-size:1.1em;font-weight:700;letter-spacing:.03em}
-.ev-ph-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9em;margin:1.2em 1em 0}
-.ev-ph-thumb{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:1em;background:#fff}
-.ev-ph-pn{display:block;margin-top:.5em;font-size:1.1em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ev-ph-pp{display:block;font-size:1.05em;opacity:.7}
-.ev-ph-north{background:#2b1d6e;color:#fff}
-.ev-ph-north .ev-ph-cta{background:#c9b8ff;color:#1c1150}
-.ev-ph-kiln{background:#f5efe6;color:#3b2a1e}
-.ev-ph-kiln .ev-ph-logo{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:500;letter-spacing:0;font-size:1.65em}
-.ev-ph-serif{padding:.5em .55em .55em;font-family:Georgia,"Times New Roman",serif;font-size:2.7em;line-height:1;letter-spacing:-.02em;color:#8a3b1f}
-.ev-ph-wide{display:block;width:calc(100% - 2em);height:15em;margin:0 1em;object-fit:cover;border-radius:1.2em}
-.ev-ph-row{display:flex;align-items:center;gap:1em;margin:1em 1em 0;padding:.8em;border-radius:1.1em;background:rgba(255,255,255,.75);min-width:0}
-.ev-ph-row > div{min-width:0}
-.ev-ph-sq{display:block;flex:none;width:4.6em;height:4.6em;border-radius:.8em;object-fit:cover}
-.ev-ph-swatch{background:linear-gradient(135deg,#e2b48c,#8a3b1f)}
-.ev-ph-row .ev-ph-pn{margin-top:0}
-.ev-ph-lumen{background:#0e0f1a;color:#eef0ff}
-.ev-ph-album{display:block;width:calc(100% - 2em);aspect-ratio:1;margin:0 1em;object-fit:cover;border-radius:1.2em}
-.ev-ph-album-copy{display:flex;flex-direction:column;gap:.3em;padding:1.2em 1.3em .7em}
-.ev-ph-sub{font-size:1.05em;opacity:.6}
-.ev-ph-buy{display:flex;justify-content:space-between;align-items:center;height:3.6em;margin:.6em 1em 0;padding:0 1.2em;border-radius:.9em;background:#7c3aed;color:#fff;font-size:1.1em;font-weight:600}
-.ev-ph-buy-ghost{background:rgba(255,255,255,.08)}
-.ev-ph-tracks{margin:1em 1.3em 0}
-.ev-ph-track{display:flex;align-items:center;gap:1em;padding:.75em 0;border-top:1px solid rgba(255,255,255,.08);font-size:1.1em}
-.ev-ph-tn{width:1em;opacity:.5}
-.ev-ph-td{margin-left:auto;opacity:.5}
-.ev-ph-theo{background:#fafaf7;color:#18181b}
-.ev-ph-theo .ev-ph-logo{letter-spacing:.02em;font-weight:600;font-size:1.45em}
-.ev-ph-theo .ev-ph-cta{background:#18181b;color:#fff}
-.ev-ph-theo .ev-ph-row{background:#f0efea}
+@keyframes ev-stores{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+.ev-st{--u:calc(var(--slot) / 25);--st-bg:#fff;--st-ink:#18181b;--st-mute:#71717a;--st-line:rgba(24,24,27,.09);--st-card:#fff;position:relative;display:flex;flex-direction:column;align-items:center;height:calc(100% + 40px);overflow:hidden;border-radius:calc(var(--u) * 2.2) calc(var(--u) * 2.2) 0 0;background:var(--st-bg);color:var(--st-ink);font-size:var(--u);line-height:1.3;text-align:center;box-shadow:0 18px 36px -26px rgba(30,24,16,.4),0 0 0 1px rgba(30,24,16,.07)}
+.ev-st-cream{--st-bg:#f6f0e6;--st-ink:#3b2a1e;--st-mute:#8c7a68;--st-line:rgba(59,42,30,.12);--st-card:#fffaf2}
+.ev-st-dark{--st-bg:#111216;--st-ink:#f4f4f5;--st-mute:#9a9aa3;--st-line:rgba(255,255,255,.1);--st-card:#1b1c21}
+.ev-st-sage{--st-bg:#eef1ea;--st-ink:#1f2a20;--st-mute:#6b7a6c;--st-line:rgba(31,42,32,.1);--st-card:#fff}
+.ev-st-blush{--st-bg:#fcf0f3;--st-ink:#2a1820;--st-mute:#8f6f7b;--st-line:rgba(42,24,32,.1);--st-card:#fff}
+.ev-st-cover{display:block;flex:none;width:100%;height:8.6em;object-fit:cover}
+.ev-st-av{display:block;flex:none;width:5.2em;height:5.2em;margin-top:-2.6em;border:.3em solid var(--st-bg);border-radius:50%;object-fit:cover}
+.ev-st-name{margin-top:.55em;font-size:1.55em;font-weight:600;letter-spacing:-.01em}
+.ev-st-handle{margin-top:.1em;font-size:1.05em;color:var(--st-mute)}
+.ev-st-bio{max-width:90%;margin-top:.55em;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-st-tabs{display:flex;gap:1.6em;align-self:stretch;margin:1.3em 1.4em 0;padding:0 .2em;border-bottom:1px solid var(--st-line);font-size:1.05em;color:var(--st-mute)}
+.ev-st-tabs span{padding-bottom:.6em}
+.ev-st-tabs span[data-on]{color:var(--st-ink);box-shadow:inset 0 -.14em 0 currentColor}
+.ev-st-h{align-self:flex-start;margin:1.1em 1.4em 0;font-size:1.4em;font-weight:600}
+.ev-st-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8em;align-self:stretch;margin:.9em 1.4em 0;text-align:left}
+.ev-st-prod{display:flex;flex-direction:column;min-width:0;overflow:hidden;border-radius:.9em;background:var(--st-card);box-shadow:0 0 0 1px var(--st-line)}
+.ev-st-img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.ev-st-rate{margin:.7em .8em 0;font-size:.9em;color:var(--st-mute)}
+.ev-st-pn{margin:.2em .8em 0;font-size:1.05em;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-st-pp{margin:.35em .8em .9em;font-size:1.05em;font-weight:600}
 
 /* 3. Globe */
 .ev-g{background:#060608}
@@ -568,8 +587,8 @@ const CSS = `
 .ev-globe-price{font-weight:600;font-variant-numeric:tabular-nums}
 
 /* 4. Support */
-.ev-c{background:radial-gradient(70% 80% at 15% 10%,#f08bb0 0%,rgba(240,139,176,0) 70%),radial-gradient(60% 70% at 90% 95%,#e8a47c 0%,rgba(232,164,124,0) 70%),linear-gradient(160deg,#a8326a 0%,#b0447f 45%,#7c3aed 120%)}
-.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,430px);padding:18px 18px 20px;border-radius:16px;background:#fff;box-shadow:0 30px 60px -30px rgba(40,6,40,.55);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread 22s ${EASE} infinite}
+.ev-c{background:linear-gradient(180deg,#e4e6ea,#d3d7de)}
+.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,430px);padding:18px 18px 20px;border-radius:16px;background:#fff;box-shadow:0 24px 48px -30px rgba(20,24,40,.4),0 1px 3px rgba(20,24,40,.07);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread 22s ${EASE} infinite}
 .ev-c-b,.ev-c-b .ev-c-q,.ev-c-b .ev-c-r,.ev-c-b .ev-c-typing{animation-delay:-11s}
 .ev-c-head{display:flex;flex-direction:column;gap:2px;margin:0 0 14px;font-size:14px;font-weight:600;color:#18181b}
 .ev-c-sub{font-size:12.5px;font-weight:400;color:#7c7a84}

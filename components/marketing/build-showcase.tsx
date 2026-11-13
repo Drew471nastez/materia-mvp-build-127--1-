@@ -42,7 +42,7 @@ const portrait = (brand: string, label: string, alt: string) => ({
 /* The OnePage captions are three words at most (the owner, wave 13). */
 const GROUPS = [
   [
-    wide("neonmoth", "Sell merch your fans wear", "Neon Moth's Storelib store: a tour tee, a vinyl LP and a track set under a neon concert cover"),
+    wide("neonmoth", "Sell your own merch", "Neon Moth's Storelib store: a tour tee, a vinyl LP and a track set under a neon concert cover"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
     wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community with a critique post, a roll swap event and a leaderboard"),
   ],

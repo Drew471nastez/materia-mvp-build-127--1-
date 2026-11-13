@@ -110,6 +110,28 @@ export interface RailMotionConfig {
   swipeLaunch: number
   /** Wave 13. Timed motion runs as Web Animations on the compositor where the browser has them. */
   compositor: boolean
+  /**
+   * Landing round, optional. A fast flick may carry this many snap points past
+   * where the drag started (where inertia would stop, never fewer than one).
+   * Left out, a gesture is one step, as before.
+   */
+  swipeMaxSteps?: number
+  /**
+   * Landing round, optional. A release settles on a glide (glideCurve) instead
+   * of the spring: it leaves at the hand's own speed, so letting go never
+   * jolts, and comes to rest on time without passing its place. Left out, the
+   * spring settles it, as before.
+   */
+  glideSettle?: GlideSettleConfig
+}
+
+export interface GlideSettleConfig {
+  /** The shortest and longest a settle takes, in ms, and how much longer each px of distance makes it. */
+  minMs: number
+  maxMs: number
+  msPerPx: number
+  /** The least a glide leaves with, as a share of its average speed (distance / duration). Below 1 it eases in a touch. */
+  minLaunch: number
 }
 
 /*
@@ -307,7 +329,7 @@ export function chooseSwipeTarget(
   v: number,
   snaps: readonly number[],
   period: number,
-  cfg: Pick<RailMotionConfig, "swipeVelocity" | "swipeDistanceRatio" | "swipeDistanceMin" | "swipeDistanceMax">,
+  cfg: Pick<RailMotionConfig, "swipeVelocity" | "swipeDistanceRatio" | "swipeDistanceMin" | "swipeDistanceMax"> & Partial<Pick<RailMotionConfig, "swipeMaxSteps" | "inertiaDecayMs">>,
 ): number {
   if (!snaps.length) return x
   const all = unboundedSnaps(snaps, period, start)
@@ -319,8 +341,15 @@ export function chooseSwipeTarget(
   const moved = x - start
   if (Math.abs(v) >= cfg.swipeVelocity) {
     const dir = Math.sign(v)
-    const target = past(x, dir)
-    const limit = past(start, dir)
+    let target = past(x, dir)
+    let limit = past(start, dir)
+    /* Landing round: with swipeMaxSteps, a hard flick goes on to where inertia would stop, up to that many points past the start. */
+    const steps = Math.max(1, Math.floor(cfg.swipeMaxSteps ?? 1))
+    for (let k = 1; k < steps; k++) limit = past(limit, dir)
+    if (steps > 1 && cfg.inertiaDecayMs) {
+      const projected = nearest(x + v * (cfg.inertiaDecayMs / 1000))
+      if (dir > 0 ? projected > target : projected < target) target = projected
+    }
     return dir > 0 ? Math.min(target, limit) : Math.max(target, limit)
   }
   if (moved !== 0) {
@@ -351,6 +380,39 @@ export function launchVelocity(x0: number, v: number, stiffness: number, launch:
   const least = launch * Math.sqrt(stiffness / mass) * Math.abs(x0)
   const along = v * toward
   return capSpringVelocity(x0, toward * Math.max(along, least), stiffness, mass)
+}
+
+/**
+ * LANDING ROUND. A release's glide to its snap point: a cubic Hermite from
+ * `from` to `to` over `duration` ms whose starting speed is the hand's own
+ * speed toward the target (`v`, px/s), never less than `minLaunch` of the
+ * average speed and never more than three times it. Up to three times the
+ * average, a cubic Hermite that ends at rest never passes its end, so there
+ * is no overshoot; and since it starts where the hand left it at the hand's
+ * speed, letting go shows no jump in speed. A flick faster than that
+ * shortens the glide instead (never below minMs). Returns the position at
+ * `t` ms and the duration.
+ */
+export function glideCurve(from: number, to: number, v: number, cfg: GlideSettleConfig): { at: (t: number) => number; duration: number; launch: number } {
+  const d = to - from
+  const dist = Math.abs(d)
+  if (dist < 0.5) return { at: () => to, duration: 0, launch: 0 }
+  let duration = Math.min(cfg.maxMs, Math.max(cfg.minMs, cfg.minMs + dist * cfg.msPerPx))
+  const toward = Math.max(0, v * Math.sign(d))
+  /* The starting slope in units of the average speed: 1 is "carry on at the average speed". */
+  let a = (toward * duration) / 1000 / dist
+  if (a > 3) {
+    duration = Math.max(cfg.minMs, (3 * dist * 1000) / toward)
+    a = Math.min(3, (toward * duration) / 1000 / dist)
+  }
+  a = Math.max(cfg.minLaunch, Math.min(3, a))
+  const at = (t: number) => {
+    const s = Math.min(1, Math.max(0, t / duration))
+    const s2 = s * s
+    const s3 = s2 * s
+    return from + d * (a * (s3 - 2 * s2 + s) + (3 * s2 - 2 * s3))
+  }
+  return { at, duration, launch: (a * dist * 1000) / duration }
 }
 
 /** How long a spring takes to come to rest (springRested), in seconds, at most `limit`. */
@@ -624,6 +686,11 @@ export class RailMotion {
     }
     const x0 = this.x - to
     const limited = Math.max(-this.config.maxFlickVelocity, Math.min(this.config.maxFlickVelocity, v))
+    if (this.config.glideSettle) {
+      const g = glideCurve(this.x, to, limited, this.config.glideSettle)
+      this.play(g.at, to, g.duration, false)
+      return
+    }
     const v0 = swipe ? launchVelocity(x0, limited, k, this.config.swipeLaunch, m) : capSpringVelocity(x0, limited, k, m)
     const s: SpringState = { x0, v0 }
     const duration = settleDuration(s, k, d, m) * 1000
