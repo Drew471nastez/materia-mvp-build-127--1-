@@ -122,6 +122,8 @@ assert.ok(!/data-showcase-browsing/.test(showcaseSrc + read("components/marketin
 /* Changed on purpose (merge of main's round 60): the rail's motion moved to lib/ui/rail-motion, which the showcase's hook drives. */
 const motion = read("components/marketing/use-showcase-motion.ts") + read("lib/ui/rail-motion.ts")
 assert.ok(motion.includes("prefers-reduced-motion") && motion.includes("IntersectionObserver") && motion.includes("document.hidden"))
+/* Added (wave 14): the pictures stay lazy in the markup, and all twelve are fetched and decoded once the section is on screen, so a card brought in by a swipe or autoplay is never empty (it was, for a few frames, at 4x CPU). */
+assert.ok(/if \(entry\.isIntersecting\) warm\(\)/.test(motion) && motion.includes('img.loading = "eager"') && motion.includes("img.decode?.()"))
 
 /* ---- section 4: builder previews */
 assert.deepEqual(
