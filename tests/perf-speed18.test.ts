@@ -324,12 +324,29 @@ async function explore() {
   const searchAgain = await visit(() => pageModule.default({ searchParams: Promise.resolve({ q: "market product 1" }) } as never))
   check("a search is one person's words: read live each time, never held", search.trips.some((t) => t.table === "products") && searchAgain.trips.some((t) => t.table === "products"))
 
+  /* Round AU: this instance kept the last catalogue it handed out (lib/explore/catalogue-cache.ts). With the data cache empty and the database failing, a visitor is shown that copy, and nothing is held. */
+  const keptBefore = products((await visit(render)).value).map((p) => p.id)
   nextCache.resetCache()
   useFixture(fixtureWith((f) => {
     f.fail = ["products"]
   }))
+  const lastGood = await visit(render)
+  check("a database that did not answer shows the last good catalogue, held nowhere", keptBefore.length > 50 && JSON.stringify(products(lastGood.value).map((p) => p.id)) === JSON.stringify(keptBefore) && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
+  const { forgetLastGoodCatalogues } = await import("@/lib/explore/catalogue-cache")
+  forgetLastGoodCatalogues()
   const blinked = await visit(render)
-  check("a database that did not answer is never held as an empty Explore", products(blinked.value).length === 0 && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
+  const unavailableFlag = (tree: unknown): boolean => {
+    let found = false
+    const walk = (n: unknown) => {
+      if (found || !n || typeof n !== "object") return
+      const props = (n as { props?: Record<string, unknown> }).props
+      if (props && props.catalogueUnavailable === true) found = true
+      if (props) for (const v of Object.values(props)) Array.isArray(v) ? v.forEach(walk) : walk(v)
+    }
+    walk(tree)
+    return found
+  }
+  check("with no copy anywhere it is never held as an empty Explore, and the grid says the products did not load", products(blinked.value).length === 0 && unavailableFlag(blinked.value) && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
   const empty = await visit(() => cachedExploreCatalogue(async () => [] as unknown[]))
   check("nor is an empty answer", !!empty.error && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
 

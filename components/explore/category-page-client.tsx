@@ -46,6 +46,8 @@ import { cn } from "@/lib/utils"
 import { ProductCard } from "./product-card"
 import { ExploreCategoryPicker } from "./explore-category-picker"
 import { ExploreFilters, SORT_OPTIONS } from "./explore-filters"
+import { useCatalogueRetry } from "./use-catalogue-retry"
+import { CatalogueUnavailable } from "./catalogue-unavailable"
 import {
   CATEGORY_GROUPS,
   CategoryControls,
@@ -99,6 +101,8 @@ interface CategoryPageClientProps {
   category: string
   categoryLabel: string
   initialSubcategory?: string
+  /** The server had no catalogue to give, not even a last good one (lib/explore/catalogue-cache.ts): the browser asks again. */
+  catalogueUnavailable?: boolean
 }
 
 export function CategoryPageClient({
@@ -106,8 +110,10 @@ export function CategoryPageClient({
   category,
   categoryLabel,
   initialSubcategory,
+  catalogueUnavailable = false,
 }: CategoryPageClientProps) {
   const router = useRouter()
+  const catalogueRetry = useCatalogueRetry(catalogueUnavailable && initialProducts.length === 0)
   const searchParams = useSearchParams()
   const info = useMemo(() => {
     const i = categoryInfo(category)
@@ -401,6 +407,9 @@ export function CategoryPageClient({
               Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} products
             </p>
           </>
+        ) : catalogueRetry.state ? (
+          /* The server had no products to give (round AU): the browser asks again, and the box never says none were found. */
+          <CatalogueUnavailable retry={catalogueRetry} />
         ) : (
           /* Explore's empty state: tall enough that the footer stays below the fold. */
           <div className="flex min-h-[60svh] flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
