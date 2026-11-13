@@ -12,7 +12,7 @@ import { Pic, u } from "./frame"
 
     Digital product   Weeknight Green, Priya Raman's PDF cookbook
     Course            Wheel throwing, from first centering, by Mei Lin
-    Community         Saturday Run Club, Maya Okafor's free run club
+    Community         Saturday Run Club, Dani Brooks's free run club
     Physical product  The Pines Tour Tee, printed and shipped for Hollow Pines
     Booking           A 45 minute Spanish conversation with Elena Ruiz
 
@@ -115,7 +115,7 @@ export function CoursePage() {
 
 /* ================================================================ Community */
 const SPACES = [
-  ["Announcements", "Maya posts the week's route"],
+  ["Announcements", "Dani posts the week's route"],
   ["Weekend long runs", "38 new posts"],
   ["Race reports", "Brooklyn Half, 14 reports"],
 ] as const
@@ -264,7 +264,7 @@ export function BookingPage() {
 export const BUSINESS_MOCK_CSS = u(`
 .bp{position:absolute;inset:0;padding:30u;background:#f2f2f3;color:#18181b;font-family:var(--font-inter,Inter),Inter,system-ui,sans-serif;font-size:14u;line-height:1.4}
 .bp svg{width:15u;height:15u;flex:none}
-.bp-card{position:relative;height:100%;border-radius:18u;background:#fff;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 1u 2u rgba(16,24,40,.04),0 18u 40u -24u rgba(16,24,40,.25)}
+.bp-card{position:relative;height:100%;border-radius:17u;background:#fff;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 1u 2u rgba(16,24,40,.04),0 18u 40u -24u rgba(16,24,40,.25)}
 .bp-split{display:grid;grid-template-columns:262u 1fr}
 .bp-media{position:relative;display:grid;place-items:center;overflow:hidden}
 .bp-info{display:flex;flex-direction:column;padding:28u 26u 24u}
@@ -318,7 +318,7 @@ export const BUSINESS_MOCK_CSS = u(`
 .bp-com-body{padding:18u 22u 0}
 .bp-com-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16u}
 .bp-com-head .bp-btn{height:40u;margin:0}
-.bp-event{display:flex;align-items:center;gap:12u;margin-top:16u;padding:12u;border-radius:14u;background:#f7f7f8}
+.bp-event{display:flex;align-items:center;gap:12u;margin-top:16u;padding:12u;border-radius:13u;background:#f7f7f8}
 .bp-date{display:grid;place-items:center;width:44u;height:46u;border-radius:10u;background:#fff;box-shadow:0 0 0 1u #ececee}
 .bp-date i{font-size:10u;font-style:normal;font-weight:600;text-transform:uppercase;color:#dc2626;line-height:1}
 .bp-date b{font-size:18u;font-weight:600;line-height:1}
@@ -334,7 +334,7 @@ export const BUSINESS_MOCK_CSS = u(`
 .bp-spaces i{font-size:12.5u;font-style:normal;color:#71717a}
 
 /* physical: the tee on a light grey card */
-.bp-gray{margin:14u 0 14u 14u;border-radius:14u;background:#ededee}
+.bp-gray{margin:14u 0 14u 14u;border-radius:13u;background:#ededee}
 .bp-tee-pic{width:92%!important;height:auto!important;aspect-ratio:1;mix-blend-mode:multiply;background:none}
 .bp-swatches{display:flex;gap:8u;margin-top:7u}
 .bp-swatches i{width:24u;height:24u;border-radius:50%;background:#1c1c1e;box-shadow:inset 0 0 0 1u rgba(0,0,0,.1)}

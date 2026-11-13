@@ -29,7 +29,7 @@ export const IDEAS_SLIDES: readonly IdeasSlide[] = [
     title: "Website builder",
     heading: IDEAS_HEADING,
     line: "Pick a section, change it, publish. The page you edit is the page people see.",
-    alt: "Storelib's website builder: the dark bar with Publish, the sections of the Hearth & Hand home page in the sidebar, and the page itself, a sourdough course, with the Hero section selected, then Curriculum, then published.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the Hearth & Hand home page in the sidebar, and the page itself, a sourdough course. The Curriculum section is selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
   },
   {
@@ -45,7 +45,7 @@ export const IDEAS_SLIDES: readonly IdeasSlide[] = [
     title: "OnePage editor",
     heading: "One page for every link.",
     line: "Links, products and an email signup, with the live page beside you as you edit.",
-    alt: "Storelib's OnePage editor: Maya Okafor's links and products on the Links tab beside the live phone preview, as her email signup block is switched on and saved.",
+    alt: "Storelib's OnePage editor: Nina Sato's links, her EP, a vinyl record and guitar lessons on the Links tab beside her live page on the Air theme, as her email signup block is switched on and saved.",
     Mock: OnePageEditorMock,
   },
   {
@@ -259,10 +259,10 @@ const CSS = `
 .ideas-rail{--iw:min(1180px,calc(100% - 200px));--ig:24px;position:relative;display:flex;gap:var(--ig);margin-top:clamp(32px,4vw,52px);padding-inline:calc((100% - var(--iw)) / 2);cursor:grab;touch-action:pan-y pinch-zoom;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;outline:none}
 .ideas-rail:focus-visible .ideas-slide[data-active]{outline:2px solid #7c3aed;outline-offset:6px}
 .ideas-rail[data-dragging]{cursor:grabbing}
-.ideas-slide{flex:none;width:var(--iw);border-radius:clamp(12px,1.3vw,18px);overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05),0 28px 60px -30px rgba(16,24,40,.35);opacity:.45;transition:opacity .6s ease}
+.ideas-slide{flex:none;width:var(--iw);border-radius:clamp(11px,1.3vw,17px);overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05),0 28px 60px -30px rgba(16,24,40,.35);opacity:.45;transition:opacity .6s ease}
 .ideas-rail[data-rail-ready] .ideas-slide{will-change:transform;backface-visibility:hidden}
 .ideas-slide[data-active]{opacity:1}
-.ideas-mock{aspect-ratio:16/10;background:#fff;pointer-events:none}
+.ideas-mock{aspect-ratio:1280/752;background:#fff;pointer-events:none}
 .ideas-dots{display:flex;justify-content:center;gap:4px;margin-top:clamp(18px,2vw,26px)}
 .ideas-dot{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .ideas-dot i{display:block;width:8px;height:8px;border-radius:50%;background:#d4d4d8;transition:background-color .3s ease,transform .3s ease}
@@ -271,7 +271,7 @@ const CSS = `
 @media(max-width:767px){
   .ideas .ideas-h{font-size:clamp(30px,8.4vw,40px)}
   .ideas-rail{--iw:calc(100% - 44px);--ig:10px}
-  .ideas-mock{aspect-ratio:640/880}
+  .ideas-mock{aspect-ratio:640/836}
   .ideas-slide{opacity:.6}
 }
 @media(prefers-reduced-motion:reduce){

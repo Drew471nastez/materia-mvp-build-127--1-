@@ -172,7 +172,7 @@ const CSS = `
 .biz-kind[aria-selected="true"] span{color:#52525b}
 .biz-kind[aria-selected="true"]::before{transform:none}
 .biz-kind:focus-visible{outline:2px solid #7c3aed;outline-offset:2px;border-radius:8px}
-.biz-stage{position:relative;display:grid;border-radius:clamp(16px,1.8vw,24px);overflow:hidden;background:#f2f2f3;box-shadow:0 0 0 1px rgba(16,24,40,.04)}
+.biz-stage{position:relative;display:grid;border-radius:clamp(15px,1.8vw,23px);overflow:hidden;background:#f2f2f3;box-shadow:0 0 0 1px rgba(16,24,40,.04)}
 .biz-slide{grid-area:1/1;contain-intrinsic-block-size:auto 0px;transition:opacity .55s cubic-bezier(.2,.7,.2,1)}
 .biz-slide[data-pane="active"]{z-index:2;animation:biz-in .55s cubic-bezier(.2,.7,.2,1) both}
 .biz-slide[data-pane="leaving"]{z-index:1}

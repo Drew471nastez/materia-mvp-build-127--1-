@@ -9,7 +9,8 @@ import { BusinessCarousel, BUSINESS_HEADING, BUSINESS_SLIDES } from "../componen
 import { u } from "../components/marketing/home/showcase-mocks/frame"
 /* Changed on purpose (landing round): section 6 is one product page per kind of thing sold (business-mocks), and the builders gained the Design slide. */
 import * as Biz from "../components/marketing/home/showcase-mocks/business-mocks"
-import { CommunityBuilderMock, DesignMock, MayaPage, OnePageEditorMock, WebsiteBuilderMock } from "../components/marketing/home/showcase-mocks/builder-mocks"
+/* Changed on purpose (landing round, second pass): the OnePage in the editor is Nina Sato's on the Air theme (NinaPage), not Maya Okafor's. */
+import { CommunityBuilderMock, DesignMock, NinaPage, OnePageEditorMock, WebsiteBuilderMock } from "../components/marketing/home/showcase-mocks/builder-mocks"
 
 const read = (p: string) => readFileSync(p, "utf8")
 const MOCKS = "components/marketing/home/showcase-mocks"
@@ -40,7 +41,7 @@ const everyMock = renderToString(
     "div",
     null,
     ...([Biz.EbookPage, Biz.CoursePage, Biz.CommunityPage, Biz.TeePage, Biz.BookingPage] as const).map((P) => createElement(P)),
-    createElement(MayaPage),
+    createElement(NinaPage),
     createElement(WebsiteBuilderMock),
     createElement(DesignMock),
     createElement(OnePageEditorMock),
@@ -200,6 +201,10 @@ for (const want of ["Edit page", "Name and introduction", "Cover and gallery", "
 
 /* ---- fictional brands only; no real-brand marks in the mocks */
 assert.ok(!/react-icons/.test(source))
+/* Changed on purpose (landing round, second pass, the owner: "modern social icons", the official marks): the OnePage's social row draws
+   Instagram, TikTok, YouTube and Spotify through the marks the OnePage itself draws (components/icons/brand-icons.generated), and nothing else. */
+const brandImports = [...source.matchAll(/import \{([^}]*)\} from "@\/components\/icons\/brand-icons\.generated"/g)].map((m) => m[1].replace(/\s/g, ""))
+assert.deepEqual(brandImports, ["SiInstagram,SiSpotify,SiTiktok,SiYoutube"])
 assert.ok(!/\b(Shopify|Nike|Notion Labs|Figma Inc)\b/.test(source))
 
 /* A slide put away keeps the height it last drew (contain-intrinsic-block-size: auto, set on every slide since the browser only records the size while the rule is already there), so the business stage never shrinks when a shorter slide comes up (it scored a 0.02 layout shift on phones). */
