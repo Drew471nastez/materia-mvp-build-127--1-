@@ -143,8 +143,16 @@ export async function POST(request: Request) {
     const leadSource = contactSourceFrom({ request, surface: "onepage", form: "lead_magnet", sent: { from: fromOfHost(referrerHost) ?? undefined, utm_source: utm.source ?? undefined, utm_campaign: utm.campaign ?? undefined } })
     const country = request.headers.get("x-vercel-ip-country")
 
-    /* 1. The lead, before anything leaves. An address already on the page is not a second row. */
-    const saved = await saveLead(db, {
+    /*
+      1. The lead, before anything leaves. An address already on the page is
+      not a second row, and its signup is not sent to the creator's tools a
+      second time. onepage_leads has no unique key to say so
+      (ONEPAGE_PRODUCTION_AUDIT.md, F6), so the page is asked first, as the
+      email signup asks it (app/api/onepage/leads).
+    */
+    const { data: leadRows } = await db.from("onepage_leads").select("id").eq("onepage_id", onepageId).eq("email", normalizedEmail).limit(1)
+    const known = Array.isArray(leadRows) && leadRows.length > 0
+    const saved = known ? { ok: true as const, fresh: false } : await saveLead(db, {
       onepageId,
       email: normalizedEmail,
       name,

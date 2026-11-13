@@ -53,7 +53,7 @@ Status values:
 | F3 | `app/api/onepage/leads/route.ts`, email-capture | An address already on the page (an RSVP, or someone who unsubscribed) was told "Already subscribed" and never reached the subscriber step. | The lead is not duplicated, but the list step always runs. | Fixed |
 | LEAD-1 | leads | With no `seller_id`/`creator_id`, the subscriber was filed under `owner_id`, which is a user id and not a store. | Now uses the owner's store (SEC1). | Fixed |
 | F4 | `public-onepage.tsx` | A browser-wide "3 subscriptions in 3 days" counter, shared by every creator's page on storelib.me, blocked real signups with an alert. | Removed; the server limits by address and by email. | Fixed |
-| F5 | `lib/onepage/paid-access.ts` | An email signup's gated file address was in every visitor's page source. | Stripped at render; the client uses only the server's link. | Fixed, untested |
+| F5 | `lib/onepage/paid-access.ts` | An email signup's gated file address was in every visitor's page source. | Stripped at render; the client uses only the server's link. | Fixed |
 | P-F3 | `lib/onepage/public-shape.ts`, `schedule-clock.ts` | Switched-off blocks, and group children outside their schedule, were sent to every visitor and hidden only in the browser. Group children's schedules never triggered a refresh. | Dropped on the server for the published page. `nextScheduleChange` now walks groups. | Fixed |
 | P-F6 / B6 | `public-shape.ts` | A picture's link typed without a scheme opened as a 404 under storelib.me. | `linkHref` is now applied to image links too. | Fixed |
 | P-F7 | `lib/onepage/page-presence.ts` | An untouched new page (name plus the default signup form) was indexed and listed in the sitemap. | A signup form on its own no longer counts as content. | Fixed |
@@ -69,7 +69,7 @@ Status values:
 | D2 | `public-onepage.tsx`, `hero-scroll.tsx` | The paid verified badge was missing when the title was a logo. | Drawn beside the logo in both layouts and in the scrolled bar. | Fixed |
 | D5 | `design-tab.tsx` | Picking an icon colour did nothing while icons used brand discs (the default). | The pick switches the icons to one colour. | Fixed |
 | DB-1 | SQL | `onepages.archived_blocks` (written by every save) is in no SQL file in the repository, so a database built from the repo fails every editor save. | Needs an idempotent SQL part added to the run-now ledger (I. Remaining). | Backlog |
-| F6 | `onepage_leads` | There is no unique key, so the `already`/`fresh` checks never fire and RSVP counts and integration pushes can repeat. | Needs a deduplication pass and a unique index scoped by block (SQL). | Backlog |
+| F6 | `onepage_leads` | There is no unique key, so the `already`/`fresh` checks never fire and RSVP counts and integration pushes can repeat. | The email signup and the download form now look for an existing lead first, so a repeat is one lead and is not pushed again. **Still open:** RSVP and the lead magnet's code and waitlist forms; the real fix is a deduplication pass plus a unique index scoped by block (SQL). | Partly fixed |
 | B7 | `links-tab.tsx` | Typing a new link address cleared an uploaded thumbnail and a chosen icon at the first keystroke. | | Backlog |
 | B8 | `links-tab.tsx` | Adding a streaming service from the fallback list was discarded without a message. | | Backlog |
 | B10 | `links-tab.tsx` | Social icons can only be reordered with HTML5 drag, which phones in the app do not support. | | Backlog |
@@ -181,8 +181,8 @@ Components:
 - `app/(storelib)/app/onepage/page.tsx`
 
 Tests:
-- New: `tests/onepage-production-audit.test.ts` (strict list). The journey harness learned the email-capture route.
-- Updated: ten existing suites whose source assertions described behaviour that changed on purpose. Each changed assertion carries a "Changed on purpose (OnePage production audit, …)" note.
+- New: `tests/onepage-production-audit.test.ts` (strict list). The journey harness learned the email-capture route. `scripts/check-onepage-avatar-routes.mjs` stubs the save route's two new server modules.
+- Updated: fourteen existing suites whose source assertions or module stubs described behaviour that changed on purpose. Each changed assertion carries a "Changed on purpose (OnePage production audit, …)" note.
 
 ## E. Performance
 
@@ -193,11 +193,28 @@ Tests:
 
 ## F. Test results
 
-_Filled in after the final runs._
+All runs are on this branch merged with `main` at `5f1db86b`.
+
+- **Full suite** (`node scripts/run-push-tests.mjs`, 1,100 suites, with `NODE_OPTIONS=--max-old-space-size=10240`, since the runner's compile ran out of Node's default heap on this machine): 1,096 suites passed. Four did not, all because of this work: two assertions pinned to the old shape of code that changed on purpose (`page-seo`, `public-delivery`), and two suites whose module stubs lacked names the save route's new publish path imports (`onepage-search-share`, `onepage-share-image`). All four were updated and pass when re-run on their own, as does every suite that reads the files changed afterwards (the email-capture duplicate check, the lazy imports).
+- **`tests/onepage-production-audit.test.ts`**: 118 of 118 checks pass, including journey-harness runs of PUT `/api/onepage`, POST `/api/onepage/publish`, `/api/onepage/leads` and `/api/onepage/email-capture`.
+- **`scripts/check-onepage-avatar-routes.mjs`** (the save and publish routes bundled with stubs): passes.
+- **Type ratchet** (`node scripts/ci/typecheck-ratchet.mjs`): fails, but it fails identically on unmodified `main`. The "more errors than the baseline" file list is the same with and without this work (373 errors on `main`, 370 with it). The only difference is `components/onepage/tabs/links-tab.tsx`, which goes from 30 errors to 27. This work adds no type error.
+- **ESLint**: the repository's config covers only `.js`, `.mjs` and `.cjs` files, so it checks nothing in the TypeScript files changed here.
+- **Not done**: a browser run of the editor and the live page (no Supabase project or test accounts were available in this environment, so creator sign-in, uploads and Stripe could not be exercised). Every route-level claim above comes from the journey harness, which runs the real route handlers against an in-memory PostgREST model.
 
 ## G. Build results
 
-_Filled in after the final build._
+`pnpm build` with placeholder environment variables, on a 4 CPU, 16 GB machine. Peak memory is the summed resident memory of the whole build process tree, sampled every 200 ms. The sum counts shared pages more than once, so it overstates the real peak a little.
+
+| Run | Result | Time | Peak memory |
+| --- | --- | ---: | ---: |
+| Before (HEAD `c51a69cc`) | success | 206 s | 7,967 MB |
+| After (this work merged with `main` at `5f1db86b`) | success | 205 s | 7,886 MB |
+| After, final tree (with the last test and email-capture fixes) | success | 198 s | 7,889 MB |
+
+Both runs are under 8 GB. The repository's own budget in `docs/reliability/PERFORMANCE.md` is 7,600 MB, and both runs were over it before and after this work. This round did not try to cut build memory. Which build phase reaches the peak was not measured, and the changes here add only a few small modules.
+
+Warnings: the same five as before (`lib/api/public-fetch.ts` reaching the Edge instrumentation through `node:dns`, `node:http`, `node:https` and `node:net`). This work adds none.
 
 ## H. Deployment results
 

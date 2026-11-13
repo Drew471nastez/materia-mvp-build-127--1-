@@ -255,6 +255,8 @@ async function main() {
     check("another creator's product is never handed over", t.status === 200 && !t.json?.downloadLink, t)
     const forged = await ask("m-free", "d@example.com", { digital_product_id: pwyw.id }, "198.51.100.4")
     check("a product id in the request is ignored: the block's product is the one given", forged.status === 200 && j.rows("subscriber_digital_products").filter((r) => r.subscriber_email === "d@example.com").every((r) => r.product_id === free.id), j.rows("subscriber_digital_products"))
+    const twice = await ask("m-free", "a@example.com", {}, "198.51.100.6")
+    check("the same address again: its link, one lead, said as already in", twice.status === 200 && twice.json?.already === true && typeof twice.json?.downloadLink === "string" && j.rows("onepage_leads").filter((l) => l.email === "a@example.com").length === 1, { status: twice.status, json: twice.json, leads: j.rows("onepage_leads").filter((l) => l.email === "a@example.com").length })
     const gone = await ask("nope", "e@example.com", {}, "198.51.100.5")
     check("a block that is not on the published page answers 404", gone.status === 404, gone)
     check("the lead is kept before anything is sent", j.rows("onepage_leads").some((l) => l.email === "a@example.com"))
@@ -275,6 +277,8 @@ async function main() {
     const live = withoutLocked(sealed) as any[]
     check("the live page sends neither the text nor the sealed copy", !("locked_sealed" in live[0].data) && !("locked_text" in live[0].data) && live[0].data.locked_has_text === true)
     check("a block without a locked part is not touched", sealLocked([{ id: "l", type: "link_button", data: { url: "https://a.example" } }])[0].data.url === "https://a.example")
+    const signup = withoutLocked([{ id: "s", type: "email_capture", data: { headline: "Join", enable_digital_product: true, digital_product_file_url: "https://cdn.example/guide.pdf" } }]) as any[]
+    check("F5: an email signup's gated file address is not sent with the page, only that there is one", !("digital_product_file_url" in signup[0].data) && signup[0].data.digital_product_has_file === true && signup[0].data.headline === "Join")
   }
 
   section("P-F3: what is not on the live page is not sent with it")

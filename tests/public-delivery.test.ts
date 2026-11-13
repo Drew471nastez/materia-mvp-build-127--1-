@@ -201,7 +201,8 @@ async function publishing() {
   check("  and the publish is one update of every published field together", (publish.match(/\.update\(publishData\)/g) ?? []).length === 1)
   const put = readCode("app/api/onepage/route.ts")
   check("a draft save clears the live copy only when it changed what the live page reads (settings, address, share picture, photo)",
-    /if \(updates\.settings !== undefined \|\| updates\.slug !== undefined \|\| updates\.share_image_mode !== undefined \|\| photoNow !== undefined\) \{\s*await onePageChangedFor\(ownerId, \[existing\.slug\]\)/.test(put) &&
+    /* Changed on purpose (OnePage production audit, S2): a save that publishes (publish: true) changed the live copy, so it clears it too, under the old address and the one it wrote. */
+    /if \(publishing \|\| updates\.settings !== undefined \|\| updates\.slug !== undefined \|\| updates\.share_image_mode !== undefined \|\| photoNow !== undefined\) \{\s*await onePageChangedFor\(ownerId, \[existing\.slug, \(updated as \{ slug\?: string \| null \} \| null\)\?\.slug\]\)/.test(put) &&
       put.indexOf("await onePageChangedFor(") > put.indexOf("if (error) {"))
   check("a new creator page domain clears it", /if \(moved && userId\) await onePageChangedFor\(userId\)/.test(readCode("lib/custom-domains/store.ts")))
   check("the creator page's publish (its name and photo sync) clears it", (readCode("app/api/store-builder/route.ts").match(/await onePageChangedFor\(page\.profileId\)/g) ?? []).length === 2)

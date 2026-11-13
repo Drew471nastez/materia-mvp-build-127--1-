@@ -1,8 +1,5 @@
 import { profileAvatar } from "@/lib/account/avatar"
 import { NextResponse, after } from "next/server"
-import { announce, onePageAddresses } from "@/lib/seo/announce"
-import { changedLinks, onePageLinks, syncOnePageLinksToCreatorPage } from "@/lib/social/onepage-sync"
-import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { createClient } from "@/lib/supabase/server"
 import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
@@ -456,6 +453,12 @@ export async function PUT(request: Request) {
         to the creator page too (lib/social/onepage-sync), and the address goes
         to the search engines that take IndexNow, after the answer.
       */
+      /* Loaded only by a save that publishes: a plain draft save never pays for the creator page's and the search engines' modules. */
+      const [{ changedLinks, onePageLinks, syncOnePageLinksToCreatorPage }, { creatorPagesChanged }, { announce, onePageAddresses }] = await Promise.all([
+        import("@/lib/social/onepage-sync"),
+        import("@/lib/storefront/creator-page-purge"),
+        import("@/lib/seo/announce"),
+      ])
       if (liveLinksBefore && typeof liveLinksBefore === "object") {
         const changes = changedLinks(onePageLinks(liveLinksBefore), onePageLinks((updated as { published_social_links?: unknown } | null)?.published_social_links))
         if (Object.keys(changes).length > 0 && (await syncOnePageLinksToCreatorPage(db, ownerId, changes))) {

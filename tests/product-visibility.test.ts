@@ -361,7 +361,7 @@ async function main() {
     /* Changed on purpose (OnePage production audit, C1): the product is the one the PUBLISHED block names, of the page owner's store (lib/onepage/page-store), free as Instant checkout decides it. */
     check("the OnePage email capture sends a download only for a published product", /publicOnly\(\s*db\s*\.from\("products"\)/.test(capture) && /isPubliclyVisible\(product\)/.test(capture))
     check("and only one of this page's own creator", /\.eq\("creator_id", creatorId\)/.test(capture) && /const creatorId = pageCreatorId\(onepage\)/.test(capture) && /withOwnerStore\(/.test(capture))
-    check("and still collects the address when it is not", !/error: "Product not found"/.test(capture) && /const saved = await saveLead\(db,/.test(capture))
+    check("and still collects the address when it is not", !/error: "Product not found"/.test(capture) && /: await saveLead\(db, \{/.test(capture))
     check("the lead is recorded with the product it really sent", /digital_product_id: product\.id/.test(capture))
 
     const wishlist = strip(read("app/api/wishlist/route.ts"))
