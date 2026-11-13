@@ -3,28 +3,27 @@
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { StoryHeading } from "./story-heading"
 /*
-  TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 13).
-  The stores and websites are screenshots of Storelib's own renderers with
-  fixture data (landing round 2): three creator pages drawn by the creator
-  page's components (the newsletter bar, the cover, the round avatar, Home /
-  Products / Communities and the Featured cards, in a real colour scheme:
-  Pink, Air, Astrid) and two websites drawn by ThemePage with the default
-  theme's sections (announcement bar, header, ticker or hero, Product
-  Grid), captured at 2x and scaled to 1440 x 990. The communities are
+  TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 14 and
+  landing round 2, merged). Each group is a store or website, a OnePage and
+  a community, so every swipe shows all three things Storelib makes, for
+  fictional creators who sell what real Storelib creators sell. The stores
+  are drawn in the layout of a real Storelib creator store, the websites as
+  sites built on Storelib, the OnePages each in its own theme (Hemi Walker's
+  is the live OnePage captured at a phone's width), and the communities are
   Storelib's own member frame and feed (components/community/member)
-  rendered with a fictional community's data and photographed at 2x. Every
-  creator is fictional; photographs are Unsplash. Satori Studio is a real
-  OnePage, storelib.me/satori-studio, as a phone shows it. The OnePages beside them are the live
-  OnePage rendered with sample creators, captured at a phone's width.
+  rendered with a fictional community's data and photographed at 2x.
+  Satori Studio is a real OnePage, storelib.me/satori-studio, as a phone
+  shows it. Photographs are Unsplash.
 
   EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
   pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
   card with no bars and nothing cropped. At one height they are 1.4545 and
   0.5114 wide, which is still 256fr 90fr 256fr.
 
-  THE CAPTION waits for a pointer to rest on the picture (a mouse or a pen:
-  hover and a fine pointer), then fades in; on a touch screen the pictures
-  stand on their own and the caption is read by assistive technology only.
+  THE CAPTION (three words at most, the owner) waits for a pointer to rest
+  on the picture (a mouse or a pen: hover and a fine pointer), then fades
+  in; on a touch screen the pictures stand on their own and the caption is
+  read by assistive technology only.
 */
 const wide = (brand: string, label: string, alt: string) => ({
   src: `/home/showcase/a-${brand}.webp`,
@@ -42,27 +41,27 @@ const portrait = (brand: string, label: string, alt: string) => ({
   width: 540,
   height: 1056,
 })
-/* The OnePage captions are three words at most (the owner, wave 13). */
+/* Every caption is three words at most (the owner, waves 13 and 14). */
 const GROUPS = [
   [
-    wide("shift", "Sell merch people actually wear", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
+    wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates with dashboard previews"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
     wide("slowrise", "Bring your community together", "Slow Rise Bakers, a sourdough community on Storelib: a pinned poll for the December bake-along, a crumb shot question, the next live shaping session and the top contributors"),
   ],
   [
-    wide("ellie", "Sell digital downloads", "Ellie Brandt's Storelib creator page: a children's illustrator in Melbourne selling a colouring pack, animal posters and Procreate brushes"),
-    portrait("jonas", "Links that sell", "Jonas Weber's OnePage, a cycling coach in Girona: his photo across the top in a blue theme, a 12 week base plan for €59 and a 45 minute coaching call for €75"),
+    wide("hale", "Sell training programs", "Hale Strength, coach Marcus Hale's website with a lifter at the squat rack, a workout log and four strength programs"),
+    portrait("gia", "Sell your cookbook", "Gia Romano's OnePage with a pasta ebook, a fresh pasta class and her recipes"),
+    wide("pinchgrip", "Host meetups and events", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
+  ],
+  [
+    wide("stillwater", "Run a membership", "Stillwater, a yoga membership website with a live Sunday class and new on-demand classes"),
+    portrait("hemi", "Sell coaching sessions", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
     wide("nightshift", "Gather people around a craft", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
-    wide("draft", "Teach what you know", "The Long Draft's Storelib website: a ten-week novel writing course for £240 and three shorter clinics"),
-    portrait("hemi", "Show your work", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
-    wide("pinchgrip", "Run a members' club", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
-  ],
-  [
-    wide("tomas", "Sell templates and kits", "Tomás Ferreira's Storelib creator page with Notion and Figma templates from €12"),
-    portrait("noor", "All your links", "Noor Haddad's OnePage on a starry purple theme, houseplant care from Toronto: a free plant health quiz and two guides for CA$14 and CA$9"),
-    wide("marlow", "Merch for the whole tour", "Marlow Static's Storelib creator page: a Glasgow band's new LP, a tour tote and a live album under a concert cover"),
+    wide("lowtide", "Sell sample packs", "Lowtide's Storelib store: a producer's sample packs and drum kits under a recording studio cover"),
+    portrait("bea", "Fill your bookings", "Nails by Bea, a nail artist's OnePage with booking, her work and press-on sets"),
+    wide("shift", "Sell merch people actually wear", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()

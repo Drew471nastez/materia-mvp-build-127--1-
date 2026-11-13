@@ -70,12 +70,31 @@ export function useShowcaseMotion() {
     resize?.observe(viewport)
     phone.addEventListener("change", remeasure)
 
+    /*
+      Wave 14: every card's picture is fetched and decoded as soon as the
+      section comes on screen, not when its card is moved into view. The
+      pictures are lazy in the markup (nothing off screen costs the page's
+      first load), but a card brought in by a swipe or autoplay was still
+      empty for a moment at 4x CPU while its picture loaded. Twelve small
+      webps, decoded off the main thread (decoding="async", img.decode()).
+    */
+    let warmed = false
+    const warm = () => {
+      if (warmed) return
+      warmed = true
+      for (const img of el.querySelectorAll<HTMLImageElement>("img")) {
+        img.loading = "eager"
+        img.decode?.().catch(() => {})
+      }
+    }
+
     /* Autoplay only while half the rail is on screen; the first sight of it plays the cards' entrance. */
     const seen =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(
             (entries) => {
               for (const entry of entries) {
+                if (entry.isIntersecting) warm()
                 if (entry.target === el) {
                   motion.setVisible(entry.intersectionRatio >= 0.5)
                   if (entry.isIntersecting) viewport.setAttribute("data-showcase-entered", "")
@@ -88,7 +107,10 @@ export function useShowcaseMotion() {
     seen?.observe(el)
     const heading = section?.querySelector(".build-showcase-top")
     if (heading) seen?.observe(heading)
-    if (!seen) motion.setVisible(true)
+    if (!seen) {
+      motion.setVisible(true)
+      warm()
+    }
 
     cleanup.current = () => {
       cancelAnimationFrame(frame)
