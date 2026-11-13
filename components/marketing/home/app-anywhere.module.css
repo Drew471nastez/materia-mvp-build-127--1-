@@ -3,16 +3,16 @@
 /* The three points: titles only, divided by hairlines, no marks. */
 .points {
   max-width: 460px;
-  border-top: 1px solid #ececf0;
+  border-top: 1px solid var(--band-line, #ececf0);
 }
 .point {
   padding: 16px 0;
-  border-bottom: 1px solid #ececf0;
+  border-bottom: 1px solid var(--band-line, #ececf0);
   font-size: clamp(17px, 1.5vw, 20px);
   font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.35;
-  color: #18181b;
+  color: var(--band-ink, #18181b);
 }
 
 /* The photograph, at its own 4:3 shape so the box is there before the file. */
