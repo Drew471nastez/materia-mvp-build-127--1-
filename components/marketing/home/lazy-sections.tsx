@@ -34,13 +34,15 @@ export const LazyBusinessCarousel = lazySection(() => import("./business-carouse
 
 export const LazyCreatorsCarousel = lazySection(() => import("./creators-carousel").then((m) => m.CreatorsCarousel), {
   name: "creators",
-  minHeight: "clamp(820px, 100vh, 1100px)",
+  /* Wave 13: measured 844px at 390, 830 to 833 at 768 to 1024, 952 at 1280, 1029 at 1440, 1039 at 1920. */
+  minHeight: "clamp(830px, calc(260px + 54vw), 1040px)",
   styles: () => import("./creators-carousel").then((m) => m.CREATORS_STYLES),
 })
 
 export const LazyHowItWorks = lazySection(() => import("./how-it-works").then((m) => m.HowItWorks), {
   name: "how-it-works",
-  minHeight: "clamp(900px, 120vh, 1400px)",
+  /* Wave 13: one column on a phone (2750px at 390), two at 768 (1620), three from 1024 (1268 to 1498). */
+  minHeight: "max(calc(3900px - 300vw), min(1500px, calc(1000px + 32vw)))",
   styles: () => import("./how-it-works").then((m) => m.HOW_IT_WORKS_STYLES),
 })
 

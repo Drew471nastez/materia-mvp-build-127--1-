@@ -23,7 +23,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { HowItWorks } from "@/components/marketing/home/how-it-works"
+import { HowItWorks, HOW_MERCH } from "@/components/marketing/home/how-it-works"
 import { CheckoutScene } from "@/components/marketing/home/checkout-scene"
 import { SellEverywhereMap, COMMERCE_LAND, commerceLandPath } from "@/components/marketing/home/sell-everywhere-map"
 import { EarningsCalculator, commerceMonth } from "@/components/marketing/home/earnings-calculator"
@@ -86,8 +86,11 @@ console.log("\nCommerce: the sections render on the server")
   const how = renderToStaticMarkup(createElement(HowItWorks))
   check("how it works: its heading", how.includes("Sell what your fans love. We handle the rest."))
   check("how it works: five tiles", (how.match(/class="cmh-tile"/g) ?? []).length === 5)
-  check("how it works: the picker is a radio group with a slider", how.includes('role="radiogroup"') && how.includes('type="range"') && how.includes('aria-label="Product"'))
-  check("how it works: the picker shows $15.75 for the default tee", how.includes("$15.75"))
+  /* Changed on purpose (wave 13): the owner removed the profit picker, the "How it works" pill and the subheading. */
+  check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
+  check("how it works: the merch card shows a $30 tee leaving $15.75, and five products", how.includes("$15.75") && how.includes("$30.00") && HOW_MERCH.length === 5 && HOW_MERCH.every((m) => how.includes(m.name) && how.includes(`/home/how/merch-${m.id}.webp`)))
+  check("how it works: each merch profit is Storelib's fee and the example cost off the price", HOW_MERCH.every((m) => m.profitCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.profitCents > 0))
+  check("how it works: the tiles use the product's real words", ["Buy now · $19", "Payment complete", "Thanks for your purchase", "Get your files", "Add lesson", "Publish", "Free preview"].every((w) => how.includes(w)))
 
   const co = renderToStaticMarkup(createElement(CheckoutScene))
   check("checkout: its own headline, not the reference's", co.includes("Checkout that turns a tap into a sale") && !/almost cheating/i.test(co))
@@ -151,6 +154,9 @@ console.log("\nCommerce: images")
   check("every image the code names exists", named.size >= 10 && missing.length === 0, missing)
   check("nothing hotlinked", !/https?:\/\/[^"'`\s]*\.(webp|png|jpe?g)|images\.unsplash\.com/.test(all))
   const imgs = (all.match(/<img\b/g) ?? []).length
+  const howDir = join(ROOT, "public/home/how")
+  const howFiles = existsSync(howDir) ? readdirSync(howDir) : []
+  check("public/home/how holds the five merch photos, webp, each under 30 KB", howFiles.length === 5 && howFiles.every((f) => /^merch-[a-z]+\.webp$/.test(f) && statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   check("images are lazy and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="lazy"/g) ?? []).length && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }
 
