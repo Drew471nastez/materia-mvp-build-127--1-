@@ -13397,11 +13397,12 @@ const words: Record<string, string> = {
  "Most room": "Mais espaço",
  "Room for a bigger business.": "Espaço para um negócio maior.",
  "Who is Scale for?": "Para quem é o Scale?",
- "A bigger business that needs more room than Pro: {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.": "Um negócio maior que precisa de mais espaço que o Pro: {maxSites} sites de {maxPages} páginas cada, {storage} de armazenamento de arquivos e {aiEdits} edições com IA por mês, por {price} por mês.",
+ "A bigger business: the lowest fee on every sale ({scaleFee}), {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.": "Um negócio maior: a menor taxa em cada venda ({scaleFee}), {maxSites} sites de {maxPages} páginas cada, {storage} de armazenamento de arquivos e {aiEdits} edições com IA por mês, por {price} por mês.",
  "Storelib's fee for your plan ({freeFee} on Free, {proFee} on Pro, {scaleFee} on Scale), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.": "A taxa da Storelib do seu plano ({freeFee} no Grátis, {proFee} no Pro, {scaleFee} no Scale) e a taxa de processamento de cartão da Stripe, cobrada em todos os planos. Não há mais nada.",
  "From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, your paid plan stays active until the end of the period you paid for, then your account moves to Free.": "Em Faturamento, nas Configurações, quando quiser. Um upgrade começa na hora. Se cancelar, seu plano pago continua ativo até o fim do período pago e depois sua conta vai para o Grátis.",
  "Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only paid plans have, like your own domain and hidden branding, stop at the end of your paid period.": "Seus produtos, páginas, clientes e pedidos ficam exatamente como estão. A taxa do Grátis vale para novas vendas, e o que só os planos pagos têm, como domínio próprio e marca oculta, para no fim do período pago.",
- "No. Free asks for no card. You only add one when you upgrade to Pro or Scale.": "Não. O Grátis não pede cartão. Você só adiciona um ao fazer upgrade para o Pro ou o Scale."
+ "No. Free asks for no card. You only add one when you upgrade to Pro or Scale.": "Não. O Grátis não pede cartão. Você só adiciona um ao fazer upgrade para o Pro ou o Scale.",
+ "Scale plan": "Plano Scale"
 }
 
 export default words

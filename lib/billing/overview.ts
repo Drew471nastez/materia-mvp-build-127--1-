@@ -17,7 +17,7 @@ import "server-only"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { FREE_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 import { subscriptionReader } from "@/lib/billing/subscription-reader"
 import { billingCreatorFor, billingPlanOverrideFor, billingSubscriptionRowFor } from "@/lib/billing/request-reads"
 import { resolveSubscriptionView, STRIPE_READ_TIMEOUT_MS, type SubscriptionsRead } from "@/lib/billing/subscription-state"
@@ -52,9 +52,9 @@ const PRO_PLAN = {
   name: "Scale",
   price_cents: 9900,
   billing_period: "month",
-  fee_percent: 0.015,
+  fee_percent: SCALE_STANDARD_RATE,
   fee_fixed_cents: 25,
-  features: ["1.5% + $0.25 per transaction", "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
+  features: [`${ratePercentLabel(SCALE_STANDARD_RATE)} + $0.25 per transaction`, "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
   is_active: true,
 }
 

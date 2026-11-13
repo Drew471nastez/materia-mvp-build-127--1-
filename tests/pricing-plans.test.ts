@@ -35,6 +35,7 @@ import {
   PRO_PRICE_CENTS,
   planDisplayName,
   planHighlights,
+  planComparison,
   formatPlanPrice,
   withPlanLabel,
   pricedFor,
@@ -43,7 +44,9 @@ import {
   YEARLY_BILLING_LIVE,
   YEARLY_SAVING_PERCENT,
 } from "@/lib/billing/plans"
-import { getFeePreview, formatFeePercent, getFeeDescription } from "@/lib/billing/fee-calculator"
+import { getFeePreview, formatFeePercent, getFeeDescription, computeApplicationFee, calculateFeeWithPlan, toStorelibPlan } from "@/lib/billing/fee-calculator"
+import { calculateStorelibFeeWithConfig } from "@/lib/payments/fees/engine"
+import { codeDefaultFeeConfig } from "@/lib/payments/fees/defaults"
 import { siteLimits } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
 
@@ -283,8 +286,26 @@ function main() {
 
   console.log("\nThe $99 plan, sold again as Scale, still works for the people already on it")
 
-  /* Changed on purpose: the fee engine has one paid rate, so the $99 plan pays Pro's 3% (2a8b4df92; tests/fees-free-plan pins it). In dollars, as this suite is written. */
-  check("its fee still resolves to Pro's 3%", getFeePreview(1000, "pro", "USD").feePercent === 0.03 && getFeePreview(1000, "pro", "USD").feePercent === getFeePreview(1000, "growth", "USD").feePercent && getFeePreview(1000, "pro", "USD").planId === "pro")
+  /* Changed on purpose (wave 13): owner set Scale to 1.5% + $0.25. Until now the fee engine had one paid rate and the $99 plan paid Pro's 3% (2a8b4df92). In dollars, as this suite is written. */
+  {
+    const usd = (cents: number, plan: "free" | "growth" | "pro") => getFeePreview(cents, plan, "USD")
+    check("Scale (pro) is charged 1.5% + $0.25 on a $10 sale: 40c", usd(1000, "pro").feePercent === 0.015 && usd(1000, "pro").feeFixedCents === 25 && usd(1000, "pro").platformFeeCents === 40 && usd(1000, "pro").planId === "pro", JSON.stringify(usd(1000, "pro")))
+    check("Pro (growth) stays 3% + $0.25 on a $10 sale: 55c", usd(1000, "growth").feePercent === 0.03 && usd(1000, "growth").feeFixedCents === 25 && usd(1000, "growth").platformFeeCents === 55)
+    check("Free stays 5% + $0.25 on a $10 sale: 75c", usd(1000, "free").feePercent === 0.05 && usd(1000, "free").feeFixedCents === 25 && usd(1000, "free").platformFeeCents === 75)
+    check("Scale's small orders pay 7.75% and no fixed fee, meeting the standard fee at $4.00 (31c either side)", usd(100, "pro").feePercent === 0.0775 && usd(100, "pro").feeFixedCents === 0 && usd(399, "pro").platformFeeCents === 31 && usd(400, "pro").platformFeeCents === 31)
+    check("the old id professional is charged as Scale", usd(1000, "professional" as "pro").feePercent === 0.015)
+    /* Every path a seller's fee is worked out on: the pure fee, the one for a stored plan row, the application fee, and the engine's tier for each id. */
+    check("computeApplicationFee: free 75c, growth 55c, pro 40c on $10", computeApplicationFee({ unitAmount: 1000, sellerPlan: "free", currency: "USD" }) === 75 && computeApplicationFee({ unitAmount: 1000, sellerPlan: "growth", currency: "USD" }) === 55 && computeApplicationFee({ unitAmount: 1000, sellerPlan: "pro", currency: "USD" }) === 40)
+    check("calculateFeeWithPlan reads the id, not the row's fee_percent", calculateFeeWithPlan(1000, { id: "pro", name: "x", fee_percent: 0.5, fee_fixed_cents: 0 }, "USD").platformFeeCents === 40 && calculateFeeWithPlan(1000, { id: "growth", name: "x", fee_percent: 0.5, fee_fixed_cents: 0 }, "USD").platformFeeCents === 55)
+    check("the plan ids map to the engine's tiers: free, paid, scale", toStorelibPlan("free") === "free" && toStorelibPlan("growth") === "paid" && toStorelibPlan("pro") === "scale")
+    check("the engine charges a stored fee version without Scale rates Scale's code rate", calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "scale" }, { ...codeDefaultFeeConfig(), scaleStandardRate: undefined, scaleMicroRate: undefined }).totalStorelibFeeMinor === 40)
+    check("the engine honours a version's own Scale rate", calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "scale" }, { ...codeDefaultFeeConfig(), scaleStandardRate: 0.02 }).totalStorelibFeeMinor === 45)
+    check("getFeeDescription: Free 5%, Pro 3%, Scale 1.5%, each + $0.25 per sale", getFeeDescription("free") === "5% + $0.25 per sale" && getFeeDescription("growth") === "3% + $0.25 per sale" && getFeeDescription("pro") === "1.5% + $0.25 per sale")
+    check("the Scale card and the comparison table say 1.5% + $0.25", OFFERED_PLANS[2].features[1] === "1.5% + $0.25 per sale" && planComparison()[0].rows[0].scale === "1.5% + $0.25 per sale" && planComparison()[0].rows[0].pro === "3% + $0.25 per sale")
+    check("checkout's fee for a stored plan goes through the same mapping", /sellerPlan: toStorelibPlan\(effectivePlan\)/.test(readCode("lib/billing/fee-calculator.ts")) && /calculatePlatformFee\(amountCents, creatorId, admin, currency, config\)/.test(readCode("lib/billing/platform-fee-server.ts")))
+    check("the payouts screen names a Scale fee", /\["free", "paid", "scale"\] as const/.test(readCode("app/(storelib)/app/payouts/payouts-client.tsx")))
+    check("the admin simulator charges pro as Scale", /body\.plan === "scale" \|\| body\.plan === "pro" \? "scale"/.test(readCode("app/api/admin/payments/simulate/route.ts")))
+  }
   check("its site limits are untouched", siteLimits("pro").customCode === true && siteLimits("pro").maxSites === 10)
   /* Changed on purpose (wave 13): the $99 plan is named Scale everywhere, its existing subscribers included. */
   check("its name on billing screens is Scale", planDisplayName("pro") === "Scale" && planDisplayName("professional") === "Scale")
@@ -308,6 +329,8 @@ function main() {
   for (const file of ["lib/billing/overview.ts", "app/(storelib)/app/settings/billing/upgrade/page.tsx", "app/api/billing/subscription/route.ts"]) {
     const code = readCode(file)
     check(`${file}: the pro fallback is still there`, /id: "pro",[\s\S]{0,40}price_cents: 9900/.test(code))
+    /* Added (wave 13): the stored fallback's fee is the engine's Scale rate, so the Billing tab says what checkout charges. */
+    check(`${file}: the pro fallback's fee is SCALE_STANDARD_RATE`, /price_cents: 9900,\s*billing_period: "month",\s*fee_percent: SCALE_STANDARD_RATE,/.test(code))
     check(`${file}: growth's fallback is 2900, not 2990`, /id: "growth",[\s\S]{0,40}price_cents: 2900/.test(code) && !/2990/.test(code))
   }
 

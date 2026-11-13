@@ -154,9 +154,8 @@ function proFeatures(): string[] {
 }
 
 /**
- * What Scale adds, after everything Pro has: the room its tables give it.
- * Its fee line is its own rate from the fee table (the fee engine has one
- * paid rate, so today it is the same as Pro's).
+ * What Scale adds, after everything Pro has: its own lower fee (1.5% + $0.25,
+ * the fee table's Scale rate, wave 13) and the room its tables give it.
  */
 function scaleFeatures(): string[] {
   const id = SCALE_CHECKOUT_PLAN_ID
@@ -340,7 +339,7 @@ export function planQuestions(): { q: string; a: string }[] {
     },
     {
       q: tt("Who is Scale for?"),
-      a: tt("A bigger business that needs more room than Pro: {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.", { maxSites: scale.maxSites, maxPages: scale.maxPages, storage: formatBytes(PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes), aiEdits: scale.aiEditsPerMonth, price: formatPlanPrice(SCALE_PRICE_CENTS) }),
+      a: tt("A bigger business: the lowest fee on every sale ({scaleFee}), {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.", { scaleFee: getFeeDescription(SCALE_CHECKOUT_PLAN_ID).replace(" per sale", ""), maxSites: scale.maxSites, maxPages: scale.maxPages, storage: formatBytes(PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes), aiEdits: scale.aiEditsPerMonth, price: formatPlanPrice(SCALE_PRICE_CENTS) }),
     },
     ...(breakEven
       ? [
