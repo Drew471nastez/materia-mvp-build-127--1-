@@ -222,11 +222,12 @@ async function main() {
     check("a box hydrates empty, as the server drew it, even when its code arrived first (no hydration mismatch on a slow network)", /useSyncExternalStore\(noSubscription, drawnInBrowser, drawnOnServer\)/.test(src) && /useState<ComponentType<P> \| null>\(\(\) => \(browserDrawn \? cached : null\)\)/.test(src))
     check("a mounted section is laid out ahead a slice at a time (no long task), and all at once if it comes near first", /const SLICE_ELEMENTS = \d+/.test(src) && /g\.style\.contentVisibility = "hidden"/.test(src) && /if \(e\.isIntersecting\) slicing\.get\(box\)\?\.\(\)/.test(src) && /const stopSlicing = layOutInSlices\(el,/.test(src))
     const globe = code("components/marketing/home/everything-globe.tsx")
-    check("the globe hands its worker back when its effect runs again on the same canvas (a canvas is transferred once)", /function holdDriver/.test(globe) && /releaseDriver\(canvas\)/.test(globe) && !/\bdriver\.stop\(\)\s*\n\s*ro\?\.disconnect/.test(globe))
+    /* Changed on purpose (wave 14 integration): main fixed the same crash first, by drawing a second run on a fresh canvas instead of keeping the worker per canvas; main's version is kept, so this checks that. */
+    check("the globe never asks a canvas it already handed to a worker for a context again (a second run gets a fresh canvas)", /const handedOver = new WeakSet<HTMLCanvasElement>\(\)/.test(globe) && /handedOver\.add\(canvas\)/.test(globe) && /if \(handedOver\.has\(canvas\)\) \{[\s\S]{0,200}canvas\.replaceWith\(fresh\)/.test(globe))
     const header = code("components/marketing/conditional-header.tsx")
     const client = code("components/platform/platform-header-client.tsx")
-    const rule = /function homePathname\(pathname: string, segmentBelow\?: string \| null\): string \{\s*if \(pathname !== "\/index"\) return pathname\s*return segmentBelow === undefined \|\| segmentBelow === null \? "\/" : pathname\s*\}/
-    check("the home page is \"/\" even where the server renders it as \"/index\" (Vercel's ISR), so its header is in the HTML", rule.test(header) && rule.test(client) && /homePathname\(usePathname\(\), segmentBelow\)/.test(header) && (client.match(/homePathname\(usePathname\(\)\)/g) || []).length === 2)
+    /* Changed on purpose (wave 14 integration): main shipped the same /index fix as one shared useRoutePath (lib/navigation/route-path.ts, covered in home-hero too); main's version is kept, so this checks that. */
+    check("the home page is \"/\" even where the server renders it as \"/index\" (Vercel's ISR), so its header is in the HTML", /const pathname = useRoutePath\(\)/.test(header) && (client.match(/const pathname = useRoutePath\(\)/g) || []).length === 2 && !/usePathname\(\)/.test(header))
   }
 
   console.log("\nNo hotlinked pictures")
