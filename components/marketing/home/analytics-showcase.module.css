@@ -1,57 +1,82 @@
-/* Section 11, analytics (wave 13: light). Only transform and opacity animate; the globe is one canvas. */
+/* Section 11, analytics (landing round: smaller). Only transform and opacity animate; the globe is one canvas. */
 
-.stage {
+.dark,
+.light {
   position: relative;
-  border-radius: 28px;
   overflow: hidden;
-  background:
-    radial-gradient(55% 70% at 22% 50%, rgba(124, 58, 237, 0.1) 0%, rgba(124, 58, 237, 0) 70%),
-    #f5f4f7;
+  height: 100%;
+  border-radius: 27px;
+}
+.dark {
+  background: #0d0d10;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.light {
+  background: #f5f4f7;
+  color: #0f0e13;
 }
 @media (max-width: 639px) {
-  .stage {
-    border-radius: 22px;
+  .dark,
+  .light {
+    border-radius: 21px;
+  }
+  .serp {
+    max-height: 330px;
   }
 }
 
-.globeBox {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1;
+/* The globe card: the globe fills the card and runs off its foot, the two small cards over it. */
+.globeCard,
+.fixed {
+  height: 400px;
 }
-.globeBox canvas {
+@media (max-width: 639px) {
+  .globeCard {
+    height: 400px;
+  }
+  .fixed {
+    height: auto;
+  }
+}
+/* The globe's box: the engine centres the globe in it, a little low, as big as it fits; its foot runs under the small cards. */
+.globe {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  transform: scale(0.94);
-  transition:
-    opacity 1200ms ease-out,
-    transform 1600ms cubic-bezier(0.22, 1, 0.36, 1);
+  left: 0;
+  right: 0;
+  top: 5%;
+  bottom: -4%;
 }
-[data-platform-in] .globeBox canvas[data-drawn] {
+.globe canvas {
+  opacity: 0;
+  transition: opacity 1200ms ease-out;
+}
+[data-platform-in] .globe canvas {
   opacity: 1;
-  transform: none;
 }
 
-/* The visitor toasts that come and go under the globe. */
-.tick {
-  transition:
-    opacity 420ms ease-out,
-    transform 650ms cubic-bezier(0.22, 1, 0.36, 1);
+.live {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  font-size: 12.5px;
+  font-weight: 500;
 }
-.tick[data-on="false"] {
-  opacity: 0;
-  transform: translate3d(0, 12px, 0) scale(0.96);
-}
-.tick[data-on="true"] {
-  opacity: 1;
-  transform: none;
-}
-
 .liveDot {
   position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22c55e;
 }
 .liveDot::after {
   content: "";
@@ -73,99 +98,148 @@
   }
 }
 
-/* Three cards: a snapping rail on a phone, three columns from md up. */
-.cards {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: min(84%, 340px);
-  gap: 12px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--landing-gutter, 22px);
-  padding-inline: var(--landing-gutter, 22px);
-  margin-inline: calc(var(--landing-gutter, 22px) * -1);
-  padding-bottom: 6px;
-  scrollbar-width: none;
+.overlay {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 10px;
 }
-.cards::-webkit-scrollbar {
-  display: none;
+.profile,
+.places {
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.7);
 }
-.cards > article {
-  scroll-snap-align: start;
+.profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 196px;
+  padding: 16px 16px 14px;
+  text-align: center;
 }
-@media (min-width: 768px) {
-  .cards {
-    grid-auto-flow: row;
-    grid-auto-columns: auto;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-    overflow: visible;
-    padding: 0;
-    margin-inline: 0;
-  }
-}
-
-.card {
-  border-radius: 24px;
-  background: #f5f4f7;
+.places {
+  width: 236px;
+  padding: 14px 16px;
 }
 @media (max-width: 639px) {
-  .card {
-    border-radius: 20px;
+  .overlay {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    gap: 8px;
+  }
+  .profile {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 14px 10px 12px;
+  }
+  .places {
+    width: auto;
+    flex: 1.2 1 0;
+    min-width: 0;
+    padding: 12px;
   }
 }
 
-/* Breakdown bars grow from their start, once. */
-.bar {
-  transform-origin: 0 50%;
-  transform: scaleX(0);
-  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1);
-  transition-delay: calc(250ms + var(--r, 0) * 80ms);
-}
-[data-platform-in] .bar {
-  transform: scaleX(var(--w, 1));
-}
-
-/* The trend line is drawn whole; a cover slides off it, left to right. */
-.cover {
-  transform-origin: 100% 50%;
-  transition: transform 1800ms cubic-bezier(0.65, 0, 0.35, 1) 300ms;
-}
-[data-platform-in] .cover {
-  transform: scaleX(0);
+/* The search results sit on white, like the page they are drawn from. */
+.serp {
+  border-radius: 15px 15px 0 0;
+  background: #fff;
+  padding: 16px 16px 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.05), 0 18px 36px -26px rgba(16, 24, 40, 0.3);
 }
 
-.seg {
-  transform-origin: 0 50%;
-  transform: scaleX(0);
-  transition: transform 1000ms cubic-bezier(0.22, 1, 0.36, 1);
-  transition-delay: calc(300ms + var(--r, 0) * 120ms);
+/* The engines take turns in one pill: the one in turn in the middle, its neighbours faint at the sides. */
+.engines {
+  --step: 168px;
+  position: relative;
+  height: 64px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%);
 }
-[data-platform-in] .seg {
-  transform: none;
+@media (max-width: 639px) {
+  .engines {
+    --step: 150px;
+  }
+}
+.enginePill {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 196px;
+  height: 64px;
+  margin-left: -98px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 36px -18px rgba(0, 0, 0, 0.8);
+}
+.engine {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 180px;
+  height: 64px;
+  margin-left: -90px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate3d(calc(var(--rel, 0) * var(--step)), 0, 0) scale(0.84);
+  transition:
+    transform 800ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 600ms ease-out;
+}
+.engineMark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.engine[data-rel="-2"] {
+  --rel: -2;
+}
+.engine[data-rel="-1"] {
+  --rel: -1;
+  opacity: 0.32;
+}
+.engine[data-rel="0"] {
+  --rel: 0;
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+.engine[data-rel="1"] {
+  --rel: 1;
+  opacity: 0.32;
+}
+.engine[data-rel="2"] {
+  --rel: 2;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .globeBox canvas,
-  .tick,
-  .bar,
-  .cover,
-  .seg {
+  .globe canvas,
+  .engine {
     transition: none;
   }
-  .globeBox canvas {
+  .globe canvas {
     opacity: 1;
-    transform: none;
-  }
-  .bar {
-    transform: scaleX(var(--w, 1));
-  }
-  .seg {
-    transform: none;
-  }
-  .cover {
-    transform: scaleX(0);
   }
   .liveDot::after {
     animation: none;

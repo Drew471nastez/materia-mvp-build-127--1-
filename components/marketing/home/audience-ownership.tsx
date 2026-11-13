@@ -28,7 +28,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
-import { STORELIB_S_PATH, STORELIB_S_TRANSFORM } from "@/components/storelib-mark"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { PlatformCount, usePlatformSection } from "./platform-motion"
 import { EMAIL_PLATFORMS } from "./email-platform-logos"
 import m from "./platform.module.css"
@@ -47,14 +47,6 @@ const RESULTS = [
 const TYPE_MS = SUBJECT.length * 42
 const n = (v: number) => v.toLocaleString("en-US")
 const pct = (v: number, of: number) => `${((v / of) * 100).toFixed(1)}%`
-
-function StorelibS({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 200 200" className={className} aria-hidden="true">
-      <path d={STORELIB_S_PATH} transform={STORELIB_S_TRANSFORM} fill="currentColor" />
-    </svg>
-  )
-}
 
 /* ── The composer ────────────────────────────────────────────────────── */
 type Phase = "typing" | "ready" | "pressed" | "sending" | "sent"
@@ -107,7 +99,7 @@ function Composer({ live, reduced }: { live: boolean; reduced: boolean }) {
   const sent = phase === "sent"
   const sending = phase === "sending"
   return (
-    <div className={`${s.window} mx-auto w-full max-w-[600px] overflow-hidden rounded-[16px] bg-[#f7f7f8] text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),0_24px_48px_-24px_rgba(30,20,60,0.28),0_0_0_1px_rgba(16,24,40,0.06)]`}>
+    <div className={`${s.window} mx-auto w-full max-w-[520px] overflow-hidden rounded-[15px] bg-[#f7f7f8] text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),0_24px_48px_-24px_rgba(30,20,60,0.28),0_0_0_1px_rgba(16,24,40,0.06)]`}>
       {/* The bar */}
       <div className="relative flex items-center gap-2 border-b border-[#eceef1] bg-white px-3 py-2.5 sm:px-4">
         <span className="flex h-8 w-6 items-center justify-center text-[#6b7280]" aria-hidden="true">
@@ -220,17 +212,16 @@ function Composer({ live, reduced }: { live: boolean; reduced: boolean }) {
 
 /* ── New subscribers ─────────────────────────────────────────────────── */
 const PEOPLE = [
-  { name: "Sofia Marín", email: "sofia.marin@gmail.com", via: "OnePage", from: "from Instagram", tint: "#fce7f3", ink: "#9d174d" },
-  { name: "Jonah Reyes", email: "jonah.reyes@outlook.com", via: "Checkout", from: "Ridge hoodie", tint: "#dbeafe", ink: "#1e40af" },
-  { name: "Aiko Tanaka", email: "aiko.tanaka@icloud.com", via: "Free download", from: "Trail map pack", tint: "#fef3c7", ink: "#92400e" },
-  { name: "Liam O'Connor", email: "liam.oc@gmail.com", via: "Website", from: "footer form", tint: "#dcfce7", ink: "#166534" },
-  { name: "Priya Nair", email: "priya.nair@yahoo.com", via: "OnePage", from: "from YouTube", tint: "#ede9fe", ink: "#5b21b6" },
-  { name: "Leo Fischer", email: "leo.fischer@gmx.de", via: "Checkout", from: "705 tee", tint: "#e0f2fe", ink: "#075985" },
-  { name: "Amara Okafor", email: "amara.okafor@gmail.com", via: "Free download", from: "LUT pack", tint: "#ffedd5", ink: "#9a3412" },
-  { name: "Inès Laurent", email: "ines.laurent@orange.fr", via: "OnePage", from: "from TikTok", tint: "#fae8ff", ink: "#86198f" },
+  { name: "Sofia Marín", email: "sofia.marin@gmail.com", via: "OnePage", from: "from Instagram", photo: "sofia" },
+  { name: "Jonah Reyes", email: "jonah.reyes@outlook.com", via: "Checkout", from: "Ridge hoodie", photo: "jonah" },
+  { name: "Aiko Tanaka", email: "aiko.tanaka@icloud.com", via: "Free download", from: "Trail map pack", photo: "aiko" },
+  { name: "Liam O'Connor", email: "liam.oc@gmail.com", via: "Website", from: "footer form", photo: "liam" },
+  { name: "Priya Nair", email: "priya.nair@yahoo.com", via: "OnePage", from: "from YouTube", photo: "priya" },
+  { name: "Leo Fischer", email: "leo.fischer@gmx.de", via: "Checkout", from: "705 tee", photo: "leo" },
+  { name: "Amara Okafor", email: "amara.okafor@gmail.com", via: "Free download", from: "LUT pack", photo: "amara" },
+  { name: "Inès Laurent", email: "ines.laurent@orange.fr", via: "OnePage", from: "from TikTok", photo: "ines" },
 ]
 const WHEN = ["Just now", "2 min ago", "6 min ago", "11 min ago"]
-const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2)
 
 function Subscribers({ live, seen }: { live: boolean; seen: boolean }) {
   const [head, setHead] = useState(0)
@@ -263,10 +254,10 @@ function Subscribers({ live, seen }: { live: boolean; seen: boolean }) {
       </div>
       <ul className={`${s.list} ${m.loop} mt-5 grid gap-2`} data-shift={added ? added % 2 : undefined} aria-hidden="true">
         {rows.map((r, k) => (
-          <li key={k} className={`${s.row} flex items-center gap-3 rounded-[14px] bg-white px-3 py-2.5`} data-fresh={k === 0 && added > 0 ? "" : undefined}>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold" style={{ background: r.tint, color: r.ink }}>
-              {initials(r.name)}
-            </span>
+          <li key={k} className={`${s.row} flex items-center gap-3 rounded-[13px] bg-white px-3 py-2.5`} data-fresh={k === 0 && added > 0 ? "" : undefined}>
+            {/* A real face, as Contacts shows a person's picture. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`${IMG}/people/${r.photo}.webp`} alt="" width={36} height={36} decoding="async" className="h-9 w-9 shrink-0 rounded-full bg-[#eceaf0] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.06)]" />
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-[13.5px] font-medium text-[#14131a]">{r.name}</span>
@@ -295,8 +286,8 @@ function Sync() {
       <p className="mt-1.5 text-[14.5px] leading-[1.55] text-[#55525e]">Subscribers, buyers and every order go out. Unsubscribes come back.</p>
       <div className="mt-auto pt-6" aria-hidden="true">
         <div className="flex justify-center">
-          <span className="relative z-[1] flex h-11 w-11 items-center justify-center rounded-[13px] bg-[#7c3aed] text-white shadow-[0_8px_20px_-8px_rgba(124,58,237,0.7)]">
-            <StorelibS className="h-6 w-6" />
+          <span className="relative z-[1] block h-11 w-11">
+            <StorelibLogo size={44} alt="" />
           </span>
         </div>
         {/* The branches: a trunk, a bar and a drop to each platform. A dot runs down each drop. */}
@@ -372,9 +363,9 @@ function Export() {
 
 function NoLockIn() {
   return (
-    <div className={`${s.panel} ${s.violet} ${m.reveal} flex h-full flex-col justify-between gap-6 p-5 sm:p-7`} style={{ "--i": 4 } as CSSProperties}>
+    <div className={`${s.panel} ${s.violet} ${m.reveal} flex h-full flex-col justify-between gap-6 p-5 sm:p-7 lg:flex-row lg:items-center`} style={{ "--i": 4 } as CSSProperties}>
       <div className="text-[clamp(22px,2.2vw,28px)] font-medium leading-[1.18] tracking-[-0.03em] text-[#1e1236]">No lock-in. If you ever leave, your list leaves with you.</div>
-      <ul className="flex flex-wrap gap-2 text-[12.5px] font-medium">
+      <ul className="flex flex-wrap gap-2 text-[12.5px] font-medium lg:max-w-[340px] lg:shrink-0 lg:justify-end">
         {["Your contacts", "Your order history", "Your sign-up forms", "Your sending domain"].map((t) => (
           <li key={t} className="rounded-full bg-white px-3 py-1.5 text-[#3b2a63] shadow-[0_0_0_1px_rgba(91,33,182,0.1)]">
             {t}
@@ -401,7 +392,7 @@ export function AudienceOwnership() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-12">
-          <div className={`${s.panel} ${s.stage} ${m.reveal} flex flex-col px-3 pt-6 sm:px-8 sm:pt-9 lg:col-span-7 lg:row-span-2`} style={{ "--i": 0 } as CSSProperties}>
+          <div className={`${s.panel} ${s.stage} ${m.reveal} flex flex-col px-3 pt-6 sm:px-8 sm:pt-9 lg:col-span-7`} style={{ "--i": 0 } as CSSProperties}>
             <div className="mb-6 px-2 sm:px-0">
               <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#0f0e13]">Write once, reach everyone</h3>
               <p className="mt-1.5 max-w-[48ch] text-[14.5px] leading-[1.55] text-[#55525e]">Campaigns and automations from the same place as your products, with opens and clicks counted for you.</p>
@@ -413,13 +404,13 @@ export function AudienceOwnership() {
           <div className="lg:col-span-5">
             <Subscribers live={live} seen={seen} />
           </div>
-          <div className="lg:col-span-5">
-            <Sync />
-          </div>
           <div className="lg:col-span-7">
             <Export />
           </div>
           <div className="lg:col-span-5">
+            <Sync />
+          </div>
+          <div className="lg:col-span-12">
             <NoLockIn />
           </div>
         </div>

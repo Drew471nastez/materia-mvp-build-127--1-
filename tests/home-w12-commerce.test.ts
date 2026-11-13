@@ -25,7 +25,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { HowItWorks, HOW_PRODUCTS, HOW_HEADING } from "@/components/marketing/home/how-it-works"
 import { CheckoutScene, CHECKOUT_STYLES } from "@/components/marketing/home/checkout-scene"
-import { SellEverywhereMap, COMMERCE_LAND, SELL_COUNTRIES, commerceLandPath } from "@/components/marketing/home/sell-everywhere-map"
+import { SellEverywhereMap, SELL_MAP, SELL_COUNTRIES, SELL_BUY_LABEL, sellMapPath } from "@/components/marketing/home/sell-everywhere-map"
 import { EarningsCalculator, commerceMonth } from "@/components/marketing/home/earnings-calculator"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_PRO_MONTHLY_CENTS, COMMERCE_PRODUCTS, commerceSale, commerceUsd } from "@/components/marketing/home/commerce-kit"
 import { PRO_PRICE_CENTS } from "@/lib/billing/plans"
@@ -116,18 +116,19 @@ console.log("\nCommerce: the sections render on the server")
   check("checkout: no orbiting products around the phone", !/float-|cmc-orbit|cmc-lap/.test(co + src.checkout))
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
-  check("map: its heading and a labelled map", map.includes("Your store never closes.") && /role="img" aria-label="A world map/.test(map))
-  check("map: the dots are not in the HTML (built on the client)", !/M\d+\.5 \d+\.5h0/.test(map))
-  /* Changed on purpose (wave 13): the owner asked for a contained card with a column of flags, a product card whose button is in that country's language and an "Order for" pill in its money, so the old city cards and their prices are gone. */
-  check("map: orders in the buyers' money, as checkout charges it", ["£56.00", "32,00 €", "28,00 €", "US$ 26,00", "64,00 €"].every((p) => map.includes(p)) && SELL_COUNTRIES.every((c) => ["GBP", "EUR", "USD"].some((cur) => (c.total.includes("€") ? "EUR" : c.total.includes("£") ? "GBP" : "USD") === cur)))
+  /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
+  check("map: its heading and a labelled map", map.includes("Your store never closes.") && !/\bfans?\b/i.test(map.replace(/<style[\s\S]*?<\/style>/g, "")) && /role="img" aria-label="A world map/.test(map))
+  check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
+  /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
+  check("map: orders in the buyers' money, as checkout charges it", ["$64.00", "£52.00", "¥9,800", "C$88.00", "59,00 €", "A$98.00"].every((p) => map.includes(p)) && ["USD", "GBP", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))
   {
-    /* Added (wave 13): each button is the storefront's own "Buy now", word for word, from its language's catalog. */
-    const buyIn = (lang: string) => (lang.startsWith("en") ? "Buy now" : (read(`lib/i18n/catalog/${lang}.ts`).match(/^\s*"Buy now": "([^"]+)"/m) ?? [])[1])
-    check("map: every button is the storefront's Buy now in that country's language", SELL_COUNTRIES.every((c) => map.includes(`>${c.buy}<`) && buyIn(c.lang) === c.buy), SELL_COUNTRIES.map((c) => [c.lang, c.buy, buyIn(c.lang)]))
+    /* Changed on purpose (landing round): the owner did not want the button translated, so it says the storefront's "Buy now" in every country. */
+    check("map: the button is Buy now, in English, whatever the country", SELL_BUY_LABEL === "Buy now" && (map.match(/class="cmm-buy">([^<]*)</g) ?? []).every((b) => b.endsWith(">Buy now<")) && !/Jetzt kaufen|Acheter|Comprar|Acquista/.test(map))
     check("map: real flags for each country, from the site's own flag files", SELL_COUNTRIES.every((c) => map.includes(`/flags/${c.code}.svg`) && existsSync(join(ROOT, "public/flags", `${c.code}.svg`))))
-    check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:32px/.test(src.map) && /\.cmm-wrap\{max-width:1400px/.test(src.map))
+    /* Changed on purpose (landing round): the owner asked for a little less rounding (32px to 31px). */
+    check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:31px/.test(src.map) && /\.cmm-wrap\{max-width:1400px/.test(src.map))
     check("map: the country changes only while the section is on screen, and never under reduced motion", /if \(!live\) return/.test(src.map) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(src.map) && /window\.clearInterval/.test(src.map))
-    check("map: the product photos exist", SELL_COUNTRIES.every((c) => existsSync(join(ROOT, "public/home/sell-map", c.photo))))
+    check("map: the product photo exists", /const PHOTO = "\/home\/sell-map\/ridge-hoodie\.webp"/.test(src.map) && existsSync(join(ROOT, "public/home/sell-map/ridge-hoodie.webp")))
   }
 
   const earn = renderToStaticMarkup(createElement(EarningsCalculator))
@@ -143,10 +144,11 @@ console.log("\nCommerce: the sections render on the server")
 
 console.log("\nCommerce: the map's land mask")
 {
-  const d = commerceLandPath()
+  /* Changed on purpose (landing round): the owner asked for a cleaner, more accurate map, so the mask is finer (1.5 degree cells from Natural Earth's 1:50m land). */
+  const d = sellMapPath()
   const dots = (d.match(/M/g) ?? []).length
-  check("1,220 bytes of mask, 160 x 61 cells", Buffer.from(COMMERCE_LAND.b64, "base64").length === (COMMERCE_LAND.cols / 8) * COMMERCE_LAND.rows)
-  check("about 3,000 land dots", dots === 2991, dots)
+  check("2,700 bytes of mask, 240 x 90 cells", Buffer.from(SELL_MAP.b64, "base64").length === (SELL_MAP.cols / 8) * SELL_MAP.rows)
+  check("about 7,200 land dots (one per 2 x 2 block on a phone)", dots === 7200 && (sellMapPath(2).match(/M/g) ?? []).length < 2000, dots)
 }
 
 console.log("\nCommerce: motion and performance rules")
