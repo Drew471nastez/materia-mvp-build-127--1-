@@ -650,8 +650,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const { catalogue: pricedCatalogue, productsError, creatorReviews, creatorReviewsError, place } = held
   /*
     NO ANSWER FROM THE PRODUCTS READ IS THE SHOP'S ERROR SCREEN, NEVER AN EMPTY SHOP (round AW). With no copy held
-    for it (a first visit, a save's expire, every deploy: the data cache's keys and this server's last good copy are
-    new), a read that timed out or found the database away drew this store with no products, as a 200, and the CDN
+    for it (a first visit, a save's expire, a deploy: new servers hold no last good copy, and the data cache's keys
+    can change with the build), a read that timed out or found the database away drew this store with no products, as a 200, and the CDN
     kept that page for every visitor for five minutes and replaced its own good copy with it (next.config.mjs
     EDGE_PAGE; lib/commerce/creator-page-held says why the copy above is not always there). A throw is a 5xx, which
     Vercel never stores: the CDN goes on serving the last good page, and a visitor with none gets Try again. A read
