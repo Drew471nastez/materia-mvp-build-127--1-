@@ -112,6 +112,12 @@ export const BAND_CSS = `
 /* Every kind of business, on black: its words light, the pills dark, the heading centred. */
 [data-band] .biz{background:transparent;color:#fafafa}
 [data-band] .biz-card{box-shadow:0 0 0 1px rgba(255,255,255,.08),0 28px 56px -30px rgba(0,0,0,.9)}
+[data-band] .biz .biz-kind{color:#71717a}
+[data-band] .biz .biz-kind::before{background:#fff}
+[data-band] .biz .biz-kind[aria-selected="true"]{color:#fff}
+[data-band] .biz .biz-kind[aria-selected="true"] span{color:#a1a1aa}
+@media(hover:hover) and (pointer:fine){[data-band] .biz .biz-kind:hover{color:#d4d4d8}}
+[data-band] .biz .biz-kind:focus-visible{outline-color:#c4b5fd}
 [data-band] .biz .smk-pill{color:#d4d4d8}
 [data-band] .biz .smk-pill:hover{background:rgba(255,255,255,.1);color:#fff}
 [data-band] .biz .smk-pill[aria-selected="true"]{background:#fff;color:#18181b;box-shadow:none}

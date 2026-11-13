@@ -223,8 +223,8 @@ export function AnalyticsShowcase() {
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
           <div className={`${m.reveal} flex flex-col justify-center pb-4 lg:col-span-5 lg:pb-0 lg:pr-8`} style={{ "--i": 0 } as CSSProperties}>
-            <h3 className="text-[clamp(26px,2.6vw,36px)] font-medium leading-[1.1] tracking-[-0.035em] text-[#0f0e13]">See where your visitors are</h3>
-            <p className="mt-3 max-w-[44ch] text-[15.5px] leading-[1.6] text-[#55525e]">Every visit, tap and sale on your page and store, counted live. No setup, no extra app.</p>
+            <h3 className="text-[clamp(26px,2.6vw,36px)] font-medium leading-[1.1] tracking-[-0.035em] text-[var(--band-ink,#0f0e13)]">See where your visitors are</h3>
+            <p className="mt-3 max-w-[44ch] text-[15.5px] leading-[1.6] text-[var(--band-muted,#55525e)]">Every visit, tap and sale on your page and store, counted live. No setup, no extra app.</p>
             <ul className="mt-6 flex flex-wrap gap-2">
               {REPORTS.map(({ label, Icon }) => (
                 <li key={label} className="inline-flex h-9 items-center gap-2 rounded-full bg-[#f4f4f6] px-3.5 text-[13.5px] font-medium text-[#1f1d26]">

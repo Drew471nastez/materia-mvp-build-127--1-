@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 940 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 939 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -1028,7 +1028,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#5b616e\]:not([data-own-look], [data-own-look] *) { color: hsla(221,9%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#5c4300\]:not([data-own-look], [data-own-look] *) { color: hsla(44,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#5c6574\]:not([data-own-look], [data-own-look] *) { color: hsla(218,12%,72%,1); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#5f5d66\]:not([data-own-look], [data-own-look] *) { color: #c9cacf; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#5f6368\]:not([data-own-look], [data-own-look] *) { color: #c9cacf; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#5f6470\]:not([data-own-look], [data-own-look] *) { color: hsla(222,8%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#5f6570\]:not([data-own-look], [data-own-look] *) { color: hsla(219,8%,72%,1); }
