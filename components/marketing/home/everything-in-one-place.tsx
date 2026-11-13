@@ -560,7 +560,9 @@ const CSS = `
 .ev-globe-pills{position:absolute;inset:0;pointer-events:none}
 .ev-globe-pill{position:absolute;left:0;top:0}
 .ev-globe-pill[data-on]{will-change:transform}
-.ev-globe-pill[data-glide]{transition:transform .1s linear}
+.ev-globe-pill::before{content:"";position:absolute;left:-.5px;bottom:2px;width:1px;height:10px;background:linear-gradient(rgba(255,255,255,.9),rgba(255,255,255,0));opacity:0;transition:opacity .3s ease}
+.ev-globe-pill[data-on]::before{opacity:1}
+.ev-globe-pill-shift{position:absolute;left:0;bottom:0}
 .ev-globe-pill-in{position:absolute;left:0;bottom:12px;display:flex;width:max-content;align-items:center;gap:7px;padding:7px 12px 7px 9px;border-radius:999px;background:#fff;color:#18181b;font-size:13px;line-height:1.2;white-space:nowrap;box-shadow:0 10px 30px -10px rgba(0,0,0,.6);opacity:0;transform:translate(-50%,6px) scale(.92);transform-origin:50% 100%;transition:opacity .3s ease,transform .45s ${EASE}}
 .ev-globe-pill[data-on] .ev-globe-pill-in{opacity:1;transform:translate(-50%,0)}
 .ev-globe-flag{display:block;width:16px;height:12px;border-radius:2px;object-fit:cover}
