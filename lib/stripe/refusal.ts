@@ -24,7 +24,7 @@
  */
 export interface StripeRefusal {
   status: number
-  code: "platform_rejected" | "account_rejected" | "platform_cannot_charge" | "platform_restricted"
+  code: "platform_rejected" | "account_rejected" | "platform_cannot_charge" | "platform_restricted" | "platform_needs_transfers_approval"
   error: string
 }
 
