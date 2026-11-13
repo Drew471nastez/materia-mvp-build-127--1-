@@ -9,10 +9,10 @@ import { StoryHeading } from "./story-heading"
   and the product cards, in the store's own colour scheme) and the
   communities in the layout of a real Storelib community (the community card
   and places, the space chips and feed, the next event and the leaderboard),
-  for fictional creators, with stock photography. The course page and three
-  OnePages are the shared showcase mocks (components/marketing/home/
-  showcase-mocks); Satori Studio is a real OnePage, storelib.me/satori-studio,
-  as a phone shows it.
+  for fictional creators, with stock photography. The course page is a
+  shared showcase mock (components/marketing/home/showcase-mocks); Satori Studio is a real OnePage, storelib.me/satori-studio,
+  as a phone shows it, and the other three OnePages are the live OnePage
+  rendered with sample creators, captured at a phone's width (land round 2).
 
   EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
   pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
@@ -48,17 +48,17 @@ const GROUPS = [
   ],
   [
     wide("mila", "Sell digital downloads", "Mila Draws' Storelib store with a gouache brush pack, a digital planner and texture scans"),
-    portrait("maya", "Links that sell", "Maya Okafor's OnePage with a marathon plan, run club and coaching links"),
+    portrait("jonas", "Links that sell", "Jonas Weber's OnePage, a cycling coach in Girona: his photo across the top in a blue theme, a 12 week base plan for €59 and a 45 minute coaching call for €75"),
     wide("founders", "A members' club for founders", "Founders After Five, a community where a member shares a $10k MRR milestone"),
   ],
   [
     wide("bloom", "Teach what you know", "Brush & Bloom's watercolor course site with modules and reviews"),
-    portrait("lio", "Show your work", "Lio Tanaka's dark OnePage with photos, presets and print links"),
+    portrait("hemi", "Show your work", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
     wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes and a live glaze night"),
   ],
   [
     wide("gridline", "Sell templates and kits", "Gridline Studio's Storelib store with workspace templates and a wireframe kit"),
-    portrait("priya", "All your links", "Sol & Sage's OnePage with a cookbook, recipes and a cooking class"),
+    portrait("noor", "All your links", "Noor Haddad's OnePage on a starry purple theme, houseplant care from Toronto: a free plant health quiz and two guides for CA$14 and CA$9"),
     wide("hollow", "Merch for the whole tour", "Hollow Pines' Storelib store with a hoodie, a tee and a cap under a forest cover"),
   ],
 ]

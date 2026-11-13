@@ -11,8 +11,8 @@
  *              one artist's merch (tee, hoodie, crewneck, tote, mug), each
  *              with its price, example production cost, profit and an order
  *              moving from placed to printing to shipped
- *   checkout   a OnePage on a phone (Amara's page in the Swiss theme, drawn
- *              by the theme picker's ThemePreview): a tap on a product, the product sheet
+ *   checkout   a OnePage on a phone (Ruth's page in the Notebook theme, a
+ *              capture of the live page): a tap on a product, the product sheet
  *              slides up, Buy now, Payment complete, and it slides away
  *   digital    the product editor uploading a ZIP, publishing, then the
  *              buyer's "Thanks for your purchase" email with Get your files
@@ -29,7 +29,7 @@
  * TRUE TO THE PRODUCT. Merch without stock is print on demand through a
  * print partner the seller connects (lib/physical/providers.ts). The sheet's
  * words are the OnePage product sheet's (components/onepage/product-sheet:
- * "Buy now · $19"), the email's are the purchase receipt's
+ * "Buy now · A$24"), the email's are the purchase receipt's
  * (lib/notify/templates/catalog.ts PURCHASE_CONFIRMATION), the builder's are
  * the course builder's ("Add lesson", "Publish", "Free preview"). Profit is
  * after Storelib's real fee (lib/payments/fees/calculate).
@@ -39,7 +39,7 @@ import type { SectionStyle } from "./lazy-section"
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { StoryHeading } from "../story-heading"
 import { commerceProduct, commerceUsd } from "./commerce-kit"
-import { AMARA, HomeOnePage, HomeOnePageStyle } from "./onepage-sample"
+import { HomeOnePage, HomeOnePageStyle, RUTH } from "./onepage-sample"
 
 const IMG = "/home/commerce"
 const HOW = "/home/how"
@@ -246,10 +246,10 @@ function SheetScene() {
               <rect x="21.8" y="3.3" width="7.5" height="5.4" rx="1.4" />
             </svg>
           </div>
-          {/* Amara's OnePage in Swiss, a theme the picker ships, drawn by the picker's own ThemePreview (./onepage-sample); the tap lands on her presets. */}
-          <HomeOnePage theme="swiss" who={AMARA} className="cmh-op-page" />
+          {/* Ruth's OnePage in Notebook, the live page captured (./onepage-sample); the tap lands on her guide's Buy now. */}
+          <HomeOnePage shot={RUTH} className="cmh-op-page" />
           <span className="cmh-op-hit">
-            <span className="cmh-a cmh-tap cmh-tap-dark" />
+            <span className="cmh-a cmh-tap" />
           </span>
           <span className="cmh-a cmh-dim" />
           <div className="cmh-a cmh-sheet">
@@ -257,16 +257,16 @@ function SheetScene() {
             <div className="cmh-stack">
               <div className="cmh-a cmh-sh-buy">
                 <div className="cmh-sh-row">
-                  <img src="/home/showcase/lt-field.webp" alt="" loading="lazy" decoding="async" width={320} height={200} />
+                  <img src="/home/onepage/bread-loaf.webp" alt="" loading="lazy" decoding="async" width={160} height={160} />
                   <span>
-                    <b>Golden Hour presets</b>
-                    <small>ZIP · 48 MB</small>
-                    <b className="cmh-sh-price">$19.00</b>
+                    <b>Sourdough at home (PDF guide)</b>
+                    <small>PDF · 64 pages</small>
+                    <b className="cmh-sh-price">A$24.00</b>
                   </span>
                 </div>
                 <div className="cmh-a cmh-sh-btn">
                   <span className="cmh-stack">
-                    <span className="cmh-a cmh-sh-btn-a">Buy now · $19</span>
+                    <span className="cmh-a cmh-sh-btn-a">Buy now · A$24</span>
                     <span className="cmh-a cmh-sh-btn-b">
                       <span className="cmh-a cmh-spin" />
                     </span>
@@ -543,8 +543,8 @@ const HOW_CSS = `
 .cmh-op-page{position:absolute;left:0;right:0;top:26px;bottom:0}
 .cmh-op .cmh-ph-sb{position:relative;z-index:1}
 .cmh-op-hit{position:absolute;left:0;right:0;top:26px;height:0}
-/* On her presets: the product block is 211 to 288px down the page at this phone's size (one size at every width). */
-.cmh-op-hit .cmh-tap{left:58%;top:236px}
+/* On her guide's Buy now: 487px down the page at 390, 277px at this phone's 222 (one size at every width). */
+.cmh-op-hit .cmh-tap{left:50%;top:277px}
 .cmh-tap{animation-name:cmh-tap;animation-timing-function:ease-out}
 @keyframes cmh-tap{0%,11%{opacity:0;transform:scale(.4)}14%{opacity:1;transform:scale(1)}19%,100%{opacity:0;transform:scale(1.7)}}
 .cmh-dim{position:absolute;inset:0;background:rgba(10,10,12,.32);opacity:0;animation-name:cmh-dim;animation-timing-function:ease}

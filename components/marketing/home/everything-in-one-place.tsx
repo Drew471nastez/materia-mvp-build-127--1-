@@ -13,7 +13,7 @@
        preset pack, a course and a community, the light behind it changing
        with each; the tabs pick one, and it plays by itself while on screen.
     2. A store that looks like you: three creators' storefronts and three
-       OnePages (real OnePage themes, ./onepage-sample) gliding past.
+       OnePages (captures of the live OnePage, ./onepage-sample) gliding past.
     3. Sell in every country: a globe the visitor can spin, with orders
        arcing to buyers in currencies checkout charges in.
     4. Real support: a creator's question answered by a person at Storelib
@@ -31,8 +31,7 @@ import { useCallback, useRef, useState, type CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { usePlatformSection } from "./platform-motion"
 import { EverythingGlobe } from "./everything-globe"
-import { CLARA, HomeOnePage, HomeOnePageStyle, NOA, THEO, type HomeThemeId } from "./onepage-sample"
-import type { PreviewAccount } from "@/components/onepage/themes/preview-account"
+import { ARJUN, HomeOnePage, HomeOnePageStyle, KOFI, MARIANA, type HomeOnePageShot } from "./onepage-sample"
 
 export const EVERYTHING_HEADING = { lead: "Make the work.", rest: "Skip the busywork." } as const
 
@@ -285,30 +284,30 @@ function StoreLumen() {
 }
 
 /*
-  Between the stores, three OnePages (the land round, the owner: "use some of
-  the themes that we have on OnePage ... actually representative"): Ember,
-  Halo and Atlas as the theme picker ships them, drawn by the picker's own
-  ThemePreview (./onepage-sample). Each sits under the link it is shared by (storelib.me/<handle>,
-  lib/url-helpers getLinksShareUrl), in a browser's address bar.
+  Between the stores, three OnePages (land round 2): the live OnePage drawn
+  in Arcade, Dune and Classic 98 as the theme picker ships them, captured
+  (./onepage-sample). Each sits under the link it is shared by
+  (storelib.me/<handle>, lib/url-helpers getLinksShareUrl), in a browser's
+  address bar.
 */
-function onePage(theme: HomeThemeId, who: PreviewAccount, handle: string) {
+function onePage(shot: HomeOnePageShot) {
   return function OnePagePhone() {
     return (
       <div className="ev-ph ev-ph-op">
         <span className="ev-ph-op-bar">
-          <span className="ev-ph-op-link">storelib.me/{handle}</span>
+          <span className="ev-ph-op-link">storelib.me/{shot.handle}</span>
         </span>
-        <HomeOnePage theme={theme} who={who} className="ev-ph-op-page" />
+        <HomeOnePage shot={shot} className="ev-ph-op-page" />
       </div>
     )
   }
 }
-const OnePageNoa = onePage("ember", NOA, "noalind")
-const OnePageClara = onePage("halo", CLARA, "clarapaints")
-const OnePageTheo = onePage("atlas", THEO, "theomarsh")
+const OnePageKofi = onePage(KOFI)
+const OnePageMariana = onePage(MARIANA)
+const OnePageArjun = onePage(ARJUN)
 
 /* A store, a OnePage, a store, a OnePage: what the caption says, both ways to sell. */
-const STORES = [StoreNorthbound, OnePageNoa, StoreKiln, OnePageClara, StoreLumen, OnePageTheo]
+const STORES = [StoreNorthbound, OnePageKofi, StoreKiln, OnePageMariana, StoreLumen, OnePageArjun]
 
 function Storefronts() {
   /* The last one, the six, then the first two again: the strip glides one phone at a time and starts over where it looks the same. */

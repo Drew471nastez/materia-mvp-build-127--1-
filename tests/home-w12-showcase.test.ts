@@ -39,19 +39,20 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    ...(["Saltlight", "Bloom", "Darkroom", "Sol", "Hollow"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
+    ...(["Saltlight", "Bloom", "Darkroom", "Lucia", "Hollow"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
     createElement(WebsiteBuilderMock),
     createElement(OnePageEditorMock),
     createElement(CommunityBuilderMock),
   ),
 )
 /* Changed on purpose (wave 13): Storelib's own logo in the editors' bars is drawn by its one component (components/brand/storelib-logo), not a showcase photo. */
-/* Changed on purpose (land round): the OnePages (Sol & Sage, Maya's preview) are drawn by the theme picker's ThemePreview (components/marketing/home/onepage-sample), whose pictures go through the image optimizer as the picker's do (data-tp-photo, data-theme-thumb); the mocks' own photos are checked here. */
+/* Changed on purpose (land round 2): the OnePages (Lucía Ferrer's slide, Rafa Ortega's editor preview) are captures of the live OnePage in shipped themes (components/marketing/home/onepage-sample, public/home/onepage); they are checked with the mocks' own photos. */
 const ownMock = everyMock.replace(/<img[^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
-assert.ok(/data-home-onepage="notebook"/.test(everyMock) && /data-home-onepage="lagoon"/.test(everyMock), "the OnePages are real themes")
+assert.ok(/data-home-onepage="gazette"/.test(everyMock) && /data-home-onepage="grunge"/.test(everyMock) && /\/home\/onepage\/op-lucia-desktop\.webp/.test(everyMock) && /\/home\/onepage\/op-rafa-signup\.webp/.test(everyMock), "the OnePages are captures of the live page in shipped themes")
 const srcs = new Set([...ownMock.matchAll(/<img(?![^>]*data-storelib-logo)[^>]*src="([^"]+)"/g)].map((m) => m[1]))
 assert.ok(srcs.size >= 36, `${srcs.size} pictures`)
-for (const src of srcs) assert.ok(src.startsWith("/home/showcase/") && existsSync(`public${src}`), `${src} exists`)
+/* Changed on purpose (land round 2): the OnePage captures live in /home/onepage/. */
+for (const src of srcs) assert.ok((src.startsWith("/home/showcase/") || src.startsWith("/home/onepage/")) && existsSync(`public${src}`), `${src} exists`)
 /* The logo goes through next/image (lazy by default there; the test stub leaves the attribute out), so the photos are checked here. */
 const photos = ownMock.replace(/<img[^>]*data-storelib-logo[^>]*>/g, "")
 assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(photos) && !/<img(?![^>]*height=)[^>]*>/.test(photos))
