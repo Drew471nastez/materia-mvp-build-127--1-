@@ -61,6 +61,7 @@ export const YEARLY_BILLING_LIVE = false
 const DISPLAY_NAMES: Record<PlanId, string> = {
   free: "Free",
   growth: "Pro",
+  /* i18n-ignore-next-line: a plan's name, never translated, like Free and Pro. */
   pro: "Scale",
 }
 
