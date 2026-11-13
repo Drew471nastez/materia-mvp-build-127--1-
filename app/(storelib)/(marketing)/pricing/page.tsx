@@ -9,7 +9,7 @@ import { CompareStrip } from "@/components/alternatives/compare-strip"
 export const metadata: Metadata = pageMetadata({
   path: "/pricing",
   title: "Pricing",
-  description: "Two plans. Free has no monthly fee and a 5% + $0.25 fee per sale. Pro is $29 a month and lowers the fee to 3% + $0.25, with your own domain and no Storelib branding.",
+  description: "Three plans. Free has no monthly fee and a 5% + $0.25 fee per sale. Pro is $29 a month and lowers the fee to 3% + $0.25, with your own domain and no Storelib branding. Scale is $99 a month, lowers it to 1.5% + $0.25, and has the most websites, storage and AI edits.",
 })
 
 /*

@@ -2615,6 +2615,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 ctaLabels: {
                   free: tt("Start free"),
                   growth: tt("Get Pro"),
+                  pro: tt("Get Scale"),
                 },
               }}
             />

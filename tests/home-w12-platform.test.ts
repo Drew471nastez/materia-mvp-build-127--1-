@@ -56,7 +56,7 @@ const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|
 const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ")
 
 const SECTIONS: Array<{ file: string; name: string; C: ComponentType; id: string; heading: string }> = [
-  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Everything in one place" },
+  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Make the work. Skip the busywork." },
   { file: "audience-ownership", name: "AudienceOwnership", C: AudienceOwnership, id: "audience-ownership", heading: "Your audience belongs to you." },
   { file: "analytics-showcase", name: "AnalyticsShowcase", C: AnalyticsShowcase, id: "analytics-showcase", heading: "Know what's working, as it happens." },
   { file: "integrations-section", name: "IntegrationsSection", C: IntegrationsSection, id: "integrations", heading: "Connect your favorite apps" },
@@ -76,7 +76,8 @@ for (const s of SECTIONS) {
     continue
   }
   html[s.file] = out
-  check(`${s.file}: renders with its id and heading`, out.includes(`id="${s.id}"`) && out.includes(`aria-label="${s.heading.replace(/'/g, "&#x27;")}"`), out.slice(0, 300))
+  /* Changed on purpose (wave 13): section 3's heading is a plain two-tone <h2> (dark lead, grey rest), not a scroll-inked StoryHeading, so its words are read from the heading itself. */
+  check(`${s.file}: renders with its id and heading`, out.includes(`id="${s.id}"`) && (out.includes(`aria-label="${s.heading.replace(/'/g, "&#x27;")}"`) || text(out.match(/<h2[\s\S]*?<\/h2>/)?.[0] ?? "").trim() === s.heading), out.slice(0, 300))
   check(`${s.file}: no em dash in the words`, !/—/.test(text(out)))
   check(`${s.file}: no lorem`, !/lorem|ipsum/i.test(out))
 }
@@ -94,7 +95,12 @@ const own = readdirSync(join(root, "public/home/platform"))
 const ownBytes = own.reduce((n, f) => n + statSync(join(root, "public/home/platform", f)).size, 0)
 check("the track's photos are .webp", own.length > 0 && own.every((f) => f.endsWith(".webp")), own)
 check("the track's photos stay under 6 MB together, 400 KB each", ownBytes <= 6 * 1024 * 1024 && own.every((f) => statSync(join(root, "public/home/platform", f)).size <= 400 * 1024), ownBytes)
-check("the phone photo is lazy, async, sized and has sizes", /hands-phone-640\.webp[^>]*/.test(html["app-anywhere"] ?? "") && /<img[^>]*hands-phone[^>]*loading="lazy"[^>]*decoding="async"/.test(html["app-anywhere"] ?? "") && /sizes="[^"]+"/.test(html["app-anywhere"] ?? ""))
+/* Changed on purpose (wave 13): the section's visual is the owner's own photograph of the app, in public/home/app. */
+check("the app photo is lazy, async, sized and has sizes", /<img[^>]*storelib-app-720\.webp[^>]*/.test(html["app-anywhere"] ?? "") && /<img[^>]*storelib-app[^>]*loading="lazy"[^>]*decoding="async"/.test(html["app-anywhere"] ?? "") && /sizes="[^"]+"/.test(html["app-anywhere"] ?? ""))
+{
+  const appFiles = readdirSync(join(root, "public/home/app"))
+  check("the app photo is .webp, each file under 120 KB", appFiles.length >= 2 && appFiles.every((f) => f.endsWith(".webp") && statSync(join(root, "public/home/app", f)).size <= 120 * 1024), appFiles)
+}
 check("every <img> carries width and height", [...page.matchAll(/<img [^>]*>/g)].every((m) => /width="\d+"/.test(m[0]) && /height="\d+"/.test(m[0])))
 
 console.log("\n── truth: integrations ──")
@@ -120,22 +126,47 @@ check("brand marks come one by one from the trimmed generated set, never react-i
 const generated = read("components/icons/brand-icons.generated.ts")
 const used = [...allSrc.matchAll(/\b(Si[A-Z][A-Za-z0-9]+)\b/g)].map((m) => m[1])
 check("every mark used is in the generated file", used.every((n) => generated.includes(`export function ${n}(`)), used.filter((n) => !generated.includes(`export function ${n}(`)))
-check("tiles flip on tap with aria-pressed, copies are hidden from assistive tech", /aria-pressed/.test(html["integrations-section"] ?? "") && /aria-hidden="true" tabindex="-1"/.test(html["integrations-section"] ?? ""))
+/* Changed on purpose (wave 13): a tile is the app's icon alone, named for assistive tech, and its turn lands on the same icon (no text back). */
+{
+  const ih = html["integrations-section"] ?? ""
+  check("each app is one named icon, copies are hidden from assistive tech", PLATFORM_INTEGRATION_APPS.every((a) => ih.includes(`role="img" aria-label="${a.name}"`)) && /aria-hidden="true" data-copy=""/.test(ih))
+  check("no count, no hover hint, no subheading, no text on a tile", !/\d+ apps|hover or tap|Paste a key/i.test(text(ih)) && !/aria-pressed/.test(ih))
+  check("the section is light", /bg-white/.test(ih) && !/bg-\[#0b0b0c\]/.test(ih))
+  check("the turn lands where it started: edge on at the half, round from the other side", /rotateY\(90deg\)", offset: 0\.5/.test(integ) && /rotateY\(-90deg\)", offset: 0\.5/.test(integ) && /rotateY\(0deg\)" \},?\s*\]/.test(integ))
+  check("the light follows the pointer by transform, one write per frame", /requestAnimationFrame\(paint\)/.test(integ) && /translate3d\(\$\{x\}px, \$\{y\}px, 0\)/.test(integ))
+}
 
 console.log("\n── truth: audience and emails ──")
 const aud = text(html["audience-ownership"] ?? "")
 for (const p of ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"]) check(`syncs to ${p}, a platform the catalog syncs`, aud.includes(p) && byName.has(p) && !byName.get(p)?.comingSoon)
 check("unsubscribes come back, as the catalog says", /Unsubscribes come back/.test(aud) && /Unsubscribes come back/.test(read("lib/integrations/catalog.ts")))
 check("the composer has the real fields and buttons", ["To", "From", "Subject", "Send test", "Schedule", "Send"].every((w) => aud.includes(w)))
+/* Added (wave 13): light, no subheading, a believable creator email, the five platforms in their own marks. */
+{
+  const audSrc = read(`${DIR}/audience-ownership.tsx`)
+  check("audience: a light section (not black UI)", /className=\{`\$\{m\.root\} bg-white /.test(audSrc) && !/bg-black|#121214|\bdark\b \/>/.test(audSrc))
+  check("audience: no subheading under the heading", /<StoryHeading id="audience-ownership-title"[^>]*\/>\s*<\/div>/.test(audSrc))
+  check("audience: the ceramics example is gone", !/glaze|ceramic|Maya Lin/i.test(aud))
+  check("audience: the sent email reports delivered, opened and clicked, as Emails does", ["Delivered", "Opened", "Clicked"].every((w) => aud.includes(w)) && /tt\("Opened"/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /tt\("Clicked"/.test(read("app/(storelib)/app/emails/emails-home.tsx")))
+  const logos = read(`${DIR}/email-platform-logos.tsx`)
+  check("audience: each platform is drawn in its own mark, not a word in a pill", ["KlaviyoLogo", "OmnisendLogo", "BrevoLogo", "MailerLiteLogo", "KitLogo"].every((n) => new RegExp(`export function ${n}\\(`).test(logos)) && /EMAIL_PLATFORMS\.map/.test(audSrc))
+  check("audience: subscribers come in by doors Contacts names", ["OnePage", "Checkout", "Website", "Free download"].every((w) => audSrc.includes(`via: "${w}"`)) && /onepage: "OnePage"/.test(read("lib/contacts/contact-source.ts")))
+}
 check("contacts export as CSV, as Contacts does", /Export CSV/.test(aud) && /contacts\/export/.test(read("app/(storelib)/app/contacts/people-client.tsx")) && /text\/csv/.test(read("app/api/contacts/export/route.ts")))
 
 console.log("\n── truth: analytics ──")
 const ana = text(html["analytics-showcase"] ?? "")
 const reports = read("app/(storelib)/app/analytics/analytics-reports.tsx")
-for (const card of ["Traffic sources", "Countries", "Devices", "Operating systems"]) check(`card "${card}" is a real Analytics card`, ana.includes(card) && reports.includes(`tt("${card}")`))
-check('"OnePage links" is the real report name', ana.includes("OnePage links") && reports.includes('tt("OnePage links")'))
+/* Changed on purpose (wave 13): the owner asked for a simpler analytics section, so it shows three of the real cards (the Operating systems and OnePage links cards are left out, not renamed). */
+for (const card of ["Traffic sources", "Countries", "Devices"]) check(`card "${card}" is a real Analytics card`, ana.includes(card) && reports.includes(`tt("${card}")`))
+/* Added (wave 13): the four figures are the Analytics page's own four, in its words. */
+{
+  const words = read("lib/i18n/translations.ts")
+  check("the four figures are the page's own: Visitors, Total Revenue, Total Orders, Conversion Rate", ["Visitors", "Total Revenue", "Total Orders", "Conversion Rate"].every((w) => ana.includes(w) && words.includes(`: "${w}"`)) && /CORE_TABS = \["views", "revenue", "orders", "conversion"\]/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")))
+}
 for (const tab of ["Source", "Social", "Campaign", "Visitors", "Orders", "Device", "Browser"]) check(`tab "${tab}" is a real tab`, ana.includes(tab) && reports.includes(`tt("${tab}")`))
-check("no invented age or gender chart, and it says so", !/\b(Age|18-24|25-34|Female|Male)\b/.test(ana) && /No guessed ages or genders/.test(ana))
+/* Changed on purpose (wave 13): simpler, so the line saying there is no age or gender report went; nothing claims one either. */
+check("no invented age or gender chart", !/\b(Age|Ages|Gender|18-24|25-34|Female|Male)\b/i.test(ana))
 check("no city report shown (Storelib has none)", !/Top cities|\bCities\b/.test(ana))
 check("live is Home's live visitors", /live/.test(ana) && /dashboard\.liveVisitors/.test(read("components/app/dashboard-client.tsx")))
 const spotBlock = read(`${DIR}/analytics-showcase.tsx`).split("const SPOT_COUNTRY")[1]?.split("\n]")[0] ?? ""
@@ -151,12 +182,24 @@ const app = html["app-anywhere"] ?? ""
 check("App Store link follows the footer's env (none set here)", PLATFORM_APP_STORE_HREF === null && /NEXT_PUBLIC_IOS_APP_STORE_ID/.test(read(`${DIR}/app-anywhere.tsx`)) && /NEXT_PUBLIC_IOS_APP_STORE_URL/.test(read(`${DIR}/app-anywhere.tsx`)))
 check("the App Store badge is there", /Download on the/.test(app) && /App Store/.test(app))
 check("Google Play says Coming soon and is not a link", /Google Play/.test(app) && /Coming soon/.test(app) && !/play\.google\.com/.test(app) && !/<a [^>]*>[^]*?Google Play[^]*?<\/a>/.test(app.replace(/<a [^>]*App Store[\s\S]*?<\/a>/, "")))
-check("the screen is Home: greeting, live, tabs", ["Good morning, Maya", "live", "Home", "Orders", "Products", "Analytics", "Try Pro"].every((w) => text(app).includes(w)))
-check("a sale is announced the way the app says it", /You sold .+ for \$/.test(text(app)) && /You sold /.test(read("lib/notify/templates/catalog.ts")))
+/* Changed on purpose (wave 13): no drawn screen any more (the owner's photo is the visual); the points are titles only, with no check marks; Google Play is not faded. */
+check("the three points are titles only, with no check marks", ["A ping for every sale", "Orders, products and numbers", "Your community, in your pocket"].every((w) => text(app).includes(w)) && !/M3\.5 8\.5 6\.5 11\.5 12\.5 4\.5/.test(app) && !/A notification the moment/.test(app))
+check("the Google Play badge is drawn at full strength", !/opacity-40|grayscale/.test(read(`${DIR}/app-anywhere.tsx`)))
 
 console.log("\n── motion ──")
 const cssFiles = readdirSync(join(root, DIR)).filter((f) => f.endsWith(".module.css"))
-check("each section has its own CSS module, plus the shared one", ["platform", ...SECTIONS.map((s) => s.file)].every((f) => cssFiles.includes(`${f}.module.css`)), cssFiles)
+/* Changed on purpose (wave 13): section 3 draws its stylesheet as a React <style href precedence> (EVERYTHING_STYLES, preloaded by lazy-sections), not a CSS module; it is held to the same rules below. */
+check("each section has its own CSS module, plus the shared one", ["platform", ...SECTIONS.filter((s) => s.file !== "everything-in-one-place").map((s) => s.file)].every((f) => cssFiles.includes(`${f}.module.css`)), cssFiles)
+{
+  const ev = read(`${DIR}/everything-in-one-place.tsx`)
+  const css = ev.split("const CSS = `")[1]?.split("\n`")[0] ?? ""
+  const frames = [...css.matchAll(/@keyframes\s+[\w-]+\s*\{([\s\S]*?\})\s*\}/g)].map((m) => m[1])
+  const props = frames.flatMap((body) => [...body.matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1]))
+  check("everything-in-one-place: keyframes animate only transform and opacity (and time their own steps)", frames.length >= 6 && props.every((p) => p === "transform" || p === "opacity" || p === "animation-timing-function"), [...new Set(props)])
+  check("everything-in-one-place: every loop pauses while the section is not live", /\.ev\[data-platform-live="false"\] \.ev-loop,\.ev:not\(\[data-platform-live\]\) \.ev-loop\{animation-play-state:paused\}/.test(css))
+  check("everything-in-one-place: has a reduced-motion path that stops every loop", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-loop,[^{]*\{animation:none !important\}/.test(css))
+  check("everything-in-one-place: no :has() and no selector ending in *", !/:has\(/.test(css) && !/\*\s*\{/.test(css))
+}
 for (const f of cssFiles) {
   const css = read(`${DIR}/${f}`)
   const frames = [...css.matchAll(/@keyframes\s+[\w-]+\s*\{([\s\S]*?)\n\}/g)].map((m) => m[1])
@@ -180,7 +223,8 @@ check("the globe is drawn off the page's thread where the browser can hand it a 
 const globeWorker = await import(pathToFileURL(join(process.cwd(), "scripts/build-globe-worker.mjs")).href)
 check("the worker's string is up to date (node scripts/build-globe-worker.mjs)", read(`${DIR}/platform-globe-worker-source.ts`) === globeWorker.globeWorkerModule(await globeWorker.globeWorkerSource()))
 check("no scroll listeners in the track's code", !/addEventListener\(\s*["']scroll/.test(strip(allSrc + motion)))
-check("integration tiles have no 3D layer at rest", /\.back \{[\s\S]*?visibility: hidden;[\s\S]*?transform: none;/.test(read(`${DIR}/integrations-section.module.css`)))
+/* Changed on purpose (wave 13): no back face any more; the turn is a Web Animation that exists only while it runs. */
+check("integration tiles have no 3D layer at rest", !/perspective|rotateY|preserve-3d/.test(read(`${DIR}/integrations-section.module.css`)) && /inner\.animate\(FLIP/.test(integ))
 check("no new dependency", !/three|lottie|framer-motion|gsap/.test(strip(allSrc)))
 
 console.log(`\n${passed} passed, ${failed} failed`)

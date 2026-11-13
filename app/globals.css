@@ -10132,8 +10132,9 @@ html[data-op-press] [data-op-letgo] {
     background-clip:text; -webkit-background-clip:text; color:transparent;
   }
 }
-[data-landing-story] {--landing-gutter:clamp(22px,6vw,96px);background:#fff;color:#18181b}
-[data-landing-story] [data-story-section] {padding-block:clamp(64px,8vw,120px)}
+/* Wave 13: one vertical rhythm for the home page. Every section's top and bottom padding is --home-pad, so two sections meet with the same gap everywhere (it was 120 to 128px a side, and 240px where a section and its inner box both padded). */
+[data-landing-story] {--landing-gutter:clamp(22px,6vw,96px);--home-pad:clamp(48px,5.6vw,80px);background:#fff;color:#18181b}
+[data-landing-story] [data-story-section] {padding-block:var(--home-pad)}
 [data-landing-story] .story-section-heading {max-width:1000px;margin:0 0 48px;text-align:left}
 [data-landing-story] .story-section-heading > p {max-width:62ch;margin:24px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.65;text-wrap:pretty}
 [data-landing-story] [data-story-section="split"] {overflow:clip}
@@ -10159,8 +10160,8 @@ html[data-op-press] [data-op-letgo] {
 @property --story-progress {syntax:"<number>";inherits:true;initial-value:0}
 @supports (animation-timeline:view()) {
   @media (prefers-reduced-motion:no-preference) {
-    .story-heading:not([data-story-showcase]):not([data-story-js]) {view-timeline:--story-heading block;animation:story-heading-rise linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
-    .story-heading:not([data-story-showcase]):not([data-story-js]) > span {animation:story-heading-ink linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
+    .story-heading:not([data-story-js]) {view-timeline:--story-heading block;animation:story-heading-rise linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
+    .story-heading:not([data-story-js]) > span {animation:story-heading-ink linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
   }
 }
 @keyframes story-heading-rise {from{transform:translate3d(0,12px,0)}to{transform:translate3d(0,0,0)}}

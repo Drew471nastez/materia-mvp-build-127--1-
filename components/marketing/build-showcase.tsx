@@ -3,17 +3,25 @@
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { StoryHeading } from "./story-heading"
 /*
-  Nine fictional Storelib businesses, as three wide–OnePage–wide pages:
-  storefronts, OnePages and communities, each with its own name, palette and
-  type. Every picture is rendered from the live mockups in
-  components/marketing/home/showcase-mocks (the same brands sections 4 and 6
-  use) as one small webp, so the moving gallery composites flat images.
+  TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 13).
+  The stores are drawn in the layout of a real Storelib creator store (the
+  newsletter bar, the cover, the round avatar, Home / Products / Communities
+  and the product cards, in the store's own colour scheme) and the
+  communities in the layout of a real Storelib community (the community card
+  and places, the space chips and feed, the next event and the leaderboard),
+  for fictional creators, with stock photography. The course page and three
+  OnePages are the shared showcase mocks (components/marketing/home/
+  showcase-mocks); Satori Studio is a real OnePage, storelib.me/satori-studio,
+  as a phone shows it.
 
-  EACH CARD IS ITS PICTURE'S OWN SHAPE (main's round 60, kept in the wave 12
-  merge): the wide pictures are 1440 x 900 (16:10) and the OnePages 540 x 960
-  (9:16), and the cards are those shapes, so a picture fills its card with no
-  bars, no blurred copy behind it and nothing cropped. The columns follow
-  (16:10 and 9:16 at one height are 1.6 : 0.5625 wide, so 256fr 90fr 256fr).
+  EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
+  pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
+  card with no bars and nothing cropped. At one height they are 1.4545 and
+  0.5114 wide, which is still 256fr 90fr 256fr.
+
+  THE CAPTION waits for a pointer to rest on the picture (a mouse or a pen:
+  hover and a fine pointer), then fades in; on a touch screen the pictures
+  stand on their own and the caption is read by assistive technology only.
 */
 const wide = (brand: string, label: string, alt: string) => ({
   src: `/home/showcase/a-${brand}.webp`,
@@ -21,7 +29,7 @@ const wide = (brand: string, label: string, alt: string) => ({
   label,
   format: "wide",
   width: 1440,
-  height: 900,
+  height: 990,
 })
 const portrait = (brand: string, label: string, alt: string) => ({
   src: `/home/showcase/a-${brand}.webp`,
@@ -29,28 +37,33 @@ const portrait = (brand: string, label: string, alt: string) => ({
   label,
   format: "portrait",
   width: 540,
-  height: 960,
+  height: 1056,
 })
+/* The OnePage captions are three words at most (the owner, wave 13). */
 const GROUPS = [
   [
-    wide("hollow", "Sell merch your fans wear", "Hollow Pines, a band's merch store with hoodies, tees and caps"),
-    portrait("maya", "A link in bio that sells", "Maya Okafor's OnePage with a marathon plan, run club and coaching links"),
-    wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community feed with spaces and events"),
+    wide("neonmoth", "Sell merch your fans wear", "Neon Moth's Storelib store: a tour tee, a vinyl LP and a track set under a neon concert cover"),
+    portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
+    wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community with a critique post, a roll swap event and a leaderboard"),
   ],
   [
-    wide("gridline", "Sell templates and downloads", "Gridline Studio's storefront for Notion and Figma templates"),
-    portrait("lio", "Share what you create", "Lio Tanaka's dark OnePage with photos, presets and print links"),
+    wide("mila", "Sell digital downloads", "Mila Draws' Storelib store with a gouache brush pack, a digital planner and texture scans"),
+    portrait("maya", "Links that sell", "Maya Okafor's OnePage with a marathon plan, run club and coaching links"),
     wide("founders", "A members' club for founders", "Founders After Five, a community where a member shares a $10k MRR milestone"),
   ],
   [
     wide("bloom", "Teach what you know", "Brush & Bloom's watercolor course site with modules and reviews"),
-    portrait("priya", "Give every link a home", "Sol & Sage's OnePage with a cookbook, recipes and a cooking class"),
-    wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes"),
+    portrait("lio", "Show your work", "Lio Tanaka's dark OnePage with photos, presets and print links"),
+    wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes and a live glaze night"),
+  ],
+  [
+    wide("gridline", "Sell templates and kits", "Gridline Studio's Storelib store with workspace templates and a wireframe kit"),
+    portrait("priya", "All your links", "Sol & Sage's OnePage with a cookbook, recipes and a cooking class"),
+    wide("hollow", "Merch for the whole tour", "Hollow Pines' Storelib store with a hoodie, a tee and a cap under a forest cover"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
-export const SHOWCASE_HEADING =
-  "Build your page, sell your products, reach your audience, and manage everything in one platform."
+export const SHOWCASE_HEADING = "Build your page, sell your products, and manage everything in one place."
 
 /** Each desktop page is a complete wide–OnePage–wide composition. */
 export function BuildShowcase() {
@@ -71,6 +84,7 @@ export function BuildShowcase() {
       </p>
       <div className="build-showcase-card">
         <div className="build-showcase-top">
+          {/* Wave 13: inked by the scroll like every other StoryHeading (the showcase flag only marks its words). */}
           <StoryHeading
             id="build-showcase-title"
             text={SHOWCASE_HEADING}
@@ -108,19 +122,17 @@ export function BuildShowcase() {
                     data-showcase-slide=""
                     key={example.label}
                   >
-                    <div className="build-showcase-media">
-                      {/* Original optimized Storelib demo screenshots; no full-size third-party downloads. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={example.src!}
-                        alt={example.alt}
-                        width={example.width}
-                        height={example.height}
-                        loading="lazy"
-                        decoding="async"
-                        draggable={false}
-                      />
-                    </div>
+                    {/* Optimized Storelib page renders and one real OnePage screenshot; no full-size third-party downloads. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={example.src}
+                      alt={example.alt}
+                      width={example.width}
+                      height={example.height}
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                    />
                     <figcaption>{example.label}</figcaption>
                   </figure>
                 ))}
@@ -133,16 +145,24 @@ export function BuildShowcase() {
   )
 }
 
+/*
+  THE CORNERS (wave 13, the owner's image 29). Measured there: the section
+  is a near black, its top corners are a radius of about 2.8% of the width
+  (40px at 1440, never under 24px on a phone), and a 1px highlight of about
+  6% white runs along the top edge and round the curve, fading as the curve
+  turns down, with nothing down the sides. That is an inset shadow 1px down:
+  it follows the radius by itself and takes no width. The section overlaps
+  the hero by its radius, so what shows round each corner is the hero.
+*/
 const CSS = `
-/* The hairline is an inset shadow, not a border, so it takes no width: the cards line up with the bar above to the pixel. */
-.build-showcase {position:relative;z-index:2;margin:-20px 0 40px;color:#fafafa;background:#090909;border-radius:40px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 -8px 32px rgba(0,0,0,.08)}
+.build-showcase {--showcase-radius:clamp(24px,2.78vw,48px);position:relative;z-index:2;margin:calc(var(--showcase-radius)*-1) 0 40px;color:#fafafa;background:#050506;border-radius:var(--showcase-radius);box-shadow:inset 0 1px 0 rgba(255,255,255,.065),0 -8px 32px rgba(0,0,0,.08)}
 .build-showcase-card {width:100%;max-width:var(--showcase-max,2020px);margin:0 auto;padding:clamp(72px,7vw,112px) 0 clamp(96px,9vw,156px)}
 .build-showcase-top {margin:0 calc(var(--showcase-gutter,clamp(20px,5.15vw,84px)) + var(--landing-card-inset,14px)) clamp(38px,4.8vw,65px)}
 .build-showcase h2 {max-width:none;margin:0;font-size:clamp(32px,3.4vw,58px);text-wrap:balance;line-height:1.13}
-.build-showcase .story-heading {--story-muted:#85858c;transition:opacity 400ms ease}.build-showcase[data-showcase-browsing] .story-heading {opacity:.64}
+.build-showcase .story-heading {--story-muted:#66666e}
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .build-showcase-viewport {position:relative;overflow:hidden;margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px));mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
-.build-showcase-viewport::after {content:"";position:absolute;inset:0 auto 0 0;width:var(--showcase-gutter,clamp(20px,5.15vw,84px));background:#090909;pointer-events:none;opacity:0;transition:opacity 200ms ease}
+.build-showcase-viewport::after {content:"";position:absolute;inset:0 auto 0 0;width:var(--showcase-gutter,clamp(20px,5.15vw,84px));background:#050506;pointer-events:none;opacity:0;transition:opacity 200ms ease}
 @media(max-width:767px){.build-showcase[data-showcase-pristine] .build-showcase-viewport::after{opacity:1}}
 /*
   THE RAIL. Before the script it is a plain horizontal scroller, so the cards
@@ -151,23 +171,38 @@ const CSS = `
   touch-action leaves vertical swipes to the page; overscroll-behavior keeps
   a sideways trackpad swipe from turning into the browser's back gesture.
 */
-.build-showcase-track {--showcase-gap:12px;position:relative;display:flex;gap:24px;overflow-x:auto;scrollbar-width:none;cursor:grab;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior-x:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.build-showcase-track {--showcase-gap:16px;position:relative;display:flex;gap:24px;overflow-x:auto;scrollbar-width:none;cursor:grab;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior-x:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .build-showcase-track[data-rail-ready] {overflow:visible;touch-action:pan-y pinch-zoom;overscroll-behavior-x:none}
 .build-showcase-track:focus-visible {outline:2px solid #bca3ff;outline-offset:4px}
 .build-showcase-track::-webkit-scrollbar {display:none}
 .build-showcase-track[data-dragging] {cursor:grabbing}
-/* Round 61: the moving boxes keep their own GPU layers for as long as the rail runs; adding and dropping them at every autoplay step re-rasterised the pictures at the start of each move. */
+/* The moving boxes keep their own GPU layers for as long as the rail runs (round 61), and the Web Animations that move them (wave 13) run on those same layers: nothing is promoted or dropped at a step. */
 .build-showcase-track[data-rail-ready] .build-showcase-group {will-change:transform;backface-visibility:hidden}
 @media(max-width:767px){.build-showcase-track[data-rail-ready] .build-showcase-group{will-change:auto}.build-showcase-track[data-rail-ready] .build-showcase-slide{will-change:transform;backface-visibility:hidden}}
 .build-showcase-group {display:grid;grid-template-columns:256fr 90fr 256fr;gap:var(--showcase-gap);align-items:center;flex:0 0 100%;width:100%;padding:10px var(--landing-card-inset,14px);min-width:0;box-sizing:border-box}
-.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:16/10;margin:0;border:1px solid rgba(255,255,255,.12);border-radius:5px;contain:paint;isolation:isolate;background:#151515;overflow:hidden}
-.build-showcase-slide[data-format="portrait"] {aspect-ratio:9/16}
-.build-showcase-media {position:relative;height:100%}
+.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:1440/990;margin:0;border-radius:8px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
+.build-showcase-slide[data-format="portrait"] {aspect-ratio:540/1056}
 .build-showcase-slide img {display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
-.build-showcase-slide figcaption {position:absolute;inset:auto 0 0;min-height:80px;display:flex;align-items:flex-end;padding:36px 16px 14px;font-size:14px;line-height:1.35;color:#fff;text-shadow:0 1px 4px #000;background:linear-gradient(transparent,rgba(0,0,0,.55) 50%,rgba(0,0,0,.88))}
+/*
+  THE CAPTION: away until a mouse rests on the picture, then the soft dark
+  fade and the line come in together as one opacity, on a layer of their own
+  (will-change), so showing it repaints nothing; while the rail is dragged
+  it stays away. Wave 13 perf: the layers only where a mouse can show the
+  caption; a touch screen never does, and a dozen idle layers cost every
+  frame of its scroll.
+*/
+.build-showcase-slide figcaption {position:absolute;inset:auto 0 0;min-height:104px;display:flex;align-items:flex-end;padding:44px 18px 16px;font-size:15px;font-weight:500;line-height:1.3;letter-spacing:-.005em;color:#fff;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.42) 42%,rgba(0,0,0,.78));opacity:0;pointer-events:none;transition:opacity 380ms cubic-bezier(.33,0,.2,1)}
+@media(hover:hover) and (pointer:fine){.build-showcase-slide figcaption{will-change:opacity}}
+@media(hover:hover) and (pointer:fine){.build-showcase-track:not([data-dragging]) .build-showcase-slide:hover figcaption{opacity:1;transition-duration:460ms}}
 /* Round 61: the pictures appear where they are, a fade and nothing else. Hidden only once the script is there to show them. */
 .build-showcase-track[data-rail-ready] {opacity:0;transition:opacity 650ms cubic-bezier(.25,.1,.25,1)}
 .build-showcase-viewport[data-showcase-entered] .build-showcase-track {opacity:1}
-@media(max-width:767px){.build-showcase{margin-top:-12px;border-radius:28px}.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent)}.build-showcase-track{--showcase-gap:10px;--showcase-height:clamp(180px,58vw,360px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.6);aspect-ratio:auto}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5625)}.build-showcase-slide figcaption{min-height:76px;padding:36px 16px 14px;font-size:14px}}
-@media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready]{opacity:1;transition:none}.build-showcase .story-heading{opacity:1;transition:none}}
+/*
+  ON A PHONE (wave 13, the owner's image 28): the heading on the gutter, the
+  cards in one row from the same left edge, the first one large (about three
+  quarters of the width) and the next peeking in from the right, 8px apart,
+  each card its picture's shape and about half the width tall.
+*/
+@media(max-width:767px){.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;--showcase-height:clamp(170px,51.5vw,380px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:6px}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
+@media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready]{opacity:1;transition:none}.build-showcase-slide figcaption{transition:none}}
 `

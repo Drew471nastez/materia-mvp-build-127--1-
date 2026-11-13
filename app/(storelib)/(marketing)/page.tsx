@@ -69,8 +69,8 @@ export default function StorelibLanding() {
         {/* 4 IdeasToLife */}
         <LazyIdeasComeToLife />
 
-        {/* 5 UNLIMITED POSSIBILITIES (frame) */}
-        <LazySection name="possibilities" minHeight="560px">
+        {/* 5 UNLIMITED POSSIBILITIES (frame). Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
+        <LazySection name="possibilities" minHeight="clamp(442px, 21vw + 290px, 600px)">
           <ProductMarquee />
         </LazySection>
 
@@ -105,12 +105,12 @@ export default function StorelibLanding() {
         <LazyAppAnywhere />
 
         {/* 16 PRICING (kept as it was, without its See full pricing button here) */}
-        <LazySection name="pricing" minHeight="1300px">
+        <LazySection name="pricing" minHeight="max(calc(2090px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1045px)">
           <PricingSection editorial hideDetailsLink />
         </LazySection>
 
         {/* 17 FAQ */}
-        <LazySection name="faq" minHeight="1000px">
+        <LazySection name="faq" minHeight="max(calc(795px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), 730px)">
           <FaqSection editorial />
         </LazySection>
 

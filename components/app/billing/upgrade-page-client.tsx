@@ -14,7 +14,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { ComparePlans } from "@/components/billing/compare-plans"
 import { PlanFaq } from "@/components/billing/plan-faq"
-import { formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
+import { offeredPlan, type OfferedPlanId } from "@/lib/billing/plans"
 import { tt } from "@/lib/i18n/text"
 
 /** Where Back goes: the Billing tab this page was opened from. */
@@ -190,13 +190,12 @@ export function UpgradePageClient({
   }
 
   /**
-   * Two plans are offered: Free and Pro (internal id "growth"). The $99 "pro"
-   * plan is not for sale, but somebody already on it still lands here, so it
-   * is found in the full list to decide which way a change goes.
+   * Three plans are offered: Free, Pro (internal id "growth") and Scale
+   * (internal id "pro", the $99 plan, on sale again). The current plan is
+   * found in the full list to decide which way a change goes.
    */
   const currentPlan = plans.find((p: any) => p.id === currentPlanId)
   const currentPriceCents = currentPlan?.price_cents ?? (currentPlanId === "free" ? 0 : null)
-  const isLegacyPro = currentPlanId === "pro"
 
   const actionFor = (id: OfferedPlanId): PlanCardAction => {
     const offered = offeredPlan(id)
@@ -211,7 +210,6 @@ export function UpgradePageClient({
     if (isCurrentPlan) label = "Current plan"
     else if (isPendingPlan) label = isFree ? "Downgrade scheduled" : "Switch scheduled"
     else if (cancelAtPeriodEnd && isFree) label = "Cancellation scheduled"
-    else if (isLegacyPro && !isFree) label = `Switch to ${offered.name} at ${offered.price}`
     else if (isDowngrade) label = `Downgrade to ${offered.name}`
     else if (hasActiveSubscription) label = `Upgrade to ${offered.name}`
     else label = `Get ${offered.name}`
@@ -274,7 +272,7 @@ export function UpgradePageClient({
 
       <div
         data-upgrade-body=""
-        className={`mx-auto max-w-[1080px] app-gutter pb-16 pt-9 transition-opacity duration-200 sm:pt-14 ${leaving ? "pointer-events-none opacity-60" : ""}`}
+        className={`mx-auto max-w-[1240px] app-gutter pb-16 pt-9 transition-opacity duration-200 sm:pt-14 ${leaving ? "pointer-events-none opacity-60" : ""}`}
       >
         {/*
           THE TITLE CARRIES THE PAGE. It was the size of a settings heading
@@ -296,14 +294,8 @@ export function UpgradePageClient({
           </div>
         )}
 
-        {isLegacyPro && currentPlan && (
-          <p className="max-w-[820px] mx-auto mb-5 rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 text-[14px] leading-[1.5] text-[#374151]">
-            {tt("You are on an earlier Pro plan at {amount} a month, with a fee of", { amount: formatPlanPrice(currentPlan.price_cents) })} {planHighlights("pro")[0]}{tt(". It stays as it is unless you change it.")}
-          </p>
-        )}
-
         <PlanCards
-          actions={{ free: actionFor("free"), growth: actionFor("growth") }}
+          actions={{ free: actionFor("free"), growth: actionFor("growth"), pro: actionFor("pro") }}
           lead={currentPlanId === "free" ? "growth" : undefined}
         />
 

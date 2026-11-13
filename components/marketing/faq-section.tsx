@@ -20,7 +20,7 @@ const FAQS = [
   },
   {
     q: "Can I use my own domain?",
-    a: "Yes, on the Pro plan ($29 a month). Your store lives at yourname.com.",
+    a: "Yes, on Pro ($29 a month) and Scale ($99 a month). Your store lives at yourname.com.",
   },
   {
     q: "How fast do I get paid?",
@@ -46,10 +46,17 @@ function FaqItem({ faq, isOpen, onToggle }: { faq: typeof FAQS[number]; isOpen: 
     }
   }, [])
 
+  /* Wave 13 perf: the answer's height comes from a ResizeObserver, reported after the browser lays the page out (and again whenever it changes), not by measuring as the list mounts, a forced layout of the whole page. */
   useEffect(() => {
-    measure()
-    window.addEventListener("resize", measure)
-    return () => window.removeEventListener("resize", measure)
+    const el = contentRef.current
+    if (!el || typeof ResizeObserver !== "function") {
+      measure()
+      window.addEventListener("resize", measure)
+      return () => window.removeEventListener("resize", measure)
+    }
+    const ro = new ResizeObserver(([entry]) => setHeight(Math.ceil(entry.contentRect.height)))
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [measure])
 
   return (
@@ -98,18 +105,23 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
     <section data-story-section={editorial ? "faq" : undefined} className="py-20 sm:py-28 bg-[#fafafa]" id="faq">
       <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll variant="slide-right">
-          <div className="flex flex-col md:flex-row md:gap-16 lg:gap-24">
-            {/* Left — title */}
-            <div className="md:w-[280px] lg:w-[320px] shrink-0 mb-10 md:mb-0 md:sticky md:top-32 md:self-start">
+          {/*
+            Wave 13: the heading and its line had a 280 to 320px column, so a
+            62px heading broke a word to a line. They stack over the answers
+            until there is room for a 420px column beside them.
+          */}
+          <div className="flex flex-col lg:flex-row lg:gap-20 xl:gap-24">
+            {/* Left: title */}
+            <div className="lg:w-[420px] xl:w-[460px] shrink-0 mb-10 lg:mb-0 lg:sticky lg:top-32 lg:self-start max-w-[640px]">
               {editorial ? <StoryHeading text="Good questions. Clear answers." accent={["answers"]} className="mb-6" /> : (<h2 className="text-[clamp(30px,4vw,42px)] font-bold tracking-tight leading-[1.15] mb-3">
                 Faq
               </h2>)}
-              <p className="text-base text-neutral-500 leading-relaxed">
+              <p className={`${editorial ? "mt-5 text-[clamp(16px,1.4vw,19px)]" : "text-base"} text-neutral-500 leading-relaxed`}>
                 Everything you need to know about Storelib.
               </p>
             </div>
 
-            {/* Right — accordion */}
+            {/* Right: accordion */}
             <div className="flex-1 min-w-0">
               {FAQS.map((faq, i) => (
                 <FaqItem

@@ -1,35 +1,52 @@
-/* Section 10, "Your audience belongs to you". Only transform and opacity animate. */
+/* Section 10, "Your audience belongs to you" (wave 13: light). Only transform and opacity animate. */
 
 .panel {
-  border-radius: 28px;
-  overflow: hidden;
   position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  background: #f5f4f7;
+  color: #0f0e13;
 }
 @media (max-width: 639px) {
   .panel {
     border-radius: 22px;
   }
 }
-.dark {
-  background: #121214;
-  color: #fff;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-.light {
-  background: #fff;
-  color: #18181b;
-}
-.glow {
+/* The composer's card: the same grey, a soft violet light in one corner. */
+.stage {
   background:
-    radial-gradient(70% 60% at 85% 0%, rgba(139, 92, 246, 0.55) 0%, rgba(139, 92, 246, 0) 70%),
-    radial-gradient(60% 50% at 0% 100%, rgba(59, 130, 246, 0.35) 0%, rgba(59, 130, 246, 0) 70%),
-    #121214;
+    radial-gradient(60% 50% at 100% 0%, rgba(124, 58, 237, 0.12) 0%, rgba(124, 58, 237, 0) 70%),
+    #f5f4f7;
+}
+.violet {
+  background:
+    radial-gradient(80% 90% at 100% 0%, rgba(167, 139, 250, 0.35) 0%, rgba(167, 139, 250, 0) 70%),
+    #efeafd;
+}
+
+/* The composer runs off the card's bottom edge, a fixed height so nothing moves. */
+.bleed {
+  height: 600px;
+  margin-bottom: -1px;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .bleed {
+    height: 640px;
+  }
+}
+@media (min-width: 1024px) {
+  .bleed {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 560px;
+  }
 }
 
 /* The composer window rises a little as the section arrives. */
 .window {
-  transform: translate3d(0, 36px, 0);
-  transition: transform 1200ms cubic-bezier(0.22, 1, 0.36, 1) 150ms;
+  transform: translate3d(0, 32px, 0);
+  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1) 150ms;
 }
 [data-platform-in] .window {
   transform: none;
@@ -61,10 +78,10 @@
   visibility: visible;
 }
 .typing .typeCover {
-  animation: uncover var(--type-ms, 1500ms) steps(var(--steps, 38), end) 500ms both;
+  animation: uncover var(--type-ms, 1500ms) steps(var(--steps, 33), end) 500ms both;
 }
 .typing .typeCaret {
-  animation: carry var(--type-ms, 1500ms) steps(var(--steps, 38), end) 500ms both;
+  animation: carry var(--type-ms, 1500ms) steps(var(--steps, 33), end) 500ms both;
 }
 @keyframes uncover {
   from {
@@ -88,7 +105,7 @@
   height: 1.05em;
   margin-left: 1px;
   vertical-align: -0.15em;
-  background: #8b5cf6;
+  background: #7c3aed;
 }
 .typing .caret {
   animation: blink 1s steps(1) infinite;
@@ -99,7 +116,7 @@
   }
 }
 
-/* Send: a press, then the status line swaps. */
+/* Send: a press. */
 .sendBtn {
   transition: transform 160ms ease-out;
 }
@@ -107,58 +124,85 @@
   transform: scale(0.94);
 }
 
+/* Words that take turns in one place. */
 .swap {
   display: grid;
+  justify-items: start;
 }
-.swap > * {
+.swap > span {
   grid-area: 1 / 1;
   transition:
-    opacity 350ms ease-out,
-    transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 300ms ease-out,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.line > span {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .swap > [data-on="false"] {
   opacity: 0;
-  transform: translate3d(0, 6px, 0);
+  transform: translate3d(0, 5px, 0);
 }
 
-.sentToast {
-  transition:
-    opacity 420ms ease-out,
-    transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.sentToast[data-on="false"] {
+/* The sending bar: fills while it sends, fades once sent. */
+.progress {
+  transform-origin: 0 50%;
+  transform: scaleX(0);
   opacity: 0;
-  transform: translate3d(-50%, 16px, 0) scale(0.96);
 }
-.sentToast[data-on="true"] {
+.progress[data-on="true"] {
   opacity: 1;
-  transform: translate3d(-50%, 0, 0);
+  transform: scaleX(1);
+  transition: transform 1700ms cubic-bezier(0.45, 0, 0.25, 1);
+}
+.progress[data-done] {
+  opacity: 0;
+  transition:
+    transform 1700ms cubic-bezier(0.45, 0, 0.25, 1),
+    opacity 500ms ease-out 200ms;
+}
+
+/* The envelope and the figures share one place and cross-fade. */
+.face {
+  transition:
+    opacity 400ms ease-out,
+    transform 550ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.face[data-on="false"] {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0) scale(0.985);
+  pointer-events: none;
 }
 
 .fill {
   transform-origin: 0 50%;
-  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1) 200ms;
 }
 
-/* New subscribers slide in at the top of the list; the last one fades out. */
+/* New subscribers slide in at the top of the list; the newest one is lit. */
 .row {
-  transition: background-color 600ms ease-out, box-shadow 600ms ease-out;
+  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.05), 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+.row[data-fresh] {
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.28), 0 8px 20px -12px rgba(124, 58, 237, 0.45);
 }
 .list[data-shift="0"] {
-  animation: shiftA 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: shiftA 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .list[data-shift="1"] {
-  animation: shiftB 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: shiftB 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.list[data-shift="0"] > :first-child {
-  animation: freshA 700ms ease-out both;
+.list[data-shift="0"] > .row:first-child {
+  animation: freshA 650ms ease-out both;
 }
-.list[data-shift="1"] > :first-child {
-  animation: freshB 700ms ease-out both;
+.list[data-shift="1"] > .row:first-child {
+  animation: freshB 650ms ease-out both;
 }
 @keyframes shiftA {
   from {
-    transform: translate3d(0, -60px, 0);
+    transform: translate3d(0, -84px, 0);
   }
   to {
     transform: none;
@@ -166,7 +210,7 @@
 }
 @keyframes shiftB {
   from {
-    transform: translate3d(0, -60px, 0);
+    transform: translate3d(0, -84px, 0);
   }
   to {
     transform: none;
@@ -175,87 +219,99 @@
 @keyframes freshA {
   from {
     opacity: 0;
+    transform: scale(0.97);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 @keyframes freshB {
   from {
     opacity: 0;
+    transform: scale(0.97);
   }
   to {
-    opacity: 1;
-  }
-}
-.rowFresh {
-  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.45);
-  background: rgba(139, 92, 246, 0.12) !important;
-}
-
-/* Sync: a dot runs along each line, out and back. */
-.wire {
-  position: relative;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(139, 92, 246, 0.25), rgba(24, 24, 27, 0.16));
-  overflow: hidden;
-}
-.pulse {
-  position: absolute;
-  top: -1.5px;
-  left: 0;
-  width: 44px;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(139, 92, 246, 0), #8b5cf6);
-  animation: run 2.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-  animation-delay: calc(var(--k, 0) * 0.35s);
-}
-@keyframes run {
-  from {
-    transform: translate3d(-30px, 0, 0);
-  }
-  to {
-    transform: translate3d(var(--run, 160px), 0, 0);
-  }
-}
-
-/* Export: the file drops out of the button. */
-.file {
-  animation: drop 4.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-}
-@keyframes drop {
-  0%,
-  12% {
-    opacity: 0;
-    transform: translate3d(0, -18px, 0) scale(0.92);
-  }
-  24%,
-  80% {
     opacity: 1;
     transform: none;
   }
-  94%,
+}
+
+/* Sync: a trunk from Storelib, a bar, and a drop to each platform. */
+.tree {
+  position: relative;
+  padding-top: 16px;
+}
+.trunk {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 16px;
+  background: #d9d3ea;
+}
+.bar {
+  position: absolute;
+  top: 16px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: #d9d3ea;
+}
+.drop {
+  position: relative;
+  display: block;
+  width: 1px;
+  height: 22px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  background: #d9d3ea;
+}
+.dot {
+  position: absolute;
+  left: -1.5px;
+  top: 0;
+  width: 4px;
+  height: 8px;
+  border-radius: 4px;
+  background: #7c3aed;
+  opacity: 0;
+  animation: flow 2.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  animation-delay: calc(var(--k, 0) * 0.32s);
+}
+@keyframes flow {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0);
+  }
+  15% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 1;
+    transform: translate3d(0, 22px, 0);
+  }
+  46%,
   100% {
     opacity: 0;
-    transform: translate3d(0, 8px, 0) scale(0.98);
+    transform: translate3d(0, 22px, 0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .window,
   .fill,
-  .sentToast,
-  .swap > * {
-    transition: none;
+  .face,
+  .progress,
+  .swap > span {
+    transition: none !important;
   }
   .caret,
   .typeCover,
   .typeCaret,
   .list,
-  .list > :first-child,
-  .pulse,
-  .file {
+  .list > .row:first-child,
+  .dot {
     animation: none;
   }
 }

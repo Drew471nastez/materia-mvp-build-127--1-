@@ -158,16 +158,50 @@ let headingMotion: ReturnType<typeof createHeadingMotion> | undefined
  * animations and a heading inside a box that clips by scrolling (overflow:
  * hidden or auto), whose view timeline would follow that box instead of the
  * page; those are marked data-story-js, which the stylesheet leaves alone.
- * The showcase heading has neither: it stands still, fully inked.
+ * Wave 13: the showcase heading inks from the scroll again, the same way.
  */
 function inkedByCss(node: HTMLElement) {
-  if (node.hasAttribute("data-story-showcase")) return false
   if (typeof CSS === "undefined" || !CSS.supports("animation-timeline: view()")) return false
   for (let el = node.parentElement; el && el !== document.body; el = el.parentElement) {
     const { overflowX, overflowY } = getComputedStyle(el)
     if (/hidden|auto|scroll/.test(overflowX + overflowY)) return false
   }
   return true
+}
+
+/*
+ * Wave 13 perf: whether a heading is in a clipping box is asked when it
+ * first comes within a screen of the viewport, from an IntersectionObserver
+ * callback, which runs after the browser has laid the page out, so reading
+ * computed styles there costs nothing. Asked while a section mounted (the
+ * effect), it made the browser restyle and lay out the whole page there and
+ * then: 40 to 100 ms at 4x CPU for each section that arrived.
+ */
+let nearWatcher: IntersectionObserver | null = null
+const nearCallbacks = new WeakMap<Element, () => void>()
+function whenNear(node: HTMLElement, cb: () => void): () => void {
+  if (typeof IntersectionObserver !== "function") {
+    cb()
+    return () => {}
+  }
+  nearWatcher ??= new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        nearWatcher?.unobserve(entry.target)
+        const done = nearCallbacks.get(entry.target)
+        nearCallbacks.delete(entry.target)
+        done?.()
+      }
+    },
+    { rootMargin: "100% 0px" },
+  )
+  nearCallbacks.set(node, cb)
+  nearWatcher.observe(node)
+  return () => {
+    nearCallbacks.delete(node)
+    nearWatcher?.unobserve(node)
+  }
 }
 
 /** Server-rendered, readable copy; scroll progressively inks each word. */
@@ -191,12 +225,25 @@ export function StoryHeading({
   const ref = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     const node = ref.current
-    /* Round 61: the showcase heading stands still and fully inked; it does no scroll work at all. */
-    if (!node || showcase || inkedByCss(node)) return
-    node.setAttribute("data-story-js", "")
-    headingMotion ??= createHeadingMotion()
-    return headingMotion.add(node)
-  }, [showcase])
+    if (!node) return
+    /* Wave 13: the showcase heading is inked by the scroll like the others (round 61 had it stand still, fully inked). */
+    let remove: (() => void) | undefined
+    const decide = () => {
+      if (inkedByCss(node)) return
+      node.setAttribute("data-story-js", "")
+      headingMotion ??= createHeadingMotion()
+      remove = headingMotion.add(node)
+    }
+    if (typeof CSS === "undefined" || !CSS.supports("animation-timeline: view()")) {
+      decide()
+      return () => remove?.()
+    }
+    const stopWatching = whenNear(node, decide)
+    return () => {
+      stopWatching()
+      remove?.()
+    }
+  }, [])
   const words = text.trim().split(/\s+/)
   return (
     <Tag
@@ -206,7 +253,6 @@ export function StoryHeading({
       data-story-heading=""
       data-story-showcase={showcase || undefined}
       data-story-dark={dark || undefined}
-      style={showcase ? ({ "--story-progress": 1, transform: "none" } as CSSProperties) : undefined}
       aria-label={text}
     >
       <span aria-hidden="true">

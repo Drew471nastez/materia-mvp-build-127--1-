@@ -26,12 +26,15 @@
 import {
   SHOWCASE_MOTION,
   capSpringVelocity,
+  chooseSwipeTarget,
   chooseTarget,
+  launchVelocity,
   readWheel,
   releaseVelocity,
   sineInOut,
   springAt,
   springRested,
+  settleDuration,
   stepTarget,
   wrap,
   type Sample,
@@ -90,6 +93,7 @@ console.log("\nThe tuning")
   check("and fully at rest by 0.65s: quick, not a long glide", !!rest && rest.t < 0.65, rest?.t)
 }
 
+/* Changed on purpose (wave 13): chooseTarget (the wheel, a stopped press) still settles a slow drag back; a released drag is decided by chooseSwipeTarget below, where 150px is a whole swipe. */
 console.log("\nA: a slow drag settles back")
 {
   const s = drag(150, 1000)
@@ -213,6 +217,68 @@ console.log("\nThe loop")
   check("a step back from the first group goes round to the last", wrap(stepTarget(0, -1, SNAPS, L), L) === 2 * P)
   const finite = chooseTarget(2 * P + 300, 2500, SNAPS, 0, C)
   check("a finite rail stops at its last group", finite === 2 * P, finite)
+}
+
+/*
+  Added on purpose (wave 13). The owner: "a short drag or a flick should
+  complete a full swipe to the next card ... right now you have to drag much
+  too far". chooseTarget above still decides a wheel or a press that stopped
+  the rail; a released drag is decided by chooseSwipeTarget, like a pager.
+*/
+console.log("\nWave 13: a short drag or a flick is a whole swipe")
+{
+  const t = (x: number, v: number, start = 0) => chooseSwipeTarget(start, x, v, SNAPS, L, C)
+  check("150px over a second (the slow drag of A) now goes on to the next group", t(150, 150) === P, t(150, 150))
+  check("40px is enough on a desktop group, slowly", t(40, 0) === P && t(-40, 0) === -P)
+  check("a 32px drag with no speed goes back", t(32, 0) === 0, t(32, 0))
+  check("a 20px flick goes on", t(20, 900) === P, t(20, 900))
+  check("a flick against a drag that had moved cancels it: back to the start, not past it", t(200, -900) === 0, t(200, -900))
+  check("a flick from rest the other way goes back a group", t(-10, -900) === -P, t(-10, -900))
+  check("never more than one group, however far or fast", t(1250, 9000) === P && t(-1250, -9000) === -P)
+  check("a press that caught the rail between groups and drags on goes to the group ahead", t(P * 0.62 + 60, 0, P * 0.62) === P, t(P * 0.62 + 60, 0, P * 0.62))
+  check("and one that drags back goes to the group behind", t(P * 0.62 - 60, 0, P * 0.62) === 0, t(P * 0.62 - 60, 0, P * 0.62))
+  check("a slow drag that ends just short of the threshold returns", t(39, 100) === 0)
+  /* A phone: cards 292 and 103 wide, 8px apart. */
+  const phone = [0, 300, 411, 711]
+  const tp = (x: number, v: number, start = 0) => chooseSwipeTarget(start, x, v, phone, 0, C)
+  check("on a phone 40px is a swipe of a wide card, 32px is not", tp(40, 0) === 300 && tp(32, 0) === 0, [tp(40, 0), tp(32, 0)])
+  check("and a narrow OnePage card a fifth of its step, 23px, not 20", tp(300 + 23, 0, 300) === 411 && tp(300 + 20, 0, 300) === 300)
+  check("a finite rail stops at its ends", tp(-80, -900) === 0 && tp(711 + 80, 900, 711) === 711)
+  check("the swipe thresholds are short and the flick speed low", C.swipeDistanceMax <= 40 && C.swipeVelocity <= 200)
+}
+
+console.log("\nWave 13: the settle leaves at speed and never passes its place")
+{
+  let worst = 0
+  for (const x0 of [-1316, -600, -60, 60, 600, 1316])
+    for (const v of [-3000, -200, 0, 200, 3000]) {
+      const v0 = launchVelocity(x0, v, K, C.swipeLaunch)
+      for (let t = 0; t < 2; t += 1 / 240) {
+        const x = springAt({ x0, v0 }, t, K, D).x
+        if (Math.sign(x) === -Math.sign(x0) && Math.abs(x) > worst) worst = Math.abs(x)
+      }
+    }
+  check("30 swipe starts: none passes its target by half a pixel", worst < 0.5, worst)
+  const v0 = launchVelocity(-1316, 0, K, C.swipeLaunch)
+  check("a whole group from a short slow drag still leaves at speed (an ease out, not an ease in)", v0 > 5000, v0)
+  const path: number[] = []
+  for (let t = 0; t <= 0.6; t += 1 / 120) path.push(springAt({ x0: -1316, v0 }, t, K, D).x)
+  const near = path.findIndex((x) => Math.abs(x) < 2) / 120
+  check("and is within 2px of its place in under 0.45s", near > 0 && near < 0.45, near)
+  const most = path.findIndex((x) => Math.abs(x) < 1316 * 0.02) / 120
+  check("98% of the way there in under 0.3s", most > 0 && most < 0.3, most)
+  check("the first frame already moves it (no slow start)", Math.abs(path[1] - path[0]) > 40, path[1] - path[0])
+  const d = settleDuration({ x0: -1316, v0 }, K, D)
+  check("the settle's length is known before it starts, under 0.7s", d > 0.2 && d < 0.7, d)
+}
+
+console.log("\nWave 13: timed motion runs on the compositor")
+{
+  const src = (await import("node:fs")).readFileSync("lib/ui/rail-motion.ts", "utf8")
+  check("settles, steps and autoplay are Web Animations sampled from the curve", /el\.animate\(frames/.test(src) && /this\.play\(\(t\) => from \+ \(to - from\) \* sineInOut/.test(src) && /this\.play\(\(t\) => to \+ springAt/.test(src))
+  check("a press reads the compositor's own clock to take hold where the boxes are drawn", /currentTime/.test(src) && /a\.cancel\(\)/.test(src))
+  check("a released drag is decided by chooseSwipeTarget and settles as a swipe", /this\.settle\(v, chooseSwipeTarget\(p\.railAt, this\.x, v/.test(src))
+  check("the frame loop is only the fallback for timed motion", /if \(ph\.anims\) return/.test(src))
 }
 
 console.log(`\n${passed} passed, ${failures.length} failed`)

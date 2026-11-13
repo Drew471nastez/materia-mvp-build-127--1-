@@ -79,14 +79,21 @@ async function main() {
     const labels = MARQUEE_ROWS.flatMap((r) => r.items.map((i) => i.label))
     check("at least 36 different things, none twice", labels.length >= 36 && new Set(labels).size === labels.length, labels.length)
     check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 9 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 6)
-    check("every chip has an icon", (html.match(/class="um-chip"/g) ?? []).length === labels.length * 3 && (html.match(/<svg/g) ?? []).length === labels.length * 3)
+    /* Changed on purpose (wave 13): the owner wanted the emoji back, the way the chips looked before wave 12, in place of the drawn icons. */
+    check("every chip has its emoji", (html.match(/class="um-chip"/g) ?? []).length === labels.length * 3 && (html.match(/<span class="um-emoji" aria-hidden="true">/g) ?? []).length === labels.length * 3 && !/<svg/.test(html))
+    check("each emoji is one picture, different in every row", MARQUEE_ROWS.every((r) => r.items.every((i) => /^\p{Extended_Pictographic}/u.test(i.emoji)) && new Set(r.items.map((i) => i.emoji)).size === r.items.length))
     check("communities, never memberships", labels.includes("Communities") && !labels.includes("Memberships"))
     check("the loop moves by exactly one copy, with transform only", /@keyframes um-left\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(calc\(-100% \/ 3\),0,0\)\}\}/.test(src) && !/@keyframes um-[a-z]+\{[^}]*\b(left|margin|width):/.test(src))
     check("copies are spaced by the chip's own margin, not a gap on the track", /\.um-track\{display:flex;width:max-content;/.test(src) && !/\.um-track\{[^}]*gap:/.test(src) && /\.um-chip\{[^}]*margin-right:12px/.test(src))
     check("edge to edge: the rows escape the page's 1400px column", /\[data-landing-story\] \[data-story-section\] > \.um-rows,\.um-rows\{max-width:none;margin:0;padding:0/.test(src))
-    check("pauses under the pointer, off screen and in a background tab", /\.um-row:hover \.um-track,\.um\[data-um-paused\] \.um-track/.test(src) && /new IntersectionObserver/.test(src) && /document\.hidden/.test(src))
+    /* Changed on purpose (wave 13): a row under the mouse glides to a stop (its animation's playback rate eased) instead of freezing, and the purple hover is gone. */
+    check("pauses off screen and in a background tab", /\.um\[data-um-paused\] \.um-track/.test(src) && /new IntersectionObserver/.test(src) && /document\.hidden/.test(src))
+    check("a row under the mouse eases to a stop and back, on the compositor", /addEventListener\("pointerenter"/.test(src) && /easeRow\(track, 0,/.test(src) && /easeRow\(track, 1,/.test(src) && /updatePlaybackRate/.test(src) && !/\.um-row:hover \.um-track/.test(src))
+    /* Changed on purpose (wave 13 perf): the lift is a 2D transform and a chip at rest has none, so the 114 chips are no longer a compositor layer each. */
+    check("the chip under the mouse lifts with transform, its shadow fades by opacity, no purple", /\.um-chip:hover\{z-index:1;transform:translate\(0,-3px\) scale\(1\.06\)/.test(src) && !/\.um-chip\{[^}]*translate3d/.test(src) && /\.um-chip:hover::after\{opacity:1\}/.test(src) && !/\.um-chip\{[^}]*transition:[^}]*(border-color|box-shadow)/.test(src) && !/124,\s*58,\s*237|#d6c8fb|violet/i.test(src))
     check("reduced motion: still, one copy, wrapped and centred", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.um-track\{animation:none[\s\S]*\.um-copy\{flex:1 1 auto;flex-wrap:wrap;justify-content:center[\s\S]*\.um-copy\[aria-hidden\]\{display:none\}/.test(src))
-    check("no emoji in the chips any more", !/\p{Extended_Pictographic}/u.test(labels.join("")) && !/emoji:/.test(src))
+    /* Changed on purpose (wave 13): the emoji are back, beside the words (never inside them). */
+    check("the words carry no emoji; the emoji sit beside them", !/\p{Extended_Pictographic}/u.test(labels.join("")) && /emoji:/.test(src))
   }
 
   console.log("\nThe closing call")
@@ -94,13 +101,20 @@ async function main() {
     const src = read("components/marketing/home/final-cta.tsx")
     const { FinalCta } = await import("@/components/marketing/home/final-cta")
     const html = renderToStaticMarkup(createElement(FinalCta))
-    check("a headline, a line and two ways in", /<h2[^>]*aria-label="Turn what you make into a business\."/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && /href="\/explore"/.test(html))
+    /* Changed on purpose (wave 13): the owner found it faded in and too tall. It is now a plain, short band: no card, no rise, no light, no receipts. */
+    check("a headline, a line and two ways in", /<h2[^>]*id="fcta-title"[^>]*>Turn what you make into a <em>business\.<\/em><\/h2>/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && /href="\/explore"/.test(html))
     check("the old Your next chapter starts here is not used", !/Your next chapter/.test(code("components/marketing/home/final-cta.tsx")))
-    check("the card rises with the scroll where it can, by IntersectionObserver elsewhere", /animation-timeline:view\(\)/.test(src) && /@supports not \(animation-timeline:view\(\)\)/.test(src) && /setAttribute\("data-armed", ""\)/.test(src))
-    check("nothing is hidden on the server: the card is only lowered by script", !/<section[^>]*data-armed/.test(html) && /<section class="fcta" data-final-cta=""/.test(html) && /getBoundingClientRect\(\)\.top > innerHeight/.test(src))
-    check("light and receipts move by transform only and stop off screen", /@keyframes fcta-turn\{to\{transform:rotate\(360deg\)\}\}/.test(src) && /@keyframes fcta-float\{0%,100%\{transform:translate3d\(0,0,0\)\}50%\{transform:translate3d\(0,-10px,0\)\}\}/.test(src) && /\.fcta\[data-paused\] \.fcta-light,\.fcta\[data-paused\] \.fcta-chip\{animation-play-state:paused\}/.test(src))
-    check("reduced motion: nothing moves", /@media\(prefers-reduced-motion:reduce\)\{\s*\.fcta-light,\.fcta-chip\{animation:none\}/.test(src) && /prefers-reduced-motion:no-preference/.test(src))
+    check("no fade, no rise, no animation at all", !/@keyframes|animation|opacity|IntersectionObserver|data-armed/.test(src))
+    check("no card, no light, no floating receipts", !/fcta-card|fcta-light|fcta-chip|border-radius:clamp/.test(src) && /<section class="fcta" data-final-cta=""/.test(html))
+    check("shorter than it was: at most 96px of padding top and bottom", /\.fcta\{background:#fff;padding:clamp\(48px,6vw,96px\)/.test(src))
     check("the buttons are 44px or more on a phone", /\.fcta-btn\{[^}]*height:54px/.test(src))
+  }
+
+  console.log("\nThe questions")
+  {
+    /* Added (wave 13): the FAQ heading and its line were squeezed into a 280 to 320px column. */
+    const faq = read("components/marketing/faq-section.tsx")
+    check("the FAQ heading has a 420px column from lg up and stacks above the answers before that", /lg:w-\[420px\] xl:w-\[460px\]/.test(faq) && /flex flex-col lg:flex-row/.test(faq) && !/md:w-\[280px\]/.test(faq))
   }
 
   console.log("\nThe footer")
@@ -145,8 +159,10 @@ async function main() {
     /* Every stylesheet a lazy section lists is one it draws: the same href, so React finds it in <head> and adds none on mount. */
     const lazy = read("components/marketing/home/lazy-sections.tsx")
     const listed = [...lazy.matchAll(/styles: \(\) => import\("\.\/([\w-]+)"\)\.then\(\(m\) => m\.(\w+)\)/g)]
-    check("the sections that draw their own stylesheets list them", listed.length === 7, listed.map((m) => m[1]))
+    /* Changed on purpose (wave 13): section 3 (everything-in-one-place) now draws its own stylesheet too, so it is listed. */
+    check("the sections that draw their own stylesheets list them", listed.length === 8 && listed.some((m) => m[1] === "everything-in-one-place"), listed.map((m) => m[1]))
     const modules: Record<string, Record<string, unknown>> = {
+      "everything-in-one-place": await import("@/components/marketing/home/everything-in-one-place"),
       "ideas-come-to-life": await import("@/components/marketing/home/ideas-come-to-life"),
       "business-carousel": await import("@/components/marketing/home/business-carousel"),
       "creators-carousel": await import("@/components/marketing/home/creators-carousel"),
@@ -159,7 +175,7 @@ async function main() {
       const mod = modules[file] ?? {}
       const styles = mod[name] as { href: string; precedence: string; css: string }[]
       const own = read(`components/marketing/home/${file}.tsx`)
-      check(`${file}: ${name} names real stylesheets it draws`, Array.isArray(styles) && styles.length > 0 && styles.every((s) => s.css.length > 100 && /^w12-/.test(s.href) && (own.includes(`href="${s.href}"`) || own.includes(`"${s.href}"`) || /CommerceKitStyle/.test(own))), styles?.map((s) => s.href))
+      check(`${file}: ${name} names real stylesheets it draws`, Array.isArray(styles) && styles.length > 0 && styles.every((s) => s.css.length > 100 && /^w1[23]-/.test(s.href) && (own.includes(`href="${s.href}"`) || own.includes(`"${s.href}"`) || /CommerceKitStyle/.test(own))), styles?.map((s) => s.href))
     }
     const html = renderToStaticMarkup(createElement(modules["ideas-come-to-life"].IdeasComeToLife as () => null))
     check("the showcase sections draw their mocks' styles as React stylesheets (href and precedence), once each", !/<style>/.test(html) && !/\.smk-frame\{[\s\S]*\.smk-frame\{/.test(html))
@@ -178,10 +194,12 @@ async function main() {
     const css = read("app/globals.css")
     const heading = code("components/marketing/story-heading.tsx")
     check("headings ink and rise from scroll-driven animations where the browser has them (no script per frame)", /@property --story-progress/.test(css) && /animation-timeline:--story-heading/.test(css) && /@keyframes story-heading-rise \{from\{transform:translate3d\(0,12px,0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(css) && /function inkedByCss/.test(heading) && /data-story-js/.test(heading))
-    check("the script keeps the showcase heading and headings inside a scrolling box", /hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading))
+    /* Changed on purpose (wave 13): the owner wants the showcase heading inked by the scroll again, like the others, so it is no longer kept out of the scroll-driven animation. */
+    check("the script keeps only headings inside a scrolling box; the showcase heading inks from the scroll too", !/hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading) && !/data-story-showcase\]\):not/.test(css) && !/"--story-progress": 1/.test(heading))
     const creators = code("components/marketing/home/creators-carousel.tsx")
     check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(goal\)/.test(creators))
-    check("the sale dot's ping is paused off screen", /\[data-story-in-view="false"\] \.cc-card \.cc-sale-dot::after/.test(creators))
+    /* Changed on purpose (wave 13): the sale dot and its looping ping are gone; the sale notification moves by transitions between states, with no loop left running off screen. */
+    check("the creators section runs no endless CSS loop of its own", !/infinite/.test(creators) && !/infinite/.test(code("components/marketing/home/motion/sale-pop.tsx")))
     for (const f of ["how-it-works", "earnings-calculator"]) {
       const own = read(`components/marketing/home/${f}.tsx`)
       check(`${f}: rules keyed on data-commerce-live end in a class, not a tag`, !/\[data-commerce-live\][^{},]*\s(span|li|div|b|i|img|svg|path)\s*[,{]/.test(own) && !/\[data-commerce-live\][^{},]*>\s*(span|li)\s*[,{]/.test(own))

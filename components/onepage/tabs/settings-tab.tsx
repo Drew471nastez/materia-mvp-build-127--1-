@@ -16,7 +16,7 @@ import { OnePageDomainRow, OnePageIntegrations } from "@/components/onepage/sett
 import { SignupDestination } from "@/components/onepage/creator-blocks"
 import { getLinksShareUrl, getOnePageDomain } from "@/lib/url-helpers"
 import { BADGE_TYPES, checkPageSlug } from "@/lib/onepage/settings-rules"
-import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, formatPlanPrice, offeredPlan, planDisplayName, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
+import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, formatPlanPrice, offeredPlan, planDisplayName, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 import { getFeeDescription } from "@/lib/billing/fee-calculator"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { StatusBadge, card as APP_CARD } from "@/app/(storelib)/app/orders/order-parts"
@@ -525,7 +525,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     )
   }
 
-  // Internal "growth" is sold as Pro; the earlier "pro" plan is also Pro.
+  // Internal "growth" is sold as Pro; internal "pro" is sold as Scale.
   // Each plan is described by its fee, from the same table that charges it.
   const currentPlanKey: PlanId = userPlan === "growth" || userPlan === "pro" ? userPlan : "free"
   const proOffer = offeredPlan(PRO_CHECKOUT_PLAN_ID)
@@ -537,7 +537,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     the two plan cards follow, the very ones Billing and the plans page draw (components/billing/plan-cards), Pro first
     on a phone, its button the upgrade page's.
   */
-  const planPrice = formatPlanPrice(currentPlanKey === "free" ? 0 : PRO_PRICE_CENTS)
+  const planPrice = formatPlanPrice(offeredPlan(currentPlanKey).priceCents)
   const renderBilling = () => (
     <div className="space-y-6" data-settings-billing="">
       {title(tt("Billing"))}
@@ -576,7 +576,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         )}
       </div>
 
-      {/* The plans: only for Free. Pro is the top plan on sale. */}
+      {/* The plans: only for Free. Moving between Pro and Scale is done on the upgrade page. */}
       {!planLoading && !hasPaidPlan ? (
         <div data-settings-plans="">
           <PlanCards
@@ -586,6 +586,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
             actions={{
               free: { label: tt("Current plan"), settled: true, current: true },
               [PRO_CHECKOUT_PLAN_ID]: { label: tt("Upgrade to {name}", { name: proOffer.name }), onClick: () => router.push("/app/settings/billing/upgrade") },
+              [SCALE_CHECKOUT_PLAN_ID]: { label: tt("Upgrade to {name}", { name: offeredPlan(SCALE_CHECKOUT_PLAN_ID).name }), onClick: () => router.push("/app/settings/billing/upgrade") },
             } as Record<OfferedPlanId, PlanCardAction>}
           />
         </div>
