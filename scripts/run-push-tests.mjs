@@ -507,6 +507,7 @@ const SUITES = [
   /* Wave 12 showcase: nine branded examples in the build gallery, live builder previews (section 4) and the business carousel (section 6), with lazy local images and timer-free autoplay. */
   "tests/home-w12-showcase.test.ts",
   /* Landing round: home sections 4 to 6 as the owner asked. The ideas heading flips with a carousel of the real editors (rail-motion: drag, swipe, autoplay off screen paused), the same drawing on a phone, the community page editor as it is; no florals, no Golden Hour presets, no fans; Unlimited possibilities in two rows; Every business, one home replaced by what a store sells, a list beside one product page. */
+  "tests/home-landing-ideas.test.ts",
   /* W12 creators: section 7, the creators carousel (endless transform-only rail, drag, reduced-motion grid). */
   "tests/home-w12-creators.test.ts",
   /* Wave 12, commerce: the home page's How it works tiles and profit picker, the checkout scroll scene, the dotted world map and the earnings calculator (components/marketing/home). Fees from lib/payments/fees, Pro's price from lib/billing/plans, server rendered roles and copy, reduced motion, compositor-only motion, local webp under budget. */
