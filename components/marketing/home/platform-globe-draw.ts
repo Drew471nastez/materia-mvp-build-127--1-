@@ -12,23 +12,27 @@ export type GlobePulse = { s: number; t0: number }
 /** Unit vectors of the pulse spots, [x, y, z] per spot. */
 export type GlobeSpots = ReadonlyArray<readonly [number, number, number]>
 
-/** The shaded sphere and its halo, painted once per size onto a canvas of the globe's own size. */
+/**
+ * The shaded sphere and its halo, painted once per size onto a canvas of the
+ * globe's own size. Wave 13: a light globe for the light section, a pale
+ * violet sphere lit from the top left, with violet land.
+ */
 export function paintGlobeBackdrop(g: Ctx2D, W: number) {
   const R = W * 0.44
-  const halo = g.createRadialGradient(W / 2, W / 2, R * 0.9, W / 2, W / 2, R * 1.22)
-  halo.addColorStop(0, "rgba(139,92,246,0.28)")
-  halo.addColorStop(1, "rgba(139,92,246,0)")
+  const halo = g.createRadialGradient(W / 2, W / 2, R * 0.92, W / 2, W / 2, R * 1.2)
+  halo.addColorStop(0, "rgba(124,58,237,0.14)")
+  halo.addColorStop(1, "rgba(124,58,237,0)")
   g.fillStyle = halo
   g.fillRect(0, 0, W, W)
-  const body = g.createRadialGradient(W * 0.4, W * 0.36, R * 0.1, W / 2, W / 2, R)
-  body.addColorStop(0, "#1d1830")
-  body.addColorStop(0.7, "#100e19")
-  body.addColorStop(1, "#08070c")
+  const body = g.createRadialGradient(W * 0.38, W * 0.32, R * 0.05, W / 2, W / 2, R)
+  body.addColorStop(0, "#ffffff")
+  body.addColorStop(0.65, "#f6f2ff")
+  body.addColorStop(1, "#e9e1fd")
   g.fillStyle = body
   g.beginPath()
   g.arc(W / 2, W / 2, R, 0, Math.PI * 2)
   g.fill()
-  g.strokeStyle = "rgba(196,181,253,0.18)"
+  g.strokeStyle = "rgba(124,58,237,0.16)"
   g.lineWidth = Math.max(1, W * 0.0015)
   g.stroke()
 }
@@ -64,11 +68,11 @@ export function drawGlobe(ctx: Ctx2D, W: number, bg: Backdrop, pts: Float32Array
     const r = dot * (0.55 + 0.45 * z2)
     paths[b].rect(cx + x1 * R - r / 2, cy - y2 * R - r / 2, r, r)
   }
-  ctx.fillStyle = "rgba(226,220,255,0.22)"
+  ctx.fillStyle = "rgba(124,58,237,0.16)"
   ctx.fill(paths[0])
-  ctx.fillStyle = "rgba(226,220,255,0.48)"
+  ctx.fillStyle = "rgba(124,58,237,0.36)"
   ctx.fill(paths[1])
-  ctx.fillStyle = "rgba(236,232,255,0.82)"
+  ctx.fillStyle = "rgba(109,40,217,0.66)"
   ctx.fill(paths[2])
 
   /* Pulses: a bright core and a ring that widens and fades over 2.2s. */
@@ -85,14 +89,14 @@ export function drawGlobe(ctx: Ctx2D, W: number, bg: Backdrop, pts: Float32Array
     const px = cx + x1 * R
     const py = cy - y2 * R
     ctx.globalAlpha = (1 - k) * Math.min(1, z2 * 1.6)
-    ctx.strokeStyle = "#a78bfa"
+    ctx.strokeStyle = "#7c3aed"
     ctx.lineWidth = W * 0.0028
     ctx.beginPath()
     ctx.arc(px, py, W * (0.006 + 0.045 * k), 0, Math.PI * 2)
     ctx.stroke()
-    ctx.fillStyle = "#ede9fe"
+    ctx.fillStyle = "#6d28d9"
     ctx.beginPath()
-    ctx.arc(px, py, W * 0.0055, 0, Math.PI * 2)
+    ctx.arc(px, py, W * 0.0062, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = 1
   }

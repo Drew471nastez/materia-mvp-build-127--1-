@@ -128,15 +128,32 @@ const aud = text(html["audience-ownership"] ?? "")
 for (const p of ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"]) check(`syncs to ${p}, a platform the catalog syncs`, aud.includes(p) && byName.has(p) && !byName.get(p)?.comingSoon)
 check("unsubscribes come back, as the catalog says", /Unsubscribes come back/.test(aud) && /Unsubscribes come back/.test(read("lib/integrations/catalog.ts")))
 check("the composer has the real fields and buttons", ["To", "From", "Subject", "Send test", "Schedule", "Send"].every((w) => aud.includes(w)))
+/* Added (wave 13): light, no subheading, a believable creator email, the five platforms in their own marks. */
+{
+  const audSrc = read(`${DIR}/audience-ownership.tsx`)
+  check("audience: a light section (not black UI)", /className=\{`\$\{m\.root\} bg-white /.test(audSrc) && !/bg-black|#121214|\bdark\b \/>/.test(audSrc))
+  check("audience: no subheading under the heading", /<StoryHeading id="audience-ownership-title"[^>]*\/>\s*<\/div>/.test(audSrc))
+  check("audience: the ceramics example is gone", !/glaze|ceramic|Maya Lin/i.test(aud))
+  check("audience: the sent email reports delivered, opened and clicked, as Emails does", ["Delivered", "Opened", "Clicked"].every((w) => aud.includes(w)) && /tt\("Opened"/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /tt\("Clicked"/.test(read("app/(storelib)/app/emails/emails-home.tsx")))
+  const logos = read(`${DIR}/email-platform-logos.tsx`)
+  check("audience: each platform is drawn in its own mark, not a word in a pill", ["KlaviyoLogo", "OmnisendLogo", "BrevoLogo", "MailerLiteLogo", "KitLogo"].every((n) => new RegExp(`export function ${n}\\(`).test(logos)) && /EMAIL_PLATFORMS\.map/.test(audSrc))
+  check("audience: subscribers come in by doors Contacts names", ["OnePage", "Checkout", "Website", "Free download"].every((w) => audSrc.includes(`via: "${w}"`)) && /onepage: "OnePage"/.test(read("lib/contacts/contact-source.ts")))
+}
 check("contacts export as CSV, as Contacts does", /Export CSV/.test(aud) && /contacts\/export/.test(read("app/(storelib)/app/contacts/people-client.tsx")) && /text\/csv/.test(read("app/api/contacts/export/route.ts")))
 
 console.log("\n── truth: analytics ──")
 const ana = text(html["analytics-showcase"] ?? "")
 const reports = read("app/(storelib)/app/analytics/analytics-reports.tsx")
-for (const card of ["Traffic sources", "Countries", "Devices", "Operating systems"]) check(`card "${card}" is a real Analytics card`, ana.includes(card) && reports.includes(`tt("${card}")`))
-check('"OnePage links" is the real report name', ana.includes("OnePage links") && reports.includes('tt("OnePage links")'))
+/* Changed on purpose (wave 13): the owner asked for a simpler analytics section, so it shows three of the real cards (the Operating systems and OnePage links cards are left out, not renamed). */
+for (const card of ["Traffic sources", "Countries", "Devices"]) check(`card "${card}" is a real Analytics card`, ana.includes(card) && reports.includes(`tt("${card}")`))
+/* Added (wave 13): the four figures are the Analytics page's own four, in its words. */
+{
+  const words = read("lib/i18n/translations.ts")
+  check("the four figures are the page's own: Visitors, Total Revenue, Total Orders, Conversion Rate", ["Visitors", "Total Revenue", "Total Orders", "Conversion Rate"].every((w) => ana.includes(w) && words.includes(`: "${w}"`)) && /CORE_TABS = \["views", "revenue", "orders", "conversion"\]/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")))
+}
 for (const tab of ["Source", "Social", "Campaign", "Visitors", "Orders", "Device", "Browser"]) check(`tab "${tab}" is a real tab`, ana.includes(tab) && reports.includes(`tt("${tab}")`))
-check("no invented age or gender chart, and it says so", !/\b(Age|18-24|25-34|Female|Male)\b/.test(ana) && /No guessed ages or genders/.test(ana))
+/* Changed on purpose (wave 13): simpler, so the line saying there is no age or gender report went; nothing claims one either. */
+check("no invented age or gender chart", !/\b(Age|Ages|Gender|18-24|25-34|Female|Male)\b/i.test(ana))
 check("no city report shown (Storelib has none)", !/Top cities|\bCities\b/.test(ana))
 check("live is Home's live visitors", /live/.test(ana) && /dashboard\.liveVisitors/.test(read("components/app/dashboard-client.tsx")))
 const spotBlock = read(`${DIR}/analytics-showcase.tsx`).split("const SPOT_COUNTRY")[1]?.split("\n]")[0] ?? ""

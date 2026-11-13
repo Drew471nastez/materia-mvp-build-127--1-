@@ -54,17 +54,20 @@ export const LazyCheckoutScene = lazySection(() => import("./checkout-scene").th
 
 export const LazyAudienceOwnership = lazySection(() => import("./audience-ownership").then((m) => m.AudienceOwnership), {
   name: "audience",
-  minHeight: "clamp(760px, 100vh, 1000px)",
+  /* Wave 13: measured 1,620px at 1440 wide and 2,520px at 390 (the cards stack). */
+  minHeight: "max(1620px, calc(2950px - 92vw))",
 })
 
 export const LazyAnalyticsShowcase = lazySection(() => import("./analytics-showcase").then((m) => m.AnalyticsShowcase), {
   name: "analytics",
-  minHeight: "clamp(900px, 110vh, 1200px)",
+  /* Wave 13: measured 1,480px at 1440 wide, 1,530px at 390. */
+  minHeight: "1500px",
 })
 
 export const LazySellEverywhereMap = lazySection(() => import("./sell-everywhere-map").then((m) => m.SellEverywhereMap), {
   name: "sell-everywhere",
-  minHeight: "clamp(720px, 100vh, 1000px)",
+  /* Wave 13: measured 1,120px at 1440 wide and at 390. */
+  minHeight: "1120px",
   styles: () => import("./sell-everywhere-map").then((m) => m.SELL_EVERYWHERE_STYLES),
 })
 
