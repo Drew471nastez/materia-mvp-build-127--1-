@@ -1,7 +1,8 @@
 "use client"
 
+import { useRoutePath } from "@/lib/navigation/route-path"
+
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -76,7 +77,7 @@ const SECONDARY_NAV_CATEGORIES = [
 ]
 
 export function MarketingHeaderClient() {
-  const pathname = usePathname()
+  const pathname = useRoutePath()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<any>(null)
   const [isCreator, setIsCreator] = useState(false)
