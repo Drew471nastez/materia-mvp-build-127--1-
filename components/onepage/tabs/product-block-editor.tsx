@@ -57,7 +57,17 @@ async function readCreatorProducts(): Promise<CreatorProduct[] | null> {
 }
 
 /** Asked again (a product published in another tab) when the editor's window comes back into view. */
+let askedAt = 0
 function refresh() {
+  /*
+    ONE READ PER RETURN, NOT ONE PER ROW (round AU). Every product row of the
+    Links list listens for the window coming back, so a page with ten products
+    asked for the catalogue ten times each time the app came to the front.
+    The listeners all fire in the same moment: the first asks, the rest share it.
+  */
+  const now = Date.now()
+  if (shared && now - askedAt < 2000) return
+  askedAt = now
   shared = readCreatorProducts().catch(() => null)
   shared.then((rows) => listeners.forEach((l) => l(rows)))
 }

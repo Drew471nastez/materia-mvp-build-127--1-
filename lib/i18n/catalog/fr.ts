@@ -5,6 +5,10 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Cannot reach Storelib": "Impossible de joindre Storelib",
+ "Still loading": "Chargement en cours",
+ "The connection is slow right now.": "La connexion est lente en ce moment.",
+ "Storelib opens as soon as your phone is back online.": "Storelib s'ouvre dès que votre téléphone est de nouveau en ligne.",
  "OnePage, {block}": "OnePage, {block}",
  "Checkout, {channel}": "Paiement, {channel}",
  "Tips added at checkout are part of total sales. Tips on your OnePage are paid to you on their own and are not in total sales.": "Les pourboires ajoutés au paiement font partie des ventes totales. Les pourboires de votre OnePage vous sont versés à part et ne sont pas dans les ventes totales.",
@@ -13390,7 +13394,15 @@ const words: Record<string, string> = {
  "Big amount": "Grand montant",
  "Below": "Dessous",
  "On the picture": "Sur l'image",
- "Title, caption and a button on a fade at the bottom of each picture.": "Titre, légende et un bouton sur un fondu en bas de chaque image."
+ "Title, caption and a button on a fade at the bottom of each picture.": "Titre, légende et un bouton sur un fondu en bas de chaque image.",
+ "This part could not be shown": "Cette partie n'a pas pu s'afficher",
+ "Your changes are kept. The rest of the editor still works.": "Vos modifications sont conservées. Le reste de l'éditeur fonctionne toujours.",
+ "Unsaved changes restored": "Modifications non enregistrées restaurées",
+ "Unsaved changes on this device": "Modifications non enregistrées sur cet appareil",
+ "You made changes here on {when} that were never saved. The page has been saved somewhere else since.": "Vous avez fait ici le {when} des modifications jamais enregistrées. La page a depuis été enregistrée ailleurs.",
+ "Use the changes from this device": "Utiliser les modifications de cet appareil",
+ "Keep the saved page": "Garder la page enregistrée",
+ "This page was saved somewhere else. Save again to keep this version": "Cette page a été enregistrée ailleurs. Enregistrez à nouveau pour garder cette version"
 }
 
 export default words

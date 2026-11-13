@@ -5,6 +5,10 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Cannot reach Storelib": "No se puede conectar con Storelib",
+ "Still loading": "Todavía cargando",
+ "The connection is slow right now.": "La conexión va lenta ahora mismo.",
+ "Storelib opens as soon as your phone is back online.": "Storelib se abrirá en cuanto tu teléfono vuelva a tener conexión.",
  "OnePage, {block}": "OnePage, {block}",
  "Checkout, {channel}": "Pago, {channel}",
  "Tips added at checkout are part of total sales. Tips on your OnePage are paid to you on their own and are not in total sales.": "Las propinas añadidas en el pago forman parte de las ventas totales. Las propinas de tu OnePage se te pagan aparte y no están en las ventas totales.",
@@ -13390,7 +13394,15 @@ const words: Record<string, string> = {
  "Big amount": "Cantidad grande",
  "Below": "Debajo",
  "On the picture": "Sobre la imagen",
- "Title, caption and a button on a fade at the bottom of each picture.": "Título, pie de foto y un botón sobre un degradado en la parte inferior de cada imagen."
+ "Title, caption and a button on a fade at the bottom of each picture.": "Título, pie de foto y un botón sobre un degradado en la parte inferior de cada imagen.",
+ "This part could not be shown": "Esta parte no se pudo mostrar",
+ "Your changes are kept. The rest of the editor still works.": "Tus cambios se conservan. El resto del editor sigue funcionando.",
+ "Unsaved changes restored": "Cambios sin guardar recuperados",
+ "Unsaved changes on this device": "Cambios sin guardar en este dispositivo",
+ "You made changes here on {when} that were never saved. The page has been saved somewhere else since.": "Hiciste cambios aquí el {when} que nunca se guardaron. Desde entonces, la página se guardó en otro lugar.",
+ "Use the changes from this device": "Usar los cambios de este dispositivo",
+ "Keep the saved page": "Mantener la página guardada",
+ "This page was saved somewhere else. Save again to keep this version": "Esta página se guardó en otro lugar. Guarda de nuevo para conservar esta versión"
 }
 
 export default words

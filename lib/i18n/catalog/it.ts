@@ -5,6 +5,10 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Cannot reach Storelib": "Impossibile raggiungere Storelib",
+ "Still loading": "Caricamento in corso",
+ "The connection is slow right now.": "La connessione è lenta in questo momento.",
+ "Storelib opens as soon as your phone is back online.": "Storelib si apre appena il telefono torna online.",
  "OnePage, {block}": "OnePage, {block}",
  "Checkout, {channel}": "Checkout, {channel}",
  "Tips added at checkout are part of total sales. Tips on your OnePage are paid to you on their own and are not in total sales.": "Le mance aggiunte al checkout fanno parte delle vendite totali. Le mance sulla tua OnePage ti vengono pagate a parte e non sono nelle vendite totali.",
@@ -13390,7 +13394,15 @@ const words: Record<string, string> = {
  "Big amount": "Importo grande",
  "Below": "Sotto",
  "On the picture": "Sull'immagine",
- "Title, caption and a button on a fade at the bottom of each picture.": "Titolo, didascalia e un pulsante su una sfumatura in fondo a ogni immagine."
+ "Title, caption and a button on a fade at the bottom of each picture.": "Titolo, didascalia e un pulsante su una sfumatura in fondo a ogni immagine.",
+ "This part could not be shown": "Impossibile mostrare questa parte",
+ "Your changes are kept. The rest of the editor still works.": "Le tue modifiche sono conservate. Il resto dell'editor funziona ancora.",
+ "Unsaved changes restored": "Modifiche non salvate ripristinate",
+ "Unsaved changes on this device": "Modifiche non salvate su questo dispositivo",
+ "You made changes here on {when} that were never saved. The page has been saved somewhere else since.": "Hai fatto qui il {when} modifiche mai salvate. Da allora la pagina è stata salvata altrove.",
+ "Use the changes from this device": "Usa le modifiche di questo dispositivo",
+ "Keep the saved page": "Mantieni la pagina salvata",
+ "This page was saved somewhere else. Save again to keep this version": "Questa pagina è stata salvata altrove. Salva di nuovo per mantenere questa versione"
 }
 
 export default words

@@ -11,6 +11,7 @@ import { onePageChangedFor } from "@/lib/onepage/public-cache"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
 import { onePageActor } from "@/lib/team/onepage"
 import { stripResolved } from "@/lib/onepage/storelib-blocks"
+import { onePageEditVersion, sentBaseVersion } from "@/lib/onepage/edit-version"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
@@ -150,6 +151,7 @@ export async function PUT(request: Request) {
       slug,
       archived_blocks,
       share_image_mode,
+      base_version,
     } = body
 
     /* The picture a shared link shows: one of three (lib/onepage/seo). Null is the same as not sent. */
@@ -167,6 +169,33 @@ export async function PUT(request: Request) {
 
     if (!existing) {
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
+    }
+
+    /*
+      A SAVE FROM AN EDITOR THAT STARTED FROM AN OLDER COPY (round AU). The
+      editor says which copy of the blocks, archive, look and bio it began
+      from (lib/onepage/edit-version). When the row no longer holds that copy,
+      the page was saved from somewhere else meanwhile (a second tab, the app
+      on a phone left open since yesterday), and writing now would put the
+      older blocks back over the newer ones. Nothing is written; the editor
+      says so and keeps its work, and a second Save there sends no base.
+      Asked only of the row already found by id and owner above, so it never
+      widens what a caller can reach. A read that fails is not a conflict.
+    */
+    const base = sentBaseVersion(base_version)
+    if (base && draft_blocks !== undefined) {
+      const { data: current, error: currentError } = await db
+        .from("onepages")
+        .select("draft_blocks, archived_blocks, theme, bio")
+        .eq("id", id)
+        .eq("owner_id", ownerId)
+        .maybeSingle()
+      if (!currentError && current && onePageEditVersion(current) !== base) {
+        return NextResponse.json(
+          { error: "This page was saved somewhere else since you opened it", conflict: true },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        )
+      }
     }
 
     /*
@@ -319,7 +348,8 @@ export async function PUT(request: Request) {
       await onePageChangedFor(ownerId, [existing.slug])
     }
 
-    return NextResponse.json({ onepage: updated })
+    /* The copy this save wrote, for the editor's next save to name as its base. */
+    return NextResponse.json({ onepage: updated, edit_version: onePageEditVersion(updated as Parameters<typeof onePageEditVersion>[0]) })
   } catch (error) {
     console.error("OnePage PUT error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

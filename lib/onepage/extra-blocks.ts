@@ -45,9 +45,11 @@ export function isScheduledNow(block: { schedule?: OnePageBlockSchedule | null }
 }
 
 /** What the editor's row says about a block's schedule, or null when it has none. */
-export function scheduleLabel(block: { schedule?: OnePageBlockSchedule | null }, now: number = Date.now(), timeZone: string = viewerZone()): { text: string; live: boolean } | null {
+export function scheduleLabel(block: { schedule?: OnePageBlockSchedule | null }, now: number = Date.now(), zone?: string): { text: string; live: boolean } | null {
   const s = block.schedule
   if (!s || (!s.start_at && !s.end_at)) return null
+  /* Asked only for a block that has a schedule: every row of the editor calls this on every render (round AU). */
+  const timeZone = zone ?? viewerZone()
   const start = s.start_at ? Date.parse(s.start_at) : NaN
   const end = s.end_at ? Date.parse(s.end_at) : NaN
   /* The day in the zone the picker wrote it in (./schedule), not the device's: a creator whose Settings say New York reads the day they chose. */

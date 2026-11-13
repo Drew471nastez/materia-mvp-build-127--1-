@@ -97,13 +97,15 @@ async function main() {
 
   console.log("\nLOADERS")
   {
-    check("the gate draws its spinner only on a visit, never under the launch screen", /\{visit \? <div className="ns-spinner"/.test(gate) && /const \[visit, setVisit\] = useState\(false\)/.test(gate) && /if \(!isStart\) setVisit\(true\)/.test(gate))
-    check("the gate never takes the launch screen down itself", !/hideSplash|SplashScreen|nativeAppReady|appReady/.test(gate))
+    /* Changed on purpose (round AU): the spinner also follows Try again, once the launch screen is down (tests/app-network-au1.test.ts). */
+    check("the gate draws its spinner only on a visit, never under the launch screen", /visit \? \(?\s*<div className="ns-spinner"/.test(gate) && /const \[visit, setVisit\] = useState\(false\)/.test(gate) && /if \(!isStart\) setVisit\(true\)/.test(gate))
+    /* Changed on purpose (round AU): only on a start that cannot land (offline, unreachable, past STALL_MS), each time with the screen that says so. */
+    check("the gate never takes the launch screen down itself on a start that lands", !/hideSplash|SplashScreen|nativeAppReady|appReady/.test(gate) && (gate.match(/releaseLaunchScreen\(\)/g) ?? []).length === (gate.match(/setTrouble\((?:[^()]|\([^()]*\))*\)\s*releaseLaunchScreen\(\)/g) ?? []).length)
     check("Android's overlay is not dropped on the gate", /if \(pathname === "\/native-start"\) return\s*\n?\s*if \(pathname\.startsWith\("\/app"\)/.test(bridge))
     check("iOS's launch screen is left to the landing page on the gate", !shouldHideSplashOn("/native-start", false))
     const ready = authGate.slice(authGate.indexOf("if (blocked || !authChecked) return"))
     check("iOS's launch screen comes down on every /app page, with Android's overlay, once the session gate lets the page draw",
-      /import \{ hideSplashOnce \} from "@\/lib\/native-chrome"/.test(authGate) && /nativeAppReadyForce\(\)\s*void hideSplashOnce\(\)/.test(ready.slice(0, 600)))
+      /import \{ hideSplashOnce(, releaseLaunchScreen)? \} from "@\/lib\/native-chrome"/.test(authGate) && /nativeAppReadyForce\(\)\s*void hideSplashOnce\(\)/.test(ready.slice(0, 600)))
     check("the gate's loading file is a plain ground, no spinner or skeleton", !/spin|Spinner|Skeleton|animate-pulse/i.test(readCode("app/(storelib)/native-start/loading.tsx")))
     /* No route exists just to show a loader between the shell and the app. */
     const dirs: string[] = []

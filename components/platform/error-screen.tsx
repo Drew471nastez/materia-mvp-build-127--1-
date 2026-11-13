@@ -21,6 +21,7 @@
 import { useEffect, useLayoutEffect, useState } from "react"
 import { buildReport, describeForUser, isLoadFailed, shouldReloadForStaleCode } from "@/lib/client-errors"
 import { confirmNewDeploy, newDeployKnown } from "@/lib/ui/new-deploy"
+import { releaseLaunchScreen } from "@/lib/native-chrome"
 
 /* Before paint in the browser, so a stale tab never shows the error first. */
 const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect
@@ -70,6 +71,8 @@ export function ErrorScreen({
         return
       }
       setPhase("shown")
+      /* Round AU: an error is the screen now, so the app's launch screen comes down over it (on /app it waited for a page that will not draw). */
+      releaseLaunchScreen()
 
       /**
        * Then say so. `keepalive` because a boundary often renders while the
