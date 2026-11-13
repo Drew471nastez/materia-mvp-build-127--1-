@@ -43,6 +43,55 @@ import { readPublishedStoreConfig } from "@/lib/store-builder/public-config"
 */
 const stranger = () => createPublicReadClient() as never
 
+/*
+  WHEN THE NAME LOOKUP FAILS, THE LAST ANSWER THIS SERVER HAD (round AV).
+  Production, Nov 13: www.negruw.online/secret-library and
+  storelib.me/radustamate answered 500 because "creators_public: no answer in
+  4000ms". Everything below the lookup already falls back to its last good
+  copy (./creator-page-held); the lookup itself did not, so one slow read
+  turned a live store into the error screen.
+
+  The rule from above still stands: the name is read live on every request,
+  and only a read that FAILED is answered from here. A read that found no
+  one forgets the name at once (a 404 stays a 404). The rows are the public
+  ones every stranger is shown (lib/security/public-rows). Held for
+  WHO_LAST_GOOD_MAX_AGE_MS on this instance only. The one trade, and why it
+  is small: if a name is given up and taken by another account, and within
+  those minutes the database fails on this instance, a visitor sees the
+  previous owner's public page instead of an error screen.
+*/
+export const WHO_LAST_GOOD_MAX_AGE_MS = 15 * 60_000
+const WHO_LAST_GOOD_MAX_KEYS = 2000
+export class AgedLastGood {
+  private readonly held = new Map<string, { value: unknown; at: number }>()
+  remember(key: string, value: unknown) {
+    this.held.delete(key)
+    this.held.set(key, { value, at: Date.now() })
+    if (this.held.size > WHO_LAST_GOOD_MAX_KEYS) {
+      const oldest = this.held.keys().next().value
+      if (oldest !== undefined) this.held.delete(oldest)
+    }
+  }
+  forget(key: string) {
+    this.held.delete(key)
+  }
+  get(key: string): unknown {
+    const entry = this.held.get(key)
+    if (!entry) return undefined
+    if (Date.now() - entry.at > WHO_LAST_GOOD_MAX_AGE_MS) {
+      this.held.delete(key)
+      return undefined
+    }
+    return entry.value
+  }
+}
+const whoLastGood = new AgedLastGood()
+/** For tests and for a rename on this instance (lib/account/identity-caches may call it). */
+export function forgetWhoLastGood(username?: string, userId?: string) {
+  if (username) whoLastGood.forget(`profile:${username.trim().toLowerCase()}`)
+  if (userId) whoLastGood.forget(`creator:${userId}`)
+}
+
 /**
  * `ilike`, not `eq`, because that is what the layout has always used and a
  * handle is not case-sensitive in a URL.
@@ -54,7 +103,17 @@ const stranger = () => createPublicReadClient() as never
  */
 export const loadProfileByUsernameStrict = cache(async (username: string) => {
   /* Every public column, never a private one (lib/security/public-rows); the exact name first, which the username index answers (lib/profile/profile-by-name.ts). Bounded, and a failed read THROWS (SiteReadError): null is only "no such name". */
-  return publicProfileByNameStrict(stranger(), username)
+  const key = username.trim().toLowerCase()
+  try {
+    const row = await publicProfileByNameStrict(stranger(), username)
+    if (row) whoLastGood.remember(`profile:${key}`, row)
+    else whoLastGood.forget(`profile:${key}`)
+    return row
+  } catch (error) {
+    const held = whoLastGood.get(`profile:${key}`)
+    if (held !== undefined) return held as Awaited<ReturnType<typeof publicProfileByNameStrict>>
+    throw error
+  }
 })
 
 /**
@@ -68,7 +127,16 @@ export const loadProfileByUsername = cache(async (username: string) => {
 
 /** The creator row for a profile, bounded; a failed read THROWS (SiteReadError), null is only "no creator row". */
 export const loadCreatorForUserStrict = cache(async (userId: string) => {
-  return readPublicRowStrict(stranger(), "creators", (q) => q.eq("user_id", userId))
+  try {
+    const row = await readPublicRowStrict(stranger(), "creators", (q) => q.eq("user_id", userId))
+    if (row) whoLastGood.remember(`creator:${userId}`, row)
+    else whoLastGood.forget(`creator:${userId}`)
+    return row
+  } catch (error) {
+    const held = whoLastGood.get(`creator:${userId}`)
+    if (held !== undefined) return held as Awaited<ReturnType<typeof readPublicRowStrict>>
+    throw error
+  }
 })
 
 /** The creator row for a profile, shared with the product page's cache; a failed read reads as none, as it always has. */

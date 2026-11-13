@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { countryCode } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
-import { countryIsUnsupported, paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
+import { countryIsUnsupported, needsPlatformApproval, paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
 import { payoutRoute } from "./payout-regions"
 import { accountAttempts } from "./account-attempts"
 import { canAcceptPayments, sellerFactsOfAccount } from "./readiness"
@@ -456,7 +456,10 @@ async function createConnectedAccount(
      can hold, was refused because of the country itself. A card_payments or
      recipient refusal is not that. */
   let countryBlocked: unknown
+  /* Stripe has not approved the platform for transfers-only accounts (./setup-errors needsPlatformApproval): every later transfers-only attempt gets the same answer, so they are skipped, and this is what the seller is told. */
+  let approvalNeeded: unknown
   for (const params of attempts) {
+    if (approvalNeeded && !params.capabilities?.card_payments) continue
     try {
       /* Two presses of Start (two tabs, a double tap) open one account, not two with the second left orphaned on Stripe: the same params inside ten minutes are the same account. */
       return await stripe.accounts.create(params, options.keyParts ? { idempotencyKey: stripeIdempotencyKey("connect-account", options.keyParts, params, { windowMs: 10 * 60_000 }) } : undefined)
@@ -468,9 +471,13 @@ async function createConnectedAccount(
       if (!blocker && /temporarily restricted your ability to create|suspicious activity|confirm that you intended/i.test(msg)) blocker = error
       const transfersOnlyShape = !params.capabilities?.card_payments
       if (transfersOnlyShape && countryIsUnsupported(msg)) countryBlocked = error
+      if (transfersOnlyShape && !approvalNeeded && needsPlatformApproval(msg)) {
+        approvalNeeded = error
+        console.error(JSON.stringify({ evt: "stripe_transfers_only_needs_platform_approval", country, platform, msg: "Stripe must approve the platform for transfers-only connected accounts (Stripe Dashboard: Connect, or support.stripe.com). Sellers in this country cannot be paid out until then." }))
+      }
     }
   }
-  throw blocker ?? countryBlocked ?? last
+  throw blocker ?? countryBlocked ?? approvalNeeded ?? last
 }
 
 export async function syncStripeAccount(creatorId: string, actor: "webhook" | "creator" | "system"): Promise<StripeCreatorSnapshot> {
