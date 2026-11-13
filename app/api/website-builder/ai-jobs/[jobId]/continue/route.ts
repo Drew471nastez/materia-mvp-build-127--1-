@@ -84,6 +84,16 @@ async function agentContinue(req: Request, row: AgentJobRow, creatorId: string):
     if (same) return NextResponse.json({ job: { id: (same as { id: string }).id } })
     if (live) return NextResponse.json(SAME_SITE, { status: 409 })
     if (await othersLive()) return NextResponse.json(BUSY, { status: 429 })
+    /*
+      START OVER IS A NEW WEBSITE (round AW), the whole build again from the
+      description, so it is counted where Start with AI and Redesign count one:
+      LIMITS.siteGenerate per store, ten a day. It was counted only as a
+      Continue press (LIMITS.siteAi, forty an hour), so pressing it again
+      after each build, or after a Cancel, made as many websites as the hour
+      allowed. After the replay above, so a retried press is never refused.
+    */
+    const fresh = await rateLimit({ bucket: "site-generate", subjects: [`creator:${creatorId}`], windows: LIMITS.siteGenerate, message: "You have started several AI websites in a short time. Wait a few minutes, then try again." })
+    if (fresh) return fresh
     const { data: made, error } = await admin
       .from(JOBS_TABLE)
       .insert({ creator_id: creatorId, owner_user_id: row.owner_user_id, install_id: job.installId, prompt: job.prompt, idempotency_key: key, status: "queued", step: "agent", engine: "agent", mode: job.mode, options: job.options, progress: 0, state: {} })
