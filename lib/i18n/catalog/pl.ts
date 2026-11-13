@@ -13390,7 +13390,15 @@ const words: Record<string, string> = {
  "Big amount": "Duża kwota",
  "Below": "Pod spodem",
  "On the picture": "Na zdjęciu",
- "Title, caption and a button on a fade at the bottom of each picture.": "Tytuł, podpis i przycisk na przejściu u dołu każdego zdjęcia."
+ "Title, caption and a button on a fade at the bottom of each picture.": "Tytuł, podpis i przycisk na przejściu u dołu każdego zdjęcia.",
+ "This part could not be shown": "Nie udało się wyświetlić tej części",
+ "Your changes are kept. The rest of the editor still works.": "Twoje zmiany są zachowane. Reszta edytora nadal działa.",
+ "Unsaved changes restored": "Przywrócono niezapisane zmiany",
+ "Unsaved changes on this device": "Niezapisane zmiany na tym urządzeniu",
+ "You made changes here on {when} that were never saved. The page has been saved somewhere else since.": "Zmiany wprowadzone tutaj {when} nie zostały zapisane. Od tego czasu strona została zapisana gdzie indziej.",
+ "Use the changes from this device": "Użyj zmian z tego urządzenia",
+ "Keep the saved page": "Zachowaj zapisaną stronę",
+ "This page was saved somewhere else. Save again to keep this version": "Ta strona została zapisana gdzie indziej. Zapisz ponownie, aby zachować tę wersję"
 }
 
 export default words

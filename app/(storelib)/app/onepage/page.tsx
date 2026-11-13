@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
+/* Which copy of the blocks the editor starts from, so a save from a stale editor is caught (lib/onepage/edit-version). */
+import { onePageEditVersion } from "@/lib/onepage/edit-version"
 import type { Metadata } from "next"
 import { pageUser } from "@/lib/auth/page-user"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
@@ -290,7 +292,7 @@ export default async function OnePageEditorPage() {
   }
 
   if (profileRead.error) throw new Error("The profile could not be read")
-  return <OnePageEditor initialOnePage={{ ...onepage, avatar_url: profileAvatar(profileRead.data?.avatar_url) } as OnePage} />
+  return <OnePageEditor initialOnePage={{ ...onepage, avatar_url: profileAvatar(profileRead.data?.avatar_url), edit_version: onePageEditVersion(onepage) } as OnePage} />
 }
 
 /** The plan a creators row is on, as the editor names it: Pro ("growth", or the older "pro") while it still entitles, else free. */
@@ -333,5 +335,5 @@ async function teamOnePage({ creatorId, ownerUserId, store }: { creatorId: strin
     ownerName: ownerRow?.display_name ?? null,
     ownerAvatar: profileAvatar(ownerRow?.avatar_url),
   }
-  return <OnePageEditor initialOnePage={{ ...onepage, avatar_url: profileAvatar(ownerRow?.avatar_url) } as OnePage} team={team} />
+  return <OnePageEditor initialOnePage={{ ...onepage, avatar_url: profileAvatar(ownerRow?.avatar_url), edit_version: onePageEditVersion(onepage) } as OnePage} team={team} />
 }

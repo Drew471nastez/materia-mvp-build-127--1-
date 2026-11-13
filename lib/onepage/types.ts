@@ -708,6 +708,8 @@ export interface OnePage {
   onboarding_completed?: boolean
   /** The picture a shared link shows (lib/onepage/seo shareImageModeOf): the profile photo unless changed. */
   share_image_mode?: "profile" | "card" | "custom" | null
+  /** Not a column: the server's fingerprint of the copy the editor opened (lib/onepage/edit-version). The editor keeps it apart from the page. */
+  edit_version?: string | null
 }
 
 export interface OnePageTemplate {

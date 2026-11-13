@@ -71,6 +71,8 @@ const onepage: OnePage = {
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
   onboarding_completed: true,
+  /* Round AU (scripts/check-onepage-au2.mjs): the server's fingerprint of the copy opened, when a probe names one. */
+  edit_version: (globalThis as any).PROBE_EDIT_VERSION ?? null,
 }
 
 /*
