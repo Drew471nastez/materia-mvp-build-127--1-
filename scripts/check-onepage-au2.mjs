@@ -157,6 +157,8 @@ async function safety() {
   const page = await browser.newPage()
   page.on("pageerror", (e) => console.log("   pageerror", String(e).slice(0, 200)))
   await page.setViewport(vp)
+  /* Leaving with unsaved work asks first (beforeunload): a reload here is the app killed, so it is answered. */
+  page.on("dialog", (d) => void d.accept().catch(() => {}))
   await page.evaluateOnNewDocument(() => { window.PROBE_EDIT_VERSION = "00000000000000aa" })
   const ready = async () => {
     await page.waitForSelector("[data-block-id]", { timeout: 30000 })

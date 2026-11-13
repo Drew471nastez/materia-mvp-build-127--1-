@@ -205,10 +205,11 @@ function EditorQuestion({
  * SINCE (round AU, lib/onepage/local-draft). Neither copy is thrown away
  * unasked: the creator picks. This device's changes come back unsaved, so
  * the next Save is still theirs to press, and undo takes them away again.
+ * Only a choice answers it: a stray tap outside never throws either away.
  */
 function DraftQuestionDialog({ at, onAnswer }: { at: number; onAnswer: (useDevice: boolean) => void }) {
   return (
-    <EditorQuestion open onClose={() => onAnswer(false)} label={tt("Unsaved changes on this device")} desktopWidth="md:max-w-[380px]">
+    <EditorQuestion open onClose={() => {}} label={tt("Unsaved changes on this device")} desktopWidth="md:max-w-[380px]">
       <div className="px-6 pt-5 pb-5 text-center md:pt-6" data-draft-question="">
         <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Unsaved changes on this device")}</h2>
         <p className="text-sm text-[#6b7280]">
