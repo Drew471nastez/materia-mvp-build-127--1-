@@ -6,6 +6,7 @@ import { failureKind } from "@/lib/sites/agent/plain-errors"
 import { createClient } from "@/lib/supabase/server"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { rateLimit } from "@/lib/api/rate-limit"
+import { metaDescriptionInput } from "@/lib/seo/meta-description-input"
 
 // A product's meta description: ChatGPT when it can, the extraction below
 // when it cannot.
@@ -75,10 +76,12 @@ async function generateWithAI(text: string, title: string): Promise<string | nul
   }
 
   try {
+    /* The start of the description, never the whole of it: one call used to send whatever size it was sent (lib/seo/meta-description-input.ts, round AW). */
+    const sent = metaDescriptionInput(title, text)
     const prompt = `Write the meta description search results show for a digital product.
 
-Product title: ${title}
-Product description: ${text}
+Product title: ${sent.title}
+Product description: ${sent.text}
 
 Rules:
 - At most 155 characters.
