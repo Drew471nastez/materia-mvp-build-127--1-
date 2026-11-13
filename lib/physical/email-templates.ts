@@ -644,6 +644,8 @@ export function returnEmail(m: {
   lines?: EmailLine[]
   /** Where to send it, for an approved return: the store's return address. */
   returnAddress?: string[] | null
+  /** The store said to keep the items: nothing is sent back. */
+  keep?: boolean
   brand?: EmailBrand
   copy?: ResolvedCopy
   orderDate?: string | null
@@ -670,7 +672,9 @@ export function returnEmail(m: {
     m.status === "requested"
       ? et("The store will look at your request and email you what happens next. Please don't send anything back until it's approved.")
       : m.status === "approved"
-      ? m.returnAddress?.length
+      ? m.keep
+        ? et("You don't need to send anything back: keep the items. Your refund follows.")
+        : m.returnAddress?.length
         ? et("Pack the items securely and send them back to the address below. Keep the shipping receipt until your refund arrives.")
         : et("Pack the items securely and follow the store's note below. Keep the shipping receipt until your refund arrives.")
       : m.status === "rejected"
@@ -707,7 +711,7 @@ export function returnEmail(m: {
 }
 
 /** The order was cancelled before it shipped: what was cancelled, and the money. */
-export function orderCancelledEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; reason: string | null; refundedCents: number; totalCents: number; currency: string; lines: EmailLine[]; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy; orderDate?: string | null }): {
+export function orderCancelledEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; /** Cash on delivery, never collected: no money moved. */ nothingPaid?: boolean; /** The parcel was refused at the door. */ refused?: boolean; reason: string | null; refundedCents: number; totalCents: number; currency: string; lines: EmailLine[]; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy; orderDate?: string | null }): {
   subject: string
   html: string
   text: string
@@ -716,13 +720,15 @@ export function orderCancelledEmail(m: { shopName: string; orderNumber: string; 
   const subject = m.copy?.subject ?? et("Order {number} was cancelled", { number: m.orderNumber })
   const amount = esc(formatMoney(m.refundedCents, m.currency))
   const money =
-    m.refundedCents >= m.totalCents && m.totalCents > 0
+    m.nothingPaid
+      ? et("Nothing was charged for it.")
+      : m.refundedCents >= m.totalCents && m.totalCents > 0
       ? et("Your payment of {amount} was refunded to your original payment method. Banks usually take 5 to 10 business days to show it.", { amount })
       : m.refundedCents > 0
         ? et("{amount} was refunded to your original payment method.", { amount })
         : et("If you were charged, the store will refund you and we'll email you when it's sent.")
   /* The money is said whatever the store wrote above it. */
-  const intro = m.copy?.introHtml !== undefined ? [m.copy.introHtml, money].filter(Boolean).join("<br><br>") : `${m.buyerFirstName ? et("{name}, your order was cancelled and won't be shipped.", { name: esc(m.buyerFirstName) }) : et("Your order was cancelled and won't be shipped.")} ${money}`
+  const intro = m.copy?.introHtml !== undefined ? [m.copy.introHtml, money].filter(Boolean).join("<br><br>") : `${m.refused ? et("Your order was cancelled because the parcel was not accepted on delivery.") : m.buyerFirstName ? et("{name}, your order was cancelled and won't be shipped.", { name: esc(m.buyerFirstName) }) : et("Your order was cancelled and won't be shipped.")} ${money}`
   const body = [
     m.reason ? addressBlock(k, et("Reason"), null, esc(m.reason)) : "",
     button(k, m.statusUrl, m.copy?.button ?? et("View your order")),

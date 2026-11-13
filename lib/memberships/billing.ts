@@ -94,19 +94,33 @@ export async function membershipFee(
 }
 
 /**
+ * WHOSE CUSTOMER MAY BE USED AGAIN: only one a membership of the SIGNED IN
+ * caller's own made (its buyer_id is theirs). It was looked up by the email
+ * typed into the form alone, so anybody could start a checkout with another
+ * person's address and have the subscription made on that person's Stripe
+ * customer; the card portal of the row then opened that customer's billing
+ * history and saved card. A guest, and an address that is not the caller's
+ * own row, always gets a customer of its own.
+ */
+export async function customerToReuse(admin: Db, buyer: { userId: string | null }): Promise<string | null> {
+  if (!buyer.userId) return null
+  const { data } = await admin
+    .from("memberships")
+    .select("stripe_customer_id")
+    .eq("buyer_id", buyer.userId)
+    .not("stripe_customer_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+  return (data as { stripe_customer_id: string }[] | null)?.[0]?.stripe_customer_id ?? null
+}
+
+/**
  * The buyer as a Stripe customer on the platform: the one an earlier
  * membership of theirs already made (any creator's), else a new one. One
  * customer per address keeps one saved card and one billing history.
  */
 export async function buyerCustomer(admin: Db, buyer: { email: string; name: string; userId: string | null }): Promise<string> {
-  const { data } = await admin
-    .from("memberships")
-    .select("stripe_customer_id")
-    .eq("buyer_email", buyer.email)
-    .not("stripe_customer_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-  const known = (data as { stripe_customer_id: string }[] | null)?.[0]?.stripe_customer_id
+  const known = await customerToReuse(admin, buyer)
   if (known) {
     try {
       const c = await stripe.customers.retrieve(known)

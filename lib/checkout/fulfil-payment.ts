@@ -468,7 +468,7 @@ async function slowFollowUps(admin: Db, f: Followups, input: FollowUpInput): Pro
     } catch (e) {
       console.error(`[fulfil] invoice for order ${order.id} could not be drawn:`, e instanceof Error ? e.message : e)
     }
-    await sendOrderEmails(admin, {
+    const mailed = await sendOrderEmails(admin, {
       orderId: order.id,
       buyerEmail,
       buyerFirstName: m.buyer_first_name || "",
@@ -487,6 +487,8 @@ async function slowFollowUps(admin: Db, f: Followups, input: FollowUpInput): Pro
       source,
       origin,
     })
+    /* Either one not sent fails the step, so the sweep sends it; the one that went is not sent again (lib/checkout/followups.ts sent). */
+    if (!mailed.buyerSuccess || !mailed.sellerSuccess) throw new Error(`${!mailed.buyerSuccess ? "the buyer's receipt" : "the seller's new order email"} was not sent`)
   })
 
   /* The creator's purchase automations. Only the caller that made the order

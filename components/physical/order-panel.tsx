@@ -51,7 +51,7 @@ import { CarrierPicker, carrierOfChoice } from "./carrier-picker"
 import { CarrierServices, firstCarrier, ownCarrierLink, rememberCarrier, useCarrierPrefs } from "./carrier-live"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@/app/(storelib)/app/orders/order-parts"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet, useModalPhone } from "./ui"
-import { LabelFields, ShipModeSwitch, labelsWithoutShipment, shipLabelRequest, useLabelFlow, useOrderLabels, voidLabelRequest, type LabelView } from "./buy-label"
+import { LabelFields, ShipModeSwitch, labelPrintHref, labelsWithoutShipment, shipLabelRequest, useLabelFlow, useOrderLabels, voidLabelRequest, type LabelView } from "./buy-label"
 import { tt } from "@/lib/i18n/text"
 import { propertyText } from "@/lib/cart-uploads/rules"
 import { PRINT_AFTER_MADE_MS, canShareSlip, printProgress, shareSlip } from "@/components/physical/slip-share"
@@ -498,7 +498,8 @@ export function PhysicalFulfillment({
         const menu: ActionMenuItem[] = cancelled
           ? []
           : [
-              ...(label?.labelUrl && label.status === "purchased" ? [{ label: tt("Print label"), icon: <Printer className="h-4 w-4" />, onClick: () => window.open(label.labelUrl!, "_blank", "noopener") }] : []),
+              ...(label && labelPrintHref(label) && label.status === "purchased" ? [{ label: tt("Print label"), icon: <Printer className="h-4 w-4" />, onClick: () => window.open(labelPrintHref(label)!, "_blank", "noopener") }] : []),
+              ...(label?.invoiceUrl && label.status === "purchased" ? [{ label: tt("Print customs invoice"), icon: <Printer className="h-4 w-4" />, onClick: () => window.open(label.invoiceUrl!, "_blank", "noopener") }] : []),
               ...(labelUnused ? [{ label: tt("Void label"), icon: <X className="h-4 w-4" />, onClick: () => void voidOne(label!) }] : []),
               /* A delivered parcel can still have its number corrected (a typo found later): the record is fixed, the buyer is not emailed again. */
               ...(!pickup ? [{ label: delivered ? tt("Correct tracking") : s.trackingNumber ? tt("Edit tracking") : tt("Add tracking"), icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
@@ -539,10 +540,15 @@ export function PhysicalFulfillment({
                   {tt("{providerName} label · {cost} your cost", { providerName: label.providerName, cost: label.cost })}{label.testMode ? tt(" · test") : ""}
                   {label.status === "void_pending" ? tt(" · void requested") : label.status === "void_rejected" ? tt(" · void refused") : ""}
                 </span>
-                {label.labelUrl && label.status === "purchased" ? (
-                  <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" className="-my-[7px] inline-flex h-8 items-center gap-1 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-print="">
+                {labelPrintHref(label) && label.status === "purchased" ? (
+                  <a href={labelPrintHref(label)!} target="_blank" rel="noopener noreferrer" className="-my-[7px] inline-flex h-8 items-center gap-1 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-print="">
                     <Printer className="h-3.5 w-3.5" aria-hidden />
                     {tt("Print label")}
+                  </a>
+                ) : null}
+                {label.invoiceUrl && label.status === "purchased" ? (
+                  <a href={label.invoiceUrl} target="_blank" rel="noopener noreferrer" className="-my-[7px] inline-flex h-8 items-center font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-invoice="">
+                    {tt("Print customs invoice")}
                   </a>
                 ) : null}
               </p>
@@ -614,8 +620,8 @@ export function PhysicalFulfillment({
             <button type="button" className={cn(buttonSecondary, "h-9 sm:h-8")} disabled={busy} onClick={() => void voidOne(l)} data-label-loose-void="">
               {tt("Void label")}
             </button>
-            {l.labelUrl && l.status === "purchased" ? (
-              <a href={l.labelUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "h-9 sm:h-8")} data-label-loose-print="">
+            {labelPrintHref(l) && l.status === "purchased" ? (
+              <a href={labelPrintHref(l)!} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "h-9 sm:h-8")} data-label-loose-print="">
                 <Printer className="h-3.5 w-3.5" aria-hidden />
                 {tt("Print label")}
               </a>

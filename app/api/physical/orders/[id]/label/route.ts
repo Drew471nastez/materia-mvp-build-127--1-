@@ -6,11 +6,13 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { recordActivity } from "@/lib/activity/log-server"
 import { orderNumberOf } from "@/lib/receipts/rules"
 import { storeIdentity } from "@/lib/store/identity-server"
-import { buyLabel, labelOptions, listLabels, quoteLabel, shipLabel, voidLabel } from "@/lib/integrations/shipping/labels-server"
+import { buyLabel, labelDocument, labelOptions, listLabels, quoteLabel, shipLabel, voidLabel } from "@/lib/integrations/shipping/labels-server"
 import { realLabelDeps } from "@/lib/integrations/shipping/shipping-deps-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+/* A purchase reads the rate back, buys (a carrier can take half a minute) and ships the items: its own limit, said here. */
+export const maxDuration = 60
 
 /**
  * BUY A LABEL for one order (lib/integrations/shipping/labels-server.ts).
@@ -18,6 +20,10 @@ export const dynamic = "force-dynamic"
  *   GET   ?locationId=  the connected label apps, the packages, the weight,
  *                       from and to, and the order's labels
  *         ?only=labels  the order's labels alone
+ *         ?print=<id>   Print label: the label as the provider has it now
+ *                       (its address expires, so it is asked for each time),
+ *                       opened by a redirect; &doc=invoice for the
+ *                       commercial invoice of a parcel that crossed customs
  *   POST  rates         a quote from Shippo or EasyPost for the chosen items,
  *                       the address checked
  *         buy           the chosen rate, read back from the provider, bought;
@@ -49,6 +55,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const checkoutId = await checkoutOf(c.db, c.creatorId, id)
   if (!checkoutId) return physicalJson({ error: "Not found." }, 404)
   const url = new URL(request.url)
+  /* Print label, or the commercial invoice: a redirect to the document, read from the provider now. */
+  const print = url.searchParams.get("print")
+  if (print !== null) {
+    if (!isUuid(print)) return physicalJson({ error: "Not found." }, 404)
+    const limited = await rateLimit({ bucket: "physical-label-print", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 60, seconds: 60 }], message: "That is a lot of labels at once. Wait a minute and try again." })
+    if (limited) return limited
+    const doc = await labelDocument(c.db, c.creatorId, checkoutId, print, url.searchParams.get("doc") === "invoice" ? "invoice" : "label")
+    /* Opened in a tab of its own, so what went wrong is a sentence to read, not a JSON body. */
+    if (doc.ok === false) return new NextResponse(doc.error, { status: doc.status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "private, no-store" } })
+    return new NextResponse(null, { status: 302, headers: { Location: doc.url, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } })
+  }
   /* The shipment cards: only the labels, to print or void. */
   if (url.searchParams.get("only") === "labels") return physicalJson(await listLabels(c.db, c.creatorId, checkoutId))
   const store = await storeIdentity(c.db, c.creatorId, { logoOnly: true })

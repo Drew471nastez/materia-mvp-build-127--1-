@@ -220,7 +220,7 @@ function main() {
   {
     const orders = read("lib/physical/orders-server.ts")
     check("refused on delivery: only a cash order still to collect", /export async function refusedOnDelivery/.test(orders) && /order\.payment !== "cod_due"/.test(orders))
-    check("what went out comes back as a return the shop opened, restocked when received", /openReturn\(db, checkoutId, \{ creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery" \}\)/.test(orders) && /restock: true/.test(orders))
+    check("what went out comes back as a return the shop opened, restocked when received", /openReturn\(db, checkoutId, \{ creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery", notifyBuyer: false \}\)/.test(orders) && /restock: true/.test(orders))
     check("nothing is refunded; the lines stop being a sale; the order is cancelled with the reason", /cancel_reason: "Refused on delivery"/.test(orders) && /update\(\{ status: "failed" \}\)\.eq\("checkout_id", checkoutId\)\.eq\("payment_method", COD_PAYMENT_METHOD\)/.test(orders))
     const route = read("app/api/physical/orders/[id]/route.ts")
     check("the order route takes it", /case "cash_refused"/.test(route) && /refusedOnDelivery\(/.test(route))

@@ -144,7 +144,8 @@ async function main() {
     const steps = new Map(db.tables.order_followups.filter((r) => r.order_id === "o-crash").map((r) => [r.step, r.state]))
     check("the customer the crash lost is written now", db.tables.customers.length === 1 && db.tables.customers[0].order_count === 1 && steps.get("customer") === "done", db.tables.customers)
     check("the seller's ledger has the sale now", db.tables.ledger_events.filter((e) => e.event_type === "sale" && e.order_id === "o-crash").length === 1 && steps.get("ledger") === "done")
-    check("the sales count and the email steps ran and are recorded", steps.get("sales count") === "done" && steps.get("emails") === "done" && db.tables.analytics_events.length === 1)
+    /* Changed on purpose (round AW): this suite has no email service, so the emails did not go, and a send that did not go is a failed step the sweep tries again, never a done one (lib/checkout/followups.ts sent). */
+    check("the sales count ran and is recorded; the emails, not sent here, are a failed step to try again", steps.get("sales count") === "done" && steps.get("emails") === "failed" && db.tables.analytics_events.length === 1, [...steps])
     check("the library entry is checked by any row: two copies stay two, no third (it used to add one)", db.tables.entitlements.length === 2 && steps.get("entitlement") === "done", db.tables.entitlements.length)
 
     /* Every step is recorded now, so another delivery changes nothing, whatever the clock. */

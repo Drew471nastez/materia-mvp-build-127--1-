@@ -96,9 +96,22 @@ async function creatorOf(db: Db, productId: string | null): Promise<string | nul
 /** The row's own record: refunded, how much in all, and by which refund. */
 async function markRow(db: Db, row: OrderRow, refund: Stripe.Refund, cents: number, startedHere: boolean, before: number) {
   await db.from("orders").update({ status: "refunded" }).eq("id", row.id)
-  /* A refund from the Orders page writes its own amount. */
-  if (startedHere) return
   const total = Math.min(Math.max(0, row.amount_cents || 0), before + cents)
+  /*
+    A refund from the Orders page writes its own amount. When that write never landed (the request died after
+    Stripe took the refund) the row was left "refunded" with no amount, which every reader takes for a refund in
+    full: the files closed and Orders refused a second part refund. So the amount is written here whenever the
+    row holds less than the ledger says has gone back; it comes from the ledger lines, so it cannot count twice.
+  */
+  if (startedHere) {
+    try {
+      const { data: now } = await db.from("orders").select("refund_amount_cents").eq("id", row.id).maybeSingle()
+      if (Math.max(0, Number(now?.refund_amount_cents) || 0) < total) await db.from("orders").update({ refund_amount_cents: total, stripe_refund_id: refund.id, refunded_at: new Date((refund.created || Date.now() / 1000) * 1000).toISOString() }).eq("id", row.id)
+    } catch {
+      /* Older databases have no refund columns. */
+    }
+    return
+  }
   try {
     await db
       .from("orders")
@@ -115,10 +128,30 @@ async function markRow(db: Db, row: OrderRow, refund: Stripe.Refund, cents: numb
   }
 }
 
+/**
+ * Another order of the same buyer for the same product and option that is
+ * still a sale: one entitlement stands for both, so refunding one of them in
+ * full must not take it away. Any doubt answers false (the refund revokes, as
+ * it always did).
+ */
+export async function paidElsewhere(db: Db, row: { id: string; buyer_id: string | null; product_id: string | null; variant_id: string | null }): Promise<boolean> {
+  if (!row.buyer_id || !row.product_id) return false
+  try {
+    let q = db.from("orders").select("id, status, variant_id").eq("buyer_id", row.buyer_id).eq("product_id", row.product_id).eq("status", "completed").neq("id", row.id)
+    q = row.variant_id ? q.eq("variant_id", row.variant_id) : q.is("variant_id", null)
+    const { data, error } = await q.limit(1)
+    return !error && Array.isArray(data) && data.length > 0
+  } catch {
+    return false
+  }
+}
+
 /** A full refund takes the product back out of the buyer's library; a partial one does not. */
 async function revokeIfFull(db: Db, row: OrderRow, cents: number, before: number) {
   if (!row.buyer_id || !row.product_id) return
   if (before + cents < Math.max(0, row.amount_cents || 0)) return
+  /* Bought twice and one refunded (reason "duplicate"): the other paid order still stands, and so does the library entry they share. */
+  if (await paidElsewhere(db, row)) return
   try {
     let q = db.from("entitlements").delete().eq("buyer_id", row.buyer_id).eq("product_id", row.product_id)
     q = row.variant_id ? q.eq("variant_id", row.variant_id) : q.is("variant_id", null)
@@ -321,7 +354,8 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
         before the page has finished writing it.
       */
       /* Unless Stripe had not confirmed it there: then this is the only place it is finished. */
-      const startedHere = named === row.id && typeof refund.metadata?.creator_id === "string" && refund.metadata?.settled_by !== "webhook"
+      /* Storelib's own admin refund (app/api/admin/orders/refund) tags its refunds too and sends the emails itself: counted as started here, or the buyer and the seller were each emailed twice. */
+      const startedHere = named === row.id && (typeof refund.metadata?.creator_id === "string" || refund.metadata?.refunded_by === "storelib_admin") && refund.metadata?.settled_by !== "webhook"
       const already = before(row.id)
       let outcome: "recorded" | "duplicate" | "no-seller"
       try {

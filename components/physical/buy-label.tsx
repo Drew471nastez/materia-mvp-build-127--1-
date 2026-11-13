@@ -45,6 +45,15 @@ export interface LabelView {
   testMode: boolean
   fulfillmentId: string | null
   createdAt: string
+  /** The order's own label route, which reads the label from the provider now: its address at purchase expires. Absent from an older server. */
+  printUrl?: string | null
+  /** The commercial invoice of a parcel that crossed customs, when the provider made one. */
+  invoiceUrl?: string | null
+}
+
+/** Where Print label goes: through the order's route when the server gives one, the address kept at purchase otherwise. */
+export function labelPrintHref(label: Pick<LabelView, "printUrl" | "labelUrl">): string | null {
+  return label.printUrl ?? label.labelUrl
 }
 
 interface PackageRow {
@@ -470,10 +479,16 @@ function Bought({ label }: { label: LabelView }) {
           {label.testMode ? <p className="text-[#b54708]">{tt("Test label: don't ship with it.")}</p> : null}
         </div>
       </div>
-      {label.labelUrl ? (
-        <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white hover:bg-[#2a2a44] sm:h-10" data-label-print="">
+      {labelPrintHref(label) ? (
+        <a href={labelPrintHref(label)!} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white hover:bg-[#2a2a44] sm:h-10" data-label-print="">
           <Printer className="h-4 w-4" aria-hidden />
           {tt("Print label")}
+          <ExternalLink className="h-3.5 w-3.5 opacity-70" aria-hidden />
+        </a>
+      ) : null}
+      {label.invoiceUrl ? (
+        <a href={label.invoiceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-4 text-[14px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f8]" data-label-invoice="">
+          {tt("Print customs invoice")}
           <ExternalLink className="h-3.5 w-3.5 opacity-70" aria-hidden />
         </a>
       ) : null}

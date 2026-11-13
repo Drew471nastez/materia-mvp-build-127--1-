@@ -199,6 +199,8 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
      (lib/physical), which takes an address and holds stock; this checkout
      would sell it as a download. */
   if ((product as PricedProduct).type === "physical") return { ok: false, status: 400, error: "This product ships, so it is bought from the shop's cart." }
+  /* A membership is a subscription (app/api/memberships/checkout). Sold here it was charged once at the monthly price and gave an order with no membership behind it. */
+  if ((product as PricedProduct).type === "membership") return { ok: false, status: 400, error: "This is a membership. Join it from its own page." }
 
   let variant: PricedVariant | null = null
   const noVariant = req.variantId === undefined || req.variantId === null || req.variantId === ""
@@ -531,6 +533,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     if (!product) { dropped.push(productId); continue }
     /* A physical product goes through the physical checkout (lib/physical), never this one. */
     if (product.type === "physical") { dropped.push(product.title); continue }
+    /* Nor a plan: a membership or a community's plan is joined from its own page, in its own currency and with its own rules. In a basket a $49 community plan was charged as 49 of the store's currency, once, with no join check. */
+    if (product.type === "membership" || product.type === "community") { dropped.push(product.title); continue }
     if (owned.has(ownedKey(productId, want.variantId))) {
       dropped.push(product.title)
       ownedList.push({ productId, variantId: want.variantId, title: product.title, thumbnailUrl: product.thumbnail_url ?? null })
@@ -560,7 +564,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
        line anyway. */
     if (priceCents <= 0 && !req.keepFree) { dropped.push(product.title); continue }
 
-    const quantity = product.type === "digital" ? 1 : want.quantity
+    /* A download or a course is one copy to one library: a course at quantity 3 was charged three times. */
+    const quantity = product.type === "digital" || product.type === "course" ? 1 : want.quantity
     lines.push({ item: { productId, variantId: want.variantId, quantity, priceCents, discountCents: 0, ...(want.properties ? { properties: want.properties } : {}) }, product })
     namedPrice.push(!!(variant ?? product).pay_what_you_want)
   }

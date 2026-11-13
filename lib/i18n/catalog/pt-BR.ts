@@ -7441,6 +7441,7 @@ const words: Record<string, string> = {
  "Print": "Imprimir",
  "Print / Save PDF": "Imprimir / Salvar PDF",
  "Print file": "Arquivo de impressão",
+ "Print customs invoice": "Imprimir fatura alfandegária",
  "Print label": "Imprimir etiqueta",
  "Print on Demand": "Impressão sob demanda",
  "Print on demand": "Impressão sob demanda",

@@ -302,7 +302,7 @@ Object.assign(CONNECT_ABOUT, {
 
 const CONNECT_DATA: Partial<Record<ProviderId, (name: string) => string[]>> = {
   shippo: (name) => [
-    `When you ask for rates or buy a label, ${name} receives the parcel's size and weight, your location's address, and the buyer's name, delivery address, phone and email, as the carrier needs them. Nothing is sent until you press Get rates.`,
+    `When you ask for rates or buy a label, ${name} receives the parcel's size and weight, your location's address, and the buyer's name, delivery address, phone and email, as the carrier needs them. Nothing is sent until you press Get rates, with one exception: a shipping zone with a Carrier calculated rate asks ${name} for a price at checkout, and sends it the delivery address the buyer typed (no name, phone or email) with the parcel's weight.`,
     `Back from ${name}: the rates, the label PDF, the carrier and the tracking number, kept on the order with the label's cost.`,
     `Your ${name} key is checked with ${name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only its last four characters.`,
   ],

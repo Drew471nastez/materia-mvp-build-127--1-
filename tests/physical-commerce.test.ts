@@ -428,7 +428,7 @@ console.log("\nA refund made in the Stripe dashboard reaches the order\n")
   const orders = read("lib/physical/orders-server.ts")
   check("charge.refunded restates every physical checkout the payment paid for", /syncCheckoutRefunds\(supabaseAdmin as never, intent\)/.test(hook) && /export async function syncCheckoutRefunds/.test(orders))
   check("  after the lines are written, not before", hook.indexOf("syncChargeRefund(supabaseAdmin") < hook.indexOf("syncCheckoutRefunds(supabaseAdmin"))
-  check("  with one timeline line per new total, so a retried delivery adds nothing", /syncCheckoutRefunds[\s\S]{0,1800}key: `refund_total:\$\{checkoutId\}:\$\{updated\.refundedCents\}`/.test(orders))
+  check("  with one timeline line per new total, so a retried delivery adds nothing", /* Changed on purpose (round AW): the restate is its own function, which the Refund button's route runs as well. */ /restateCheckoutRefunds[\s\S]{0,1800}key: `refund_total:\$\{checkoutId\}:\$\{updated\.refundedCents\}`/.test(orders))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

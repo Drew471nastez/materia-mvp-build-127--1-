@@ -66,7 +66,9 @@ export async function resolveDownloadAccess(
   const uploadState = typeof row.upload_status === "string" ? row.upload_status : ""
   if (uploadState && uploadState !== "completed") return NOT_FOUND
 
-  const { data: product } = await admin.from("products").select("id, creator_id").eq("id", row.product_id).maybeSingle()
+  let { data: product } = await admin.from("products").select("id, creator_id, type").eq("id", row.product_id).maybeSingle()
+  /* A database without the column: read as it was. */
+  if (!product) product = (await admin.from("products").select("id, creator_id").eq("id", row.product_id).maybeSingle()).data
 
   const asset: DownloadAsset = {
     id: row.id,
@@ -116,6 +118,16 @@ export async function resolveDownloadAccess(
     accountOrders = ((ordersRes as any).data ?? []) as any[]
     entitlements = ((entRes as any).data ?? []) as any[]
   }
+
+  /*
+    A MEMBERSHIP'S FILES ARE READ WHILE THE MEMBERSHIP STANDS, through
+    /api/memberships/files, which asks that each time. Every paid month also
+    writes an order for the membership product, so this door (an order once
+    paid, or its receipt) kept opening every members' file for ever: after
+    leaving, after the grace ran out, files posted since. Only the creator
+    reads them here.
+  */
+  if ((product as { type?: string } | null)?.type === "membership" && !isCreator) return { ...NOT_FOUND, asset }
 
   /* Only the variants that are actually in play need their mapping read. */
   const variants = new Set<string>()

@@ -118,6 +118,43 @@ function periodEndOf(sub: any): number | null {
  * already finished; nothing is written for a delivery until the handler,
  * which checks the signature, has answered 200.
  */
+/**
+ * WHAT A REFUND OF A CHARGE SETS OFF, whichever event said it (charge.refunded
+ * when it is made, refund.updated when one that was pending goes through):
+ *
+ *   in full     what the payment unlocked is locked again: a community
+ *               program, an event ticket's seat, a module, a Library item, a
+ *               paid booking's time. Each is safe to run twice.
+ *   the lines   every refund of the charge, split across the order rows it
+ *               belongs to and applied to each once (lib/stripe/refund-sync)
+ *   the order   a physical order's own status and refunded total, its
+ *               buyer's refund email and its stock (lib/physical/
+ *               orders-server syncCheckoutRefunds), after the lines are
+ *               written and never before
+ */
+async function settleChargeRefund(charge: Stripe.Charge): Promise<{ applied: number; skipped: number }> {
+  const intent = typeof charge.payment_intent === "string" ? charge.payment_intent : (charge.payment_intent?.id ?? null)
+  if (charge.refunded && intent) {
+    const [{ revokeRefundedProgram }, { revokeRefundedTicket }] = await Promise.all([
+      import("@/lib/communities/server/learn-checkout"),
+      import("@/lib/communities/server/event-checkout"),
+    ])
+    await revokeRefundedProgram(supabaseAdmin, intent)
+    await revokeRefundedTicket(supabaseAdmin, intent)
+    await (await import("@/lib/communities/server/module-sales")).revokeRefundedModule(supabaseAdmin, intent)
+    /* Round 39: a Library sale's record marked; the refund itself takes the product out of the buyer's library (lib/stripe/refund-sync.ts), which locks the item. */
+    await (await import("@/lib/communities/server/library-checkout")).revokeRefundedLibrary(supabaseAdmin, intent)
+    /* A booking paid with a product and refunded in full is cancelled and its time freed (lib/forms/booking-payment.ts). */
+    await (await import("@/lib/forms/booking-payment-server")).bookingRefunded(supabaseAdmin, intent).catch(() => false)
+  }
+  const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
+  if (intent) {
+    const { syncCheckoutRefunds } = await import("@/lib/physical/orders-server")
+    await syncCheckoutRefunds(supabaseAdmin as never, intent).catch((e) => console.error("[Webhook] physical refund restate:", e instanceof Error ? e.message : e))
+  }
+  return done
+}
+
 async function handlePOST(request: Request) {
   const body = await request.text()
   let eventId: string | null = null
@@ -1308,13 +1345,19 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   // REFUND EVENTS — sync refunds initiated from Stripe Dashboard
   // ============================================================================
 
-  /* A refund that was pending when it was made: applied once Stripe says it went through. */
+  /*
+    A refund that was pending when it was made (a bank debit, some wallets): applied once Stripe says it went
+    through, with EVERYTHING charge.refunded sets off. It used to write the lines and the seller's balance and stop
+    there: an order that ships kept reading Paid with nothing refunded, its buyer was never emailed and its stock
+    stayed committed, because the order's own catch up (syncCheckoutRefunds) ran for charge.refunded alone, and
+    that event had found nothing succeeded yet.
+  */
   if (event.type === "refund.updated" || event.type === "charge.refund.updated") {
     const refund = event.data.object as Stripe.Refund
     if (refund.status !== "succeeded" || !refund.charge) return NextResponse.json({ received: true })
     try {
       const charge = await stripe.charges.retrieve(typeof refund.charge === "string" ? refund.charge : refund.charge.id)
-      const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
+      const done = await settleChargeRefund(charge)
       console.log("[Webhook] refund settled", refund.id, "applied:", done.applied, "already applied:", done.skipped)
     } catch (error) {
       console.error("[Webhook] Error applying settled refund:", error instanceof Error ? error.message : error)
@@ -1324,35 +1367,10 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   }
 
   if (event.type === "charge.refunded") {
-    /* Every refund of the charge, split across the order rows it belongs to
-       and applied to each once: lib/stripe/refund-sync.ts has the why. */
     const charge = event.data.object as Stripe.Charge
-    /* A community program refunded in full is locked again (lib/communities/server/learn-checkout.ts),
-       and an event ticket refunded in full gives its seat back
-       (lib/communities/server/event-checkout.ts), whoever made the refund. */
-    if (charge.refunded && charge.payment_intent) {
-      const intentId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent.id
-      const [{ revokeRefundedProgram }, { revokeRefundedTicket }] = await Promise.all([
-        import("@/lib/communities/server/learn-checkout"),
-        import("@/lib/communities/server/event-checkout"),
-      ])
-      await revokeRefundedProgram(supabaseAdmin, intentId)
-      await revokeRefundedTicket(supabaseAdmin, intentId)
-      await (await import("@/lib/communities/server/module-sales")).revokeRefundedModule(supabaseAdmin, intentId)
-      /* Round 39: a Library sale's record marked; the refund itself takes the product out of the buyer's library (lib/stripe/refund-sync.ts), which locks the item. */
-      await (await import("@/lib/communities/server/library-checkout")).revokeRefundedLibrary(supabaseAdmin, intentId)
-      /* A booking paid with a product and refunded in full is cancelled and its time freed (lib/forms/booking-payment.ts). */
-      await (await import("@/lib/forms/booking-payment-server")).bookingRefunded(supabaseAdmin, intentId).catch(() => false)
-    }
     try {
-      const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
+      const done = await settleChargeRefund(charge)
       console.log("[Webhook] charge.refunded", charge.id, "applied:", done.applied, "already applied:", done.skipped)
-      /* A physical order's own status and refunded total, so the order list agrees with Stripe (lib/physical/orders-server.ts). */
-      const intent = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id
-      if (intent) {
-        const { syncCheckoutRefunds } = await import("@/lib/physical/orders-server")
-        await syncCheckoutRefunds(supabaseAdmin as never, intent).catch((e) => console.error("[Webhook] physical refund restate:", e instanceof Error ? e.message : e))
-      }
     } catch (error) {
       console.error("[Webhook] Error processing charge.refunded:", error instanceof Error ? error.message : error)
       /* A 500 makes Stripe retry, and a retry skips what was applied. */
