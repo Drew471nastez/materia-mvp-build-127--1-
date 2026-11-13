@@ -1,5 +1,6 @@
 "use client"
 
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useEffect, useRef, useState } from "react"
 import { MOTION_STYLE_PRECEDENCE, useMotionGate } from "./use-motion-gate"
 
@@ -50,7 +51,7 @@ export function SalePop({
         const p = pos(i)
         return (
           <div key={i} className="sp-card" data-pos={p} aria-hidden={p !== 0 || undefined}>
-            <img className="sp-icon" src="/storelib-mark.svg" alt="" width={38} height={38} loading="lazy" decoding="async" />
+            <StorelibLogo size={38} alt="" fluid className="sp-icon" />
             <span className="sp-text">
               <span className="sp-top">
                 <b className="sp-title">New sale: {item.amount}</b>

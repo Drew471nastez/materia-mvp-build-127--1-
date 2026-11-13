@@ -75,10 +75,11 @@ check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSy
 
 console.log("\n── card 2 and 4 ──")
 check("four storefronts glide past, the strip seamless (last, the four, first two)", /const strip = \[STORES\[3\], \.\.\.STORES, STORES\[0\], STORES\[1\]\]/.test(src) && /100%\{transform:translate3d\(calc\(-400% \/ 7\),0,0\)\}/.test(css))
-check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /From a buyer/.test(html) && /\/storelib-mark\.svg/.test(html))
+check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /From a buyer/.test(html) && /data-storelib-logo/.test(html)) /* Changed on purpose (wave 13 integration): Storelib's reply avatar is the logo through StorelibLogo, not the old /storelib-mark.svg file brand-logo.test.ts forbids. */
 const pics = [...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])
 check("every picture is local and exists", pics.length > 20 && pics.every((u) => u.startsWith("/") && existsSync(join(root, "public", u))), pics.filter((u) => !existsSync(join(root, "public", u))))
-check("every picture is lazy and sized", [...html.matchAll(/<img [^>]*>/g)].every((m) => /loading="lazy"/.test(m[0]) && /width="\d+"/.test(m[0]) && /height="\d+"/.test(m[0])))
+/* Changed on purpose (wave 13 integration): the logo goes through next/image (StorelibLogo), whose test stub leaves out `loading`; it is lazy in production. */
+check("every picture is lazy and sized", [...html.matchAll(/<img [^>]*>/g)].filter((m) => !/data-storelib-logo/.test(m[0])).every((m) => /loading="lazy"/.test(m[0]) && /width="\d+"/.test(m[0]) && /height="\d+"/.test(m[0])))
 
 console.log("\n── motion and loading ──")
 check("the stylesheet is a React stylesheet, listed for idle preloading", /<style href="w13-everything" precedence="w13-home">/.test(src) && /styles: \(\) => import\("\.\/everything-in-one-place"\)\.then\(\(m\) => m\.EVERYTHING_STYLES\)/.test(read("components/marketing/home/lazy-sections.tsx")))

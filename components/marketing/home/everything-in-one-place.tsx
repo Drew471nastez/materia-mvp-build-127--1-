@@ -25,6 +25,7 @@
   reduced motion nothing loops and the tabs still work by hand.
 */
 
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useCallback, useRef, useState, type CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { usePlatformSection } from "./platform-motion"
@@ -344,7 +345,7 @@ function Thread({ variant, title, sub, ask, askAv, reply, replyAv, replyLogo }: 
         <div className="ev-c-msg ev-c-r ev-loop">
           <p className="ev-c-bubble ev-c-dark">{reply}</p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className={`ev-c-av${replyLogo ? " ev-c-logo" : ""}`} src={replyAv} alt="" width={96} height={96} loading="lazy" decoding="async" />
+          {replyLogo ? <StorelibLogo size={96} alt="" fluid className="ev-c-av ev-c-logo" /> : <img className="ev-c-av" src={replyAv} alt="" width={96} height={96} loading="lazy" decoding="async" />}
         </div>
       </div>
     </div>
@@ -361,7 +362,7 @@ function Support() {
         ask="My October payout says sent, but it isn't in my bank yet. Can you check?"
         askAv={`${IMG}/av-creator.webp`}
         reply="It left on Nov 4, and banks take 2 to 3 business days, so your $2,184.60 lands by Friday. I'll keep this open until it does."
-        replyAv="/storelib-mark.svg"
+        replyAv=""
         replyLogo
       />
       <Thread

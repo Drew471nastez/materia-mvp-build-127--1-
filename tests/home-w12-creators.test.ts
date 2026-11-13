@@ -146,7 +146,8 @@ check("sale notification: Storelib's own words, a stack in a fixed box, transiti
   const html = renderToString(createElement(SalePop, { items }))
   const t = text(html).replace(/\s+/g, " ")
   assert.ok(t.includes("New sale: $29.00") && t.includes("Maya Ross bought Drum Kit Vol. 2 for $29.00."))
-  assert.ok(html.includes('src="/storelib-mark.svg"'))
+  /* Changed on purpose (wave 13 integration): the notice's icon is the real logo drawn through StorelibLogo (tests/brand-logo.test.ts forbids the old /storelib-mark.svg file). */
+  assert.ok(html.includes("data-storelib-logo"))
   /* One card in front, two behind, the rest waiting; only the front one is read out. */
   const cards = html.replace(/<style[\s\S]*?<\/style>/g, "")
   assert.deepEqual([...cards.matchAll(/data-pos="(\d)"/g)].map((m) => m[1]), ["0", "4", "3", "2", "1"])

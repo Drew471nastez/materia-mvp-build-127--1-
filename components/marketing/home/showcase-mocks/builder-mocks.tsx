@@ -99,7 +99,7 @@ function Cursor({ className }: { className: string }) {
 function StorelibTile({ className = "" }: { className?: string }) {
   return (
     <span className={`bm-logo ${className}`}>
-      <StorelibLogo size={40} alt="" fluid unoptimized style={{ width: "100%", height: "100%", borderRadius: "inherit" }} />
+      <StorelibLogo size={40} alt="" fluid style={{ width: "100%", height: "100%", borderRadius: "inherit" }} />
     </span>
   )
 }

@@ -44,6 +44,7 @@
  * (lib/automations/abandoned.ts), and the seller's sale email subject from
  * lib/notify/templates/catalog.ts. Example prices are labelled.
  */
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import type { SectionStyle } from "./lazy-section"
 import { useEffect, useRef, useState } from "react"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_KIT_STYLE, CommerceKitStyle, useCommerceLive, useCommerceReducedMotion } from "./commerce-kit"
@@ -733,7 +734,7 @@ function VisPaid() {
         <span className="cmv-rcpt-btn">Open it now</span>
       </div>
       <div className="cmv-sale">
-        <img src="/storelib-mark.svg" alt="" loading="lazy" decoding="async" width={40} height={40} />
+        <StorelibLogo size={40} alt="" fluid />
         <span className="cmv-note-t">
           <span className="cmv-note-top">
             <b>Storelib</b>
