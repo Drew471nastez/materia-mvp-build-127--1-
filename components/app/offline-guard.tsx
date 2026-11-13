@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, type ReactNode } from "react"
 import { Wifi, RefreshCw } from "lucide-react"
-import { isNativeApp } from "@/lib/native-bridge"
+import { releaseLaunchScreen } from "@/lib/native-chrome"
+import { OFFLINE_BLOCKED_EVENT } from "@/lib/native-offline"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { tt } from "@/lib/i18n/text"
 
@@ -39,13 +40,25 @@ export function OfflineGuard({ children }: { children: ReactNode }) {
       setIsOffline(true)
     }
 
+    /* A tap the app held back because the phone is offline (lib/native-offline.ts): this screen says so, not the note. */
+    const held = (e: Event) => {
+      e.preventDefault()
+      setIsOffline(true)
+    }
     window.addEventListener("online", handleOnline)
     window.addEventListener("offline", handleOffline)
+    window.addEventListener(OFFLINE_BLOCKED_EVENT, held)
     return () => {
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
+      window.removeEventListener(OFFLINE_BLOCKED_EVENT, held)
     }
   }, [handleOnline, handleOffline])
+
+  /* Round AU: this screen is final while it is up, so the app's launch screen never sits over it. */
+  useEffect(() => {
+    if (isOffline) releaseLaunchScreen()
+  }, [isOffline])
 
   const handleRetry = async () => {
     setIsRetrying(true)

@@ -16,6 +16,8 @@
  * through lib/nav/prefetch-policy.ts, which never reads one address twice
  * inside its own KEEP_MS and follows the device's and network's plan.
  */
+import { afterResume } from "@/lib/ui/resume"
+
 
 /** Just past the router's staleTimes (300s), so each pass really reads. */
 export const KEEP_FRESH_MS = 300_000 + 5_000
@@ -33,15 +35,19 @@ export const KEEP_FRESH_MAX = 2
 /** Calls `read` every KEEP_FRESH_MS while the page is shown, and when it is shown again. Returns the stop. */
 export function keepFresh(read: () => void): () => void {
   if (typeof window === "undefined") return () => {}
+  /* Round AU: once the app has settled after coming back, never in the same instant as the screen's own reads (lib/ui/resume). */
+  let pending = () => {}
   const again = () => {
     if (document.visibilityState !== "visible") return
-    read()
+    pending()
+    pending = afterResume(read)
   }
   const timer = window.setInterval(again, KEEP_FRESH_MS)
   document.addEventListener("visibilitychange", again)
   window.addEventListener("pageshow", again)
   return () => {
     window.clearInterval(timer)
+    pending()
     document.removeEventListener("visibilitychange", again)
     window.removeEventListener("pageshow", again)
   }

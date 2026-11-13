@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { nativeAppReadyForce } from "@/lib/native-bridge"
-import { hideSplashOnce } from "@/lib/native-chrome"
+import { hideSplashOnce, releaseLaunchScreen } from "@/lib/native-chrome"
 import { hasStoredSessionToken } from "@/lib/auth/session-read"
 import { isSignedOutAnswer } from "@/lib/auth/auth-error"
 import { postSessionSync } from "@/lib/auth/session-sync"
@@ -291,6 +291,8 @@ export function NativeAuthGate({
   */
   useEffect(() => {
     if (!stuck) return
+    /* Round AU: the retry screen is final, and it was drawn under the launch screen, which only a drawn page took down: an app that sat on its logo for good. */
+    releaseLaunchScreen()
     try {
       void fetch("/api/client-errors", {
         method: "POST",
