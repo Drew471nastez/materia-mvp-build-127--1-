@@ -1,7 +1,7 @@
 "use client"
 
 /*
-  THE "SELL TO FANS ANYWHERE" GLOBE (home section 3, card 3).
+  THE "SELL ANYWHERE IN THE WORLD" GLOBE (home section 3, card 3).
 
   A dotted Earth on one canvas, drawn from the same 2 degree land bitmap the
   analytics globe uses (platform-globe-land.ts), with the cities orders come

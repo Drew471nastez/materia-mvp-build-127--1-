@@ -13,12 +13,22 @@
  * anywhere; a course picture that is not the camera; "Build a store that
  * looks like you" as a continuous carousel of real looking stores; less
  * "fans" in the copy.
+ *
+ * Second pass (the owner's second message): the stores drawn as real
+ * Storelib creator pages in Storelib's own colour schemes, not invented
+ * ones; the community as a calm Storelib community page; the white product
+ * card leaning under the mouse as if pressed, springing back, never on a
+ * touch screen or under reduced motion; the support card as the real
+ * Support page, with a third request and the requests taking turns by
+ * themselves (paused off screen); corners about a pixel tighter; no small
+ * print under the section.
  */
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { EverythingInOnePlace, EVERYTHING_CARDS, EVERYTHING_SLIDES, EVERYTHING_STORES, EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
+import { EverythingInOnePlace, EVERYTHING_CARDS, EVERYTHING_SLIDES, EVERYTHING_STORES, EVERYTHING_STYLES, EVERYTHING_SUPPORT } from "@/components/marketing/home/everything-in-one-place"
+import { themePresets } from "@/lib/store-builder/defaults"
 import { SHOWCASE_EXAMPLES } from "@/components/marketing/build-showcase"
 import { SHOWCASE_RAIL } from "@/components/marketing/use-showcase-motion"
 import { SHOWCASE_MOTION, chooseSwipeTarget, glideCurve } from "@/lib/ui/rail-motion"
@@ -90,21 +100,49 @@ const all = src + html
 check("no Golden Hour preset anywhere in the section", !/golden hour/i.test(all) && !/presets\.webp/.test(all) && !existsSync(join(root, "public/home/everything/presets.webp")))
 check("no preset box, gradient membership card or camera picture left behind", !/store-cam|store-album|ev-p-cut/.test(all) && !existsSync(join(root, "public/home/everything/store-cam.webp")))
 const tee = EVERYTHING_SLIDES.find((s) => s.tab === "Merch")
-check("the Midnight Studio Tee sits on a light grey, rounded tile", tee?.name === "Midnight Studio Tee" && tee.kind === "tee" && /\.ev-p-media\{[^}]*border-radius:12px;[^}]*background:#ededed\}/.test(css))
+/* Changed on purpose (landing round 2): every corner of the section about a pixel tighter, the tile 12px to 11px. */
+check("the Midnight Studio Tee sits on a light grey, rounded tile", tee?.name === "Midnight Studio Tee" && tee.kind === "tee" && /\.ev-p-media\{[^}]*border-radius:11px;[^}]*background:#ededed[;}]/.test(css))
 const digital = EVERYTHING_SLIDES.find((s) => s.tab === "Digital")
 check("the digital product is a real one: a PDF guide with its cover", digital?.kind === "guide" && /class="ev-p-book"/.test(html) && /class="ev-p-book-title">Sourdough at Home</.test(html))
 const course = EVERYTHING_SLIDES.find((s) => s.tab === "Course")
 check("the course is a lesson on its video, not a camera", course?.kind === "course" && !/camera|manual/i.test(course.name) && /class="ev-p-lesson"/.test(html))
 const community = EVERYTHING_SLIDES.find((s) => s.tab === "Community")
-check("the community is people together (a photo), not a gradient card", community?.kind === "community" && !/Inner Circle/.test(all))
+/* Changed on purpose (landing round 2): the community is its Storelib community page (components/community/member), not a photo. */
+check("the community is a calm Storelib community page: top bar, places, composer and a post", community?.kind === "community" && !/Inner Circle/.test(all) && /<span class="ev-cm-tabs"><span data-on="">Community<\/span><span>Calendar<\/span><span>Members<\/span><span>About<\/span><\/span>/.test(html) && /Share something\.\.\./.test(html) && /class="ev-cm-post"/.test(html) && /\.ev-p-community\{[^}]*background:#f8f9fa\}/.test(css))
 for (const s of EVERYTHING_SLIDES) check(`${s.tab}: its picture exists and is small`, existsSync(join(root, "public", s.img)) && statSync(join(root, "public", s.img)).size < 120 * 1024)
 check("no purple gradients behind the products or the support thread", !/#a947a8|#7c3aed|#5b21b6|#c2417a|#a8326a|#7b3fc4|#4a3fbf/.test(css))
 
+console.log("\n── make the work: the card leans when pressed ──")
+check("under a mouse the white card leans with the pointer, on a spring, springing back on leave", /usePressTilt\(card\)/.test(src) && /ref=\{card\} className="ev-p-card"/.test(src) && /el\.addEventListener\("pointerenter", enter\)/.test(src) && /el\.addEventListener\("pointerleave", leave\)/.test(src) && /target\[0\] = target\[1\] = target\[2\] = 0/.test(src))
+check("never on a touch screen or a pen without hover, never under reduced motion", /if \(e\.pointerType !== "mouse" \|\| !fine\.matches \|\| reduce\.matches\) return/.test(src) && /matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)/.test(src) && /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/.test(src))
+check("transform only, written once a frame, the frames stop when it settles, and nothing left behind", /el\.style\.transform = `rotateX\(/.test(src) && !/el\.style\.(?!transform|willChange)\w+ =/.test(src) && /raf = moving \? requestAnimationFrame\(step\) : 0/.test(src) && /el\.style\.transform = ""/.test(src) && !/addEventListener\(\s*["']scroll/.test(src))
+check("the stage holds the centring and the perspective, the card only leans", /\.ev-p-stage\{[^}]*transform:translate\(-50%,-50%\);perspective:\d+px\}/.test(css) && !/\.ev-p-card\{[^}]*translate/.test(css))
+
 console.log("\n── make the work: a store that looks like you ──")
-check("five or more stores, each a real Storelib store's layout", EVERYTHING_STORES.length >= 5 && (html.match(/class="ev-st ev-st-/g) ?? []).length === EVERYTHING_STORES.length * 2 && /<span class="ev-st-tabs"><span data-on="">Home<\/span><span>Products<\/span><span>Communities<\/span><\/span>/.test(html))
-check("every store picture is local and exists", EVERYTHING_STORES.every((s) => [s.cover, s.avatar, ...s.products.map((p) => p.src)].every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)))))
+const storeCss = (scheme: string) => (scheme === "default" ? css.match(/\.ev-st\{[^}]*\}/)?.[0] : css.match(new RegExp(`\\.ev-st-${scheme}\\{[^}]*\\}`))?.[0]) ?? ""
+check("six stores, each a real Storelib creator page's layout (subscribe bar, cover, photo, name, handle, bio, social, tabs, Featured)", EVERYTHING_STORES.length >= 5 && (html.match(/class="ev-st ev-st-/g) ?? []).length === EVERYTHING_STORES.length * 2 && /<span class="ev-st-tabs"><span data-on="">Home<\/span><span>Products<\/span><span>Communities<\/span><\/span>/.test(html) && /<span class="ev-st-bar"><img class="ev-st-bar-av"[^>]*><span class="ev-st-email">Your email<\/span><span class="ev-st-sub">Subscribe<\/span><\/span><img class="ev-st-cover"[^>]*><img class="ev-st-av"[^>]*><span class="ev-st-name">/.test(html) && (html.match(/class="ev-st-social"/g) ?? []).length === EVERYTHING_STORES.length * 2 && (html.match(/<span class="ev-st-h">Featured<\/span>/g) ?? []).length === EVERYTHING_STORES.length * 2)
+check("in Storelib's own colour schemes: each store's ground is its themePresets background", EVERYTHING_STORES.every((st) => { const bg = themePresets[st.scheme].colors.background.toLowerCase(); return storeCss(st.scheme).toLowerCase().includes(`--bg:${bg}`) }), EVERYTHING_STORES.map((st) => [st.scheme, themePresets[st.scheme].colors.background]))
+check("at least four different schemes, light and dark", new Set(EVERYTHING_STORES.map((st) => st.scheme)).size >= 4 && EVERYTHING_STORES.some((st) => st.scheme === "astrid"))
+check("the product card is the explore card: a 16:9 cover, the title with its category badge, the price", /\.ev-st-img\{[^}]*aspect-ratio:16\/9/.test(css) && (html.match(/<span class="ev-st-row"><span class="ev-st-pn">[^<]+<\/span><span class="ev-st-badge">(Physical|Digital|Course|Community)<\/span><\/span><span class="ev-st-pp">\$[\d.,]+(\/month)?<\/span>/g) ?? []).length === EVERYTHING_STORES.length * 4 && /\.ev-st-grid\{[^}]*grid-template-columns:1fr 1fr/.test(css))
+check("drawn at a phone's 390px and scaled: the photo is the small size (124px) straddling the cover", /--r:calc\(\(var\(--slot\) - 12px\) \/ 390\)/.test(css) && /\.ev-st-av\{width:calc\(124 \* var\(--r\)\);height:calc\(124 \* var\(--r\)\);margin-top:calc\(-62 \* var\(--r\)\)/.test(css))
+check("every store picture is local, exists and is small", EVERYTHING_STORES.every((st) => [st.cover, st.avatar, ...st.products.map((p) => p.src)].every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024)))
 check("it drifts without a stop, on the compositor: one linear loop of transform", /\.ev-s-track\{[^}]*animation:ev-stores \d+s linear infinite\}/.test(css) && /@keyframes ev-stores\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(-50%,0,0\)\}\}/.test(css) && /class="ev-s-track ev-loop"/.test(html))
 check("it pauses off screen and stands still under reduced motion", /\.ev\[data-platform-live="false"\] \.ev-loop/.test(css) && /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-loop,[^{]*\{animation:none !important\}/.test(css))
+
+console.log("\n── make the work: real support ──")
+const realStatuses = [...read("lib/support/tickets.ts").matchAll(/return tt\("([^"]+)"\)/g), ...read("lib/support/cases.ts").matchAll(/return tt\("([^"]+)"\)/g)].map((m) => m[1])
+check("three requests: two to Storelib, one from a buyer (one more than before)", EVERYTHING_SUPPORT.length === 3 && EVERYTHING_SUPPORT.filter((x) => x.inbox === "storelib").length === 2 && EVERYTHING_SUPPORT.filter((x) => x.inbox === "buyers").length === 1)
+check("the Support page's two inboxes, as buttons that work", /<button type="button" class="ev-c-tab" aria-pressed="false"><span>From buyers<\/span><\/button><button type="button" class="ev-c-tab" aria-pressed="true" data-on="">/.test(html) || /class="ev-c-tab"[^>]*><span>From buyers<\/span>/.test(html) && /class="ev-c-tab"[^>]*><span>Storelib<\/span>/.test(html))
+check("every status pill is one the Support page really shows", EVERYTHING_SUPPORT.every((x) => x.pill.every((p) => realStatuses.includes(p.label))), EVERYTHING_SUPPORT.map((x) => x.pill.map((p) => p.label)))
+check("the creator is \"You\" in the dark bubble on the right, Storelib is \"Storelib support\"", EVERYTHING_SUPPORT.every((x) => [x.ask, x.answer].every((m) => (m.who === "You") === m.mine)) && /Storelib support/.test(html) && /\.ev-c-mine \.ev-c-b\{[^}]*background:#1a1a2e/.test(css))
+check("the requests take turns by themselves: a CSS clock, paused off screen, never under reduced motion", /<span class="ev-c-clock ev-loop" aria-hidden="true"><\/span>/.test(html) && /key=\{active\} className="ev-c-clock ev-loop" aria-hidden="true" onAnimationEnd=\{next\}/.test(src) && /\.ev-c-clock\{[^}]*animation:ev-clock \d+s linear both\}/.test(css))
+check("one thread at a time, stacked in one cell (the box never changes height), the leaving one gone before the next rises", /\.ev-c-stack\{display:grid/.test(css) && /\.ev-c-thread\{grid-area:1\/1;/.test(css) && /\.ev-c-thread\[data-on\]\{opacity:1;transform:none;transition:opacity \.6s ease \.3s/.test(css))
+check("the thread compacts wherever the card is narrow, so it always fits", /\.ev-c\{[^}]*container-type:inline-size\}/.test(css) && /@container \(max-width:560px\)\{/.test(css))
+
+console.log("\n── corners and small print ──")
+check("the section's cards and models are about a pixel tighter", /\.ev-vis\{[^}]*border-radius:17px/.test(css) && /\.ev-vis\{height:clamp\(320px,32vw,440px\);border-radius:19px\}/.test(css) && /\.ev-p-card\{[^}]*border-radius:17px/.test(css) && /\.ev-c-thread\{[^}]*border-radius:15px/.test(css))
+check("the showcase's pictures too", /margin:0;border-radius:7px;contain:paint/.test(showcase) && /aspect-ratio:auto;border-radius:5px\}/.test(showcase))
+check("no small print under the section: the grid is the last thing in it", /<\/article><\/div><\/div><\/section>$/.test(html) && !/<small/.test(html))
 
 console.log("\n── words ──")
 check("no fans in the section's words", !/\bfans?\b/i.test(text(html)) && EVERYTHING_CARDS.every((c) => !/\bfans?\b/i.test(c.lead + c.rest)))
