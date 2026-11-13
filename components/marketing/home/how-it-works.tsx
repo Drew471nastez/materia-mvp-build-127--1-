@@ -280,7 +280,7 @@ function SheetScene() {
                   </svg>
                 </span>
                 <b>Payment complete</b>
-                <small>We sent your receipt and your access to sam@hey.com</small>
+                <small>We sent your receipt and your access to josh.taylor@outlook.com</small>
               </div>
             </div>
           </div>
