@@ -39,7 +39,7 @@ import { taggedSearchPattern } from "@/lib/businesses/email-alias"
 import { priceLine } from "../format"
 import { LENGTHS, MAX_SPACES } from "../limits"
 import { allowedActions, can, meetsRole, type CommunityAction, type RolePermissions } from "../permissions"
-import { slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
+import { newSlugAllowed, slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
 import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, EVENT_COLUMNS_PRICED, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type MemberStatus, type Role, type SpaceRow } from "../types"
 import { accessColumnsFor, accessWords, privacyOf } from "../access-model"
 import {
@@ -738,6 +738,8 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     const slug = typeof b.slug === "string" ? b.slug.trim().toLowerCase() : ""
     if (!validSlug(slug)) return no(400, "An address is 3 to 48 lowercase letters, numbers and single hyphens.", "slug")
     if (slug !== c.slug) {
+      /* A new address only: the one a community has is kept whatever it says (round AW, ../slug newSlugAllowed). */
+      if (!newSlugAllowed(slug)) return no(400, "That address cannot be used. Try another.", "slug")
       const { data: taken } = await db.from("communities").select("id").eq("slug", slug).maybeSingle()
       if (taken) return no(409, "That address is taken.", "slug")
       /* Another community's old address stays theirs, so a link shared to it never opens this one (./slug-history.ts). */

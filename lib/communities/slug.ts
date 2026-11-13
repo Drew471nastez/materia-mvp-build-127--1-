@@ -8,6 +8,8 @@
  * /community/storelib reads as Storelib's own. Pure and browser safe.
  */
 
+import { isPhishingName } from "@/lib/security/phishing-names"
+
 export const SLUG_MIN = 3
 export const SLUG_MAX = 48
 export const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
@@ -67,6 +69,19 @@ export function validSlug(slug: string): boolean {
     !slug.includes("--") &&
     !RESERVED_COMMUNITY_SLUGS.includes(slug)
   )
+}
+
+/**
+ * Whether a NEW address may be taken (round AW): a valid one that is not a
+ * name for a fake sign in page or a bank's support desk
+ * (lib/security/phishing-names.ts). A community lives on storelib.com itself,
+ * so storelib.com/community/paypal-login put Storelib's own address on a
+ * phishing page; usernames, OnePage names and website names were already
+ * refused for it. Asked only where an address is chosen (creating one,
+ * changing it), so a community keeps the address it has.
+ */
+export function newSlugAllowed(slug: string): boolean {
+  return validSlug(slug) && !isPhishingName(slug)
 }
 
 /** Whether a space inside a community may have this address (one character is enough there). */

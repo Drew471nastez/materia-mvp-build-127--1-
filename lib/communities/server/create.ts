@@ -20,7 +20,7 @@ import "server-only"
  */
 import { COMMUNITY_ACCESS, COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, isOneOf, type CommunityAccess, type CommunityRow, type CommunityVisibility } from "../types"
 import { DEFAULT_FREE_TIER, DEFAULT_LEVELS, DEFAULT_SPACES, LENGTHS } from "../limits"
-import { slugify, slugWithSuffix, validSlug } from "../slug"
+import { newSlugAllowed, slugify, slugWithSuffix } from "../slug"
 import { audit } from "./audit"
 import { grantMembership } from "./membership"
 import { isUniqueViolation, missing, reasonOf, type Db } from "./db"
@@ -52,11 +52,12 @@ function randomTail(): string {
 function candidates(input: CreateCommunityInput): { slugs: string[]; explicit: boolean } | null {
   if (input.slug) {
     const s = input.slug.trim().toLowerCase()
-    return validSlug(s) ? { slugs: [s], explicit: true } : null
+    return newSlugAllowed(s) ? { slugs: [s], explicit: true } : null
   }
+  /* A name that reads as a sign in page or a bank's desk gets the plain address, like one too short (round AW, ../slug newSlugAllowed). */
   let base = slugify(input.name)
-  if (!validSlug(base)) base = base.length >= 3 ? `${base}-community` : `community-${randomTail()}`
-  if (!validSlug(base)) base = `community-${randomTail()}`
+  if (!newSlugAllowed(base)) base = base.length >= 3 ? `${base}-community` : `community-${randomTail()}`
+  if (!newSlugAllowed(base)) base = `community-${randomTail()}`
   const slugs = [base]
   for (let n = 2; n < 2 + SUFFIX_TRIES; n++) slugs.push(slugWithSuffix(base, n))
   slugs.push(slugWithSuffix(base, randomTail()))
@@ -155,7 +156,7 @@ export async function createCommunity(db: Db, input: CreateCommunityInput): Prom
  */
 export async function addressFree(db: Db, raw: unknown): Promise<{ slug: string; available: boolean; reason: "invalid" | "taken" | null }> {
   const slug = slugify(typeof raw === "string" ? raw : "")
-  if (!validSlug(slug)) return { slug, available: false, reason: "invalid" }
+  if (!newSlugAllowed(slug)) return { slug, available: false, reason: "invalid" }
   const { data, error } = await db.from("communities").select("id").eq("slug", slug).limit(1)
   if (error) return { slug, available: true, reason: null }
   if (Array.isArray(data) && data.length) return { slug, available: false, reason: "taken" }
