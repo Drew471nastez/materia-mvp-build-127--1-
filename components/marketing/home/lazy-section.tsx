@@ -45,7 +45,7 @@
  * get the section mounted at once.
  */
 
-import { startTransition, useEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from "react"
+import { startTransition, useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties, type ReactNode } from "react"
 
 /**
  * How far ahead of the screen a lazy section mounts: two and a half screens
@@ -144,6 +144,10 @@ function hookScroll() {
   scrollHooked = true
   window.addEventListener("scroll", () => (lastScroll = performance.now()), { passive: true, capture: true })
 }
+
+const noSubscription = () => () => {}
+const drawnInBrowser = () => true
+const drawnOnServer = () => false
 
 type Idle = (cb: (deadline?: IdleDeadline) => void, timeout?: number) => void
 /** An idle slot while the page is not scrolling (CALM_MS); `timeout` still bounds the wait, scrolling or not. */
@@ -413,7 +417,18 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
 
   function LazySectionMount(props: P) {
     const ref = useRef<HTMLDivElement>(null)
-    const [Section, setSection] = useState<ComponentType<P> | null>(() => cached)
+    /*
+     * Wave 14: false while React hydrates the server's HTML (it reads the
+     * server snapshot then), true for a box drawn in the browser. Hydrating,
+     * the box starts empty, as the server drew it, even when the section's
+     * code is already here: on a slow network the prefetch can land before
+     * React reaches a box further down, and drawing the section there made
+     * the HTML differ from the server's (React error #418, and the page
+     * re-drawn). After a navigation back to the page, a section whose code
+     * is here is drawn at once, as before.
+     */
+    const browserDrawn = useSyncExternalStore(noSubscription, drawnInBrowser, drawnOnServer)
+    const [Section, setSection] = useState<ComponentType<P> | null>(() => (browserDrawn ? cached : null))
 
     useEffect(() => {
       schedulePrefetch()
