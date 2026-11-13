@@ -14,86 +14,97 @@ import { lazySection } from "./lazy-section"
 export const LazyEverythingInOnePlace = lazySection(() => import("./everything-in-one-place").then((m) => m.EverythingInOnePlace), {
   name: "everything",
   /* Wave 13 perf: measured at 390 to 1920 wide with the one home padding (--home-pad). Below 768px four cards in one column (the first term, which the step drops above 768px); above, two rows of pictures (32vw, 320 to 440px), two paddings, and the heading and captions. */
-  minHeight: "max(calc(clamp(1852px, 172vw + 1376px, 2167px) - clamp(0px, (100vw - 767px) * 100000, 100000px)), calc(2 * clamp(320px, 32vw, 440px) + 2 * clamp(48px, 5.6vw, 80px) + clamp(340px, 6.8vw + 280px, 380px)))",
+  minHeight: "var(--lz, max(calc(clamp(1852px, 172vw + 1376px, 2167px) - clamp(0px, (100vw - 767px) * 100000, 100000px)), calc(2 * clamp(320px, 32vw, 440px) + 2 * clamp(48px, 5.6vw, 80px) + clamp(340px, 6.8vw + 280px, 380px))))",
   styles: () => import("./everything-in-one-place").then((m) => m.EVERYTHING_STYLES),
 })
 
 export const LazyIdeasComeToLife = lazySection(() => import("./ideas-come-to-life").then((m) => m.IdeasComeToLife), {
   name: "ideas",
   /* Wave 13 perf: measured 937px at 390, 735 at 768, 924 at 1024, 1222 at 1440, 1210 at 1920 (the picture is taller on a phone, below 768px). */
-  minHeight: "max(calc(125.5vw + 448px - clamp(0px, (100vw - 767px) * 100000, 100000px)), min(78vw + 135px, 1214px))",
+  minHeight: "var(--lz, max(calc(125.5vw + 448px - clamp(0px, (100vw - 767px) * 100000, 100000px)), min(78vw + 135px, 1214px)))",
   styles: () => import("./ideas-come-to-life").then((m) => m.IDEAS_STYLES),
 })
 
 export const LazyBusinessCarousel = lazySection(() => import("./business-carousel").then((m) => m.BusinessCarousel), {
   name: "business",
   /* Wave 13 perf: measured 546px at 390, 587 at 768, 746 at 1024, 997 at 1440, 987 at 1920. */
-  minHeight: "clamp(540px, 65vw + 88px, 992px)",
+  minHeight: "var(--lz, clamp(540px, 65vw + 88px, 992px))",
   styles: () => import("./business-carousel").then((m) => m.BUSINESS_STYLES),
 })
 
 export const LazyCreatorsCarousel = lazySection(() => import("./creators-carousel").then((m) => m.CreatorsCarousel), {
   name: "creators",
   /* Wave 13 perf: measured 812px at 390, 798 at 768, 784 at 1024, 959 at 1440 and 1920. */
-  minHeight: "clamp(815px, 45vw + 311px, 959px)",
+  minHeight: "var(--lz, clamp(815px, 45vw + 311px, 959px))",
   styles: () => import("./creators-carousel").then((m) => m.CREATORS_STYLES),
 })
 
 export const LazyHowItWorks = lazySection(() => import("./how-it-works").then((m) => m.HowItWorks), {
   name: "how-it-works",
   /* Wave 13 perf: one column below 640px (2718px at 390), two to 1023px (1590), three from 1024 (1219 at 1024, 1385 at 1440, 1418 at 1920). */
-  minHeight: "max(calc(3038px - 82vw - clamp(0px, (100vw - 639px) * 100000, 100000px)), calc(1590px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(36vw + 850px, 1418px))",
+  minHeight: "var(--lz, max(calc(3038px - 82vw - clamp(0px, (100vw - 639px) * 100000, 100000px)), calc(1590px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(36vw + 850px, 1418px)))",
   styles: () => import("./how-it-works").then((m) => m.HOW_IT_WORKS_STYLES),
 })
 
 export const LazyCheckoutScene = lazySection(() => import("./checkout-scene").then((m) => m.CheckoutScene), {
   name: "checkout",
   /* Wave 13 perf: the pinned scene (100svh + 170vh) and the tabs under it, one column below 900px (961px at 390, 1144 at 768), beside each other from 900 (679 at 1024, 862 at 1440). */
-  minHeight: "calc(270vh + max(calc(48.4vw + 772px - clamp(0px, (100vw - 899px) * 100000, 100000px)), min(46vw + 240px, 860px)))",
+  minHeight: "var(--lz, calc(270vh + max(calc(48.4vw + 772px - clamp(0px, (100vw - 899px) * 100000, 100000px)), min(46vw + 240px, 860px))))",
   styles: () => import("./checkout-scene").then((m) => m.CHECKOUT_STYLES),
 })
 
 export const LazyAudienceOwnership = lazySection(() => import("./audience-ownership").then((m) => m.AudienceOwnership), {
   name: "audience",
   /* Wave 13 perf: the cards stack below 1024px (2474px at 390, 2261 at 768); beside each other from 1024 (1414 at 1024, 1524 at 1440, 1483 at 1920). */
-  minHeight: "max(calc(2600px - 40vw - clamp(0px, (100vw - 1023px) * 100000, 100000px)), clamp(1415px, 68vw + 545px, 1500px))",
+  minHeight: "var(--lz, max(calc(2600px - 40vw - clamp(0px, (100vw - 1023px) * 100000, 100000px)), clamp(1415px, 68vw + 545px, 1500px)))",
 })
 
 export const LazyAnalyticsShowcase = lazySection(() => import("./analytics-showcase").then((m) => m.AnalyticsShowcase), {
   name: "analytics",
   /* Wave 13 perf: measured 1481px at 390, 1644 at 768, 1101 at 1024, 1383 at 1440, 1424 at 1920. */
-  minHeight: "max(calc(min(100vw + 1090px, 1660px) - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(70vw + 380px, 1424px))",
+  minHeight: "var(--lz, max(calc(min(100vw + 1090px, 1660px) - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(70vw + 380px, 1424px)))",
 })
 
 export const LazySellEverywhereMap = lazySection(() => import("./sell-everywhere-map").then((m) => m.SellEverywhereMap), {
   name: "sell-everywhere",
   /* Wave 13 perf: measured 1083px at 390, 1163 at 768, 952 at 1024, 1053 at 1440, 1062 at 1920. */
-  minHeight: "max(calc(22vw + 1000px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(26vw + 686px, 1062px))",
+  minHeight: "var(--lz, max(calc(22vw + 1000px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(26vw + 686px, 1062px)))",
   styles: () => import("./sell-everywhere-map").then((m) => m.SELL_EVERYWHERE_STYLES),
 })
 
 export const LazyIntegrationsSection = lazySection(() => import("./integrations-section").then((m) => m.IntegrationsSection), {
   name: "integrations",
   /* Wave 13 perf: measured 538px at 390, 610 at 768, 642 at 1024, 710 at 1440, 715 at 1920. */
-  minHeight: "clamp(536px, 16.5vw + 472px, 715px)",
+  minHeight: "var(--lz, clamp(536px, 16.5vw + 472px, 715px))",
 })
 
 export const LazyAiToolsSection = lazySection(() => import("./ai-tools-section").then((m) => m.AiToolsSection), {
   name: "ai-tools",
   /* Landing round: measured 931px at 390 and 939 at 768 (the terminal under the words), 698 at 1024, 780 at 1440 and 782 at 1920 (beside them). */
-  minHeight: "max(calc(923px + 2vw - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(19.7vw + 496px, 782px))",
+  minHeight: "var(--lz, max(calc(923px + 2vw - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(19.7vw + 496px, 782px)))",
   styles: () => import("./ai-tools-section").then((m) => m.AI_TOOLS_STYLES),
 })
 
 export const LazyEarningsCalculator = lazySection(() => import("./earnings-calculator").then((m) => m.EarningsCalculator), {
   name: "earnings",
   /* Landing round (the photo): one column below 900px (1613px at 390 and 768), the photo a band over two columns to 1279 (1138 at 1024), three columns from 1280 (901 at 1440, 988 at 1920). */
-  minHeight: "max(calc(1613px - clamp(0px, (100vw - 899px) * 100000, 100000px)), calc(831px + min(30vw, 320px) - clamp(0px, (100vw - 1279px) * 100000, 100000px)), min(640px + 18.1vw, 988px))",
+  minHeight: "var(--lz, max(calc(1613px - clamp(0px, (100vw - 899px) * 100000, 100000px)), calc(831px + min(30vw, 320px) - clamp(0px, (100vw - 1279px) * 100000, 100000px)), min(640px + 18.1vw, 988px)))",
   styles: () => import("./earnings-calculator").then((m) => m.EARNINGS_STYLES),
 })
 
 export const LazyAppAnywhere = lazySection(() => import("./app-anywhere").then((m) => m.AppAnywhere), {
   name: "app-anywhere",
   /* Landing round (the shorter line): one column below 1024px (826px at 390, 1047 at 768), two from 1024 (644 at 1024, 779 at 1440, 792 at 1920). */
-  minHeight: "max(calc(58vw + 600px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(30vw + 348px, 792px))",
+  minHeight: "var(--lz, max(calc(58vw + 600px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), min(30vw + 348px, 792px)))",
 })
+
+/*
+  EACH PLACEHOLDER AT THE SECTION'S MEASURED HEIGHT (landing round). The
+  formulas above are each section's guess; this sets --lz per section and
+  width, piecewise linear between heights measured on a production build at
+  390, 768, 1024, 1440 and 1920 px (checkout's 270vh scroll track kept), so
+  a section mounting off screen does not move the page. The page draws it
+  once (app/(storelib)/(marketing)/page.tsx); without it the formulas apply.
+  Measure again when a section's height changes.
+*/
+export const LAZY_SECTION_HEIGHTS_CSS = '@media (max-width:767px){[data-lazy-section="everything"]{--lz:calc(3041.6px + -255.026vw)}[data-lazy-section="ideas"]{--lz:calc(857.4px + -37.037vw)}[data-lazy-section="business"]{--lz:calc(488.5px + 62.169vw)}[data-lazy-section="creators"]{--lz:calc(644.4px + -3.704vw)}[data-lazy-section="how-it-works"]{--lz:calc(3760.6px + -288.624vw)}[data-lazy-section="checkout"]{--lz:calc(270vh + calc(470.8px + 60.317vw))}[data-lazy-section="audience"]{--lz:calc(2534.1px + -58.995vw)}[data-lazy-section="analytics"]{--lz:calc(1670.3px + -2.381vw)}[data-lazy-section="sell-everywhere"]{--lz:calc(832.4px + 13.228vw)}[data-lazy-section="integrations"]{--lz:calc(354.8px + 10.053vw)}[data-lazy-section="ai-tools"]{--lz:calc(922.7px + 2.116vw)}[data-lazy-section="earnings"]{--lz:1613px}[data-lazy-section="app-anywhere"]{--lz:calc(598.0px + 58.466vw)}}\n@media (min-width:768px) and (max-width:1023px){[data-lazy-section="everything"]{--lz:calc(1044.0px + 5.078vw)}[data-lazy-section="ideas"]{--lz:calc(45.0px + 68.750vw)}[data-lazy-section="business"]{--lz:calc(1563.0px + -77.734vw)}[data-lazy-section="creators"]{--lz:calc(679.0px + -8.203vw)}[data-lazy-section="how-it-works"]{--lz:calc(2723.0px + -153.516vw)}[data-lazy-section="checkout"]{--lz:calc(270vh + calc(2344.0px + -183.594vw))}[data-lazy-section="audience"]{--lz:calc(4508.0px + -316.016vw)}[data-lazy-section="analytics"]{--lz:calc(3482.0px + -238.281vw)}[data-lazy-section="sell-everywhere"]{--lz:calc(1603.0px + -87.109vw)}[data-lazy-section="integrations"]{--lz:calc(336.0px + 12.500vw)}[data-lazy-section="ai-tools"]{--lz:calc(1662.0px + -94.141vw)}[data-lazy-section="earnings"]{--lz:calc(3038.0px + -185.547vw)}[data-lazy-section="app-anywhere"]{--lz:calc(2256.0px + -157.422vw)}}\n@media (min-width:1024px) and (max-width:1439px){[data-lazy-section="everything"]{--lz:calc(300.9px + 77.644vw)}[data-lazy-section="ideas"]{--lz:calc(45.0px + 68.750vw)}[data-lazy-section="business"]{--lz:calc(294.4px + 46.154vw)}[data-lazy-section="creators"]{--lz:calc(176.5px + 40.865vw)}[data-lazy-section="how-it-works"]{--lz:calc(683.3px + 45.673vw)}[data-lazy-section="checkout"]{--lz:calc(270vh + calc(16.0px + 43.750vw))}[data-lazy-section="audience"]{--lz:calc(947.1px + 31.731vw)}[data-lazy-section="analytics"]{--lz:calc(680.2px + 35.337vw)}[data-lazy-section="sell-everywhere"]{--lz:calc(322.1px + 37.981vw)}[data-lazy-section="integrations"]{--lz:calc(296.6px + 16.346vw)}[data-lazy-section="ai-tools"]{--lz:calc(496.2px + 19.712vw)}[data-lazy-section="earnings"]{--lz:calc(1721.4px + -56.971vw)}[data-lazy-section="app-anywhere"]{--lz:calc(311.7px + 32.452vw)}}\n@media (min-width:1440px){[data-lazy-section="everything"]{--lz:1419px}[data-lazy-section="ideas"]{--lz:calc(1071.0px + -2.500vw)}[data-lazy-section="business"]{--lz:959px}[data-lazy-section="creators"]{--lz:765px}[data-lazy-section="how-it-works"]{--lz:calc(1314.0px + 1.875vw)}[data-lazy-section="checkout"]{--lz:calc(270vh + calc(658.0px + -0.833vw))}[data-lazy-section="audience"]{--lz:calc(1446.0px + -2.917vw)}[data-lazy-section="analytics"]{--lz:calc(1162.0px + 1.875vw)}[data-lazy-section="sell-everywhere"]{--lz:calc(842.0px + 1.875vw)}[data-lazy-section="integrations"]{--lz:calc(517.0px + 1.042vw)}[data-lazy-section="ai-tools"]{--lz:calc(774.0px + 0.417vw)}[data-lazy-section="earnings"]{--lz:calc(640.0px + 18.125vw)}[data-lazy-section="app-anywhere"]{--lz:calc(740.0px + 2.708vw)}}'

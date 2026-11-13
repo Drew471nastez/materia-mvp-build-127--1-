@@ -17,6 +17,7 @@ import {
   LazyAiToolsSection,
   LazyEarningsCalculator,
   LazyAppAnywhere,
+  LAZY_SECTION_HEIGHTS_CSS,
 } from "@/components/marketing/home/lazy-sections"
 import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -59,6 +60,8 @@ export default function StorelibLanding() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibHomeJsonLd()) }} />
 
       {/* 1 HERO */}
+      {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
+      <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
       <Hero />
       <LandingStory>
         {/* 2 BUILD SHOWCASE (its content: track showcase) */}

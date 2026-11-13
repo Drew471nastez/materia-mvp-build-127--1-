@@ -151,7 +151,8 @@ console.log("\n── Your AI tools work here too ──")
   const page = read("app/(storelib)/(marketing)/page.tsx")
   const lazy = read("components/marketing/home/lazy-sections.tsx")
   check("placed right after the integrations, before the earnings", page.indexOf("<LazyIntegrationsSection />") > 0 && page.indexOf("<LazyIntegrationsSection />") < page.indexOf("<LazyAiToolsSection />") && page.indexOf("<LazyAiToolsSection />") < page.indexOf("<LazyEarningsCalculator />"))
-  check("lazily loaded, with its stylesheet and a measured box", /export const LazyAiToolsSection = lazySection\(\(\) => import\("\.\/ai-tools-section"\)\.then\(\(m\) => m\.AiToolsSection\), \{\s*name: "ai-tools",[\s\S]*?minHeight: "max\(calc\(923px \+ 2vw - clamp\(0px, \(100vw - 1023px\) \* 100000, 100000px\)\), min\(19\.7vw \+ 496px, 782px\)\)",\s*styles: \(\) => import\("\.\/ai-tools-section"\)\.then\(\(m\) => m\.AI_TOOLS_STYLES\),/.test(lazy))
+  /* Changed on purpose (landing round): the formula is the fallback of var(--lz), which LAZY_SECTION_HEIGHTS_CSS sets to the measured height per width. */
+  check("lazily loaded, with its stylesheet and a measured box", /export const LazyAiToolsSection = lazySection\(\(\) => import\("\.\/ai-tools-section"\)\.then\(\(m\) => m\.AiToolsSection\), \{\s*name: "ai-tools",[\s\S]*?minHeight: "var\(--lz, max\(calc\(923px \+ 2vw - clamp\(0px, \(100vw - 1023px\) \* 100000, 100000px\)\), min\(19\.7vw \+ 496px, 782px\)\)\)",\s*styles: \(\) => import\("\.\/ai-tools-section"\)\.then\(\(m\) => m\.AI_TOOLS_STYLES\),/.test(lazy))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

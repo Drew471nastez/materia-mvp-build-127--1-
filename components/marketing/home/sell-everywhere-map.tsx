@@ -214,6 +214,8 @@ export function SellEverywhereMap() {
             </div>
           </div>
 
+          {/* The orders are an example: said in a quiet tag, as the earnings card says it, not a line of small print. */}
+          <span className="cmm-tag">Example</span>
           <div className="cmm-copy">
             <h3>Local prices, one checkout</h3>
             <p>Buyers see your prices in their own currency and pay by card, Apple Pay or Google Pay. Digital orders arrive the moment they pay, day or night.</p>
@@ -263,6 +265,7 @@ const MAP_CSS = `
 .cmm-prices span{grid-area:1/1;opacity:0;transform:translate3d(0,6px,0);transition:opacity .35s ease-out,transform .6s ${EASE}}
 .cmm-prices span[data-on]{opacity:1;transform:none;transition-delay:.1s}
 .cmm-buy{display:flex;align-items:center;justify-content:center;height:40px;margin-top:11px;border-radius:8px;background:#141217;color:#fff;font-size:14px;font-weight:500}
+.cmm-tag{position:absolute;z-index:3;top:22px;right:24px;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.07);font-size:12px;color:#c9c7d1}
 .cmm-copy{position:absolute;z-index:2;left:clamp(28px,3vw,40px);bottom:36px;max-width:clamp(270px,calc(32vw - 64px),380px)}
 .cmm-copy h3{margin:0;font-size:clamp(20px,1.7vw,24px);font-weight:500;letter-spacing:-.02em;line-height:1.2}
 .cmm-copy p{margin:8px 0 0;font-size:15px;line-height:1.55;color:#a3a1ad}
