@@ -190,6 +190,18 @@ console.log("\nCommerce: images")
   check("images are lazy and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="lazy"/g) ?? []).length && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }
 
+/* Added (wave 13): one branch deleted public/home/showcase/lt-field.webp while how-it-works still drew it, and the live page asked for it and got a 404. Every picture or video a marketing component names by a root path is a file under public. */
+console.log("\nMarketing: every named picture is a file")
+{
+  const walk = (d: string): string[] => readdirSync(join(ROOT, d), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : /\.(tsx?|css)$/.test(e.name) ? [join(d, e.name)] : []))
+  const named = new Set<string>()
+  for (const f of walk("components/marketing")) {
+    for (const m of read(f).matchAll(/["'`(](\/(?:home|marketing|brand|images|img)\/[A-Za-z0-9._/-]+\.(?:webp|png|jpe?g|svg|avif|mp4|webm))["'`)]/g)) named.add(m[1])
+  }
+  const missing = [...named].filter((p) => !existsSync(join(ROOT, "public", p)))
+  check("every picture a marketing component names is in public", named.size >= 3 && missing.length === 0, { named: named.size, missing })
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
   console.log(failures.map((f) => `  - ${f}`).join("\n"))
