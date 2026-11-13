@@ -257,7 +257,7 @@ export function IntegrationsSection() {
       ref={ref}
       id="integrations"
       aria-labelledby="integrations-title"
-      className={`${m.root} ${s.clip} bg-white py-[clamp(72px,9vw,128px)] text-[#18181b]`}
+      className={`${m.root} ${s.clip} bg-white py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#18181b]`}
     >
       <div className="mx-auto max-w-[1400px] px-[var(--landing-gutter,22px)]">
         <div className="mb-10 max-w-[880px] sm:mb-14">

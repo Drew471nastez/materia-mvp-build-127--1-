@@ -309,7 +309,8 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     viewport.addEventListener("focusout", onBlur)
     document.addEventListener("visibilitychange", resume)
     reduce.addEventListener("change", sync)
-    sync()
+    /* Wave 13 perf: the first measure comes from the ResizeObserver's first report, after the browser has laid the rail out, not as the section mounts (a forced layout of the page). */
+    if (!ro) sync()
     return () => {
       cancelAnimationFrame(raf)
       drift?.cancel()
@@ -403,8 +404,8 @@ export const CREATORS_CSS = `
 .cc-viewport[data-dragging]{cursor:grabbing}
 .cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-gutter) 8px;list-style:none;will-change:transform;backface-visibility:hidden}
 .cc-card{flex:none;width:var(--cc-w);margin:0;padding:0}
-.cc-body{display:block;transform:translate3d(0,0,0);transition:transform 520ms var(--cc-ease)}
-.cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:20px;background:var(--cc-photo);isolation:isolate;transform:translateZ(0)}
+.cc-body{display:block;transform:translate(0,0);transition:transform 520ms var(--cc-ease)}
+.cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:20px;background:var(--cc-photo);isolation:isolate}
 .cc-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.001);transition:transform 900ms var(--cc-ease);pointer-events:none}
 .cc-prod{position:absolute;left:10px;right:10px;bottom:10px;display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:14px;background:#fff;color:#18181b;box-shadow:0 1px 2px rgba(0,0,0,.08),0 10px 24px -14px rgba(0,0,0,.45)}
 .cc-prod-ic{display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:10px;background:#f3efff;color:#6d28d9}
@@ -416,7 +417,7 @@ export const CREATORS_CSS = `
 .cc-kind{font-size:18px;font-weight:600;letter-spacing:-.02em;line-height:1.25}
 .cc-sells{font-size:14px;line-height:1.4;color:var(--cc-muted)}
 @media(hover:hover) and (pointer:fine){
-  .cc-viewport:not([data-dragging]) .cc-card:hover .cc-body{transform:translate3d(0,-6px,0)}
+  .cc-viewport:not([data-dragging]) .cc-card:hover .cc-body{transform:translate(0,-6px)}
   .cc-viewport:not([data-dragging]) .cc-card:hover .cc-img{transform:scale(1.04)}
 }
 

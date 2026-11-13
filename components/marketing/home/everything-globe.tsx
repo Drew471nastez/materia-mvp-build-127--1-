@@ -15,15 +15,22 @@
   keeps the throw's momentum when let go and eases back into its slow spin;
   under a mouse it leans toward the pointer.
 
-  Cost: one canvas, device pixels capped at 1.5x, a few thousand dots filled
-  as three batched paths by depth, the shaded sphere painted once per size.
-  The loop runs only while the section is on screen, the tab is visible and
-  the globe itself is in view; the pill is moved with transform only. Under
-  reduced motion it stands still (one frame), and redraws only while dragged.
+  Cost (wave 13 perf): the turning and drawing is the engine in
+  everything-globe-draw.ts, run in a worker that owns the canvas where the
+  browser can hand one over (everything-globe-worker.ts, shipped as a string
+  built by scripts/build-globe-worker.mjs), so the page's own thread does
+  nothing per frame: it only passes the pointer on and moves the order pill
+  (transform only) when the worker says where, every 100ms with a glide of
+  as long, every frame while the globe is being turned. Elsewhere the same
+  engine runs here. It draws only while the section is on screen, the tab
+  is visible and the globe itself is in view. Under reduced motion it stands
+  still (one frame), and redraws only while dragged.
 */
 
 import { useEffect, useRef } from "react"
 import { PLATFORM_LAND_B64, PLATFORM_LAND_H, PLATFORM_LAND_W } from "./platform-globe-land"
+import { createGlobeEngine, type GlobeEngine, type GlobePill, type GlobePointer, type V3 } from "./everything-globe-draw"
+import { EVERYTHING_GLOBE_WORKER_SOURCE } from "./everything-globe-worker-source"
 
 type Order = { city: string; cc: string; lat: number; lng: number; price: string }
 
@@ -55,14 +62,7 @@ export const EVERYTHING_GLOBE_ORDERS: Order[] = [
 const HOME: [number, number] = [40.68, -73.94]
 
 const DEG = Math.PI / 180
-const AUTO_SPIN = 0.00013 /* radians per ms */
-const BASE_PITCH = 0.42
-const ORDER_EVERY = 2300
-const ARC_MS = 1500
-const TAIL_LAG = 520
-const RING_MS = 1300
 
-type V3 = [number, number, number]
 const toV = (lat: number, lng: number): V3 => {
   const phi = lat * DEG
   const lam = lng * DEG
@@ -96,36 +96,78 @@ function landPoints(): Float32Array {
   return landCache
 }
 
-type Arc = { pts: Float32Array; t0: number; order: number; landed?: boolean }
-type Ring = { order: number; t0: number }
+/** What drives the globe: a worker holding the canvas, or the engine on this thread. */
+type Driver = {
+  size: (w: number, h: number, dpr: number) => void
+  run: (on: boolean) => void
+  reduced: (on: boolean) => void
+  pointer: (e: GlobePointer) => void
+  lean: (x: number, y: number) => void
+  stop: () => void
+}
 
-const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
-
-/** 48 points along the great circle from a to b, lifted off the surface toward the middle. */
-function arcPoints(a: V3, b: V3): Float32Array {
-  const dot = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))
-  const w = Math.acos(dot)
-  const s = Math.sin(w) || 1
-  const lift = 0.1 + 0.38 * (w / Math.PI)
-  const N = 48
-  const out = new Float32Array((N + 1) * 3)
-  for (let i = 0; i <= N; i++) {
-    const t = i / N
-    const ka = Math.sin((1 - t) * w) / s
-    const kb = Math.sin(t * w) / s
-    const h = 1 + lift * Math.sin(Math.PI * t)
-    out[i * 3] = (ka * a[0] + kb * b[0]) * h
-    out[i * 3 + 1] = (ka * a[1] + kb * b[1]) * h
-    out[i * 3 + 2] = (ka * a[2] + kb * b[2]) * h
+function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, onDrawn: () => void): Driver | null {
+  const pts = landPoints()
+  const cities = EVERYTHING_GLOBE_ORDERS.map((o) => toV(o.lat, o.lng))
+  const home = toV(HOME[0], HOME[1])
+  if (typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof canvas.transferControlToOffscreen === "function") {
+    let worker: Worker | null = null
+    try {
+      /* The worker's code ships inside this chunk (scripts/build-globe-worker.mjs): no file to fetch. */
+      const url = URL.createObjectURL(new Blob([EVERYTHING_GLOBE_WORKER_SOURCE], { type: "text/javascript" }))
+      worker = new Worker(url)
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      const off = canvas.transferControlToOffscreen()
+      worker.postMessage({ type: "init", canvas: off, pts, cities, home }, [off])
+    } catch {
+      worker?.terminate()
+      worker = null
+    }
+    if (worker) {
+      const w = worker
+      w.onmessage = (e: MessageEvent<{ type: "pill"; p: GlobePill } | { type: "drawn" }>) => {
+        if (e.data.type === "pill") onPill(e.data.p)
+        else onDrawn()
+      }
+      return {
+        size: (width, height, dpr) => w.postMessage({ type: "size", w: width, h: height, dpr }),
+        run: (on) => w.postMessage({ type: "run", on }),
+        reduced: (on) => w.postMessage({ type: "reduced", on }),
+        pointer: (e) => w.postMessage({ type: "pointer", e }),
+        lean: (x, y) => w.postMessage({ type: "lean", x, y }),
+        stop: () => w.terminate(),
+      }
+    }
   }
-  return out
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+  const engine: GlobeEngine = createGlobeEngine(
+    {
+      canvas,
+      ctx,
+      makeCanvas: (w, h) => {
+        const c = document.createElement("canvas")
+        c.width = w
+        c.height = h
+        return c
+      },
+      raf: (cb) => requestAnimationFrame(cb),
+      caf: (id) => cancelAnimationFrame(id),
+      onPill,
+      onDrawn,
+    },
+    pts,
+    cities,
+    home,
+  )
+  return engine
 }
 
 export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boolean }) {
   const wrap = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pillsRef = useRef<HTMLDivElement>(null)
-  /* The props reach the loop through refs, so the effect, its listeners and its state are set up once. */
+  /* The props reach the driver through refs, so the effect, its listeners and its state are set up once. */
   const ctl = useRef<null | ((p: { live: boolean; reduced: boolean }) => void)>(null)
   const liveRef = useRef(live)
   const reducedRef = useRef(reduced)
@@ -136,378 +178,65 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
     const box = wrap.current
     const canvas = canvasRef.current
     const pills = pillsRef.current
-    const ctx = canvas?.getContext("2d")
-    if (!box || !canvas || !ctx || !pills) return
-    const pts = landPoints()
-    const cities = EVERYTHING_GLOBE_ORDERS.map((o) => toV(o.lat, o.lng))
-    const home = toV(HOME[0], HOME[1])
+    if (!box || !canvas || !pills) return
+    const st = { w: 0, h: 0, pill: -1, half: 0, visible: true, live: false, reduced: false, dragging: -1 }
 
-    const st = {
-      w: 0,
-      h: 0,
-      dpr: 1,
-      R: 0,
-      cx: 0,
-      cy: 0,
-      yaw: 1.05,
-      pitch: BASE_PITCH,
-      vyaw: AUTO_SPIN,
-      leanX: 0,
-      leanY: 0,
-      targetLeanX: 0,
-      targetLeanY: 0,
-      drag: null as null | { id: number; x: number; y: number; t: number },
-      arcs: [] as Arc[],
-      rings: [] as Ring[],
-      next: 0,
-      order: 0,
-      pill: -1,
-      pillShown: false,
-      pillHalf: 0,
-      bg: null as HTMLCanvasElement | null,
-      glow: null as HTMLCanvasElement | null,
-      frame: 0,
-      last: 0,
-      running: false,
-      visible: true,
-      live: false,
-      reduced: false,
+    /* The pill: kept inside the card (its half width measured once, when it is first shown), moved by transform only. */
+    const onPill = (p: GlobePill) => {
+      const el = pills.children[p.i] as HTMLElement | undefined
+      if (!el) return
+      let first = false
+      if (p.i !== st.pill) {
+        const prev = pills.children[st.pill] as HTMLElement | undefined
+        prev?.removeAttribute("data-on")
+        prev?.removeAttribute("data-glide")
+        st.pill = p.i
+        st.half = 0
+        first = true
+      }
+      if (!st.half) st.half = ((el.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0) / 2
+      const x = Math.max(16 + st.half, Math.min(st.w - 16 - st.half, p.x))
+      const y = Math.max(52, p.y)
+      /* Between interactions the place comes every GLOBE_PILL_EVERY_MS and the pill glides there; a first placement or a drag puts it there at once. */
+      el.toggleAttribute("data-glide", !first && !p.now)
+      el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`
+      el.toggleAttribute("data-on", p.on)
     }
-
-    /* The shaded sphere and its soft halo, and the glow sprite city lights are stamped with: painted once per size. */
-    const paintStatic = () => {
-      const W = canvas.width
-      const H = canvas.height
-      const R = st.R * st.dpr
-      const cx = st.cx * st.dpr
-      const cy = st.cy * st.dpr
-      const bg = document.createElement("canvas")
-      bg.width = W
-      bg.height = H
-      const g = bg.getContext("2d")
-      if (g) {
-        const halo = g.createRadialGradient(cx, cy, R * 0.96, cx, cy, R * 1.16)
-        halo.addColorStop(0, "rgba(167,139,250,0.20)")
-        halo.addColorStop(1, "rgba(167,139,250,0)")
-        g.fillStyle = halo
-        g.fillRect(0, 0, W, H)
-        const body = g.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.05, cx, cy, R)
-        body.addColorStop(0, "#2a2a31")
-        body.addColorStop(0.55, "#141418")
-        body.addColorStop(1, "#070709")
-        g.fillStyle = body
-        g.beginPath()
-        g.arc(cx, cy, R, 0, Math.PI * 2)
-        g.fill()
-        g.strokeStyle = "rgba(255,255,255,0.10)"
-        g.lineWidth = Math.max(1, st.dpr)
-        g.stroke()
-      }
-      st.bg = bg
-      const s = Math.round(28 * st.dpr)
-      const glow = document.createElement("canvas")
-      glow.width = s
-      glow.height = s
-      const gg = glow.getContext("2d")
-      if (gg) {
-        const r = gg.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2)
-        r.addColorStop(0, "rgba(255,255,255,1)")
-        r.addColorStop(0.14, "rgba(255,255,255,0.95)")
-        r.addColorStop(0.3, "rgba(237,233,254,0.35)")
-        r.addColorStop(1, "rgba(237,233,254,0)")
-        gg.fillStyle = r
-        gg.fillRect(0, 0, s, s)
-      }
-      st.glow = glow
-    }
-
-    const fit = () => {
-      const rect = box.getBoundingClientRect()
-      const w = Math.round(rect.width)
-      const h = Math.round(rect.height)
-      const dpr = Math.min(1.5, window.devicePixelRatio || 1)
-      if (!w || !h || (w === st.w && h === st.h && dpr === st.dpr)) return
-      st.w = w
-      st.h = h
-      st.dpr = dpr
-      st.R = Math.min(w * 0.45, h * 0.57)
-      st.cx = w / 2
-      st.cy = h * 0.53
-      canvas.width = Math.round(w * dpr)
-      canvas.height = Math.round(h * dpr)
-      paintStatic()
-      draw(performance.now())
-    }
-
-    /* Rotation of a unit vector into view space: yaw about the axis, then pitch toward the viewer. */
-    let cY = 1
-    let sY = 0
-    let cP = 1
-    let sP = 0
-    const setRot = () => {
-      const yaw = st.yaw + st.leanX
-      const pitch = st.pitch + st.leanY
-      cY = Math.cos(yaw)
-      sY = Math.sin(yaw)
-      cP = Math.cos(pitch)
-      sP = Math.sin(pitch)
-    }
-    const out: V3 = [0, 0, 0]
-    const rot = (x: number, y: number, z: number) => {
-      const x1 = x * cY + z * sY
-      const z1 = -x * sY + z * cY
-      out[0] = x1
-      out[1] = y * cP - z1 * sP
-      out[2] = y * sP + z1 * cP
-      return out
-    }
-    const hidden = (x: number, y: number, z: number) => z < 0 && x * x + y * y < 1
-
-    const draw = (now: number) => {
-      if (!st.bg || !st.glow) return
-      setRot()
-      const d = st.dpr
-      const R = st.R * d
-      const cx = st.cx * d
-      const cy = st.cy * d
-      ctx.setTransform(1, 0, 0, 1, 0, 0)
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(st.bg, 0, 0)
-
-      /* Land: three batched paths by depth. */
-      const dot = Math.max(1, R * 0.0085)
-      const far = new Path2D()
-      const mid = new Path2D()
-      const near = new Path2D()
-      for (let i = 0; i < pts.length; i += 3) {
-        const p = rot(pts[i], pts[i + 1], pts[i + 2])
-        const z = p[2]
-        if (z <= 0.04) continue
-        const r = dot * (0.5 + 0.5 * z)
-        const px = cx + p[0] * R - r / 2
-        const py = cy - p[1] * R - r / 2
-        ;(z > 0.6 ? near : z > 0.28 ? mid : far).rect(px, py, r, r)
-      }
-      ctx.fillStyle = "rgba(255,255,255,0.20)"
-      ctx.fill(far)
-      ctx.fillStyle = "rgba(255,255,255,0.44)"
-      ctx.fill(mid)
-      ctx.fillStyle = "rgba(255,255,255,0.72)"
-      ctx.fill(near)
-
-      /* City lights. */
-      const gs = st.glow.width
-      for (let i = 0; i <= cities.length; i++) {
-        const c = i < cities.length ? cities[i] : home
-        const p = rot(c[0], c[1], c[2])
-        if (p[2] <= 0.05) continue
-        ctx.globalAlpha = Math.min(1, p[2] * 1.8) * (i === cities.length ? 1 : 0.85)
-        const size = gs * (i === cities.length ? 1.25 : 0.8)
-        ctx.drawImage(st.glow, cx + p[0] * R - size / 2, cy - p[1] * R - size / 2, size, size)
-      }
-      ctx.globalAlpha = 1
-
-      /* Order arcs: a comet from the studio to the buyer. */
-      ctx.lineCap = "round"
-      ctx.lineJoin = "round"
-      const N = 48
-      st.arcs = st.arcs.filter((a) => now - a.t0 < ARC_MS + TAIL_LAG + 80)
-      for (const a of st.arcs) {
-        const head = ease(Math.min(1, (now - a.t0) / ARC_MS))
-        const tail = ease(Math.max(0, Math.min(1, (now - a.t0 - TAIL_LAG) / ARC_MS)))
-        const i0 = Math.floor(tail * N)
-        const i1 = Math.ceil(head * N)
-        if (i1 <= i0) continue
-        ctx.beginPath()
-        let pen = false
-        let hx = 0
-        let hy = 0
-        let hv = false
-        for (let i = i0; i <= i1; i++) {
-          const p = rot(a.pts[i * 3], a.pts[i * 3 + 1], a.pts[i * 3 + 2])
-          const x = cx + p[0] * R
-          const y = cy - p[1] * R
-          if (hidden(p[0], p[1], p[2])) {
-            pen = false
-            hv = false
-            continue
-          }
-          if (pen) ctx.lineTo(x, y)
-          else ctx.moveTo(x, y)
-          pen = true
-          hx = x
-          hy = y
-          hv = true
-        }
-        /* A soft glow under a bright line. */
-        ctx.strokeStyle = "rgba(167,139,250,0.22)"
-        ctx.lineWidth = 6 * d
-        ctx.stroke()
-        ctx.strokeStyle = "rgba(221,214,254,0.95)"
-        ctx.lineWidth = Math.max(1.4, 1.8 * d)
-        ctx.stroke()
-        if (hv && head < 1) {
-          ctx.fillStyle = "#fff"
-          ctx.beginPath()
-          ctx.arc(hx, hy, 3 * d, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      }
-
-      /* The buyer's city rings as the order lands. */
-      st.rings = st.rings.filter((r) => now - r.t0 < RING_MS)
-      for (const r of st.rings) {
-        const c = cities[r.order]
-        const p = rot(c[0], c[1], c[2])
-        if (p[2] <= 0.05) continue
-        const k = (now - r.t0) / RING_MS
-        ctx.globalAlpha = (1 - k) * Math.min(1, p[2] * 1.6)
-        ctx.strokeStyle = "#c4b5fd"
-        ctx.lineWidth = 1.5 * d
-        ctx.beginPath()
-        ctx.arc(cx + p[0] * R, cy - p[1] * R, (3 + 22 * ease(k)) * d, 0, Math.PI * 2)
-        ctx.stroke()
-      }
-      ctx.globalAlpha = 1
-
-      /* The pill rides on the latest buyer's city, and steps aside when it turns away. */
-      if (st.pill >= 0) {
-        const c = cities[st.pill]
-        const p = rot(c[0], c[1], c[2])
-        const show = p[2] > 0.12
-        const el = pills.children[st.pill] as HTMLElement | undefined
-        if (el) {
-          /* Kept inside the card: its half width is measured once, when it is first shown. */
-          if (!st.pillHalf) st.pillHalf = ((el.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0) / 2
-          const x = Math.max(16 + st.pillHalf, Math.min(st.w - 16 - st.pillHalf, st.cx + p[0] * st.R))
-          const y = Math.max(52, st.cy - p[1] * st.R)
-          el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`
-          if (show !== st.pillShown) {
-            st.pillShown = show
-            el.toggleAttribute("data-on", show)
-          }
-        }
-      }
+    const driver = startDriver(canvas, onPill, () => {
       if (!canvas.hasAttribute("data-drawn")) canvas.setAttribute("data-drawn", "")
-    }
+    })
+    if (!driver) return
 
-    const showPill = (i: number) => {
-      if (st.pill === i) return
-      const prev = pills.children[st.pill] as HTMLElement | undefined
-      prev?.removeAttribute("data-on")
-      st.pill = i
-      st.pillShown = false
-      st.pillHalf = 0
-    }
-
-    /* The next order: the next buyer in the list whose city faces the viewer. */
-    const launch = (now: number) => {
-      setRot()
-      for (let tries = 0; tries < cities.length; tries++) {
-        const i = st.order
-        st.order = (st.order + 1) % cities.length
-        const c = cities[i]
-        if (rot(c[0], c[1], c[2])[2] > 0.3) {
-          st.arcs.push({ pts: arcPoints(home, c), t0: now, order: i })
-          return
-        }
-      }
-    }
-
-    const tick = (now: number) => {
-      st.frame = 0
-      const dt = Math.min(48, now - st.last)
-      st.last = now
-      if (!st.drag) {
-        st.vyaw += (AUTO_SPIN - st.vyaw) * (1 - Math.exp(-dt / 900))
-        st.yaw += st.vyaw * dt
-        st.pitch += (BASE_PITCH - st.pitch) * (1 - Math.exp(-dt / 1100))
-      }
-      const kl = 1 - Math.exp(-dt / 260)
-      st.leanX += (st.targetLeanX - st.leanX) * kl
-      st.leanY += (st.targetLeanY - st.leanY) * kl
-      if (!st.reduced) {
-        if (now >= st.next) {
-          launch(now)
-          st.next = now + ORDER_EVERY
-        }
-        for (const a of st.arcs) {
-          if (!a.landed && now - a.t0 >= ARC_MS) {
-            a.landed = true
-            st.rings.push({ order: a.order, t0: now })
-            showPill(a.order)
-          }
-        }
-      }
-      draw(now)
-      if (st.running) st.frame = requestAnimationFrame(tick)
-    }
-
-    const start = () => {
-      if (st.frame) return
-      st.last = performance.now()
-      st.frame = requestAnimationFrame(tick)
-    }
-    const stop = () => {
-      if (st.frame) cancelAnimationFrame(st.frame)
-      st.frame = 0
-    }
-    const sync = () => {
-      const want = st.visible && st.live && !st.reduced
-      const interacting = !!st.drag || Math.abs(st.leanX - st.targetLeanX) + Math.abs(st.leanY - st.targetLeanY) > 0.002
-      st.running = want || interacting
-      if (st.running) start()
-      else stop()
-    }
+    const sync = () => driver.run(st.visible && st.live && !st.reduced)
 
     /* Pointer: drag to turn (with momentum), lean toward a hovering mouse. */
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return
-      st.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp }
-      st.vyaw = 0
+      st.dragging = e.pointerId
       box.setAttribute("data-dragging", "")
       try {
         box.setPointerCapture(e.pointerId)
       } catch {}
-      sync()
+      driver.pointer({ kind: "down", x: e.clientX, y: e.clientY, t: e.timeStamp })
     }
     const onMove = (e: PointerEvent) => {
-      const dr = st.drag
-      if (dr && e.pointerId === dr.id) {
-        const dx = e.clientX - dr.x
-        const dy = e.clientY - dr.y
-        const dt = Math.max(1, e.timeStamp - dr.t)
-        const k = 1 / Math.max(80, st.R)
-        st.yaw += dx * k
-        st.pitch = Math.max(-0.3, Math.min(1.05, st.pitch + dy * k))
-        /* Velocity, smoothed so one jittery event does not decide the throw. */
-        st.vyaw = st.vyaw * 0.6 + ((dx * k) / dt) * 0.4
-        dr.x = e.clientX
-        dr.y = e.clientY
-        dr.t = e.timeStamp
-        if (st.reduced && !st.frame) draw(performance.now())
+      if (st.dragging === e.pointerId) {
+        driver.pointer({ kind: "move", x: e.clientX, y: e.clientY, t: e.timeStamp })
         return
       }
       if (e.pointerType !== "mouse" || st.reduced) return
       const rect = box.getBoundingClientRect()
-      st.targetLeanX = ((e.clientX - rect.left) / rect.width - 0.5) * 0.28
-      st.targetLeanY = ((e.clientY - rect.top) / rect.height - 0.5) * 0.22
-      sync()
+      driver.lean((e.clientX - rect.left) / rect.width - 0.5, (e.clientY - rect.top) / rect.height - 0.5)
     }
     const onUp = (e: PointerEvent) => {
-      if (!st.drag || e.pointerId !== st.drag.id) return
-      /* A throw that ended with a pause keeps no momentum. */
-      if (e.timeStamp - st.drag.t > 90) st.vyaw = 0
-      st.vyaw = Math.max(-0.006, Math.min(0.006, st.vyaw))
-      st.drag = null
+      if (st.dragging !== e.pointerId) return
+      st.dragging = -1
       box.removeAttribute("data-dragging")
-      sync()
+      driver.pointer({ kind: "up", x: e.clientX, y: e.clientY, t: e.timeStamp })
     }
     const onLeave = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return
-      st.targetLeanX = 0
-      st.targetLeanY = 0
-      sync()
+      driver.lean(0, 0)
     }
 
     box.addEventListener("pointerdown", onDown)
@@ -516,9 +245,19 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
     box.addEventListener("pointercancel", onUp)
     box.addEventListener("pointerleave", onLeave)
 
-    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(fit) : null
+    /* Size: read from the ResizeObserver's own entry, after layout, never by measuring at mount (a forced layout of the page). */
+    const ro =
+      typeof ResizeObserver === "function"
+        ? new ResizeObserver(([entry]) => {
+            const w = Math.round(entry.contentRect.width)
+            const h = Math.round(entry.contentRect.height)
+            if (!w || !h) return
+            st.w = w
+            st.h = h
+            driver.size(w, h, Math.min(1.5, window.devicePixelRatio || 1))
+          })
+        : null
     ro?.observe(box)
-    fit()
 
     const io =
       typeof IntersectionObserver === "function"
@@ -532,20 +271,20 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
         : null
     io?.observe(box)
 
+    let wasReduced: boolean | null = null
     ctl.current = (next) => {
       st.live = next.live
       st.reduced = next.reduced
-      if (st.reduced && st.pill < 0) {
-        showPill(0)
-        st.yaw = -0.35
+      if (wasReduced !== next.reduced) {
+        wasReduced = next.reduced
+        driver.reduced(next.reduced)
       }
       sync()
-      if (!st.running) draw(performance.now())
     }
     ctl.current({ live: liveRef.current, reduced: reducedRef.current })
 
     return () => {
-      stop()
+      driver.stop()
       ro?.disconnect()
       io?.disconnect()
       box.removeEventListener("pointerdown", onDown)

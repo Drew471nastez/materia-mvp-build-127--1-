@@ -9,9 +9,11 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
  * into its chunk.
  */
 
-// Lightweight scroll-reveal animations — GPU-only (opacity + translate3d).
+// Lightweight scroll-reveal animations — opacity and transform only.
 // No blur or filter (causes paint lag on low-end devices).
-// All transforms use translate3d for GPU compositor, never layout properties.
+// Wave 13 perf: 2D transforms. A translate3d at rest made every revealed
+// block a compositor layer of its own for good; the transition still runs
+// on the compositor.
 type ScrollAnimVariant =
   | "fade-up"
   | "fade-up-scale"
@@ -21,19 +23,19 @@ type ScrollAnimVariant =
   | "zoom-in"
 
 const HIDDEN: Record<ScrollAnimVariant, CSSProperties> = {
-  "fade-up":       { opacity: 0, transform: "translate3d(0, 24px, 0)" },
-  "fade-up-scale": { opacity: 0, transform: "translate3d(0, 20px, 0) scale(0.98)" },
-  "slide-left":    { opacity: 0, transform: "translate3d(-30px, 0, 0)" },
-  "slide-right":   { opacity: 0, transform: "translate3d(30px, 0, 0)" },
-  "blur-in":       { opacity: 0, transform: "translate3d(0, 16px, 0)" },
+  "fade-up":       { opacity: 0, transform: "translate(0, 24px)" },
+  "fade-up-scale": { opacity: 0, transform: "translate(0, 20px) scale(0.98)" },
+  "slide-left":    { opacity: 0, transform: "translate(-30px, 0)" },
+  "slide-right":   { opacity: 0, transform: "translate(30px, 0)" },
+  "blur-in":       { opacity: 0, transform: "translate(0, 16px)" },
   "zoom-in":       { opacity: 0, transform: "scale(0.96)" },
 }
 const VISIBLE: Record<ScrollAnimVariant, CSSProperties> = {
-  "fade-up":       { opacity: 1, transform: "translate3d(0, 0, 0)" },
-  "fade-up-scale": { opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" },
-  "slide-left":    { opacity: 1, transform: "translate3d(0, 0, 0)" },
-  "slide-right":   { opacity: 1, transform: "translate3d(0, 0, 0)" },
-  "blur-in":       { opacity: 1, transform: "translate3d(0, 0, 0)" },
+  "fade-up":       { opacity: 1, transform: "translate(0, 0)" },
+  "fade-up-scale": { opacity: 1, transform: "translate(0, 0) scale(1)" },
+  "slide-left":    { opacity: 1, transform: "translate(0, 0)" },
+  "slide-right":   { opacity: 1, transform: "translate(0, 0)" },
+  "blur-in":       { opacity: 1, transform: "translate(0, 0)" },
   "zoom-in":       { opacity: 1, transform: "scale(1)" },
 }
 
@@ -56,10 +58,24 @@ function AnimateOnScroll({
     if (!el) return
     if (typeof IntersectionObserver !== "function" || matchMedia("(prefers-reduced-motion:reduce)").matches) { setVisible(true); return }
     // Keep server-rendered/in-view content readable, even before hydration.
-    if (el.getBoundingClientRect().top < innerHeight + 80) return
-    setVisible(false)
+    // Wave 13 perf: where the block is comes from the observer's first report,
+    // made after the browser has laid the page out, not from measuring it as
+    // it mounts (a forced layout of the whole page, 30 ms and more at 4x CPU).
+    // Only a block below the screen is hidden, to rise as it arrives.
+    let first = true
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect() } },
+      ([entry]) => {
+        if (first) {
+          first = false
+          const r = entry.boundingClientRect
+          const below = r.top >= (entry.rootBounds?.height ?? innerHeight) + 80
+          const skipped = r.top === 0 && r.height === 0 && r.width === 0
+          if (entry.isIntersecting || !(below || skipped)) { obs.disconnect(); return }
+          setVisible(false)
+          return
+        }
+        if (entry.isIntersecting) { setVisible(true); obs.disconnect() }
+      },
       { threshold: 0.05, rootMargin: "0px 0px 80px 0px" },
     )
     obs.observe(el)

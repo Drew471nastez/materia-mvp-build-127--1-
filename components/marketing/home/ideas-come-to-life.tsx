@@ -133,7 +133,7 @@ export function IdeasComeToLife() {
 */
 const CSS = `
 .ideas{position:relative;background:#fff;color:#18181b}
-.ideas-in{max-width:1400px;margin:0 auto;padding:clamp(64px,8vw,120px) var(--landing-gutter,clamp(22px,6vw,96px));text-align:center}
+.ideas-in{max-width:1400px;margin:0 auto;padding:0 var(--landing-gutter,clamp(22px,6vw,96px));text-align:center}
 .ideas-head{max-width:880px;margin:0 auto}
 .ideas-head .story-heading{margin-inline:auto;font-size:clamp(36px,5vw,72px)}
 .ideas-head p{max-width:56ch;margin:20px auto 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}

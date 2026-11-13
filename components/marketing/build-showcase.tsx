@@ -187,9 +187,12 @@ const CSS = `
   THE CAPTION: away until a mouse rests on the picture, then the soft dark
   fade and the line come in together as one opacity, on a layer of their own
   (will-change), so showing it repaints nothing; while the rail is dragged
-  it stays away.
+  it stays away. Wave 13 perf: the layers only where a mouse can show the
+  caption; a touch screen never does, and a dozen idle layers cost every
+  frame of its scroll.
 */
-.build-showcase-slide figcaption {position:absolute;inset:auto 0 0;min-height:104px;display:flex;align-items:flex-end;padding:44px 18px 16px;font-size:15px;font-weight:500;line-height:1.3;letter-spacing:-.005em;color:#fff;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.42) 42%,rgba(0,0,0,.78));opacity:0;pointer-events:none;will-change:opacity;transition:opacity 380ms cubic-bezier(.33,0,.2,1)}
+.build-showcase-slide figcaption {position:absolute;inset:auto 0 0;min-height:104px;display:flex;align-items:flex-end;padding:44px 18px 16px;font-size:15px;font-weight:500;line-height:1.3;letter-spacing:-.005em;color:#fff;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.42) 42%,rgba(0,0,0,.78));opacity:0;pointer-events:none;transition:opacity 380ms cubic-bezier(.33,0,.2,1)}
+@media(hover:hover) and (pointer:fine){.build-showcase-slide figcaption{will-change:opacity}}
 @media(hover:hover) and (pointer:fine){.build-showcase-track:not([data-dragging]) .build-showcase-slide:hover figcaption{opacity:1;transition-duration:460ms}}
 /* Round 61: the pictures appear where they are, a fade and nothing else. Hidden only once the script is there to show them. */
 .build-showcase-track[data-rail-ready] {opacity:0;transition:opacity 650ms cubic-bezier(.25,.1,.25,1)}

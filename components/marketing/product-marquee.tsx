@@ -92,11 +92,11 @@ const CSS = `
 .um-track{display:flex;width:max-content;will-change:transform;backface-visibility:hidden;animation:um-left var(--um-s,64s) linear infinite}
 .um-row[data-dir="right"] .um-track{animation-name:um-right}
 .um-copy{display:flex;margin:0;padding:0;list-style:none;flex:none}
-.um-chip{position:relative;flex:none;display:inline-flex;align-items:center;gap:9px;height:48px;margin-right:12px;padding:0 22px 0 18px;border-radius:999px;background:#fff;border:1.5px solid #e5e5e5;box-shadow:0 1px 2px rgba(0,0,0,.05);white-space:nowrap;font-size:15.5px;font-weight:500;letter-spacing:-.005em;color:#404040;cursor:default;transform:translate3d(0,0,0);transition:transform .55s cubic-bezier(.22,1,.36,1)}
+.um-chip{position:relative;flex:none;display:inline-flex;align-items:center;gap:9px;height:48px;margin-right:12px;padding:0 22px 0 18px;border-radius:999px;background:#fff;border:1.5px solid #e5e5e5;box-shadow:0 1px 2px rgba(0,0,0,.05);white-space:nowrap;font-size:15.5px;font-weight:500;letter-spacing:-.005em;color:#404040;cursor:default;transition:transform .55s cubic-bezier(.22,1,.36,1)}
 .um-chip::after{content:"";position:absolute;inset:-1.5px;border-radius:inherit;box-shadow:0 14px 28px -14px rgba(24,24,27,.32),0 2px 6px rgba(24,24,27,.06);opacity:0;transition:opacity .45s ease;pointer-events:none}
 .um-emoji{font-size:18px;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
 @media(hover:hover) and (pointer:fine){
-  .um-chip:hover{z-index:1;transform:translate3d(0,-3px,0) scale(1.06);color:#18181b}
+  .um-chip:hover{z-index:1;transform:translate(0,-3px) scale(1.06);color:#18181b}
   .um-chip:hover::after{opacity:1}
 }
 @media(hover:none){.um-chip:active{transform:scale(.96);transition-duration:.2s}}

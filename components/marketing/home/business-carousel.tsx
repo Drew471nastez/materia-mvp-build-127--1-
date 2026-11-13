@@ -171,7 +171,7 @@ export function BusinessCarousel() {
 
 const CSS = `
 .biz{position:relative;background:#fff;color:#18181b}
-.biz-in{max-width:1400px;margin:0 auto;padding:clamp(64px,8vw,120px) var(--landing-gutter,clamp(22px,6vw,96px))}
+.biz-in{max-width:1400px;margin:0 auto;padding:0 var(--landing-gutter,clamp(22px,6vw,96px))}
 .biz .biz-h{max-width:900px;font-size:clamp(36px,5vw,72px)}
 .biz-tabs{margin:clamp(28px,3.4vw,44px) 0 clamp(20px,2.2vw,28px)}
 .biz[data-run] .smk-clock[data-on]{animation-play-state:running}

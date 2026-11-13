@@ -305,7 +305,7 @@ export function AnalyticsShowcase() {
       ref={ref}
       id="analytics-showcase"
       aria-labelledby="analytics-showcase-title"
-      className={`${m.root} bg-white px-[var(--landing-gutter,22px)] py-[clamp(72px,9vw,128px)] text-[#0f0e13]`}
+      className={`${m.root} bg-white px-[var(--landing-gutter,22px)] py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#0f0e13]`}
     >
       <div className="mx-auto max-w-[1400px]">
         <div className="mb-10 max-w-[920px] sm:mb-14">

@@ -99,7 +99,8 @@ assert.ok(showcaseSrc.includes("aspect-ratio:1440/990") && showcaseSrc.includes(
 // OnePage captions are three words at most.
 for (const e of SHOWCASE_EXAMPLES.filter((x) => x.format === "portrait")) assert.ok(e.label.split(/\s+/).length <= 3, `"${e.label}" is three words at most`)
 // The caption and its fade are hidden by default and come in only while a mouse rests on the picture, as one opacity on its own layer.
-assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*will-change:opacity;[^}]*transition:opacity/.test(showcaseSrc), "the caption starts hidden")
+/* Changed on purpose (wave 13 perf): the caption's own layer (will-change) only where a mouse can show it; a touch screen never does. */
+assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(showcaseSrc) && /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-slide figcaption\{will-change:opacity\}/.test(showcaseSrc), "the caption starts hidden")
 assert.ok(/@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(showcaseSrc), "and shows only under a resting mouse, never while dragging")
 assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 1, "no other rule shows it")
 // On a phone: the row starts on the heading's gutter, the first card about three quarters wide, the next peeking, 8px apart.

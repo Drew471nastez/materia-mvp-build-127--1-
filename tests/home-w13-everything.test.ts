@@ -13,6 +13,7 @@
  */
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_CARDS, EVERYTHING_HEADING, EVERYTHING_SLIDES, EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
@@ -35,6 +36,8 @@ const read = (p: string) => readFileSync(join(root, p), "utf8")
 const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ")
 const src = read("components/marketing/home/everything-in-one-place.tsx")
 const globe = read("components/marketing/home/everything-globe.tsx")
+/* Changed on purpose (wave 13 perf): the globe's turning and drawing moved to an engine (everything-globe-draw.ts) that a worker runs off the page's thread. */
+const engine = read("components/marketing/home/everything-globe-draw.ts")
 const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
 const css = EVERYTHING_STYLES[0]?.css ?? ""
 
@@ -64,10 +67,16 @@ check("communities, never memberships", EVERYTHING_SLIDES.some((s) => s.tab === 
 
 console.log("\n── card 3: the globe ──")
 check("the globe is in the section, on a canvas", /class="ev-vis ev-g"/.test(html) && /<canvas class="ev-globe-canvas"/.test(html))
-check("it can be dragged (with momentum) and leans toward the mouse; up and down swipes still scroll", /addEventListener\("pointerdown"/.test(globe) && /setPointerCapture/.test(globe) && /st\.vyaw \+= \(AUTO_SPIN - st\.vyaw\)/.test(globe) && /targetLeanX/.test(globe) && /touch-action:pan-y/.test(css))
-check("it draws only while the section is live, the tab visible and the globe in view", /const want = st\.visible && st\.live && !st\.reduced/.test(globe) && /new IntersectionObserver/.test(globe) && /cancelAnimationFrame/.test(globe))
-check("device pixels capped, the sphere painted once per size", /Math\.min\(1\.5, window\.devicePixelRatio/.test(globe) && /const paintStatic = \(\) =>/.test(globe))
-check("the order pill moves by transform only", /el\.style\.transform = `translate3d\(/.test(globe) && !/style\.(left|top) =/.test(globe))
+check("it can be dragged (with momentum) and leans toward the mouse; up and down swipes still scroll", /addEventListener\("pointerdown"/.test(globe) && /setPointerCapture/.test(globe) && /st\.vyaw \+= \(AUTO_SPIN - st\.vyaw\)/.test(engine) && /targetLeanX/.test(engine) && /driver\.lean\(/.test(globe) && /touch-action:pan-y/.test(css))
+check("it draws only while the section is live, the tab visible and the globe in view", /driver\.run\(st\.visible && st\.live && !st\.reduced\)/.test(globe) && /new IntersectionObserver/.test(globe) && /st\.running = \(st\.want && !st\.reduced\) \|\| interacting/.test(engine) && /host\.caf\(st\.frame\)/.test(engine))
+check("it is drawn off the page's thread where the browser can hand a worker the canvas", /transferControlToOffscreen\(\)/.test(globe) && /new Worker\(url\)/.test(globe) && /EVERYTHING_GLOBE_WORKER_SOURCE/.test(globe) && /createGlobeEngine/.test(read("components/marketing/home/everything-globe-worker.ts")))
+{
+  const build = await import(pathToFileURL(join(root, "scripts/build-globe-worker.mjs")).href)
+  check("the worker's string is up to date (node scripts/build-globe-worker.mjs)", read("components/marketing/home/everything-globe-worker-source.ts") === build.everythingGlobeWorkerModule(await build.everythingGlobeWorkerSource()))
+}
+check("its size comes from the ResizeObserver's entry, never measured as it mounts", /entry\.contentRect\.width/.test(globe) && !/box\.getBoundingClientRect\(\)[\s\S]{0,80}\bfit\(\)/.test(globe))
+check("device pixels capped, the sphere painted once per size", /Math\.min\(1\.5, window\.devicePixelRatio/.test(globe) && /const paintStatic = \(\) =>/.test(engine))
+check("the order pill moves by transform only, gliding between the worker's reports", /el\.style\.transform = `translate\(/.test(globe) && !/style\.(left|top) =/.test(globe) && /\.ev-globe-pill\[data-glide\]\{transition:transform \.1s linear\}/.test(css) && /GLOBE_PILL_EVERY_MS = 100/.test(engine))
 const symbols: Record<string, string> = { "€": "EUR", "£": "GBP", "CA$": "CAD", "A$": "AUD", "¥": "JPY", RON: "RON", $: "USD" }
 const currencyOf = (price: string) => Object.entries(symbols).find(([sym]) => price.includes(sym))?.[1]
 check("every order is in a currency checkout charges in", EVERYTHING_GLOBE_ORDERS.every((o) => { const c = currencyOf(o.price); return !!c && c in CURRENCY_FEE_RULES }), EVERYTHING_GLOBE_ORDERS.map((o) => o.price))
@@ -83,10 +92,14 @@ check("every picture is lazy and sized", [...html.matchAll(/<img [^>]*>/g)].filt
 
 console.log("\n── motion and loading ──")
 check("the stylesheet is a React stylesheet, listed for idle preloading", /<style href="w13-everything" precedence="w13-home">/.test(src) && /styles: \(\) => import\("\.\/everything-in-one-place"\)\.then\(\(m\) => m\.EVERYTHING_STYLES\)/.test(read("components/marketing/home/lazy-sections.tsx")))
-check("its box holds the section's height: one column below 768px, the grid above", /name: "everything",[\s\S]*?minHeight: "max\(calc\(clamp\(1900px, 279vw \+ 1010px, 2215px\) - clamp\(0px, \(100vw - 767px\) \* 100000, 100000px\)\), clamp\(1110px, 84vw \+ 305px, 1515px\)\)"/.test(read("components/marketing/home/lazy-sections.tsx")))
+/* Changed on purpose (wave 13 perf): the heights were measured again at 390 to 1920 wide with the home page's one section padding (--home-pad). */
+check("its box holds the section's height: one column below 768px, the grid above", /name: "everything",[\s\S]*?minHeight: "max\(calc\(clamp\(1852px, 172vw \+ 1376px, 2167px\) - clamp\(0px, \(100vw - 767px\) \* 100000, 100000px\)\), calc\(2 \* clamp\(320px, 32vw, 440px\) \+ 2 \* clamp\(48px, 5\.6vw, 80px\) \+ clamp\(340px, 6\.8vw \+ 280px, 380px\)\)\)"/.test(read("components/marketing/home/lazy-sections.tsx")))
 check("every loop pauses while the section is not live", /\.ev\[data-platform-live="false"\] \.ev-loop/.test(css) && /usePlatformSection\(ref\)/.test(src))
+/* Added on purpose (wave 13 perf): the active tab's progress bar is an animation of its own whose rule outranked the pause, so it kept the page restyling 60 times a second from anywhere on the page. */
+check("the active tab's progress bar pauses with the rest", /\.ev\[data-platform-live="false"\] \.ev-tab\[data-on\] \.ev-tab-fill,\.ev:not\(\[data-platform-live\]\) \.ev-tab\[data-on\] \.ev-tab-fill\{animation-play-state:paused\}/.test(css))
+check("nothing at rest has a 3D transform (each would be a compositor layer of its own)", !/\.ev-(p-card|p-img|p-rise|tabs|card|globe-pill-in)\{[^}]*translate3d/.test(css))
 check("transitions move only transform and opacity", [...css.matchAll(/transition:([^;}]+)/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((t) => /^\s*(opacity|transform|color|none)\b/.test(t))), [...css.matchAll(/transition:([^;}]+)/g)].map((m) => m[1]))
-check("reduced motion: nothing loops, the reveal is instant", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-loop,[^{]*\{animation:none !important\}/.test(css) && /if \(st\.reduced && !st\.frame\) draw/.test(globe))
+check("reduced motion: nothing loops, the reveal is instant", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-loop,[^{]*\{animation:none !important\}/.test(css) && /if \(st\.reduced && !st\.frame\) draw/.test(engine))
 check("no :has(), no selector ending in *, no bare tag keyed on a data attribute", !/:has\(/.test(css) && !/\*\s*\{/.test(css) && !/(^|[\s,}])\[data-[^\]]+\]\s+[a-z]+[\s{,]/m.test(css))
 
 console.log(`\n${passed} passed, ${failed} failed`)

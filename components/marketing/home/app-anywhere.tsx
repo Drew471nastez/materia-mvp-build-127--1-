@@ -85,7 +85,7 @@ export function AppAnywhere() {
       ref={ref}
       id="app-anywhere"
       aria-labelledby="app-anywhere-title"
-      className={`${m.root} bg-white px-[var(--landing-gutter,22px)] py-[clamp(72px,9vw,128px)] text-[#18181b]`}
+      className={`${m.root} bg-white px-[var(--landing-gutter,22px)] py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#18181b]`}
     >
       <div className="mx-auto grid max-w-[1400px] items-center gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
         <div className="min-w-0">

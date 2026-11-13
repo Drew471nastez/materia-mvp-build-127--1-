@@ -963,6 +963,8 @@ const TABS_CSS = `
 .cmc-panel p{margin:16px 0 0;max-width:44ch;font-size:clamp(15.5px,1.25vw,18px);line-height:1.6;color:#a1a1aa}
 .cmc-vis{position:relative;aspect-ratio:4/3;border-radius:24px;background:radial-gradient(120% 90% at 85% 0%,rgba(124,58,237,.3),transparent 60%),radial-gradient(100% 80% at 0% 100%,rgba(79,70,229,.2),transparent 60%),#0c0c0f;overflow:hidden;container-type:inline-size}
 .cmc-vis-in{position:absolute;inset:0;font-size:calc(100cqw / 48);color:#fff;line-height:1.35}
+/* Wave 13 perf: a panel's mock is drawn only while its panel shows (and through its fade out): the four hidden mocks cost the page their style, layout and 80 font sizes the moment the section was laid out, 300ms at 4x CPU. The box keeps its size (aspect-ratio), so nothing moves. */
+.cmc-panel:not([data-on]) .cmc-vis-in{content-visibility:hidden;transition:content-visibility 0s linear .35s allow-discrete}
 .cmc-foot{margin:16px 4px 0;font-size:13px;color:#71717a}
 
 /* Desktop browser */

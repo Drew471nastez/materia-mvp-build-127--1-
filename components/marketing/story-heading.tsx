@@ -169,6 +169,41 @@ function inkedByCss(node: HTMLElement) {
   return true
 }
 
+/*
+ * Wave 13 perf: whether a heading is in a clipping box is asked when it
+ * first comes within a screen of the viewport, from an IntersectionObserver
+ * callback, which runs after the browser has laid the page out, so reading
+ * computed styles there costs nothing. Asked while a section mounted (the
+ * effect), it made the browser restyle and lay out the whole page there and
+ * then: 40 to 100 ms at 4x CPU for each section that arrived.
+ */
+let nearWatcher: IntersectionObserver | null = null
+const nearCallbacks = new WeakMap<Element, () => void>()
+function whenNear(node: HTMLElement, cb: () => void): () => void {
+  if (typeof IntersectionObserver !== "function") {
+    cb()
+    return () => {}
+  }
+  nearWatcher ??= new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        nearWatcher?.unobserve(entry.target)
+        const done = nearCallbacks.get(entry.target)
+        nearCallbacks.delete(entry.target)
+        done?.()
+      }
+    },
+    { rootMargin: "100% 0px" },
+  )
+  nearCallbacks.set(node, cb)
+  nearWatcher.observe(node)
+  return () => {
+    nearCallbacks.delete(node)
+    nearWatcher?.unobserve(node)
+  }
+}
+
 /** Server-rendered, readable copy; scroll progressively inks each word. */
 export function StoryHeading({
   text,
@@ -190,11 +225,24 @@ export function StoryHeading({
   const ref = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     const node = ref.current
+    if (!node) return
     /* Wave 13: the showcase heading is inked by the scroll like the others (round 61 had it stand still, fully inked). */
-    if (!node || inkedByCss(node)) return
-    node.setAttribute("data-story-js", "")
-    headingMotion ??= createHeadingMotion()
-    return headingMotion.add(node)
+    let remove: (() => void) | undefined
+    const decide = () => {
+      if (inkedByCss(node)) return
+      node.setAttribute("data-story-js", "")
+      headingMotion ??= createHeadingMotion()
+      remove = headingMotion.add(node)
+    }
+    if (typeof CSS === "undefined" || !CSS.supports("animation-timeline: view()")) {
+      decide()
+      return () => remove?.()
+    }
+    const stopWatching = whenNear(node, decide)
+    return () => {
+      stopWatching()
+      remove?.()
+    }
   }, [])
   const words = text.trim().split(/\s+/)
   return (

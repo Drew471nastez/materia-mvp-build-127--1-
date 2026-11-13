@@ -46,10 +46,17 @@ function FaqItem({ faq, isOpen, onToggle }: { faq: typeof FAQS[number]; isOpen: 
     }
   }, [])
 
+  /* Wave 13 perf: the answer's height comes from a ResizeObserver, reported after the browser lays the page out (and again whenever it changes), not by measuring as the list mounts, a forced layout of the whole page. */
   useEffect(() => {
-    measure()
-    window.addEventListener("resize", measure)
-    return () => window.removeEventListener("resize", measure)
+    const el = contentRef.current
+    if (!el || typeof ResizeObserver !== "function") {
+      measure()
+      window.addEventListener("resize", measure)
+      return () => window.removeEventListener("resize", measure)
+    }
+    const ro = new ResizeObserver(([entry]) => setHeight(Math.ceil(entry.contentRect.height)))
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [measure])
 
   return (

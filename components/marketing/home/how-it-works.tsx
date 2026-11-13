@@ -21,7 +21,7 @@
  *
  * Every loop is CSS keyframes on transform and opacity only, stacked layers
  * in fixed-size boxes (grid overlap, never absolute heights that change), so
- * nothing lays out while they play. They run only while the section is on
+ * nothing lays out while they play. They run only while their tile is on
  * screen and the tab is visible (data-commerce-live); reduced motion shows
  * each tile's finished frame, still.
  *
@@ -33,11 +33,11 @@
  * the course builder's ("Add lesson", "Publish", "Free preview"). Profit is
  * after Storelib's real fee (lib/payments/fees/calculate).
  */
-import type { CSSProperties, ReactNode } from "react"
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { StoryHeading } from "../story-heading"
-import { commerceProduct, commerceUsd, useCommerceLive } from "./commerce-kit"
+import { commerceProduct, commerceUsd } from "./commerce-kit"
 
 const IMG = "/home/commerce"
 const HOW = "/home/how"
@@ -62,8 +62,49 @@ const CYCLE_S = SLIDE_S * HOW_MERCH.length
 
 const vars = (v: Record<string, string | number>) => v as CSSProperties
 
+/**
+ * Wave 13 perf: each tile runs its loops only while that tile is on screen
+ * (data-commerce-live on the tile, which the CSS reads), not all five while
+ * any part of the section is: on a phone the tiles stack 2,700px tall, and
+ * every running loop is restyled on every frame of a scroll.
+ */
+function useTilesLive() {
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const root = ref.current
+    if (!root) return
+    const tiles = [...root.querySelectorAll<HTMLElement>(".cmh-tile")]
+    const near = new Set<Element>()
+    const apply = () => {
+      for (const t of tiles) t.toggleAttribute("data-commerce-live", near.has(t) && !document.hidden)
+    }
+    if (typeof IntersectionObserver !== "function") {
+      for (const t of tiles) near.add(t)
+      apply()
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) near.add(e.target)
+          else near.delete(e.target)
+        }
+        apply()
+      },
+      { rootMargin: "120px 0px" },
+    )
+    for (const t of tiles) io.observe(t)
+    document.addEventListener("visibilitychange", apply)
+    return () => {
+      io.disconnect()
+      document.removeEventListener("visibilitychange", apply)
+    }
+  }, [])
+  return ref
+}
+
 export function HowItWorks() {
-  const [ref] = useCommerceLive<HTMLElement>(undefined, false)
+  const ref = useTilesLive()
   return (
     <section ref={ref} className="cmh" data-story-section="how-it-works" aria-labelledby="cmh-title">
       <style href="w12-commerce-how" precedence="default">

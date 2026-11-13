@@ -126,7 +126,8 @@ check("reduced motion: a still grid, one copy, no transitions", () => {
 check("cards: a plain lift on hover for fine pointers, no border-radius morph, no data-active", () => {
   assert.ok(CREATORS_CSS.includes("@media(hover:hover) and (pointer:fine)"))
   assert.ok(!/--cc-on|data-shape|data-active|transition:border-radius/.test(CREATORS_CSS + read(SRC)))
-  assert.ok(/\.cc-card:hover \.cc-body\{transform:translate3d\(0,-6px,0\)\}/.test(CREATORS_CSS))
+  /* Changed on purpose (wave 13 perf): a 2D lift, and no 3D transform on a card at rest, so the cards are not a compositor layer each. */
+  assert.ok(/\.cc-card:hover \.cc-body\{transform:translate\(0,-6px\)\}/.test(CREATORS_CSS) && !/\.cc-(body|photo)\{[^}]*(translate3d|translateZ)/.test(CREATORS_CSS))
   assert.ok(read(SRC).includes('matchMedia("(hover: none), (pointer: coarse)")'))
 })
 
