@@ -91,7 +91,8 @@ console.log(
   "Cinematic hero passed: server-rendered copy/signup, exact phrases, one deferred video, local fallback, shared auth, accessible motion and cleanup",
 )
 
-assert.ok(doc.includes("Build your page, sell your products,"))
+/* The hero's own line, unchanged; the showcase heading is checked below (SHOWCASE_HEADING). */
+assert.ok(doc.includes("Everything you need to create, sell,"))
 assert.ok(!doc.includes("Free to start. No card required."))
 assert.ok(
   read("components/marketing/hero.tsx").includes(
