@@ -9,6 +9,7 @@ import { headerAvatar } from "@/lib/store-builder/header-avatar"
 import { loadCreatorForUser, loadCreatorForUserStrict, loadProfileByUsername, loadProfileByUsernameStrict } from "@/lib/commerce/creator-page-data"
 import { heldForCreatorPage } from "@/lib/commerce/creator-page-held"
 import { SiteReadError } from "@/lib/website-builder/site-read"
+import { isTransientDbError } from "@/lib/website-builder/write-retry"
 import { exactIlike } from "@/lib/onepage/username"
 import { withoutContactEmail } from "@/lib/commerce/contact-email"
 import { primaryHostFor } from "@/lib/custom-domains/store"
@@ -529,7 +530,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   */
   const readCatalogue = async () => {
     const [
-      { data: catalogue, error: productsError },
+      { data: catalogue, error: productsError, status: productsStatus },
       { data: creatorReviews, error: creatorReviewsError },
       place,
       offPage,
@@ -632,7 +633,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     ])
     return {
       catalogue: pricedCatalogue,
-      productsError: productsError ? { message: productsError.message, code: productsError.code } : null,
+      /* The answer's HTTP status rides along: a 5xx or 429 from Supabase is no answer, not a refusal (the throw below). */
+      productsError: productsError ? { message: productsError.message, code: productsError.code, status: productsStatus } : null,
       creatorReviews: (creatorReviews ?? null) as unknown[] | null,
       creatorReviewsError: creatorReviewsError ? { message: (creatorReviewsError as { message?: string }).message } : null,
       place,
@@ -646,6 +648,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     getPublishedConfig(creator.id, "shop"),
   ])
   const { catalogue: pricedCatalogue, productsError, creatorReviews, creatorReviewsError, place } = held
+  /*
+    NO ANSWER FROM THE PRODUCTS READ IS THE SHOP'S ERROR SCREEN, NEVER AN EMPTY SHOP (round AW). With no copy held
+    for it (a first visit, a save's expire, every deploy: the data cache's keys and this server's last good copy are
+    new), a read that timed out or found the database away drew this store with no products, as a 200, and the CDN
+    kept that page for every visitor for five minutes and replaced its own good copy with it (next.config.mjs
+    EDGE_PAGE; lib/commerce/creator-page-held says why the copy above is not always there). A throw is a 5xx, which
+    Vercel never stores: the CDN goes on serving the last good page, and a visitor with none gets Try again. A read
+    that ANSWERED with an error (a query that is wrong, which a retry will not change) still draws the page as before.
+  */
+  if (productsError && isTransientDbError(productsError, productsError.status)) {
+    throw new SiteReadError("creator page products", productsError.message || productsError.code || "the read failed")
+  }
   const pageHost = await pageHostPromise
   /* Where the creator is from (held above). No Follow and no Message on a creator page (r40), so nothing reads the follow graph here. */
   /* Opened from a person's profile inside a community: the way back lands there even with nothing behind (lib/profile/back communityBackTarget). */
