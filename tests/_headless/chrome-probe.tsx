@@ -19,7 +19,9 @@ import { StorefrontProvider, type Storefront } from "@/components/website-builde
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 type Drawn = { id: string; html: string; css: string; group?: "header" | "footer" }
-type ProbeWindow = Window & { __PROBE__: { sections: Drawn[]; tokens: string }; __ready?: boolean }
+/* `canvas`: mounted as the builder's canvas mounts a page (the frame that contains fixed positioning, its scroller, inCanvas hooks).
+   `legacy`: every size container also contains layout, as WebKit did before 2025 (tests/own-panel-layer.test.ts). */
+type ProbeWindow = Window & { __PROBE__: { sections: Drawn[]; tokens: string; canvas?: boolean; legacy?: boolean }; __ready?: boolean }
 
 const w = window as unknown as ProbeWindow
 const theme = {
@@ -40,14 +42,17 @@ const storefront: Storefront = {
   },
 }
 
+const CANVAS = w.__PROBE__.canvas === true
+const LEGACY = w.__PROBE__.legacy ? { contain: "layout" } : {}
+
 function Section({ drawn }: { drawn: Drawn }) {
   const [root, setRoot] = useState<HTMLElement | null>(null)
   const trigger = useRef<((e: React.MouseEvent<HTMLElement>) => boolean) | null>(null)
   const section = { id: drawn.id, type: drawn.id, settings: {}, blocks: [], ...(drawn.group ? { group: drawn.group } : {}) } as unknown as SectionInstance
   /* Round Q: the scroll's state on a Header group section, and its box marked chrome, as SectionRenderer and StorelibSection do. */
-  useHeaderScroll(root, { inCanvas: false, header: drawn.group === "header", html: drawn.html })
+  useHeaderScroll(root, { inCanvas: CANVAS, header: drawn.group === "header", html: drawn.html })
   return (
-    <div data-section-box="" data-section-type={drawn.id} data-chrome={drawn.group ? "" : undefined} style={{ containerType: "inline-size" }}>
+    <div data-section-box="" data-section-type={drawn.id} data-chrome={drawn.group ? "" : undefined} style={{ containerType: "inline-size", ...LEGACY }}>
       <div style={{ position: "relative", overflowX: "clip" }}>
         {drawn.css ? <style>{drawn.css}</style> : null}
         <div
@@ -56,22 +61,31 @@ function Section({ drawn }: { drawn: Drawn }) {
           onClickCapture={(e) => { trigger.current?.(e) }}
           dangerouslySetInnerHTML={{ __html: drawn.html }}
         />
-        <StorefrontHooks section={section} theme={theme} html={drawn.html} scriptRoot={root} inCanvas={false} trigger={trigger} />
+        <StorefrontHooks section={section} theme={theme} html={drawn.html} scriptRoot={root} inCanvas={CANVAS} trigger={trigger} />
       </div>
     </div>
   )
 }
 
+const page = (
+  <div data-storelib-theme="" style={{ containerType: "inline-size", ...LEGACY }}>
+    {/* The page root and the part of the theme stylesheet the chrome reads (round Q: what sticks, icons, dropdown switches, drawn menu links). */}
+    <style>{chromePlatformCss("[data-storelib-theme]")}</style>
+    {w.__PROBE__.sections.map((s) => (
+      <Section key={s.id} drawn={s} />
+    ))}
+  </div>
+)
+
 createRoot(document.getElementById("app")!).render(
   <StorefrontProvider value={storefront}>
     <SiteCartProvider shopId="shop-1">
-      {/* The page root and the part of the theme stylesheet the chrome reads (round Q: what sticks, icons, dropdown switches, drawn menu links). */}
-      <div data-storelib-theme="" style={{ containerType: "inline-size" }}>
-        <style>{chromePlatformCss("[data-storelib-theme]")}</style>
-        {w.__PROBE__.sections.map((s) => (
-          <Section key={s.id} drawn={s} />
-        ))}
-      </div>
+      {CANVAS ? (
+        /* app/globals.css `.wb-canvas-frame` and its scroller, as the editor draws the phone preview. */
+        <div className="wb-canvas-frame" style={{ position: "relative", width: 390, height: 700, margin: "40px 0 0 200px", overflow: "hidden", container: "wb-canvas / size", contain: "layout paint", isolation: "isolate" }}>
+          <div id="wb-preview-root" style={{ position: "relative", height: "100%", overflowY: "auto", container: "wb-canvas / size" }}>{page}</div>
+        </div>
+      ) : page}
     </SiteCartProvider>
   </StorefrontProvider>,
 )
