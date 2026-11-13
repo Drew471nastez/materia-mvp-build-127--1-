@@ -1,6 +1,7 @@
 "use client"
 
-import { usePathname, useSelectedLayoutSegment } from "next/navigation"
+import { useSelectedLayoutSegment } from "next/navigation"
+import { usePagePathname } from "@/lib/nav/page-pathname"
 import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
@@ -169,7 +170,8 @@ export function ConditionalHeader({
    */
   onPlatformDomain?: boolean
 }) {
-  const pathname = usePathname()
+  /* Wave 14: "/" also where the server draws the home page as "/index" (lib/nav/page-pathname): it drew no header there, and the browser did. */
+  const pathname = usePagePathname()
   /* null when the page under this layout is its own page.tsx (Next's page segment), "u" for /u/<name>, and so on. */
   const segmentBelow = useSelectedLayoutSegment()
   const onPlatformDomain = hostSaysPlatform || (platformHomeFromRoute && segmentBelow === null)

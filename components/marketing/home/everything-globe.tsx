@@ -163,6 +163,50 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
   return engine
 }
 
+/*
+ * Wave 14: a canvas is handed to the worker once (transferControlToOffscreen
+ * throws the second time, and getContext on it throws too), so its driver is
+ * kept per canvas and handed back when the effect runs again on the same
+ * canvas: React runs an effect twice in development, and again when it
+ * shows a hidden tree (Activity, a Suspense boundary showing its content
+ * again). Asking a second time threw "Cannot get context from a canvas that
+ * has transferred its control to offscreen" and took the section down. Its
+ * handlers are swapped for the new run's; it is stopped only once the canvas
+ * has left the page.
+ */
+type Held = { driver: Driver; pill: (p: GlobePill) => void; drawn: () => void; stop?: ReturnType<typeof setTimeout> }
+const held = new WeakMap<HTMLCanvasElement, Held>()
+function holdDriver(canvas: HTMLCanvasElement, pill: (p: GlobePill) => void, drawn: () => void): Held | null {
+  const had = held.get(canvas)
+  if (had) {
+    clearTimeout(had.stop)
+    had.pill = pill
+    had.drawn = drawn
+    return had
+  }
+  const entry = { pill, drawn } as Held
+  const driver = startDriver(
+    canvas,
+    (p) => entry.pill(p),
+    () => entry.drawn(),
+  )
+  if (!driver) return null
+  entry.driver = driver
+  held.set(canvas, entry)
+  return entry
+}
+function releaseDriver(canvas: HTMLCanvasElement) {
+  const entry = held.get(canvas)
+  if (!entry) return
+  entry.driver.run(false)
+  const check = () => {
+    if (canvas.isConnected) return
+    entry.driver.stop()
+    held.delete(canvas)
+  }
+  entry.stop = setTimeout(check, 1000)
+}
+
 export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boolean }) {
   const wrap = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -202,10 +246,11 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`
       el.toggleAttribute("data-on", p.on)
     }
-    const driver = startDriver(canvas, onPill, () => {
+    const kept = holdDriver(canvas, onPill, () => {
       if (!canvas.hasAttribute("data-drawn")) canvas.setAttribute("data-drawn", "")
     })
-    if (!driver) return
+    if (!kept) return
+    const driver = kept.driver
 
     const sync = () => driver.run(st.visible && st.live && !st.reduced)
 
@@ -284,7 +329,7 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
     ctl.current({ live: liveRef.current, reduced: reducedRef.current })
 
     return () => {
-      driver.stop()
+      releaseDriver(canvas)
       ro?.disconnect()
       io?.disconnect()
       box.removeEventListener("pointerdown", onDown)

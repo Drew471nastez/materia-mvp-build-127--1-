@@ -8,7 +8,8 @@ import type React from "react"
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
+import { usePagePathname } from "@/lib/nav/page-pathname"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
@@ -472,7 +473,7 @@ export function DesktopAccountMenu({
   /** Drawn right under who is signed in (a community's member links, round 26); its rows carry role="menuitem". */
   under?: React.ReactNode
 }) {
-  const pathname = usePathname()
+  const pathname = usePagePathname()
   const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [present, setPresent] = useState(false)
@@ -1052,7 +1053,7 @@ export function PlatformHeaderClient({
   buyerHeaderLight?: boolean
 }) {
   const router = useRouter()
-  const pathname = usePathname()
+  const pathname = usePagePathname()
   /* Not useSearchParams: that suspends the whole bar, so the account page painted an empty header and the real one arrived late. */
   const { t } = useLocale()
   const exploreMarketplaceOn = useExploreMarketplaceEnabled()

@@ -139,7 +139,8 @@ async function main() {
     const Lazy = lazySection(async () => () => createElement("p", null, "loaded"), { name: "probe", minHeight: "777px" })
     const box = renderToStaticMarkup(createElement(Lazy))
     check("lazySection draws only a box of the section's height on the server", /data-lazy-section="probe"/.test(box) && /min-height:777px/.test(box) && !/loaded/.test(box))
-    check("it mounts when the box comes within a screen and a half", LAZY_AHEAD === "150% 0px 150% 0px" && /new IntersectionObserver/.test(src) && /io\.disconnect\(\)\s*mount\(\)/.test(src))
+    /* Changed on purpose (wave 14): two and a half screens; at a screen and a half a fling on a phone reached the box before its section. */
+    check("it mounts when the box comes within two and a half screens", LAZY_AHEAD === "250% 0px 250% 0px" && /new IntersectionObserver/.test(src) && /io\.disconnect\(\)\s*mount\(\)/.test(src))
     check("at once for reduced motion, a link into the page, or no observer", /location\.hash\.length > 1/.test(src) && /prefers-reduced-motion: reduce/.test(src) && /typeof IntersectionObserver !== "function"/.test(src))
     check("the code is fetched ahead when idle, after load, not on Save-Data", /requestIdleCallback/.test(src) && /addEventListener\("load"/.test(src) && /saveData/.test(src))
     const kept = renderToStaticMarkup(createElement(LazySection, { name: "faq", minHeight: "900px", children: createElement("h2", null, "Questions") }))
@@ -153,8 +154,10 @@ async function main() {
     const src = code("components/marketing/home/lazy-section.tsx")
     const { LAZY_IDLE_AHEAD, insertSectionStyles } = await import("@/components/marketing/home/lazy-section")
     check("a section is drawn as a transition, so its render is sliced between frames", /startTransition\(\(\) => setSection/.test(src))
-    check("further ahead it mounts when idle, and once the code is here the rest mount one per roomy idle slot", LAZY_IDLE_AHEAD === "300% 0px 300% 0px" && /function mountNext/.test(src) && /timeRemaining\(\) < IDLE_ROOM_MS/.test(src) && /else idle\(mountNext\)/.test(src))
-    check("the idle prefetch has no timeout, starts after load, and skips Save-Data and 2g", /afterLoad\(\)\.then\(start\)/.test(src) && /saveData/.test(src) && !/timeout: 4000/.test(src))
+    /* Changed on purpose (wave 14): five screens ahead when idle (was three), and the chain mounts the waiting section nearest the screen first. */
+    check("further ahead it mounts when idle, and once the code is here the rest mount one per roomy idle slot", LAZY_IDLE_AHEAD === "500% 0px 500% 0px" && /function mountNext/.test(src) && /timeRemaining\(\) < IDLE_ROOM_MS/.test(src) && /idle\(mountNext\)/.test(src))
+    /* Changed on purpose (wave 14): it also starts LAZY_PREFETCH_LATEST_MS after the page came alive when the load event is late (a slow network), two sections at a time. */
+    check("the idle prefetch has no timeout, starts after load, and skips Save-Data and 2g", /afterLoad\(\)\.then\(start\)/.test(src) && /saveData/.test(src) && !/timeout: 4000/.test(src) && /LAZY_PREFETCH_LATEST_MS\)/.test(src))
     check("insertSectionStyles does nothing on the server", (insertSectionStyles([{ href: "x", precedence: "default", css: "" }]), true))
     /* Every stylesheet a lazy section lists is one it draws: the same href, so React finds it in <head> and adds none on mount. */
     const lazy = read("components/marketing/home/lazy-sections.tsx")
@@ -190,7 +193,8 @@ async function main() {
   {
     const src = code("components/marketing/home/lazy-section.tsx")
     check("a mounted lazy section stays in its box, which the browser skips off screen", /data-lazy-mounted=""/.test(src) && /contentVisibility: "auto"/.test(src) && /containIntrinsicSize: `auto \$\{options\.minHeight\}`/.test(src))
-    check("right after mounting it is laid out once in an idle slot and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /el\.style\.containIntrinsicSize = `auto \$\{Math\.round\(height\)\}px`/.test(src))
+    /* Changed on purpose (wave 14): laid out in slices (layOutInSlices), then its height kept as before. */
+    check("right after mounting it is laid out in idle slots and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /el\.style\.containIntrinsicSize = `auto \$\{Math\.round\(height\)\}px`/.test(src))
     const css = read("app/globals.css")
     const heading = code("components/marketing/story-heading.tsx")
     check("headings ink and rise from scroll-driven animations where the browser has them (no script per frame)", /@property --story-progress/.test(css) && /animation-timeline:--story-heading/.test(css) && /@keyframes story-heading-rise \{from\{transform:translate3d\(0,12px,0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(css) && /function inkedByCss/.test(heading) && /data-story-js/.test(heading))
@@ -204,6 +208,22 @@ async function main() {
       const own = read(`components/marketing/home/${f}.tsx`)
       check(`${f}: rules keyed on data-commerce-live end in a class, not a tag`, !/\[data-commerce-live\][^{},]*\s(span|li|div|b|i|img|svg|path)\s*[,{]/.test(own) && !/\[data-commerce-live\][^{},]*>\s*(span|li)\s*[,{]/.test(own))
     }
+  }
+
+  /* Added on purpose (wave 14, scroll): sections arrive drawn, and idle work never lands in a scroll. */
+  console.log("\nSections drawn before they arrive (wave 14)")
+  {
+    const src = code("components/marketing/home/lazy-section.tsx")
+    const { LAZY_DRAW_AHEAD } = await import("@/components/marketing/home/lazy-section")
+    check("a box is drawn a screen and a half ahead, with the containment content-visibility: auto gave it", LAZY_DRAW_AHEAD === "150% 0px 150% 0px" && /box\.style\.contentVisibility = e\.isIntersecting \? "visible" : "auto"/.test(src) && /box\.style\.contain = e\.isIntersecting \? "layout paint style" : ""/.test(src))
+    check("both kinds of box are drawn ahead (mounted sections and server-drawn LazySection)", (src.match(/watchDraw\(el\)/g) || []).length === 2)
+    check("idle work waits until the page has stopped scrolling", /const CALM_MS = \d+/.test(src) && /since < CALM_MS/.test(src) && /addEventListener\("scroll", \(\) => \(lastScroll = performance\.now\(\)\), \{ passive: true, capture: true \}\)/.test(src))
+    check("the idle chain mounts the waiting section nearest the screen first", /farness\(a\) - farness\(b\)/.test(src))
+    check("a mounted section is laid out ahead a slice at a time (no long task), and all at once if it comes near first", /const SLICE_ELEMENTS = \d+/.test(src) && /g\.style\.contentVisibility = "hidden"/.test(src) && /if \(e\.isIntersecting\) slicing\.get\(box\)\?\.\(\)/.test(src) && /const stopSlicing = layOutInSlices\(el,/.test(src))
+    const globe = code("components/marketing/home/everything-globe.tsx")
+    check("the globe hands its worker back when its effect runs again on the same canvas (a canvas is transferred once)", /function holdDriver/.test(globe) && /releaseDriver\(canvas\)/.test(globe) && !/\bdriver\.stop\(\)\s*\n\s*ro\?\.disconnect/.test(globe))
+    const pathname = code("lib/nav/page-pathname.ts")
+    check("the home page is \"/\" even where the server renders it as \"/index\" (Vercel's ISR), so its header is in the HTML", /pathname === "\/index" && below\.every\(\(s\) => s\.startsWith\("\("\)\) \? "\/" : pathname/.test(pathname) && /usePagePathname\(\)/.test(code("components/marketing/conditional-header.tsx")) && !/usePathname\(\)/.test(code("components/platform/platform-header-client.tsx")))
   }
 
   console.log("\nNo hotlinked pictures")
