@@ -24,7 +24,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { HowItWorks } from "@/components/marketing/home/how-it-works"
-import { CheckoutScene } from "@/components/marketing/home/checkout-scene"
+import { CheckoutScene, CHECKOUT_STYLES } from "@/components/marketing/home/checkout-scene"
 import { SellEverywhereMap, COMMERCE_LAND, commerceLandPath } from "@/components/marketing/home/sell-everywhere-map"
 import { EarningsCalculator, commerceMonth } from "@/components/marketing/home/earnings-calculator"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_PRO_MONTHLY_CENTS, COMMERCE_PRODUCTS, commerceSale, commerceUsd } from "@/components/marketing/home/commerce-kit"
@@ -91,8 +91,15 @@ console.log("\nCommerce: the sections render on the server")
 
   const co = renderToStaticMarkup(createElement(CheckoutScene))
   check("checkout: its own headline, not the reference's", co.includes("Checkout that turns a tap into a sale") && !/almost cheating/i.test(co))
-  check("checkout: four tabs and one visible panel", (co.match(/role="tab"/g) ?? []).length === 4 && (co.match(/role="tabpanel"/g) ?? []).length === 4 && (co.match(/role="tabpanel"[^>]*hidden/g) ?? []).length === 3)
-  check("checkout: the phone draws the real checkout's words", ["Contact", "Payment method", "Pay $19.00 with Apple Pay", "Payment complete", "We sent your receipt and your access to"].every((w) => co.includes(w)))
+  /* Changed on purpose (wave 13): a fifth tab, Order paid, as the owner asked; the closed panels are inert and hidden by visibility, not display:none, so all five share one box and switching tabs moves nothing below. */
+  check("checkout: five tabs and one visible panel", (co.match(/role="tab"/g) ?? []).length === 5 && (co.match(/role="tabpanel"/g) ?? []).length === 5 && (co.match(/role="tabpanel"[^>]*inert/g) ?? []).length === 4 && !/role="tabpanel"[^>]*hidden/.test(co) && /\.cmc-panel\{grid-area:1\/1;[^}]*visibility:hidden/.test(src.checkout))
+  /* Changed on purpose (wave 13): the real instant checkout heads its fields "Your details" (components/checkout/instant-checkout.tsx), not "Contact". */
+  check("checkout: the phone draws the real checkout's words", ["Your details", "Email me news and offers", "Payment method", "Pay $19.00 with Apple Pay", "Payment complete", "We sent your receipt and your access to", "Open it now"].every((w) => co.includes(w)))
+  /* Added (wave 13). */
+  check("checkout: no subheading under the headline, no eyebrow", !/cmc-sub|story-eyebrow/.test(co))
+  check("checkout: the same checkout in a desktop browser, and Google Pay there", (co.match(/class="cmv-br"/g) ?? []).length === 2 && co.includes("Pay $19.00 with Google Pay"))
+  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$19.00", "€17.50", "£15.00", "¥2,900", "C$26.00"].every((p) => co.includes(p)))
+  check("checkout: the reminder and the sale note use the real emails' words", co.includes("You left Golden Hour presets at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("You sold Golden Hour presets for $19.00"))
   check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="A Storelib checkout on a phone/.test(co))
   check("checkout: every floating product has a sharp and a pre-blurred file", /float-tee\.webp/.test(co) && /float-tee-blur\.webp/.test(co))
 
@@ -129,6 +136,16 @@ console.log("\nCommerce: motion and performance rules")
     check(`${k}: no scroll listener of its own outside the fallback`, k === "checkout" ? (s.match(/addEventListener\("scroll"/g) ?? []).length === 1 && s.includes('CSS.supports?.("animation-timeline: view()")') : !s.includes('"scroll"'))
   }
   check("checkout: scroll scene on a view timeline with transforms", src.checkout.includes("view-timeline-name:--cmc") && src.checkout.includes("animation-timeline:--cmc"))
+  /* Added (wave 13): the orbit and the phone. */
+  check("checkout: the products orbit on one baked lap that closes on itself, paused off screen", /animation:cmc-lap var\(--lap\) linear infinite both/.test(src.checkout) && /const x = -Math\.cos\(t\)/.test(src.checkout) && /const y = Math\.sin\(t\)/.test(src.checkout) && /const turn = t \* 5/.test(src.checkout) && /\.cmc-track\[data-commerce-live\] \.cmc-lap/.test(src.checkout) && /animation-play-state:paused\}/.test(src.checkout))
+  {
+    const css = CHECKOUT_STYLES.map((x) => x.css).join("\n")
+    const lap = css.match(/@keyframes cmc-lap\{([\s\S]*?)\}\n/)?.[1] ?? ""
+    const stops = [...lap.matchAll(/([\d.]+)%\{transform:([^;]+);opacity:([\d.]+)\}/g)]
+    check("checkout: the lap's first and last frames are the same (no seam), transform and opacity only", stops.length === 41 && stops[0][2] === stops[40][2] && stops[0][3] === stops[40][3] && !/(width|height|top|left|margin|filter)\s*:/.test(lap), stops.length)
+  }
+  check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
+  check("checkout: the phone is on screen from the start and moves into place (no rise from below the stage)", /animation-range:entry 55% contain 24%/.test(src.checkout) && !/62svh/.test(src.checkout))
   check("checkout: keyframes animate transform and opacity only", [...src.checkout.matchAll(/@keyframes [\w-]+\{([^@]*?)\}\}/g)].every((m) => !/(width|height|top|left|margin|background|box-shadow|filter)\s*:/.test(m[1])))
   check("kit: counting writes text, not React state", src.kit.includes("node.textContent = next"))
   check("no section names the reference site", Object.values(src).every((s) => !/shopify|fourthwall/i.test(s)))
