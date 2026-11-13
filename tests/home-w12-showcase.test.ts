@@ -39,7 +39,8 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    ...(["Saltlight", "Bloom", "Darkroom", "Sol", "Hollow"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
+    /* Changed on purpose (landing round 2): the shops are renamed (Low Season, Elena Ruiz's watercolor course, Wren & Ash). */
+    ...(["LowSeason", "Watercolor", "Darkroom", "Sol", "WrenAsh"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
     createElement(WebsiteBuilderMock),
     createElement(OnePageEditorMock),
     createElement(CommunityBuilderMock),

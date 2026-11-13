@@ -305,14 +305,14 @@ function DigitalScene() {
         <div className="cmh-dg-head">
           <img src="/home/showcase/lt-field.webp" alt="" loading="lazy" decoding="async" width={320} height={200} />
           <span>
-            <b>Golden Hour presets</b>
+            <b>Highland Mist presets</b>
             <small>$19.00 · Instant download</small>
           </span>
         </div>
         <div className="cmh-dg-file">
           <span className="cmh-dg-zip">ZIP</span>
           <span className="cmh-dg-fn">
-            <b>Golden-Hour-Presets.zip</b>
+            <b>Highland-Mist-Presets.zip</b>
             <span className="cmh-stack">
               <small className="cmh-a cmh-dg-up">Uploading…</small>
               <small className="cmh-a cmh-dg-done">48.2 MB · Uploaded</small>
@@ -328,16 +328,16 @@ function DigitalScene() {
       </div>
       <div className="cmh-a cmh-dg-mail">
         <div className="cmh-dg-from">
-          <span className="cmh-dg-av">LT</span>
+          <span className="cmh-dg-av">CR</span>
           <span>
-            <b>Lio Tanaka</b>
-            <small>Your order from Lio Tanaka</small>
+            <b>Callum Reid</b>
+            <small>Your order from Callum Reid</small>
           </span>
           <small className="cmh-dg-now">now</small>
         </div>
         <div className="cmh-dg-body">
           <b>Thanks for your purchase</b>
-          <p>Thanks for buying Golden Hour presets from Lio Tanaka. Your files are ready.</p>
+          <p>Thanks for buying Highland Mist presets from Callum Reid. Your files are ready.</p>
           <span className="cmh-dg-get">
             Get your files
             <span className="cmh-a cmh-tap cmh-tap-dark" />
@@ -434,10 +434,10 @@ function TipScene() {
     <div className="cmh-tip">
       <div className="cmh-tip-card">
         <div className="cmh-tip-who">
-          <img src={`${IMG}/creator-maya.webp`} alt="" loading="lazy" decoding="async" width={160} height={160} />
+          <img src={`${IMG}/tip-niamh.webp`} alt="" loading="lazy" decoding="async" width={160} height={160} />
           <span>
-            <b>Support Maya</b>
-            <small>Say thanks for the free tutorials</small>
+            <b>Support Niamh</b>
+            <small>Thanks for the free patterns</small>
           </span>
         </div>
         <div className="cmh-amts">
@@ -458,7 +458,7 @@ function TipScene() {
         </div>
       </div>
       <span className="cmh-a cmh-tip-pop">
-        <b>+$5.00</b> tip from Sam
+        <b>+$5.00</b> tip from Joel
       </span>
     </div>
   )

@@ -50,7 +50,7 @@ import {
 } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { MockFrame, Pic, u } from "./frame"
-import { BloomDesktop } from "./business-mocks"
+import { WatercolorDesktop } from "./business-mocks"
 import { HomeOnePage, HomeOnePageStyle, MAYA } from "../onepage-sample"
 
 /*
@@ -149,12 +149,12 @@ function WbTabs() {
   )
 }
 
-/** The Brush & Bloom home page as a phone shows it (the website builder's canvas on a phone). */
-function BloomPhonePage() {
+/** Elena Ruiz's watercolor course home page as a phone shows it (the website builder's canvas on a phone). */
+function WatercolorPhonePage() {
   return (
     <div className="wxm-site">
       <div className="wxm-nav">
-        <span>Brush &amp; Bloom</span>
+        <span>Elena Ruiz</span>
         <i />
       </div>
       <div className="wxm-hero">
@@ -162,7 +162,7 @@ function BloomPhonePage() {
         <h4>
           Loose florals <i>in 21 days.</i>
         </h4>
-        <span>Enroll · $129</span>
+        <span>Enroll · $129.00</span>
       </div>
       <Pic n="bb-hero" w={1200} h={700} className="wxm-img" />
     </div>
@@ -178,7 +178,7 @@ export function WebsiteBuilderMock() {
             <span className="wx-key ghost">
               <ArrowLeftToLine />
             </span>
-            <b className="wx-name">Brush &amp; Bloom</b>
+            <b className="wx-name">Elena Ruiz Watercolor</b>
             <i className="wx-live" />
             <span className="wx-key ghost">
               <MoreHorizontal />
@@ -244,7 +244,7 @@ export function WebsiteBuilderMock() {
         </aside>
         <div className="wx-canvas">
           <MockFrame w={1024} ratio="974/746" label="" className="wx-site">
-            <BloomDesktop />
+            <WatercolorDesktop />
           </MockFrame>
           <span className="wx-ring wx-ring-a">
             <em>Hero</em>
@@ -253,7 +253,7 @@ export function WebsiteBuilderMock() {
             <em>Curriculum</em>
           </span>
           <span className="wx-toast">
-            <Check /> Published to brushandbloom.art
+            <Check /> Published to elenaruiz.art
           </span>
         </div>
         <Cursor className="wx-cur" />
@@ -279,7 +279,7 @@ export function WebsiteBuilderMock() {
           </span>
         </div>
         <div className="wxm-canvas">
-          <BloomPhonePage />
+          <WatercolorPhonePage />
           <span className="wx-ring wxm-ring">
             <em>Hero</em>
           </span>

@@ -4,15 +4,17 @@ import { useShowcaseMotion } from "./use-showcase-motion"
 import { StoryHeading } from "./story-heading"
 /*
   TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 13).
-  The stores are drawn in the layout of a real Storelib creator store (the
-  newsletter bar, the cover, the round avatar, Home / Products / Communities
-  and the product cards, in the store's own colour scheme) and the
-  communities in the layout of a real Storelib community (the community card
-  and places, the space chips and feed, the next event and the leaderboard),
-  for fictional creators, with stock photography. The course page and three
-  OnePages are the shared showcase mocks (components/marketing/home/
-  showcase-mocks); Satori Studio is a real OnePage, storelib.me/satori-studio,
-  as a phone shows it.
+  The stores and websites are screenshots of Storelib's own renderers with
+  fixture data (landing round 2): three creator pages drawn by the creator
+  page's components (the newsletter bar, the cover, the round avatar, Home /
+  Products / Communities and the Featured cards, in a real colour scheme:
+  Pink, Air, Astrid) and two websites drawn by ThemePage with the default
+  theme's sections (announcement bar, header, ticker or hero, Product
+  Grid), captured at 2x and scaled to 1440 x 990. The communities are in
+  the layout of a real Storelib community (the community card and places,
+  the space chips and feed, the next event and the leaderboard). Every
+  creator is fictional; photographs are Unsplash. Satori Studio is a real
+  OnePage, storelib.me/satori-studio, as a phone shows it.
 
   EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
   pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
@@ -42,24 +44,24 @@ const portrait = (brand: string, label: string, alt: string) => ({
 /* The OnePage captions are three words at most (the owner, wave 13). */
 const GROUPS = [
   [
-    wide("neonmoth", "Sell merch people actually wear", "Neon Moth's Storelib store: a tour tee, a vinyl LP and a track set under a neon concert cover"),
+    wide("shift", "Sell merch people actually wear", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
     wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community with a critique post, a roll swap event and a leaderboard"),
   ],
   [
-    wide("mila", "Sell digital downloads", "Mila Draws' Storelib store with a gouache brush pack, a digital planner and texture scans"),
+    wide("ellie", "Sell digital downloads", "Ellie Brandt's Storelib creator page: a children's illustrator in Melbourne selling a colouring pack, animal posters and Procreate brushes"),
     portrait("maya", "Links that sell", "Maya Okafor's OnePage with a marathon plan, run club and coaching links"),
     wide("founders", "A members' club for founders", "Founders After Five, a community where a member shares a $10k MRR milestone"),
   ],
   [
-    wide("bloom", "Teach what you know", "Brush & Bloom's watercolor course site with modules and reviews"),
+    wide("draft", "Teach what you know", "The Long Draft's Storelib website: a ten-week novel writing course for £240 and three shorter clinics"),
     portrait("lio", "Show your work", "Lio Tanaka's dark OnePage with photos, presets and print links"),
     wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes and a live glaze night"),
   ],
   [
-    wide("gridline", "Sell templates and kits", "Gridline Studio's Storelib store with workspace templates and a wireframe kit"),
+    wide("tomas", "Sell templates and kits", "Tomás Ferreira's Storelib creator page with Notion and Figma templates from €12"),
     portrait("priya", "All your links", "Sol & Sage's OnePage with a cookbook, recipes and a cooking class"),
-    wide("hollow", "Merch for the whole tour", "Hollow Pines' Storelib store with a hoodie, a tee and a cap under a forest cover"),
+    wide("marlow", "Merch for the whole tour", "Marlow Static's Storelib creator page: a Glasgow band's new LP, a tour tote and a live album under a concert cover"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
