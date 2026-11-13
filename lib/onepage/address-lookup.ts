@@ -90,12 +90,17 @@ export function supabaseOnePageLookup<Row = Record<string, unknown>>(
     },
 
     async pageOfAccount(accountId) {
-      /* Found by the creator it names (seller_id, then creator_id), then by the login that owns it. */
+      /*
+        Found by the creator it names (seller_id, then creator_id), then by the login that owns it.
+        Only a page this account OWNS (round AW): seller_id and creator_id are columns a page's
+        owner writes, so a page somebody else owns could name this creator's store and would
+        otherwise answer at this account's address (part 453 stops new ones in the database).
+      */
       const creator = must((await supabase.from("creators").select("id").eq("user_id", accountId).limit(1).maybeSingle()) as Answer<{ id: string }>)
       if (creator?.id) {
-        const bySeller = must((await published().eq("seller_id", creator.id).limit(1).maybeSingle()) as Answer<Row>)
+        const bySeller = must((await published().eq("seller_id", creator.id).eq("owner_id", accountId).limit(1).maybeSingle()) as Answer<Row>)
         if (bySeller) return bySeller
-        const byCreator = must((await published().eq("creator_id", creator.id).limit(1).maybeSingle()) as Answer<Row>)
+        const byCreator = must((await published().eq("creator_id", creator.id).eq("owner_id", accountId).limit(1).maybeSingle()) as Answer<Row>)
         if (byCreator) return byCreator
       }
       return must((await published().eq("owner_id", accountId).limit(1).maybeSingle()) as Answer<Row>)
