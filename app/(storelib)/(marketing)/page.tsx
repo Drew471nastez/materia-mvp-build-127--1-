@@ -14,6 +14,7 @@ import {
   LazyAnalyticsShowcase,
   LazySellEverywhereMap,
   LazyIntegrationsSection,
+  LazyAiToolsSection,
   LazyEarningsCalculator,
   LazyAppAnywhere,
 } from "@/components/marketing/home/lazy-sections"
@@ -98,14 +99,17 @@ export default function StorelibLanding() {
         {/* 13 Integrations */}
         <LazyIntegrationsSection />
 
+        {/* 13b Your AI tools work here too (landing round): Claude Code, Codex or Cursor connected to a site, building it as drafts */}
+        <LazyAiToolsSection />
+
         {/* 14 EarningsCalculator */}
         <LazyEarningsCalculator />
 
         {/* 15 RunFromAnywhere */}
         <LazyAppAnywhere />
 
-        {/* 16 PRICING (kept as it was, without its See full pricing button here) */}
-        <LazySection name="pricing" minHeight="max(calc(2090px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1045px)">
+        {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
+        <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">
           <PricingSection editorial hideDetailsLink />
         </LazySection>
 

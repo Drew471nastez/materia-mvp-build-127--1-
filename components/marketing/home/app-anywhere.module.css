@@ -21,7 +21,7 @@
   overflow: hidden;
   width: 100%;
   aspect-ratio: 4 / 3;
-  border-radius: clamp(20px, 2.4vw, 32px);
+  border-radius: clamp(19px, 2.4vw, 31px);
   background: #3a5a80;
   box-shadow: 0 30px 60px -36px rgba(24, 16, 48, 0.45);
 }
