@@ -25,7 +25,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { HowItWorks } from "@/components/marketing/home/how-it-works"
 import { CheckoutScene } from "@/components/marketing/home/checkout-scene"
-import { SellEverywhereMap, COMMERCE_LAND, commerceLandPath } from "@/components/marketing/home/sell-everywhere-map"
+import { SellEverywhereMap, COMMERCE_LAND, SELL_COUNTRIES, commerceLandPath } from "@/components/marketing/home/sell-everywhere-map"
 import { EarningsCalculator, commerceMonth } from "@/components/marketing/home/earnings-calculator"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_PRO_MONTHLY_CENTS, COMMERCE_PRODUCTS, commerceSale, commerceUsd } from "@/components/marketing/home/commerce-kit"
 import { PRO_PRICE_CENTS } from "@/lib/billing/plans"
@@ -99,7 +99,17 @@ console.log("\nCommerce: the sections render on the server")
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   check("map: its heading and a labelled map", map.includes("Your store never closes.") && /role="img" aria-label="A world map/.test(map))
   check("map: the dots are not in the HTML (built on the client)", !/M\d+\.5 \d+\.5h0/.test(map))
-  check("map: prices in the buyers' currencies", ["€24", "¥2,900", "£79", "C$38", "$12/mo"].every((p) => map.includes(p)))
+  /* Changed on purpose (wave 13): the owner asked for a contained card with a column of flags, a product card whose button is in that country's language and an "Order for" pill in its money, so the old city cards and their prices are gone. */
+  check("map: orders in the buyers' money, as checkout charges it", ["£56.00", "32,00 €", "28,00 €", "US$ 26,00", "64,00 €"].every((p) => map.includes(p)) && SELL_COUNTRIES.every((c) => ["GBP", "EUR", "USD"].some((cur) => (c.total.includes("€") ? "EUR" : c.total.includes("£") ? "GBP" : "USD") === cur)))
+  {
+    /* Added (wave 13): each button is the storefront's own "Buy now", word for word, from its language's catalog. */
+    const buyIn = (lang: string) => (lang.startsWith("en") ? "Buy now" : (read(`lib/i18n/catalog/${lang}.ts`).match(/^\s*"Buy now": "([^"]+)"/m) ?? [])[1])
+    check("map: every button is the storefront's Buy now in that country's language", SELL_COUNTRIES.every((c) => map.includes(`>${c.buy}<`) && buyIn(c.lang) === c.buy), SELL_COUNTRIES.map((c) => [c.lang, c.buy, buyIn(c.lang)]))
+    check("map: real flags for each country, from the site's own flag files", SELL_COUNTRIES.every((c) => map.includes(`/flags/${c.code}.svg`) && existsSync(join(ROOT, "public/flags", `${c.code}.svg`))))
+    check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:32px/.test(src.map) && /\.cmm-wrap\{max-width:1400px/.test(src.map))
+    check("map: the country changes only while the section is on screen, and never under reduced motion", /if \(!live\) return/.test(src.map) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(src.map) && /window\.clearInterval/.test(src.map))
+    check("map: the product photos exist", SELL_COUNTRIES.every((c) => existsSync(join(ROOT, "public/home/sell-map", c.photo))))
+  }
 
   const earn = renderToStaticMarkup(createElement(EarningsCalculator))
   check("calculator: its heading", earn.includes("See what your work could earn."))
