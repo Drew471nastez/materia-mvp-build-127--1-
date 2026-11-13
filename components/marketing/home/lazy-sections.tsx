@@ -48,8 +48,8 @@ export const LazyHowItWorks = lazySection(() => import("./how-it-works").then((m
 
 export const LazyCheckoutScene = lazySection(() => import("./checkout-scene").then((m) => m.CheckoutScene), {
   name: "checkout",
-  /* Wave 13 perf: the pinned scene (100svh + 170vh) and the tabs under it, one column below 900px (961px at 390, 1144 at 768), beside each other from 900 (679 at 1024, 862 at 1440). */
-  minHeight: "calc(270vh + max(calc(48.4vw + 772px - clamp(0px, (100vw - 899px) * 100000, 100000px)), min(46vw + 240px, 860px)))",
+  /* Wave 13 perf: the pinned scene and the tabs under it, one column below 900px (961px at 390, 1144 at 768), beside each other from 900 (679 at 1024, 862 at 1440). Wave 14: the pin is 150vh (was 170vh), so the scene is 100svh + 150vh. */
+  minHeight: "calc(250vh + max(calc(48.4vw + 772px - clamp(0px, (100vw - 899px) * 100000, 100000px)), min(46vw + 240px, 860px)))",
   styles: () => import("./checkout-scene").then((m) => m.CHECKOUT_STYLES),
 })
 
