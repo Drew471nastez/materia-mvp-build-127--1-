@@ -5499,5 +5499,10 @@ CREATE OR REPLACE FUNCTION public.storelib_cache_ping() RETURNS trigger LANGUAGE
 REVOKE ALL ON FUNCTION public.storelib_cache_ping() FROM PUBLIC, anon, authenticated;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('444', '444_cache_ping_real_changes.sql', '00fd4f487b539d97f3e70dd3a5b4fc7e10fbc1b3142b2d8d50ea1f395f094a4c') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 445_explore_newest_index.sql
+/* Explore's newest products by index (round 54, scale; run any time). Explore and its categories read the newest hundred published products (status = 'published', newest first, type not physical, not a community's tier), on a cache that expires every few minutes and on every product save. With no index on created_at the read scans every product row each time: nothing today, a slow page and a 20 second timeout once creators have tens of thousands of products. This adds one partial index on public.products (created_at DESC) for published rows only, so the read takes the hundred it shows and stops. Nothing changes in what Explore shows. Builds while the table is small; on a large table run it at a quiet moment (it holds writes to products while it builds). Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.products') IS NULL THEN RAISE NOTICE 'part 445: products is missing, the index is skipped.'; RETURN; END IF; CREATE INDEX IF NOT EXISTS products_explore_newest_idx ON public.products (created_at DESC) WHERE status = 'published'; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('445', '445_explore_newest_index.sql', 'd2bcfe497a79433da072db91dc580693bf1414b1dee89e990bf42a85a924c48a') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;
