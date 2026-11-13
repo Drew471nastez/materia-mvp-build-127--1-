@@ -134,6 +134,15 @@ filled in by the lead.
 | Supabase compute and plan review | most production errors are database slowness (statement timeouts, pool exhaustion on 10-27) | Supabase Dashboard: Reports (CPU, memory, connections), Query Performance (slow queries), Settings, Compute | read CPU and connection peaks around 10-27 06:30-09:44 UTC and 10-28; list top slow queries; decide whether compute size is enough | no (review); yes if upgraded | upgrade costs: check current Supabase pricing | numbers shared with the lead |
 | Log drain or alerting (optional) | today errors go to `error_events` plus email/webhook; no long-term searchable logs | Vercel, Settings, Log Drains, or a Marketplace integration | pick a destination | no app change | check current pricing; see [COSTS.md](COSTS.md) | logs arrive at the destination |
 
+## 5b. Added Nov 13 (rounds AV and AW)
+
+| Item | Why | Where | What |
+| --- | --- | --- | --- |
+| Stripe approval for transfers-only accounts | A seller in another country than the platform pressed Start payouts on Nov 6, 7 and 10 and was refused every time: "Your platform needs approval for accounts to have requested the `transfers` capability without the `card_payments` capability". Since round AV they are told why. They still cannot be paid out | Stripe Dashboard, Connect settings, or support.stripe.com | ask Stripe to approve the platform for connected accounts with `transfers` only (cross-border payouts, full service agreement). Until then only sellers in the platform's own country can connect |
+| SQL parts 445 and 451 | Explore's newest-products and catalogue reads time out as products grow (the top error group of the week) | Supabase SQL Editor, or `/admin` SQL updates | run `445_explore_newest_index.sql` and `451_explore_catalogue_index.sql`. Additive |
+| SQL part 444 | cache pings only for real changes (round 54) | same | run `444_cache_ping_real_changes.sql` |
+| Fewer pushes to main | 8 production deploys on Nov 13. Build CPU is the one cost line that follows pushes, and each deploy is a chance of a "Failed to find Server Action" for whoever has a page open | the way work is merged | batch a round into one push |
+
 ## 6. Access the lead needs
 
 The lead has Vercel read access (runtime errors and logs) and the repository.
