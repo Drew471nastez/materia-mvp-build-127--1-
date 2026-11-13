@@ -1,8 +1,8 @@
 # Home page: the landing round (November 2026)
 
 What the owner asked for on storelib.com's home page, section by section, where each
-part lives, and how this round met the wave 14 round that was pushed to main while it
-was being built. The page is `app/(storelib)/(marketing)/page.tsx`; every section below
+part lives, and how this round met the two other rounds pushed to main while it was
+being built. The page is `app/(storelib)/(marketing)/page.tsx`; every section below
 the hero is in `components/marketing/home/`.
 
 ## What changed, top to bottom
@@ -28,26 +28,52 @@ the hero is in `components/marketing/home/`.
 
 The word "fans" is gone from the page's words.
 
-## Two rounds at once
+## Three rounds at once: read this before resolving a conflict here
 
-Wave 14 (black and purple bands, a new globe, fewer "fans", a desktop checkout picture,
-OnePages drawn by the theme picker) reached main while this round was in progress. Both
-changed the same files. How they were put together:
+Three sessions changed the home page's sections on the same day, each from the owner's
+notes: this round, wave 14 (bands, a new globe, lazy sections that arrive drawn, a
+checkout rework, new showcase cards) and landing round 2 (the examples as captures of
+the real OnePage, creator page, website and community). They met in the same files.
+How they were put together, so the next merge does not undo the owner's list:
 
-- **Kept from wave 14:** the bands (`components/marketing/landing-story.tsx` `StoryBand`
-  and `BAND_CSS`) around the business section, analytics with the map, and the app
-  section; the globe in "Make the work" (`everything-globe*.ts`), with its pill styles in
-  `everything-in-one-place.tsx`.
-- **This round's version kept:** analytics (the owner asked here for a smaller structure,
-  so the three-card row with captions went), the checkout scene and How it works (they
-  tell one e-book's story and carry no Golden Hour presets), the creator stores, the
-  OnePage editor preview and the business section.
-- **Removed as unused:** `onepage-sample.tsx` (OnePages drawn by the theme picker's
-  `ThemePreview`) and `showcase-mocks/checkout-desktop.tsx`. Both are in the history
-  (commits `61abdfd24` and `85c80e5e4`) if the real theme renderer is wanted in a tile.
+- **From wave 14, kept:** the bands (`components/marketing/landing-story.tsx`
+  `StoryBand` and `BAND_CSS`) around the business section, analytics with the map, and
+  the app section; the globe in "Make the work" (`everything-globe*.ts`), with its pill
+  styles in `everything-in-one-place.tsx`; all of `lazy-section.tsx` (mounting further
+  ahead, drawing ahead, layout in slices); the picture warm-up in
+  `use-showcase-motion.ts`.
+- **From landing round 2, kept:** the twelve pictures under the hero
+  (`build-showcase.tsx`, captured from the real renderers) and every capture it added
+  under `public/home/onepage` and `public/home/showcase`.
+- **This round's version kept** wherever two rounds rebuilt the same section, because
+  these carry things the owner asked for by name that the other versions did not have:
+  - `everything-in-one-place.tsx`: no purple Inner Circle card, no Golden Hour presets,
+    the tee on a light grey card, stores drifting without a stop, the support card with
+    three requests, the card that leans under the mouse.
+  - `ideas-come-to-life.tsx`, `showcase-mocks/builder-mocks.tsx`: the flipping heading,
+    the carousel that plays and drags, desktop previews on a phone, no florals in the
+    website builder.
+  - `business-carousel.tsx`, `showcase-mocks/business-mocks.tsx`: "Every business, one
+    home" replaced (the owner: "look at something else").
+  - `how-it-works.tsx`, `checkout-scene.tsx`: physical and digital in one tile, one
+    e-book's story, no small print, no Golden Hour presets; the checkout scene has no
+    scroll scrubbing and draws its headline and phone from the first pixel.
+  - `creators-carousel.tsx`: no hover bump, no "New sale" notices
+    (`motion/sale-pop.tsx` is gone), new photographs.
+  - `analytics-showcase.tsx`: the smaller structure with the SEO, GEO and AEO card.
+- **Removed as unused here:** `onepage-sample.tsx` and
+  `showcase-mocks/checkout-desktop.tsx`. They are in the history. Round 2's captures of
+  live OnePages and communities fit these sections' frames (the OnePage editor's phone,
+  the checkout tile, the stores strip) and can be placed there without bringing the old
+  section structures back.
 - **Made to fit:** text that sits straight on a band takes the band's colours
   (`var(--band-ink)`, `var(--band-muted)`), so the business list and the analytics column
   read light on dark.
+
+If you change one of these sections from another branch: build on the version here, and
+check the table above still holds (no Golden Hour presets, no Inner Circle card, no sale
+notices, two rows of possibilities and of apps, plain pricing lines, the AI tools
+section, the SEO card).
 
 ## The boxes that hold each section's place
 
