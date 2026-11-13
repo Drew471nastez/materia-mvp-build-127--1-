@@ -19,6 +19,7 @@ import "server-only"
  * real row, or no row at all, is an answer.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
+import { sleptThrough } from "@/lib/net/suspended"
 
 /** The setting's table or column is not there yet: as good as no row (the part has not run). */
 function missingTable(error: { code?: string; message?: string }): boolean {
@@ -45,31 +46,53 @@ type SettingClient = { from: (table: string) => { select: (cols: string) => { eq
 */
 export const SETTING_READ_MS = 3000
 
-/**
- * One boolean of platform_settings: true or false when it is set, null when
- * there is no row (or no table). Throws a SettingUnread when the database did
- * not answer.
- */
-export async function readSetting(key: string, client: SettingClient = createAdminClient() as unknown as SettingClient): Promise<boolean | null> {
-  let answer: Awaited<ReturnType<ReturnType<ReturnType<ReturnType<SettingClient["from"]>["select"]>["eq"]>["maybeSingle"]>>
+/** The read ran out of time. `asleep`: the timer fired so late that the instance slept through it (lib/net/suspended.ts). */
+class SettingLate extends Error {
+  constructor(ms: number, readonly asleep: boolean) {
+    super(`no answer in ${ms}ms`)
+  }
+}
+
+type SettingReadOptions = { ms?: number; now?: () => number }
+
+async function askOnce(key: string, client: SettingClient, ms: number, now: () => number): Promise<SettingAnswer> {
   let timer: ReturnType<typeof setTimeout> | undefined
+  const startedAt = now()
   try {
     const ctl = new AbortController()
     const query = client.from("platform_settings").select("value").eq("key", key)
     const bounded = typeof query.abortSignal === "function" ? query.abortSignal(ctl.signal) : query
-    answer = await Promise.race([
+    return await Promise.race([
       bounded.maybeSingle(),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           ctl.abort()
-          reject(new Error(`no answer in ${SETTING_READ_MS}ms`))
-        }, SETTING_READ_MS)
+          reject(new SettingLate(ms, sleptThrough(startedAt, ms, now())))
+        }, ms)
       }),
     ])
-  } catch (e) {
-    throw new SettingUnread(key, e instanceof Error ? e.message : String(e))
   } finally {
     if (timer) clearTimeout(timer)
+  }
+}
+
+/**
+ * One boolean of platform_settings: true or false when it is set, null when
+ * there is no row (or no table). Throws a SettingUnread when the database did
+ * not answer. A read the instance slept through is asked once more first:
+ * that was the server asleep, not the database late.
+ */
+export async function readSetting(key: string, client: SettingClient = createAdminClient() as unknown as SettingClient, opts: SettingReadOptions = {}): Promise<boolean | null> {
+  const ms = opts.ms ?? SETTING_READ_MS
+  const now = opts.now ?? Date.now
+  let answer: SettingAnswer
+  try {
+    answer = await askOnce(key, client, ms, now).catch((e: unknown) => {
+      if (e instanceof SettingLate && e.asleep) return askOnce(key, client, ms, now)
+      throw e
+    })
+  } catch (e) {
+    throw new SettingUnread(key, e instanceof Error ? e.message : String(e))
   }
   if (answer.error) {
     if (missingTable(answer.error)) return null

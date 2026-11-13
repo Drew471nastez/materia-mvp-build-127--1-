@@ -507,6 +507,24 @@ async function forgetEndedPlan(db: Db, creatorId: string | null): Promise<boolea
 }
 
 /**
+ * The founder's Google Calendar does not go with the business. The grant is
+ * kept by the business's account id (google_calendar_connections.owner_id),
+ * which is what changes hands, but it is the founder's own Google account:
+ * left in place, the new owner read the founder's address, calendar list and
+ * busy times in Bookings, and every new booking was written into the
+ * founder's calendar. The new owner connects their own. A database without
+ * the calendar tables has nothing to remove.
+ */
+async function forgetFounderCalendar(db: Db, businessUserId: string): Promise<boolean> {
+  try {
+    const { error } = await db.from("google_calendar_connections").delete().eq("owner_id", businessUserId)
+    return !error || handoffMissing(error)
+  } catch {
+    return false
+  }
+}
+
+/**
  * What the database cannot do inside its transaction, after it committed:
  * the business's sign in address is made from the new owner's (so seller
  * emails reach them, not the founder), every session the business had is
@@ -533,6 +551,7 @@ export async function finishHandoff(deps: HandoffDeps, handoffId: string, viewer
   }
   steps.sessions = await deps.signOutEverywhere(row.business_user_id)
   steps.billing = await forgetEndedPlan(deps.db, row.creator_id)
+  steps.calendar = await forgetFounderCalendar(deps.db, row.business_user_id)
   await deps.forgetCaches({ userId: row.business_user_id, creatorId: row.creator_id }).catch(() => undefined)
   const done = Object.values(steps).every(Boolean)
   if (!done) {

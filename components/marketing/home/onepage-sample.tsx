@@ -193,15 +193,24 @@ export function HomeOnePage({ theme, who, className = "", style }: { theme: Home
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const fit = () => {
-      const { width, height } = el.getBoundingClientRect()
+    /*
+      Round 62: sized by the ResizeObserver alone. Reading getBoundingClientRect
+      here, as the card mounts, made the browser lay out the whole page on the
+      spot: one 267ms frame at 4x CPU in the middle of a scroll on storelib.com.
+      The observer reports the same box after the browser's own layout and
+      before it paints, so the first frame is still drawn at the right scale.
+    */
+    const fit = (width: number, height: number) => {
       if (!width) return
       const scale = width / PREVIEW_WIDTH
       el.style.setProperty("--tp-scale", String(scale))
       el.style.setProperty("--hop-h", `${Math.ceil(height / scale)}px`)
     }
-    fit()
-    const ro = new ResizeObserver(fit)
+    const ro = new ResizeObserver(([entry]) => {
+      const box = entry.borderBoxSize?.[0]
+      if (box) fit(box.inlineSize, box.blockSize)
+      else fit(entry.contentRect.width, entry.contentRect.height)
+    })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])

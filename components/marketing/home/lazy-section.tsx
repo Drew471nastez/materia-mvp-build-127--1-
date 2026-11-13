@@ -45,20 +45,52 @@
  * get the section mounted at once.
  */
 
-import { startTransition, useEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from "react"
+import { startTransition, useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties, type ReactNode } from "react"
 
-/** How far ahead of the screen a lazy section mounts: a screen and a half either way. */
-export const LAZY_AHEAD = "150% 0px 150% 0px"
+/**
+ * How far ahead of the screen a lazy section mounts: two and a half screens
+ * either way. Wave 14: it was a screen and a half, and a fling on a phone
+ * (or Page Down held on a slow one) reached the box before the section had
+ * arrived, so a blank box scrolled into view. A section mounted this far
+ * away costs little: its box skips it (content-visibility) until it is
+ * near, so the mount is React's work only, sliced as a transition.
+ */
+export const LAZY_AHEAD = "250% 0px 250% 0px"
 /**
  * Further ahead, a section mounts when the browser is idle (a visitor
  * reading, not flicking), so the work of drawing it rarely lands in a frame
  * of a scroll. LAZY_AHEAD still mounts it at once if it gets that close first.
  */
-export const LAZY_IDLE_AHEAD = "300% 0px 300% 0px"
+export const LAZY_IDLE_AHEAD = "500% 0px 500% 0px"
+/**
+ * How far ahead a mounted section (and a server-drawn LazySection) stops
+ * being skipped and is drawn. Wave 14: left to content-visibility: auto, the
+ * browser draws a skipped box only when it is within half a screen, and only
+ * in a frame of the page's own thread; on a slow phone that thread is busy
+ * for a tenth of a second at a time, the scroll itself runs on, and the
+ * section arrived blank and filled in after it was already on screen.
+ * Drawn a screen and a half ahead, its pictures are painted and rastered
+ * before it gets there, and a fling never outruns them.
+ */
+export const LAZY_DRAW_AHEAD = "150% 0px 150% 0px"
 /** How long after the load event the idle prefetch starts, so it never competes with the hero or a first tap. */
 export const LAZY_PREFETCH_AFTER_MS = 1000
+/**
+ * Wave 14: and at the latest this long after the page came alive (the first
+ * lazy box's effect). On a slow network the load event waits for every
+ * picture and the hero video, many seconds after the page works, and the
+ * sections' code (a few kilobytes each) waited with it.
+ */
+export const LAZY_PREFETCH_LATEST_MS = 2500
 /** An idle slot shorter than this is passed over: fetching and running a section's code needs room. */
 const IDLE_ROOM_MS = 12
+/**
+ * Wave 14: idle work waits until the page has not scrolled for this long. A
+ * scroll runs on the compositor and leaves the page's own thread idle, so
+ * the browser offered its idle slots in the middle of a fling, and a mount
+ * or a measure (50 to 180 ms at 4x CPU) landed there as a dropped frame.
+ */
+const CALM_MS = 260
 
 /**
  * A stylesheet a section draws as `<style href precedence>`. Listed beside
@@ -105,19 +137,53 @@ type Options = {
   contain?: boolean
 }
 
-type Idle = (cb: (deadline?: IdleDeadline) => void, timeout?: number) => void
-const idle: Idle = (cb, timeout) => {
-  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(cb, timeout ? { timeout } : undefined)
-  else window.setTimeout(() => cb(), timeout ? Math.min(timeout, 600) : 1200)
+let lastScroll = -Infinity
+let scrollHooked = false
+function hookScroll() {
+  if (scrollHooked) return
+  scrollHooked = true
+  window.addEventListener("scroll", () => (lastScroll = performance.now()), { passive: true, capture: true })
 }
 
-const loaders = new Set<() => Promise<unknown>>()
+const noSubscription = () => () => {}
+const drawnInBrowser = () => true
+const drawnOnServer = () => false
+
+type Idle = (cb: (deadline?: IdleDeadline) => void, timeout?: number) => void
+/** An idle slot while the page is not scrolling (CALM_MS); `timeout` still bounds the wait, scrolling or not. */
+const idle: Idle = (cb, timeout) => {
+  hookScroll()
+  const until = timeout ? performance.now() + timeout : Infinity
+  const run = (deadline?: IdleDeadline) => {
+    const now = performance.now()
+    const since = now - lastScroll
+    if (since < CALM_MS && now < until) {
+      window.setTimeout(() => ask(), CALM_MS - since)
+      return
+    }
+    cb(deadline)
+  }
+  const ask = () => {
+    const left = until - performance.now()
+    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(run, left < Infinity ? { timeout: Math.max(1, left) } : undefined)
+    else window.setTimeout(() => run(), left < Infinity ? Math.min(left, 600) : 1200)
+  }
+  ask()
+}
+
+type Loader = (() => Promise<unknown>) & { box?: Element }
+const loaders = new Set<Loader>()
 let prefetchScheduled = false
 let settled: Promise<void> | null = null
-/** Resolves LAZY_PREFETCH_AFTER_MS after the load event: nothing optional starts before. */
+/**
+ * Resolves LAZY_PREFETCH_AFTER_MS after the load event, or LAZY_PREFETCH_LATEST_MS
+ * after the page came alive (first asked), whichever is first: nothing
+ * optional starts before.
+ */
 function afterLoad() {
   return (settled ??= new Promise<void>((done) => {
     const later = () => window.setTimeout(done, LAZY_PREFETCH_AFTER_MS)
+    window.setTimeout(done, LAZY_PREFETCH_LATEST_MS)
     if (document.readyState === "complete") later()
     else window.addEventListener("load", later, { once: true })
   }))
@@ -127,19 +193,158 @@ function afterLoad() {
 const waiting = new Map<HTMLElement, () => Promise<unknown>>()
 
 /**
- * Once every section's code is here, the ones still far below are mounted
- * one at a time, top first, each in an idle slot with room for it (never on
- * a timeout): while a visitor reads, the page finishes drawing itself, so the
- * scroll that follows has nothing left to build. A visitor who is scrolling
- * leaves the browser no such slots, and the observers mount what they reach.
+ * How far a box is from the screen, in pixels, sections below counted a
+ * little nearer than those above (a visitor reads down). Read from the boxes
+ * the observers last saw (nearBox), so choosing costs no layout.
+ */
+const distance = new WeakMap<Element, number>()
+function farness(el: Element) {
+  const d = distance.get(el)
+  return d === undefined ? Infinity : d
+}
+
+/**
+ * Once every section's code is here, the ones still waiting are mounted one
+ * at a time, each in an idle slot with room for it (never on a timeout):
+ * while a visitor reads, the page finishes drawing itself, so the scroll that
+ * follows has nothing left to build. A visitor who is scrolling leaves the
+ * browser no such slots (idle waits for a pause), and the observers mount
+ * what they reach. Wave 14: the one nearest the screen first, not the one
+ * nearest the top: after a jump to the end (End, or the scroll bar), the
+ * sections around the reader come before the ones they skipped.
  */
 function mountNext(deadline?: IdleDeadline) {
   if (!waiting.size) return
   if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(mountNext)
-  const [el, mount] = [...waiting].sort(([a], [b]) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))[0]
+  const [el, mount] = [...waiting].sort(([a], [b]) => farness(a) - farness(b) || (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))[0]
   waiting.delete(el)
   /* After it has drawn (two frames), wait for the next idle slot. */
   void mount().finally(() => requestAnimationFrame(() => requestAnimationFrame(() => idle(mountNext))))
+}
+
+/*
+ * Wave 14: one observer for every box's distance from the screen (above:
+ * how far its bottom is above the top; below: how far its top is below the
+ * bottom, at two thirds), refreshed as boxes cross a few thresholds, so the
+ * idle chain picks the nearest without reading any layout itself.
+ */
+let distanceWatch: IntersectionObserver | null = null
+function watchDistance(el: Element) {
+  if (typeof IntersectionObserver !== "function") return () => {}
+  distanceWatch ??= new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        const r = e.boundingClientRect
+        const vh = e.rootBounds?.height ?? window.innerHeight
+        distance.set(e.target, r.bottom < 0 ? -r.bottom : r.top > vh ? (r.top - vh) * 0.67 : 0)
+      }
+    },
+    { rootMargin: "400% 0px 400% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },
+  )
+  distanceWatch.observe(el)
+  return () => distanceWatch?.unobserve(el)
+}
+
+/** A slice of a section laid out in one idle slot: subtrees of at most this many elements. */
+const SLICE_ELEMENTS = 60
+
+/*
+ * Wave 14: a mounted section is laid out ahead (the measure below) a slice at
+ * a time. In one go it cost 60 to 180 ms of the page's thread at 4x CPU for
+ * each of the big sections (the mocks' many text sizes), a dozen long tasks
+ * in the seconds after load (most of the page's Total Blocking Time), or, put
+ * off, a dropped frame in the middle of a scroll. Instead the section's
+ * subtrees of up to SLICE_ELEMENTS elements are held back with
+ * content-visibility: hidden (the section is off screen and skipped, so
+ * nobody sees it), and let go a few per calm idle slot, each slot laying out
+ * only those: 10 to 45 ms a slot at 4x. How many per slot follows how long
+ * the last ones took. If the box comes near before the last slice
+ * (LAZY_DRAW_AHEAD), everything still held back is let go at once.
+ */
+const slicing = new WeakMap<Element, () => void>()
+function layOutInSlices(box: HTMLElement, done: () => void): () => void {
+  const inner = box.firstElementChild
+  if (!(inner instanceof HTMLElement)) return () => {}
+  const groups: HTMLElement[] = []
+  const walk = (el: Element) => {
+    const n = el.getElementsByTagName("*").length
+    if (n <= SLICE_ELEMENTS) {
+      if (n >= 4 && el instanceof HTMLElement && !el.style.contentVisibility) groups.push(el)
+      return
+    }
+    for (const child of el.children) walk(child)
+  }
+  let next = 0
+  let per = 0
+  let over = false
+  let held = false
+  const letGo = (to: number) => {
+    if (held) for (; next < to; next++) groups[next].style.contentVisibility = ""
+  }
+  const finish = () => {
+    if (over) return
+    over = true
+    slicing.delete(box)
+    letGo(groups.length)
+  }
+  const step = () => {
+    if (over) return
+    if (!held) {
+      /*
+       * The first slot. Already drawn (near the screen, LAZY_DRAW_AHEAD,
+       * whose first report comes before any idle slot): nothing is held
+       * back, since that would blank part of a section someone can see; it
+       * is laid out by the frame that draws it, and done() reads its height.
+       */
+      if (box.style.contentVisibility === "visible") {
+        finish()
+        done()
+        return
+      }
+      for (const child of inner.children) walk(child)
+      for (const g of groups) g.style.contentVisibility = "hidden"
+      held = true
+    }
+    const t = performance.now()
+    letGo(Math.min(groups.length, next + per))
+    /* A size read lays out what was let go (and, the first time, the section around the held-back slices). */
+    void inner.getBoundingClientRect()
+    const took = performance.now() - t
+    per = per === 0 ? 1 : took < 12 ? per * 2 : took > 30 ? Math.max(1, per >> 1) : per
+    if (next < groups.length) idle(step)
+    else {
+      finish()
+      done()
+    }
+  }
+  slicing.set(box, finish)
+  idle(step)
+  return finish
+}
+
+/*
+ * Wave 14: drawn ahead (LAZY_DRAW_AHEAD). Near the screen a box is
+ * content-visibility: visible with the same containment content-visibility:
+ * auto gives it (layout, paint and style), so nothing it draws looks
+ * different; further away it is auto again and costs a frame nothing.
+ */
+let drawWatch: IntersectionObserver | null = null
+function watchDraw(el: HTMLElement) {
+  if (typeof IntersectionObserver !== "function") return () => {}
+  drawWatch ??= new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        const box = e.target as HTMLElement
+        if (!box.style.contentVisibility) continue
+        if (e.isIntersecting) slicing.get(box)?.()
+        box.style.contentVisibility = e.isIntersecting ? "visible" : "auto"
+        box.style.contain = e.isIntersecting ? "layout paint style" : ""
+      }
+    },
+    { rootMargin: LAZY_DRAW_AHEAD },
+  )
+  drawWatch.observe(el)
+  return () => drawWatch?.unobserve(el)
 }
 
 /**
@@ -153,13 +358,31 @@ function schedulePrefetch() {
   /* Not on Save-Data or 2g: those visitors fetch a section only when they reach it. */
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
   if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return
+  /*
+   * Wave 14: two at a time, nearest first. One at a time, each waiting for an
+   * idle slot of its own, the last section's code arrived seconds after the
+   * first on a slow network, and a reader who got there first found its box.
+   */
   const start = () => {
-    const queue = [...loaders]
+    const queue = [...loaders].sort((a, b) => farness(a.box ?? document.body) - farness(b.box ?? document.body))
+    let running = 0
+    let done = false
     const next = (deadline?: IdleDeadline) => {
       if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(next)
-      const load = queue.shift()
-      if (load) void load().catch(() => undefined).finally(() => idle(next))
-      else idle(mountNext)
+      while (running < 2 && queue.length) {
+        const load = queue.shift()!
+        running++
+        void load()
+          .catch(() => undefined)
+          .finally(() => {
+            running--
+            idle(next)
+          })
+      }
+      if (!running && !queue.length && !done) {
+        done = true
+        idle(mountNext)
+      }
     }
     idle(next)
   }
@@ -188,12 +411,24 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
           () => undefined,
         )
       : Promise.resolve())
-  /* The prefetch: the code, then (in an idle slot of its own) the styles. */
-  loaders.add(() => get().then(style))
+  /* The prefetch: the code, then (in an idle slot of its own) the styles. `box` is the section's box once drawn, so the nearest is fetched first. */
+  const loader: Loader = () => get().then(style)
+  loaders.add(loader)
 
   function LazySectionMount(props: P) {
     const ref = useRef<HTMLDivElement>(null)
-    const [Section, setSection] = useState<ComponentType<P> | null>(() => cached)
+    /*
+     * Wave 14: false while React hydrates the server's HTML (it reads the
+     * server snapshot then), true for a box drawn in the browser. Hydrating,
+     * the box starts empty, as the server drew it, even when the section's
+     * code is already here: on a slow network the prefetch can land before
+     * React reaches a box further down, and drawing the section there made
+     * the HTML differ from the server's (React error #418, and the page
+     * re-drawn). After a navigation back to the page, a section whose code
+     * is here is drawn at once, as before.
+     */
+    const browserDrawn = useSyncExternalStore(noSubscription, drawnInBrowser, drawnOnServer)
+    const [Section, setSection] = useState<ComponentType<P> | null>(() => (browserDrawn ? cached : null))
 
     useEffect(() => {
       schedulePrefetch()
@@ -250,11 +485,14 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
       io.observe(el)
       if (!options.rootMargin) far.observe(el)
       waiting.set(el, mount)
+      loader.box = el
+      const unwatch = watchDistance(el)
       return () => {
         live = false
         waiting.delete(el)
         io.disconnect()
         far.disconnect()
+        unwatch()
       }
     }, [Section])
 
@@ -264,16 +502,21 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
      * LazySection does). A skipped section costs a frame nothing: no style,
      * no layout, no paint and no compositor layers, which is what kept every
      * frame of a scroll busy once a dozen sections had mounted. Right after
-     * it mounts, in the next idle slot, it is laid out once while still
-     * skipped (a size read forces that) and its real height is kept as the
-     * box's size, so the page below it is in its final place and the frame
-     * that brings it on screen only has to paint it.
+     * it mounts it is laid out while still skipped, in calm idle slots, a
+     * slice at a time (wave 14, layOutInSlices; it was one long task), and
+     * its real height is kept as the box's size, so the page below it is in
+     * its final place and the frame that brings it on screen only has to
+     * paint it. Near the screen it is drawn ahead
+     * (LAZY_DRAW_AHEAD): skipped boxes also kept every animation in them on
+     * the page's thread (Chromium composites none inside content-visibility:
+     * auto), restyling each one on every frame.
      */
     useEffect(() => {
       const el = ref.current
       if (!Section || !el || options.contain === false) return
       let live = true
-      idle(() => {
+      const unwatch = watchDraw(el)
+      const stopSlicing = layOutInSlices(el, () => {
         const inner = live ? el.firstElementChild : null
         if (!inner) return
         const height = inner.getBoundingClientRect().height
@@ -281,6 +524,8 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
       })
       return () => {
         live = false
+        unwatch()
+        stopSlicing()
       }
     }, [Section])
 
@@ -319,9 +564,16 @@ export function LazySection({
   sticky?: boolean
   name?: string
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+  /* Wave 14: drawn ahead like the mounted sections (LAZY_DRAW_AHEAD). */
+  useEffect(() => {
+    const el = ref.current
+    if (sticky || !el) return
+    return watchDraw(el)
+  }, [sticky])
   const style: CSSProperties | undefined = sticky ? undefined : { contentVisibility: "auto", containIntrinsicSize: `auto ${minHeight}` }
   return (
-    <div data-lazy-section={name ?? ""} style={style}>
+    <div ref={ref} data-lazy-section={name ?? ""} style={style}>
       {children}
     </div>
   )

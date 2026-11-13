@@ -66,6 +66,7 @@ import { HeaderCartDrawer, HeaderMobileNavDrawer } from "./renderers/HeaderSecti
 import { SearchModal } from "../header-search-modal"
 import { localizedHref, switchCurrency, switchLanguage } from "../theme/language-switch"
 import { closeOwnPanel, openOwnPanel, usePageHooks } from "./own-panels"
+import { releaseOwnPanels, setOwnPanel } from "./own-panel-layer"
 import { iconSvg } from "@/lib/website-builder/storelib-icons"
 
 const TRIGGERS = `[${H.cart}],[${H.search}],[${H.menu}]`
@@ -88,13 +89,8 @@ function within<T extends HTMLElement>(root: HTMLElement, sel: string): T[] {
   return [...(root.matches(sel) ? [root as T] : []), ...Array.from(root.querySelectorAll<T>(sel))]
 }
 
-/** Open or shut, the same way for every panel of the site's own: data-open, aria-hidden, inert. */
-function markPanel(panel: HTMLElement, open: boolean) {
-  if (panel.getAttribute("data-open") !== String(open)) panel.setAttribute("data-open", String(open))
-  panel.setAttribute("aria-hidden", String(!open))
-  if (open) panel.removeAttribute("inert")
-  else panel.setAttribute("inert", "")
-}
+/** Every panel of the site's own, for the cleanup when a section goes. */
+const OWN_PANELS = `[${H.cartPanel}],[${H.searchPanel}],[${H.menuPanel}]`
 
 /**
  * A language or currency list drawn from its one pattern: a copy per option,
@@ -401,7 +397,7 @@ export function useStorefrontHooks({
   */
   useLayoutEffect(() => {
     if (!scriptRoot || !flags.cartPanel) return
-    scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartPanel}]`).forEach((panel) => markPanel(panel, panelOpen))
+    scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartPanel}]`).forEach((panel) => setOwnPanel(panel, panelOpen, inCanvas))
     const empty = cart.ready ? cart.lines.length === 0 : true
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartEmpty}]`).forEach((el) => { el.hidden = !empty })
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartFilled}]`).forEach((el) => { el.hidden = empty })
@@ -443,7 +439,7 @@ export function useStorefrontHooks({
         list.appendChild(root)
       })
     })
-  }, [scriptRoot, html, flags.cartPanel, panelOpen, cart.lines, cart.ready, checkingOut, cartMoney])
+  }, [scriptRoot, html, flags.cartPanel, panelOpen, inCanvas, cart.lines, cart.ready, checkingOut, cartMoney])
 
   /* The keyboard stays in the open cart panel on the live page, as in the built-in drawer, and goes back to what opened it. */
   const cartPanelRef = useRef<HTMLElement | null>(null)
@@ -536,7 +532,7 @@ export function useStorefrontHooks({
     const answered = asked !== "" && asked === q
     const state = !q ? "idle" : searching && !answered ? "loading" : hits.length ? "results" : answered ? "empty" : "loading"
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.searchPanel}]`).forEach((panel) => {
-      markPanel(panel, ownSearchOpen)
+      setOwnPanel(panel, ownSearchOpen, inCanvas)
       if (!panel.hasAttribute("role")) panel.setAttribute("role", "dialog")
       if (ownSearchOpen) panel.setAttribute("aria-modal", "true")
       else panel.removeAttribute("aria-modal")
@@ -575,7 +571,7 @@ export function useStorefrontHooks({
         list.appendChild(item)
       }
     })
-  }, [scriptRoot, html, flags.searchPanel, ownSearchOpen, term, asked, searching, hits, display, money])
+  }, [scriptRoot, html, flags.searchPanel, ownSearchOpen, inCanvas, term, asked, searching, hits, display, money])
 
   /* The keyboard stays in the open window on the live page, as in the built-in one; Escape shuts it; focus goes back to the button that opened it. */
   useFocusTrap(ownSearchOpen, searchPanelRef, !inCanvas)
@@ -605,12 +601,17 @@ export function useStorefrontHooks({
     if (!scriptRoot || !flags.menuPanel) return
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.menuPanel}]`).forEach((panel) => {
       fillMenuLinks(panel, (handle) => menuLinksFor(menus, handle, pageKeys ?? []))
-      markPanel(panel, ownMenuOpen)
+      setOwnPanel(panel, ownMenuOpen, inCanvas)
       if (!panel.hasAttribute("role")) panel.setAttribute("role", "dialog")
       if (ownMenuOpen) panel.setAttribute("aria-modal", "true")
       else panel.removeAttribute("aria-modal")
     })
-  }, [scriptRoot, html, flags.menuPanel, ownMenuOpen, menus, pageKeys])
+  }, [scriptRoot, html, flags.menuPanel, ownMenuOpen, inCanvas, menus, pageKeys])
+  /* A section that goes while a panel of its is open gives back what that panel asked of the page (./own-panel-layer.ts). */
+  useEffect(() => {
+    if (!scriptRoot) return
+    return () => releaseOwnPanels(scriptRoot, OWN_PANELS)
+  }, [scriptRoot])
   /* Any of this section's own panels open: the page behind it holds still (lockPageScroll). */
   const anyOwnOpen = ownMenuOpen || panelOpen || ownSearchOpen
   useEffect(() => (anyOwnOpen ? lockPageScroll(inCanvas) : undefined), [anyOwnOpen, inCanvas])
