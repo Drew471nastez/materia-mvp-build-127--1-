@@ -60,6 +60,7 @@ import { maskEmail } from "@/lib/privacy/mask-email"
 import { verifiedSender } from "@/lib/emails/sending-domain-server"
 import { ownFrom } from "@/lib/emails/sending-domain"
 import { scoreSignup } from "@/lib/security/spam-signals"
+import { isBanned } from "@/lib/seo/bans"
 import { APP_URL, unsubscribeUrlFor } from "@/lib/email-automation"
 import { normalizeAddress, safeDisplayName } from "./address"
 import { byteLength, checkContent, cleanPreview, cleanSubject, type Problem } from "./validate"
@@ -147,6 +148,9 @@ export interface Sender {
   sendingDomain: string | null
 }
 
+/** What a sender who may not send is told: a send refused, a scheduled one that did not start, the addresses one under way did not reach. */
+export const CANNOT_SEND = "This account cannot send email. Write to support@storelib.com if that is a mistake."
+
 function fromAddress(): string {
   const m = EMAIL_FROM.match(/<(.+)>/)
   return (m ? m[1] : EMAIL_FROM).trim()
@@ -161,9 +165,15 @@ function fromAddress(): string {
  * DMARC and teach every inbox to distrust both of us.
  */
 export async function loadSender(db: Db, creatorId: string, fromName?: string | null): Promise<Sender | null> {
+  /*
+    READ WHOLE (`*`), so the ban is seen where creators.banned_at exists and
+    nothing fails where it does not (lib/seo/bans.ts, the same soft read the
+    website and the OnePage make). One read, as before: only its columns
+    changed.
+  */
   const { data: creator } = await db
     .from("creators")
-    .select("id, user_id, support_email, slug, headline, subscription_plan_id, subscription_status")
+    .select("*")
     .eq("id", creatorId)
     .maybeSingle()
   if (!creator) return null
@@ -200,7 +210,15 @@ export async function loadSender(db: Db, creatorId: string, fromName?: string | 
     accountEmail: normalizeAddress(profile?.email),
     planId: creator.subscription_plan_id ?? null,
     planStatus: creator.subscription_status ?? null,
-    blocked: verdict.blocked,
+    /*
+      A BANNED STORE SENDS NOTHING (round AW). A ban (app/api/admin/creators/
+      moderate) closed the storefront and unpublished the products, and the
+      account went on mailing its list from Storelib's sending domain: a new
+      send, a scheduled one coming due, one already under way. Mail from a
+      store banned for spam or phishing is what gets that domain blocklisted
+      for every seller. Lifting the ban sends again; nothing is deleted.
+    */
+    blocked: verdict.blocked || isBanned(creator as { banned_at?: string | null }),
     brand: { name: brand.name, logoUrl: brand.logoUrl, storeUrl: brand.storeUrl, accent: brand.accent, address: brand.address },
   }
 }
@@ -424,7 +442,7 @@ export async function startSend(db: Db, o: StartOptions): Promise<StartResult> {
   const sender = await loadSender(db, o.creatorId, campaign.from_name)
   if (!sender) return { kind: "not_found" }
   if (sender.blocked) {
-    return { kind: "invalid", status: 403, errors: [{ field: "audience", message: "This account cannot send email. Write to support@storelib.com if that is a mistake." }] }
+    return { kind: "invalid", status: 403, errors: [{ field: "audience", message: CANNOT_SEND }] }
   }
 
   /* No audience chosen (round 52: people picked in Contacts of whom none may get it): refused, never read as everyone. */
@@ -629,6 +647,17 @@ export async function processCampaign(db: Db, campaignId: string, o: ProcessOpti
   const sender = await loadSender(db, campaign.creator_id, campaign.from_name)
   if (!sender || content.errors.length) {
     await failOutstanding(db, campaignId, modern, "The email could not be prepared for sending.")
+    return { ...(await finalize(db, campaignId, modern)), ...tally, outcome: "finished" }
+  }
+  /*
+    AND ONE ALREADY UNDER WAY STOPS (round AW). startSend refuses a blocked
+    sender, but a send queued before the ban went on batch after batch, and
+    the cron took it over whenever it went quiet. Every address not yet
+    reached is marked with the reason, which ends the campaign for good: a
+    retry of those addresses comes back here and stops the same way.
+  */
+  if (sender.blocked) {
+    await failOutstanding(db, campaignId, modern, CANNOT_SEND)
     return { ...(await finalize(db, campaignId, modern)), ...tally, outcome: "finished" }
   }
   const frame: Frame = {
