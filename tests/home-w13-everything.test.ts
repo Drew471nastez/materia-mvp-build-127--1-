@@ -86,11 +86,11 @@ check("every order is in a currency checkout charges in", EVERYTHING_GLOBE_ORDER
 check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSync(join(root, "public/flags", `${o.cc}.svg`))))
 
 console.log("\n── card 2 and 4 ──")
-/* Changed on purpose (land round): three storefronts and three OnePages, each OnePage a theme the picker ships drawn by its own ThemePreview (components/marketing/home/onepage-sample). */
+/* Changed on purpose (land round 2): three storefronts and three OnePages, each OnePage a capture of the live page in a theme the picker ships (components/marketing/home/onepage-sample). */
 check("three storefronts and three OnePages glide past, the strip seamless (last, the six, first two)", /const strip = \[STORES\[5\], \.\.\.STORES, STORES\[0\], STORES\[1\]\]/.test(src) && /100%\{transform:translate3d\(calc\(-600% \/ 9\),0,0\)\}/.test(css))
-check("  the OnePages are real themes, drawn by the theme picker's ThemePreview", ["ember", "halo", "atlas"].every((t) => html.includes(`data-home-onepage="${t}"`)) && (html.match(/data-tp-page=""/g) || []).length >= 3 && /storelib\.me\//.test(html))
+check("  the OnePages are captures of the live page in three shipped themes", ["arcade", "dune", "classic98"].every((t) => html.includes(`data-home-onepage="${t}"`)) && ["op-kofi", "op-mariana", "op-arjun"].every((n) => html.includes(`/home/onepage/${n}.webp`)) && /storelib\.me\/kofiasante/.test(html))
 check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /From a buyer/.test(html) && /data-storelib-logo/.test(html)) /* Changed on purpose (wave 13 integration): Storelib's reply avatar is the logo through StorelibLogo, not the old /storelib-mark.svg file brand-logo.test.ts forbids. */
-/* Changed on purpose (land round): the OnePages' pictures are drawn by ThemePreview, through the image optimizer, as the theme picker draws them (data-tp-photo, data-theme-thumb); the section's own are checked here. */
+/* Changed on purpose (land round 2): the OnePages are local pictures now and are checked with the rest; the filter below is left for any picture the theme picker would draw. */
 const ownPics = html.replace(/<img [^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
 const pics = [...ownPics.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])
 check("every picture is local and exists", pics.length > 20 && pics.every((u) => u.startsWith("/") && existsSync(join(root, "public", u))), pics.filter((u) => !existsSync(join(root, "public", u))))

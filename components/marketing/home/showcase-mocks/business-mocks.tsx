@@ -12,7 +12,7 @@ import {
   User,
 } from "lucide-react"
 import { Pic, u } from "./frame"
-import { HomeOnePage, HomeOnePageStyle, PRIYA } from "../onepage-sample"
+import { HomeOnePage, HomeOnePageStyle, LUCIA_DESKTOP, LUCIA_PHONE } from "../onepage-sample"
 
 /*
   FIVE REAL-LOOKING STOREFRONTS, ONE PER KIND OF BUSINESS.
@@ -24,8 +24,8 @@ import { HomeOnePage, HomeOnePageStyle, PRIYA } from "../onepage-sample"
     Saltlight          Lightroom presets by a travel photographer
     Brush & Bloom      a watercolor course (sales page / lesson player)
     The Darkroom Club  a film photography community (the member area)
-    Sol & Sage         a cook's OnePage (link in bio), the Notebook theme
-                       drawn by ThemePreview (../onepage-sample)
+    Lucía Ferrer       a voice actor's OnePage (link in bio), the Gazette
+                       theme, captures of the live page (../onepage-sample)
     Hollow Pines       an indie folk band's merch shop
 
   Photographs: Unsplash (free licence), re-encoded small in public/home/showcase.
@@ -481,28 +481,27 @@ export function DarkroomMobile() {
   )
 }
 
-/* ================================================================ OnePage: Sol & Sage */
+/* ================================================================ OnePage: Lucía Ferrer */
 /*
-  Priya's OnePage in Notebook, a theme the OnePage picker ships, drawn by the
-  picker's own ThemePreview (../onepage-sample): the theme decides the
-  header, the buttons, the tiles and the wallpaper, as it would on her page.
-  On a computer the live page is a card on the theme's own wallpaper.
+  Lucía's OnePage in Gazette, a theme the OnePage picker ships, captured from
+  the live page (../onepage-sample) at a computer's 1280 x 960 and a phone's
+  390 x 693: on a computer it is the page's own card on the theme's
+  wallpaper, with the QR code the live page shows there.
 */
-export function SolDesktop() {
+export function LuciaDesktop() {
   return (
     <div className="bz zo">
       <HomeOnePageStyle />
-      <div className="zo-wall" />
-      <HomeOnePage theme="notebook" who={PRIYA} className="zo-card" />
+      <HomeOnePage shot={LUCIA_DESKTOP} className="zo-full" />
     </div>
   )
 }
 
-export function SolMobile() {
+export function LuciaMobile() {
   return (
     <div className="bz zo zo-m">
       <HomeOnePageStyle />
-      <HomeOnePage theme="notebook" who={PRIYA} className="zo-full" />
+      <HomeOnePage shot={LUCIA_PHONE} className="zo-full" />
     </div>
   )
 }
@@ -824,10 +823,8 @@ export const BUSINESS_MOCK_CSS = u(`
 .zd-m .zd-post{padding:14u}
 .zd-mpic{height:290u;margin:12u -14u 0;overflow:hidden}
 
-/* ---------- Sol & Sage (OnePage) */
-.zo{background:#ece6d6}
-.zo-wall{position:absolute;inset:0;background:#f8f5ec;background-image:radial-gradient(70% 80% at 50% 0%,rgba(255,255,255,.7),transparent 70%)}
-.zo-card{position:absolute!important;left:50%;top:44u;width:400u;bottom:-60u;margin-left:-200u;border-radius:30u;box-shadow:0 0 0 1u rgba(60,48,20,.08),0 30u 70u -20u rgba(60,48,20,.35)}
+/* ---------- Lucía Ferrer (OnePage) */
+.zo{background:#edeae0}
 .zo-full{position:absolute!important;inset:0}
 
 /* ---------- Hollow Pines */

@@ -14,8 +14,8 @@ import {
   HollowMobile,
   SaltlightDesktop,
   SaltlightMobile,
-  SolDesktop,
-  SolMobile,
+  LuciaDesktop,
+  LuciaMobile,
 } from "./showcase-mocks/business-mocks"
 import { PILLS_CSS } from "./showcase-mocks/pills"
 import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
@@ -61,10 +61,10 @@ export const BUSINESS_SLIDES: Slide[] = [
   {
     id: "onepage",
     label: "OnePage",
-    desktop: <SolDesktop />,
-    mobile: <SolMobile />,
-    desktopAlt: "Sol & Sage's OnePage on a computer: Priya Raman's cookbook for $18, a free meal plan, a live cooking class and recipes.",
-    mobileAlt: "Sol & Sage's OnePage on a phone, the link in Priya Raman's bio: her cookbook, meal plan, live class and recipes.",
+    desktop: <LuciaDesktop />,
+    mobile: <LuciaMobile />,
+    desktopAlt: "Lucía Ferrer's OnePage on a computer, a voice actor in Madrid: a Request a quote link and her Mic technique for beginners course for €49, on the page's newspaper style card with its QR code.",
+    mobileAlt: "Lucía Ferrer's OnePage on a phone, the link in her bio: Request a quote, her €49 mic technique course, her commercial reel and her games reel.",
   },
   {
     id: "physical",

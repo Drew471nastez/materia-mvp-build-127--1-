@@ -6,7 +6,6 @@ import {
   BarChart as Chart,
   BarChart2,
   BarChart3,
-  Calendar,
   Check,
   ChevronDown,
   Code2,
@@ -46,12 +45,11 @@ import {
   Trash2,
   Undo2,
   Users,
-  Youtube,
 } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { MockFrame, Pic, u } from "./frame"
 import { BloomDesktop } from "./business-mocks"
-import { HomeOnePage, HomeOnePageStyle, MAYA } from "../onepage-sample"
+import { HomeOnePage, HomeOnePageStyle, RAFA, RAFA_SIGNUP } from "../onepage-sample"
 
 /*
   INSIDE STORELIB'S BUILDERS, AS THEY ARE TODAY (wave 13).
@@ -300,13 +298,13 @@ export function WebsiteBuilderMock() {
 
 /* ================================================================ OnePage editor */
 type Block = { t: string; s: string; pic?: string; Icon?: typeof Link2; clicks?: string; off?: boolean }
-/* In the order the preview draws them (MAYA in ../onepage-sample): two links, the plan, the signup switched on, the video. */
-const MAYA_BLOCKS: Block[] = [
-  { t: "Join Saturday Run Club", s: "storelib.com/c/saturday-run-club", Icon: Users, clicks: "842" },
-  { t: "Book a 1:1 gait review", s: "Booking form", Icon: Calendar, clicks: "311" },
-  { t: "16-Week Marathon Plan", s: "$39.00", pic: "mr-run", clicks: "1.9k" },
-  { t: "Monday training notes", s: "Lead capture form", Icon: Mail, off: true },
-  { t: "How I ran a 3:08 marathon", s: "youtube.com/@mayaruns", pic: "mr-race", clicks: "2.4k" },
+/* In the order the preview draws them (RAFA in ../onepage-sample, a capture of the live page): two links, the gift card, the signup switched on, the photos. */
+const RAFA_BLOCKS: Block[] = [
+  { t: "Book a consultation", s: "rafaortega.ink/book", pic: "rf-work", clicks: "618" },
+  { t: "Flash sheet, March", s: "rafaortega.ink/flash", pic: "rf-arm", clicks: "1.3k" },
+  { t: "Gift card", s: "$100.00", pic: "rf-sleeve", clicks: "97" },
+  { t: "Books open first here", s: "Email signup", Icon: Mail, off: true },
+  { t: "Healed work", s: "3 photos, grid", Icon: ImageIcon, clicks: "402" },
 ]
 
 function OpeBlock({ b }: { b: Block }) {
@@ -339,21 +337,18 @@ function OpeBlock({ b }: { b: Block }) {
 function OpeProfile() {
   return (
     <div className="ope-profile">
-      <Pic n="av-maya" w={160} h={160} className="ope-av" />
+      <Pic n="av-rafa" w={160} h={160} className="ope-av" />
       <span>
         <b>
-          Maya Okafor <Pencil />
+          Rafa Ortega <Pencil />
         </b>
-        <i>Run coach · 6 marathons · Brooklyn, NY. Training plans that fit real life.</i>
+        <i>Fine line and blackwork. Private studio in East Austin, by appointment only.</i>
         <span className="ope-socials">
           <em>
             <Instagram />
           </em>
           <em>
             <Music2 />
-          </em>
-          <em>
-            <Youtube />
           </em>
           <em className="add">
             <Plus />
@@ -414,7 +409,7 @@ export function OnePageEditorMock() {
             </span>
           </span>
           <div className="ope-list">
-            {MAYA_BLOCKS.map((b) => (
+            {RAFA_BLOCKS.map((b) => (
               <OpeBlock key={b.t} b={b} />
             ))}
           </div>
@@ -422,8 +417,9 @@ export function OnePageEditorMock() {
         <div className="ope-stage">
           <div className="ope-phone">
             <MockFrame w={390} ratio="287/607" label="" className="ope-screen">
-              {/* Maya's page in Lagoon, a theme the picker ships, drawn by the picker's own ThemePreview; her signup appears as it is switched on. */}
-              <HomeOnePage theme="lagoon" who={MAYA} className="ope-page" />
+              {/* Rafa's page in Grunge, the live page captured without and with the signup; the second fades in as it is switched on. */}
+              <HomeOnePage shot={RAFA} className="ope-page" />
+              <HomeOnePage shot={RAFA_SIGNUP} className="ope-page ope-page-on" />
             </MockFrame>
           </div>
         </div>
@@ -450,7 +446,7 @@ export function OnePageEditorMock() {
           <OpeProfile />
           <span className="ope-add">Add</span>
           <div className="ope-list">
-            {MAYA_BLOCKS.slice(0, 4).map((b) => (
+            {RAFA_BLOCKS.slice(0, 4).map((b) => (
               <OpeBlock key={b.t} b={{ ...b, off: false }} />
             ))}
           </div>
@@ -829,21 +825,18 @@ export const BUILDER_CSS = u(`
 .ope-screen{border-radius:36u}
 .ope-cur{left:672u;top:654u}
 .ope-page{position:absolute!important;inset:0}
-/* Until the signup is switched on: hidden, and the block under it up in its place (158px is the signup and the gap under it, on the page at 390). */
-.ope-phone [data-tp-news]{opacity:0}
-.ope-phone [data-tp-news]~*{transform:translateY(-158px)}
+/* Until the signup is switched on, the page without it; the page with it fades in over it. */
+.ope-page-on{opacity:0}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-cur{animation:sxk-op-cur var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw b{animation:sxk-op-knob var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw-on,[data-mock-live] .ope-phone [data-tp-news]{animation:sxk-op-on var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw-on,[data-mock-live] .ope-page-on{animation:sxk-op-on var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-face{animation:sxk-op-face var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-phone [data-tp-news]~*{animation:sxk-op-after var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-saved{animation:sxk-op-saved var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-dirty{animation:sxk-op-dirty var(--bm-t) var(--bm-ease) infinite both}}
 @keyframes sxk-op-cur{0%{opacity:0;transform:translate(-300u,-200u)}6%{opacity:1}24%{transform:none}26%{transform:scale(.86)}28%,34%{transform:none}52%{transform:translate(347u,-624u)}54%{transform:translate(347u,-624u) scale(.86)}56%,66%{opacity:1;transform:translate(347u,-624u)}74%,100%{opacity:0;transform:translate(347u,-624u)}}
 @keyframes sxk-op-knob{0%,25%{transform:none}29%,94%{transform:translateX(16u)}100%{transform:none}}
 @keyframes sxk-op-on{0%,25%{opacity:0}30%,94%{opacity:1}100%{opacity:0}}
 @keyframes sxk-op-face{0%,25%{opacity:.5}30%,94%{opacity:1}100%{opacity:.5}}
-@keyframes sxk-op-after{0%,27%{transform:translateY(-158px)}36%,94%{transform:none}100%{transform:translateY(-158px)}}
 @keyframes sxk-op-saved{0%,26%{opacity:.6}28%,54%{opacity:0}57%,100%{opacity:.6}}
 @keyframes sxk-op-dirty{0%,26%{opacity:0}28%,54%{opacity:1}57%,100%{opacity:0}}
 

@@ -26,7 +26,7 @@ export const IDEAS_TABS = [
     label: "OnePage",
     more: " editor",
     title: "OnePage editor",
-    alt: "Storelib's OnePage editor: Maya Okafor's links and products on the Links tab beside the live phone preview, as her email signup block is switched on and saved.",
+    alt: "Storelib's OnePage editor: tattoo artist Rafa Ortega's links, gift card and photos on the Links tab beside the live phone preview in the Grunge theme, as his email signup block is switched on and saved.",
     Mock: OnePageEditorMock,
   },
   {
