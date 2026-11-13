@@ -64,16 +64,16 @@ export const LazySellEverywhereMap = lazySection(() => import("./sell-everywhere
 
 export const LazyIntegrationsSection = lazySection(() => import("./integrations-section").then((m) => m.IntegrationsSection), {
   name: "integrations",
-  minHeight: "clamp(620px, 80vh, 820px)",
+  minHeight: "clamp(580px, 56vw, 810px)",
 })
 
 export const LazyEarningsCalculator = lazySection(() => import("./earnings-calculator").then((m) => m.EarningsCalculator), {
   name: "earnings",
-  minHeight: "clamp(720px, 90vh, 900px)",
+  minHeight: "clamp(1000px, 1600px - 45vw, 1500px)",
   styles: () => import("./earnings-calculator").then((m) => m.EARNINGS_STYLES),
 })
 
 export const LazyAppAnywhere = lazySection(() => import("./app-anywhere").then((m) => m.AppAnywhere), {
   name: "app-anywhere",
-  minHeight: "clamp(640px, 90vh, 900px)",
+  minHeight: "clamp(880px, 64vw, 920px)",
 })

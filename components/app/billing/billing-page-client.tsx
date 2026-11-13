@@ -335,7 +335,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   }
 
   // Use live state (updated by client-side actions). Named for people, not by
-  // id: internal "growth" is sold as Pro, and the earlier "pro" is also Pro.
+  // id: internal "growth" is sold as Pro, and internal "pro" as Scale.
   const currentPlan = withPlanLabel(liveCurrentPlan)
   const subscription = liveSubscription
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
@@ -511,7 +511,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                       {tt("Resume plan")}
                     </button>
                   )}
-                  {/* Pro (id "growth") is the top plan on sale, so there is nothing to upgrade to from it. */}
+                  {/* Moving between Pro and Scale is done from the plan cards below (the upgrade page). */}
                   {isSubscribed && (
                     <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] whitespace-nowrap sm:flex-1")}>
                       {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -1013,7 +1013,6 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   }
 
   const isCanceling = subscription?.cancel_at_period_end === true
-  const isLegacyPro = currentPlan.id === "pro"
 
   const actionFor = (id: OfferedPlanId): PlanCardAction => {
     const offered = offeredPlan(id)
@@ -1028,7 +1027,6 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
     if (isCurrentPlan) label = "Current plan"
     else if (isPendingPlan) label = isFree ? "Downgrade scheduled" : "Switch scheduled"
     else if (isCanceling && isFree) label = "Cancellation scheduled"
-    else if (isLegacyPro && !isFree) label = `Switch to ${offered.name} at ${offered.price}`
     else if (isFree) label = "Downgrade to Free"
     else if (isDowngrade) label = `Downgrade to ${offered.name}`
 
@@ -1057,7 +1055,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
             <p className="mt-2 text-balance text-[14.5px] leading-[1.5] text-[#6b7280] sm:text-[15px]">{tt("Start free. Upgrade when you're ready, and change or cancel anytime.")}</p>
           </div>
         }
-        actions={{ free: actionFor("free"), growth: actionFor("growth") }}
+        actions={{ free: actionFor("free"), growth: actionFor("growth"), pro: actionFor("pro") }}
         lead={currentPlan.id === "free" ? "growth" : undefined}
       />
     </div>

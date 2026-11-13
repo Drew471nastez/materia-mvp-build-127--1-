@@ -94,13 +94,20 @@ async function main() {
     const src = read("components/marketing/home/final-cta.tsx")
     const { FinalCta } = await import("@/components/marketing/home/final-cta")
     const html = renderToStaticMarkup(createElement(FinalCta))
-    check("a headline, a line and two ways in", /<h2[^>]*aria-label="Turn what you make into a business\."/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && /href="\/explore"/.test(html))
+    /* Changed on purpose (wave 13): the owner found it faded in and too tall. It is now a plain, short band: no card, no rise, no light, no receipts. */
+    check("a headline, a line and two ways in", /<h2[^>]*id="fcta-title"[^>]*>Turn what you make into a <em>business\.<\/em><\/h2>/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && /href="\/explore"/.test(html))
     check("the old Your next chapter starts here is not used", !/Your next chapter/.test(code("components/marketing/home/final-cta.tsx")))
-    check("the card rises with the scroll where it can, by IntersectionObserver elsewhere", /animation-timeline:view\(\)/.test(src) && /@supports not \(animation-timeline:view\(\)\)/.test(src) && /setAttribute\("data-armed", ""\)/.test(src))
-    check("nothing is hidden on the server: the card is only lowered by script", !/<section[^>]*data-armed/.test(html) && /<section class="fcta" data-final-cta=""/.test(html) && /getBoundingClientRect\(\)\.top > innerHeight/.test(src))
-    check("light and receipts move by transform only and stop off screen", /@keyframes fcta-turn\{to\{transform:rotate\(360deg\)\}\}/.test(src) && /@keyframes fcta-float\{0%,100%\{transform:translate3d\(0,0,0\)\}50%\{transform:translate3d\(0,-10px,0\)\}\}/.test(src) && /\.fcta\[data-paused\] \.fcta-light,\.fcta\[data-paused\] \.fcta-chip\{animation-play-state:paused\}/.test(src))
-    check("reduced motion: nothing moves", /@media\(prefers-reduced-motion:reduce\)\{\s*\.fcta-light,\.fcta-chip\{animation:none\}/.test(src) && /prefers-reduced-motion:no-preference/.test(src))
+    check("no fade, no rise, no animation at all", !/@keyframes|animation|opacity|IntersectionObserver|data-armed/.test(src))
+    check("no card, no light, no floating receipts", !/fcta-card|fcta-light|fcta-chip|border-radius:clamp/.test(src) && /<section class="fcta" data-final-cta=""/.test(html))
+    check("shorter than it was: at most 96px of padding top and bottom", /\.fcta\{background:#fff;padding:clamp\(48px,6vw,96px\)/.test(src))
     check("the buttons are 44px or more on a phone", /\.fcta-btn\{[^}]*height:54px/.test(src))
+  }
+
+  console.log("\nThe questions")
+  {
+    /* Added (wave 13): the FAQ heading and its line were squeezed into a 280 to 320px column. */
+    const faq = read("components/marketing/faq-section.tsx")
+    check("the FAQ heading has a 420px column from lg up and stacks above the answers before that", /lg:w-\[420px\] xl:w-\[460px\]/.test(faq) && /flex flex-col lg:flex-row/.test(faq) && !/md:w-\[280px\]/.test(faq))
   }
 
   console.log("\nThe footer")

@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * The two plan cards: Free and Pro.
+ * The three plan cards: Free, Pro and Scale.
  *
  * One component for every place a plan is offered (the landing page,
  * /pricing, onboarding, the upgrade page and the Billing tab) so the cards
@@ -13,9 +13,10 @@
  * the owner's own picture (near black for Free, deep indigo for Pro, the
  * Storelib mark standing at the right), holding a small label, the plan's
  * name, the price large, a line under it and one line of description, all in
- * white. Under it the plan's lines, each with a round check in the plan's
- * colour (a grey cross for what Free does not have), a full width button in
- * the same colour, and one line of small print.
+ * white. Under it the plan's lines, each with a thin check in the plan's
+ * colour (wave 13: "simpler and lighter, thin, not bold, not filled
+ * circles"; a thin grey cross for what Free does not have), a full width
+ * button in the same colour, and one line of small print.
  *
  * EVERY WORD IS TRUE. The lines come from lib/billing/plans.ts, which writes
  * them from the tables that enforce them; the label and the small print are
@@ -115,7 +116,7 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
     ground: "bg-[#151516]",
     fade: "from-[#0b0b0c]/85",
     grain: 0.2,
-    dot: "bg-[#111113]",
+    dot: "text-[#111113]",
     button: "bg-[#111113] hover:bg-[#26262b] active:bg-[#000000]",
     ring: "focus-visible:ring-[#111113]/35",
   },
@@ -126,19 +127,33 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
     ground: "bg-[#1d1270]",
     fade: "from-[#130b55]/85",
     grain: 0.2,
-    dot: "bg-[#5a43ee]",
+    dot: "text-[#5a43ee]",
     button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
     ring: "focus-visible:ring-[#5a43ee]/45",
+  },
+  /*
+    Scale (id `pro`): Pro's picture turned from indigo to Storelib's violet
+    (#7c3aed) and taken a step deeper, so the three read as a ladder: black,
+    indigo, violet. No third file to fetch.
+  */
+  pro: {
+    picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
+    blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
+    filter: "hue-rotate(22deg) saturate(1.05) brightness(0.36) contrast(0.92)",
+    ground: "bg-[#2a0f63]",
+    fade: "from-[#1c0a45]/85",
+    grain: 0.2,
+    dot: "text-[#7c3aed]",
+    button: "bg-[#7c3aed] hover:bg-[#6d28d9] active:bg-[#5b21b6]",
+    ring: "focus-visible:ring-[#7c3aed]/45",
   },
 }
 
 /**
- * How wide the card, and so its picture, is drawn: half of a 720px row from
- * 768px up, the screen less its gutters under that.
+ * How wide the card, and so its picture, is drawn: a third of a row of up to
+ * 1180px from 768px up, the screen less its gutters under that.
  */
-export const PLAN_PICTURE_SIZES = "(min-width: 768px) 360px, calc(100vw - 32px)"
-/** The same where the cards fill their section (the Billing tab), up to about 420px each. */
-export const PLAN_PICTURE_SIZES_FILL = "(min-width: 768px) 420px, calc(100vw - 32px)"
+export const PLAN_PICTURE_SIZES = "(min-width: 1180px) 390px, (min-width: 768px) 33vw, calc(100vw - 32px)"
 
 /**
  * MONTHLY AND YEARLY ARE BOTH ALREADY THERE. Every line that differs between
@@ -293,17 +308,13 @@ function PlanCard({
         <ul className={`flex flex-col ${compact ? "gap-2" : "gap-2.5"}`}>
           {plan.features.map((feature) => (
             <li key={feature} className={`flex items-start gap-3 ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-[#1a1a2e]`}>
-              <span className={`flex h-[18px] w-[18px] shrink-0 mt-px items-center justify-center rounded-full ${look.dot}`} aria-hidden="true">
-                <Check className="h-[11px] w-[11px] text-white" strokeWidth={3.25} />
-              </span>
+              <Check className={`mt-[2px] h-4 w-4 shrink-0 ${look.dot}`} strokeWidth={1.75} aria-hidden="true" />
               {tt(feature)}
             </li>
           ))}
           {plan.excluded.map((feature) => (
             <li key={feature} className={`flex items-start gap-3 ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-[#6b7280]`}>
-              <span className="flex h-[18px] w-[18px] shrink-0 mt-px items-center justify-center rounded-full bg-[#e5e7eb]" aria-hidden="true">
-                <X className="h-[11px] w-[11px] text-[#6b7280]" strokeWidth={3.25} />
-              </span>
+              <X className="mt-[2px] h-4 w-4 shrink-0 text-[#9ca3af]" strokeWidth={1.75} aria-hidden="true" />
               <span>
                 <span className="sr-only">{tt("Not included:")} </span>
                 {feature}
@@ -419,7 +430,7 @@ export function PlanCards({
       )}
       <div
         data-plan-cards
-        className={`${compact ? "mx-auto max-w-[668px] max-md:px-1.5" : "mx-auto max-w-[720px]"} grid w-full grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5"} ${className}`}
+        className={`${compact ? "mx-auto max-w-[920px] max-md:px-1.5" : "mx-auto max-w-[1180px]"} grid w-full grid-cols-1 md:grid-cols-3 items-stretch ${compact ? "gap-3" : "gap-4 lg:gap-6"} ${className}`}
       >
         {OFFERED_PLANS.map((plan) => (
           <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>

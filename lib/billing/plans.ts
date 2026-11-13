@@ -24,15 +24,21 @@ import { tt, msg } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
 export type PlanId = "free" | "growth" | "pro"
-export type OfferedPlanId = "free" | "growth"
+export type OfferedPlanId = "free" | "growth" | "pro"
 
-/** The plan id a Pro checkout sends. Never "pro": that is the $99 plan. */
+/** The plan id a Pro checkout sends. Never "pro": that is the $99 plan, sold as Scale. */
 export const PRO_CHECKOUT_PLAN_ID = "growth" as const
 
-export const OFFERED_PLAN_IDS: readonly OfferedPlanId[] = ["free", PRO_CHECKOUT_PLAN_ID]
+/** The plan id a Scale checkout sends: the existing $99 plan and its Stripe price. */
+export const SCALE_CHECKOUT_PLAN_ID = "pro" as const
+
+export const OFFERED_PLAN_IDS: readonly OfferedPlanId[] = ["free", PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID]
 
 /** What the Stripe price for `growth` charges, in cents. */
 export const PRO_PRICE_CENTS = 2900
+
+/** What the Stripe price for `pro` (Scale) charges, in cents. */
+export const SCALE_PRICE_CENTS = 9900
 
 /**
  * PAYING YEARLY, the way Shopify offers it: the same plan, paid once a
@@ -55,7 +61,7 @@ export const YEARLY_BILLING_LIVE = false
 const DISPLAY_NAMES: Record<PlanId, string> = {
   free: "Free",
   growth: "Pro",
-  pro: "Pro",
+  pro: "Scale",
 }
 
 /** The name a person reads for any plan id, including ones no longer sold. */
@@ -146,6 +152,16 @@ function proFeatures(): string[] {
   return lines
 }
 
+/**
+ * What Scale adds, after everything Pro has: the room its tables give it.
+ * Its fee line is its own rate from the fee table (the fee engine has one
+ * paid rate, so today it is the same as Pro's).
+ */
+function scaleFeatures(): string[] {
+  const id = SCALE_CHECKOUT_PLAN_ID
+  return [tt("Everything in Pro"), feeLine(id), websitesLine(id), storageLine(id), aiEditsLine(id)]
+}
+
 export interface OfferedPlan {
   id: OfferedPlanId
   name: string
@@ -159,7 +175,7 @@ export interface OfferedPlan {
   priceNote: string
   /** One line under that. */
   summary: string
-  /** What the plan includes. Pro starts with "Everything in Free". */
+  /** What the plan includes. Pro starts with "Everything in Free", Scale with "Everything in Pro". */
   features: string[]
   /** What it does not include, drawn greyed with a cross, so both cards have as many lines. */
   excluded: string[]
@@ -189,7 +205,7 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     priceCents: PRO_PRICE_CENTS,
     price: formatPlanPrice(PRO_PRICE_CENTS),
     period: "/month",
-    get pill() { return tt("Everything included") },
+    get pill() { return tt("Your own brand") },
     get priceNote() { return tt("per month") },
     get summary() { return tt("Keep more of every sale.") },
     features: proFeatures(),
@@ -198,15 +214,31 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
        (app/api/billing/subscription/cancel). */
     get note() { return tt("Billed monthly. Cancel anytime.") },
   },
+  {
+    id: SCALE_CHECKOUT_PLAN_ID,
+    name: planDisplayName(SCALE_CHECKOUT_PLAN_ID),
+    priceCents: SCALE_PRICE_CENTS,
+    price: formatPlanPrice(SCALE_PRICE_CENTS),
+    period: "/month",
+    get pill() { return tt("Most room") },
+    get priceNote() { return tt("per month") },
+    get summary() { return tt("Room for a bigger business.") },
+    features: scaleFeatures(),
+    excluded: [],
+    get note() { return tt("Billed monthly. Cancel anytime.") },
+  },
 ]
 
 /**
  * What a card says about its price for the interval picked. Free is the
  * same either way; Pro yearly is its monthly equivalent, with the yearly
- * total (or, until it is on sale, when it opens) in the small print.
+ * total (or, until it is on sale, when it opens) in the small print. Scale
+ * has no yearly price at all, so yearly shows its monthly price and says
+ * yearly opens soon (its button is held, as Pro's is).
  */
 export function pricedFor(plan: OfferedPlan, interval: BillingInterval): Pick<OfferedPlan, "price" | "priceNote" | "note"> {
   if (interval === "monthly" || plan.priceCents === 0) return { price: plan.price, priceNote: plan.priceNote, note: plan.note }
+  if (plan.id !== PRO_CHECKOUT_PLAN_ID) return { price: plan.price, priceNote: plan.priceNote, note: tt("Yearly opens soon. Pay monthly for now.") }
   return {
     price: formatPlanPrice(PRO_YEARLY_MONTHLY_CENTS),
     priceNote: tt("per month, billed yearly"),
@@ -235,7 +267,8 @@ export type ComparisonValue = string | boolean
 
 export interface ComparisonSection {
   title: string
-  rows: { label: string; free: ComparisonValue; pro: ComparisonValue }[]
+  /** `pro` is the Pro column (id `growth`), `scale` the Scale column (id `pro`). */
+  rows: { label: string; free: ComparisonValue; pro: ComparisonValue; scale: ComparisonValue }[]
 }
 
 /**
@@ -247,36 +280,38 @@ export interface ComparisonSection {
 export function planComparison(): ComparisonSection[] {
   const free = siteLimits("free")
   const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
+  const scale = siteLimits(SCALE_CHECKOUT_PLAN_ID)
   const storage = (id: PlanId) => formatBytes(PLAN_LIMITS[id].storageQuotaBytes)
   const fee = (id: PlanId) => getFeeDescription(id).replace(" per transaction", "")
+  const S = SCALE_CHECKOUT_PLAN_ID
   return [
     {
       title: tt("Selling"),
       rows: [
-        { label: tt("Fee per sale"), free: fee("free"), pro: fee(PRO_CHECKOUT_PLAN_ID) },
-        { label: tt("Digital products and courses"), free: tt("Unlimited"), pro: tt("Unlimited") },
-        { label: tt("Payouts to your bank through Stripe"), free: true, pro: true },
-        { label: tt("Email your buyers and subscribers"), free: true, pro: true },
-        { label: tt("Sales and visitor analytics"), free: true, pro: true },
+        { label: tt("Fee per sale"), free: fee("free"), pro: fee(PRO_CHECKOUT_PLAN_ID), scale: fee(S) },
+        { label: tt("Digital products and courses"), free: tt("Unlimited"), pro: tt("Unlimited"), scale: tt("Unlimited") },
+        { label: tt("Payouts to your bank through Stripe"), free: true, pro: true, scale: true },
+        { label: tt("Email your buyers and subscribers"), free: true, pro: true, scale: true },
+        { label: tt("Sales and visitor analytics"), free: true, pro: true, scale: true },
       ],
     },
     {
       title: tt("Websites"),
       rows: [
-        { label: tt("Websites"), free: String(free.maxSites), pro: String(pro.maxSites) },
-        { label: tt("Pages per website"), free: String(free.maxPages), pro: String(pro.maxPages) },
-        { label: tt("Your own domain"), free: free.customDomain, pro: pro.customDomain },
-        { label: tt("No Storelib branding"), free: free.removeBranding, pro: pro.removeBranding },
-        { label: tt("Premium templates"), free: free.premiumTemplates, pro: pro.premiumTemplates },
-        { label: tt("AI edits a month"), free: String(free.aiEditsPerMonth), pro: String(pro.aiEditsPerMonth) },
+        { label: tt("Websites"), free: String(free.maxSites), pro: String(pro.maxSites), scale: String(scale.maxSites) },
+        { label: tt("Pages per website"), free: String(free.maxPages), pro: String(pro.maxPages), scale: String(scale.maxPages) },
+        { label: tt("Your own domain"), free: free.customDomain, pro: pro.customDomain, scale: scale.customDomain },
+        { label: tt("No Storelib branding"), free: free.removeBranding, pro: pro.removeBranding, scale: scale.removeBranding },
+        { label: tt("Premium templates"), free: free.premiumTemplates, pro: pro.premiumTemplates, scale: scale.premiumTemplates },
+        { label: tt("AI edits a month"), free: String(free.aiEditsPerMonth), pro: String(pro.aiEditsPerMonth), scale: String(scale.aiEditsPerMonth) },
       ],
     },
     {
       title: tt("Your account"),
       rows: [
-        { label: tt("File storage"), free: storage("free"), pro: storage(PRO_CHECKOUT_PLAN_ID) },
-        { label: tt("Creator page and OnePage"), free: true, pro: true },
-        { label: tt("Verified badge"), free: false, pro: true },
+        { label: tt("File storage"), free: storage("free"), pro: storage(PRO_CHECKOUT_PLAN_ID), scale: storage(S) },
+        { label: tt("Creator page and OnePage"), free: true, pro: true, scale: true },
+        { label: tt("Verified badge"), free: false, pro: true, scale: true },
       ],
     },
   ]
@@ -296,10 +331,15 @@ export function planQuestions(): { q: string; a: string }[] {
   const saved = rate(freeFee) - rate(proFee)
   const breakEven = saved > 0 ? Math.ceil(PRO_PRICE_CENTS / 100 / saved / 10) * 10 : 0
   const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
+  const scale = siteLimits(SCALE_CHECKOUT_PLAN_ID)
   return [
     {
       q: tt("How do I decide which plan is best for me?"),
       a: tt("Free opens your store with no monthly fee, so you can start selling today. Pro is for when your store is earning: a lower fee on every sale ({proFee} instead of {freeFee}), your own domain, no Storelib branding, and room for {maxSites} websites.", { proFee, freeFee, maxSites: pro.maxSites }),
+    },
+    {
+      q: tt("Who is Scale for?"),
+      a: tt("A bigger business that needs more room than Pro: {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.", { maxSites: scale.maxSites, maxPages: scale.maxPages, storage: formatBytes(PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes), aiEdits: scale.aiEditsPerMonth, price: formatPlanPrice(SCALE_PRICE_CENTS) }),
     },
     ...(breakEven
       ? [
@@ -311,19 +351,19 @@ export function planQuestions(): { q: string; a: string }[] {
       : []),
     {
       q: tt("What fees are taken from a sale?"),
-      a: tt("Storelib's fee for your plan ({freeFee} on Free, {proFee} on Pro), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.", { freeFee, proFee }),
+      a: tt("Storelib's fee for your plan ({freeFee} on Free, {proFee} on Pro, {scaleFee} on Scale), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.", { freeFee, proFee, scaleFee: getFeeDescription(SCALE_CHECKOUT_PLAN_ID).replace(" per transaction", "") }),
     },
     {
       q: tt("How do I change or cancel my plan?"),
-      a: tt("From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, Pro stays active until the end of the period you paid for, then your account moves to Free."),
+      a: tt("From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, your paid plan stays active until the end of the period you paid for, then your account moves to Free."),
     },
     {
       q: tt("What happens when I move back to Free?"),
-      a: tt("Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only Pro has, like your own domain and hidden branding, stop at the end of your paid period."),
+      a: tt("Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only paid plans have, like your own domain and hidden branding, stop at the end of your paid period."),
     },
     {
       q: tt("Do I need a card to start?"),
-      a: tt("No. Free asks for no card. You only add one when you upgrade to Pro."),
+      a: tt("No. Free asks for no card. You only add one when you upgrade to Pro or Scale."),
     },
   ]
 }

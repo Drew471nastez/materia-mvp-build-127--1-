@@ -5,11 +5,15 @@ import { StoryHeading } from "./story-heading"
 import Link from "next/link"
 import { AnimateOnScroll } from "./animate-on-scroll"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
-import { PLAN_FOOTNOTE, PRO_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
+import { PLAN_FOOTNOTE, PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
+
+/** The paid plans a checkout can be started for: Pro (`growth`) and Scale (`pro`). */
+export type PaidCheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID | typeof SCALE_CHECKOUT_PLAN_ID
 
 /**
- * Free and Pro. Pro is the internal plan id `growth` (see lib/billing/plans.ts),
- * so every callback here receives "growth" when Pro is chosen.
+ * Free, Pro and Scale. Pro is the internal plan id `growth` and Scale the
+ * internal id `pro` (see lib/billing/plans.ts), so every callback here
+ * receives "growth" when Pro is chosen and SCALE_CHECKOUT_PLAN_ID for Scale.
  */
 export interface PricingOnboardingCallbacks {
   onPlanSelect: (planId: OfferedPlanId) => void
@@ -20,7 +24,8 @@ export interface PricingOnboardingCallbacks {
 
 const DEFAULT_CTA: Record<OfferedPlanId, string> = {
   free: "Start free",
-  growth: "Get Pro",
+  [PRO_CHECKOUT_PLAN_ID]: "Get Pro",
+  [SCALE_CHECKOUT_PLAN_ID]: "Get Scale",
 }
 
 export function PricingSection({
@@ -43,10 +48,10 @@ export function PricingSection({
   onboardingCallbacks?: PricingOnboardingCallbacks
   headingOverride?: string
   subtitleOverride?: string
-  /** When provided, the Pro button starts Stripe checkout directly instead of linking to /signup */
+  /** When provided, the Pro and Scale buttons start Stripe checkout directly instead of linking to /signup */
   upgradeCallbacks?: {
-    onPlanSelect: (planId: typeof PRO_CHECKOUT_PLAN_ID) => void
-    loadingPlan: typeof PRO_CHECKOUT_PLAN_ID | null
+    onPlanSelect: (planId: PaidCheckoutPlanId) => void
+    loadingPlan: PaidCheckoutPlanId | null
   }
 } = {}) {
   const actionFor = (id: OfferedPlanId): PlanCardAction => {
@@ -67,12 +72,21 @@ export function PricingSection({
         loading: upgradeCallbacks.loadingPlan === id,
       }
     }
+    if (upgradeCallbacks && id === SCALE_CHECKOUT_PLAN_ID) {
+      return {
+        label: DEFAULT_CTA[id],
+        onClick: () => !upgradeCallbacks.loadingPlan && upgradeCallbacks.onPlanSelect(SCALE_CHECKOUT_PLAN_ID),
+        disabled: !!upgradeCallbacks.loadingPlan,
+        loading: upgradeCallbacks.loadingPlan === id,
+      }
+    }
     return { label: DEFAULT_CTA[id], href: "/signup" }
   }
 
   const actions: Record<OfferedPlanId, PlanCardAction> = {
     free: actionFor("free"),
-    growth: actionFor("growth"),
+    [PRO_CHECKOUT_PLAN_ID]: actionFor(PRO_CHECKOUT_PLAN_ID),
+    [SCALE_CHECKOUT_PLAN_ID]: actionFor(SCALE_CHECKOUT_PLAN_ID),
   }
 
   const footnote = (
@@ -90,18 +104,24 @@ export function PricingSection({
   }
 
   const Heading = headingLevel === 1 ? "h1" : "h2"
+  /*
+    WAVE 13, THE OWNER: the section wider, three bigger cards across it,
+    the heading "Pricing & Plans" and one plain line under it. On the home
+    page (editorial) it uses the page's heading type and its 1400px column;
+    /pricing keeps its own h1 and the same words.
+  */
   return (
     <section data-story-section={editorial ? "pricing" : undefined} className="py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]" id="pricing">
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
+      <div className={editorial ? "mx-auto max-w-[1400px]" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
         <AnimateOnScroll variant="blur-in">
-          <div className={editorial ? "story-section-heading" : "text-center max-w-[600px] mx-auto mb-10 sm:mb-12"}>
-            {editorial ? <StoryHeading text={headingOverride || "Start free. Grow at your pace."} accent={["grow"]} /> : (
+          <div className={editorial ? "story-section-heading !mx-auto !mb-10 !text-center [&>p]:!mx-auto" : "text-center max-w-[640px] mx-auto mb-10 sm:mb-12"}>
+            {editorial ? <StoryHeading text={headingOverride || "Pricing & Plans"} accent={["Plans"]} /> : (
             <Heading className="text-[clamp(28px,4vw,40px)] font-semibold leading-[1.15] tracking-tight text-[#1a1a2e]">
-              {headingOverride || "Start free. Upgrade when you sell more."}
+              {headingOverride || "Pricing & Plans"}
             </Heading>)}
 
             <p className="mt-3 text-[16px] leading-relaxed text-[#6b7280] text-balance">
-              {subtitleOverride || "Two plans. Pro is $29 a month and lowers the fee on every sale from 5% to 3%."}
+              {subtitleOverride || "Free to start. Upgrade when you grow."}
             </p>
           </div>
         </AnimateOnScroll>

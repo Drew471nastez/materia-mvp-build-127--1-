@@ -13,30 +13,38 @@
   Apple Pay and Google Pay it brings to checkout. Nothing listed as Coming
   soon is shown, and no rival store builder.
 
-  Marks: Simple Icons through the trimmed generated set
-  (components/icons/brand-icons.generated.ts, one import per icon), or the
-  service's own file in /public/integrations when Simple Icons has none.
+  WAVE 13, THE OWNER: a light section, the heading alone (no count, no
+  "hover or tap" line, no subheading), and each tile is the app's real icon
+  and nothing else, filling the card edge to edge.
+
+  Marks: the service's own file in /public/integrations (the catalog's), or
+  a Simple Icons mark through the trimmed generated set
+  (components/icons/brand-icons.generated.ts, one import per icon). A file
+  that is already a square app icon covers the tile; a mark is drawn on its
+  brand's own ground the way its app icon is (white on Stripe's violet,
+  Pinterest's red, AfterShip's orange; colour on white for Google's).
 
   Three rows drift past, alternating direction, and stop under a pointer.
   Each row is its set four times over, so half the track (the distance one
   loop travels) is wider than a 2,300px window and no gap ever shows.
-  A tile turns over on hover, or on a tap on a phone, to say in one line
-  what it does. Off screen, under reduced motion, the rows stand still.
+
+  A tile turns over once when a pointer reaches it (or a finger taps it) and
+  lands on the same icon: the first half turns it edge on, the second half
+  comes round from the other side, so the icon is never seen mirrored. One
+  soft light follows the pointer across the rows (a violet glow under the
+  tiles and a white flash over them, two layers moved by transform). Off
+  screen, under reduced motion, nothing moves.
 */
 
-import { useEffect, useRef, useState, type CSSProperties, type ComponentType } from "react"
+import { useEffect, useRef, type CSSProperties, type ComponentType } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import {
   SiApplepay,
   SiAftership,
   SiBrevo,
   SiGoogleads,
-  SiGoogleanalytics,
   SiGooglecalendar,
   SiGooglepay,
-  SiGoogletagmanager,
-  SiKit,
-  SiMeta,
   SiPinterest,
   SiPosthog,
   SiStripe,
@@ -46,54 +54,65 @@ import { usePlatformSection } from "./platform-motion"
 import m from "./platform.module.css"
 import s from "./integrations-section.module.css"
 
+type Mark = ComponentType<{ className?: string; color?: string }>
+
 type App = {
   name: string
-  does: string
-  kind: string
-  icon?: ComponentType<{ className?: string; color?: string }>
+  /** The tile's ground: the app icon's own colour. */
+  bg: string
+  /** A Simple Icons mark, drawn in `color` on the ground. */
+  icon?: Mark
   color?: string
+  /** The catalog's own file. */
   logo?: string
+  /** "cover" for a file that is already a square app icon; otherwise it is contained at `scale` of the tile. */
+  fit?: "cover"
+  scale?: number
+  /** Turns a dark mark white on a dark ground (Klaviyo's flag). */
+  invert?: boolean
+  /** TikTok's mark carries its cyan and red echo, as its app icon does. */
+  echo?: boolean
 }
 
 const ROWS: Array<{ dur: string; apps: App[] }> = [
   {
     dur: "64s",
     apps: [
-      { name: "Klaviyo", kind: "Email", does: "Subscribers, buyers and every order, synced as they happen.", logo: "/integrations/klaviyo.png" },
-      { name: "Omnisend", kind: "Email", does: "Orders and subscribers for your Omnisend automations.", logo: "/integrations/omnisend.png" },
-      { name: "Brevo", kind: "Email", does: "Subscribers and orders in Brevo, unsubscribes both ways.", icon: SiBrevo, color: "#0b996e" },
-      { name: "MailerLite", kind: "Email", does: "Buyers and refunds arrive as MailerLite groups.", logo: "/integrations/mailerlite.svg" },
-      { name: "Kit", kind: "Email", does: "Subscribers in Kit, buyers and refunds as tags.", icon: SiKit, color: "#18181b" },
-      { name: "Meta Pixel", kind: "Ads", does: "Reach your visitors again on Facebook and Instagram.", icon: SiMeta, color: "#0866ff" },
-      { name: "TikTok Pixel", kind: "Ads", does: "Measure and retarget your TikTok ads.", icon: SiTiktok, color: "#000000" },
-      { name: "Pinterest Tag", kind: "Ads", does: "Build audiences from your visitors for Pinterest ads.", icon: SiPinterest, color: "#e60023" },
-      { name: "Google Ads", kind: "Ads", does: "Count every sale as a Google Ads conversion.", icon: SiGoogleads, color: "#4285f4" },
+      { name: "Klaviyo", bg: "#000000", logo: "/integrations/klaviyo.png", scale: 0.9, invert: true },
+      { name: "Omnisend", bg: "#ffffff", logo: "/integrations/omnisend.png", fit: "cover" },
+      { name: "Brevo", bg: "#0b996e", icon: SiBrevo, color: "#ffffff" },
+      { name: "MailerLite", bg: "#09c269", logo: "/integrations/mailerlite.svg", fit: "cover" },
+      { name: "Kit", bg: "#1a1a1a", logo: "/integrations/kit.svg", fit: "cover" },
+      { name: "Meta Pixel", bg: "#ffffff", logo: "/integrations/meta.svg", scale: 0.62 },
+      { name: "TikTok Pixel", bg: "#000000", icon: SiTiktok, color: "#ffffff", echo: true },
+      { name: "Pinterest Tag", bg: "#e60023", icon: SiPinterest, color: "#ffffff" },
+      { name: "Google Ads", bg: "#ffffff", icon: SiGoogleads, color: "#4285f4" },
     ],
   },
   {
     dur: "56s",
     apps: [
-      { name: "Google Analytics", kind: "Analytics", does: "Every visit and purchase in your own GA4 property.", icon: SiGoogleanalytics, color: "#e37400" },
-      { name: "Tag Manager", kind: "Analytics", does: "Run your own tags from one Google Tag Manager container.", icon: SiGoogletagmanager, color: "#246fdb" },
-      { name: "Microsoft Clarity", kind: "Analytics", does: "Heatmaps and session recordings of your website.", logo: "/integrations/microsoft-clarity.png" },
-      { name: "PostHog", kind: "Analytics", does: "Storelib's page views and sales, sent from the server.", icon: SiPosthog, color: "#f54e00" },
-      { name: "Stripe", kind: "Payments", does: "Card payments at checkout and payouts to your bank.", icon: SiStripe, color: "#635bff" },
-      { name: "Apple Pay", kind: "Payments", does: "One-tap checkout on iPhone, iPad and Mac.", icon: SiApplepay, color: "#000000" },
-      { name: "Google Pay", kind: "Payments", does: "One-tap checkout on Android and in Chrome.", icon: SiGooglepay, color: "#3c4043" },
-      { name: "Google Calendar", kind: "Bookings", does: "Busy times block bookings; new bookings land in your calendar.", icon: SiGooglecalendar, color: "#4285f4" },
+      { name: "Google Analytics", bg: "#ffffff", logo: "/integrations/google-analytics.svg", scale: 0.54 },
+      { name: "Tag Manager", bg: "#ffffff", logo: "/integrations/google-tag-manager.svg", scale: 0.56 },
+      { name: "Microsoft Clarity", bg: "#ffffff", logo: "/integrations/microsoft-clarity.png", scale: 0.6 },
+      { name: "PostHog", bg: "#eeefe9", icon: SiPosthog, color: "#1d1f27" },
+      { name: "Stripe", bg: "#635bff", icon: SiStripe, color: "#ffffff" },
+      { name: "Apple Pay", bg: "#000000", icon: SiApplepay, color: "#ffffff" },
+      { name: "Google Pay", bg: "#ffffff", icon: SiGooglepay, color: "#3c4043" },
+      { name: "Google Calendar", bg: "#ffffff", icon: SiGooglecalendar, color: "#4285f4" },
     ],
   },
   {
     dur: "60s",
     apps: [
-      { name: "Printful", kind: "Print on demand", does: "Shirts, mugs and prints made and shipped when they sell.", logo: "/integrations/printful.svg" },
-      { name: "Printify", kind: "Print on demand", does: "Print on demand from a network of print partners.", logo: "/integrations/printify.png" },
-      { name: "Gelato", kind: "Print on demand", does: "Printed close to your buyer, tracking back to the order.", logo: "/integrations/gelato.png" },
-      { name: "CJ Dropshipping", kind: "Dropshipping", does: "A supplier's catalogue, shipped straight to your buyer.", logo: "/integrations/cj-dropshipping.png" },
-      { name: "ShipStation", kind: "Shipping", does: "Paid orders go to ShipStation; tracking comes back.", logo: "/integrations/shipstation.png" },
-      { name: "Shippo", kind: "Shipping", does: "Buy and print labels from the order page.", logo: "/integrations/shippo.png" },
-      { name: "EasyPost", kind: "Shipping", does: "Live carrier rates and labels from the order page.", logo: "/integrations/easypost.png" },
-      { name: "AfterShip", kind: "Shipping", does: "Follow every parcel with your own AfterShip account.", icon: SiAftership, color: "#ff6b2b" },
+      { name: "Printful", bg: "#ffffff", logo: "/integrations/printful.svg", scale: 0.74 },
+      { name: "Printify", bg: "#a9f86c", logo: "/integrations/printify.png", fit: "cover" },
+      { name: "Gelato", bg: "#000000", logo: "/integrations/gelato.png", scale: 1 },
+      { name: "CJ Dropshipping", bg: "#ff7a00", logo: "/integrations/cj-dropshipping.png", fit: "cover" },
+      { name: "ShipStation", bg: "#14002d", logo: "/integrations/shipstation.png", fit: "cover" },
+      { name: "Shippo", bg: "#ffffff", logo: "/integrations/shippo.png", scale: 0.8 },
+      { name: "EasyPost", bg: "#ffffff", logo: "/integrations/easypost.png", scale: 0.7 },
+      { name: "AfterShip", bg: "#ff6b2b", icon: SiAftership, color: "#ffffff" },
     ],
   },
 ]
@@ -101,99 +120,161 @@ const ROWS: Array<{ dur: string; apps: App[] }> = [
 /** Every app shown, for tests: names and the files they use. */
 export const PLATFORM_INTEGRATION_APPS = ROWS.flatMap((r) => r.apps.map((a) => ({ name: a.name, logo: a.logo ?? null })))
 
-function Tile({ app, flipped, onFlip, copy }: { app: App; flipped: boolean; onFlip: () => void; copy: boolean }) {
-  const Icon = app.icon
-  return (
-    <button
-      type="button"
-      className={s.tile}
-      aria-pressed={flipped}
-      aria-label={copy ? undefined : `${app.name}: ${app.does}`}
-      aria-hidden={copy || undefined}
-      tabIndex={copy ? -1 : undefined}
-      data-copy={copy ? "" : undefined}
-      onClick={onFlip}
-    >
-      <span className={s.inner}>
-        <span className={`${s.face} ${s.front}`}>
-          {Icon ? (
-            <Icon className="h-[42px] w-[42px] sm:h-[48px] sm:w-[48px]" color={app.color} />
-          ) : (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={app.logo}
-              alt=""
-              width={52}
-              height={52}
-              loading="lazy"
-              decoding="async"
-              className="h-[44px] w-[44px] rounded-[12px] object-contain sm:h-[52px] sm:w-[52px]"
-            />
-          )}
-          <span className="max-w-[90%] truncate text-[11.5px] font-medium text-[#3f3d46] sm:text-[12px]">{app.name}</span>
-        </span>
-        <span className={`${s.face} ${s.back}`}>
-          <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/70">{app.kind}</span>
-          <span className="mt-1 text-[11.5px] font-medium leading-[1.3] sm:text-[12.5px]">{app.does}</span>
-        </span>
+function Icon({ app }: { app: App }) {
+  const Glyph = app.icon
+  if (Glyph) {
+    return (
+      <span className={s.mark}>
+        {app.echo ? (
+          <>
+            <Glyph className={s.echoA} color="#25f4ee" />
+            <Glyph className={s.echoB} color="#fe2c55" />
+          </>
+        ) : null}
+        <Glyph className={s.glyph} color={app.color} />
       </span>
-    </button>
+    )
+  }
+  const cover = app.fit === "cover"
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={app.logo}
+      alt=""
+      width={112}
+      height={112}
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+      className={cover ? s.cover : s.contain}
+      style={cover ? undefined : ({ "--scale": app.scale ?? 0.64, filter: app.invert ? "invert(1)" : undefined } as CSSProperties)}
+    />
   )
 }
 
+function Tile({ app, copy }: { app: App; copy: boolean }) {
+  return (
+    <span
+      className={s.tile}
+      data-tile=""
+      role={copy ? undefined : "img"}
+      aria-label={copy ? undefined : app.name}
+      aria-hidden={copy || undefined}
+      data-copy={copy ? "" : undefined}
+      title={copy ? undefined : app.name}
+    >
+      <span className={s.inner} style={{ background: app.bg }}>
+        <Icon app={app} />
+        <span className={s.shine} />
+      </span>
+    </span>
+  )
+}
+
+/* One turn, landing where it started: edge on at the half, then round from the other side. */
+const FLIP: Keyframe[] = [
+  { transform: "perspective(600px) rotateY(0deg)", easing: "cubic-bezier(0.5, 0, 0.9, 0.5)" },
+  { transform: "perspective(600px) rotateY(90deg)", offset: 0.5 },
+  { transform: "perspective(600px) rotateY(-90deg)", offset: 0.5, easing: "cubic-bezier(0.1, 0.5, 0.4, 1)" },
+  { transform: "perspective(600px) rotateY(0deg)" },
+]
+/* The flash: a band of light across the face as it comes round. */
+const SHINE: Keyframe[] = [
+  { transform: "translate3d(-130%, 0, 0)", opacity: 0 },
+  { transform: "translate3d(-130%, 0, 0)", opacity: 0, offset: 0.45 },
+  { transform: "translate3d(-10%, 0, 0)", opacity: 1, offset: 0.7 },
+  { transform: "translate3d(130%, 0, 0)", opacity: 0 },
+]
+const TURN_MS = 760
+
 export function IntegrationsSection() {
   const ref = useRef<HTMLElement>(null)
-  usePlatformSection(ref)
-  const [flipped, setFlipped] = useState<string | null>(null)
-  /* A tapped tile turns back by itself after a while, and the row moves on. */
+  const rowsRef = useRef<HTMLDivElement>(null)
+  const { reduced } = usePlatformSection(ref)
+
   useEffect(() => {
-    if (!flipped) return
-    const id = window.setTimeout(() => setFlipped(null), 4500)
-    return () => window.clearTimeout(id)
-  }, [flipped])
-  const count = ROWS.reduce((n, r) => n + r.apps.length, 0)
+    const rows = rowsRef.current
+    if (!rows || reduced) return
+    const glow = rows.querySelector<HTMLElement>("[data-glow]")
+    const spot = rows.querySelector<HTMLElement>("[data-spot]")
+    const turning = new WeakSet<Element>()
+    let frame = 0
+    let x = 0
+    let y = 0
+
+    const flip = (tile: Element | null) => {
+      const inner = tile?.firstElementChild as HTMLElement | null
+      if (!inner || turning.has(inner) || typeof inner.animate !== "function") return
+      turning.add(inner)
+      const turn = inner.animate(FLIP, { duration: TURN_MS })
+      ;(inner.lastElementChild as HTMLElement | null)?.animate(SHINE, { duration: TURN_MS, easing: "linear" })
+      turn.onfinish = turn.oncancel = () => turning.delete(inner)
+    }
+    const paint = () => {
+      frame = 0
+      const t = `translate3d(${x}px, ${y}px, 0)`
+      if (glow) glow.style.transform = t
+      if (spot) spot.style.transform = t
+    }
+    const fine = (e: PointerEvent) => e.pointerType === "mouse" || e.pointerType === "pen"
+    const move = (e: PointerEvent) => {
+      if (!fine(e)) return
+      const r = rows.getBoundingClientRect()
+      x = e.clientX - r.left
+      y = e.clientY - r.top
+      if (!frame) frame = requestAnimationFrame(paint)
+    }
+    const over = (e: PointerEvent) => {
+      if (fine(e)) flip((e.target as Element).closest("[data-tile]"))
+    }
+    const down = (e: PointerEvent) => {
+      if (!fine(e)) flip((e.target as Element).closest("[data-tile]"))
+    }
+    const enter = (e: PointerEvent) => {
+      if (!fine(e)) return
+      move(e)
+      rows.setAttribute("data-lit", "")
+    }
+    const leave = () => rows.removeAttribute("data-lit")
+
+    rows.addEventListener("pointermove", move, { passive: true })
+    rows.addEventListener("pointerover", over, { passive: true })
+    rows.addEventListener("pointerdown", down, { passive: true })
+    rows.addEventListener("pointerenter", enter, { passive: true })
+    rows.addEventListener("pointerleave", leave, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      rows.removeEventListener("pointermove", move)
+      rows.removeEventListener("pointerover", over)
+      rows.removeEventListener("pointerdown", down)
+      rows.removeEventListener("pointerenter", enter)
+      rows.removeEventListener("pointerleave", leave)
+    }
+  }, [reduced])
+
   return (
     <section
       ref={ref}
       id="integrations"
       aria-labelledby="integrations-title"
-      className={`${m.root} ${s.clip} bg-[#0b0b0c] py-[clamp(72px,9vw,128px)] text-white`}
+      className={`${m.root} ${s.clip} bg-white py-[clamp(72px,9vw,128px)] text-[#18181b]`}
     >
       <div className="mx-auto max-w-[1400px] px-[var(--landing-gutter,22px)]">
-        <div className="mb-10 grid gap-6 sm:mb-14 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="max-w-[880px]">
-            <StoryHeading id="integrations-title" text="Connect your favorite apps" accent={["favorite", "apps"]} dark />
-            <p className="mt-5 max-w-[58ch] text-[clamp(16px,1.4vw,19px)] leading-[1.6] text-[#a3a0ac]">
-              Email, ads, analytics, payments, printing and shipping. Paste a key, pick a list, and Storelib keeps the two in step.
-            </p>
-          </div>
-          <p className="text-[14px] text-white/50">
-            <span className="text-white">{count} apps</span> · hover or tap a tile to see what it does
-          </p>
+        <div className="mb-10 max-w-[880px] sm:mb-14">
+          <StoryHeading id="integrations-title" text="Connect your favorite apps" accent={["favorite", "apps"]} />
         </div>
       </div>
 
-      <div className={`${s.rows} ${m.reveal}`}>
-        {ROWS.map((row, r) => {
-          const held = row.apps.some((a) => a.name === flipped)
-          return (
-            <div key={r} className={`${s.row} ${r % 2 ? s.reverse : ""}`} data-held={held ? "" : undefined}>
-              <div className={`${s.track} ${m.loop}`} style={{ "--dur": row.dur } as CSSProperties}>
-                {[0, 1, 2, 3].flatMap((copy) =>
-                  row.apps.map((app) => (
-                    <Tile
-                      key={`${copy}-${app.name}`}
-                      app={app}
-                      copy={copy > 0}
-                      flipped={flipped === app.name}
-                      onFlip={() => setFlipped((f) => (f === app.name ? null : app.name))}
-                    />
-                  )),
-                )}
-              </div>
+      <div ref={rowsRef} className={`${s.rows} ${m.reveal}`}>
+        <span className={s.glow} data-glow="" aria-hidden="true" />
+        {ROWS.map((row, r) => (
+          <div key={r} className={`${s.row} ${r % 2 ? s.reverse : ""}`}>
+            <div className={`${s.track} ${m.loop}`} style={{ "--dur": row.dur } as CSSProperties}>
+              {[0, 1, 2, 3].flatMap((copy) => row.apps.map((app) => <Tile key={`${copy}-${app.name}`} app={app} copy={copy > 0} />))}
             </div>
-          )
-        })}
+          </div>
+        ))}
+        <span className={s.spot} data-spot="" aria-hidden="true" />
       </div>
     </section>
   )

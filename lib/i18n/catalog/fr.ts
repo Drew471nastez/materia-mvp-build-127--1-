@@ -13390,7 +13390,18 @@ const words: Record<string, string> = {
  "Big amount": "Grand montant",
  "Below": "Dessous",
  "On the picture": "Sur l'image",
- "Title, caption and a button on a fade at the bottom of each picture.": "Titre, légende et un bouton sur un fondu en bas de chaque image."
+ "Title, caption and a button on a fade at the bottom of each picture.": "Titre, légende et un bouton sur un fondu en bas de chaque image.",
+ "Get Scale": "Passer à Scale",
+ "Everything in Pro": "Tout le contenu de Pro",
+ "Your own brand": "Votre propre marque",
+ "Most room": "Le plus d'espace",
+ "Room for a bigger business.": "De la place pour une plus grande entreprise.",
+ "Who is Scale for?": "À qui s'adresse Scale ?",
+ "A bigger business that needs more room than Pro: {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.": "Une entreprise plus grande qui a besoin de plus d'espace que Pro : {maxSites} sites de {maxPages} pages chacun, {storage} de stockage de fichiers et {aiEdits} modifications IA par mois, pour {price} par mois.",
+ "Storelib's fee for your plan ({freeFee} on Free, {proFee} on Pro, {scaleFee} on Scale), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.": "Les frais Storelib de votre offre ({freeFee} en Gratuit, {proFee} en Pro, {scaleFee} en Scale), et les frais de traitement de carte de Stripe, prélevés par Stripe sur toutes les offres. Rien d'autre.",
+ "From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, your paid plan stays active until the end of the period you paid for, then your account moves to Free.": "Depuis Facturation dans Paramètres, à tout moment. Une montée en gamme démarre tout de suite. Si vous résiliez, votre offre payante reste active jusqu'à la fin de la période payée, puis votre compte passe en Gratuit.",
+ "Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only paid plans have, like your own domain and hidden branding, stop at the end of your paid period.": "Vos produits, pages, clients et commandes restent tels quels. Les frais Gratuit s'appliquent aux nouvelles ventes, et ce qui est propre aux offres payantes, comme votre domaine et la marque masquée, s'arrête à la fin de la période payée.",
+ "No. Free asks for no card. You only add one when you upgrade to Pro or Scale.": "Non. Gratuit ne demande aucune carte. Vous en ajoutez une seulement en passant à Pro ou Scale."
 }
 
 export default words

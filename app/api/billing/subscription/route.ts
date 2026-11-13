@@ -31,9 +31,9 @@ const GROWTH_PLAN = {
 }
 
 const PRO_PLAN = {
+  // The $99 plan, offered again (wave 13) and sold as "Scale". The id stays "pro": it is the $99 Stripe price.
   id: "pro",
-  // The earlier $99 plan. No longer offered; kept so its subscribers still resolve.
-  name: "Pro",
+  name: "Scale",
   price_cents: 9900,
   billing_period: "month",
   fee_percent: 0.015,

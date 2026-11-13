@@ -13390,7 +13390,18 @@ const words: Record<string, string> = {
  "Big amount": "Duża kwota",
  "Below": "Pod spodem",
  "On the picture": "Na zdjęciu",
- "Title, caption and a button on a fade at the bottom of each picture.": "Tytuł, podpis i przycisk na przejściu u dołu każdego zdjęcia."
+ "Title, caption and a button on a fade at the bottom of each picture.": "Tytuł, podpis i przycisk na przejściu u dołu każdego zdjęcia.",
+ "Get Scale": "Wybierz Scale",
+ "Everything in Pro": "Wszystko z planu Pro",
+ "Your own brand": "Twoja własna marka",
+ "Most room": "Najwięcej miejsca",
+ "Room for a bigger business.": "Miejsce na większy biznes.",
+ "Who is Scale for?": "Dla kogo jest Scale?",
+ "A bigger business that needs more room than Pro: {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.": "Dla większego biznesu, który potrzebuje więcej miejsca niż w Pro: {maxSites} stron internetowych po {maxPages} podstron, {storage} miejsca na pliki i {aiEdits} edycji AI miesięcznie, za {price} miesięcznie.",
+ "Storelib's fee for your plan ({freeFee} on Free, {proFee} on Pro, {scaleFee} on Scale), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.": "Prowizja Storelib dla Twojego planu ({freeFee} w Free, {proFee} w Pro, {scaleFee} w Scale) i opłata Stripe za obsługę karty, pobierana w każdym planie. Nic więcej.",
+ "From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, your paid plan stays active until the end of the period you paid for, then your account moves to Free.": "W Rozliczeniach w Ustawieniach, w dowolnym momencie. Zmiana na wyższy plan działa od razu. Po anulowaniu płatny plan działa do końca opłaconego okresu, potem konto przechodzi na Free.",
+ "Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only paid plans have, like your own domain and hidden branding, stop at the end of your paid period.": "Produkty, strony, klienci i zamówienia zostają bez zmian. Do nowej sprzedaży stosuje się prowizję Free, a funkcje tylko z płatnych planów, jak własna domena i ukryta marka, wyłączą się z końcem opłaconego okresu.",
+ "No. Free asks for no card. You only add one when you upgrade to Pro or Scale.": "Nie. Free nie wymaga karty. Dodajesz ją tylko przy przejściu na Pro lub Scale."
 }
 
 export default words

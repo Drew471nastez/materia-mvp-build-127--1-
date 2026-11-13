@@ -96,7 +96,7 @@ console.log("\nEach page in scope sets its own")
   check("  and not in the root layout, where every page without one would inherit it", !/canonical/.test(code("app/(storelib)/layout.tsx")))
   const pricingDesc = (pageMetadata({ path: "/pricing", title: "Pricing", description: "x" }) as Any).description
   check("  (a description is the one given)", pricingDesc === "x")
-  check("the pricing description says what the plans cost, as the pricing section does", /\$29 a month/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /5% \+ \$0\.25/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /Pro is \$29 a month and lowers the fee on every sale from 5% to 3%/.test(read("components/marketing/pricing-section.tsx")))
+  check("the pricing description says what the plans cost, as the pricing section does", /\$29 a month/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /5% \+ \$0\.25/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /* Changed on purpose (wave 13): the owner asked for a plain line under "Pricing & Plans"; the prices are on the cards and in the description. */ /Free to start\. Upgrade when you grow\./.test(read("components/marketing/pricing-section.tsx")) && /Scale is \$99 a month/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")))
 }
 
 console.log("\nLegal documents")
