@@ -20,13 +20,15 @@ export const LazyEverythingInOnePlace = lazySection(() => import("./everything-i
 
 export const LazyIdeasComeToLife = lazySection(() => import("./ideas-come-to-life").then((m) => m.IdeasComeToLife), {
   name: "ideas",
-  minHeight: "clamp(760px, 110vh, 1100px)",
+  /* Wave 13: a light section whose picture is 16:10 of the width (390:640 on a phone): about 1100px on a phone, 1520px at 1440. */
+  minHeight: "clamp(1040px, 640px + 61vw, 1560px)",
   styles: () => import("./ideas-come-to-life").then((m) => m.IDEAS_STYLES),
 })
 
 export const LazyBusinessCarousel = lazySection(() => import("./business-carousel").then((m) => m.BusinessCarousel), {
   name: "business",
-  minHeight: "clamp(760px, 100vh, 1000px)",
+  /* Wave 13: a 4:3 and a 9:16 card the same height across the width: about 700px on a phone, 1300px at 1440. */
+  minHeight: "clamp(700px, 486px + 56.4vw, 1320px)",
   styles: () => import("./business-carousel").then((m) => m.BUSINESS_STYLES),
 })
 

@@ -4,9 +4,11 @@ import { startTransition, useCallback, useEffect, useRef, useState, type Pointer
 
 /*
   AUTOPLAYING TABS WITHOUT A TIMER.
-  The active pill's progress bar is a CSS animation; when it ends, the next
-  tab is shown. So pausing is just pausing that animation (offscreen, hidden
-  tab, pointer resting on the stage, the pause button), and nothing ticks
+  The section draws an invisible clock (.smk-clock, showcase-mocks/pills.ts):
+  a CSS animation as long as one tab's turn; when it ends, the next tab is
+  shown. Nothing is drawn for it (wave 13: no progress line in the pills, no
+  pause button), and pausing is just pausing that animation (offscreen, a
+  hidden browser tab, the pointer resting on the stage), so nothing ticks
   while the section is out of view. Picking a tab yourself stops autoplay.
 
   Panels are mounted lazily: the active one, the one fading out underneath
