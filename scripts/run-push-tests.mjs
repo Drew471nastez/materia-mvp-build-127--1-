@@ -1070,6 +1070,8 @@ const SUITES = [
   "tests/native-shell.test.ts",
   /* Round AT (AT3): opening the phone app. The shell opens the gate itself and the gate lands in one router.replace; no spinner under the launch screen, Android's overlay kept up over the gate, iOS's launch screen down on every /app page once the session gate lets it draw; nobody signed in goes to /welcome without the Supabase client, only on proof of no session; scripts/check-app-launch-at3.mjs measures it in Chromium. */
   "tests/app-launch-at3.test.ts",
+  /* Round AU (AU1): the phone app on a bad network and after the background. The launch screen always comes down (12s ceiling, at once on an error, a retry or no connection); a start that cannot land says so with Try again and goes on when the phone is back online; offline, a document load is held back rather than leaving the app for the system's error page; the read aheads wait until the app settled after coming back. scripts/check-app-network-au1.mjs measures it in Chromium. */
+  "tests/app-network-au1.test.ts",
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
   "tests/communities-shell15.test.ts",

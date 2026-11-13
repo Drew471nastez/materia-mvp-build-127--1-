@@ -5,6 +5,10 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Cannot reach Storelib": "Storelib ist nicht erreichbar",
+ "Still loading": "Wird noch geladen",
+ "The connection is slow right now.": "Die Verbindung ist gerade langsam.",
+ "Storelib opens as soon as your phone is back online.": "Storelib öffnet sich, sobald dein Telefon wieder online ist.",
  "OnePage, {block}": "OnePage, {block}",
  "Checkout, {channel}": "Kasse, {channel}",
  "Tips added at checkout are part of total sales. Tips on your OnePage are paid to you on their own and are not in total sales.": "Trinkgelder an der Kasse gehören zum Gesamtumsatz. Trinkgelder auf deiner OnePage werden dir separat ausgezahlt und sind nicht im Gesamtumsatz.",
