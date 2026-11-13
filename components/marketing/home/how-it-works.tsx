@@ -112,14 +112,14 @@ export function HowItWorks() {
       </style>
       <div className="cmh-wrap">
         <div className="story-section-heading">
-          <StoryHeading id="cmh-title" text="Sell what your fans love. We handle the rest." accent={["love"]} />
+          <StoryHeading id="cmh-title" text="Sell what you make. We handle the rest." accent={["make"]} />
         </div>
 
         <div className="cmh-grid">
           <Tile wide tone="merch" caption={<><b>Sell your own merch, no inventory.</b> Design it, set your price, and a print partner you connect prints and ships each order as it comes in.</>}>
             <MerchScene />
           </Tile>
-          <Tile tone="violet" caption={<><b>Fans buy without leaving your page.</b> Tap a product on your OnePage and checkout slides up right there.</>}>
+          <Tile tone="violet" caption={<><b>People buy without leaving your page.</b> Tap a product on your OnePage and checkout slides up right there.</>}>
             <SheetScene />
           </Tile>
           <Tile caption={<><b>Sell digital products.</b> Upload a file once. Every buyer gets it by email the moment they pay.</>}>
@@ -128,7 +128,7 @@ export function HowItWorks() {
           <Tile tone="lilac" caption={<><b>Build and sell a course.</b> Lessons, videos and files, with each student&apos;s progress saved as they go.</>}>
             <CourseScene />
           </Tile>
-          <Tile tone="warm" caption={<><b>Take tips from fans.</b> A thank-you button for the people who just want to support you.</>}>
+          <Tile tone="warm" caption={<><b>Take tips.</b> A thank-you button for the people who just want to support you.</>}>
             <TipScene />
           </Tile>
         </div>

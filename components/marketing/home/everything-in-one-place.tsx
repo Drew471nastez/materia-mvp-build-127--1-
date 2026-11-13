@@ -13,7 +13,7 @@
        preset pack, a course and a community, the light behind it changing
        with each; the tabs pick one, and it plays by itself while on screen.
     2. A store that looks like you: four creators' storefronts gliding past.
-    3. Sell to fans anywhere: a globe the visitor can spin, with orders
+    3. Sell in every country: a globe the visitor can spin, with orders
        arcing to buyers in currencies checkout charges in.
     4. Real support: a creator's question answered by a person at Storelib
        (app/support), and a buyer's question answered by the store.
@@ -383,7 +383,7 @@ function Support() {
 export const EVERYTHING_CARDS = [
   { key: "sell", wide: true, lead: "Sell anything you make.", rest: "Merch, downloads, courses and communities live in one catalog, with one checkout for all of them." },
   { key: "store", wide: false, lead: "Build a store that looks like you.", rest: "Start from a template and make every part yours, or skip the website and share a OnePage link." },
-  { key: "world", wide: false, lead: "Sell to fans anywhere.", rest: "Buyers see your prices in their currency and your pages in their language, wherever they find you." },
+  { key: "world", wide: false, lead: "Sell in every country.", rest: "Buyers see your prices in their currency and your pages in their language, wherever they find you." },
   { key: "support", wide: true, lead: "Real support for you and your buyers.", rest: "A person at Storelib reads and answers every request, and buyers reach you right from their order page." },
 ] as const
 

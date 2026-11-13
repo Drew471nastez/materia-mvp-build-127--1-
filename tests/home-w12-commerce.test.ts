@@ -84,7 +84,7 @@ console.log("\nCommerce: the figures are Storelib's")
 console.log("\nCommerce: the sections render on the server")
 {
   const how = renderToStaticMarkup(createElement(HowItWorks))
-  check("how it works: its heading", how.includes("Sell what your fans love. We handle the rest."))
+  check("how it works: its heading", how.includes("Sell what you make. We handle the rest."))
   check("how it works: five tiles", (how.match(/class="cmh-tile"/g) ?? []).length === 5)
   /* Changed on purpose (wave 13): the owner removed the profit picker, the "How it works" pill and the subheading. */
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
