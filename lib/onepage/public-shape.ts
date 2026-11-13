@@ -125,8 +125,9 @@ export function drawnBlocks(blocks: any[], social: Record<string, unknown>, now:
  * A switched off block, and a group's block outside its schedule, were left
  * out by the page's own component in the browser, after the whole block
  * list had been sent with the page: a link switched off "until launch" was
- * in every visitor's page source. The published page leaves them out here,
- * groups included; the editor's preview keeps them, to show and edit.
+ * in every visitor's page source. They are left out here, groups included,
+ * on both sides: the editor's preview never drew them either, and the
+ * preview and the live page stay one shape (tests/onepage-preview-live-r10).
  */
 function withoutHidden(blocks: any[], now: number): any[] {
   const out: any[] = []
@@ -205,7 +206,7 @@ export function publicOnePage(
     avatar_video_url: profile?.avatar_video_url || row.avatar_video_url || null,
     avatar_video_crop: profile?.avatar_video_crop || (settings as any)?.avatar_video_crop || null,
     theme,
-    blocks: drawnBlocks(published ? withoutHidden(blocks, now) : blocks, social as Record<string, unknown>, now),
+    blocks: drawnBlocks(withoutHidden(blocks, now), social as Record<string, unknown>, now),
     social_links: social,
     settings: customDomain === undefined ? { ...settings } : { ...settings, custom_domain: customDomain },
     seller_id: sellerId === undefined ? row.seller_id || row.creator_id || null : sellerId,

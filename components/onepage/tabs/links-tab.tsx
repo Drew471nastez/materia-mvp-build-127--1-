@@ -6680,8 +6680,8 @@ function BlockEditor({
                   through: without it a PDF's, a menu's or a signup's file button opened the photo picker.
                 */}
                 <BlockEditor
-                  key={selectedChild.id}
                   block={selectedChild}
+                  key={selectedChild.id}
                   socialLinks={socialLinks}
                   onOpenImageLibrary={onOpenImageLibrary}
                   onOpenSocialModal={onOpenSocialModal}

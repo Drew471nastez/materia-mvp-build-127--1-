@@ -99,7 +99,8 @@ function main() {
     for (const k of DRAWN) check(`${k}: the same on both`, JSON.stringify(preview[k]) === JSON.stringify(live[k]), { preview: preview[k], live: live[k] })
 
     const ids = preview.blocks.map((x: any) => x.id).join(",")
-    check("a block outside its schedule is on neither", ids === "header,link,bare,www,hidden,social,group", ids)
+    /* Changed on purpose (OnePage production audit, P-F3): a switched off block is not sent to either side; neither drew it. */
+    check("a block outside its schedule is on neither", ids === "header,link,bare,www,social,group", ids)
 
     /* A page edited after its last save: the preview shows the edit, the live page what was saved, until Save. */
     const edited = { ...saved(ROW, "https://cdn.example/me.png"), title: "New name", draft_blocks: [...BLOCKS].reverse() }

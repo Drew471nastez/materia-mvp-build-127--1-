@@ -315,11 +315,10 @@ export function publishedShape(
     draws the page without the badge and with the Storelib badge.
   */
   const settings = (onepage.settings ?? {}) as Record<string, unknown>
-  const shown =
-    (owner as { paidPlan?: boolean | null }).paidPlan === false && (settings.verified_badge_enabled === true || settings.show_branding === false)
-      ? { ...onepage, settings: { ...settings, verified_badge_enabled: false, show_branding: true } }
-      : onepage
-  return publicOnePage(shown, {
+  if ((owner as { paidPlan?: boolean | null }).paidPlan === false && (settings.verified_badge_enabled === true || settings.show_branding === false)) {
+    onepage = { ...onepage, settings: { ...settings, verified_badge_enabled: false, show_branding: true } }
+  }
+  return publicOnePage(onepage, {
     source: "published",
     displayName: owner.displayName,
     /* The live photo, for a page that has no picture of its own, and for one

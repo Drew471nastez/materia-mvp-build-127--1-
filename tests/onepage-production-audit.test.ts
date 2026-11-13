@@ -297,7 +297,7 @@ async function main() {
     const flat = JSON.stringify(live.blocks)
     check("a switched off block and a group's hidden or not yet started ones are left out", !/discord\.gg|launch\.example|hidden\.example/.test(flat) && /on\.example/.test(flat) && /kid\.example/.test(flat), flat)
     const draft = publicOnePage({ ...row, draft_blocks: row.published_blocks } as never, { source: "draft", now })
-    check("the editor's preview still has the switched off one, to show and edit", /discord\.gg/.test(JSON.stringify(draft.blocks)))
+    check("the editor's preview is the same shape (it never drew them either)", JSON.stringify(draft.blocks) === JSON.stringify(live.blocks))
     check("the page asks again when a group's block starts", nextScheduleChange(row.published_blocks, now) === Date.parse(later))
   }
 
@@ -324,7 +324,7 @@ async function main() {
     const links = code("components/onepage/tabs/links-tab.tsx")
     check("B1: deep block writes read the page as it is now", /const blocks = getLatestOnePage\(\)\?\.draft_blocks \?\? \[\]\s*\n\s*const source = findBlockDeep\(blocks, id\)\?\.block/.test(links) && /const plan = updatePlanDeep\(blocks, id, updates\)/.test(links))
     check("B1: and no upload writes back the block it began with", !/\.\.\.block\??\.data,\s*\n\s*(digital_product_file_url|product_image|pdf_file_url|thumbnail_url|custom_thumbnail):/.test(links))
-    check("B2/B4: a group's child editor is keyed by the child and passes the field through", /<BlockEditor\s*\n\s*key=\{selectedChild\.id\}/.test(links) && /onOpenImageLibrary=\{onOpenImageLibrary\}/.test(links))
+    check("B2/B4: a group's child editor is keyed by the child and passes the field through", /<BlockEditor\s*\n\s*block=\{selectedChild\}\s*\n\s*key=\{selectedChild\.id\}/.test(links) && /onOpenImageLibrary=\{onOpenImageLibrary\}/.test(links))
     check("B9: nothing is moved above the profile header", /if \(from > headerIndex\) return Math\.max\(to, headerIndex \+ 1\)/.test(links) && /if \(blocks\[index - 1\]\.type === "header" \|\| blocks\[index\]\.type === "header"\) return/.test(code("lib/onepage/context.tsx")))
     check("B3: an upload is not stopped when its field goes", !/alive\.current = false\s*\n\s*ctrl\.current\?\.abort\(\)/.test(code("components/onepage/upload-progress.tsx")))
     const ctx = code("lib/onepage/context.tsx")
