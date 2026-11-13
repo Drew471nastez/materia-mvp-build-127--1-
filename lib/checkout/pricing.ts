@@ -199,8 +199,6 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
      (lib/physical), which takes an address and holds stock; this checkout
      would sell it as a download. */
   if ((product as PricedProduct).type === "physical") return { ok: false, status: 400, error: "This product ships, so it is bought from the shop's cart." }
-  /* A membership is a subscription (app/api/memberships/checkout). Sold here it was charged once at the monthly price and gave an order with no membership behind it. */
-  if ((product as PricedProduct).type === "membership") return { ok: false, status: 400, error: "This is a membership. Join it from its own page." }
 
   let variant: PricedVariant | null = null
   const noVariant = req.variantId === undefined || req.variantId === null || req.variantId === ""
@@ -564,8 +562,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
        line anyway. */
     if (priceCents <= 0 && !req.keepFree) { dropped.push(product.title); continue }
 
-    /* A download or a course is one copy to one library: a course at quantity 3 was charged three times. */
-    const quantity = product.type === "digital" || product.type === "course" ? 1 : want.quantity
+    const quantity = product.type === "digital" ? 1 : want.quantity
     lines.push({ item: { productId, variantId: want.variantId, quantity, priceCents, discountCents: 0, ...(want.properties ? { properties: want.properties } : {}) }, product })
     namedPrice.push(!!(variant ?? product).pay_what_you_want)
   }

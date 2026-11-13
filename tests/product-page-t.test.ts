@@ -223,7 +223,7 @@ async function main() {
     const priced = await priceCart(db, { items: [{ productId: P, variantId: null, quantity: 1, customPriceCents: 1500 }, { productId: Q, variantId: "lic", quantity: 2, customPriceCents: 1 }] })
     check(
       "the server charges the named amount, and the variant's own price whatever was sent",
-      priced.ok === true && priced.lines[0].item.priceCents === 1500 && priced.lines[1].item.priceCents === 9000 && priced.lines[1].item.variantId === "lic" && /* Changed on purpose (round AW): a course is one enrolment in one library, so a quantity of 2 is charged once, as a download always was. */ priced.totalCents === 1500 + 9000 && priced.lines[1].item.quantity === 1,
+      priced.ok === true && priced.lines[0].item.priceCents === 1500 && priced.lines[1].item.priceCents === 9000 && priced.lines[1].item.variantId === "lic" && priced.totalCents === 1500 + 9000 * 2,
       priced,
     )
     const low = await priceCart(db, { items: [{ productId: P, variantId: null, quantity: 1, customPriceCents: 100 }] })

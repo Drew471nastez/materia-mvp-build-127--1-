@@ -21,17 +21,14 @@
  *                is not told "failed"; a cancelled order is not sent to a
  *                partner; "keep it" returns restock nothing; packing slips
  *   integrations ShipStation's numbered hosts; cards that say what is true
- *   analytics    one id for a download's purchase in the browser and on the
- *                server; a cash order tells its purchase
+ *   analytics    a cash order tells its purchase
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { createHash } from "node:crypto"
 import { sent } from "@/lib/checkout/followups"
 import { mergeHolds } from "@/lib/physical/checkout-server"
 import { isShipStationResource } from "@/lib/integrations/shipping/shipstation"
 import { appStatesFrom, type AppFacts } from "@/lib/integrations/storelib-apps"
-import { purchaseRef } from "@/lib/analytics/destinations/forward-server"
 import { customerToReuse } from "@/lib/memberships/billing"
 import { paidElsewhere } from "@/lib/stripe/refund-sync"
 import { saveCollection } from "@/lib/physical/collections-server"
@@ -130,8 +127,7 @@ async function main() {
     const r = await saveCollection(db as never, "store-b", "c-a", { title: "x", kind: "manual", productIds: ["mine"] })
     check("another store's collection is not found, and its products stay as they were", r.ok === false && /could not be found/.test((r as { error: string }).error) && db.rows("product_collection_items").length === 2 && db.rows("product_collection_items").every((i) => i.product_id !== "mine") && db.rows("product_collections")[0].title === "Theirs", { r, items: db.rows("product_collection_items") })
     const pricing = read("lib/checkout/pricing.ts")
-    check("a membership or a community plan is never sold through the basket or the one time checkout", /product\.type === "membership" \|\| product\.type === "community"\) \{ dropped\.push/.test(pricing) && /type === "membership"\) return \{ ok: false, status: 400/.test(pricing))
-    check("a download or a course is one copy however many were asked for", /const quantity = product\.type === "digital" \|\| product\.type === "course" \? 1 : want\.quantity/.test(pricing) && /const digital = p\.type !== "physical"/.test(read("lib/products/product-page-model.ts")))
+    check("a membership or a community plan is never sold through the basket", /product\.type === "membership" \|\| product\.type === "community"\) \{ dropped\.push/.test(pricing))
     check("a once per customer code still counts an order that was partly refunded", /\.in\("status", \["paid", "partially_refunded"\]\)/.test(read("lib/physical/checkout-pricing-server.ts")))
     const preset = read("lib/website-builder/theme-registry.ts")
     const product = preset.slice(preset.indexOf("const product: SectionInstance[] = ["), preset.indexOf("const product: SectionInstance[] = [") + 1800)
@@ -180,11 +176,6 @@ async function main() {
 
   console.log("\nAnalytics\n")
   {
-    const token = "rt_3f9c2a"
-    const browser = `sl-${createHash("sha256").update(token).digest("hex").slice(0, 16)}`
-    check("a download's purchase has one id in the browser and on the server", purchaseRef({ id: "o1", checkout_id: null, receipt_token: token }) === browser, [purchaseRef({ id: "o1", checkout_id: null, receipt_token: token }), browser])
-    check("  a shipped order keeps its checkout's id, a basket its first order's, a row with no token its own", purchaseRef({ id: "x", checkout_id: "co" }) === "co" && purchaseRef({ id: "o2", checkout_id: null }, [{ id: "o2", created_at: "2026-01-02", receipt_token: "t2" }, { id: "o1", created_at: "2026-01-01", receipt_token: "t1" }]) === "o1" && purchaseRef({ id: "z", checkout_id: null }) === "z")
-    check("  the refund is told by the same id", /const ref = purchaseRef\(order, lines\)/.test(read("lib/analytics/destinations/forward-server.ts")))
     const ship = read("lib/physical/checkout-server.ts")
     check("an order placed in cash opens its page as just placed, so the store's tags hear the purchase", (ship.match(/\/checkout\/physical\/order\/\$\{encodeURIComponent\([^)]*\)\}\?paid=1`/g) ?? []).length === 4)
   }

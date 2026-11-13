@@ -434,8 +434,7 @@ export function cartLineFor(
 ): CartLine {
   const facts = priceFacts(p, variant)
   const custom = facts.payWhatYouWant && typeof customPriceCents === "number" ? customPriceCents : null
-  /* Everything but goods that ship is one copy to one library (a course at 2 showed 2 x in the cart while one enrolment exists). */
-  const digital = p.type !== "physical"
+  const digital = p.type === "digital"
   return {
     productId: p.id,
     variantId: variant?.id ?? null,

@@ -66,7 +66,7 @@ export async function resolveDownloadAccess(
   const uploadState = typeof row.upload_status === "string" ? row.upload_status : ""
   if (uploadState && uploadState !== "completed") return NOT_FOUND
 
-  let { data: product } = await admin.from("products").select("id, creator_id, type").eq("id", row.product_id).maybeSingle()
+  let product: { id: string; creator_id: string | null; type?: string | null } | null = (await admin.from("products").select("id, creator_id, type").eq("id", row.product_id).maybeSingle()).data
   /* A database without the column: read as it was. */
   if (!product) product = (await admin.from("products").select("id, creator_id").eq("id", row.product_id).maybeSingle()).data
 
@@ -127,7 +127,7 @@ export async function resolveDownloadAccess(
     leaving, after the grace ran out, files posted since. Only the creator
     reads them here.
   */
-  if ((product as { type?: string } | null)?.type === "membership" && !isCreator) return { ...NOT_FOUND, asset }
+  if (product?.type === "membership" && !isCreator) return { ...NOT_FOUND, asset }
 
   /* Only the variants that are actually in play need their mapping read. */
   const variants = new Set<string>()

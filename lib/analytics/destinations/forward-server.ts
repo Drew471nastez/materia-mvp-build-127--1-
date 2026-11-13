@@ -166,20 +166,13 @@ async function basketOf(db: Db, order: OrderRow): Promise<OrderRow[]> {
  * order that holds the receipt (the purchase's first). Its refund is told by
  * the same id.
  */
-export function purchaseRef(order: Pick<OrderRow, "id" | "checkout_id"> & { receipt_token?: string | null }, lines: Pick<OrderRow, "id" | "created_at" | "receipt_token">[] = []): string {
+export function purchaseRef(order: Pick<OrderRow, "id" | "checkout_id">, lines: Pick<OrderRow, "id" | "created_at" | "receipt_token">[] = []): string {
   if (order.checkout_id) return String(order.checkout_id)
-  /*
-    A download paid on storelib.com or a OnePage: the browser tells its purchase as "sl-" and sixteen hex of the
-    receipt token's SHA-256 (lib/analytics/pixels paidEventId). The server used to send the order's own id, so a
-    store with both the tag and a destination had every such sale in GA4 and Meta twice. The same id is made here.
-  */
-  const sl = (token: string | null | undefined) => (token ? `sl-${createHash("sha256").update(token).digest("hex").slice(0, 16)}` : null)
   if (lines.length > 1) {
     const sorted = [...lines].sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) || a.id.localeCompare(b.id))
-    /* A basket keeps the id it always had: its first order's. */
     return String((sorted.find((l) => !!l.receipt_token) ?? sorted[0]).id)
   }
-  return sl(order.receipt_token ?? lines[0]?.receipt_token) ?? order.id
+  return order.id
 }
 
 function itemsOf(lines: OrderRow[]): ForwardItem[] {
@@ -228,8 +221,8 @@ export async function forwardOutboxEvent(db: Db, e: OutboxEvent, person?: Person
       if (!order || order.creator_id !== creatorId || isTestSale(order)) return 0
       const lines = await basketOf(db, order)
       if (lines.some(isTestSale)) return 0
-      /* The purchase's first order is the one raiseSaleEvents names; told by the id its purchase was told by (a basket's first order, a single order's own). */
-      const ref = purchaseRef(order, lines)
+      /* The purchase's first order is the one raiseSaleEvents names. */
+      const ref = purchaseRef(order)
       if (!SAFE_REF.test(ref)) return 0
       const currency = currencyCode(typeof p.currency === "string" ? p.currency : order.currency) ?? "USD"
       const who = person === undefined ? await visitorPerson({ email: order.buyer_email ?? (typeof p.buyerEmail === "string" ? p.buyerEmail : null), phone: await phoneOf(db, order.checkout_id) }) : person
