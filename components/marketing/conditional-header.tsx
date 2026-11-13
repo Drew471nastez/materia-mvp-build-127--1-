@@ -49,6 +49,21 @@ function HeaderPlaceholder({ buyerHeaderLight = false, concave = false }: { buye
   )
 }
 
+/*
+ * Wave 14: "/" where Vercel's ISR renders the home page under the name
+ * "/index" (its payload's canonical URL parts are ["", "index"]); the
+ * browser hydrates at "/", so the header drew nothing on the server and
+ * React re-drew the whole page (#418). Kept in this file, a plain function
+ * and no hook, so the header's code is bundled as it was. With the marketing
+ * layout's segment (null on its own page), a creator called "index" keeps
+ * its path. The same rule is in components/marketing/conditional-header.tsx
+ * and components/platform/platform-header-client.tsx.
+ */
+function homePathname(pathname: string, segmentBelow?: string | null): string {
+  if (pathname !== "/index") return pathname
+  return segmentBelow === undefined || segmentBelow === null ? "/" : pathname
+}
+
 /**
  * Screens that carry their own chrome and must not get the platform's on top.
  * The creator page editor is a full-screen workspace with a bar of its own.
@@ -169,9 +184,10 @@ export function ConditionalHeader({
    */
   onPlatformDomain?: boolean
 }) {
-  const pathname = usePathname()
   /* null when the page under this layout is its own page.tsx (Next's page segment), "u" for /u/<name>, and so on. */
   const segmentBelow = useSelectedLayoutSegment()
+  /* Wave 14: "/" also where the server draws the home page as "/index" (lib/nav/home-pathname): it drew no header there, and the browser did. */
+  const pathname = homePathname(usePathname(), segmentBelow)
   const onPlatformDomain = hostSaysPlatform || (platformHomeFromRoute && segmentBelow === null)
 
   // Initialise synchronously so the header renders on the first paint for
