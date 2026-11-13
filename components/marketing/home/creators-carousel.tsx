@@ -19,7 +19,7 @@ export const CREATORS: readonly CreatorCard[] = [
   { slug: "musicians", kind: "Musicians", sells: "Beats & sample packs", name: "Jalen Brooks", alt: "Jalen playing an acoustic guitar in a bright room" },
   { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Clara Whitfield", alt: "Clara writing in a notebook at a window table" },
   { slug: "educators", kind: "Educators", sells: "Online courses", name: "Rosa Delgado", alt: "Rosa, an educator, smiling in a striped cardigan" },
-  { slug: "influencers", kind: "Influencers", sells: "Merch drops", name: "Amara Osei", alt: "Amara, an influencer, in a bold patterned top" },
+  { slug: "influencers", kind: "Influencers", sells: "Merch drops", name: "Adaeze Nwosu", alt: "Adaeze, an influencer, in a bold patterned top" },
   { slug: "podcasters", kind: "Podcasters", sells: "Bonus episodes & memberships", name: "The Late Signal", alt: "The host of The Late Signal laughing into his microphone, headphones on" },
   { slug: "artists", kind: "Artists", sells: "Prints & original pieces", name: "Iris Calder", alt: "Iris painting on a canvas at an easel" },
   { slug: "streamers", kind: "Streamers", sells: "Sub perks & emote packs", name: "Kai Navarro", alt: "Kai streaming at a glowing desk setup with a headset on" },
