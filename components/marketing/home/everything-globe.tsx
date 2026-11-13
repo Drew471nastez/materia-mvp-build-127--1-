@@ -1,7 +1,7 @@
 "use client"
 
 /*
-  THE "SELL TO FANS ANYWHERE" GLOBE (home section 3, card 3).
+  THE "SELL ANYWHERE IN THE WORLD" GLOBE (home section 3, card 3).
 
   A dotted Earth on one canvas, drawn from the same 2 degree land bitmap the
   analytics globe uses (platform-globe-land.ts), with the cities orders come
@@ -118,6 +118,7 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
       worker = new Worker(url)
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
       const off = canvas.transferControlToOffscreen()
+      canvas.setAttribute("data-offscreen", "")
       worker.postMessage({ type: "init", canvas: off, pts, cities, home }, [off])
     } catch {
       worker?.terminate()
@@ -202,8 +203,22 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`
       el.toggleAttribute("data-on", p.on)
     }
-    const driver = startDriver(canvas, onPill, () => {
-      if (!canvas.hasAttribute("data-drawn")) canvas.setAttribute("data-drawn", "")
+    /*
+      A canvas hands its drawing to a worker once and for good. When the
+      effect runs again on the same element (React's development double run),
+      a fresh canvas stands in for it, so the second run draws instead of
+      throwing on getContext.
+    */
+    let surface = canvas
+    if (canvas.hasAttribute("data-offscreen")) {
+      surface = canvas.cloneNode(false) as HTMLCanvasElement
+      surface.removeAttribute("data-offscreen")
+      surface.removeAttribute("data-drawn")
+      canvas.style.display = "none"
+      canvas.after(surface)
+    }
+    const driver = startDriver(surface, onPill, () => {
+      if (!surface.hasAttribute("data-drawn")) surface.setAttribute("data-drawn", "")
     })
     if (!driver) return
 
@@ -285,6 +300,7 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
 
     return () => {
       driver.stop()
+      if (surface !== canvas) surface.remove()
       ro?.disconnect()
       io?.disconnect()
       box.removeEventListener("pointerdown", onDown)

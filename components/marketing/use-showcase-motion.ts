@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef } from "react"
-import { RailMotion, SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
+import { RailMotion, SHOWCASE_MOTION, type RailMotionConfig } from "@/lib/ui/rail-motion"
 
 /*
   THE SHOWCASE'S MOTION (round 60). One controller (lib/ui/rail-motion) owns
@@ -20,6 +20,22 @@ import { RailMotion, SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
   screen and the tab is visible.
 */
 const PHONE = "(max-width: 767px)"
+
+/*
+  LANDING ROUND, THE OWNER: pull to drag and swipe, with the mouse and the
+  finger, "butter" smooth. The hand still holds the rail exactly; what
+  changes is the letting go. The settle used to leave at up to half of the
+  fastest speed a spring could take (a whole group at about 8,000px/s after
+  a slow pull), a visible jolt. Now it glides on from the hand's own speed
+  (glideCurve: no jump in speed, never past its place, about half a second
+  for a whole group), and a hard flick on a phone carries on through up to
+  three cards, as a native scroller would. Autoplay is unchanged.
+*/
+export const SHOWCASE_RAIL: RailMotionConfig = {
+  ...SHOWCASE_MOTION,
+  swipeMaxSteps: 3,
+  glideSettle: { minMs: 280, maxMs: 520, msPerPx: 0.18, minLaunch: 0.7 },
+}
 
 export function useShowcaseMotion() {
   const rail = useRef<RailMotion | null>(null)
@@ -42,7 +58,7 @@ export function useShowcaseMotion() {
     el.scrollLeft = 0
     el.dataset.railReady = "true"
     const { items, snaps } = parts()
-    const motion = new RailMotion(el, items, snaps, SHOWCASE_MOTION, {
+    const motion = new RailMotion(el, items, snaps, SHOWCASE_RAIL, {
       /* Wave 13: nothing on the page restyles while the rail moves (the heading used to dim, a repaint at every autoplay step); the first move only lets the phone's left gutter show the card before. */
       onMoving: (moving) => {
         if (moving && section?.hasAttribute("data-showcase-pristine")) section.removeAttribute("data-showcase-pristine")

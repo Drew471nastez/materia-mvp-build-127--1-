@@ -42,7 +42,7 @@ const portrait = (brand: string, label: string, alt: string) => ({
 /* The OnePage captions are three words at most (the owner, wave 13). */
 const GROUPS = [
   [
-    wide("neonmoth", "Sell merch your fans wear", "Neon Moth's Storelib store: a tour tee, a vinyl LP and a track set under a neon concert cover"),
+    wide("neonmoth", "Sell your own merch", "Neon Moth's Storelib store: a tour tee, a vinyl LP and a track set under a neon concert cover"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
     wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community with a critique post, a roll swap event and a leaderboard"),
   ],
@@ -180,7 +180,7 @@ const CSS = `
 .build-showcase-track[data-rail-ready] .build-showcase-group {will-change:transform;backface-visibility:hidden}
 @media(max-width:767px){.build-showcase-track[data-rail-ready] .build-showcase-group{will-change:auto}.build-showcase-track[data-rail-ready] .build-showcase-slide{will-change:transform;backface-visibility:hidden}}
 .build-showcase-group {display:grid;grid-template-columns:256fr 90fr 256fr;gap:var(--showcase-gap);align-items:center;flex:0 0 100%;width:100%;padding:10px var(--landing-card-inset,14px);min-width:0;box-sizing:border-box}
-.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:1440/990;margin:0;border-radius:8px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
+.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:1440/990;margin:0;border-radius:7px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
 .build-showcase-slide[data-format="portrait"] {aspect-ratio:540/1056}
 .build-showcase-slide img {display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
 /*
@@ -203,6 +203,6 @@ const CSS = `
   quarters of the width) and the next peeking in from the right, 8px apart,
   each card its picture's shape and about half the width tall.
 */
-@media(max-width:767px){.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;--showcase-height:clamp(170px,51.5vw,380px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:6px}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
+@media(max-width:767px){.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;--showcase-height:clamp(170px,51.5vw,380px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:5px}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
 @media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready]{opacity:1;transition:none}.build-showcase-slide figcaption{transition:none}}
 `
