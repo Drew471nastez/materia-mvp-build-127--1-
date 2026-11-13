@@ -181,7 +181,8 @@ async function main() {
     check("the script keeps the showcase heading and headings inside a scrolling box", /hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading))
     const creators = code("components/marketing/home/creators-carousel.tsx")
     check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(goal\)/.test(creators))
-    check("the sale dot's ping is paused off screen", /\[data-story-in-view="false"\] \.cc-card \.cc-sale-dot::after/.test(creators))
+    /* Changed on purpose (wave 13): the sale dot and its looping ping are gone; the sale notification moves by transitions between states, with no loop left running off screen. */
+    check("the creators section runs no endless CSS loop of its own", !/infinite/.test(creators) && !/infinite/.test(code("components/marketing/home/motion/sale-pop.tsx")))
     for (const f of ["how-it-works", "earnings-calculator"]) {
       const own = read(`components/marketing/home/${f}.tsx`)
       check(`${f}: rules keyed on data-commerce-live end in a class, not a tag`, !/\[data-commerce-live\][^{},]*\s(span|li|div|b|i|img|svg|path)\s*[,{]/.test(own) && !/\[data-commerce-live\][^{},]*>\s*(span|li)\s*[,{]/.test(own))

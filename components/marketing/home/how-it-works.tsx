@@ -2,55 +2,86 @@
 
 /**
  * ===========================================================================
- *  HOW IT WORKS: FIVE MOTION TILES AND THE PROFIT PICKER (home, section 8)
+ *  HOW IT WORKS: FIVE MOTION TILES (home, section 8)
  * ===========================================================================
  * Light and rounded. Each tile is a small loop drawn in HTML and CSS, not a
- * video: merch designed, priced, printed and shipped; a product sheet sliding
- * up over a OnePage; a file dropped into a product and the download email;
- * lessons stacking into a course; tips popping into a tip jar. Under them,
- * the picker: choose what you sell and a price, and see what one sale leaves
- * you after the example production cost and Storelib's real fee.
+ * video, and each one is the product as it really looks:
  *
- * Every loop is transform and opacity only, and runs only while the section
- * is on screen and the tab is visible (data-commerce-live). Reduced motion
- * shows each tile's finished frame, still.
+ *   merch      a print-on-demand product card cycling through five pieces of
+ *              one artist's merch (tee, hoodie, crewneck, tote, mug), each
+ *              with its price, example production cost, profit and an order
+ *              moving from placed to printing to shipped
+ *   checkout   a OnePage on a phone: a tap on a product, the product sheet
+ *              slides up, Buy now, Payment complete, and it slides away
+ *   digital    the product editor uploading a ZIP, publishing, then the
+ *              buyer's "Thanks for your purchase" email with Get your files
+ *   course     the course builder: a lesson added and uploaded, the course
+ *              published, then a student's progress coming in
+ *   tips       a tip card choosing an amount, sending it, and the tip landing
+ *
+ * Every loop is CSS keyframes on transform and opacity only, stacked layers
+ * in fixed-size boxes (grid overlap, never absolute heights that change), so
+ * nothing lays out while they play. They run only while the section is on
+ * screen and the tab is visible (data-commerce-live); reduced motion shows
+ * each tile's finished frame, still.
  *
  * TRUE TO THE PRODUCT. Merch without stock is print on demand through a
- * print partner the seller connects (lib/physical/providers.ts: Printful,
- * Printify, Gelato); the sheet over a OnePage is instant checkout; digital
- * files are delivered on payment; courses track each student's progress;
- * tips are added at checkout. The fee is lib/payments/fees/calculate's.
+ * print partner the seller connects (lib/physical/providers.ts). The sheet's
+ * words are the OnePage product sheet's (components/onepage/product-sheet:
+ * "Buy now · $19"), the email's are the purchase receipt's
+ * (lib/notify/templates/catalog.ts PURCHASE_CONFIRMATION), the builder's are
+ * the course builder's ("Add lesson", "Publish", "Free preview"). Profit is
+ * after Storelib's real fee (lib/payments/fees/calculate).
  */
+import type { CSSProperties, ReactNode } from "react"
 import type { SectionStyle } from "./lazy-section"
-import { useState } from "react"
+import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { StoryHeading } from "../story-heading"
-import { COMMERCE_PRODUCTS, CommerceKindIcon, CommerceKindPicker, COMMERCE_KIT_STYLE, CommerceKitStyle, CommerceNumber, CommerceSlider, commerceProduct, commerceSale, commerceUsd, useCommerceLive, type CommerceKind } from "./commerce-kit"
+import { commerceProduct, commerceUsd, useCommerceLive } from "./commerce-kit"
 
 const IMG = "/home/commerce"
+const HOW = "/home/how"
+
+/** One sale of a merch piece: Storelib's Free-plan fee, worked out by checkout's own function. */
+function merchSale(priceCents: number, baseCents: number) {
+  const fee = calculateStorelibFee({ grossMinor: priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor
+  return { priceCents, baseCents, profitCents: priceCents - fee - baseCents }
+}
+
+/** Night Swim's merch (a fictional band). Production costs are example print partner prices. */
+export const HOW_MERCH = [
+  { id: "tee", name: "705 Club heavyweight tee", order: "#2041", city: "Austin, TX", ...merchSale(3000, commerceProduct("tee").baseCents) },
+  { id: "hoodie", name: "Night Swim tour hoodie", order: "#2042", city: "Leeds, UK", ...merchSale(5500, commerceProduct("hoodie").baseCents) },
+  { id: "crew", name: "Night Swim crewneck", order: "#2043", city: "Toronto, ON", ...merchSale(4800, commerceProduct("sweatshirt").baseCents) },
+  { id: "tote", name: "World Tour tote bag", order: "#2044", city: "Berlin, DE", ...merchSale(2400, 1150) },
+  { id: "mug", name: "Morning After mug", order: "#2045", city: "Denver, CO", ...merchSale(1800, 725) },
+] as const
+
+const SLIDE_S = 3.6
+const CYCLE_S = SLIDE_S * HOW_MERCH.length
+
+const vars = (v: Record<string, string | number>) => v as CSSProperties
 
 export function HowItWorks() {
   const [ref] = useCommerceLive<HTMLElement>(undefined, false)
   return (
     <section ref={ref} className="cmh" data-story-section="how-it-works" aria-labelledby="cmh-title">
-      <CommerceKitStyle />
       <style href="w12-commerce-how" precedence="default">
         {HOW_CSS}
       </style>
       <div className="cmh-wrap">
         <div className="story-section-heading">
-          <p className="story-eyebrow">How it works</p>
           <StoryHeading id="cmh-title" text="Sell what your fans love. We handle the rest." accent={["love"]} />
-          <p className="text-neutral-500">Merch with no stock to buy, downloads that deliver themselves, courses, memberships and tips, all paid for without your fans leaving your page.</p>
         </div>
 
         <div className="cmh-grid">
-          <Tile wide caption={<><b>Sell your own merch, no inventory.</b> Design it, set your price, and a print partner you connect prints and ships each order as it comes in.</>}>
+          <Tile wide tone="merch" caption={<><b>Sell your own merch, no inventory.</b> Design it, set your price, and a print partner you connect prints and ships each order as it comes in.</>}>
             <MerchScene />
           </Tile>
           <Tile tone="violet" caption={<><b>Fans buy without leaving your page.</b> Tap a product on your OnePage and checkout slides up right there.</>}>
             <SheetScene />
           </Tile>
-          <Tile caption={<><b>Sell digital products.</b> Drop in a file once. Every buyer gets it by email the moment they pay.</>}>
+          <Tile caption={<><b>Sell digital products.</b> Upload a file once. Every buyer gets it by email the moment they pay.</>}>
             <DigitalScene />
           </Tile>
           <Tile tone="lilac" caption={<><b>Build and sell a course.</b> Lessons, videos and files, with each student&apos;s progress saved as they go.</>}>
@@ -60,14 +91,13 @@ export function HowItWorks() {
             <TipScene />
           </Tile>
         </div>
-
-        <ProfitPicker />
+        <p className="cmh-fine">Example prices. Profit is shown after Storelib&apos;s 5% + $0.25 fee on Free; production costs are typical print partner prices, and Stripe&apos;s card processing fee is separate.</p>
       </div>
     </section>
   )
 }
 
-function Tile({ children, caption, wide = false, tone }: { children: React.ReactNode; caption: React.ReactNode; wide?: boolean; tone?: "violet" | "lilac" | "warm" }) {
+function Tile({ children, caption, wide = false, tone }: { children: ReactNode; caption: ReactNode; wide?: boolean; tone?: "merch" | "violet" | "lilac" | "warm" }) {
   return (
     <article className="cmh-tile" data-wide={wide || undefined}>
       <div className="cmh-stage" data-tone={tone} aria-hidden="true">
@@ -78,181 +108,296 @@ function Tile({ children, caption, wide = false, tone }: { children: React.React
   )
 }
 
-function Check({ size = 12 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m5 12.5 4.5 4.5L19 7.5" />
-    </svg>
-  )
-}
+const Spark = () => (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </svg>
+)
 
-/* 1. Merch: the design lands on the tee, the price is set, printed, shipped. */
+/* 1. Merch: one product card, five products, each order printed and shipped. */
 function MerchScene() {
-  const sale = commerceSale(3000, "tee")
+  const slide = (i: number) => vars({ "--d": `${i * SLIDE_S - CYCLE_S}s` })
   return (
-    <div className="cmh-merch">
-      <div className="cmh-ed">
-        <div className="cmh-ed-pic">
-          <img src={`${IMG}/float-tee.webp`} alt="" loading="lazy" decoding="async" width={302} height={440} />
-          <span className="cmh-design">
-            <span className="cmh-badge">
-              <img src={`${IMG}/art-golden.webp`} alt="" loading="lazy" decoding="async" width={96} height={96} />
-              <span>GOLDEN HOUR</span>
-            </span>
-          </span>
+    <div className="cmh-merch" style={vars({ "--cycle": `${CYCLE_S}s`, "--slide": `${SLIDE_S}s` })}>
+      <div className="cmh-mc">
+        <div className="cmh-mc-pic">
+          {HOW_MERCH.map((p, i) => (
+            <img key={p.id} className="cmh-a cmh-mc-img" style={slide(i)} src={`${HOW}/merch-${p.id}.webp`} alt="" width={360} height={360} loading="lazy" decoding="async" />
+          ))}
         </div>
-        <div className="cmh-ed-rows">
-          <div className="cmh-ed-name">Golden Hour heavyweight tee</div>
-          <div className="cmh-ed-grid">
-            <span className="cmh-ed-cell">
-              <small>Your price</small>
-              <b>{commerceUsd(sale.priceCents)}</b>
+        <div className="cmh-mc-info">
+          <div className="cmh-stack cmh-mc-name">
+            {HOW_MERCH.map((p, i) => (
+              <span key={p.id} className="cmh-a cmh-sl" style={slide(i)}>
+                <b>{p.name}</b>
+                <small>
+                  Order {p.order} · {p.city}
+                </small>
+              </span>
+            ))}
+          </div>
+          <dl className="cmh-mc-facts">
+            {(
+              [
+                ["Selling price", "priceCents", ""],
+                ["Production cost", "baseCents", ""],
+                ["Your profit", "profitCents", "cmh-mc-profit"],
+              ] as const
+            ).map(([label, key, cls]) => (
+              <div key={key}>
+                <dt>{label}</dt>
+                <dd className={`cmh-stack ${cls}`}>
+                  {HOW_MERCH.map((p, i) => (
+                    <span key={p.id} className="cmh-a cmh-sl" style={slide(i)}>
+                      {commerceUsd(p[key], true)}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <div className="cmh-trk">
+            <span className="cmh-trk-line">
+              <span className="cmh-a cmh-trk-fill" />
             </span>
-            <span className="cmh-ed-cell">
-              <small>Production cost</small>
-              <b>{commerceUsd(sale.baseCents)}</b>
-            </span>
-            <span className="cmh-ed-cell cmh-ed-profit">
-              <small>Your profit</small>
-              <b>{commerceUsd(sale.profitCents)}</b>
-            </span>
+            {["Ordered", "Printing", "Shipped"].map((s, i) => (
+              <span key={s} className="cmh-trk-step" style={vars({ "--i": i })}>
+                <span className="cmh-trk-dot">
+                  <span className="cmh-a cmh-trk-on" data-step={i}>
+                    <Spark />
+                  </span>
+                </span>
+                <span className="cmh-a cmh-trk-l" data-step={i}>
+                  {s}
+                </span>
+              </span>
+            ))}
           </div>
         </div>
       </div>
-      <ol className="cmh-steps">
-        {["Design", "Set a price", "Printed", "Shipped"].map((s, i) => (
-          <li key={s} className="cmh-step" style={{ "--i": i } as React.CSSProperties}>
-            <span className="cmh-step-dot">
-              <Check />
-            </span>
-            {s}
-          </li>
+      <div className="cmh-thumbs">
+        {HOW_MERCH.map((p) => (
+          <img key={p.id} src={`${HOW}/merch-${p.id}.webp`} alt="" width={40} height={40} loading="lazy" decoding="async" />
         ))}
-      </ol>
-      <div className="cmh-ship">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
-          <path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5v-9Z" />
-          <path d="m3.5 7.5 8.5 4.5 8.5-4.5M12 12v9" />
-        </svg>
-        <span>
-          <b>Order #1042 shipped</b>
-          <small>Tracking sent to the buyer</small>
-        </span>
+        <span className="cmh-a cmh-thumb-ring" />
       </div>
     </div>
   )
 }
 
-/* 2. A OnePage, a tap on a product, the checkout sheet up over it. */
+/* 2. A OnePage on a phone: tap a product, the product sheet slides up, Buy now, paid. */
 function SheetScene() {
   return (
     <div className="cmh-op">
-      <div className="cmh-op-page">
-        <img className="cmh-op-av" src={`${IMG}/creator-amara.webp`} alt="" loading="lazy" decoding="async" width={160} height={160} />
-        <div className="cmh-op-name">Amara Okafor</div>
-        <div className="cmh-op-bio">Photographer · Lagos</div>
-        <div className="cmh-op-link">Watch my latest shoot</div>
-        <div className="cmh-op-prod">
-          <img src={`${IMG}/art-golden.webp`} alt="" loading="lazy" decoding="async" width={96} height={96} />
-          <span>
-            <b>Golden Hour presets</b>
-            <small>$19</small>
-          </span>
-          <span className="cmh-tap" />
-        </div>
-        <div className="cmh-op-link">Join the Inner Circle</div>
-        <div className="cmh-op-sheet">
-          <span className="cmh-grab" />
-          <div className="cmh-sh-row">
-            <img src={`${IMG}/art-golden.webp`} alt="" loading="lazy" decoding="async" width={96} height={96} />
-            <span>
-              <b>Golden Hour</b>
-              <small>24 presets</small>
-            </span>
-            <b className="cmh-sh-price">$19</b>
-          </div>
-          <div className="cmh-sh-ap">
-            <svg viewBox="0 0 17 20" width="12" height="14" fill="currentColor">
-              <path d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.8 1.3 10.3.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.2zM11.6 3c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z" />
+      <div className="cmh-ph">
+        <div className="cmh-ph-scr">
+          <div className="cmh-ph-sb">
+            <b>9:41</b>
+            <span className="cmh-ph-isl" />
+            <svg viewBox="0 0 34 12" width="34" height="12" fill="currentColor">
+              <rect x="0" y="7" width="3" height="5" rx="1" />
+              <rect x="4.5" y="5" width="3" height="7" rx="1" />
+              <rect x="9" y="2.5" width="3" height="9.5" rx="1" />
+              <rect x="20" y="1.5" width="12" height="9" rx="2.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <rect x="21.8" y="3.3" width="7.5" height="5.4" rx="1.4" />
             </svg>
-            Pay
           </div>
-          <div className="cmh-sh-buy">Pay $19.00</div>
+          <div className="cmh-op-page">
+            <img className="cmh-op-av" src={`${IMG}/creator-amara.webp`} alt="" loading="lazy" decoding="async" width={160} height={160} />
+            <div className="cmh-op-name">Amara Okafor</div>
+            <div className="cmh-op-bio">Photographer · Lagos</div>
+            <div className="cmh-op-prod">
+              <img src="/home/showcase/lt-field.webp" alt="" loading="lazy" decoding="async" width={320} height={200} />
+              <span className="cmh-op-row">
+                <span>
+                  <b>Golden Hour presets</b>
+                  <small>24 Lightroom presets</small>
+                </span>
+                <b className="cmh-op-price">$19</b>
+              </span>
+              <span className="cmh-a cmh-tap" />
+            </div>
+            <div className="cmh-op-link">Watch my latest shoot</div>
+            <div className="cmh-op-link">Book a portrait session</div>
+          </div>
+          <span className="cmh-a cmh-dim" />
+          <div className="cmh-a cmh-sheet">
+            <span className="cmh-grab" />
+            <div className="cmh-stack">
+              <div className="cmh-a cmh-sh-buy">
+                <div className="cmh-sh-row">
+                  <img src="/home/showcase/lt-field.webp" alt="" loading="lazy" decoding="async" width={320} height={200} />
+                  <span>
+                    <b>Golden Hour presets</b>
+                    <small>ZIP · 48 MB</small>
+                    <b className="cmh-sh-price">$19.00</b>
+                  </span>
+                </div>
+                <div className="cmh-a cmh-sh-btn">
+                  <span className="cmh-stack">
+                    <span className="cmh-a cmh-sh-btn-a">Buy now · $19</span>
+                    <span className="cmh-a cmh-sh-btn-b">
+                      <span className="cmh-a cmh-spin" />
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <div className="cmh-a cmh-sh-done">
+                <span className="cmh-sh-ok">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m5 12.5 4.5 4.5L19 7.5" />
+                  </svg>
+                </span>
+                <b>Payment complete</b>
+                <small>We sent your receipt and your access to sam@hey.com</small>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-/* 3. A file falls into the product; the buyer's email arrives. */
+/* 3. The product editor uploads the file and publishes; the buyer's receipt email arrives. */
 function DigitalScene() {
   return (
-    <div className="cmh-dig">
-      <div className="cmh-drop">
-        <span className="cmh-file">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
-            <path d="M14 2.8H7a2 2 0 0 0-2 2v14.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.8L14 2.8Z" />
-            <path d="M14 2.8v5h5" />
-          </svg>
+    <div className="cmh-dg">
+      <div className="cmh-dg-ed">
+        <div className="cmh-dg-top">
+          <span>Products / Digital download</span>
+          <span className="cmh-stack">
+            <span className="cmh-a cmh-dg-draft">Draft</span>
+            <span className="cmh-a cmh-dg-live">Published</span>
+          </span>
+        </div>
+        <div className="cmh-dg-head">
+          <img src="/home/showcase/lt-field.webp" alt="" loading="lazy" decoding="async" width={320} height={200} />
           <span>
-            <b>golden-hour.zip</b>
-            <small>48 MB</small>
+            <b>Golden Hour presets</b>
+            <small>$19.00 · Instant download</small>
+          </span>
+        </div>
+        <div className="cmh-dg-file">
+          <span className="cmh-dg-zip">ZIP</span>
+          <span className="cmh-dg-fn">
+            <b>Golden-Hour-Presets.zip</b>
+            <span className="cmh-stack">
+              <small className="cmh-a cmh-dg-up">Uploading…</small>
+              <small className="cmh-a cmh-dg-done">48.2 MB · Uploaded</small>
+            </span>
+            <span className="cmh-dg-bar">
+              <span className="cmh-a cmh-dg-fill" />
+            </span>
+          </span>
+          <span className="cmh-a cmh-dg-check">
+            <Spark />
+          </span>
+        </div>
+      </div>
+      <div className="cmh-a cmh-dg-mail">
+        <div className="cmh-dg-from">
+          <span className="cmh-dg-av">LT</span>
+          <span>
+            <b>Lio Tanaka</b>
+            <small>Your order from Lio Tanaka</small>
+          </span>
+          <small className="cmh-dg-now">now</small>
+        </div>
+        <div className="cmh-dg-body">
+          <b>Thanks for your purchase</b>
+          <p>Thanks for buying Golden Hour presets from Lio Tanaka. Your files are ready.</p>
+          <span className="cmh-dg-get">
+            Get your files
+            <span className="cmh-a cmh-tap cmh-tap-dark" />
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* 4. The course builder: a lesson added and uploaded, the course published, a student's progress in. */
+function CourseScene() {
+  const play = (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+      <path d="M8 5.5v13l10.5-6.5z" />
+    </svg>
+  )
+  return (
+    <div className="cmh-cb">
+      <div className="cmh-cb-card">
+        <div className="cmh-cb-head">
+          <img src={`${IMG}/course-camera.webp`} alt="" loading="lazy" decoding="async" width={160} height={100} />
+          <span>
+            <b>Shoot in Manual</b>
+            <small>Course · 4 lessons</small>
+          </span>
+          <span className="cmh-stack cmh-cb-pub">
+            <span className="cmh-a cmh-cb-btn">
+              Publish
+              <span className="cmh-a cmh-tap" />
+            </span>
+            <span className="cmh-a cmh-cb-live">Published</span>
+          </span>
+        </div>
+        <div className="cmh-cb-mod">Module 1 · The basics</div>
+        <div className="cmh-cb-row">
+          <span className="cmh-cb-ic">{play}</span>
+          <span className="cmh-cb-t">Light and exposure</span>
+          <span className="cmh-cb-tag">Free preview</span>
+          <span className="cmh-cb-d">6:24</span>
+        </div>
+        <div className="cmh-cb-row">
+          <span className="cmh-cb-ic">{play}</span>
+          <span className="cmh-cb-t">Aperture, simply</span>
+          <span className="cmh-cb-d">8:10</span>
+        </div>
+        <div className="cmh-cb-row">
+          <span className="cmh-cb-ic cmh-cb-ic-f">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+              <path d="M14 3v5h5" />
+            </svg>
+          </span>
+          <span className="cmh-cb-t">Exposure cheat sheet</span>
+          <span className="cmh-cb-d">PDF</span>
+        </div>
+        <div className="cmh-stack cmh-cb-slot">
+          <div className="cmh-a cmh-cb-add">
+            + Add lesson
+            <span className="cmh-a cmh-tap" />
+          </div>
+          <div className="cmh-a cmh-cb-row cmh-cb-new">
+            <span className="cmh-cb-ic">{play}</span>
+            <span className="cmh-cb-t">Shutter speed</span>
+            <span className="cmh-stack cmh-cb-d">
+              <span className="cmh-a cmh-cb-up">Uploading</span>
+              <span className="cmh-a cmh-cb-len">9:02</span>
+            </span>
+            <span className="cmh-cb-bar">
+              <span className="cmh-a cmh-cb-fill" />
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="cmh-a cmh-cb-toast">
+        <span className="cmh-cb-av">JK</span>
+        <span className="cmh-cb-tt">
+          <b>Jordan K. finished Shutter speed</b>
+          <span className="cmh-cb-prog">
+            <span className="cmh-cb-pbar">
+              <span />
+            </span>
+            3 of 4 lessons
           </span>
         </span>
-        <span className="cmh-drop-l">Golden Hour presets</span>
-        <span className="cmh-drop-s">Digital download · $19</span>
-        <span className="cmh-drop-ok">
-          <Check size={11} /> File added
-        </span>
-      </div>
-      <div className="cmh-mail">
-        <span className="cmh-mail-ic">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
-            <rect x="3" y="5" width="18" height="14" rx="2.5" />
-            <path d="m4 7 8 6 8-6" />
-          </svg>
-        </span>
-        <span className="cmh-mail-t">
-          <small>Maya Ellis Studio · now</small>
-          <b>Your download is ready</b>
-        </span>
-        <span className="cmh-mail-b">Download</span>
       </div>
     </div>
   )
 }
 
-/* 4. Lessons stack in, each one ticked, the bar fills. */
-function CourseScene() {
-  const lessons = ["Light and exposure", "Aperture, simply", "Shutter speed", "Your first manual shoot"]
-  return (
-    <div className="cmh-course">
-      <div className="cmh-c-head">
-        <img src={`${IMG}/course-camera.webp`} alt="" loading="lazy" decoding="async" width={160} height={100} />
-        <span>
-          <b>Shoot in manual</b>
-          <small>4 lessons · Theo Marsh</small>
-        </span>
-      </div>
-      <div className="cmh-c-list">
-        {lessons.map((l, i) => (
-          <div key={l} className="cmh-lesson" style={{ "--i": i } as React.CSSProperties}>
-            <span className="cmh-l-dot">
-              <Check size={10} />
-            </span>
-            <span className="cmh-l-n">{i + 1}</span>
-            {l}
-          </div>
-        ))}
-      </div>
-      <div className="cmh-c-bar">
-        <span className="cmh-c-fill" />
-      </div>
-    </div>
-  )
-}
-
-/* 5. A tip jar: amounts, a tap, tips floating up. */
+/* 5. A tip card: an amount chosen, sent, and the tip landing. */
 function TipScene() {
   return (
     <div className="cmh-tip">
@@ -265,299 +410,284 @@ function TipScene() {
           </span>
         </div>
         <div className="cmh-amts">
+          <span className="cmh-a cmh-amt-hl" />
           <span>$3</span>
-          <span className="cmh-amt-on">$5</span>
+          <span>$5</span>
           <span>$10</span>
           <span>Other</span>
         </div>
-        <div className="cmh-tip-btn">Send $5 tip</div>
-      </div>
-      {["+$5", "+$10", "+$3", "+$5"].map((t, i) => (
-        <span key={i} className="cmh-pop" style={{ "--i": i } as React.CSSProperties}>
-          {t}
-        </span>
-      ))}
-    </div>
-  )
-}
-
-/* ── The profit picker ───────────────────────────────────────────────── */
-
-function ProfitPicker() {
-  const [kind, setKind] = useState<CommerceKind>("tee")
-  const [prices, setPrices] = useState<Record<CommerceKind, number>>(() => Object.fromEntries(COMMERCE_PRODUCTS.map((p) => [p.id, p.price])) as Record<CommerceKind, number>)
-  const p = commerceProduct(kind)
-  const price = prices[kind]
-  const sale = commerceSale(price * 100, kind)
-  const frac = (c: number) => Math.max(0, Math.min(1, c / sale.priceCents))
-  return (
-    <div className="cmh-pick" data-commerce-picker="">
-      <div className="cmh-pick-head">
-        <h3>What you keep on every sale</h3>
-        <p>Pick a product and set your price.</p>
-      </div>
-      <CommerceKindPicker value={kind} onChange={setKind} label="Product" />
-      <div className="cmh-pick-body">
-        <div className="cmh-pick-vis">
-          <span key={kind} className="cmh-pick-icon">
-            <CommerceKindIcon kind={kind} className="h-full w-full" />
+        <div className="cmh-a cmh-tip-btn">
+          <span className="cmh-stack">
+            <span className="cmh-a cmh-tb-3">Send $3 tip</span>
+            <span className="cmh-a cmh-tb-5">Send $5 tip</span>
+            <span className="cmh-a cmh-tb-ok">
+              <Spark /> Thank you!
+            </span>
           </span>
-          <div className="cmh-pick-name">{p.label}</div>
-          <div className="cmh-stack" aria-hidden="true">
-            <span className="cmh-st-cost" />
-            <span className="cmh-st-fee" style={{ transform: `scaleX(${frac(sale.profitCents + sale.feeCents)})` }} />
-            <span className="cmh-st-profit" style={{ transform: `scaleX(${frac(sale.profitCents)})` }} />
-          </div>
-          <div className="cmh-hundred">
-            <span>On 100 sales you keep</span>
-            <CommerceNumber cents={sale.profitCents * 100} whole className="cmh-hundred-n" />
-          </div>
-          <div className="cmh-legend" aria-hidden="true">
-            <span data-k="profit">Profit</span>
-            <span data-k="fee">Storelib fee</span>
-            {sale.baseCents ? <span data-k="cost">Production</span> : null}
-          </div>
-        </div>
-        <div className="cmh-pick-figs">
-          <CommerceSlider
-            id="cmh-price"
-            label="Your price"
-            value={price}
-            min={p.min}
-            max={p.max}
-            onChange={(v) => setPrices((s) => ({ ...s, [kind]: v }))}
-            display={commerceUsd(price * 100)}
-            valueText={`${commerceUsd(price * 100)}, ${commerceUsd(sale.profitCents)} profit`}
-            hint={
-              <>
-                <span>{commerceUsd(p.min * 100)}</span>
-                <span>{commerceUsd(p.max * 100)}</span>
-              </>
-            }
-          />
-          <dl className="cmh-rows">
-            <div>
-              <dt>{sale.baseCents ? "Production cost (example)" : "Production cost"}</dt>
-              <dd>{sale.baseCents ? `−${commerceUsd(sale.baseCents)}` : "$0"}</dd>
-            </div>
-            <div>
-              <dt>Storelib fee on Free</dt>
-              <dd>−{commerceUsd(sale.feeCents)}</dd>
-            </div>
-          </dl>
-          <div className="cmh-profit">
-            <span>Your profit per sale</span>
-            <CommerceNumber cents={sale.profitCents} className="cmh-profit-n" />
-          </div>
-          <p className="cmh-note">{p.note}</p>
         </div>
       </div>
-      <p className="cmh-fine">
-        Example figures. Production costs are typical print partner prices and vary by partner, product and print. Storelib&apos;s fee is 5% + $0.25 a sale on Free and 3% + $0.25 on Pro (under $4.00, a percentage only). Stripe&apos;s card processing fee is separate.
-      </p>
+      <span className="cmh-a cmh-tip-pop">
+        <b>+$5.00</b> tip from Sam
+      </span>
     </div>
   )
 }
 
-/* Each step and lesson gets its own keyframes, so they tick in order and all reset together. */
-const STEP_AT = [10, 27, 44, 61]
-const STEP_KEYS = STEP_AT.map(
-  (t, i) =>
-    `.cmh-steps li:nth-child(${i + 1}){animation-name:cmh-s${i}}.cmh-steps li:nth-child(${i + 1}) .cmh-step-dot::before{animation-name:cmh-d${i}}` +
-    `@keyframes cmh-s${i}{0%,${t - 3}%{opacity:.4}${t}%,92%{opacity:1}97%,100%{opacity:.4}}` +
-    `@keyframes cmh-d${i}{0%,${t - 1}%{opacity:0;transform:scale(.5)}${t + 2}%{opacity:1;transform:scale(1.15)}${t + 5}%,92%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(.5)}}`,
-).join("")
-const TICK_AT = [24, 38, 52, 66]
-const TICK_KEYS = TICK_AT.map(
-  (t, i) => `.cmh-lesson:nth-child(${i + 1}) .cmh-l-dot{animation-name:cmh-t${i}}@keyframes cmh-t${i}{0%,${t - 1}%{opacity:0;transform:scale(.4)}${t + 3}%,90%{opacity:1;transform:scale(1)}96%,100%{opacity:0;transform:scale(.4)}}`,
-).join("")
+/* The merch slide: each product's layers hold for one slide, then hand over in a short crossfade (in at 97.5 to 100%, out at 17.5 to 20% of the cycle, the same moment). */
+const SLIDE_IN = 97.5
+const SLIDE_OUT = [17.5, 20]
+/* Words don't cross: the old line is gone (17.5 to 18.8%) before the new one comes in (98.8 to 100%, the same moment as 18.8 to 20% of the one before). */
+const TEXT_OUT = 18.8
+const TEXT_IN = 98.8
 
 const HOW_CSS = `
 .cmh{background:#fff;color:#18181b}
 .cmh-wrap{max-width:1320px;margin:0 auto;padding:0 var(--landing-gutter,clamp(20px,5vw,72px))}
-.cmh-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(16px,2vw,24px);margin-top:clamp(36px,5vw,64px)}
+.cmh-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(16px,2vw,24px)}
 .cmh-tile{grid-column:span 2;min-width:0}
 .cmh-tile[data-wide]{grid-column:span 4}
-.cmh-stage{position:relative;height:clamp(300px,27vw,380px);border-radius:clamp(22px,2.4vw,32px);background:#f4f4f6;overflow:hidden;display:grid;place-items:center;contain:paint}
-.cmh-tile[data-wide] .cmh-stage{background:radial-gradient(90% 120% at 100% 0%,#e7defe 0%,transparent 55%),radial-gradient(70% 90% at 0% 100%,#e3e7ff 0%,transparent 60%),#f4f4f6}
-.cmh-stage[data-tone=violet]{background:linear-gradient(160deg,#4c1d95,#312e81 55%,#1e1b4b)}
-.cmh-stage[data-tone=lilac]{background:linear-gradient(160deg,#efeafe,#e4e2f6)}
-.cmh-stage[data-tone=warm]{background:linear-gradient(160deg,#f7efff,#ffe9f1)}
+.cmh-stage{position:relative;height:clamp(340px,28vw,400px);border-radius:clamp(22px,2.4vw,32px);background:#f4f4f6;overflow:hidden;contain:paint;font-family:inherit}
+.cmh-stage[data-tone=merch]{background:radial-gradient(80% 110% at 100% 0%,#e4dafe 0%,rgba(228,218,254,0) 60%),radial-gradient(70% 100% at 0% 100%,#ece7ff 0%,rgba(236,231,255,0) 65%),#f5f3fb}
+.cmh-stage[data-tone=violet]{background:linear-gradient(160deg,#4c1d95,#312e81 60%,#1e1b4b)}
+.cmh-stage[data-tone=lilac]{background:linear-gradient(160deg,#efeafe,#e6e2f7)}
+.cmh-stage[data-tone=warm]{background:linear-gradient(160deg,#f6f0ff,#fdeef5)}
 .cmh-cap{margin:16px 4px 0;font-size:15.5px;line-height:1.55;color:#71717a;max-width:52ch;text-wrap:pretty}
 .cmh-cap b{color:#18181b;font-weight:600}
-/* Named, not *, so going live restyles only the moving parts; and by class, not by tag (span, li), in the rule keyed on data-commerce-live: Chromium restyles every element a rule's last part names when that attribute changes, so a tag there restyled every span of the section. */
-.cmh-design,.cmh-ed-grid>span,.cmh-steps li,.cmh-step-dot::before,.cmh-drop::after,.cmh-ship,.cmh-tap,.cmh-op-sheet,.cmh-drop-ok,.cmh-file,.cmh-mail,.cmh-lesson,.cmh-l-dot,.cmh-c-bar span,.cmh-amt-on,.cmh-pop{animation-play-state:paused!important}
-[data-commerce-live] .cmh-design,[data-commerce-live] .cmh-ed-cell,[data-commerce-live] .cmh-step,[data-commerce-live] .cmh-step-dot::before,[data-commerce-live] .cmh-drop::after,[data-commerce-live] .cmh-ship,[data-commerce-live] .cmh-tap,[data-commerce-live] .cmh-op-sheet,[data-commerce-live] .cmh-drop-ok,[data-commerce-live] .cmh-file,[data-commerce-live] .cmh-mail,[data-commerce-live] .cmh-lesson,[data-commerce-live] .cmh-l-dot,[data-commerce-live] .cmh-c-fill,[data-commerce-live] .cmh-amt-on,[data-commerce-live] .cmh-pop{animation-play-state:running!important}
+.cmh-fine{margin:28px 4px 0;font-size:12.5px;line-height:1.6;color:#8b8b94;max-width:110ch}
 
-/* merch */
-.cmh-merch{position:relative;display:flex;align-items:center;gap:clamp(18px,3vw,44px);padding:0 24px}
-.cmh-ed{width:clamp(230px,22vw,300px);background:#fff;border-radius:20px;padding:12px;box-shadow:0 1px 2px rgba(24,24,27,.05),0 20px 50px -20px rgba(76,29,149,.25)}
-.cmh-ed-pic{position:relative;height:clamp(150px,13vw,190px);border-radius:12px;background:#f1f1f3;display:grid;place-items:center;overflow:hidden}
-/* Sized by its width: the same box before and after the file arrives (a height in % resolved only before it, so the tee jumped from 118px to 254px wide as it loaded) */
-.cmh-ed-pic>img{width:92%;height:auto}
-.cmh-design{position:absolute;left:44%;top:27%;width:28%;aspect-ratio:1;margin-left:-14%;border:1.5px dashed #7c3aed;border-radius:6px;padding:5px;animation:cmh-drop 8s cubic-bezier(.2,.8,.2,1) infinite}
-.cmh-badge{position:relative;display:grid;place-items:center;width:100%;height:100%;border-radius:50%;overflow:hidden}
-.cmh-badge img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.cmh-badge span{position:relative;font-size:7px;font-weight:800;letter-spacing:.08em;color:#fff;text-align:center;line-height:1}
-@keyframes cmh-drop{0%{opacity:0;transform:translate3d(0,-70px,0) scale(1.5) rotate(-12deg)}12%,100%{opacity:1;transform:none}92%{opacity:1}97%{opacity:0}}
-.cmh-ed-rows{padding:10px 4px 2px}
-.cmh-ed-name{font-size:14px;font-weight:600}
-.cmh-ed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
-.cmh-ed-grid small{display:block;font-size:10.5px;color:#8b8b94}
-.cmh-ed-grid b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
-.cmh-ed-profit b{color:#15803d}
-.cmh-ed-grid>span:nth-child(1){animation:cmh-price 8s ease infinite}
-@keyframes cmh-price{0%,24%{opacity:.25;transform:translate3d(0,4px,0)}29%,94%{opacity:1;transform:none}100%{opacity:.25}}
-.cmh-steps{list-style:none;margin:0;padding:0;display:grid;gap:12px}
-.cmh-steps li{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:500;color:#3f3f46;opacity:.4;animation:8s ease infinite}
-.cmh-step-dot{position:relative;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#fff;color:#fff;box-shadow:inset 0 0 0 1.5px #d4d4d8}
-.cmh-step-dot::before{content:"";position:absolute;inset:0;border-radius:50%;background:#7c3aed;opacity:0;transform:scale(.5);animation:8s ease infinite}
-.cmh-step-dot svg{position:relative}
-${STEP_KEYS}
-.cmh-ship{position:absolute;right:20px;bottom:20px;display:flex;align-items:center;gap:10px;padding:10px 14px 10px 12px;border-radius:14px;background:#18181b;color:#fff;box-shadow:0 14px 30px -12px rgba(0,0,0,.45);animation:cmh-ship 8s cubic-bezier(.2,.8,.2,1) infinite}
-.cmh-ship b{display:block;font-size:13px;font-weight:600}
-.cmh-ship small{font-size:11.5px;color:#a1a1aa}
-@keyframes cmh-ship{0%,62%{opacity:0;transform:translate3d(0,18px,0) scale(.96)}68%,92%{opacity:1;transform:none}98%,100%{opacity:0;transform:translate3d(0,8px,0)}}
+/* Every loop is one of these, so going live restyles only the moving parts (a class, never * or a tag, in the rule keyed on data-commerce-live). */
+.cmh-a{animation-duration:8s;animation-timing-function:cubic-bezier(.22,1,.36,1);animation-iteration-count:infinite;animation-fill-mode:both;animation-play-state:paused!important}
+[data-commerce-live] .cmh-a{animation-play-state:running!important}
+/* Stacked layers share one grid cell: the box is the size of the largest, before and after they swap. */
+.cmh-stack{display:grid}
+.cmh-stack>.cmh-a,.cmh-stack>.cmh-sl{grid-area:1/1}
+.cmh-tap{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:rgba(124,58,237,.32);opacity:0;pointer-events:none}
+.cmh-tap-dark{background:rgba(255,255,255,.4)}
 
-/* OnePage + sheet */
-.cmh-op{width:100%;height:100%;display:flex;justify-content:center;align-items:flex-start}
-.cmh-op-page{position:relative;width:min(240px,74%);height:100%;margin-top:34px;padding:22px 16px;border-radius:30px 30px 0 0;background:#fff;text-align:center;overflow:hidden;box-shadow:0 30px 60px -20px rgba(0,0,0,.5)}
-.cmh-op-av{width:56px;height:56px;border-radius:50%;object-fit:cover;margin:0 auto;display:block}
-.cmh-op-name{margin-top:8px;font-size:15px;font-weight:600}
-.cmh-op-bio{font-size:12px;color:#71717a}
-.cmh-op-link{margin-top:10px;height:38px;display:grid;place-items:center;border-radius:12px;background:#f4f4f6;font-size:12.5px;font-weight:500}
-.cmh-op-prod{position:relative;margin-top:8px;display:flex;align-items:center;gap:10px;padding:7px;border-radius:12px;border:1px solid #ececf0;text-align:left}
-.cmh-op-prod img,.cmh-sh-row img{width:36px;height:36px;border-radius:8px;object-fit:cover}
-.cmh-op-prod b,.cmh-sh-row b{display:block;font-size:12.5px;font-weight:600}
-.cmh-op-prod small,.cmh-sh-row small{font-size:11.5px;color:#71717a}
-.cmh-tap{position:absolute;right:16px;top:50%;width:26px;height:26px;margin-top:-13px;border-radius:50%;background:rgba(124,58,237,.35);opacity:0;animation:cmh-tap 7s ease infinite}
-@keyframes cmh-tap{0%,14%{opacity:0;transform:scale(.4)}18%{opacity:1;transform:scale(1)}24%,100%{opacity:0;transform:scale(1.6)}}
-.cmh-op-sheet{position:absolute;left:0;right:0;bottom:0;padding:8px 14px 56px;border-radius:22px 22px 0 0;background:#fff;box-shadow:0 -14px 40px rgba(30,27,75,.28);text-align:left;animation:cmh-sheet 7s cubic-bezier(.2,.8,.2,1) infinite}
-@keyframes cmh-sheet{0%,22%{transform:translate3d(0,110%,0)}34%,82%{transform:none}94%,100%{transform:translate3d(0,110%,0)}}
-.cmh-grab{display:block;width:34px;height:4px;border-radius:4px;background:#e4e4e7;margin:0 auto 10px}
-.cmh-sh-row{display:flex;align-items:center;gap:10px}
-.cmh-sh-row>span{flex:1;min-width:0}
-.cmh-sh-row>span b,.cmh-sh-row>span small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmh-sh-row>b{flex:none}
-.cmh-sh-price{margin-left:auto}
-.cmh-sh-ap{margin-top:12px;height:38px;display:flex;align-items:center;justify-content:center;gap:3px;border-radius:10px;background:#000;color:#fff;font-size:14px;font-weight:600}
-.cmh-sh-buy{margin-top:7px;height:38px;display:grid;place-items:center;border-radius:10px;border:1px solid #e4e4e7;font-size:13px;font-weight:600}
+/* ── merch ── */
+.cmh-merch{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px}
+.cmh-mc{display:flex;align-items:center;gap:20px;width:min(540px,100%);padding:14px 22px 14px 14px;border-radius:22px;background:#fff;box-shadow:0 1px 2px rgba(24,24,27,.05),0 24px 50px -26px rgba(76,29,149,.35);box-sizing:border-box}
+.cmh-mc-pic{position:relative;flex:none;width:clamp(150px,13vw,184px);aspect-ratio:1;border-radius:14px;overflow:hidden;background:#f1f1f3}
+.cmh-mc-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;animation-name:cmh-img;animation-duration:var(--cycle);animation-delay:var(--d);animation-timing-function:ease}
+.cmh-mc-img:first-child{opacity:1}
+@keyframes cmh-img{0%{opacity:1;transform:none}${SLIDE_OUT[0]}%{opacity:1;transform:none}${SLIDE_OUT[1]}%{opacity:0;transform:none}${SLIDE_IN}%{opacity:0;transform:scale(1.04)}100%{opacity:1;transform:none}}
+.cmh-mc-info{flex:1;min-width:0;display:grid;gap:14px}
+.cmh-sl{display:block;min-width:0;opacity:0;animation-name:cmh-sl;animation-duration:var(--cycle);animation-delay:var(--d)}
+.cmh-sl:first-child{opacity:1}
+@keyframes cmh-sl{0%{opacity:1;transform:none}${SLIDE_OUT[0]}%{opacity:1;transform:none}${TEXT_OUT}%{opacity:0;transform:translate3d(0,-6px,0)}${TEXT_IN}%{opacity:0;transform:translate3d(0,6px,0)}100%{opacity:1;transform:none}}
+.cmh-mc-name b{display:block;font-size:16px;font-weight:600;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-mc-name small{display:block;margin-top:2px;font-size:12.5px;color:#8b8b94}
+.cmh-mc-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+.cmh-mc-facts dt{font-size:11.5px;color:#8b8b94;white-space:nowrap}
+.cmh-mc-facts dd{margin:3px 0 0;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.cmh-mc-profit{color:#15803d}
+.cmh-trk{position:relative;display:grid;grid-template-columns:repeat(3,1fr);padding-top:2px}
+.cmh-trk-line{position:absolute;left:9px;right:calc(33.333% - 9px);top:11px;height:2px;border-radius:2px;background:#ececf1;overflow:hidden}
+.cmh-trk-fill{position:absolute;inset:0;background:#7c3aed;transform-origin:0 50%;transform:none;animation-name:cmh-trk;animation-duration:var(--slide);animation-timing-function:linear}
+@keyframes cmh-trk{0%,6%{transform:scaleX(0)}40%,48%{transform:scaleX(.5)}80%,90%{transform:scaleX(1)}96%,100%{transform:scaleX(0)}}
+.cmh-trk-step{position:relative;display:grid;gap:6px;justify-items:start}
+.cmh-trk-dot{position:relative;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1.5px #d9d9e0}
+.cmh-trk-on{position:absolute;inset:0;display:grid;place-items:center;border-radius:50%;background:#7c3aed;color:#fff;animation-duration:var(--slide);animation-timing-function:ease}
+.cmh-trk-on[data-step="1"]{animation-name:cmh-on1}
+.cmh-trk-on[data-step="2"]{animation-name:cmh-on2}
+@keyframes cmh-on1{0%,38%{opacity:0;transform:scale(.4)}44%,92%{opacity:1;transform:none}97%,100%{opacity:0;transform:scale(.4)}}
+@keyframes cmh-on2{0%,78%{opacity:0;transform:scale(.4)}84%,92%{opacity:1;transform:none}97%,100%{opacity:0;transform:scale(.4)}}
+.cmh-trk-l{font-size:12px;font-weight:500;color:#3f3f46;animation-duration:var(--slide);animation-timing-function:ease}
+.cmh-trk-l[data-step="1"]{animation-name:cmh-l1}
+.cmh-trk-l[data-step="2"]{animation-name:cmh-l2}
+@keyframes cmh-l1{0%,38%{opacity:.45}44%,92%{opacity:1}97%,100%{opacity:.45}}
+@keyframes cmh-l2{0%,78%{opacity:.45}84%,92%{opacity:1}97%,100%{opacity:.45}}
+.cmh-thumbs{position:relative;display:flex;gap:8px;padding:5px;border-radius:16px;background:rgba(255,255,255,.7);box-shadow:0 0 0 1px rgba(76,29,149,.06)}
+.cmh-thumbs img{width:40px;height:40px;border-radius:10px;object-fit:cover;background:#f1f1f3}
+.cmh-thumb-ring{position:absolute;left:3px;top:3px;width:44px;height:44px;border-radius:12px;box-shadow:inset 0 0 0 2px #7c3aed;animation-name:cmh-ring;animation-duration:var(--cycle);animation-timing-function:cubic-bezier(.65,0,.35,1)}
+@keyframes cmh-ring{0%,17.5%{transform:none}20%,37.5%{transform:translate3d(48px,0,0)}40%,57.5%{transform:translate3d(96px,0,0)}60%,77.5%{transform:translate3d(144px,0,0)}80%,97.5%{transform:translate3d(192px,0,0)}100%{transform:none}}
 
-/* digital */
-.cmh-dig{position:relative;width:100%;height:100%;display:grid;place-items:center}
-.cmh-drop{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;width:min(240px,76%);padding:66px 16px 18px;border-radius:20px;background:#fff;border:1.5px dashed #d4d4d8}
-.cmh-drop::after{content:"";position:absolute;inset:-1.5px;border-radius:20px;border:1.5px dashed #7c3aed;opacity:0;animation:cmh-zone 7s ease infinite}
-@keyframes cmh-zone{0%,20%{opacity:0}26%,70%{opacity:1}80%,100%{opacity:0}}
-.cmh-drop-l{font-size:14px;font-weight:600}
-.cmh-drop-s{font-size:12px;color:#71717a}
-.cmh-drop-ok{display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:3px 9px;border-radius:99px;background:#f0fdf4;color:#15803d;font-size:11.5px;font-weight:600;animation:cmh-ok 7s ease infinite}
-@keyframes cmh-ok{0%,26%{opacity:0;transform:scale(.8)}32%,88%{opacity:1;transform:none}96%,100%{opacity:0}}
-.cmh-file{position:absolute;left:50%;top:14px;display:flex;align-items:center;gap:8px;width:164px;margin-left:-82px;padding:8px 10px;border-radius:12px;background:#18181b;color:#fff;box-shadow:0 12px 30px -10px rgba(0,0,0,.45);animation:cmh-file 7s cubic-bezier(.3,1.2,.4,1) infinite}
-.cmh-file b{display:block;font-size:12px;font-weight:600}
-.cmh-file small{font-size:11px;color:#a1a1aa}
-@keyframes cmh-file{0%{opacity:0;transform:translate3d(0,-90px,0) rotate(-8deg)}6%{opacity:1}22%,88%{opacity:1;transform:none}96%,100%{opacity:0;transform:translate3d(0,-10px,0)}}
-.cmh-mail{position:absolute;right:14px;bottom:16px;left:14px;max-width:290px;margin-left:auto;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:16px;background:rgba(255,255,255,.96);box-shadow:0 16px 40px -14px rgba(24,24,27,.35);animation:cmh-mail 7s cubic-bezier(.2,.8,.2,1) infinite}
-@keyframes cmh-mail{0%,40%{opacity:0;transform:translate3d(0,24px,0)}48%,88%{opacity:1;transform:none}96%,100%{opacity:0;transform:translate3d(0,10px,0)}}
-.cmh-mail-ic{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:#ede9fe;color:#6d28d9;flex:none}
-.cmh-mail-t{flex:1;min-width:0}
-.cmh-mail-t small{display:block;font-size:11px;color:#8b8b94}
-.cmh-mail-t b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmh-mail-b{padding:6px 10px;border-radius:9px;background:#18181b;color:#fff;font-size:11.5px;font-weight:600}
+/* ── OnePage + product sheet ── */
+.cmh-op{position:absolute;inset:0;display:flex;justify-content:center}
+.cmh-ph{position:absolute;top:30px;bottom:0;width:236px;padding:7px 7px 0;border-radius:40px 40px 0 0;background:#0c0c0e;box-shadow:0 30px 60px -20px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.08);box-sizing:border-box}
+.cmh-ph-scr{position:relative;height:100%;border-radius:33px 33px 0 0;background:#faf8f5;overflow:hidden}
+.cmh-ph-sb{display:flex;align-items:center;justify-content:space-between;height:34px;padding:0 20px 0 24px;font-size:12px;color:#111}
+.cmh-ph-sb b{font-weight:600}
+.cmh-ph-isl{width:64px;height:20px;border-radius:12px;background:#0c0c0e}
+.cmh-op-page{padding:6px 14px 0;text-align:center}
+.cmh-op-av{display:block;width:54px;height:54px;margin:0 auto;border-radius:50%;object-fit:cover}
+.cmh-op-name{margin-top:7px;font-size:15px;font-weight:650;letter-spacing:-.01em}
+.cmh-op-bio{font-size:11.5px;color:#71717a}
+.cmh-op-prod{position:relative;margin-top:12px;border-radius:14px;background:#fff;box-shadow:0 0 0 1px rgba(17,17,19,.06);overflow:hidden;text-align:left}
+.cmh-op-prod>img{display:block;width:100%;height:84px;object-fit:cover}
+.cmh-op-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px}
+.cmh-op-row b{display:block;font-size:12.5px;font-weight:600}
+.cmh-op-row small{font-size:11px;color:#71717a}
+.cmh-op-price{font-size:13px}
+.cmh-op-link{margin-top:8px;height:36px;display:grid;place-items:center;border-radius:12px;background:#fff;box-shadow:0 0 0 1px rgba(17,17,19,.06);font-size:12px;font-weight:500}
+.cmh-tap{animation-name:cmh-tap;animation-timing-function:ease-out}
+.cmh-op-prod .cmh-tap{left:62%;top:56%}
+@keyframes cmh-tap{0%,11%{opacity:0;transform:scale(.4)}14%{opacity:1;transform:scale(1)}19%,100%{opacity:0;transform:scale(1.7)}}
+.cmh-dim{position:absolute;inset:0;background:rgba(10,10,12,.32);opacity:0;animation-name:cmh-dim;animation-timing-function:ease}
+@keyframes cmh-dim{0%,15%{opacity:0}24%,84%{opacity:1}93%,100%{opacity:0}}
+.cmh-sheet{position:absolute;left:0;right:0;bottom:0;padding:8px 14px 18px;border-radius:22px 22px 0 0;background:#fff;box-shadow:0 -10px 30px rgba(17,17,19,.18);transform:none;animation-name:cmh-sheet;animation-timing-function:cubic-bezier(.32,.72,0,1)}
+@keyframes cmh-sheet{0%,15%{transform:translate3d(0,105%,0)}25%,84%{transform:none}94%,100%{transform:translate3d(0,105%,0)}}
+.cmh-grab{display:block;width:36px;height:4px;border-radius:4px;background:#e4e4e7;margin:0 auto 12px}
+.cmh-sh-buy{animation-name:cmh-buy;animation-timing-function:ease;opacity:0}
+@keyframes cmh-buy{0%,52%{opacity:1;transform:none}57%,100%{opacity:0;transform:scale(.98)}}
+.cmh-sh-row{display:flex;gap:11px;align-items:center}
+.cmh-sh-row img{width:58px;height:58px;border-radius:12px;object-fit:cover;flex:none}
+.cmh-sh-row b{display:block;font-size:13px;font-weight:600;line-height:1.3}
+.cmh-sh-row small{display:block;font-size:11.5px;color:#71717a;margin-top:1px}
+.cmh-sh-row .cmh-sh-price{margin-top:5px;font-size:14px}
+.cmh-sh-btn{margin-top:14px;height:42px;display:grid;place-items:center;border-radius:999px;background:#111113;color:#fff;font-size:13.5px;font-weight:600;animation-name:cmh-press;animation-timing-function:ease}
+@keyframes cmh-press{0%,38%{transform:none}40.5%{transform:scale(.96)}44%,100%{transform:none}}
+.cmh-sh-btn .cmh-stack{place-items:center}
+.cmh-sh-btn-a{animation-name:cmh-ba;animation-timing-function:ease}
+@keyframes cmh-ba{0%,41%{opacity:1}43%,100%{opacity:0}}
+.cmh-sh-btn-b{opacity:0;animation-name:cmh-bb;animation-timing-function:ease}
+@keyframes cmh-bb{0%,41%{opacity:0}43%,52%{opacity:1}55%,100%{opacity:0}}
+.cmh-spin{display:block;width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;animation:cmh-spin .8s linear infinite}
+@keyframes cmh-spin{to{transform:rotate(360deg)}}
+.cmh-sh-done{display:grid;justify-items:center;align-content:center;gap:3px;text-align:center;animation-name:cmh-done;animation-timing-function:ease}
+@keyframes cmh-done{0%,54%{opacity:0;transform:translate3d(0,6px,0)}59%,100%{opacity:1;transform:none}}
+.cmh-sh-ok{display:grid;place-items:center;width:40px;height:40px;margin-bottom:6px;border-radius:50%;background:#dcfce7;color:#15803d}
+.cmh-sh-done b{font-size:14px;font-weight:600}
+.cmh-sh-done small{max-width:24ch;font-size:11.5px;line-height:1.4;color:#71717a}
 
-/* course */
-.cmh-course{width:min(270px,82%);padding:12px;border-radius:20px;background:#fff;box-shadow:0 20px 50px -24px rgba(76,29,149,.35)}
-.cmh-c-head{display:flex;align-items:center;gap:10px}
-.cmh-c-head img{width:58px;height:40px;border-radius:9px;object-fit:cover}
-.cmh-c-head b{display:block;font-size:14px;font-weight:600}
-.cmh-c-head small{font-size:11.5px;color:#71717a}
-.cmh-c-list{display:grid;gap:6px;margin-top:10px}
-.cmh-lesson{display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border-radius:10px;background:#f6f5fb;font-size:12.5px;font-weight:500;animation:cmh-lesson 8s cubic-bezier(.2,.8,.2,1) infinite;animation-delay:calc(var(--i) * .35s)}
-@keyframes cmh-lesson{0%{opacity:0;transform:translate3d(0,14px,0)}8%,90%{opacity:1;transform:none}97%,100%{opacity:0}}
-.cmh-l-n{width:14px;color:#a1a1aa;font-variant-numeric:tabular-nums}
-.cmh-l-dot{order:3;margin-left:auto;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#7c3aed;color:#fff;opacity:0;transform:scale(.4);animation:8s cubic-bezier(.3,1.5,.5,1) infinite}
-${TICK_KEYS}
-.cmh-c-bar{position:relative;height:6px;margin-top:12px;border-radius:6px;background:#ede9fe;overflow:hidden}
-.cmh-c-bar span{position:absolute;inset:0;background:linear-gradient(90deg,#7c3aed,#6366f1);transform-origin:0 50%;animation:cmh-bar 8s cubic-bezier(.2,.8,.2,1) infinite}
-@keyframes cmh-bar{0%,22%{transform:scaleX(0)}27%,36%{transform:scaleX(.25)}41%,50%{transform:scaleX(.5)}55%,64%{transform:scaleX(.75)}69%,90%{transform:scaleX(1)}97%,100%{transform:scaleX(0)}}
+/* ── digital ── */
+.cmh-dg{position:absolute;inset:0;padding:18px;box-sizing:border-box}
+.cmh-dg-ed{width:min(300px,92%);padding:14px;border-radius:18px;background:#fff;box-shadow:0 1px 2px rgba(24,24,27,.05),0 18px 40px -24px rgba(24,24,27,.3);box-sizing:border-box}
+.cmh-dg-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:#8b8b94}
+.cmh-dg-draft,.cmh-dg-live{padding:3px 8px;border-radius:99px;font-size:11px;font-weight:600;justify-self:end;white-space:nowrap}
+.cmh-dg-draft{background:#f4f4f5;color:#52525b;opacity:0;animation-name:cmh-x1}
+.cmh-dg-live{background:#dcfce7;color:#15803d;animation-name:cmh-x2}
+@keyframes cmh-x1{0%,40%{opacity:1}43%,100%{opacity:0}}
+@keyframes cmh-x2{0%,40%{opacity:0;transform:scale(.9)}44%,100%{opacity:1;transform:none}}
+.cmh-dg-head{display:flex;align-items:center;gap:10px;margin-top:10px}
+.cmh-dg-head img{width:44px;height:44px;border-radius:10px;object-fit:cover}
+.cmh-dg-head b{display:block;font-size:14px;font-weight:600}
+.cmh-dg-head small{font-size:11.5px;color:#71717a}
+.cmh-dg-file{display:flex;align-items:center;gap:10px;margin-top:12px;padding:9px 10px;border-radius:12px;box-shadow:inset 0 0 0 1px #ececf1}
+.cmh-dg-zip{display:grid;place-items:center;width:32px;height:38px;flex:none;border-radius:6px;background:#ede9fe;color:#6d28d9;font-size:9.5px;font-weight:700;letter-spacing:.04em}
+.cmh-dg-fn{flex:1;min-width:0;display:grid;gap:2px}
+.cmh-dg-fn b{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-dg-fn small{font-size:11px;color:#8b8b94}
+.cmh-dg-up{opacity:0;animation-name:cmh-u1}
+.cmh-dg-done{animation-name:cmh-u2}
+@keyframes cmh-u1{0%,30%{opacity:1}33%,100%{opacity:0}}
+@keyframes cmh-u2{0%,30%{opacity:0}33%,100%{opacity:1}}
+.cmh-dg-bar{position:relative;height:4px;margin-top:3px;border-radius:4px;background:#ececf1;overflow:hidden}
+.cmh-dg-fill{position:absolute;inset:0;background:#7c3aed;transform-origin:0 50%;animation-name:cmh-fill;animation-timing-function:linear}
+@keyframes cmh-fill{0%,4%{transform:scaleX(0)}12%{transform:scaleX(.34)}20%{transform:scaleX(.58)}30%,94%{transform:scaleX(1)}98%,100%{transform:scaleX(0)}}
+.cmh-dg-check{display:grid;place-items:center;width:20px;height:20px;flex:none;border-radius:50%;background:#7c3aed;color:#fff;animation-name:cmh-pop1}
+@keyframes cmh-pop1{0%,30%{opacity:0;transform:scale(.4)}34%,94%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.4)}}
+.cmh-dg-mail{position:absolute;right:14px;bottom:14px;width:min(286px,calc(100% - 44px));padding:12px 14px 13px;border-radius:18px;background:#fff;box-shadow:0 1px 2px rgba(24,24,27,.06),0 24px 48px -18px rgba(24,24,27,.38);box-sizing:border-box;animation-name:cmh-mail}
+@keyframes cmh-mail{0%,48%{opacity:0;transform:translate3d(0,26px,0)}55%,92%{opacity:1;transform:none}98%,100%{opacity:0;transform:translate3d(0,10px,0)}}
+.cmh-dg-from{display:flex;align-items:center;gap:9px}
+.cmh-dg-from>span:nth-child(2){flex:1;min-width:0}
+.cmh-dg-av{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:50%;background:#18181b;color:#fff;font-size:11px;font-weight:600}
+.cmh-dg-from b{display:block;font-size:12.5px;font-weight:600}
+.cmh-dg-from small{display:block;font-size:11px;color:#71717a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-dg-now{align-self:flex-start;font-size:11px;color:#a1a1aa}
+.cmh-dg-body{margin-top:9px;padding-top:9px;border-top:1px solid #f0f0f3}
+.cmh-dg-body b{font-size:13.5px;font-weight:600}
+.cmh-dg-body p{margin:3px 0 0;font-size:11.5px;line-height:1.45;color:#52525b}
+.cmh-dg-get{position:relative;display:inline-grid;place-items:center;margin-top:9px;height:30px;padding:0 14px;border-radius:9px;background:#7c3aed;color:#fff;font-size:12px;font-weight:600;overflow:hidden}
+.cmh-dg-get .cmh-tap{animation-name:cmh-tap2}
+@keyframes cmh-tap2{0%,70%{opacity:0;transform:scale(.4)}73%{opacity:1;transform:scale(1)}79%,100%{opacity:0;transform:scale(2.2)}}
 
-/* tips */
-.cmh-tip{position:relative;width:100%;height:100%;display:grid;place-items:center}
-.cmh-tip-card{width:min(260px,80%);padding:14px;border-radius:20px;background:#fff;box-shadow:0 20px 50px -24px rgba(190,24,93,.3)}
+/* ── course builder ── */
+.cmh-cb{position:absolute;inset:0;display:grid;place-items:center;padding:18px;box-sizing:border-box}
+.cmh-cb-card{width:min(300px,100%);padding:12px;border-radius:18px;background:#fff;box-shadow:0 1px 2px rgba(24,24,27,.05),0 20px 46px -26px rgba(76,29,149,.4);box-sizing:border-box;margin-bottom:34px}
+.cmh-cb .cmh-a{animation-duration:9s}
+.cmh-cb-head{display:flex;align-items:center;gap:9px}
+.cmh-cb-head img{width:46px;height:32px;border-radius:7px;object-fit:cover;flex:none}
+.cmh-cb-head>span:nth-child(2){flex:1;min-width:0}
+.cmh-cb-head b{display:block;font-size:13px;font-weight:600}
+.cmh-cb-head small{font-size:11px;color:#8b8b94}
+.cmh-cb-pub{justify-items:end}
+.cmh-cb-btn{position:relative;padding:5px 11px;border-radius:8px;background:#111113;color:#fff;font-size:11px;font-weight:600;overflow:hidden;opacity:0;animation-name:cmh-c1}
+.cmh-cb-btn .cmh-tap{background:rgba(255,255,255,.45);animation-name:cmh-ctap}
+.cmh-cb-live{align-self:center;padding:4px 9px;border-radius:99px;background:#dcfce7;color:#15803d;font-size:11px;font-weight:600;animation-name:cmh-c2}
+@keyframes cmh-c1{0%,56%{opacity:1}59%,100%{opacity:0}}
+@keyframes cmh-c2{0%,56%{opacity:0;transform:scale(.9)}60%,93%{opacity:1;transform:none}97%,100%{opacity:0}}
+@keyframes cmh-ctap{0%,51%{opacity:0;transform:scale(.4)}54%{opacity:1;transform:scale(1)}58%,100%{opacity:0;transform:scale(1.8)}}
+.cmh-cb-mod{margin:12px 2px 6px;font-size:11px;font-weight:600;color:#6b6b76}
+.cmh-cb-row{position:relative;display:flex;align-items:center;gap:8px;height:34px;padding:0 9px;margin-top:5px;border-radius:9px;background:#f7f6fb;font-size:12px;font-weight:500;overflow:hidden}
+.cmh-cb-ic{display:grid;place-items:center;width:20px;height:20px;flex:none;border-radius:6px;background:#ede9fe;color:#6d28d9}
+.cmh-cb-ic-f{background:#f4f4f5;color:#52525b}
+.cmh-cb-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-cb-tag{padding:2px 6px;border-radius:5px;background:#fff;box-shadow:inset 0 0 0 1px #e4e4e7;font-size:10px;color:#52525b;white-space:nowrap}
+.cmh-cb-d{font-size:11px;color:#8b8b94;font-variant-numeric:tabular-nums;justify-items:end}
+.cmh-cb-slot{margin-top:5px}
+.cmh-cb-slot .cmh-cb-row{margin-top:0}
+.cmh-cb-add{position:relative;display:flex;align-items:center;justify-content:center;height:34px;border-radius:9px;box-shadow:inset 0 0 0 1.5px #d4d0e6;color:#6d28d9;font-size:12px;font-weight:600;overflow:hidden;opacity:0;animation-name:cmh-add}
+.cmh-cb-add .cmh-tap{animation-name:cmh-atap}
+@keyframes cmh-add{0%,13%{opacity:1;transform:none}17%,95%{opacity:0;transform:scale(.97)}99%,100%{opacity:1;transform:none}}
+@keyframes cmh-atap{0%,8%{opacity:0;transform:scale(.4)}11%{opacity:1;transform:scale(1)}15%,100%{opacity:0;transform:scale(1.8)}}
+.cmh-cb-new{animation-name:cmh-new}
+@keyframes cmh-new{0%,14%{opacity:0;transform:translate3d(0,6px,0)}19%,94%{opacity:1;transform:none}98%,100%{opacity:0}}
+.cmh-cb-up{opacity:0;animation-name:cmh-cu1}
+.cmh-cb-len{animation-name:cmh-cu2}
+@keyframes cmh-cu1{0%,43%{opacity:1}46%,100%{opacity:0}}
+@keyframes cmh-cu2{0%,43%{opacity:0}46%,100%{opacity:1}}
+.cmh-cb-bar{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(124,58,237,.12)}
+.cmh-cb-fill{position:absolute;inset:0;background:#7c3aed;transform-origin:0 50%;transform:scaleX(0);opacity:0;animation-name:cmh-cfill;animation-timing-function:linear}
+@keyframes cmh-cfill{0%,19%{transform:scaleX(0);opacity:1}30%{transform:scaleX(.45)}44%{transform:scaleX(1);opacity:1}47%,100%{transform:scaleX(1);opacity:0}}
+.cmh-cb-toast{position:absolute;left:50%;bottom:18px;display:flex;align-items:center;gap:10px;width:min(270px,calc(100% - 36px));margin-left:min(-135px,calc(-50% + 18px));padding:10px 12px;border-radius:14px;background:#111113;color:#fff;box-shadow:0 18px 36px -14px rgba(17,17,19,.55);box-sizing:border-box;animation-name:cmh-toast}
+@keyframes cmh-toast{0%,64%{opacity:0;transform:translate3d(0,18px,0)}70%,92%{opacity:1;transform:none}97%,100%{opacity:0;transform:translate3d(0,8px,0)}}
+.cmh-cb-av{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:50%;background:#7c3aed;font-size:11px;font-weight:600}
+.cmh-cb-tt{flex:1;min-width:0;display:grid;gap:5px}
+.cmh-cb-tt b{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-cb-prog{display:flex;align-items:center;gap:8px;font-size:10.5px;color:#a1a1aa;white-space:nowrap}
+.cmh-cb-pbar{position:relative;flex:1;height:4px;border-radius:4px;background:rgba(255,255,255,.16);overflow:hidden}
+.cmh-cb-pbar span{position:absolute;inset:0;background:#a78bfa;transform-origin:0 50%;transform:scaleX(.75)}
+
+/* ── tips ── */
+.cmh-tip{position:absolute;inset:0;display:grid;place-items:center;padding:18px;box-sizing:border-box}
+.cmh-tip .cmh-a{animation-duration:7s}
+.cmh-tip-card{width:min(270px,100%);padding:14px;border-radius:20px;background:#fff;box-shadow:0 1px 2px rgba(24,24,27,.05),0 22px 48px -26px rgba(157,23,77,.35);box-sizing:border-box}
 .cmh-tip-who{display:flex;gap:10px;align-items:center}
 .cmh-tip-who img{width:40px;height:40px;border-radius:50%;object-fit:cover}
 .cmh-tip-who b{display:block;font-size:14px;font-weight:600}
 .cmh-tip-who small{font-size:11.5px;color:#71717a}
-.cmh-amts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
-.cmh-amts span{height:36px;display:grid;place-items:center;border-radius:10px;border:1px solid #e4e4e7;font-size:13px;font-weight:600}
-.cmh-amt-on{border-color:#18181b!important;box-shadow:0 0 0 1px #18181b;animation:cmh-amt 3s ease infinite}
-@keyframes cmh-amt{0%,40%,100%{transform:none}46%{transform:scale(.92)}54%{transform:scale(1.04)}}
-.cmh-tip-btn{margin-top:8px;height:40px;display:grid;place-items:center;border-radius:11px;background:#18181b;color:#fff;font-size:13px;font-weight:600}
-.cmh-pop{position:absolute;left:calc(50% + (var(--i) - 1.5) * 52px);bottom:22%;padding:5px 10px;border-radius:99px;background:#fff;color:#be185d;font-size:13px;font-weight:700;box-shadow:0 8px 20px -8px rgba(190,24,93,.45);opacity:0;animation:cmh-pop 6s cubic-bezier(.2,.8,.2,1) infinite;animation-delay:calc(var(--i) * 1.5s)}
-@keyframes cmh-pop{0%{opacity:0;transform:translate3d(0,0,0) scale(.6)}6%{opacity:1;transform:translate3d(0,-30px,0) scale(1)}30%{opacity:0;transform:translate3d(0,-150px,0) scale(.9)}100%{opacity:0}}
-
-/* picker */
-.cmh-pick{margin-top:clamp(20px,2.4vw,28px);padding:clamp(22px,3.4vw,48px);border-radius:clamp(24px,2.6vw,36px);background:#f4f4f6}
-.cmh-pick-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px;margin-bottom:20px}
-.cmh-pick-head h3{margin:0;font-size:clamp(26px,3vw,40px);font-weight:500;letter-spacing:-.04em;line-height:1.1}
-.cmh-pick-head p{margin:0;color:#71717a;font-size:15.5px}
-.cmh-pick-body{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(20px,3vw,40px);margin-top:24px}
-.cmh-pick-vis{display:flex;flex-direction:column;justify-content:center;padding:clamp(22px,2.6vw,36px);border-radius:24px;background:#fff;min-height:280px}
-.cmh-pick-icon{display:block;width:72px;height:72px;padding:16px;border-radius:20px;background:linear-gradient(145deg,#ede9fe,#e0e7ff);color:#5b21b6;animation:cmh-pop-in .5s cubic-bezier(.3,1.4,.5,1) both}
-@keyframes cmh-pop-in{from{opacity:0;transform:scale(.7) rotate(-8deg)}to{opacity:1;transform:none}}
-.cmh-pick-name{margin-top:16px;font-size:22px;font-weight:600;letter-spacing:-.02em}
-.cmh-hundred{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:22px;font-size:14.5px;color:#71717a}
-.cmh-hundred-n{font-size:20px;font-weight:600;color:#18181b;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.cmh-stack{position:relative;height:14px;margin-top:14px;border-radius:99px;overflow:hidden;background:#e4e4e7}
-.cmh-stack span{position:absolute;inset:0;transform-origin:0 50%;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
-.cmh-st-cost{background:#d4d4d8}
-.cmh-st-fee{background:#c4b5fd}
-.cmh-st-profit{background:linear-gradient(90deg,#7c3aed,#6366f1)}
-.cmh-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:12.5px;color:#71717a}
-.cmh-legend span::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:50%;vertical-align:1px}
-.cmh-legend [data-k=profit]::before{background:#7c3aed}
-.cmh-legend [data-k=fee]::before{background:#c4b5fd}
-.cmh-legend [data-k=cost]::before{background:#d4d4d8}
-.cmh-pick-figs{display:flex;flex-direction:column;gap:14px;padding:4px 0}
-.cmh-rows{margin:0;display:grid;gap:10px;padding:16px 0;border-block:1px solid #e4e4e7}
-.cmh-rows div{display:flex;justify-content:space-between;gap:12px;font-size:15px}
-.cmh-rows dt{color:#71717a}
-.cmh-rows dd{margin:0;font-weight:500;font-variant-numeric:tabular-nums}
-.cmh-profit{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.cmh-profit>span:first-child{font-size:16px;font-weight:500;padding-bottom:10px}
-.cmh-profit-n{font-size:clamp(44px,5vw,68px);font-weight:500;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums;background:linear-gradient(90deg,#6d28d9,#4f46e5);-webkit-background-clip:text;background-clip:text;color:transparent}
-.cmh-note{margin:0;font-size:14px;color:#71717a}
-.cmh-fine{margin:22px 0 0;font-size:12.5px;line-height:1.6;color:#8b8b94;max-width:110ch}
+.cmh-amts{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.cmh-amts>span:not(.cmh-amt-hl){position:relative;height:36px;display:grid;place-items:center;border-radius:10px;box-shadow:inset 0 0 0 1px #e4e4e7;font-size:13px;font-weight:600}
+.cmh-amt-hl{position:absolute;left:0;top:0;width:calc((100% - 18px) / 4);height:36px;border-radius:10px;box-shadow:inset 0 0 0 2px #18181b;background:#faf9fb;transform:translate3d(calc(100% + 6px),0,0);animation-name:cmh-hl;animation-timing-function:cubic-bezier(.32,.72,0,1)}
+@keyframes cmh-hl{0%,10%{transform:none}16%,88%{transform:translate3d(calc(100% + 6px),0,0)}94%,100%{transform:none}}
+.cmh-tip-btn{margin-top:8px;height:40px;display:grid;place-items:center;border-radius:11px;background:#18181b;color:#fff;font-size:13px;font-weight:600;animation-name:cmh-tpress}
+@keyframes cmh-tpress{0%,30%{transform:none}32.5%{transform:scale(.96)}36%,100%{transform:none}}
+.cmh-tip-btn .cmh-stack{place-items:center}
+.cmh-tb-3{opacity:0;animation-name:cmh-t3}
+.cmh-tb-5{opacity:0;animation-name:cmh-t5}
+.cmh-tb-ok{display:inline-flex;align-items:center;gap:6px;animation-name:cmh-tok}
+@keyframes cmh-t3{0%,12%{opacity:1}15%,89%{opacity:0}92%,100%{opacity:1}}
+@keyframes cmh-t5{0%,12%{opacity:0}15%,33%{opacity:1}36%,74%{opacity:0}77%,89%{opacity:1}92%,100%{opacity:0}}
+@keyframes cmh-tok{0%,33%{opacity:0;transform:scale(.94)}37%,72%{opacity:1;transform:none}75%,100%{opacity:0}}
+.cmh-tip-pop{position:absolute;left:50%;top:calc(50% - 128px);display:inline-flex;gap:5px;align-items:baseline;padding:7px 12px;border-radius:99px;background:#fff;color:#3f3f46;font-size:12px;white-space:nowrap;box-shadow:0 10px 24px -10px rgba(157,23,77,.4);transform:translate3d(-50%,0,0);animation-name:cmh-tpop}
+.cmh-tip-pop b{color:#15803d;font-weight:700;font-size:13px}
+@keyframes cmh-tpop{0%,36%{opacity:0;transform:translate3d(-50%,14px,0) scale(.94)}42%,70%{opacity:1;transform:translate3d(-50%,0,0)}78%,100%{opacity:0;transform:translate3d(-50%,-10px,0)}}
 
 @media (max-width:1023px){
   .cmh-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .cmh-tile,.cmh-tile[data-wide]{grid-column:span 1}
   .cmh-tile[data-wide]{grid-column:1/-1}
 }
-@media (max-width:767px){
-  .cmh-pick-body{grid-template-columns:1fr}
-  .cmh-pick-vis{min-height:0;padding:22px}
-}
 @media (max-width:639px){
   .cmh-grid{grid-template-columns:1fr}
   .cmh-tile[data-wide]{grid-column:auto}
-  .cmh-stage{height:300px}
-  .cmh-tile[data-wide] .cmh-stage{height:auto;padding:22px 0 84px}
-  .cmh-merch{flex-direction:column;gap:16px;padding:0 18px}
-  .cmh-ed{width:min(280px,100%)}
-  .cmh-steps{grid-template-columns:repeat(2,auto);gap:10px 18px}
-  .cmh-ship{left:18px;right:auto}
+  .cmh-stage{height:360px}
+  .cmh-tile[data-wide] .cmh-stage{height:420px}
+  .cmh-merch{padding:16px}
+  .cmh-mc{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px 14px;padding:12px}
+  .cmh-mc-pic{width:96px}
+  .cmh-mc-info{display:contents}
+  .cmh-mc-name{align-self:center}
+  .cmh-mc-facts,.cmh-trk{grid-column:1/-1}
+  .cmh-trk{padding:2px 4px 4px}
+  .cmh-mc-name b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 }
 @media (prefers-reduced-motion:reduce){
-  .cmh-design,.cmh-ed-grid>span,.cmh-steps li,.cmh-step-dot::before,.cmh-drop::after,.cmh-ship,.cmh-tap,.cmh-op-sheet,.cmh-drop-ok,.cmh-file,.cmh-mail,.cmh-lesson,.cmh-l-dot,.cmh-c-bar span,.cmh-amt-on,.cmh-pop,.cmh-pick-icon{animation:none!important}
-  .cmh-op-sheet,.cmh-mail,.cmh-ship,.cmh-file{transform:none;opacity:1}
-  .cmh-l-dot,.cmh-drop-ok{opacity:1;transform:none}
-  .cmh-pop,.cmh-tap{display:none}
-  .cmh-c-bar span{transform:scaleX(.75)}
-  .cmh-step-dot::before{opacity:1;transform:none}
-  .cmh-steps li{opacity:1}
-  .cmh-stack span{transition:none}
+  .cmh-a,.cmh-spin{animation:none!important}
+  .cmh-tap,.cmh-dim,.cmh-tip-pop{display:none}
 }
 `
 
 /** This section's stylesheets, as it draws them: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
-export const HOW_IT_WORKS_STYLES: readonly SectionStyle[] = [COMMERCE_KIT_STYLE, { href: "w12-commerce-how", precedence: "default", css: HOW_CSS }]
+export const HOW_IT_WORKS_STYLES: readonly SectionStyle[] = [{ href: "w12-commerce-how", precedence: "default", css: HOW_CSS }]
