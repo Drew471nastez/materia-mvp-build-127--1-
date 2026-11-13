@@ -506,14 +506,18 @@ const SUITES = [
   "tests/auth-arrival-r3.test.ts",
   /* Cinematic homepage: fixed first line, reserved rotating phrases, one deferred video, native signup. scripts/check-home-hero.mjs measures real SSR/hydration and media fallbacks. */
   "tests/home-hero.test.ts",
-  /* Wave 12, the home page's frame: the order and slots, Unlimited possibilities (three edge-to-edge rows), the closing call, the dark footer with the app badges, lazySection/LazySection. */
+  /* Wave 12, the home page's frame: the order and slots, Unlimited possibilities (two edge-to-edge rows since the landing round), the closing call, the dark footer with the app badges, lazySection/LazySection. */
   "tests/home-w12-frame.test.ts",
   /* Wave 12 showcase: nine branded examples in the build gallery, live builder previews (section 4) and the business carousel (section 6), with lazy local images and timer-free autoplay. */
   "tests/home-w12-showcase.test.ts",
-  /* W12 creators: section 7, the creators carousel (endless transform-only rail, bubble morph on hover/centre/tap, drag, reduced-motion grid) and the motion primitives in components/marketing/home/motion (morphing pill cluster, orbit badge, sale pop). */
+  /* Landing round: home sections 4 to 6 as the owner asked. The ideas heading flips with a carousel of the real editors (rail-motion: drag, swipe, autoplay off screen paused), the same drawing on a phone, the community page editor as it is; no florals, no Golden Hour presets, no fans; Unlimited possibilities in two rows; Every business, one home replaced by what a store sells, a list beside one product page. */
+  "tests/home-landing-ideas.test.ts",
+  /* W12 creators: section 7, the creators carousel (endless transform-only rail, drag, reduced-motion grid). */
   "tests/home-w12-creators.test.ts",
   /* Wave 12, commerce: the home page's How it works tiles and profit picker, the checkout scroll scene, the dotted world map and the earnings calculator (components/marketing/home). Fees from lib/payments/fees, Pro's price from lib/billing/plans, server rendered roles and copy, reduced motion, compositor-only motion, local webp under budget. */
   "tests/home-w12-commerce.test.ts",
+  /* Landing round, creators builder: the creators rail (no hover bump, the card's foot as before, no sale notifications, new photographs), How it works (less "fans", physical and digital products, the course player, no Golden Hour presets) and the checkout scene's scroll in steps set by an IntersectionObserver and played on the compositor. */
+  "tests/home-landing-creators.test.ts",
   /* Round 60: the showcase rail's motion as numbers: drag, flick, settle, wheel, loop, any frame rate. */
   "tests/rail-motion.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
@@ -1363,6 +1367,12 @@ const SUITES = [
   "tests/home-w12-platform.test.ts",
   /* Wave 13: home section 3 rebuilt as the owner's 2 x 2 grid (Make the work. Skip the busywork.): four cards, captions in two tones, product slides whose light changes, the draggable order globe in checkout's currencies, storefronts and support; loops paused off screen, its box's height. */
   "tests/home-w13-everything.test.ts",
+  /* Landing round, the lower sections: audience with real faces and the header's logo, analytics smaller with a dark globe card and SEO · GEO · AEO, the map without "fans" and with an English Buy now everywhere, integrations in two rows that never show a tile twice, crisp marks, no light under the pointer. */
+  "tests/home-landing-lower.test.ts",
+  /* Landing round: the showcase drags and settles on a glide (autoplay kept), and "Make the work" shows real products (no Golden Hour preset), a calm community, the tee on a grey tile and a continuous storefront rail. */
+  "tests/home-landing-top.test.ts",
+  /* Landing round (rest): See what you could earn gets one flash photograph and loses its small print; the app's line is short; the public plan cards say plain things, each from the plan tables, with a quiet tick; Your AI tools work here too: the marks, a line true to a connection, the real MCP tools in a terminal on the compositor, paused off screen, still under reduced motion, after the integrations. */
+  "tests/home-landing-rest.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

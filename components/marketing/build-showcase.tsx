@@ -3,19 +3,17 @@
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { StoryHeading } from "./story-heading"
 /*
-  TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 14: the
-  owner asked for real kinds of creators). Each is a fictional creator who
-  sells what real Storelib creators sell: Notion templates, strength
-  programs, sample packs, photo presets, a watercolour course, ceramics, a
-  yoga membership and a video editing course, with pictures of real things
-  (Notion-style dashboard previews, gym and studio photography, sample pack
-  artwork, before/after preset edits). The stores are drawn in the layout of
-  a real Storelib creator store (the newsletter bar, the cover, the round
-  photo, the rating and links, Follow, Home / Products and the explore
-  product card: a 16:9 cover, the star, the title and its category, the
-  price with the old one after it), the websites as sites built on Storelib,
-  and the OnePages each in its own theme for its own business. Satori
-  Studio is a real OnePage, storelib.me/satori-studio, as a phone shows it.
+  TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 14 and
+  landing round 2, merged). Each group is a store or website, a OnePage and
+  a community, so every swipe shows all three things Storelib makes, for
+  fictional creators who sell what real Storelib creators sell. The stores
+  are drawn in the layout of a real Storelib creator store, the websites as
+  sites built on Storelib, the OnePages each in its own theme (Hemi Walker's
+  is the live OnePage captured at a phone's width), and the communities are
+  Storelib's own member frame and feed (components/community/member)
+  rendered with a fictional community's data and photographed at 2x.
+  Satori Studio is a real OnePage, storelib.me/satori-studio, as a phone
+  shows it. Photographs are Unsplash.
 
   EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
   pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
@@ -48,22 +46,22 @@ const GROUPS = [
   [
     wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates with dashboard previews"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
+    wide("slowrise", "Run a community", "Slow Rise Bakers, a sourdough community on Storelib: a pinned poll for the December bake-along, a crumb shot question, the next live shaping session and the top contributors"),
+  ],
+  [
     wide("hale", "Sell training programs", "Hale Strength, coach Marcus Hale's website with a lifter at the squat rack, a workout log and four strength programs"),
-  ],
-  [
-    wide("lowtide", "Sell sample packs", "Lowtide's Storelib store: a producer's sample packs and drum kits under a recording studio cover"),
     portrait("gia", "Sell your cookbook", "Gia Romano's OnePage with a pasta ebook, a fresh pasta class and her recipes"),
-    wide("elin", "Sell photo presets", "Elin Vos' Storelib store: travel photo presets shown as before and after edits"),
-  ],
-  [
-    wide("bloom", "Launch a course", "Brush & Bloom's watercolor course site with modules and reviews"),
-    portrait("lucia", "Book paid lessons", "Lucía Ferrer's OnePage with her Spanish workbook, 1:1 lesson booking, a free cheat sheet and her podcast"),
-    wide("amaral", "Sell handmade goods", "Amaral Ceramics' Storelib store with handmade mugs, plates and a wheel throwing workshop"),
+    wide("pinchgrip", "Host meetups", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
   ],
   [
     wide("stillwater", "Run a membership", "Stillwater, a yoga membership website with a live Sunday class and new on-demand classes"),
+    portrait("hemi", "Sell coaching", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
+    wide("nightshift", "Build a club", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
+  ],
+  [
+    wide("lowtide", "Sell sample packs", "Lowtide's Storelib store: a producer's sample packs and drum kits under a recording studio cover"),
     portrait("bea", "Fill your bookings", "Nails by Bea, a nail artist's OnePage with booking, her work and press-on sets"),
-    wide("cutroom", "Teach video editing", "Cutroom, Sam Ito's video editing course website with a lesson playing and the module list"),
+    wide("shift", "Drop new merch", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
@@ -184,7 +182,7 @@ const CSS = `
 .build-showcase-track[data-rail-ready] .build-showcase-group {will-change:transform;backface-visibility:hidden}
 @media(max-width:767px){.build-showcase-track[data-rail-ready] .build-showcase-group{will-change:auto}.build-showcase-track[data-rail-ready] .build-showcase-slide{will-change:transform;backface-visibility:hidden}}
 .build-showcase-group {display:grid;grid-template-columns:256fr 90fr 256fr;gap:var(--showcase-gap);align-items:center;flex:0 0 100%;width:100%;padding:10px var(--landing-card-inset,14px);min-width:0;box-sizing:border-box}
-.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:1440/990;margin:0;border-radius:8px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
+.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:1440/990;margin:0;border-radius:7px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
 .build-showcase-slide[data-format="portrait"] {aspect-ratio:540/1056}
 .build-showcase-slide img {display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
 /*
@@ -207,6 +205,6 @@ const CSS = `
   quarters of the width) and the next peeking in from the right, 8px apart,
   each card its picture's shape and about half the width tall.
 */
-@media(max-width:767px){.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;--showcase-height:clamp(170px,51.5vw,380px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:6px}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
+@media(max-width:767px){.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;--showcase-height:clamp(170px,51.5vw,380px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:5px}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
 @media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready]{opacity:1;transition:none}.build-showcase-slide figcaption{transition:none}}
 `

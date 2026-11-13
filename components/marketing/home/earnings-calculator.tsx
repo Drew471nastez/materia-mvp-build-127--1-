@@ -22,6 +22,16 @@
  * a hairline (no grey slab around both halves); the result is one quiet dark
  * panel with a smooth line of the year ahead in place of the bar chart and
  * the purple blob, drawn in by a cover that slides away (transform only).
+ *
+ * Landing round, the owner: room for one picture "like the one attached", a
+ * night photograph lit by the camera's flash, of somebody in a printed tee
+ * (Unsplash, public/home/earnings, two sizes). From 1280px it stands as a
+ * narrow column at the left of the calculator; under that it is a short band
+ * above it, so the section grows neither much wider nor much taller. The
+ * small print under the result is gone ("texts like this under sections
+ * which just occupy space"); every figure is still labelled an example, and
+ * the one fact a seller needs, that Stripe's card fee is not in the figure,
+ * is a short line under the fee it qualifies.
  */
 import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
@@ -66,6 +76,19 @@ export function EarningsCalculator() {
         </div>
 
         <div className="cme-card">
+          <div className="cme-photo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/home/earnings/night-flash-tee-640.webp"
+              srcSet="/home/earnings/night-flash-tee-640.webp 640w, /home/earnings/night-flash-tee-960.webp 960w"
+              sizes="(min-width: 1280px) 470px, (min-width: 900px) 100vw, calc(100vw - 40px)"
+              width={960}
+              height={1448}
+              alt="A seller in a printed tee and cap, photographed at night with a flash"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
           <div className="cme-inputs">
             <div>
               <div className="cme-label" id={`${uid}-what`}>
@@ -136,7 +159,10 @@ export function EarningsCalculator() {
                 <dd>{commerceUsd(m.revenue, false)}</dd>
               </div>
               <div>
-                <dt>Storelib fees</dt>
+                <dt>
+                  Storelib fees
+                  <small className="cme-aside">Stripe&apos;s card processing fee is separate</small>
+                </dt>
                 <dd>−{commerceUsd(m.fees, false)}</dd>
               </div>
               {m.production ? (
@@ -164,7 +190,6 @@ export function EarningsCalculator() {
                 <path d="M4 10h12M11 5l5 5-5 5" />
               </svg>
             </Link>
-            <p className="cme-fine">Example figures, not a forecast. A month is 30 days. Fees are Storelib&apos;s per sale (under $4.00, a percentage only). Stripe&apos;s card processing fee is separate. Production costs are typical print partner prices.</p>
           </div>
         </div>
       </div>
@@ -235,18 +260,20 @@ const EARN_CSS = `
 .cme{background:#fff;color:#18181b}
 .cme-wrap{max-width:1320px;margin:0 auto;padding:0 var(--landing-gutter,clamp(20px,5vw,72px))}
 .cme-card{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:clamp(16px,2vw,24px);align-items:stretch}
-.cme-inputs{display:flex;flex-direction:column;gap:clamp(22px,2.4vw,30px);padding:clamp(22px,3vw,40px);border-radius:clamp(22px,2.4vw,32px);background:#fff;box-shadow:0 0 0 1px #ececf0,0 24px 48px -36px rgba(24,24,27,.25)}
+.cme-photo{grid-column:1/-1;position:relative;height:clamp(240px,30vw,320px);border-radius:clamp(21px,2.4vw,31px);overflow:hidden;background:#141218}
+.cme-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 47%;display:block}
+.cme-inputs{display:flex;flex-direction:column;gap:clamp(22px,2.4vw,30px);padding:clamp(22px,3vw,40px);border-radius:clamp(21px,2.4vw,31px);background:#fff;box-shadow:0 0 0 1px #ececf0,0 24px 48px -36px rgba(24,24,27,.25)}
 .cme-label{margin-bottom:12px;font-size:14px;font-weight:500;color:#71717a}
-.cme-num{display:inline-flex;align-items:baseline;gap:1px;padding:2px 10px;border-radius:10px;background:#f6f6f8;box-shadow:inset 0 0 0 1px #ececf0}
+.cme-num{display:inline-flex;align-items:baseline;gap:1px;padding:2px 10px;border-radius:9px;background:#f6f6f8;box-shadow:inset 0 0 0 1px #ececf0}
 .cme-num input{min-width:2ch;border:0;outline:0;background:transparent;font:inherit;color:inherit;text-align:right;padding:0;font-variant-numeric:tabular-nums}
 .cme-num:focus-within{box-shadow:inset 0 0 0 2px #7c3aed}
-.cme-plans{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:18px;background:#f4f4f6}
-.cme-plan{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:56px;padding:9px 14px;border-radius:14px;border:0;background:transparent;text-align:left;cursor:pointer;transition:background-color .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent}
+.cme-plans{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:17px;background:#f4f4f6}
+.cme-plan{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:56px;padding:9px 14px;border-radius:13px;border:0;background:transparent;text-align:left;cursor:pointer;transition:background-color .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent}
 .cme-plan b{font-size:15px;font-weight:600}
 .cme-plan small{font-size:12.5px;color:#71717a}
 .cme-plan[data-on]{background:#fff;box-shadow:0 1px 2px rgba(24,24,27,.08),0 4px 12px -6px rgba(24,24,27,.18)}
 .cme-plan:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
-.cme-out{position:relative;display:flex;flex-direction:column;padding:clamp(24px,3vw,40px);border-radius:clamp(22px,2.4vw,32px);background:#121017;color:#fff;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.cme-out{position:relative;display:flex;flex-direction:column;padding:clamp(24px,3vw,40px);border-radius:clamp(21px,2.4vw,31px);background:#121017;color:#fff;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
 .cme-out-top{display:flex;justify-content:space-between;align-items:center;font-size:15px;color:#a1a1aa}
 .cme-pill{padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.07);font-size:12px;color:#d4d4d8}
 .cme-big{display:block;margin-top:10px;font-size:clamp(48px,6.2vw,88px);font-weight:400;letter-spacing:-.055em;line-height:1;font-variant-numeric:tabular-nums}
@@ -258,21 +285,31 @@ const EARN_CSS = `
 .cme-line-ends{display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:#71717a}
 [data-commerce-live] .cme-line-cover{animation:cme-draw 1.4s cubic-bezier(.65,0,.35,1) both}
 @keyframes cme-draw{from{transform:scaleX(1)}to{transform:scaleX(0)}}
-.cme-rows{margin:20px 0 0;display:grid;gap:10px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)}
+.cme-rows{margin:20px 0 24px;display:grid;gap:10px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)}
 .cme-rows div{display:flex;justify-content:space-between;gap:12px;font-size:14.5px}
 .cme-rows dt{color:#a1a1aa}
+.cme-aside{display:block;margin-top:2px;font-size:12px;color:#71717a}
 .cme-rows dd{margin:0;font-variant-numeric:tabular-nums}
 .cme-keep{margin-top:4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
 .cme-keep dt{color:#fff!important;font-weight:500}
 .cme-keep dd{font-size:18px;font-weight:600;color:#c4b5fd}
-.cme-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:52px;margin-top:24px;padding:0 26px;border-radius:999px;background:#fff;color:#0b0b0c;font-size:16px;font-weight:600;align-self:flex-start;transition:background-color .2s}
+.cme-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:52px;margin-top:auto;padding:0 26px;border-radius:999px;background:#fff;color:#0b0b0c;font-size:16px;font-weight:600;align-self:flex-start;transition:background-color .2s}
 .cme-cta:hover{background:#ede9fe}
 .cme-cta:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}
 .cme-cta svg{transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .cme-cta:hover svg{transform:translateX(3px)}
-.cme-fine{margin:16px 0 0;font-size:12px;line-height:1.55;color:#71717a}
+@media (min-width:1280px){
+  .cme-card{grid-template-columns:minmax(0,.64fr) minmax(0,1.1fr) minmax(0,.95fr)}
+  .cme-photo{grid-column:auto;height:auto;min-height:100%}
+  .cme-photo img{object-position:54% 50%}
+  .cme-inputs{padding:clamp(24px,2.4vw,34px)}
+  .cme-out{padding:clamp(24px,2.4vw,36px)}
+  .cme-big{font-size:clamp(48px,5vw,76px)}
+}
 @media (max-width:899px){
   .cme-card{grid-template-columns:1fr}
+  .cme-photo{height:auto;aspect-ratio:16/10;max-height:300px}
+  .cme-photo img{object-position:50% 45%}
   .cme-cta{align-self:stretch}
 }
 @media (prefers-reduced-motion:reduce){
