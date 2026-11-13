@@ -14,6 +14,7 @@ import "server-only"
  * creator's own visits are left out of both (lib/analytics/collect).
  * lib/onepage/link-stats has the rules; this file only reads.
  */
+import { ownerStoreId } from "./page-store"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import {
   countVisits,
@@ -45,11 +46,8 @@ export interface StatsPage {
 
 /** The creator whose events these are: the page's seller, else the owner's creator row. */
 export async function creatorOfPage(admin: Admin, page: StatsPage): Promise<string | null> {
-  const direct = page.seller_id || page.creator_id || null
-  if (direct) return direct
-  if (!page.owner_id) return null
-  const { data } = await admin.from("creators").select("id").eq("user_id", page.owner_id).maybeSingle()
-  return (data as { id?: string } | null)?.id ?? null
+  /* The owner's store, read from owner_id: a page naming another store in its own seller_id read that store's clicks (lib/onepage/page-store). */
+  return ownerStoreId(admin, page.owner_id)
 }
 
 /** The question Analytics would ask for this OnePage over this period. */

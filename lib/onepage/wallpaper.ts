@@ -557,7 +557,8 @@ export function wallpaperMediaLook(theme: WallpaperEffectThemeLike | null | unde
   if (effect === "duotone") {
     const dark = tint ?? DUOTONE_DEFAULT
     const light = mixHexes(dark, "#ffffff", 0.82)
-    const strength = alpha > 0 ? alpha : 1
+    /* An unset strength is already full for a duotone (wallpaperTintAlpha); a chosen 0% is 0%, not full (the OnePage production audit, D7). */
+    const strength = alpha
     layers.push({ key: "duotone-light", style: { background: light, mixBlendMode: "multiply", opacity: strength } })
     layers.push({ key: "duotone-dark", style: { background: dark, mixBlendMode: "screen", opacity: strength } })
   }
@@ -593,7 +594,7 @@ export function pixelThroughLook(px: { r: number; g: number; b: number }, theme:
       const dark = wallpaperTint(theme) ?? DUOTONE_DEFAULT
       const light = mixHexes(dark, "#ffffff", 0.82)
       const ch = (hex: string, i: number) => Number.parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255
-      const s = wallpaperTintAlpha(theme) > 0 ? wallpaperTintAlpha(theme) : 1
+      const s = wallpaperTintAlpha(theme)
       const out = [0, 1, 2].map((i) => {
         const m = grey * (1 - s + s * ch(light, i))
         return 1 - (1 - m) * (1 - s * ch(dark, i))

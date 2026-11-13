@@ -1,5 +1,6 @@
 import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { withOwnerStore } from "@/lib/onepage/page-store"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { contactSourceFrom } from "@/lib/contacts/contact-source"
 import { fromOfHost } from "@/lib/orders/order-source"
@@ -55,7 +56,8 @@ export async function POST(request: Request) {
   if (limited) return limited
 
   const db = createAdminClient()
-  const { data: page } = await db.from("onepages").select("id, status, seller_id, creator_id, published_blocks").eq("id", onepageId).eq("status", "published").maybeSingle()
+  /* The store is the owner's, never the row's own seller_id (lib/onepage/page-store). */
+  const page = await withOwnerStore(db, (await db.from("onepages").select("id, status, owner_id, seller_id, creator_id, published_blocks").eq("id", onepageId).eq("status", "published").maybeSingle()).data)
   if (!page) return NextResponse.json({ error: "This page is not published." }, { status: 404 })
   const creatorId: string | null = page.seller_id || page.creator_id || null
   const block = publishedBlock(page.published_blocks, blockId)

@@ -358,10 +358,11 @@ async function main() {
   console.log("\n  the surfaces that were wrong, and are not any more")
   {
     const capture = strip(read("app/api/onepage/email-capture/route.ts"))
-    check("the OnePage email capture sends a download only for a published product", /publicOnly\(\s*adminSupabase\s*\.from\("products"\)/.test(capture) && /isPubliclyVisible\(product\)/.test(capture))
-    check("and only one of this page's own creator", /lookup = lookup\.eq\("creator_id", onepage\.seller_id\)/.test(capture))
-    check("and still collects the address when it is not", !/error: "Product not found"/.test(capture) && /if \(deliverable\) \{/.test(capture))
-    check("the lead is recorded with the product it really sent", /digital_product_id: deliverable\?\.id \?\? null/.test(capture))
+    /* Changed on purpose (OnePage production audit, C1): the product is the one the PUBLISHED block names, of the page owner's store (lib/onepage/page-store), free as Instant checkout decides it. */
+    check("the OnePage email capture sends a download only for a published product", /publicOnly\(\s*db\s*\.from\("products"\)/.test(capture) && /isPubliclyVisible\(product\)/.test(capture))
+    check("and only one of this page's own creator", /\.eq\("creator_id", creatorId\)/.test(capture) && /const creatorId = pageCreatorId\(onepage\)/.test(capture) && /withOwnerStore\(/.test(capture))
+    check("and still collects the address when it is not", !/error: "Product not found"/.test(capture) && /const saved = await saveLead\(db,/.test(capture))
+    check("the lead is recorded with the product it really sent", /digital_product_id: product\.id/.test(capture))
 
     const wishlist = strip(read("app/api/wishlist/route.ts"))
     check("the storelib.com wishlist lists only what is still on sale", /!isPubliclyVisible\(item\.products/.test(wishlist) && /\n\s*status,\n/.test(wishlist))

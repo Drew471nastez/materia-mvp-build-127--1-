@@ -143,7 +143,8 @@ async function roundTrips() {
   const lib = readCode("lib/onepage/published-page.ts")
   check("the held reads ask nothing about the visitor", !/next\/headers|lib\/supabase\/server|cookies\(|getUser|currentUser/.test(lib))
   check("  three reads held, each for a minute at most, under tags", (lib.match(/heldRead\(/g) ?? []).length === 3 && (lib.match(/revalidate: ONE_PAGE_HOLD_SECONDS/g) ?? []).length === 3)
-  check("  what is held of the row is the published copy (publishedOnly)", /answer\.kind === "page" \? \{ \.\.\.answer, page: publishedOnly\(answer\.page\) \} : answer/.test(lib))
+  /* Changed on purpose (OnePage production audit, SEC1): the held page also carries its owner's store (lib/onepage/page-store withOwnerStore). */
+  check("  what is held of the row is the published copy (publishedOnly)", /if \(answer\.kind !== "page"\) return answer/.test(lib) && /const page = await withOwnerStore\(db, publishedOnly\(answer\.page\)\)/.test(lib))
 }
 
 /* ── PUBLISH ───────────────────────────────────────────────────────────── */
@@ -458,7 +459,7 @@ async function privatePages() {
   /* The held OnePage copy carries no viewer input: its keys are the page's own. */
   const lib = readCode("lib/onepage/published-page.ts")
   check("held OnePage entries are keyed by the page alone (name, ids, block fingerprint)",
-    /\["onepage-address", "v1", slug\]/.test(lib) && /\["onepage-owner", "v1", sellerId \?\? "", creatorId \?\? "", ownerId \?\? ""\]/.test(lib) && /* Changed on purpose (round AR): v2, the held blocks now carry the data blocks' fill (lib/onepage/data-blocks-server). */ /\["onepage-live-blocks", "v2", creatorId, fingerprint\]/.test(lib))
+    /* Changed on purpose (OnePage production audit, SEC1): v2, the held page carries its owner's store (lib/onepage/page-store). */ /\["onepage-address", "v2", slug\]/.test(lib) && /\["onepage-owner", "v1", sellerId \?\? "", creatorId \?\? "", ownerId \?\? ""\]/.test(lib) && /* Changed on purpose (round AR): v2, the held blocks now carry the data blocks' fill (lib/onepage/data-blocks-server). */ /\["onepage-live-blocks", "v2", creatorId, fingerprint\]/.test(lib))
 }
 
 /* ── SPIKES AND ABUSE ──────────────────────────────────────────────────── */

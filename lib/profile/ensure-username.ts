@@ -33,10 +33,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** Whether `handle` is free for `userId` (their own current handle counts as free). */
 export async function handleAvailable(db: Db, handle: string, userId: string | null): Promise<boolean> {
   if (!isValidUsername(handle).valid) return false
-  const [profiles, creators, history] = await Promise.all([
+  const [profiles, creators, history, pages] = await Promise.all([
     db.from("profiles").select("id").ilike("username", handle).limit(2),
     db.from("creators").select("user_id").ilike("slug", handle).limit(2),
     db.from("username_history").select("user_id").ilike("old_username", handle).limit(2),
+    /*
+      ANOTHER CREATOR'S ONEPAGE ADDRESS (the OnePage production audit). A page
+      address is never somebody else's username (lib/onepage/name-availability),
+      but a username could be taken over somebody else's page address: their
+      storelib.me/<address> then answered both, and the new account's page
+      named the other creator's page as its own canonical address.
+    */
+    db.from("onepages").select("owner_id").ilike("slug", handle).limit(2),
   ])
   if (profiles.error) return false
   const others = (rows: { data: unknown } | undefined, key: string) =>
@@ -45,6 +53,7 @@ export async function handleAvailable(db: Db, handle: string, userId: string | n
   if (!creators.error && others(creators, "user_id")) return false
   /* A handle given up by somebody else still redirects their old links; it is not handed to a stranger. */
   if (!history.error && others(history, "user_id")) return false
+  if (!pages.error && others(pages, "owner_id")) return false
   try {
     const site = await db.rpc("website_handle_taken", { p_handle: handle })
     if (!site?.error && site?.data === true) return false

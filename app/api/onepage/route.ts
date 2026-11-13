@@ -1,5 +1,8 @@
 import { profileAvatar } from "@/lib/account/avatar"
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { announce, onePageAddresses } from "@/lib/seo/announce"
+import { changedLinks, onePageLinks, syncOnePageLinksToCreatorPage } from "@/lib/social/onepage-sync"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { createClient } from "@/lib/supabase/server"
 import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
@@ -11,6 +14,9 @@ import { onePageChangedFor } from "@/lib/onepage/public-cache"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
 import { onePageActor } from "@/lib/team/onepage"
 import { stripResolved } from "@/lib/onepage/storelib-blocks"
+import { withSafeLinkValues, withSafeUrls } from "@/lib/onepage/safe-urls"
+import { openLocked, sealLocked } from "@/lib/onepage/locked-seal"
+import { ownerStoreId } from "@/lib/onepage/page-store"
 import { onePageEditVersion, sentBaseVersion } from "@/lib/onepage/edit-version"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
@@ -105,7 +111,8 @@ export async function GET() {
 
     const { data: profile, error: photoError } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
     if (photoError) return NextResponse.json({ error: "Your profile could not be read. Try again." }, { status: 503, headers: { "Cache-Control": "no-store" } })
-    return NextResponse.json({ onepage: { ...onepage, avatar_url: profileAvatar(profile?.avatar_url) } }, { headers: { "Cache-Control": "no-store" } })
+    /* The page's own editor sees its paid blocks' locked parts opened (lib/onepage/locked-seal); the version is the stored copy's. */
+    return NextResponse.json({ onepage: { ...onepage, draft_blocks: openLocked(onepage.draft_blocks), archived_blocks: openLocked((onepage as { archived_blocks?: unknown }).archived_blocks), avatar_url: profileAvatar(profile?.avatar_url), edit_version: onePageEditVersion(onepage) } }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("OnePage GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -152,17 +159,21 @@ export async function PUT(request: Request) {
       archived_blocks,
       share_image_mode,
       base_version,
+      social_links_patch,
+      publish,
     } = body
+    /* Save and publish in one write (the editor's Save): see the end of this route. */
+    const publishing = publish === true
 
     /* The picture a shared link shows: one of three (lib/onepage/seo). Null is the same as not sent. */
     if (share_image_mode !== undefined && share_image_mode !== null && !isShareImageMode(share_image_mode)) {
       return refuse("That share image choice does not exist")
     }
 
-    // Get existing record with current settings
+    // Get existing record with current settings (and, for a publish, what the live copy is built from where the save does not change it)
     const { data: existing } = await db
       .from("onepages")
-      .select("id, slug, settings, seller_id, creator_id")
+      .select(publishing ? "id, slug, settings, seller_id, creator_id, title, bio, theme, social_links, avatar_video_url, draft_blocks, published_social_links" : "id, slug, settings, seller_id, creator_id")
       .eq("id", id)
       .eq("owner_id", ownerId)
       .single()
@@ -266,11 +277,29 @@ export async function PUT(request: Request) {
     }
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
-    if (social_links !== undefined) updates.social_links = social_links
+    /* No address saved on a page can run script (lib/onepage/safe-urls): blocks, the archive and the social links. */
+    if (social_links !== undefined) updates.social_links = withSafeLinkValues(social_links)
+    /*
+      ONLY THE LINKS THIS EDITOR CHANGED (the OnePage production audit, S1).
+      The editor used to send its whole copy of the social links on every
+      Save, and an editor open since before Instagram was changed on the
+      creator page (lib/social/onepage-sync) put the old one back here and,
+      through the publish's link sync, back on the creator page too. It sends
+      the platforms it changed now, merged over the row's own: "" clears one.
+    */
+    if (social_links_patch && typeof social_links_patch === "object" && !Array.isArray(social_links_patch)) {
+      const patch: Record<string, string> = {}
+      for (const [platform, value] of Object.entries(social_links_patch as Record<string, unknown>)) {
+        if (platform.length <= 40 && (typeof value === "string" || value === null)) patch[platform] = typeof value === "string" ? value.slice(0, 500) : ""
+      }
+      const base = (updates.social_links ?? (existing as { social_links?: unknown }).social_links ?? {}) as Record<string, unknown>
+      updates.social_links = withSafeLinkValues({ ...(base && typeof base === "object" ? base : {}), ...patch }) as typeof updates.social_links
+    }
     /* What the live page reads for a shelf or a posts row is never kept in the draft (lib/onepage/storelib-blocks stripResolved). */
-    if (draft_blocks !== undefined) updates.draft_blocks = stripResolved(draft_blocks)
+    /* And a paid block's locked part is sealed before it is stored (lib/onepage/locked-seal): the table's rows can be read with the public key. */
+    if (draft_blocks !== undefined) updates.draft_blocks = sealLocked(withSafeUrls(stripResolved(draft_blocks)))
     if (nextSlug !== undefined) updates.slug = nextSlug
-    if (archived_blocks !== undefined) (updates as any).archived_blocks = archived_blocks
+    if (archived_blocks !== undefined) (updates as any).archived_blocks = sealLocked(withSafeUrls(archived_blocks))
     if (isShareImageMode(share_image_mode)) updates.share_image_mode = share_image_mode
     
     // PROPERLY MERGE SETTINGS - don't overwrite, merge with existing
@@ -301,27 +330,72 @@ export async function PUT(request: Request) {
       updates.settings = {
         ...existingSettings,
         ...newSettings,
-        // Handle avatar_video_crop specially
-        avatar_video_crop: avatar_video_crop !== undefined 
-          ? avatar_video_crop 
-          : (newSettings.avatar_video_crop !== undefined 
-              ? newSettings.avatar_video_crop 
+        /*
+          The profile video's crop: the settings' own value when the save carries
+          one (the editor writes it there), else a top-level one from an older
+          caller, else what was kept. A top-level null used to win over the
+          settings' crop, so a row with that column lost its crop on every Save.
+        */
+        avatar_video_crop: newSettings.avatar_video_crop !== undefined
+          ? newSettings.avatar_video_crop
+          : (avatar_video_crop !== undefined
+              ? avatar_video_crop
               : existingSettings.avatar_video_crop || null)
       }
     }
 
-    // Ensure seller_id is set if missing
-    if (!existing.seller_id) {
-      const { data: creator } = await db
-        .from("creators")
-        .select("id")
-        .eq("user_id", ownerId)
-        .single()
+    /*
+      THE ROW NAMES ITS OWNER'S STORE (the OnePage production audit, SEC1 and
+      SEC7). It was filled only when empty, so a row naming another store, or
+      the account's user id (pages the old onboarding made), kept it. Public
+      routes no longer trust these columns (lib/onepage/page-store); a save
+      also puts them right, for anything else that reads them.
+    */
+    const ownStore = await ownerStoreId(db, ownerId)
+    if (ownStore && (existing.seller_id !== ownStore || (existing as { creator_id?: string | null }).creator_id !== ownStore)) {
+      updates.seller_id = ownStore
+      updates.creator_id = ownStore
+    }
 
-      if (creator) {
-        updates.seller_id = creator.id
-        updates.creator_id = creator.id
+    /*
+      SAVE AND PUBLISH ARE ONE WRITE (the OnePage production audit, S2). The
+      editor's Save was this PUT and then a second request to
+      /api/onepage/publish: when the second one failed (the signal dropped,
+      the app was sent away), the draft was saved, the live page was not, and
+      the editor opened next time saying Saved with nothing to press, while
+      visitors kept the old page until some later edit. With publish: true the
+      live copy is written by this same update, inside the same check, from
+      what this save wrote and, for what it did not send, from the row.
+      /api/onepage/publish stays for older editors.
+    */
+    let liveLinksBefore: unknown = null
+    let publishedAt: string | null = null
+    if (publishing) {
+      const row = existing as Record<string, any>
+      if (photoNow === undefined) {
+        const { data: profile, error: photoError } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
+        if (photoError) return NextResponse.json({ error: "Your profile could not be read. Try again." }, { status: 503, headers: { "Cache-Control": "no-store" } })
+        photoNow = typeof profile?.avatar_url === "string" && profile.avatar_url.trim() !== "" ? profile.avatar_url.trim() : null
+        updates.avatar_url = photoNow
       }
+      const finalSettings = (updates.settings ?? row.settings ?? {}) as Record<string, unknown>
+      const finalLinks = withSafeLinkValues(((updates.social_links ?? row.social_links) || {}) as Record<string, unknown>)
+      liveLinksBefore = row.published_social_links
+      publishedAt = new Date().toISOString()
+      Object.assign(updates as Record<string, unknown>, {
+        status: "published",
+        published_at: publishedAt,
+        published_blocks: updates.draft_blocks ?? sealLocked(withSafeUrls(stripResolved(row.draft_blocks ?? []))),
+        published_theme: updates.theme ?? row.theme,
+        published_profile: {
+          title: updates.title ?? row.title ?? "",
+          bio: updates.bio ?? row.bio ?? "",
+          avatar_url: photoNow,
+          avatar_video_url: (updates.avatar_video_url !== undefined ? updates.avatar_video_url : row.avatar_video_url) || null,
+          avatar_video_crop: finalSettings.avatar_video_crop || null,
+        },
+        published_social_links: finalLinks,
+      })
     }
 
     const write = (row: typeof updates) => {
@@ -371,12 +445,33 @@ export async function PUT(request: Request) {
       as it is, so an editor saving every second and a half costs visitors
       nothing.
     */
-    if (updates.settings !== undefined || updates.slug !== undefined || updates.share_image_mode !== undefined || photoNow !== undefined) {
-      await onePageChangedFor(ownerId, [existing.slug])
+    if (publishing || updates.settings !== undefined || updates.slug !== undefined || updates.share_image_mode !== undefined || photoNow !== undefined) {
+      await onePageChangedFor(ownerId, [existing.slug, (updated as { slug?: string | null } | null)?.slug])
     }
 
-    /* The copy this save wrote, for the editor's next save to name as its base. */
-    return NextResponse.json({ onepage: updated, edit_version: onePageEditVersion(updated as Parameters<typeof onePageEditVersion>[0]) })
+    if (publishing) {
+      /*
+        What a publish does after its write, as /api/onepage/publish does it:
+        the platforms this publish changed against the copy that was live go
+        to the creator page too (lib/social/onepage-sync), and the address goes
+        to the search engines that take IndexNow, after the answer.
+      */
+      if (liveLinksBefore && typeof liveLinksBefore === "object") {
+        const changes = changedLinks(onePageLinks(liveLinksBefore), onePageLinks((updated as { published_social_links?: unknown } | null)?.published_social_links))
+        if (Object.keys(changes).length > 0 && (await syncOnePageLinksToCreatorPage(db, ownerId, changes))) {
+          await creatorPagesChanged({ userId: ownerId }).catch(() => {})
+        }
+      }
+      const owner = ownerId
+      after(() => announce(() => onePageAddresses(owner)))
+    }
+
+    /* The copy this save wrote, for the editor's next save to name as its base (also as a header, for an answer whose body is cut off). */
+    const editVersion = onePageEditVersion(updated as Parameters<typeof onePageEditVersion>[0])
+    return NextResponse.json(
+      { onepage: updated, edit_version: editVersion, ...(publishedAt ? { published: true, published_at: publishedAt } : {}) },
+      { headers: editVersion ? { "X-OnePage-Edit-Version": editVersion } : undefined },
+    )
   } catch (error) {
     console.error("OnePage PUT error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

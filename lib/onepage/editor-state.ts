@@ -283,3 +283,88 @@ export function syncedSocialPlatforms(
     next.every((entry, i) => entry.platform === existing[i].platform && entry.url === existing[i].url)
   return same ? null : next
 }
+
+/*
+ * ===========================================================================
+ *  WHAT A SAVE SENDS (the OnePage production audit, S1 and S2)
+ * ===========================================================================
+ * The blocks, the archive, the look and the bio are sent whole on every Save:
+ * the route checks them against the copy this editor started from
+ * (lib/onepage/edit-version) and refuses a save over a newer one.
+ *
+ * Everything else other screens write too (the name and the photo from the
+ * profile, the social links from the creator page, settings and the share
+ * picture from their own panels, the address) is sent ONLY when this editor
+ * changed it since its last save, and settings and social links key by key.
+ * They used to be sent whole every time, unchecked, so an editor left open
+ * put yesterday's links, name or settings back over today's.
+ *
+ * `lastSaved` is the editor's record of the page as it was last saved, in
+ * savedFields' order: [title, bio, avatar_video_url, slug, theme, settings,
+ * social_links, draft_blocks, archived_blocks, share_image_mode]. Without
+ * one, everything is sent, as before. Pure, for tests/onepage-production-audit.
+ */
+type SavePage = {
+  id: string
+  title?: unknown
+  bio?: unknown
+  avatar_video_url?: unknown
+  slug?: unknown
+  theme?: unknown
+  settings?: object | null
+  social_links?: object | null
+  draft_blocks?: unknown
+  share_image_mode?: unknown
+}
+
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+
+export function saveRequestBody(page: SavePage, archived: unknown, lastSaved: string | null, baseVersion: string | null): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    id: page.id,
+    draft_blocks: page.draft_blocks,
+    archived_blocks: archived,
+    theme: page.theme,
+    bio: page.bio,
+    publish: true,
+  }
+  if (baseVersion) body.base_version = baseVersion
+  let last: unknown[] | null = null
+  try {
+    const parsed = lastSaved ? JSON.parse(lastSaved) : null
+    last = Array.isArray(parsed) ? parsed : null
+  } catch {
+    last = null
+  }
+  if (!last) {
+    body.title = page.title
+    body.avatar_video_url = page.avatar_video_url ?? null
+    body.slug = page.slug
+    body.settings = page.settings ?? {}
+    body.social_links = page.social_links ?? {}
+    if (page.share_image_mode !== undefined) body.share_image_mode = page.share_image_mode
+    return body
+  }
+  const [title, , video, slug, , settings, social, , , share] = last
+  if (!sameValue(page.title, title)) body.title = page.title
+  if (!sameValue(page.avatar_video_url, video)) body.avatar_video_url = page.avatar_video_url ?? null
+  if (!sameValue(page.slug, slug)) body.slug = page.slug
+  if (!sameValue(page.share_image_mode, share)) body.share_image_mode = page.share_image_mode ?? null
+
+  const nowSettings = (page.settings ?? {}) as Record<string, unknown>
+  const thenSettings = (settings && typeof settings === "object" ? settings : {}) as Record<string, unknown>
+  const settingsPatch: Record<string, unknown> = {}
+  for (const key of new Set([...Object.keys(nowSettings), ...Object.keys(thenSettings)])) {
+    if (!sameValue(nowSettings[key], thenSettings[key])) settingsPatch[key] = nowSettings[key] === undefined ? null : nowSettings[key]
+  }
+  if (Object.keys(settingsPatch).length > 0) body.settings = settingsPatch
+
+  const nowLinks = (page.social_links ?? {}) as Record<string, unknown>
+  const thenLinks = (social && typeof social === "object" ? social : {}) as Record<string, unknown>
+  const linksPatch: Record<string, string> = {}
+  for (const key of new Set([...Object.keys(nowLinks), ...Object.keys(thenLinks)])) {
+    if (!sameValue(nowLinks[key], thenLinks[key])) linksPatch[key] = typeof nowLinks[key] === "string" ? (nowLinks[key] as string) : ""
+  }
+  if (Object.keys(linksPatch).length > 0) body.social_links_patch = linksPatch
+  return body
+}

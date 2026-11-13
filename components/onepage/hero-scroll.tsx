@@ -371,8 +371,12 @@ export function HeroTopBar({
         data-op-topbar-button=""
       >
         {logo ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={logo} alt={name} className="max-h-7 w-auto max-w-[180px] object-contain" />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logo} alt={name} className="max-h-7 w-auto max-w-[180px] object-contain" />
+            {/* The badge beside a logo in the bar too (the OnePage production audit, D2). */}
+            {badge ? <span className="flex shrink-0 items-center" data-op-topbar-badge="">{badge}</span> : null}
+          </>
         ) : (
           <>
             {face ? (

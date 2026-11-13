@@ -234,7 +234,18 @@ export function telegramTarget(value: unknown): TelegramTarget | null {
   if (url.protocol !== "https:" && url.protocol !== "http:") return null
   if (url.username || url.password || url.port) return null
   if (!TG_HOSTS.has(url.hostname.toLowerCase())) return null
-  const path = decodeURIComponent(url.pathname).replace(/\/+$/, "")
+  /*
+    A stray "%" ("t.me/joinchat/abc%") is not an address: decodeURIComponent
+    throws a URIError on it, and this runs while a OnePage is drawn on the
+    server (lib/onepage/block-action), so one such link put every visitor on
+    the error screen. It is no Telegram link instead.
+  */
+  let path: string
+  try {
+    path = decodeURIComponent(url.pathname).replace(/\/+$/, "")
+  } catch {
+    return null
+  }
   let m = path.match(/^\/\+(\d{7,15})$/)
   if (m) return { kind: "phone", path: `+${m[1]}` }
   m = path.match(/^\/(?:\+|joinchat\/)([A-Za-z0-9_-]{10,64})$/)

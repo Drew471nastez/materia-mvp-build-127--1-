@@ -29,6 +29,7 @@ import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
 import { liveDataDeps, withDataBlocks } from "@/lib/onepage/data-blocks-server"
 import { withoutLocked } from "@/lib/onepage/paid-access"
+import { withOwnerStore } from "@/lib/onepage/page-store"
 import { ONE_PAGE_HOLD_SECONDS, heldRead, onePageNameTag, onePageOwnerTag, onePageShopTag, shopProductsTag } from "@/lib/onepage/public-cache"
 import { creatorDomainsTag } from "@/lib/custom-domains/store"
 
@@ -123,7 +124,21 @@ async function readOnePageOwner(sellerId: string | null, creatorId: string | nul
     displayName: (profile as { display_name?: string | null } | null)?.display_name || null,
     publishedProducts: (products as { count?: number | null }).count ?? 0,
     canonical: handle ? (domain ? getLinksUrlWithCustomDomain(handle, domain) : getLinksShareUrl(handle)) : null,
+    /*
+      Whether the owner's plan pays for the verified badge and a page without
+      the Storelib badge (the OnePage production audit, SEC6): true or false
+      from their creator row, as the save route asks it, or null when the row
+      was not read, which takes nothing away.
+    */
+    paidPlan: row ? planPays(row as { subscription_plan_id?: string | null; subscription_status?: string | null }) : null,
   }
+}
+
+/** Pro (sold as "growth"), or the older Pro, in a state that still entitles: the rule app/api/onepage PUT applies. */
+function planPays(row: { subscription_plan_id?: string | null; subscription_status?: string | null }): boolean {
+  const plan = (row.subscription_plan_id || "free").toLowerCase().trim()
+  const status = (row.subscription_status || "active").toLowerCase()
+  return (plan === "growth" || plan === "pro" || plan === "professional") && ["active", "trialing", "past_due"].includes(status)
 }
 
 export type OnePageOwner = Awaited<ReturnType<typeof readOnePageOwner>>
@@ -241,10 +256,19 @@ export const resolveOnePage = cache(async (slug: string): Promise<OnePageAddress
     const answer = await Promise.race([
       heldRead(
         async (): Promise<OnePageAddress<any>> => {
-          const answer = await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(createAdminClient() as never, "*", { attemptMs: ONE_PAGE_LOOKUP_ATTEMPT_MS }))
-          return answer.kind === "page" ? { ...answer, page: publishedOnly(answer.page) } : answer
+          const db = createAdminClient()
+          const answer = await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(db as never, "*", { attemptMs: ONE_PAGE_LOOKUP_ATTEMPT_MS }))
+          if (answer.kind !== "page") return answer
+          /*
+            THE PAGE'S STORE IS ITS OWNER'S (lib/onepage/page-store): the row's own
+            seller_id and creator_id are the owner's to write, so a page could name
+            another creator's store and draw that creator's products, counts and
+            pixels as its own. Read here, once, inside what every visitor is served.
+          */
+          const page = await withOwnerStore(db, publishedOnly(answer.page))
+          return { ...answer, page }
         },
-        ["onepage-address", "v1", slug],
+        ["onepage-address", "v2", slug],
         { tags: [onePageNameTag(slug)], revalidate: ONE_PAGE_HOLD_SECONDS },
       ),
       outOfTime,
@@ -283,7 +307,19 @@ export function publishedShape(
   owner: OnePageOwner,
   extra: { customDomain?: string | null; sellerId?: string | null } = {},
 ) {
-  return publicOnePage(onepage, {
+  /*
+    THE TWO PAID SETTINGS ARE DRAWN ONLY FOR A PLAN THAT PAYS FOR THEM. The
+    save route refuses turning them on for a free plan, but the row can be
+    written past it, and a plan that ended kept them: a "Verified business"
+    mark on a free page is a claim nobody verified. A plan known not to pay
+    draws the page without the badge and with the Storelib badge.
+  */
+  const settings = (onepage.settings ?? {}) as Record<string, unknown>
+  const shown =
+    (owner as { paidPlan?: boolean | null }).paidPlan === false && (settings.verified_badge_enabled === true || settings.show_branding === false)
+      ? { ...onepage, settings: { ...settings, verified_badge_enabled: false, show_branding: true } }
+      : onepage
+  return publicOnePage(shown, {
     source: "published",
     displayName: owner.displayName,
     /* The live photo, for a page that has no picture of its own, and for one

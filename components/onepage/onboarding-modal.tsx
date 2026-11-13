@@ -980,14 +980,19 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           console.log("[OnePage Onboarding] Authenticated user:", currentUser.id)
         }
 
-        // Save to onepages table - update profile, social links, and mark onboarding completed
-        // Use owner_id filter to ensure RLS policy works
+        /*
+          THE NAME AND THE BIO GO WITH THE SAVE BELOW, NOT HERE. This wrote
+          them straight to the row a moment before save(true), and the bio is
+          part of the copy the editor's save is checked against
+          (lib/onepage/edit-version): anybody who typed a bio here had that
+          save refused as "saved somewhere else", so the theme and blocks
+          they had just picked were neither saved nor published. The photo
+          is the profile's (lib/onepage/photo-save) and never this row's.
+          Only what the editor's save does not carry is written here.
+        */
         const { data: updateData, error: updateError } = await supabase
           .from("onepages")
           .update({
-            title: displayName,
-            bio: bio,
-            avatar_url: avatarUrl,
             // Direct columns for backward compatibility
             instagram: instagramUrl,
             tiktok: tiktokUrl,

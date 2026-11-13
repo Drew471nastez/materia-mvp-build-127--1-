@@ -4,6 +4,7 @@ import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { liveAppBlockData, pageCreatorId, publishedBlocksOf } from "@/lib/onepage/page-block"
 import { readLivePage } from "@/lib/onepage/tips-server"
 import { lockedContent } from "@/lib/onepage/paid-access"
+import { openLockedData } from "@/lib/onepage/locked-seal"
 import { ownsProduct } from "@/lib/courses/server"
 import { guestOwns } from "@/lib/receipts/guest-access-server"
 import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
@@ -60,5 +61,6 @@ export async function POST(request: Request) {
     allowed = !!(held as Record<string, { whole: boolean; options: string[] }>)[productId]
   }
   if (!allowed) return NextResponse.json({ locked: true, signed_in: !!user }, { status: 403, headers: noStore })
-  return NextResponse.json(lockedContent(data), { headers: noStore })
+  /* Sealed where it is stored (lib/onepage/locked-seal): opened here, and only here, for somebody with access. */
+  return NextResponse.json(lockedContent(openLockedData(data)), { headers: noStore })
 }

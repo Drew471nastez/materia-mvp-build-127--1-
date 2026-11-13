@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { onePageActor } from "@/lib/team/onepage"
 import { permits } from "@/lib/team/permissions"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { withOwnerStore } from "@/lib/onepage/page-store"
 import { triggerEmailFlows } from "@/lib/email"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
 import { recordSignupAttribution } from "@/lib/attribution/server"
@@ -48,7 +49,6 @@ export async function POST(request: Request) {
   console.log("[leads] ========== NEW SUBSCRIPTION REQUEST ==========")
 
   try {
-    const supabase = await createClient()
     const adminSupabase = createAdminClient()
     const headersList = await headers()
 
@@ -56,7 +56,8 @@ export async function POST(request: Request) {
     const countryCode = headersList.get("x-vercel-ip-country") || null
     const countryName = countryCode ? (countryNames[countryCode] || countryCode) : null
 
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== "object") return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     /* A script (the block's hidden field filled, or sent faster than a person can): told it worked, and nothing is written (lib/onepage/creator-blocks). */
     if (signupLooksAutomated(body)) return NextResponse.json({ success: true })
     const name = signupName(body?.name)
@@ -111,13 +112,21 @@ export async function POST(request: Request) {
     })
     if (limited) return limited
 
-    // Verify onepage exists and is published
-    const { data: onepage, error: onepageError } = await supabase
+    /*
+      Verify onepage exists and is published. Read with the server's own
+      client: on storelib.me there is never a session, so the visitor's client
+      was the anonymous one, and this signup only worked for as long as the
+      table let anybody read a published page whole. And the store it acts
+      for is the OWNER's, never the row's own seller_id, which the owner can
+      write (lib/onepage/page-store).
+    */
+    const { data: pageRow, error: onepageError } = await adminSupabase
       .from("onepages")
       .select("id, status, seller_id, owner_id, creator_id, published_blocks, draft_blocks")
       .eq("id", onepage_id)
       .eq("status", "published")
-      .single()
+      .maybeSingle()
+    const onepage = onepageError ? null : await withOwnerStore(adminSupabase, pageRow)
 
     if (onepageError || !onepage) {
       console.log("[leads] OnePage not found or not published")
@@ -163,22 +172,22 @@ export async function POST(request: Request) {
     }
     const hasDigitalProduct = !!fileUrl
 
-    // Check for existing subscription
-    const { data: existingLead } = await adminSupabase
+    /*
+      AN ADDRESS ALREADY ON THE PAGE IS NOT A SECOND LEAD, BUT IT IS STILL A
+      SIGNUP. This answered "Already subscribed" and stopped, before the
+      subscriber step: somebody who had RSVP'd to an event on the page, or
+      who unsubscribed by email and came back to join, was told they were in
+      and never put on the list. The lead is not written twice; the list step
+      below runs for everybody. Read as a list of at most one: the table has
+      no unique key, and .single() on two rows was "no lead" and a third.
+    */
+    const { data: leadRows } = await adminSupabase
       .from("onepage_leads")
       .select("id")
       .eq("onepage_id", onepage_id)
       .eq("email", subscriberEmail)
-      .single()
-
-    if (existingLead) {
-      console.log("[leads] Already subscribed, returning success")
-      return NextResponse.json({
-        success: true,
-        message: "Already subscribed",
-        downloadLink: hasDigitalProduct ? fileUrl : null,
-      })
-    }
+      .limit(1)
+    const existingLead = Array.isArray(leadRows) && leadRows[0] ? (leadRows[0] as { id: string }) : null
 
     // Insert lead
     /*
@@ -205,29 +214,32 @@ export async function POST(request: Request) {
       country_name: countryName,
       ...(phone ? { phone } : {}),
     }
-    let { data: lead, error: insertError } = await insertLead(leadRow)
-    if (insertError && (insertError.code === "PGRST204" || insertError.code === "42703")) {
-      const withoutCountry = Object.fromEntries(Object.entries(leadRow).filter(([k]) => k !== "country_code" && k !== "country_name" && k !== "phone"))
-      ;({ data: lead, error: insertError } = await insertLead(withoutCountry))
-    }
-
-    if (insertError) {
-      if (insertError.code === "23505") {
-        console.log("[leads] Duplicate entry, returning success")
-        return NextResponse.json({
-          success: true,
-          message: "Already subscribed",
-          downloadLink: hasDigitalProduct ? fileUrl : null,
-        })
+    let lead: { id: string } | null = existingLead
+    let freshLead = false
+    if (!existingLead) {
+      let { data: inserted, error: insertError } = await insertLead(leadRow)
+      if (insertError && (insertError.code === "PGRST204" || insertError.code === "42703")) {
+        const withoutCountry = Object.fromEntries(Object.entries(leadRow).filter(([k]) => k !== "country_code" && k !== "country_name" && k !== "phone"))
+        ;({ data: inserted, error: insertError } = await insertLead(withoutCountry))
       }
-      console.error("[leads] Insert error:", insertError)
-      return NextResponse.json({ error: "Failed to save" }, { status: 500 })
+      if (insertError && insertError.code !== "23505") {
+        console.error("[leads] Insert error:", insertError)
+        return NextResponse.json({ error: "Failed to save" }, { status: 500 })
+      }
+      /* 23505: the same address a moment ago, from another tab: one lead, and the list step below as for any. */
+      if (!insertError && inserted) {
+        lead = inserted as { id: string }
+        freshLead = true
+        console.log("[leads] Lead saved:", lead.id)
+      }
     }
 
-    console.log("[leads] Lead saved:", lead.id)
-
-    // Add to subscribers list
-    const creatorId = onepage.creator_id || onepage.seller_id || onepage.owner_id
+    /*
+      Add to subscribers list. The creator is the page's creator row
+      (seller_id, else creator_id), never owner_id: that is the account's
+      user id, and a subscriber filed under it belonged to no store.
+    */
+    const creatorId = onepage.seller_id || onepage.creator_id || null
     if (creatorId) {
       const { data: existingSub } = await adminSupabase
         .from("subscribers")
@@ -319,14 +331,17 @@ export async function POST(request: Request) {
       subscriber list on their own sync (lib/integrations/marketing).
     */
     const toolsOwner = onepage.seller_id || onepage.creator_id || null
-    after(() => deliverSignup(adminSupabase, toolsOwner, pageSignup({ email: subscriberEmail, name, phone, form: "signup", blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer"), eventId: lead.id })))
+    /* Once per address and page: a second signup from the same address does not send it to the creator's tools again. */
+    const sentLead = lead
+    if (freshLead && sentLead) after(() => deliverSignup(adminSupabase, toolsOwner, pageSignup({ email: subscriberEmail, name, phone, form: "signup", blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer"), eventId: sentLead.id })))
 
     // No email sending - download happens directly on the page
     console.log("[leads] ========== REQUEST COMPLETE ==========")
 
     return NextResponse.json({
       success: true,
-      lead_id: lead.id,
+      ...(freshLead ? {} : { message: "Already subscribed" }),
+      lead_id: lead?.id ?? null,
       downloadLink: hasDigitalProduct ? fileUrl : null,
     })
 
