@@ -63,7 +63,9 @@ function main() {
 
   console.log("\nThe content security policy")
   const all = config.headers.flatMap((r) => r.headers.map((h) => h.key.toLowerCase()))
-  check("is still report only (nothing enforces it yet)", all.includes("content-security-policy-report-only") && !all.includes("content-security-policy"))
+  /* Changed on purpose (round AW): /media/ answers carry an enforced `sandbox` of their own (a stored SVG never runs as storelib.com); the page policy is still report only and is never the enforced one. */
+  const enforced = config.headers.flatMap((r) => r.headers.filter((h) => h.key.toLowerCase() === "content-security-policy").map((h) => ({ source: (r as { source?: string }).source ?? "", value: h.value })))
+  check("is still report only (nothing enforces it yet)", all.includes("content-security-policy-report-only") && enforced.every((e) => e.value === "sandbox" && e.source.startsWith("/media/")))
 
   check("the deploy smoke checks it on storelib.com", /a permissions policy is sent/.test(readCode("scripts/smoke-deploy.mjs")))
 
