@@ -182,7 +182,7 @@ Components:
 
 Tests:
 - New: `tests/onepage-production-audit.test.ts` (strict list). The journey harness learned the email-capture route. `scripts/check-onepage-avatar-routes.mjs` stubs the save route's two new server modules.
-- Updated: fourteen existing suites whose source assertions or module stubs described behaviour that changed on purpose. Each changed assertion carries a "Changed on purpose (OnePage production audit, …)" note.
+- Updated: seventeen existing suites whose source assertions or module stubs described behaviour that changed on purpose. Each changed assertion carries a "Changed on purpose (OnePage production audit, …)" note.
 
 ## E. Performance
 
