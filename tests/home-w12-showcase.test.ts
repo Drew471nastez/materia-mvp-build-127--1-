@@ -54,23 +54,65 @@ for (const src of srcs) assert.ok(src.startsWith("/home/showcase/") && existsSyn
 assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(everyMock) && !/<img(?![^>]*height=)[^>]*>/.test(everyMock))
 assert.ok(!/\blorem\b/i.test(everyMock))
 
-/* ---- section 2 keeps its gallery, now nine branded examples */
-assert.equal(SHOWCASE_EXAMPLES.length, 9)
-assert.equal(SHOWCASE_EXAMPLES.filter((e) => e.format === "portrait").length, 3)
+/* ---- section 2 keeps its gallery. Changed on purpose (wave 13): twelve examples, four groups, with Satori Studio's real OnePage added. */
+assert.equal(SHOWCASE_EXAMPLES.length, 12)
+assert.equal(SHOWCASE_EXAMPLES.filter((e) => e.format === "portrait").length, 4)
+assert.ok(SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-satori.webp" && e.format === "portrait"), "the real Satori Studio OnePage is a card")
 for (const e of SHOWCASE_EXAMPLES) {
   assert.ok(existsSync(`public${e.src}`), `${e.src} exists`)
   assert.ok(statSync(`public${e.src}`).size < 120 * 1024)
   assert.ok(e.alt.length > 20)
 }
 const gallery = renderToString(createElement(BuildShowcase))
-assert.equal((gallery.match(/data-showcase-slide=""/g) || []).length, 9)
+assert.equal((gallery.match(/data-showcase-slide=""/g) || []).length, 12)
 /* Changed on purpose (merge of main's round 60): each card is its picture's own shape, so a slide is its picture alone, with no blurred fill behind it. */
-assert.equal((gallery.match(/loading="lazy"/g) || []).length, 9)
-assert.equal((gallery.match(/decoding="async"/g) || []).length, 9)
+assert.equal((gallery.match(/loading="lazy"/g) || []).length, 12)
+assert.equal((gallery.match(/decoding="async"/g) || []).length, 12)
 assert.equal((gallery.match(/build-showcase-fill/g) || []).length, 0)
-// Three wide–OnePage–wide pages, each a store, a OnePage and a community.
-assert.deepEqual(SHOWCASE_EXAMPLES.map((e) => e.format), ["wide", "portrait", "wide", "wide", "portrait", "wide", "wide", "portrait", "wide"])
-assert.equal((gallery.match(/data-showcase-group=""/g) || []).length, 3)
+// Four wide–OnePage–wide pages.
+assert.deepEqual(SHOWCASE_EXAMPLES.map((e) => e.format), ["wide", "portrait", "wide", "wide", "portrait", "wide", "wide", "portrait", "wide", "wide", "portrait", "wide"])
+assert.equal((gallery.match(/data-showcase-group=""/g) || []).length, 4)
+
+/* ---- wave 13, the owner's asks for section 2 */
+/** A webp's own width and height, from its header. */
+function webpSize(file: string) {
+  const b = readFileSync(file)
+  const kind = b.toString("ascii", 12, 16)
+  if (kind === "VP8X") return { w: 1 + b.readUIntLE(24, 3), h: 1 + b.readUIntLE(27, 3) }
+  if (kind === "VP8L") {
+    const bits = b.readUInt32LE(21)
+    return { w: (bits & 0x3fff) + 1, h: ((bits >> 14) & 0x3fff) + 1 }
+  }
+  return { w: b.readUInt16LE(26) & 0x3fff, h: b.readUInt16LE(28) & 0x3fff }
+}
+for (const e of SHOWCASE_EXAMPLES) {
+  const size = webpSize(`public${e.src}`)
+  assert.deepEqual(size, { w: e.width, h: e.height }, `${e.src} is drawn at its card's shape`)
+}
+// The cards are 10% taller than round 60's 16:10 and 9:16 (same widths, so the columns stay 256fr 90fr 256fr).
+const wideEx = SHOWCASE_EXAMPLES.find((e) => e.format === "wide")!
+const tallEx = SHOWCASE_EXAMPLES.find((e) => e.format === "portrait")!
+assert.ok(Math.abs(wideEx.height / wideEx.width / (10 / 16) - 1.1) < 0.005 && Math.abs(tallEx.height / tallEx.width / (16 / 9) - 1.1) < 0.005)
+const showcaseSrc = read("components/marketing/build-showcase.tsx")
+assert.ok(showcaseSrc.includes("aspect-ratio:1440/990") && showcaseSrc.includes("aspect-ratio:540/1056") && showcaseSrc.includes("256fr 90fr 256fr"))
+// OnePage captions are three words at most.
+for (const e of SHOWCASE_EXAMPLES.filter((x) => x.format === "portrait")) assert.ok(e.label.split(/\s+/).length <= 3, `"${e.label}" is three words at most`)
+// The caption and its fade are hidden by default and come in only while a mouse rests on the picture, as one opacity on its own layer.
+assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*will-change:opacity;[^}]*transition:opacity/.test(showcaseSrc), "the caption starts hidden")
+assert.ok(/@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(showcaseSrc), "and shows only under a resting mouse, never while dragging")
+assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 1, "no other rule shows it")
+// On a phone: the row starts on the heading's gutter, the first card about three quarters wide, the next peeking, 8px apart.
+assert.ok(/--showcase-gap:8px;--showcase-height:clamp\(170px,51\.5vw,380px\)/.test(showcaseSrc) && /padding-left:var\(--showcase-gutter/.test(showcaseSrc))
+{
+  const h = 0.515 * 390
+  const first = 1.4545 * h
+  const peek = 390 - 20 - first - 8
+  assert.ok(first / 390 > 0.7 && first / 390 < 0.8 && peek > 40 && peek < 1.4545 * h * 0.5114 / 1.4545, `at 390 the first card is ${Math.round(first)}px and the next shows ${Math.round(peek)}px`)
+}
+// The corner of image 29: the radius overlaps the hero, a 1px top highlight that follows the curve, no side hairline.
+assert.ok(/--showcase-radius:clamp\(24px,2\.78vw,48px\)/.test(showcaseSrc) && /margin:calc\(var\(--showcase-radius\)\*-1\)/.test(showcaseSrc) && /box-shadow:inset 0 1px 0 rgba\(255,255,255,\.065\)/.test(showcaseSrc) && !/inset 0 0 0 1px/.test(showcaseSrc))
+// Nothing restyles the page while the rail moves (the heading no longer dims at each autoplay step).
+assert.ok(!/data-showcase-browsing/.test(showcaseSrc + read("components/marketing/use-showcase-motion.ts")))
 /* Changed on purpose (merge of main's round 60): the rail's motion moved to lib/ui/rail-motion, which the showcase's hook drives. */
 const motion = read("components/marketing/use-showcase-motion.ts") + read("lib/ui/rail-motion.ts")
 assert.ok(motion.includes("prefers-reduced-motion") && motion.includes("IntersectionObserver") && motion.includes("document.hidden"))

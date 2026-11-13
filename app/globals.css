@@ -10159,8 +10159,8 @@ html[data-op-press] [data-op-letgo] {
 @property --story-progress {syntax:"<number>";inherits:true;initial-value:0}
 @supports (animation-timeline:view()) {
   @media (prefers-reduced-motion:no-preference) {
-    .story-heading:not([data-story-showcase]):not([data-story-js]) {view-timeline:--story-heading block;animation:story-heading-rise linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
-    .story-heading:not([data-story-showcase]):not([data-story-js]) > span {animation:story-heading-ink linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
+    .story-heading:not([data-story-js]) {view-timeline:--story-heading block;animation:story-heading-rise linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
+    .story-heading:not([data-story-js]) > span {animation:story-heading-ink linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
   }
 }
 @keyframes story-heading-rise {from{transform:translate3d(0,12px,0)}to{transform:translate3d(0,0,0)}}

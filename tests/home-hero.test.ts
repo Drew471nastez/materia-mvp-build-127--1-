@@ -118,7 +118,8 @@ assert.ok(
 )
 assert.ok(HERO_VIDEO.src.includes("1794426925775466.mp4"))
 const showcase = read("components/marketing/build-showcase.tsx")
-assert.equal(SHOWCASE_HEADING, "Build your page, sell your products, reach your audience, and manage everything in one platform.")
+/* Changed on purpose (wave 13): the owner's new showcase line, read from the showcase itself (not the Hero), below. */
+assert.equal(SHOWCASE_HEADING, "Build your page, sell your products, and manage everything in one place.")
 assert.ok(
   /* Round 60: the showcase's own rail motion (lib/ui/rail-motion, tests/rail-motion.test.ts), no slider library. */
   read("components/marketing/use-showcase-motion.ts").includes("new RailMotion(") &&
@@ -127,7 +128,10 @@ assert.ok(
 )
 
 const showcaseMarkup = renderToString(createElement(BuildShowcase))
-assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 9)
+assert.ok(showcaseMarkup.includes(`aria-label="${SHOWCASE_HEADING}"`) && showcaseMarkup.includes('id="build-showcase-title"'), "the showcase draws its own heading")
+assert.ok(!doc.includes(SHOWCASE_HEADING), "and the hero does not")
+/* Changed on purpose (wave 13): four wide–OnePage–wide groups, twelve cards (Satori Studio's real OnePage added). */
+assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 12)
 assert.equal((showcaseMarkup.match(/data-showcase-word=""/g) || []).length, SHOWCASE_HEADING.split(/\s+/).length)
 assert.ok(!showcaseMarkup.includes("<button"))
 assert.ok(

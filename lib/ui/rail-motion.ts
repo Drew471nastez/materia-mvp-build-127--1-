@@ -48,6 +48,16 @@
  * at all, and there are no duplicated cards for a screen reader or the tab key
  * to find twice.
  *
+ * WAVE 13, THE OWNER: "a short drag or a flick should complete a full swipe
+ * to the next card", and autoplay "lags a bit". So a release is decided by
+ * chooseSwipeTarget (a flick, or a drag past a short distance, is a whole
+ * step), the settle leaves at speed (an ease out, never past its place), and
+ * every timed motion (the settle, a key or notch step, autoplay) is handed
+ * to the compositor as one Web Animation per moving box, its keyframes
+ * sampled from the same curve over time: nothing runs on the main thread
+ * while it plays, and a press reads the curve to take hold where it is.
+ * Only the hand's own motion (a drag, a trackpad swipe) is drawn by script.
+ *
  * The pure parts (the spring, the target, the velocity, the wrap, the wheel)
  * are exported and tested on their own in tests/rail-motion.test.ts.
  */
@@ -90,6 +100,16 @@ export interface RailMotionConfig {
   loop: boolean
   /** How much a finite rail gives past its ends while dragging (0 none, 1 none of the resistance). */
   boundaryResistance: number
+  /** Wave 13. A release this fast (px/s) is a swipe in its own direction, however short the drag. */
+  swipeVelocity: number
+  /** Wave 13. A drag this far (px) is a swipe to the next snap point: a share of the distance to it, kept between the two lengths. */
+  swipeDistanceRatio: number
+  swipeDistanceMin: number
+  swipeDistanceMax: number
+  /** Wave 13. A swipe's settle leaves at least this share of the fastest speed that cannot pass its target (an ease out). */
+  swipeLaunch: number
+  /** Wave 13. Timed motion runs as Web Animations on the compositor where the browser has them. */
+  compositor: boolean
 }
 
 /*
@@ -99,6 +119,14 @@ export interface RailMotionConfig {
   flick that already carries it there, and nothing ever passes its place. The
   320ms decay is the projection of where a flick would stop on its own, used
   only to pick the group; the motion itself is the spring.
+
+  WAVE 13: a release is a swipe when it is faster than 180px/s or the drag
+  went 20% of the way to the next point (at least 20px, at most 40px), so on
+  a 1300px desktop group 40px of drag is a whole group, and on a phone 40px
+  of a wide card or 22px of a OnePage. A swipe's settle starts at no less than half the
+  fastest speed a critically damped spring can start with and not pass its
+  place (ω times the distance), so it leaves at once and eases out: a whole
+  group is 98% of the way there in about a quarter of a second.
 */
 export const SHOWCASE_MOTION: RailMotionConfig = {
   dragSensitivity: 1,
@@ -120,6 +148,12 @@ export const SHOWCASE_MOTION: RailMotionConfig = {
   autoplayResumeMs: 7000,
   loop: true,
   boundaryResistance: 0.35,
+  swipeVelocity: 180,
+  swipeDistanceRatio: 0.2,
+  swipeDistanceMin: 20,
+  swipeDistanceMax: 40,
+  swipeLaunch: 0.5,
+  compositor: true,
 }
 
 /* ── The pure parts ─────────────────────────────────────────────────────── */
@@ -252,6 +286,82 @@ export function chooseTarget(x: number, v: number, snaps: readonly number[], per
   return all[Math.max(0, Math.min(all.length - 1, index))]
 }
 
+/**
+ * WAVE 13. Where a released drag comes to rest, decided like a pager, from
+ * the position the drag started at (`start`, which a press may have caught
+ * between two points):
+ *
+ *   a flick (`swipeVelocity`) goes to the first point past the hand in its
+ *   own direction, so a flick back against a drag returns, and a flick
+ *   from rest goes on;
+ *   a drag that went a short way (a fifth of the step, 20 to 40px) goes to
+ *   the first point past the start in its direction;
+ *   anything less settles at the point nearest the hand.
+ *
+ * Never further than the first point past the start in that direction: one
+ * step a gesture.
+ */
+export function chooseSwipeTarget(
+  start: number,
+  x: number,
+  v: number,
+  snaps: readonly number[],
+  period: number,
+  cfg: Pick<RailMotionConfig, "swipeVelocity" | "swipeDistanceRatio" | "swipeDistanceMin" | "swipeDistanceMax">,
+): number {
+  if (!snaps.length) return x
+  const all = unboundedSnaps(snaps, period, start)
+  const first = all[0]
+  const last = all[all.length - 1]
+  /* The first point strictly past `p` in direction `dir`, or the rail's end. */
+  const past = (p: number, dir: number) => (dir > 0 ? all.find((s) => s > p + 0.5) ?? last : findLast(all, (s) => s < p - 0.5) ?? first)
+  const nearest = (p: number) => all.reduce((best, s) => (Math.abs(s - p) < Math.abs(best - p) ? s : best), first)
+  const moved = x - start
+  if (Math.abs(v) >= cfg.swipeVelocity) {
+    const dir = Math.sign(v)
+    const target = past(x, dir)
+    const limit = past(start, dir)
+    return dir > 0 ? Math.min(target, limit) : Math.max(target, limit)
+  }
+  if (moved !== 0) {
+    const dir = Math.sign(moved)
+    const next = past(start, dir)
+    const behind = past(next, -dir)
+    const spacing = Math.abs(next - behind) || Infinity
+    const threshold = Math.max(cfg.swipeDistanceMin, Math.min(cfg.swipeDistanceMax, spacing * cfg.swipeDistanceRatio))
+    if (Math.abs(moved) >= threshold) return next
+  }
+  return nearest(x)
+}
+
+function findLast<T>(xs: readonly T[], f: (x: T) => boolean): T | undefined {
+  for (let i = xs.length - 1; i >= 0; i--) if (f(xs[i])) return xs[i]
+  return undefined
+}
+
+/**
+ * WAVE 13. The velocity a swipe's settle starts with: the release velocity
+ * toward the target, but never less than `launch` of ω times the distance
+ * (ω|x0| is the most a critically damped spring can start with and not pass
+ * its target, so this stays an ease out with no overshoot).
+ */
+export function launchVelocity(x0: number, v: number, stiffness: number, launch: number, mass = 1): number {
+  if (x0 === 0) return v
+  const toward = -Math.sign(x0)
+  const least = launch * Math.sqrt(stiffness / mass) * Math.abs(x0)
+  const along = v * toward
+  return capSpringVelocity(x0, toward * Math.max(along, least), stiffness, mass)
+}
+
+/** How long a spring takes to come to rest (springRested), in seconds, at most `limit`. */
+export function settleDuration(s: SpringState, stiffness: number, damping: number, mass = 1, limit = 3): number {
+  for (let t = 0; t < limit; t += 1 / 240) {
+    const p = springAt(s, t, stiffness, damping, mass)
+    if (springRested(p.x, p.v)) return t
+  }
+  return limit
+}
+
 /** The snap points around `x`, a loop either side for a looping rail. */
 function unboundedSnaps(snaps: readonly number[], period: number, x: number): number[] {
   if (!(period > 0)) return [...snaps]
@@ -308,12 +418,17 @@ export interface RailMotionHooks {
   onIndex?: (index: number) => void
 }
 
-type Phase =
-  | { kind: "idle" }
-  | { kind: "drag" }
-  | { kind: "spring"; target: number; start: number; s: SpringState }
-  | { kind: "auto"; from: number; to: number; start: number; duration: number }
-  | { kind: "wheel" }
+/**
+ * A timed motion (a settle, a step, autoplay): `at` is the rail's position
+ * `t` ms after `start`, ending at `target` after `duration` ms. `anims` are
+ * its Web Animations on the compositor, or null when the frame loop draws it.
+ */
+type Curve = { kind: "curve"; at: (t: number) => number; target: number; start: number; duration: number; auto: boolean; anims: Animation[] | null; done: ReturnType<typeof setTimeout> | undefined }
+
+type Phase = { kind: "idle" } | { kind: "drag" } | Curve | { kind: "wheel" }
+
+/** Keyframes every 8ms: the compositor draws straight lines between them, finer than any screen's frame. */
+const KEYFRAME_MS = 8
 
 /**
  * The rail. `viewport` takes the gestures, `items` are moved, and `snapItems`
@@ -323,14 +438,13 @@ type Phase =
  */
 export class RailMotion {
   private x = 0
-  private v = 0
   private phase: Phase = { kind: "idle" }
   private raf = 0
-  private lastFrame = 0
   private positions: number[] = []
   private snapPoints: number[] = []
   private period = 0
   private window = { lo: 0 }
+  private viewWidth = 0
   private pointer: { id: number; x0: number; y0: number; railAt: number; started: boolean; samples: Sample[]; type: string } | null = null
   private suppressClick = false
   private wheelTimer: ReturnType<typeof setTimeout> | undefined
@@ -370,6 +484,9 @@ export class RailMotion {
   measure(items?: HTMLElement[], snapItems?: HTMLElement[]) {
     if (items) this.items = items
     if (snapItems) this.snapItems = snapItems
+    /* A timed motion is stopped where it is drawn first: its keyframes were measured on the old layout. */
+    const moving = this.phase.kind === "curve"
+    if (moving) this.hold()
     const keep = this.period > 0 && this.snapPoints.length ? this.x / this.period : null
     for (const el of this.items) el.style.transform = ""
     const origin = this.snapItems[0]?.offsetLeft ?? 0
@@ -380,10 +497,11 @@ export class RailMotion {
     this.period = this.config.loop && last ? last.offsetLeft - origin + last.offsetWidth + Math.max(0, gap) - (this.items[0].offsetLeft - origin) : 0
     /* Items are wrapped into a window half a loop either side of the front, so the one before is always just behind it. */
     this.window = { lo: -this.period / 2 }
+    this.viewWidth = this.viewport.clientWidth
     if (keep !== null) {
       /* A resize keeps the rail where it was as a share of the loop, and a moving rail carries on toward the same group. */
       this.x = keep * this.period
-      if (this.phase.kind === "spring" || this.phase.kind === "auto") this.settle(0)
+      if (moving) this.settle(0)
     }
     this.render()
   }
@@ -427,39 +545,22 @@ export class RailMotion {
   private kick() {
     this.setMoving(true)
     if (this.raf) return
-    this.lastFrame = performance.now()
     this.raf = requestAnimationFrame(this.frame)
   }
 
   private frame = (now: number) => {
     this.raf = 0
     if (this.disposed) return
-    /* A tab that was in the background comes back without a jump: its first frame counts as one frame. */
-    const dt = Math.min(0.064, Math.max(0, (now - this.lastFrame) / 1000))
-    this.lastFrame = now
     const ph = this.phase
-    if (ph.kind === "spring") {
-      const t = (now - ph.start) / 1000
-      const s = springAt(ph.s, t, this.config.springStiffness, this.config.springDamping, this.config.springMass)
-      this.x = ph.target + s.x
-      this.v = s.v
-      if (springRested(s.x, s.v)) {
-        this.x = ph.target
-        this.v = 0
-        this.rest()
+    if (ph.kind === "curve") {
+      /* Only where the compositor cannot run it (no Web Animations): the same curve, read at this frame's time. */
+      if (ph.anims) return
+      const t = Math.max(0, now - ph.start)
+      if (t >= ph.duration) {
+        this.finish(ph)
         return
       }
-    } else if (ph.kind === "auto") {
-      const t = Math.min(1, (now - ph.start) / ph.duration)
-      const prev = this.x
-      this.x = ph.from + (ph.to - ph.from) * sineInOut(t)
-      this.v = dt > 0 ? (this.x - prev) / dt : 0
-      if (t >= 1) {
-        this.x = ph.to
-        this.v = 0
-        this.rest()
-        return
-      }
+      this.x = ph.at(t)
     } else if (ph.kind === "wheel") {
       if (this.wheelPending) {
         this.x = this.bounded(this.x + this.wheelPending)
@@ -493,25 +594,98 @@ export class RailMotion {
 
   /* ── Motion ── */
 
-  /** Stop whatever is moving where it is drawn, keeping its velocity for whoever takes over. */
+  /** Stop whatever is moving where it is drawn (a timed motion is read off its curve at this moment). */
   private hold() {
+    const ph = this.phase
     this.phase = { kind: "idle" }
     clearTimeout(this.autoTimer)
+    if (ph.kind === "curve") {
+      clearTimeout(ph.done)
+      /* The compositor's own clock where it runs the motion (its first frame starts a beat after play()), so a press takes hold exactly where the boxes are drawn. */
+      const played = ph.anims?.[0]?.currentTime
+      const t = typeof played === "number" ? played : performance.now() - ph.start
+      this.x = ph.at(Math.min(ph.duration, Math.max(0, t)))
+      if (ph.anims) {
+        /* The boxes take their place from script first, then the animations let go: the same frame, so nothing flickers. */
+        this.render()
+        for (const a of ph.anims) a.cancel()
+      }
+    }
   }
 
-  /** Come to rest from here, carrying `v`, at the group the release picks (or `target`). */
-  settle(v: number, target?: number) {
+  /** Come to rest from here, carrying `v`, at the group the release picks (or `target`); a swipe leaves at speed (launchVelocity). */
+  settle(v: number, target?: number, swipe = false) {
     const to = target ?? chooseTarget(this.x, v, this.snapPoints, this.period, this.config)
-    if (this.still()) {
+    const { springStiffness: k, springDamping: d, springMass: m } = this.config
+    if (this.still() || Math.abs(this.x - to) < 0.5) {
       this.x = to
-      this.v = 0
       this.rest()
       return
     }
     const x0 = this.x - to
-    const v0 = capSpringVelocity(x0, Math.max(-this.config.maxFlickVelocity, Math.min(this.config.maxFlickVelocity, v)), this.config.springStiffness, this.config.springMass)
-    this.phase = { kind: "spring", target: to, start: performance.now(), s: { x0, v0 } }
+    const limited = Math.max(-this.config.maxFlickVelocity, Math.min(this.config.maxFlickVelocity, v))
+    const v0 = swipe ? launchVelocity(x0, limited, k, this.config.swipeLaunch, m) : capSpringVelocity(x0, limited, k, m)
+    const s: SpringState = { x0, v0 }
+    const duration = settleDuration(s, k, d, m) * 1000
+    this.play((t) => to + springAt(s, t / 1000, k, d, m).x, to, duration, false)
+  }
+
+  /**
+   * Run a timed motion. Where the browser has Web Animations, each moving box
+   * gets one animation whose keyframes are this curve sampled every 8ms, so
+   * the compositor plays it with no work on the main thread; a box's path is
+   * its offset at the start plus the rail's travel, continuous, and it is
+   * wrapped back into the loop when the motion ends (only ever off screen:
+   * the loop's seam is half a loop from the front, further than any motion
+   * travels). Elsewhere the frame loop reads the same curve.
+   */
+  private play(at: (t: number) => number, target: number, duration: number, auto: boolean) {
+    const start = performance.now()
+    const ph: Curve = { kind: "curve", at, target, start, duration, auto, anims: null, done: undefined }
+    this.phase = ph
+    this.setMoving(true)
+    const x0 = this.x
+    const travel = Math.abs(target - x0)
+    const canAnimate =
+      this.config.compositor &&
+      typeof Element !== "undefined" &&
+      typeof Element.prototype.animate === "function" &&
+      (this.period <= 0 || travel < this.period / 2 - this.viewWidth)
+    if (canAnimate) {
+      try {
+        const n = Math.max(2, Math.ceil(duration / KEYFRAME_MS))
+        const xs: number[] = []
+        for (let k = 0; k <= n; k++) xs.push(k === n ? target : at((duration * k) / n))
+        const dpr = typeof devicePixelRatio === "number" ? devicePixelRatio : 1
+        const end = Math.round(target * dpr) / dpr
+        ph.anims = this.items.map((el, i) => {
+          const base = this.positions[i] ?? 0
+          let rel = base - x0
+          if (this.period > 0) rel = wrap(rel, this.period, this.window.lo)
+          const frames = xs.map((x, k) => ({ transform: `translate3d(${rel - ((k === n ? end : x) - x0) - base}px,0,0)` }))
+          return el.animate(frames, { duration, easing: "linear", fill: "forwards" })
+        })
+        /* The end is one event on the main thread: the frames between are the compositor's. */
+        ph.anims[0].onfinish = () => this.finish(ph)
+        /* And a timer behind it, for a tab that throttles animation events. */
+        ph.done = setTimeout(() => this.finish(ph), duration + 500)
+        return
+      } catch {
+        for (const a of ph.anims ?? []) a.cancel()
+        ph.anims = null
+      }
+    }
     this.kick()
+  }
+
+  /** A timed motion reached its end: the boxes are put there by script and the animations let go. */
+  private finish(ph: Curve) {
+    if (this.phase !== ph || this.disposed) return
+    clearTimeout(ph.done)
+    if (ph.anims?.[0]) ph.anims[0].onfinish = null
+    this.x = ph.target
+    this.rest()
+    for (const a of ph.anims ?? []) a.cancel()
   }
 
   /** Move `steps` snap points along, by key, wheel notch or code. */
@@ -554,9 +728,10 @@ export class RailMotion {
     const wait = Math.max(this.config.autoplayIntervalMs, this.resumeAt - performance.now())
     this.autoTimer = setTimeout(() => {
       if (!this.eligible()) return
-      const to = stepTarget(this.x, 1, this.snapPoints, this.period)
-      this.phase = { kind: "auto", from: this.x, to, start: performance.now(), duration: this.config.autoplayStepMs }
-      this.kick()
+      const from = this.x
+      const to = stepTarget(from, 1, this.snapPoints, this.period)
+      const duration = this.config.autoplayStepMs
+      this.play((t) => from + (to - from) * sineInOut(t / duration), to, duration, true)
     }, wait)
   }
 
@@ -568,10 +743,9 @@ export class RailMotion {
   setVisible(visible: boolean) {
     const was = this.visible
     this.visible = visible
-    if (!visible) {
-      clearTimeout(this.autoTimer)
-      if (this.phase.kind === "auto") this.settle(0, (this.phase as { to: number }).to)
-    } else if (!was) this.schedule()
+    /* Out of sight nothing new starts; a step already under way is the compositor's and simply ends. */
+    if (!visible) clearTimeout(this.autoTimer)
+    else if (!was) this.schedule()
   }
 
   togglePause(): boolean {
@@ -676,7 +850,8 @@ export class RailMotion {
     }
     this.hooks.onDragging?.(false)
     const v = releaseVelocity(p.samples, e.timeStamp, this.config.velocityWindowMs, this.config.velocityStaleMs)
-    this.settle(v)
+    /* Wave 13: a flick or a short drag is a whole step (chooseSwipeTarget), and the settle leaves at speed. */
+    this.settle(v, chooseSwipeTarget(p.railAt, this.x, v, this.snapPoints, this.period, this.config), true)
   }
 
   private onCancel = (e: PointerEvent) => {
@@ -790,6 +965,10 @@ export class RailMotion {
   }
 
   dispose() {
+    if (this.phase.kind === "curve") {
+      clearTimeout(this.phase.done)
+      for (const a of this.phase.anims ?? []) a.cancel()
+    }
     this.disposed = true
     cancelAnimationFrame(this.raf)
     clearTimeout(this.autoTimer)

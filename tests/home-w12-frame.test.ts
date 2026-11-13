@@ -178,7 +178,8 @@ async function main() {
     const css = read("app/globals.css")
     const heading = code("components/marketing/story-heading.tsx")
     check("headings ink and rise from scroll-driven animations where the browser has them (no script per frame)", /@property --story-progress/.test(css) && /animation-timeline:--story-heading/.test(css) && /@keyframes story-heading-rise \{from\{transform:translate3d\(0,12px,0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(css) && /function inkedByCss/.test(heading) && /data-story-js/.test(heading))
-    check("the script keeps the showcase heading and headings inside a scrolling box", /hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading))
+    /* Changed on purpose (wave 13): the owner wants the showcase heading inked by the scroll again, like the others, so it is no longer kept out of the scroll-driven animation. */
+    check("the script keeps only headings inside a scrolling box; the showcase heading inks from the scroll too", !/hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading) && !/data-story-showcase\]\):not/.test(css) && !/"--story-progress": 1/.test(heading))
     const creators = code("components/marketing/home/creators-carousel.tsx")
     check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(goal\)/.test(creators))
     check("the sale dot's ping is paused off screen", /\[data-story-in-view="false"\] \.cc-card \.cc-sale-dot::after/.test(creators))

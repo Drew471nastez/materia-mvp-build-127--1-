@@ -13,6 +13,11 @@ import { RailMotion, SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
   What it snaps to depends on the width, as before: from 768px a complete
   wide, OnePage, wide group comes to rest; on a phone each card does, its
   left edge on the page's gutter.
+
+  Wave 13: a flick or a short drag is a whole step, and every timed motion
+  (the settle, autoplay) plays on the compositor (lib/ui/rail-motion), so
+  autoplay does no work per frame; it runs only while half the rail is on
+  screen and the tab is visible.
 */
 const PHONE = "(max-width: 767px)"
 
@@ -38,9 +43,9 @@ export function useShowcaseMotion() {
     el.dataset.railReady = "true"
     const { items, snaps } = parts()
     const motion = new RailMotion(el, items, snaps, SHOWCASE_MOTION, {
+      /* Wave 13: nothing on the page restyles while the rail moves (the heading used to dim, a repaint at every autoplay step); the first move only lets the phone's left gutter show the card before. */
       onMoving: (moving) => {
-        section?.toggleAttribute("data-showcase-browsing", moving)
-        if (moving) section?.removeAttribute("data-showcase-pristine")
+        if (moving && section?.hasAttribute("data-showcase-pristine")) section.removeAttribute("data-showcase-pristine")
       },
       onDragging: (dragging) => {
         if (dragging) el.dataset.dragging = "true"
