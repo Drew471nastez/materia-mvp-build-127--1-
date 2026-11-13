@@ -1,5 +1,5 @@
 /** Round AV: major platform issues found in production logs and fixed. */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { needsPlatformApproval, paymentsSetupErrorMessage } from "@/lib/payments/stripe/setup-errors"
 import { stripeRefusal } from "@/lib/stripe/refusal"
 import { accountAttempts } from "@/lib/payments/stripe/account-attempts"
@@ -62,6 +62,19 @@ try {
 } finally {
   Date.now = realNow
 }
+
+console.log("\nNo route shows one store's orders to another account")
+check("/api/debug/orders is gone (any signed in account read the newest 50 orders of every store, with buyers' emails)", !existsSync("app/api/debug/orders/route.ts") && !existsSync("app/api/debug"))
+check("  and nothing calls it", !/api\/debug\/orders/.test(read("proxy.ts")))
+
+console.log("\nTwo OnePage saves at the same moment: one lands, the other is told")
+const put = code("app/api/onepage/route.ts")
+check("the check reads the row's updated_at with the fingerprint", /select\("draft_blocks, archived_blocks, theme, bio, updated_at"\)/.test(put))
+check("the write lands only on the row the check saw", /checkedAt \? q\.eq\("updated_at", checkedAt\) : q/.test(put))
+check("and moves updated_at on, always later than the one checked", /Math\.max\(Date\.now\(\), Date\.parse\(checkedAt\) \+ 1\)/.test(put) && /updates\.updated_at = new Date\(next\)\.toISOString\(\)/.test(put))
+check("a write that found no such row is the same 409, and nothing was written", /if \(checkedAt && error && \(error as \{ code\?: string \}\)\.code === "PGRST116"\) return conflictAnswer\(\)/.test(put))
+check("a save with no base (the creator chose to keep theirs) is not held to it", /let checkedAt: string \| null = null/.test(put) && /if \(base && draft_blocks !== undefined\) \{/.test(put))
+check("a database without the column keeps the check as it was", /missingColumn\(read\.error, "updated_at"\)/.test(put))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
