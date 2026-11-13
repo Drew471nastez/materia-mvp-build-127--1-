@@ -3,7 +3,7 @@ import { formatStoreMoney } from "@/lib/store/currency"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
-import { fullyRefunded } from "@/lib/orders/refund-state"
+import { fullyRefunded, REFUND_CHANGED, refundChangedMessage, refundEchoStale } from "@/lib/orders/refund-state"
 import { emit } from "@/lib/notify/outbox"
 import { PAST_PROVIDER_REFUND_NOTE, paidThroughAirwallex } from "@/lib/payments/past-provider"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
@@ -105,6 +105,18 @@ export async function POST(request: Request) {
 
     // Validate refund amount
     const maxRefundCents = Math.max(0, (order.amount_cents || 0) - alreadyRefunded)
+    /*
+      WHAT THE DIALOG READ (lib/orders/refund-state refundEchoStale): the page sends what it showed as left to
+      refund. The key below moves on once a refund has gone through, so a press sent again after its answer was
+      lost, or from a tab opened before another refund, would be a second refund of the same part. It finds the
+      order moved on and is refused instead, with what the order holds now. A page that sends nothing refunds as before.
+    */
+    if (refundEchoStale(body.refundable, maxRefundCents)) {
+      return NextResponse.json(
+        { error: refundChangedMessage(alreadyRefunded, (cents) => formatStoreMoney(cents, order.currency)), code: REFUND_CHANGED, refundableCents: maxRefundCents, refundedCents: alreadyRefunded },
+        { status: 409 },
+      )
+    }
     const refundAmountCents = amount === undefined || amount === null ? maxRefundCents : Math.round(Number(amount) * 100)
 
     if (!Number.isFinite(refundAmountCents) || refundAmountCents <= 0) {
