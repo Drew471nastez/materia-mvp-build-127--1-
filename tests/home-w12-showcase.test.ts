@@ -39,19 +39,21 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    ...(["Saltlight", "Bloom", "Darkroom", "Sol", "Hollow"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
+    /* Changed on purpose (landing round 2): shops renamed (Low Season, Elena Ruiz's watercolor course, Wren & Ash), the community slide is Charla Circle (the real member frame, photographed), the OnePage is Lucía Ferrer's. */
+    ...(["LowSeason", "Watercolor", "Charla", "Lucia", "WrenAsh"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
     createElement(WebsiteBuilderMock),
     createElement(OnePageEditorMock),
     createElement(CommunityBuilderMock),
   ),
 )
 /* Changed on purpose (wave 13): Storelib's own logo in the editors' bars is drawn by its one component (components/brand/storelib-logo), not a showcase photo. */
-/* Changed on purpose (land round): the OnePages (Sol & Sage, Maya's preview) are drawn by the theme picker's ThemePreview (components/marketing/home/onepage-sample), whose pictures go through the image optimizer as the picker's do (data-tp-photo, data-theme-thumb); the mocks' own photos are checked here. */
+/* Changed on purpose (land round 2): the OnePages (Lucía Ferrer's slide, Rafa Ortega's editor preview) are captures of the live OnePage in shipped themes (components/marketing/home/onepage-sample, public/home/onepage); they are checked with the mocks' own photos. */
 const ownMock = everyMock.replace(/<img[^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
-assert.ok(/data-home-onepage="notebook"/.test(everyMock) && /data-home-onepage="lagoon"/.test(everyMock), "the OnePages are real themes")
+assert.ok(/data-home-onepage="gazette"/.test(everyMock) && /data-home-onepage="grunge"/.test(everyMock) && /\/home\/onepage\/op-lucia-desktop\.webp/.test(everyMock) && /\/home\/onepage\/op-rafa-signup\.webp/.test(everyMock), "the OnePages are captures of the live page in shipped themes")
 const srcs = new Set([...ownMock.matchAll(/<img(?![^>]*data-storelib-logo)[^>]*src="([^"]+)"/g)].map((m) => m[1]))
-assert.ok(srcs.size >= 36, `${srcs.size} pictures`)
-for (const src of srcs) assert.ok(src.startsWith("/home/showcase/") && existsSync(`public${src}`), `${src} exists`)
+/* Changed on purpose (landing round 2): the community slide is two photographs of the real member frame, and the OnePage captures live in /home/onepage/. */
+assert.ok(srcs.size >= 30, `${srcs.size} pictures`)
+for (const src of srcs) assert.ok((src.startsWith("/home/showcase/") || src.startsWith("/home/onepage/")) && existsSync(`public${src}`), `${src} exists`)
 /* The logo goes through next/image (lazy by default there; the test stub leaves the attribute out), so the photos are checked here. */
 const photos = ownMock.replace(/<img[^>]*data-storelib-logo[^>]*>/g, "")
 assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(photos) && !/<img(?![^>]*height=)[^>]*>/.test(photos))
@@ -100,6 +102,10 @@ const showcaseSrc = read("components/marketing/build-showcase.tsx")
 assert.ok(showcaseSrc.includes("aspect-ratio:1440/990") && showcaseSrc.includes("aspect-ratio:540/1056") && showcaseSrc.includes("256fr 90fr 256fr"))
 // OnePage captions are three words at most.
 for (const e of SHOWCASE_EXAMPLES.filter((x) => x.format === "portrait")) assert.ok(e.label.split(/\s+/).length <= 3, `"${e.label}" is three words at most`)
+/* Added (wave 14, the owner): every caption is three words at most, and the cards are real kinds of creators (a Notion template seller, a strength coach, a music producer and more), each card its own picture. */
+for (const e of SHOWCASE_EXAMPLES) assert.ok(e.label.split(/\s+/).length <= 3, `"${e.label}" is three words at most`)
+assert.equal(new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size, 12, "twelve different pictures")
+for (const want of [/Notion template/, /strength|training program/i, /sample pack/i]) assert.ok(SHOWCASE_EXAMPLES.some((e) => want.test(e.alt)), `a creator for ${want}`)
 // The caption and its fade are hidden by default and come in only while a mouse rests on the picture, as one opacity on its own layer.
 /* Changed on purpose (wave 13 perf): the caption's own layer (will-change) only where a mouse can show it; a touch screen never does. */
 assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(showcaseSrc) && /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-slide figcaption\{will-change:opacity\}/.test(showcaseSrc), "the caption starts hidden")
@@ -120,6 +126,8 @@ assert.ok(!/data-showcase-browsing/.test(showcaseSrc + read("components/marketin
 /* Changed on purpose (merge of main's round 60): the rail's motion moved to lib/ui/rail-motion, which the showcase's hook drives. */
 const motion = read("components/marketing/use-showcase-motion.ts") + read("lib/ui/rail-motion.ts")
 assert.ok(motion.includes("prefers-reduced-motion") && motion.includes("IntersectionObserver") && motion.includes("document.hidden"))
+/* Added (wave 14): the pictures stay lazy in the markup, and all twelve are fetched and decoded once the section is on screen, so a card brought in by a swipe or autoplay is never empty (it was, for a few frames, at 4x CPU). */
+assert.ok(/if \(entry\.isIntersecting\) warm\(\)/.test(motion) && motion.includes('img.loading = "eager"') && motion.includes("img.decode?.()"))
 
 /* ---- section 4: builder previews */
 assert.deepEqual(

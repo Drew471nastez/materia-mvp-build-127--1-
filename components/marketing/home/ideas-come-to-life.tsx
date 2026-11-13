@@ -18,7 +18,7 @@ export const IDEAS_TABS = [
     label: "Website",
     more: " builder",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the sections of the Brush & Bloom home page in the sidebar, and the page itself with the Hero section selected, then Curriculum, then published.",
+    alt: "Storelib's website builder: the dark bar with Publish, the sections of Elena Ruiz's watercolor course home page in the sidebar, and the page itself with the Hero section selected, then Curriculum, then published.",
     Mock: WebsiteBuilderMock,
   },
   {
@@ -26,7 +26,7 @@ export const IDEAS_TABS = [
     label: "OnePage",
     more: " editor",
     title: "OnePage editor",
-    alt: "Storelib's OnePage editor: Maya Okafor's links and products on the Links tab beside the live phone preview, as her email signup block is switched on and saved.",
+    alt: "Storelib's OnePage editor: tattoo artist Rafa Ortega's links, gift card and photos on the Links tab beside the live phone preview in the Grunge theme, as his email signup block is switched on and saved.",
     Mock: OnePageEditorMock,
   },
   {
@@ -34,7 +34,7 @@ export const IDEAS_TABS = [
     label: "Community",
     more: " builder",
     title: "Community builder",
-    alt: "Storelib's community builder for Kiln & Clay Collective: a new post about glaze night is written in the composer and posted to Studio news, at the top of the posts list.",
+    alt: "Storelib's community builder for Dawn Chorus Birders: Denise Walker writes a Saturday walk in Epping Forest in the composer and posts it to Walks, at the top of the posts list.",
     Mock: CommunityBuilderMock,
   },
 ] as const

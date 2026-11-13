@@ -137,16 +137,17 @@ check("the CTA: one solid pill to /signup with its arrow in a disc, focus ring",
 })
 
 check("sale notification: Storelib's own words, a stack in a fixed box, transitions on transform and opacity only", () => {
+  /* Changed on purpose (landing round 2): the buyers' names follow the section's renamed ones. */
   const items = [
-    { who: "Maya Ross", what: "Drum Kit Vol. 2", amount: "$29.00" },
+    { who: "Tunde Bakare", what: "Drum Kit Vol. 2", amount: "$29.00" },
     { who: "Tom Kessler", what: "Spanish in 6 Weeks", amount: "$149.00" },
-    { who: "Priya Shah", what: "Autumn Drop hoodie", amount: "$58.00" },
+    { who: "Mei Chen", what: "Sunday Club hoodie", amount: "$62.00" },
     { who: "Leo Martin", what: "60-min strategy call", amount: "$120.00" },
     { who: "Hana Wright", what: "Film Tones presets", amount: "$24.00" },
   ]
   const html = renderToString(createElement(SalePop, { items }))
   const t = text(html).replace(/\s+/g, " ")
-  assert.ok(t.includes("New sale: $29.00") && t.includes("Maya Ross bought Drum Kit Vol. 2 for $29.00."))
+  assert.ok(t.includes("New sale: $29.00") && t.includes("Tunde Bakare bought Drum Kit Vol. 2 for $29.00."))
   /* Changed on purpose (wave 13 integration): the notice's icon is the real logo drawn through StorelibLogo (tests/brand-logo.test.ts forbids the old /storelib-mark.svg file). */
   assert.ok(html.includes("data-storelib-logo"))
   /* One card in front, two behind, the rest waiting; only the front one is read out. */

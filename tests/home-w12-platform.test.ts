@@ -81,7 +81,7 @@ for (const s of SECTIONS) {
   check(`${s.file}: no em dash in the words`, !/—/.test(text(out)))
   check(`${s.file}: no lorem`, !/lorem|ipsum/i.test(out))
 }
-/* Changed on purpose (land round): the storefront card's OnePages are drawn by the theme picker's ThemePreview (components/marketing/home/onepage-sample), whose pictures go through the image optimizer as the picker's do (data-tp-photo, data-theme-thumb); the sections' own pictures are checked here. */
+/* Changed on purpose (land round 2): the storefront card's OnePages are local captures of the live page (components/marketing/home/onepage-sample) and are checked with the sections' own pictures; the filter is left for any picture the theme picker would draw. */
 const page = Object.values(html).join("\n").replace(/<img [^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
 
 console.log("\n── images ──")

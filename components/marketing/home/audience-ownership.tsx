@@ -224,9 +224,9 @@ const PEOPLE = [
   { name: "Jonah Reyes", email: "jonah.reyes@outlook.com", via: "Checkout", from: "Ridge hoodie", tint: "#dbeafe", ink: "#1e40af" },
   { name: "Aiko Tanaka", email: "aiko.tanaka@icloud.com", via: "Free download", from: "Trail map pack", tint: "#fef3c7", ink: "#92400e" },
   { name: "Liam O'Connor", email: "liam.oc@gmail.com", via: "Website", from: "footer form", tint: "#dcfce7", ink: "#166534" },
-  { name: "Priya Nair", email: "priya.nair@yahoo.com", via: "OnePage", from: "from YouTube", tint: "#ede9fe", ink: "#5b21b6" },
+  { name: "Ravi Shankar", email: "ravi.shankar88@yahoo.com", via: "OnePage", from: "from YouTube", tint: "#ede9fe", ink: "#5b21b6" },
   { name: "Leo Fischer", email: "leo.fischer@gmx.de", via: "Checkout", from: "705 tee", tint: "#e0f2fe", ink: "#075985" },
-  { name: "Amara Okafor", email: "amara.okafor@gmail.com", via: "Free download", from: "LUT pack", tint: "#ffedd5", ink: "#9a3412" },
+  { name: "Chidi Eze", email: "chidi.eze@gmail.com", via: "Free download", from: "LUT pack", tint: "#ffedd5", ink: "#9a3412" },
   { name: "Inès Laurent", email: "ines.laurent@orange.fr", via: "OnePage", from: "from TikTok", tint: "#fae8ff", ink: "#86198f" },
 ]
 const WHEN = ["Just now", "2 min ago", "6 min ago", "11 min ago"]

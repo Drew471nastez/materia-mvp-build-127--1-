@@ -6,15 +6,17 @@ import {
   BarChart as Chart,
   BarChart2,
   BarChart3,
-  Calendar,
   Check,
   ChevronDown,
+  Clapperboard,
+  Clock,
   Code2,
   ExternalLink,
   Eye,
   FileText,
   Globe,
   GripVertical,
+  Heart,
   Home,
   ImageIcon,
   Inbox,
@@ -24,15 +26,16 @@ import {
   Link2,
   Mail,
   Maximize2,
+  MessageCircle,
   Monitor,
   MoreHorizontal,
-  Music2,
   MousePointerClick,
+  Music2,
   Package,
+  Palette,
   PanelBottom,
   PanelTop,
   Paperclip,
-  Palette,
   Pencil,
   Plus,
   RectangleHorizontal,
@@ -46,12 +49,13 @@ import {
   Trash2,
   Undo2,
   Users,
+  Wallet,
   Youtube,
 } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { MockFrame, Pic, u } from "./frame"
-import { BloomDesktop } from "./business-mocks"
-import { HomeOnePage, HomeOnePageStyle, MAYA } from "../onepage-sample"
+import { WatercolorDesktop } from "./business-mocks"
+import { HomeOnePage, HomeOnePageStyle, RAFA, RAFA_SIGNUP } from "../onepage-sample"
 
 /*
   INSIDE STORELIB'S BUILDERS, AS THEY ARE TODAY (wave 13).
@@ -149,12 +153,12 @@ function WbTabs() {
   )
 }
 
-/** The Brush & Bloom home page as a phone shows it (the website builder's canvas on a phone). */
-function BloomPhonePage() {
+/** Elena Ruiz's watercolor course home page as a phone shows it (the website builder's canvas on a phone). */
+function WatercolorPhonePage() {
   return (
     <div className="wxm-site">
       <div className="wxm-nav">
-        <span>Brush &amp; Bloom</span>
+        <span>Elena Ruiz</span>
         <i />
       </div>
       <div className="wxm-hero">
@@ -162,7 +166,7 @@ function BloomPhonePage() {
         <h4>
           Loose florals <i>in 21 days.</i>
         </h4>
-        <span>Enroll · $129</span>
+        <span>Enroll · $129.00</span>
       </div>
       <Pic n="bb-hero" w={1200} h={700} className="wxm-img" />
     </div>
@@ -178,7 +182,7 @@ export function WebsiteBuilderMock() {
             <span className="wx-key ghost">
               <ArrowLeftToLine />
             </span>
-            <b className="wx-name">Brush &amp; Bloom</b>
+            <b className="wx-name">Elena Ruiz Watercolor</b>
             <i className="wx-live" />
             <span className="wx-key ghost">
               <MoreHorizontal />
@@ -244,7 +248,7 @@ export function WebsiteBuilderMock() {
         </aside>
         <div className="wx-canvas">
           <MockFrame w={1024} ratio="974/746" label="" className="wx-site">
-            <BloomDesktop />
+            <WatercolorDesktop />
           </MockFrame>
           <span className="wx-ring wx-ring-a">
             <em>Hero</em>
@@ -253,7 +257,7 @@ export function WebsiteBuilderMock() {
             <em>Curriculum</em>
           </span>
           <span className="wx-toast">
-            <Check /> Published to brushandbloom.art
+            <Check /> Published to elenaruiz.art
           </span>
         </div>
         <Cursor className="wx-cur" />
@@ -279,7 +283,7 @@ export function WebsiteBuilderMock() {
           </span>
         </div>
         <div className="wxm-canvas">
-          <BloomPhonePage />
+          <WatercolorPhonePage />
           <span className="wx-ring wxm-ring">
             <em>Hero</em>
           </span>
@@ -300,13 +304,13 @@ export function WebsiteBuilderMock() {
 
 /* ================================================================ OnePage editor */
 type Block = { t: string; s: string; pic?: string; Icon?: typeof Link2; clicks?: string; off?: boolean }
-/* In the order the preview draws them (MAYA in ../onepage-sample): two links, the plan, the signup switched on, the video. */
-const MAYA_BLOCKS: Block[] = [
-  { t: "Join Saturday Run Club", s: "storelib.com/c/saturday-run-club", Icon: Users, clicks: "842" },
-  { t: "Book a 1:1 gait review", s: "Booking form", Icon: Calendar, clicks: "311" },
-  { t: "16-Week Marathon Plan", s: "$39.00", pic: "mr-run", clicks: "1.9k" },
-  { t: "Monday training notes", s: "Lead capture form", Icon: Mail, off: true },
-  { t: "How I ran a 3:08 marathon", s: "youtube.com/@mayaruns", pic: "mr-race", clicks: "2.4k" },
+/* In the order the preview draws them (RAFA in ../onepage-sample, a capture of the live page): two links, the gift card, the signup switched on, the photos. */
+const RAFA_BLOCKS: Block[] = [
+  { t: "Book a consultation", s: "rafaortega.ink/book", pic: "rf-work", clicks: "618" },
+  { t: "Flash sheet, March", s: "rafaortega.ink/flash", pic: "rf-arm", clicks: "1.3k" },
+  { t: "Gift card", s: "$100.00", pic: "rf-sleeve", clicks: "97" },
+  { t: "Books open first here", s: "Email signup", Icon: Mail, off: true },
+  { t: "Healed work", s: "3 photos, grid", Icon: ImageIcon, clicks: "402" },
 ]
 
 function OpeBlock({ b }: { b: Block }) {
@@ -339,21 +343,18 @@ function OpeBlock({ b }: { b: Block }) {
 function OpeProfile() {
   return (
     <div className="ope-profile">
-      <Pic n="av-maya" w={160} h={160} className="ope-av" />
+      <Pic n="av-rafa" w={160} h={160} className="ope-av" />
       <span>
         <b>
-          Maya Okafor <Pencil />
+          Rafa Ortega <Pencil />
         </b>
-        <i>Run coach · 6 marathons · Brooklyn, NY. Training plans that fit real life.</i>
+        <i>Fine line and blackwork. Private studio in East Austin, by appointment only.</i>
         <span className="ope-socials">
           <em>
             <Instagram />
           </em>
           <em>
             <Music2 />
-          </em>
-          <em>
-            <Youtube />
           </em>
           <em className="add">
             <Plus />
@@ -414,7 +415,7 @@ export function OnePageEditorMock() {
             </span>
           </span>
           <div className="ope-list">
-            {MAYA_BLOCKS.map((b) => (
+            {RAFA_BLOCKS.map((b) => (
               <OpeBlock key={b.t} b={b} />
             ))}
           </div>
@@ -422,8 +423,9 @@ export function OnePageEditorMock() {
         <div className="ope-stage">
           <div className="ope-phone">
             <MockFrame w={390} ratio="287/607" label="" className="ope-screen">
-              {/* Maya's page in Lagoon, a theme the picker ships, drawn by the picker's own ThemePreview; her signup appears as it is switched on. */}
-              <HomeOnePage theme="lagoon" who={MAYA} className="ope-page" />
+              {/* Rafa's page in Grunge, the live page captured without and with the signup; the second fades in as it is switched on. */}
+              <HomeOnePage shot={RAFA} className="ope-page" />
+              <HomeOnePage shot={RAFA_SIGNUP} className="ope-page ope-page-on" />
             </MockFrame>
           </div>
         </div>
@@ -450,7 +452,7 @@ export function OnePageEditorMock() {
           <OpeProfile />
           <span className="ope-add">Add</span>
           <div className="ope-list">
-            {MAYA_BLOCKS.slice(0, 4).map((b) => (
+            {RAFA_BLOCKS.slice(0, 4).map((b) => (
               <OpeBlock key={b.t} b={{ ...b, off: false }} />
             ))}
           </div>
@@ -490,31 +492,38 @@ const APP_NAV: [string, typeof Home, boolean?][] = [
   ["OnePage", Link2],
   ["Contacts", Users],
   ["Emails", Mail],
+  ["Payouts", Wallet],
 ]
 
-const CB_TABS = ["Overview", "Page", "Posts", "Spaces", "Learn", "Calendar", "Members", "Analytics", "Settings"]
+/* The owner's row of sections (components/community/creator/community-shell.tsx sectionTabs), Moderation included. */
+const CB_TABS = ["Overview", "Page", "Posts", "Spaces", "Learn", "Calendar", "Members", "Moderation", "Analytics", "Settings"]
 
-type PostRow = { who: string; av: string; space: string; when: string; title: string; text: string; pic?: string; stats: string }
+/* A row of the admin's Posts list (feed-section.tsx): name, the space's emoji and name, when; the title, the start of the words, likes and comments; the picture, with +N for more. */
+type PostRow = { who: string; av: string; glyph: string; space: string; when: string; title: string; text: string; pics?: string[]; likes: number; comments: number }
 const CB_ROWS: PostRow[] = [
   {
-    who: "Hana Okada",
-    av: "av-j",
-    space: "Glaze recipes",
+    who: "Arjun Pillai",
+    av: "bw-av-arjun",
+    glyph: "🐦",
+    space: "Sightings",
     when: "1h",
-    title: "Speckled oatmeal on B-mix, finally",
-    text: "Cone 6, slow cool from 1900°F. The recipe card is in Learn if you want to try it this week.",
-    pic: "cm-plates",
-    stats: "73 likes · 26 comments",
+    title: "Kingfisher on the post by the second bridge",
+    text: "Sat there for a good ten minutes. Shot handheld, settings in the comments if anyone wants them.",
+    pics: ["bw-kingfisher"],
+    likes: 73,
+    comments: 26,
   },
   {
-    who: "Oliver Grant",
-    av: "av-f",
-    space: "Wheel help",
+    who: "Fiona McRae",
+    av: "bw-av-fiona",
+    glyph: "🏡",
+    space: "Garden birds",
     when: "4h",
-    title: "Walls collapsing past 8 inches",
-    text: "Am I throwing too wet? Video of my pull is in the comments.",
-    pic: "cm-wheel",
-    stats: "18 likes · 14 comments",
+    title: "Robin singing at 2am outside my window?",
+    text: "Every night this week, right under the streetlight. Apparently that is normal. I am not sleeping.",
+    pics: ["bw-robin"],
+    likes: 18,
+    comments: 14,
   },
 ]
 
@@ -524,27 +533,41 @@ function CbRow({ r, className = "" }: { r: PostRow; className?: string }) {
       <Pic n={r.av} w={96} h={96} className="cb-av" />
       <span className="cb-row-main">
         <span className="cb-row-meta">
-          <b>{r.who}</b> · {r.space} · {r.when}
+          <b>{r.who}</b> · <span aria-hidden="true">{r.glyph}</span> {r.space} · {r.when}
         </span>
         <b className="cb-row-t">{r.title}</b>
         <i>{r.text}</i>
-        <em>{r.stats}</em>
+        <em>
+          <span>
+            <Heart /> {r.likes}
+          </span>
+          <span>
+            <MessageCircle /> {r.comments}
+          </span>
+        </em>
       </span>
-      {r.pic && <Pic n={r.pic} w={640} h={480} className="cb-thumb" />}
+      {r.pics && (
+        <span className="cb-thumb">
+          <Pic n={r.pics[0]} w={400} h={300} />
+          {r.pics.length > 1 && <span className="cb-plus">+{r.pics.length - 1}</span>}
+        </span>
+      )}
       <MoreHorizontal className="cb-more" />
     </span>
   )
 }
 
 const NEW_POST: PostRow = {
-  who: "Mei Lin",
-  av: "av-o",
-  space: "Studio news",
-  when: "now",
-  title: "Glaze night is back: Thursday at 7pm",
-  text: "Bring two bisqued pieces and we will glaze together on camera. Oatmeal and a new copper red.",
-  pic: "cm-cups",
-  stats: "Seen by 96",
+  who: "Denise Walker",
+  av: "bw-av-denise",
+  glyph: "🥾",
+  space: "Walks",
+  when: "just now",
+  title: "Saturday walk: Epping Forest, 7:30am",
+  text: "Meet at the High Beach car park. Bring layers and a flask, it is cold under the trees before nine.",
+  pics: ["bw-forest", "bw-singer"],
+  likes: 0,
+  comments: 0,
 }
 
 function CommunityHead() {
@@ -552,9 +575,12 @@ function CommunityHead() {
     <>
       <div className="cb-head">
         <ArrowLeft className="cb-back" />
-        <Pic n="cm-vases" w={640} h={480} className="cb-logo" />
-        <b className="cb-name">Kiln &amp; Clay Collective</b>
-        <span className="cb-live">Live</span>
+        <Pic n="bw-logo" w={120} h={120} className="cb-logo" />
+        <b className="cb-name">Dawn Chorus Birders</b>
+        <span className="cb-live">
+          <i />
+          Published
+        </span>
         <span className="cb-view">
           <ExternalLink /> View page
         </span>
@@ -563,7 +589,7 @@ function CommunityHead() {
         {CB_TABS.map((t) => (
           <span key={t} className={t === "Posts" ? "on" : ""}>
             {t}
-            {t === "Members" && <i>1,204</i>}
+            {t === "Members" && <i>947</i>}
           </span>
         ))}
       </div>
@@ -579,12 +605,12 @@ export function CommunityBuilderMock() {
           <StorelibTile />
           <b>Storelib</b>
           <span className="cb-biz">
-            Mei Lin Ceramics <ChevronDown />
+            Denise Walker <ChevronDown />
           </span>
           <span className="cb-search">
             <Search /> Search
           </span>
-          <Pic n="av-o" w={160} h={160} className="cb-me" />
+          <Pic n="bw-av-denise" w={96} h={96} className="cb-me" />
         </div>
         <nav className="cb-rail">
           {APP_NAV.map(([label, Icon, on]) => (
@@ -597,30 +623,34 @@ export function CommunityBuilderMock() {
           <CommunityHead />
           <div className="cb-composer">
             <span className="cb-who">
-              <Pic n="av-o" w={160} h={160} className="cb-av" />
-              <b>Mei Lin</b>
+              <Pic n="bw-av-denise" w={96} h={96} className="cb-av" />
+              <b>Denise Walker</b>
               <span className="cb-space">
-                Studio news <ChevronDown />
+                <span aria-hidden="true">🥾</span> Walks <ChevronDown />
               </span>
             </span>
             <span className="cb-title">
-              <span>Glaze night is back: Thursday at 7pm</span>
+              <span>Saturday walk: Epping Forest, 7:30am</span>
               <i className="cb-type" />
             </span>
             <p className="cb-text">
-              Bring two bisqued pieces and we will glaze together on camera. I will demo the oatmeal and a new copper red, then answer
-              questions live.
+              Meet at the High Beach car park. Bring layers and a flask, it is cold under the trees before nine. Last week we had nuthatch,
+              treecreeper and a very loud wren. Spare binoculars if you need them.
             </p>
             <span className="cb-attach">
-              <Pic n="cm-cups" w={800} h={600} />
-              <Pic n="cm-vases" w={640} h={480} />
+              <Pic n="bw-forest" w={400} h={300} />
+              <Pic n="bw-singer" w={400} h={300} />
             </span>
             <span className="cb-foot">
-              <ImageIcon />
               <Paperclip />
+              <Link2 />
+              <Clapperboard />
               <BarChart3 />
               <Smile />
+              <b className="cb-gif">GIF</b>
+              <Clock />
               <span className="cb-draft">Save draft</span>
+              <span className="cb-cancel">Cancel</span>
               <span className="cb-post">Post</span>
             </span>
           </div>
@@ -646,7 +676,7 @@ export function CommunityBuilderMock() {
           </div>
         </div>
         <span className="cb-toast">
-          <Check /> Posted to Studio news
+          <Check /> Posted
         </span>
         <Cursor className="cb-cur" />
       </div>
@@ -654,12 +684,12 @@ export function CommunityBuilderMock() {
         <div className="cbm-appbar">
           <StorelibTile />
           <b>Storelib</b>
-          <Pic n="av-o" w={160} h={160} className="cb-me" />
+          <Pic n="bw-av-denise" w={96} h={96} className="cb-me" />
         </div>
         <div className="cbm-main">
           <CommunityHead />
           <span className="cbm-compose">
-            <Pic n="av-o" w={160} h={160} className="cb-av" />
+            <Pic n="bw-av-denise" w={96} h={96} className="cb-av" />
             Share something...
           </span>
           <div className="cb-list">
@@ -829,21 +859,18 @@ export const BUILDER_CSS = u(`
 .ope-screen{border-radius:36u}
 .ope-cur{left:672u;top:654u}
 .ope-page{position:absolute!important;inset:0}
-/* Until the signup is switched on: hidden, and the block under it up in its place (158px is the signup and the gap under it, on the page at 390). */
-.ope-phone [data-tp-news]{opacity:0}
-.ope-phone [data-tp-news]~*{transform:translateY(-158px)}
+/* Until the signup is switched on, the page without it; the page with it fades in over it. */
+.ope-page-on{opacity:0}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-cur{animation:sxk-op-cur var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw b{animation:sxk-op-knob var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw-on,[data-mock-live] .ope-phone [data-tp-news]{animation:sxk-op-on var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw-on,[data-mock-live] .ope-page-on{animation:sxk-op-on var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-face{animation:sxk-op-face var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-phone [data-tp-news]~*{animation:sxk-op-after var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-saved{animation:sxk-op-saved var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-dirty{animation:sxk-op-dirty var(--bm-t) var(--bm-ease) infinite both}}
 @keyframes sxk-op-cur{0%{opacity:0;transform:translate(-300u,-200u)}6%{opacity:1}24%{transform:none}26%{transform:scale(.86)}28%,34%{transform:none}52%{transform:translate(347u,-624u)}54%{transform:translate(347u,-624u) scale(.86)}56%,66%{opacity:1;transform:translate(347u,-624u)}74%,100%{opacity:0;transform:translate(347u,-624u)}}
 @keyframes sxk-op-knob{0%,25%{transform:none}29%,94%{transform:translateX(16u)}100%{transform:none}}
 @keyframes sxk-op-on{0%,25%{opacity:0}30%,94%{opacity:1}100%{opacity:0}}
 @keyframes sxk-op-face{0%,25%{opacity:.5}30%,94%{opacity:1}100%{opacity:.5}}
-@keyframes sxk-op-after{0%,27%{transform:translateY(-158px)}36%,94%{transform:none}100%{transform:translateY(-158px)}}
 @keyframes sxk-op-saved{0%,26%{opacity:.6}28%,54%{opacity:0}57%,100%{opacity:.6}}
 @keyframes sxk-op-dirty{0%,26%{opacity:0}28%,54%{opacity:1}57%,100%{opacity:0}}
 
@@ -881,7 +908,8 @@ export const BUILDER_CSS = u(`
 .cb-back{width:20u!important;height:20u!important;color:#1a1a2e}
 .cb-logo{width:36u!important;height:36u!important;border-radius:10u}
 .cb-name{font-size:22u;font-weight:700}
-.cb-live{padding:3u 9u;border-radius:999u;background:#ecfdf3;color:#067647;font-size:12u;font-weight:600;box-shadow:inset 0 0 0 1u #abefc6}
+.cb-live{display:flex;align-items:center;gap:6u;padding:3u 9u;border-radius:999u;background:#ecfdf3;color:#067647;font-size:12u;font-weight:600;box-shadow:inset 0 0 0 1u #abefc6}
+.cb-live i{width:6u;height:6u;border-radius:50%;background:#22a06b}
 .cb-view{display:flex;align-items:center;gap:7u;margin-left:auto;height:36u;padding:0 14u;border-radius:10u;background:#fff;border:1u solid #d9dbe0;font-size:13.5u;font-weight:500;box-shadow:inset 0 -2u 0 rgba(0,0,0,.05)}
 .cb-view svg{width:15u;height:15u}
 .cb-tabs{display:flex;gap:2u;padding-bottom:8u;white-space:nowrap;overflow:hidden}
@@ -902,7 +930,9 @@ export const BUILDER_CSS = u(`
 .cb-attach img{width:120u!important;height:84u!important;border-radius:10u}
 .cb-foot{display:flex;align-items:center;gap:16u;margin-top:14u;padding-top:12u;border-top:1u solid #f1f2f4;color:#6b7280}
 .cb-foot svg{width:18u;height:18u}
+.cb-gif{font-size:11u;font-weight:700;letter-spacing:.02em;padding:1u 4u;border-radius:4u;box-shadow:inset 0 0 0 1.5u currentColor}
 .cb-draft{margin-left:auto;font-size:13.5u;font-weight:500;color:#374151}
+.cb-cancel{font-size:13.5u;font-weight:500;color:#4b5563}
 .cb-post{display:grid;place-items:center;width:78u;height:36u;border-radius:10u;background:#1a1a2e;color:#fff;font-size:14u;font-weight:600;box-shadow:inset 0 1u 0 rgba(255,255,255,.14),0 1u 2u rgba(16,24,40,.25)}
 .cb-list{margin-top:16u;overflow:hidden}
 .cb-list-head{display:flex;align-items:center;justify-content:space-between;padding:10u 14u;border-bottom:1u solid #f1f2f4}
@@ -919,8 +949,11 @@ export const BUILDER_CSS = u(`
 .cb-row-meta b{color:#1a1a2e;font-weight:500}
 .cb-row-t{font-size:15u;font-weight:600}
 .cb-row i{font-size:14u;font-style:normal;line-height:1.4;color:#4b5563}
-.cb-row em{margin-top:4u;font-size:12u;font-style:normal;color:#9ca3af}
-.cb-thumb{flex:none;width:96u!important;height:72u!important;border-radius:10u}
+.cb-row em{display:flex;gap:14u;margin-top:6u;font-size:12.5u;font-style:normal;color:#6b7280}
+.cb-row em span{display:flex;align-items:center;gap:4u}
+.cb-row em svg{width:14u;height:14u}
+.cb-thumb{position:relative;flex:none;width:84u;height:84u;border-radius:10u;overflow:hidden}
+.cb-plus{position:absolute;right:4u;bottom:4u;padding:0 6u;border-radius:6u;background:rgba(0,0,0,.6);color:#fff;font-size:11u;font-weight:600;line-height:18u}
 .cb-more{flex:none;color:#9ca3af}
 .cb-new{position:relative;z-index:1;background:#fcfbff}
 .cb-toast{position:absolute;z-index:20;left:0;right:0;bottom:26u;width:max-content;margin:0 auto;display:flex;align-items:center;gap:8u;padding:10u 16u;border-radius:999u;background:#1a1a2e;color:#fff;font-size:12.5u;font-weight:500;opacity:0;box-shadow:0 12u 30u rgba(0,0,0,.2)}

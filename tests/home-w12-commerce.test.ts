@@ -90,7 +90,8 @@ console.log("\nCommerce: the sections render on the server")
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
   check("how it works: the merch card shows a $30 tee leaving $15.75, and five products", how.includes("$15.75") && how.includes("$30.00") && HOW_MERCH.length === 5 && HOW_MERCH.every((m) => how.includes(m.name) && how.includes(`/home/how/merch-${m.id}.webp`)))
   check("how it works: each merch profit is Storelib's fee and the example cost off the price", HOW_MERCH.every((m) => m.profitCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.profitCents > 0))
-  check("how it works: the tiles use the product's real words", ["Buy now · $19", "Payment complete", "Thanks for your purchase", "Get your files", "Add lesson", "Publish", "Free preview"].every((w) => how.includes(w)))
+  /* Changed on purpose (land round 2): the OnePage tile is Ruth Callaghan's page, her A$24 guide in the sheet. */
+  check("how it works: the tiles use the product's real words", ["Buy now · A$24", "Payment complete", "Thanks for your purchase", "Get your files", "Add lesson", "Publish", "Free preview"].every((w) => how.includes(w)))
 
   const co = renderToStaticMarkup(createElement(CheckoutScene))
   check("checkout: its own headline, not the reference's", co.includes("Checkout that turns a tap into a sale") && !/almost cheating/i.test(co))
@@ -153,17 +154,32 @@ console.log("\nCommerce: motion and performance rules")
     check(`${k}: no backdrop blur and no live filter on images`, !/backdrop-filter/.test(s) && !/filter:\s*blur/.test(s))
     check(`${k}: no scroll listener of its own outside the fallback`, k === "checkout" ? (s.match(/addEventListener\("scroll"/g) ?? []).length === 1 && s.includes('CSS.supports?.("animation-timeline: view()")') : !s.includes('"scroll"'))
   }
-  check("checkout: scroll scene on a view timeline with transforms", src.checkout.includes("view-timeline-name:--cmc") && src.checkout.includes("animation-timeline:--cmc"))
-  /* Added (wave 13): the orbit and the phone. */
-  check("checkout: the products orbit on one baked lap that closes on itself, paused off screen", /animation:cmc-lap var\(--lap\) linear infinite both/.test(src.checkout) && /const x = -Math\.cos\(t\)/.test(src.checkout) && /const y = Math\.sin\(t\)/.test(src.checkout) && /const turn = t \* 5/.test(src.checkout) && /\.cmc-track\[data-commerce-live\] \.cmc-lap/.test(src.checkout) && /animation-play-state:paused\}/.test(src.checkout))
+  /* Changed on purpose (wave 14): the scroll steps are generated from one table (SCROLL_STEPS), so this reads the CSS the section ships, not its source. */
+  const coCss = CHECKOUT_STYLES.map((x) => x.css).join("\n")
+  check("checkout: scroll scene on a view timeline with transforms", coCss.includes("view-timeline-name:--cmc") && coCss.includes("animation-timeline:--cmc"))
+  /* Added (wave 13): the orbit and the phone. Changed on purpose (wave 14): the 3D turn left the baked lap (five turns in 40 straight segments ticked at every point) for a loop of its own, two keyframes eased in and out. */
+  check("checkout: the products orbit on one baked lap that closes on itself, paused off screen", /animation:cmc-lap var\(--lap\) linear infinite both/.test(src.checkout) && /const x = -Math\.cos\(t\)/.test(src.checkout) && /const y = Math\.sin\(t\)/.test(src.checkout) && /\.cmc-track\[data-commerce-live\] \.cmc-lap/.test(src.checkout) && /animation-play-state:paused\}/.test(src.checkout))
+  check("checkout: each product sways on a smooth two-keyframe loop of its own, paused off screen", /@keyframes cmc-sway\{from\{transform:[^}]+\}to\{transform:[^}]+\}\}/.test(coCss) && /\.cmc-obj\{[^}]*animation:cmc-sway var\(--sw\) cubic-bezier\([^)]*\) infinite alternate both[^}]*animation-play-state:paused\}/.test(coCss) && /\.cmc-track\[data-commerce-live\] \.cmc-obj/.test(coCss))
   {
-    const css = CHECKOUT_STYLES.map((x) => x.css).join("\n")
-    const lap = css.match(/@keyframes cmc-lap\{([\s\S]*?)\}\n/)?.[1] ?? ""
+    const lap = coCss.match(/@keyframes cmc-lap\{([\s\S]*?)\}\n/)?.[1] ?? ""
     const stops = [...lap.matchAll(/([\d.]+)%\{transform:([^;]+);opacity:([\d.]+)\}/g)]
-    check("checkout: the lap's first and last frames are the same (no seam), transform and opacity only", stops.length === 41 && stops[0][2] === stops[40][2] && stops[0][3] === stops[40][3] && !/(width|height|top|left|margin|filter)\s*:/.test(lap), stops.length)
+    const last = stops.length - 1
+    /* Changed on purpose (wave 14): 60 points (was 40), and no rotation in the lap. */
+    check("checkout: the lap's first and last frames are the same (no seam), transform and opacity only", stops.length === 61 && stops[0][2] === stops[last][2] && stops[0][3] === stops[last][3] && !/(width|height|top|left|margin|filter)\s*:/.test(lap) && !/rotate/.test(lap), stops.length)
   }
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
-  check("checkout: the phone is on screen from the start and moves into place (no rise from below the stage)", /animation-range:entry 55% contain 24%/.test(src.checkout) && !/62svh/.test(src.checkout))
+  /* Changed on purpose (wave 14): the owner saw a big empty black block on a phone as the section arrived, the headline faded in only once pinned and the phone sat low; now both are there from the first pixel, and the phone only stands up from a slight lean. */
+  {
+    const kf = (name: string) => coCss.match(new RegExp(`@keyframes ${name}\\{([^@]*?)\\}\\}`))?.[1] ?? ""
+    check("checkout: the headline is never hidden by the scroll (no opacity in its step), and the phone's arrival starts as the scene enters", kf("cmc-copy") !== "" && !/opacity/.test(kf("cmc-copy")) && /\.cmc-title\{animation:cmc-copy [^;]*;animation-timeline:--cmc;animation-range:entry 0% exit-crossing 0vh\}/.test(coCss) && /\.cmc-stage \.cmc-phone\{animation:cmc-phone [^;]*;animation-timeline:--cmc;animation-range:entry 0% exit-crossing 0vh\}/.test(coCss) && !/opacity/.test(kf("cmc-phone")) && !/62svh/.test(src.checkout))
+  }
+  /* Added (wave 14): the pinned steps are measured from the scene's top in vh (exit-crossing), not from the bottom of the screen, so a phone's toolbar sliding in or out never shifts them; the track is 100svh + the pin. */
+  check("checkout: pinned steps on exit-crossing in vh, the track 100svh + 150vh", /animation-range:exit-crossing [\d.]+vh exit-crossing [\d.]+vh/.test(coCss) && !/animation-range:[^;}]*contain/.test(coCss) && coCss.includes("height:calc(100svh + 150vh)"))
+  /* Added (wave 14): the fallback (iOS Safari before 26, Firefox) seeks the same paused animations once per frame; it never writes an inherited custom property (that restyled the whole phone each frame) and reads no layout in the frame. */
+  {
+    const paint = src.checkout.match(/const paint = \(\) => \{([\s\S]*?)\n {4}\}\n/)?.[1] ?? ""
+    check("checkout: the fallback seeks paused animations, no custom property, no layout read per frame", /\.cmc\[data-cmc-js\] \.cmc-stage \.cmc-phone\{animation:cmc-phone 1s [^}]*paused\}/.test(coCss) && paint.includes(".currentTime = ") && !/getBoundingClientRect|setProperty|offset|scrollHeight/.test(paint) && !src.checkout.includes("--cmc-p") && /requestAnimationFrame\(paint\)/.test(src.checkout) && /addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(src.checkout), paint.length)
+  }
   check("checkout: keyframes animate transform and opacity only", [...src.checkout.matchAll(/@keyframes [\w-]+\{([^@]*?)\}\}/g)].every((m) => !/(width|height|top|left|margin|background|box-shadow|filter)\s*:/.test(m[1])))
   check("kit: counting writes text, not React state", src.kit.includes("node.textContent = next"))
   check("no section names the reference site", Object.values(src).every((s) => !/shopify|fourthwall/i.test(s)))
@@ -189,7 +205,9 @@ console.log("\nCommerce: images")
   const howDir = join(ROOT, "public/home/how")
   const howFiles = existsSync(howDir) ? readdirSync(howDir) : []
   check("public/home/how holds the five merch photos, webp, each under 30 KB", howFiles.length === 5 && howFiles.every((f) => /^merch-[a-z]+\.webp$/.test(f) && statSync(join(howDir, f)).size < 30 * 1024), howFiles)
-  check("images are lazy and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="lazy"/g) ?? []).length && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
+  /* Changed on purpose (wave 14): the checkout scene's own pictures (the phone's product and the four orbiting products a phone shows) are eager: the section mounts only when it is near, and a lazy picture there arrived late on a phone. Everything else stays lazy. */
+  const eagerScene = (src.checkout.match(/loading=\{(?:f\.m|eager) \? "eager" : "lazy"\}/g) ?? []).length
+  check("images are lazy (or the scene's own, eager) and decode off the main thread", imgs > 10 && eagerScene === 3 && imgs === (all.match(/loading="lazy"/g) ?? []).length + eagerScene && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }
 
 /* Added (wave 13): one branch deleted public/home/showcase/lt-field.webp while how-it-works still drew it, and the live page asked for it and got a 404. Every picture or video a marketing component names by a root path is a file under public. */

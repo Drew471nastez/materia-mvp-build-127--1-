@@ -8,7 +8,7 @@ export type SalePopItem = { who: string; what: string; amount: string }
 
 /**
  * Storelib's "new sale" notification, as it lands on a creator's phone: the
- * app icon, "New sale: $29.00", "Maya Ross bought Drum Kit Vol. 2 for $29.00."
+ * app icon, "New sale: $29.00", "Tunde Bakare bought Drum Kit Vol. 2 for $29.00."
  * (the in-app notice's own words, lib/notify/templates/catalog.ts).
  *
  * A stack, the way a phone shows them: each new sale slides in on top and

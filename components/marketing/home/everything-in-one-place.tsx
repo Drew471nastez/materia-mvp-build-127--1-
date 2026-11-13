@@ -13,7 +13,7 @@
        preset pack, a course and a community, the light behind it changing
        with each; the tabs pick one, and it plays by itself while on screen.
     2. A store that looks like you: three creators' storefronts and three
-       OnePages (real OnePage themes, ./onepage-sample) gliding past.
+       OnePages (captures of the live OnePage, ./onepage-sample) gliding past.
     3. Sell in every country: a globe the visitor can spin, with orders
        arcing to buyers in currencies checkout charges in.
     4. Real support: a creator's question answered by a person at Storelib
@@ -31,8 +31,7 @@ import { useCallback, useRef, useState, type CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { usePlatformSection } from "./platform-motion"
 import { EverythingGlobe } from "./everything-globe"
-import { CLARA, HomeOnePage, HomeOnePageStyle, NOA, THEO, type HomeThemeId } from "./onepage-sample"
-import type { PreviewAccount } from "@/components/onepage/themes/preview-account"
+import { ARJUN, HomeOnePage, HomeOnePageStyle, KOFI, MARIANA, type HomeOnePageShot } from "./onepage-sample"
 
 export const EVERYTHING_HEADING = { lead: "Make the work.", rest: "Skip the busywork." } as const
 
@@ -194,10 +193,10 @@ function Pic({ src, w, h, className }: { src: string; w: number; h: number; clas
   return <img className={className} src={`${IMG}/${src}`} alt="" width={w} height={h} loading="lazy" decoding="async" />
 }
 
-function StoreNorthbound() {
+function StoreTallgrass() {
   return (
     <div className="ev-ph ev-ph-north">
-      <Bar logo="NORTHBOUND" />
+      <Bar logo="TALLGRASS" />
       <div className="ev-ph-hero">
         <Pic className="ev-ph-hero-img" src="store-hoodie.webp" w={420} h={520} />
         <div className="ev-ph-hero-copy">
@@ -209,55 +208,55 @@ function StoreNorthbound() {
       <div className="ev-ph-grid">
         <div>
           <Pic className="ev-ph-thumb" src="store-crew.webp" w={220} h={220} />
-          <span className="ev-ph-pn">Trail Crew</span>
-          <span className="ev-ph-pp">$58</span>
+          <span className="ev-ph-pn">Meadow Crew, Chalk</span>
+          <span className="ev-ph-pp">$58.00</span>
         </div>
         <div>
           <Pic className="ev-ph-thumb" src="store-cap.webp" w={220} h={220} />
-          <span className="ev-ph-pn">Ridge Cap</span>
-          <span className="ev-ph-pp">$28</span>
+          <span className="ev-ph-pn">Mesh Field Cap</span>
+          <span className="ev-ph-pp">$28.00</span>
         </div>
       </div>
     </div>
   )
 }
 
-function StoreKiln() {
+function StoreHartley() {
   return (
     <div className="ev-ph ev-ph-kiln">
-      <Bar logo="Kiln & Clay" />
+      <Bar logo="Hartley Pottery" />
       <div className="ev-ph-serif">
         Spring
         <br />
-        Glaze Drop
+        kiln opening
       </div>
       <Pic className="ev-ph-wide" src="store-cups.webp" w={420} h={340} />
       <div className="ev-ph-row">
         <Pic className="ev-ph-sq" src="store-vases.webp" w={220} h={220} />
         <div>
-          <span className="ev-ph-pn">Speckled vase set</span>
-          <span className="ev-ph-pp">$86.00</span>
+          <span className="ev-ph-pn">Speckled bud vases</span>
+          <span className="ev-ph-pp">£64.00</span>
         </div>
       </div>
       <div className="ev-ph-row">
         <span className="ev-ph-sq ev-ph-swatch" />
         <div>
-          <span className="ev-ph-pn">Wheel class, Sat 10am</span>
-          <span className="ev-ph-pp">$65.00</span>
+          <span className="ev-ph-pn">Wheel taster, Sat 10am</span>
+          <span className="ev-ph-pp">£45.00</span>
         </div>
       </div>
     </div>
   )
 }
 
-function StoreLumen() {
+function StoreTamsin() {
   return (
     <div className="ev-ph ev-ph-lumen">
-      <Bar logo="LUMEN HARBOR" />
+      <Bar logo="TAMSIN VALE" />
       <Pic className="ev-ph-album" src="store-album.webp" w={400} h={400} />
       <div className="ev-ph-album-copy">
-        <span className="ev-ph-title">Night Swim</span>
-        <span className="ev-ph-sub">New album · 10 tracks</span>
+        <span className="ev-ph-title">Slow Ferry</span>
+        <span className="ev-ph-sub">New album · 11 tracks</span>
       </div>
       <div className="ev-ph-buy">
         <span>Vinyl LP</span>
@@ -269,9 +268,9 @@ function StoreLumen() {
       </div>
       <div className="ev-ph-tracks">
         {[
-          ["1", "Low Tide", "3:42"],
-          ["2", "Harbor Lights", "4:05"],
-          ["3", "Undertow", "3:18"],
+          ["1", "Glasshouse", "3:42"],
+          ["2", "Paper Boats", "4:07"],
+          ["3", "Slow Ferry", "5:18"],
         ].map(([n, t, d]) => (
           <div key={n} className="ev-ph-track">
             <span className="ev-ph-tn">{n}</span>
@@ -285,30 +284,30 @@ function StoreLumen() {
 }
 
 /*
-  Between the stores, three OnePages (the land round, the owner: "use some of
-  the themes that we have on OnePage ... actually representative"): Ember,
-  Halo and Atlas as the theme picker ships them, drawn by the picker's own
-  ThemePreview (./onepage-sample). Each sits under the link it is shared by (storelib.me/<handle>,
-  lib/url-helpers getLinksShareUrl), in a browser's address bar.
+  Between the stores, three OnePages (land round 2): the live OnePage drawn
+  in Arcade, Dune and Classic 98 as the theme picker ships them, captured
+  (./onepage-sample). Each sits under the link it is shared by
+  (storelib.me/<handle>, lib/url-helpers getLinksShareUrl), in a browser's
+  address bar.
 */
-function onePage(theme: HomeThemeId, who: PreviewAccount, handle: string) {
+function onePage(shot: HomeOnePageShot) {
   return function OnePagePhone() {
     return (
       <div className="ev-ph ev-ph-op">
         <span className="ev-ph-op-bar">
-          <span className="ev-ph-op-link">storelib.me/{handle}</span>
+          <span className="ev-ph-op-link">storelib.me/{shot.handle}</span>
         </span>
-        <HomeOnePage theme={theme} who={who} className="ev-ph-op-page" />
+        <HomeOnePage shot={shot} className="ev-ph-op-page" />
       </div>
     )
   }
 }
-const OnePageNoa = onePage("ember", NOA, "noalind")
-const OnePageClara = onePage("halo", CLARA, "clarapaints")
-const OnePageTheo = onePage("atlas", THEO, "theomarsh")
+const OnePageKofi = onePage(KOFI)
+const OnePageMariana = onePage(MARIANA)
+const OnePageArjun = onePage(ARJUN)
 
 /* A store, a OnePage, a store, a OnePage: what the caption says, both ways to sell. */
-const STORES = [StoreNorthbound, OnePageNoa, StoreKiln, OnePageClara, StoreLumen, OnePageTheo]
+const STORES = [StoreTallgrass, OnePageKofi, StoreHartley, OnePageMariana, StoreTamsin, OnePageArjun]
 
 function Storefronts() {
   /* The last one, the six, then the first two again: the strip glides one phone at a time and starts over where it looks the same. */

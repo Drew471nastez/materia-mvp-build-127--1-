@@ -84,6 +84,9 @@ async function agentContinue(req: Request, row: AgentJobRow, creatorId: string):
     if (same) return NextResponse.json({ job: { id: (same as { id: string }).id } })
     if (live) return NextResponse.json(SAME_SITE, { status: 409 })
     if (await othersLive()) return NextResponse.json(BUSY, { status: 429 })
+    /* Start over is a whole new build, so it is counted as one (the create and redesign routes' bucket): only the per-minute Continue limit applied, 40 full builds an hour. After the key lookup, so the same press sent twice is counted once. */
+    const capped = await rateLimit({ bucket: "site-generate", subjects: [`creator:${creatorId}`], windows: LIMITS.siteGenerate, message: "You have started several AI websites in a short time. Wait a few minutes, then try again." })
+    if (capped) return capped
     const { data: made, error } = await admin
       .from(JOBS_TABLE)
       .insert({ creator_id: creatorId, owner_user_id: row.owner_user_id, install_id: job.installId, prompt: job.prompt, idempotency_key: key, status: "queued", step: "agent", engine: "agent", mode: job.mode, options: job.options, progress: 0, state: {} })
