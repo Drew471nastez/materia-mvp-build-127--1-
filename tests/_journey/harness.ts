@@ -114,6 +114,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/checkout/confirm-with-pm": () => import("@/app/api/checkout/confirm-with-pm/route"),
   "/api/memberships/confirm": () => import("@/app/api/memberships/confirm/route"),
   "/api/checkout/process": () => import("@/app/api/checkout/process/route"),
+  /* Round AW: a OnePage's free product, claimed again after an answer that never came (tests/double-actions-aw.test.ts). */
+  "/api/checkout/quick-free": () => import("@/app/api/checkout/quick-free/route"),
   "/api/onepage/product": () => import("@/app/api/onepage/product/route"),
   "/api/stripe/revenue-chart": () => import("@/app/api/stripe/revenue-chart/route"),
   "/api/stripe/payouts": () => import("@/app/api/stripe/payouts/route"),
