@@ -7,31 +7,36 @@
  * Black. A modern iPhone with Storelib's own instant checkout on it (the
  * window components/checkout/instant-checkout.tsx draws: the grey head with
  * the product and the seller, Your details, the line and its price, Payment
- * method with the wallet and Card, "Pay $19.00 with Apple Pay") is already
- * on screen, a little bigger, when the section arrives. Six things creators
- * sell (a cap, a record, a preset pack, a tee, a course, a membership card)
- * orbit slowly around it. As the page scrolls the phone settles into its
- * place beside the headline, Pay is pressed, the Apple Pay sheet comes up,
- * Face ID confirms, and the window turns to "Payment complete". Under the
- * scene, five tabs, each a true thing checkout does, each with its own
- * small mock: the same checkout in a desktop browser, both wallets, five
- * currencies with their flags, the reminder email, the paid confirmation.
+ * method with the wallet and Card, "Pay $19.00 with Apple Pay") arrives with
+ * the headline already above it (beside it on a computer): the scene is
+ * composed from the first pixel that shows, never a black block with the
+ * phone late. Six things creators sell (a cap, a record, a preset pack, a
+ * tee, a course, a membership card) orbit slowly around it. As the scene
+ * comes up the phone, a little low and leaning back, stands up and settles;
+ * then, pinned, the scroll presses Pay, the Apple Pay sheet comes up, Face ID
+ * confirms, and the window turns to "Payment complete". Scrolling back up
+ * plays all of it backwards. Under the scene, five tabs, each a true thing
+ * checkout does, each with its own small mock: the same checkout in a desktop
+ * browser, both wallets, five currencies with their flags, the reminder
+ * email, the paid confirmation.
  *
  * MOTION, CHEAPLY.
- *   scroll   CSS scroll-driven animations on one named view timeline (the
- *            track), transform and opacity only, run by the compositor.
- *            Where animation-timeline is not supported, one rAF per scroll
- *            frame (only while the track is on screen) writes a single
- *            custom property, --cmc-p, and the same transforms read it.
- *   orbit    every product rides one ellipse around the phone: two nested
- *            sine loops (x, then y a quarter turn later) make a constant,
- *            seamless circle with no stop and no jump; the y loop carries
- *            the depth (smaller, dimmer and softer at the back, a cross fade
- *            to a pre-blurred webp, never a live filter); a third loop
- *            turns the product in 3D. All time based, paused off screen
- *            and in a background tab (data-commerce-live on the track).
- *   sizes    the phone is sized from the viewport alone (no measuring), so
- *            nothing in the scene moves once it is drawn.
+ *   scroll   one table (SCROLL_STEPS) of CSS animations, transform and
+ *            opacity only. Where the browser has scroll-driven animations
+ *            they run on the scene's view timeline (the compositor's job in
+ *            Chromium). Where it has not (iOS Safari before 26, Firefox) the
+ *            same animations are paused and seeked, once per frame of a
+ *            scroll while the scene is near, to the same places: no layout
+ *            read in a frame, no inherited custom property restyling the
+ *            phone's 120 elements, passive listeners only.
+ *   orbit    every product rides one baked ellipse around the phone (one
+ *            loop moves and scales it with the depth, two cross fade its
+ *            sharp and its pre-blurred webp, never a live filter) and sways
+ *            in 3D on a loop of its own. All time based, no script, paused
+ *            off screen and in a background tab (data-commerce-live).
+ *   sizes    the phone is sized from the viewport alone (no measuring), and
+ *            every scroll distance is in svh and vh, which a phone's toolbar
+ *            sliding in and out does not change: nothing jumps when it does.
  *   reduced  prefers-reduced-motion: no pinning, loops held still, the
  *            finished layout drawn: phone in place, headline in.
  *
@@ -112,43 +117,99 @@ export function CheckoutScene() {
   const rootRef = useRef<HTMLElement>(null)
   const reduced = useCommerceReducedMotion()
 
-  /* The fallback for browsers without scroll-driven animations. */
+  /*
+   * The fallback for browsers without scroll-driven animations (iOS Safari
+   * before 26, Firefox). The attribute starts the very same CSS animations,
+   * paused (scrollCss, from SCROLL_STEPS); here, once per frame of a scroll and only
+   * while the scene is near the screen, each one is seeked to its place on
+   * the scroll. A seek restyles that one element and nothing else (no
+   * inherited custom property, so the 120 elements of the phone's checkout
+   * are never restyled), transform and opacity only, so the frame is a
+   * composite. The scroll is read from scrollY against the track's place,
+   * which is measured when the scene comes near, on resize and when a scroll
+   * settles, never in a frame. Every distance is in svh and vh, which do not
+   * change as a phone's toolbar slides away, so nothing jumps when it does.
+   */
   useEffect(() => {
     const track = trackRef.current
     const root = rootRef.current
-    if (!track || !root) return
+    const stage = track?.firstElementChild as HTMLElement | null | undefined
+    if (!track || !root || !stage) return
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    if (typeof CSS !== "undefined" && CSS.supports?.("animation-timeline: view()")) return
+    /* A browser with view timelines but not these range names takes this path too (the CSS asks for both). */
+    if (typeof CSS !== "undefined" && CSS.supports?.("animation-timeline: view()") && CSS.supports(`animation-range: ${SCENE_RANGE_PROBE}`)) return
     root.setAttribute("data-cmc-js", "")
+    const runs: { a: Animation; from: number; to: number; t: number }[] = []
+    /* The animations exist once the attribute's rules apply (getAnimations brings style up to date); asked again if the stylesheet was late. */
+    const collect = () => {
+      for (const step of SCROLL_STEPS) {
+        for (const el of track.querySelectorAll(step.el)) {
+          for (const a of el.getAnimations()) {
+            if ((a as CSSAnimation).animationName === step.kf) runs.push({ a, from: step.from, to: step.to, t: -1 })
+          }
+        }
+      }
+    }
+    collect()
+    let top = 0
+    let pin = 1
+    let tall = 1
     let frame = 0
-    let active = false
-    let vh = innerHeight
+    let settle = 0
+    let near = false
+    const measure = () => {
+      if (!runs.length) collect()
+      const r = track.getBoundingClientRect()
+      top = r.top + scrollY
+      tall = Math.max(1, stage.getBoundingClientRect().height)
+      pin = Math.max(1, r.height - tall)
+    }
+    const at = (u: number) => (u < 0 ? u * tall : u <= 1 ? u * pin : pin + (u - 1) * tall)
     const paint = () => {
       frame = 0
-      const r = track.getBoundingClientRect()
-      const span = Math.max(1, r.height - vh)
-      const p = Math.max(-1, Math.min(1.6, -r.top / span))
-      track.style.setProperty("--cmc-p", p.toFixed(4))
+      const pos = scrollY - top
+      for (const run of runs) {
+        const a0 = at(run.from)
+        const t = Math.round(Math.min(1, Math.max(0, (pos - a0) / (at(run.to) - a0))) * 1000)
+        if (t !== run.t) {
+          run.t = t
+          run.a.currentTime = t
+        }
+      }
     }
     const schedule = () => {
-      if (active && !frame) frame = requestAnimationFrame(paint)
+      if (near && !frame) frame = requestAnimationFrame(paint)
     }
-    const resize = () => {
-      vh = innerHeight
+    const onScroll = () => {
+      if (!near) return
+      schedule()
+      clearTimeout(settle)
+      settle = window.setTimeout(() => near && (measure(), schedule()), 180)
+    }
+    const onResize = () => {
+      if (near) measure()
       schedule()
     }
-    const io = new IntersectionObserver((e) => {
-      active = e[e.length - 1].isIntersecting
-      schedule()
-    })
+    const io = new IntersectionObserver(
+      (e) => {
+        near = e[e.length - 1].isIntersecting
+        measure()
+        /* Entering or leaving, one paint puts every step where this scroll says (a fling past the scene leaves nothing half way). */
+        paint()
+      },
+      { rootMargin: "50% 0px" },
+    )
+    measure()
+    paint()
     io.observe(track)
-    addEventListener("scroll", schedule, { passive: true })
-    addEventListener("resize", resize)
+    addEventListener("scroll", onScroll, { passive: true })
+    addEventListener("resize", onResize, { passive: true })
     return () => {
       cancelAnimationFrame(frame)
+      clearTimeout(settle)
       io.disconnect()
-      removeEventListener("scroll", schedule)
-      removeEventListener("resize", resize)
+      removeEventListener("scroll", onScroll)
+      removeEventListener("resize", onResize)
       root.removeAttribute("data-cmc-js")
     }
   }, [trackRef])
@@ -176,7 +237,7 @@ export function CheckoutScene() {
                         className="cmc-soft"
                         src={`${IMG}/float-${f.id}-blur.webp`}
                         alt=""
-                        loading="lazy"
+                        loading={f.m ? "eager" : "lazy"}
                         decoding="async"
                         width={f.obj[0] + BLUR_PAD * 2}
                         height={f.obj[1] + BLUR_PAD * 2}
@@ -187,7 +248,7 @@ export function CheckoutScene() {
                           height: `${((f.obj[1] + BLUR_PAD * 2) / f.obj[1]) * 100}%`,
                         }}
                       />
-                      <img className="cmc-sharp" src={`${IMG}/float-${f.id}.webp`} alt="" loading="lazy" decoding="async" width={f.obj[0] * 2} height={f.obj[1] * 2} />
+                      <img className="cmc-sharp" src={`${IMG}/float-${f.id}.webp`} alt="" loading={f.m ? "eager" : "lazy"} decoding="async" width={f.obj[0] * 2} height={f.obj[1] * 2} />
                     </div>
                   </div>
                 </div>
@@ -202,7 +263,7 @@ export function CheckoutScene() {
           </div>
 
           <div className="cmc-phone-wrap">
-            <Phone label="A Storelib checkout on a phone (an iPhone): Golden Hour presets by Maya Ellis Studio, $19.00, paid with Apple Pay." />
+            <Phone eager label="A Storelib checkout on a phone (an iPhone): Golden Hour presets by Maya Ellis Studio, $19.00, paid with Apple Pay." />
           </div>
         </div>
       </div>
@@ -215,7 +276,7 @@ export function CheckoutScene() {
 /* ── The phone: a modern iPhone, drawn in em so it scales ─────────────── */
 
 /** The iPhone: titanium band, black border, Dynamic Island, the status bar, Storelib's checkout, the Apple Pay sheet. */
-function Phone({ label }: { label?: string }) {
+function Phone({ label, eager = false }: { label?: string; eager?: boolean }) {
   return (
     <div className="cmc-phone" role={label ? "img" : undefined} aria-label={label}>
       <span className="cmc-key cmc-key-act" />
@@ -225,7 +286,7 @@ function Phone({ label }: { label?: string }) {
       <div className="cmc-bezel">
         <div className="cmc-screen" aria-hidden="true">
           <div className="cmc-ui">
-            <CheckoutUI wallet="apple" />
+            <CheckoutUI wallet="apple" eager={eager} />
             <div className="cmc-status">
               <span className="cmc-time">9:41</span>
               <span className="cmc-icons">
@@ -303,7 +364,7 @@ function Phone({ label }: { label?: string }) {
  * and checkout-window.tsx draw it, in em (1em = 16px of the real window): on
  * a phone it fills the screen, in a browser it is the 520px window.
  */
-function CheckoutUI({ wallet, desktop = false, cursor = false, only }: { wallet: "apple" | "google"; desktop?: boolean; cursor?: boolean; only?: "form" | "done" }) {
+function CheckoutUI({ wallet, desktop = false, cursor = false, only, eager = false }: { wallet: "apple" | "google"; desktop?: boolean; cursor?: boolean; only?: "form" | "done"; eager?: boolean }) {
   return (
     <div className="ck" data-desk={desktop || undefined} data-only={only}>
       <div className="ck-head">
@@ -314,7 +375,7 @@ function CheckoutUI({ wallet, desktop = false, cursor = false, only }: { wallet:
             </svg>
           </span>
         </div>
-        <img className="ck-mark" src={`${IMG}/golden-cover.webp`} alt="" loading="lazy" decoding="async" width={120} height={120} />
+        <img className="ck-mark" src={`${IMG}/golden-cover.webp`} alt="" loading={eager ? "eager" : "lazy"} decoding="async" width={120} height={120} />
         <div className="ck-title">Golden Hour presets</div>
         <div className="ck-sub">Maya Ellis Studio</div>
       </div>
@@ -432,6 +493,20 @@ function Cursor({ className }: { className: string }) {
 
 /* ── The dark tab cards ──────────────────────────────────────────────── */
 
+/**
+ * Each tab's mock, made once: the same element every render, so switching a
+ * tab (by hand or every AUTO_MS) re-renders two panels' attributes, never the
+ * five mocks' 600 elements; the frame of a switch is only the one panel that
+ * shows.
+ */
+const VIS: Record<TabId, React.ReactElement> = {
+  convert: <VisConvert />,
+  tap: <VisTap />,
+  currency: <VisCurrency />,
+  recover: <VisRecover />,
+  paid: <VisPaid />,
+}
+
 function CheckoutTabs({ reduced }: { reduced: boolean }) {
   const [cardsRef, live] = useCommerceLive<HTMLDivElement>("0px 0px")
   const [active, setActive] = useState<TabId>("convert")
@@ -502,9 +577,7 @@ function CheckoutTabs({ reduced }: { reduced: boolean }) {
               <p>{t.body}</p>
             </div>
             <div className="cmc-vis" aria-hidden="true">
-              <div className="cmc-vis-in">
-                {t.id === "convert" ? <VisConvert /> : t.id === "tap" ? <VisTap /> : t.id === "currency" ? <VisCurrency /> : t.id === "recover" ? <VisRecover /> : <VisPaid />}
-              </div>
+              <div className="cmc-vis-in">{VIS[t.id]}</div>
             </div>
           </div>
         ))}
@@ -752,15 +825,17 @@ function VisPaid() {
 
 /**
  * ONE LAP OF THE RING, BAKED. Each product rides the same keyframes, a
- * negative delay putting it at its own place on the lap: 40 points of an
- * ellipse (x = -cos, y = sin, so the front of the ring is its lower half),
- * the depth that goes with each point (smaller and dimmer at the back), and a
- * slow 3D turn, five to a lap, so the loop closes on itself with no seam. One
- * animated layer per product moves it, and two cross fade its sharp and its
- * pre-blurred file with the depth: compositor work only, little for the main
- * thread to update. Every value is transform or opacity.
+ * negative delay putting it at its own place on the lap: 60 points of an
+ * ellipse (x = -cos, y = sin, so the front of the ring is its lower half) and
+ * the depth that goes with each point (smaller and dimmer at the back), so
+ * the loop closes on itself with no seam. Two more loops cross fade the
+ * product's sharp and its pre-blurred file with the depth. The lap is a plain
+ * move and scale (no rotation in it: a turn baked into 60 straight segments
+ * ticks at every point); the slow 3D sway is a loop of its own on the object
+ * (cmc-sway), two keyframes eased in and out, so it is perfectly smooth.
+ * Compositor work only, every value transform or opacity, and no script.
  */
-const LAP_POINTS = 40
+const LAP_POINTS = 60
 function orbitKeyframes(): string {
   const f = (v: number) => String(+v.toFixed(3))
   let lap = ""
@@ -771,33 +846,93 @@ function orbitKeyframes(): string {
     const x = -Math.cos(t)
     const y = Math.sin(t)
     const d = (1 + y) / 2
-    const turn = t * 5
     const at = `${f((i / LAP_POINTS) * 100)}%`
-    lap += `${at}{transform:perspective(900px) translate3d(calc(var(--rk) * ${f(x)}),calc(var(--ry) * ${f(y)} + var(--oy)),0) scale(${f(0.6 + 0.46 * d)}) rotateX(${f(11 * Math.sin(turn + 1.3))}deg) rotateY(${f(24 * Math.sin(turn))}deg) rotateZ(calc(var(--r) * ${f(Math.cos(turn))}));opacity:${f(0.42 + 0.58 * d)}}`
+    lap += `${at}{transform:translate3d(calc(var(--rk) * ${f(x)}),calc(var(--ry) * ${f(y)} + var(--oy)),0) scale(${f(0.6 + 0.46 * d)});opacity:${f(0.42 + 0.58 * d)}}`
     sharp += `${at}{opacity:${f(Math.min(1, d * 2))}}`
     soft += `${at}{opacity:${f(Math.min(1, Math.max(0, (0.62 - d) / 0.37)))}}`
   }
-  return `@keyframes cmc-lap{${lap}}\n@keyframes cmc-focus-sharp{${sharp}}\n@keyframes cmc-focus-soft{${soft}}\n`
+  return `@keyframes cmc-lap{${lap}}\n@keyframes cmc-focus-sharp{${sharp}}\n@keyframes cmc-focus-soft{${soft}}\n@keyframes cmc-sway{from{transform:perspective(800px) rotateX(8deg) rotateY(-22deg) rotateZ(calc(var(--r) * -.8))}to{transform:perspective(800px) rotateX(-8deg) rotateY(22deg) rotateZ(calc(var(--r) * .8))}}\n`
 }
+
+/**
+ * THE SCROLL, AS ONE TABLE. Where each scroll-linked move starts and ends, in
+ * one unit of scroll, u: -1 when the scene's top reaches the bottom of the
+ * screen, 0 when it pins (its top at the top of the screen), 1 when it lets
+ * go (SCENE_PIN_VH later), 2 when its bottom has left at the top. Both paths
+ * read it: the CSS one as animation ranges on the scene's view timeline, the
+ * fallback as the place each paused animation is seeked to. The pinned part
+ * is measured from the scene's top (exit-crossing, in vh), never from the
+ * bottom of the screen, so a phone's toolbar sliding in or out moves nothing.
+ *
+ *   -1 .. 0   the scene arrives already composed: headline and phone in
+ *             place; the phone, a little low and leaning back, stands up
+ *             and settles as the stage reaches the top
+ *    0 .. 1   Pay is pressed, the Apple Pay sheet comes up, Face ID, Done,
+ *             the sheet goes, Payment complete; then a short hold
+ *   -1 .. 2   the orbit drifts against the scroll the whole way (depth)
+ * Every step is transform or opacity, and plays backwards as cleanly as it
+ * plays forwards, because each frame is only a function of the scroll.
+ */
+const SCENE_PIN_VH = 150
+/** A range the scene's CSS uses, asked of the browser before it is trusted with the scroll (CSS @supports and the fallback's check). */
+const SCENE_RANGE_PROBE = "exit-crossing 1vh"
+const SCROLL_STEPS: readonly { el: string; kf: string; from: number; to: number; ease?: string }[] = [
+  { el: ".cmc-floats", kf: "cmc-par", from: -1, to: 2 },
+  { el: ".cmc-orbit", kf: "cmc-orbit", from: -1, to: 0 },
+  { el: ".cmc-orbit", kf: "cmc-dim", from: 0.08, to: 0.3 },
+  { el: ".cmc-title", kf: "cmc-copy", from: -1, to: 0 },
+  { el: ".cmc-stage .cmc-phone", kf: "cmc-phone", from: -1, to: 0, ease: "cubic-bezier(.3,.6,.35,1)" },
+  { el: ".cmc-stage .ck-pay", kf: "cmc-press", from: 0.03, to: 0.11 },
+  { el: ".cmc-stage .cmc-scrim", kf: "cmc-scrim", from: 0.07, to: 0.62 },
+  { el: ".cmc-stage .cmc-sheet-in", kf: "cmc-sheet-up", from: 0.08, to: 0.22, ease: "cubic-bezier(.3,.6,.4,1)" },
+  { el: ".cmc-stage .cmc-dbl", kf: "cmc-dbl", from: 0.18, to: 0.34 },
+  { el: ".cmc-stage .cmc-fid", kf: "cmc-fade-out", from: 0.3, to: 0.34 },
+  { el: ".cmc-stage .cmc-sheet-ok", kf: "cmc-pop", from: 0.32, to: 0.37 },
+  { el: ".cmc-stage .cmc-sheet", kf: "cmc-sheet-down", from: 0.44, to: 0.56, ease: "cubic-bezier(.6,0,.7,.4)" },
+  { el: ".cmc-stage .ck-form", kf: "cmc-fade-out", from: 0.5, to: 0.57 },
+  { el: ".cmc-stage .ck-done", kf: "cmc-done", from: 0.54, to: 0.68, ease: "cubic-bezier(.3,.6,.4,1)" },
+]
+
+/** A place on the scroll (u) as an animation range offset on the scene's view timeline. */
+function rangeAt(u: number): string {
+  const n = (v: number) => String(+v.toFixed(2))
+  if (u < 0) return `entry ${n((u + 1) * 100)}%`
+  if (u <= 1) return `exit-crossing ${n(u * SCENE_PIN_VH)}vh`
+  return `exit-crossing calc(${SCENE_PIN_VH}vh + ${n((u - 1) * 100)}svh)`
+}
+
+/** The table as CSS: on the view timeline where the browser has one, paused (seeked by the fallback) where it has not. */
+function scrollCss(): { timeline: string; fallback: string } {
+  const byEl = new Map<string, (typeof SCROLL_STEPS)[number][]>()
+  for (const step of SCROLL_STEPS) byEl.set(step.el, [...(byEl.get(step.el) ?? []), step])
+  let timeline = ""
+  let fallback = ""
+  for (const [el, steps] of byEl) {
+    timeline += `${el}{animation:${steps.map((s) => `${s.kf} ${s.ease ?? "linear"} both`).join(",")};animation-timeline:${steps.map(() => "--cmc").join(",")};animation-range:${steps.map((s) => `${rangeAt(s.from)} ${rangeAt(s.to)}`).join(",")}}\n`
+    fallback += `.cmc[data-cmc-js] ${el}{animation:${steps.map((s) => `${s.kf} 1s ${s.ease ?? "linear"} both paused`).join(",")}}\n`
+  }
+  return { timeline, fallback }
+}
+const SCROLL = scrollCss()
 
 /* The scene: stage, orbit, headline, phone placement, scroll choreography. */
 const SCENE_CSS = `
 .cmc{position:relative;background:#000;color:#fff;border-radius:clamp(28px,4vw,56px);overflow:clip;padding-block:0!important;isolation:isolate}
-.cmc[data-story-section] > .cmc-track.cmc-track{position:relative;max-width:none;margin:0;padding:0;height:calc(100svh + 170vh);view-timeline-name:--cmc;--cmc-p:1}
+.cmc[data-story-section] > .cmc-track.cmc-track{position:relative;max-width:none;margin:0;padding:0;height:calc(100svh + ${SCENE_PIN_VH}vh);view-timeline-name:--cmc}
 .cmc-stage{position:sticky;top:0;height:100svh;overflow:hidden;
   --hd:60px;--pw:min(84vw,360px,calc((100svh - 200px) / 2.07));
-  --dx:0px;--sy:15svh;--s0:1.1;--ocx:0px;--ocy:7svh;
-  --rx:50vw;--ry:38svh;--lap:64s}
+  --dx:0px;--sy:7svh;--s0:.93;--tilt:16deg;--ocy:7svh;
+  --rx:50vw;--ry:38svh;--lap:64s;--sw:7s}
 .cmc-floats{position:absolute;inset:0;pointer-events:none}
-.cmc-orbit{position:absolute;left:50%;top:calc(50% + var(--ocy));width:0;height:0}
+.cmc-orbit{position:absolute;left:calc(50% + var(--dx));top:calc(50% + var(--ocy));width:0;height:0}
 .cmc-o{position:absolute;left:0;top:0;width:var(--w);transform:translate(-50%,-50%)}
 .cmc-o{--rk:calc(var(--rx) * var(--k))}
 .cmc-lap,.cmc-sharp,.cmc-soft{animation:cmc-lap var(--lap) linear infinite both;animation-delay:calc(var(--ph) * var(--lap) * -1);animation-play-state:paused}
-.cmc-obj{position:relative}
+.cmc-obj{position:relative;animation:cmc-sway var(--sw) cubic-bezier(.45,0,.55,1) infinite alternate both;animation-delay:calc(var(--ph) * var(--sw) * -2);animation-play-state:paused}
 .cmc-obj img{position:absolute;display:block;max-width:none}
 .cmc-sharp{inset:0;width:100%;height:100%;animation-name:cmc-focus-sharp}
 .cmc-soft{animation-name:cmc-focus-soft}
-.cmc-track[data-commerce-live] .cmc-lap,.cmc-track[data-commerce-live] .cmc-sharp,.cmc-track[data-commerce-live] .cmc-soft{animation-play-state:running}
+.cmc-track[data-commerce-live] .cmc-lap,.cmc-track[data-commerce-live] .cmc-obj,.cmc-track[data-commerce-live] .cmc-sharp,.cmc-track[data-commerce-live] .cmc-soft{animation-play-state:running}
 ${orbitKeyframes()}
 
 .cmc-copy{position:absolute;z-index:2;left:20px;right:20px;top:calc(var(--hd) + clamp(14px,3svh,32px));text-align:center}
@@ -805,7 +940,7 @@ ${orbitKeyframes()}
 .cmc-phone-wrap{position:absolute;z-index:3;left:calc(50% + var(--dx));top:calc(100% - 22px - var(--pw) * 1.035);transform:translate(-50%,-50%)}
 
 @media (min-width:900px){
-  .cmc-stage{--hd:68px;--pw:min(372px,calc((100svh - 150px) / 2.07));--dx:min(18vw,270px);--sy:13svh;--s0:1.12;--ocx:var(--dx);--ocy:calc(var(--hd) / 2);--rx:min(24vw,345px);--ry:31svh}
+  .cmc-stage{--hd:68px;--pw:min(372px,calc((100svh - 150px) / 2.07));--dx:min(18vw,270px);--sy:9svh;--ocy:calc(var(--hd) / 2);--rx:min(24vw,345px);--ry:31svh}
   .cmc-copy{left:max(var(--landing-gutter,48px),calc(50% - 620px));right:calc(50% - var(--dx) + var(--pw) / 2 + clamp(40px,5vw,88px));top:calc(50% + var(--hd) / 2);transform:translateY(-50%);text-align:left}
   .cmc-title{margin:0;font-size:clamp(42px,4.5vw,72px)}
   .cmc-phone-wrap{top:calc(50% + var(--hd) / 2)}
@@ -816,29 +951,16 @@ ${orbitKeyframes()}
   .cmc-lap,.cmc-sharp,.cmc-soft{animation-delay:calc(var(--phm) * var(--lap) * -1)}
 }
 
-/* Scroll-driven, where the browser runs it on the compositor. */
+/* Scroll-driven, where the browser runs it on the compositor; the same steps paused for the fallback to seek. */
 @media (prefers-reduced-motion:no-preference){
-  @supports (animation-timeline:view()){
-    .cmc-floats{animation:cmc-par linear both;animation-timeline:--cmc;animation-range:cover 0% cover 100%}
-    .cmc-orbit{animation:cmc-orbit linear both,cmc-dim linear both;animation-timeline:--cmc,--cmc;animation-range:entry 55% contain 24%,contain 14% contain 30%}
-    .cmc-phone{animation:cmc-phone linear both;animation-timeline:--cmc;animation-range:entry 55% contain 24%}
-    .cmc-title{animation:cmc-copy linear both;animation-timeline:--cmc;animation-range:contain 2% contain 22%}
-    .cmc-stage .ck-pay{animation:cmc-press linear both;animation-timeline:--cmc;animation-range:contain 28% contain 34%}
-    .cmc-stage .cmc-scrim{animation:cmc-scrim linear both;animation-timeline:--cmc;animation-range:contain 32% contain 64%}
-    .cmc-stage .cmc-sheet-in{animation:cmc-sheet-up linear both;animation-timeline:--cmc;animation-range:contain 32% contain 40%}
-    .cmc-stage .cmc-sheet{animation:cmc-sheet-down linear both;animation-timeline:--cmc;animation-range:contain 56% contain 63%}
-    .cmc-stage .cmc-dbl{animation:cmc-dbl linear both;animation-timeline:--cmc;animation-range:contain 38% contain 50%}
-    .cmc-stage .cmc-fid{animation:cmc-fade-out linear both;animation-timeline:--cmc;animation-range:contain 46% contain 49%}
-    .cmc-stage .cmc-sheet-ok{animation:cmc-pop linear both;animation-timeline:--cmc;animation-range:contain 48% contain 52%}
-    .cmc-stage .ck-form{animation:cmc-fade-out linear both;animation-timeline:--cmc;animation-range:contain 58% contain 63%}
-    .cmc-stage .ck-done{animation:cmc-done linear both;animation-timeline:--cmc;animation-range:contain 61% contain 70%}
-  }
-}
+  @supports (animation-timeline:view()) and (animation-range:${SCENE_RANGE_PROBE}){
+${SCROLL.timeline}  }
+${SCROLL.fallback}}
 @keyframes cmc-par{from{transform:translate3d(0,5vh,0)}to{transform:translate3d(0,-9vh,0)}}
-@keyframes cmc-orbit{from{transform:translate3d(0,calc(var(--sy) * .4),0)}to{transform:translate3d(var(--ocx),0,0)}}
+@keyframes cmc-orbit{from{transform:translate3d(0,calc(var(--sy) * .5),0)}to{transform:translate3d(0,0,0)}}
 @keyframes cmc-dim{from{opacity:1}to{opacity:.78}}
-@keyframes cmc-phone{from{transform:translate3d(calc(var(--dx) * -1),var(--sy),0) scale(var(--s0))}to{transform:translate3d(0,0,0) scale(1)}}
-@keyframes cmc-copy{from{opacity:0;transform:translate3d(0,28px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes cmc-phone{from{transform:perspective(1600px) translate3d(0,var(--sy),0) rotateX(var(--tilt)) scale(var(--s0))}to{transform:perspective(1600px) translate3d(0,0,0) rotateX(0deg) scale(1)}}
+@keyframes cmc-copy{from{transform:translate3d(0,calc(var(--sy) * .6),0)}to{transform:translate3d(0,0,0)}}
 @keyframes cmc-fade-out{from{opacity:1}to{opacity:0}}
 @keyframes cmc-press{0%,100%{transform:scale(1)}50%{transform:scale(.96)}}
 @keyframes cmc-scrim{0%{opacity:0}20%,80%{opacity:1}100%{opacity:0}}
@@ -847,21 +969,6 @@ ${orbitKeyframes()}
 @keyframes cmc-dbl{0%{opacity:0;transform:translate3d(.6em,0,0)}25%,75%{opacity:1;transform:translate3d(0,0,0)}100%{opacity:0;transform:translate3d(0,0,0)}}
 @keyframes cmc-pop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
 @keyframes cmc-done{from{opacity:0;transform:translate3d(0,.8em,0) scale(.98)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
-
-/* The same scene from one custom property, for browsers without scroll timelines (p: 0 when the stage pins, 1 when it lets go). */
-.cmc[data-cmc-js] .cmc-track{--a:clamp(0,calc((var(--cmc-p) + .26) / .5),1);--h:clamp(0,calc((var(--cmc-p) - .02) / .2),1);--dm:clamp(0,calc((var(--cmc-p) - .14) / .16),1);--pr:clamp(0,calc(1 - max(var(--cmc-p) - .31,.31 - var(--cmc-p)) / .03),1);--u:clamp(0,calc((var(--cmc-p) - .32) / .08),1);--sc:clamp(0,min(calc((var(--cmc-p) - .32) / .06),calc((.64 - var(--cmc-p)) / .06)),1);--k:clamp(0,calc((var(--cmc-p) - .48) / .04),1);--fi:clamp(0,calc((var(--cmc-p) - .46) / .03),1);--o:clamp(0,calc((var(--cmc-p) - .56) / .07),1);--x:clamp(0,calc((var(--cmc-p) - .58) / .05),1);--dn:clamp(0,calc((var(--cmc-p) - .61) / .09),1)}
-.cmc[data-cmc-js] .cmc-phone{transform:translate3d(calc((1 - var(--a)) * var(--dx) * -1),calc((1 - var(--a)) * var(--sy)),0) scale(calc(1 + (1 - var(--a)) * (var(--s0) - 1)))}
-.cmc[data-cmc-js] .cmc-orbit{transform:translate3d(calc(var(--a) * var(--ocx)),calc((1 - var(--a)) * var(--sy) * .4),0);opacity:calc(1 - var(--dm) * .22)}
-.cmc[data-cmc-js] .cmc-floats{transform:translate3d(0,calc(2vh - var(--cmc-p) * 7vh),0)}
-.cmc[data-cmc-js] .cmc-title{opacity:var(--h);transform:translate3d(0,calc((1 - var(--h)) * 28px),0)}
-.cmc[data-cmc-js] .cmc-stage .ck-pay{transform:scale(calc(1 - var(--pr) * .04))}
-.cmc[data-cmc-js] .cmc-stage .cmc-scrim{opacity:var(--sc)}
-.cmc[data-cmc-js] .cmc-stage .cmc-sheet-in{transform:translate3d(0,calc((1 - var(--u)) * 108%),0)}
-.cmc[data-cmc-js] .cmc-stage .cmc-fid{opacity:calc(1 - var(--fi))}
-.cmc[data-cmc-js] .cmc-stage .cmc-sheet-ok{opacity:var(--k)}
-.cmc[data-cmc-js] .cmc-stage .cmc-sheet{transform:translate3d(0,calc(var(--o) * 108%),0)}
-.cmc[data-cmc-js] .cmc-stage .ck-form{opacity:calc(1 - var(--x))}
-.cmc[data-cmc-js] .cmc-stage .ck-done{opacity:var(--dn);transform:translate3d(0,calc((1 - var(--dn)) * .8em),0)}
 `
 
 /* The iPhone and the checkout window inside it (and inside the browser mocks). */
@@ -957,14 +1064,15 @@ const TABS_CSS = `
 .cmc-tab-fill[data-run]{animation:cmc-fill linear both}
 @keyframes cmc-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .cmc-panels{display:grid;margin-top:12px}
-.cmc-panel{grid-area:1/1;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(24px,3.5vw,56px);align-items:center;padding:clamp(28px,3.6vw,52px);border-radius:32px;background:#141416;border:1px solid rgba(255,255,255,.07);opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s linear .35s}
-.cmc-panel[data-on]{opacity:1;visibility:visible;transition:opacity .45s ease .05s,visibility 0s}
+.cmc-panel{grid-area:1/1;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(24px,3.5vw,56px);align-items:center;padding:clamp(28px,3.6vw,52px);border-radius:32px;background:#141416;border:1px solid rgba(255,255,255,.07);opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s linear .2s}
+/* Wave 14: the closing panel is gone (.2s) before the opening one is more than faint (from .12s), so two headlines never stack up mid-switch. */
+.cmc-panel[data-on]{opacity:1;visibility:visible;transition:opacity .36s ease .12s,visibility 0s}
 .cmc-panel h3{margin:0;font-size:clamp(26px,3vw,42px);font-weight:400;line-height:1.1;letter-spacing:-.035em;color:#fff;text-wrap:balance}
 .cmc-panel p{margin:16px 0 0;max-width:44ch;font-size:clamp(15.5px,1.25vw,18px);line-height:1.6;color:#a1a1aa}
 .cmc-vis{position:relative;aspect-ratio:4/3;border-radius:24px;background:radial-gradient(120% 90% at 85% 0%,rgba(124,58,237,.3),transparent 60%),radial-gradient(100% 80% at 0% 100%,rgba(79,70,229,.2),transparent 60%),#0c0c0f;overflow:hidden;container-type:inline-size}
 .cmc-vis-in{position:absolute;inset:0;font-size:calc(100cqw / 48);color:#fff;line-height:1.35}
 /* Wave 13 perf: a panel's mock is drawn only while its panel shows (and through its fade out): the four hidden mocks cost the page their style, layout and 80 font sizes the moment the section was laid out, 300ms at 4x CPU. The box keeps its size (aspect-ratio), so nothing moves. */
-.cmc-panel:not([data-on]) .cmc-vis-in{content-visibility:hidden;transition:content-visibility 0s linear .35s allow-discrete}
+.cmc-panel:not([data-on]) .cmc-vis-in{content-visibility:hidden;transition:content-visibility 0s linear .2s allow-discrete}
 .cmc-foot{margin:16px 4px 0;font-size:13px;color:#71717a}
 
 /* Desktop browser */
@@ -1165,8 +1273,8 @@ const STILL_CSS = `
 @media (prefers-reduced-motion:reduce){
   .cmc[data-story-section] > .cmc-track.cmc-track{height:auto}
   .cmc-stage{position:relative;height:max(100svh,calc(var(--pw) * 2.07 + 200px))}
-  .cmc-lap,.cmc-sharp,.cmc-soft,.cmc-track[data-commerce-live] .cmc-lap,.cmc-track[data-commerce-live] .cmc-sharp,.cmc-track[data-commerce-live] .cmc-soft{animation-play-state:paused!important}
-  .cmc-orbit{opacity:.7;transform:translate3d(var(--ocx),0,0)}
+  .cmc-lap,.cmc-obj,.cmc-sharp,.cmc-soft,.cmc-track[data-commerce-live] .cmc-lap,.cmc-track[data-commerce-live] .cmc-obj,.cmc-track[data-commerce-live] .cmc-sharp,.cmc-track[data-commerce-live] .cmc-soft{animation-play-state:paused!important}
+  .cmc-orbit{opacity:.7}
   .cmv-cyc,.cmv-hl,.cmc-panel{animation:none!important;transition:none!important}
 }
 `
