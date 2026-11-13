@@ -15,13 +15,14 @@ export const PANEL_UNTRAP = "data-storelib-untrap"
  * every site). `panels` is the selector list of the three panel hooks.
  */
 export function ownPanelCss(root: string, panels: readonly string[]): string {
-  const any = `:is(${panels.join(",")})`
+  /* Each selector written out under the root (no :is() list): every rule of the page's stylesheet starts at the page root, and the tests that hold it to that read a selector comma by comma. */
+  const each = (suffix: string) => panels.map((p) => `${root} ${p}${suffix}`).join(",")
   return [
-    `${root} ${any}:not([${PANEL_SHOWN}]){display:none!important;}`,
+    `${each(`:not([${PANEL_SHOWN}])`)}{display:none!important;}`,
     /* In the top layer the browser's own popover look is taken off again, so the panel is drawn by its section's CSS alone. */
-    `:where(${root} ${any}[popover]){inset:auto;margin:0;border:0;padding:0;width:auto;height:auto;overflow:visible;color:inherit;background-color:transparent;}`,
-    `:where(${root} ${any}){overscroll-behavior:contain;}`,
-    `${root} ${any}[popover]::backdrop{display:none;}`,
-    `[${PANEL_UNTRAP}]{transform:none!important;translate:none!important;rotate:none!important;scale:none!important;perspective:none!important;filter:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;contain:none!important;content-visibility:visible!important;will-change:auto!important;transition:none!important;}`,
+    `:where(${each("[popover]")}){inset:auto;margin:0;border:0;padding:0;width:auto;height:auto;overflow:visible;color:inherit;background-color:transparent;}`,
+    `:where(${each("")}){overscroll-behavior:contain;}`,
+    `${each("[popover]::backdrop")}{display:none;}`,
+    `${root}[${PANEL_UNTRAP}],${root} [${PANEL_UNTRAP}]{transform:none!important;translate:none!important;rotate:none!important;scale:none!important;perspective:none!important;filter:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;contain:none!important;content-visibility:visible!important;will-change:auto!important;transition:none!important;}`,
   ].join("\n")
 }

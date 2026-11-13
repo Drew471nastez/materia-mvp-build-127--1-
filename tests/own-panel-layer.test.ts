@@ -91,7 +91,7 @@ async function main() {
   section("1. The stylesheet")
   const css = chromePlatformCss("[data-storelib-theme]")
   check("every site's stylesheet carries the panel rules", css.includes(ownPanelCss("[data-storelib-theme]", ["[data-storelib-cart-panel]", "[data-storelib-search-panel]", "[data-storelib-menu-panel]"])))
-  check("a panel the page has not marked shown is not drawn, whatever its own CSS says", new RegExp(`:not\\(\\[${PANEL_SHOWN}\\]\\)\\{display:none!important;\\}`).test(css))
+  check("a panel the page has not marked shown is not drawn, whatever its own CSS says", new RegExp(`\\[data-storelib-menu-panel\\]:not\\(\\[${PANEL_SHOWN}\\]\\)\\{display:none!important;\\}`).test(css))
   check("the browser's popover look is taken off in :where(), so the section's CSS always wins", /:where\(.*\[popover\]\)\{inset:auto;margin:0;border:0;padding:0;/.test(css))
 
   section("2. In a real browser")
