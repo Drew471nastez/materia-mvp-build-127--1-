@@ -33,6 +33,24 @@ export const LARGE_BYTES = 4 * 1024 * 1024
 /** The longest the CDN keeps a picture before asking storage again. */
 export const CDN_MAX_S = 86_400
 
+/*
+  NEVER A PAGE ON STORELIB.COM (round AW). /media/ is Storelib's own origin,
+  where the session cookie lives and JavaScript can read it (lib/supabase/
+  server.ts), and whatever type storage holds a file under is the type it is
+  served as. A picture bucket that takes only pictures keeps that safe; one
+  whose type list was never set (supabase/sql/run-now/16_storage_buckets.sql
+  says when the SQL editor cannot set it, and part 282 leaves a missing list
+  missing) would hand back an SVG or an XML file as a document, and a script
+  in it would run as storelib.com: every signed in visitor's session.
+
+  `sandbox` makes any such answer inert as a page: no script, no form, an
+  origin of its own. A picture, a video or a font drawn by a page is not
+  touched (a response's own policy only governs it as a page). vercel.json
+  sends the same for every /media/ address but a PDF's, which Chrome and
+  Safari will not show inside a sandbox; here the route serves pictures only.
+*/
+export const MEDIA_DOCUMENT_POLICY = "sandbox"
+
 /* Not content-length: fetch hands the body back decoded, so the stored length could be the compressed one. */
 const KEEP = ["content-type", "cache-control", "etag", "last-modified", "content-disposition"]
 const SEGMENT = /^[^/\\]+$/
@@ -76,6 +94,7 @@ async function handle(req: Request, ctx: { params: Promise<{ path: string[] }> }
     if (v) headers.set(h, v)
   }
   headers.set("X-Content-Type-Options", "nosniff")
+  headers.set("Content-Security-Policy", MEDIA_DOCUMENT_POLICY)
   if (upstream.status === 200) headers.set("Vercel-CDN-Cache-Control", cdnRuleFor(upstream.headers.get("cache-control")))
   else if (upstream.status !== 304) {
     /* A missing or failing file is never held: an upload right after must show. */
