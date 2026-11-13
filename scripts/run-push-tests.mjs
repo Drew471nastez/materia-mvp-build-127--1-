@@ -30,6 +30,8 @@ execFileSync(process.execPath, ["scripts/check-unbound-names.mjs"], { stdio: "in
 const SUITES = [
   /* Round AU: the unbound-name gate reads a tsc log right (scripts/check-unbound-names.mjs) and the two crashes it found are fixed. */
   "tests/unbound-names-au.test.ts",
+  /* Round AW: a timer the instance slept through is asked again (the false "no answer in 3000ms"); a new AI website is counted as one however it is asked for; a handed over business drops the founder's Google Calendar; a booking form prices its own store's product only */
+  "tests/platform-reliability-aw.test.ts",
   /* Round AV: a seller Stripe has not approved transfers-only accounts for is told why (not "try again"); a store's address answers from the last good lookup when the database is slow, not with a 500 */
   "tests/platform-issues-av.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
