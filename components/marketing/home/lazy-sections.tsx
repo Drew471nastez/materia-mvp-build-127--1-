@@ -48,7 +48,7 @@ export const LazyHowItWorks = lazySection(() => import("./how-it-works").then((m
 
 export const LazyCheckoutScene = lazySection(() => import("./checkout-scene").then((m) => m.CheckoutScene), {
   name: "checkout",
-  minHeight: "clamp(900px, 160vh, 1600px)",
+  minHeight: "calc(270vh + 900px)",
   styles: () => import("./checkout-scene").then((m) => m.CHECKOUT_STYLES),
 })
 
