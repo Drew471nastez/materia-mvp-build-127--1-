@@ -149,7 +149,8 @@ check("no fans in the section's words", !/\bfans?\b/i.test(text(html)) && EVERYT
 check("no em dash and no banned words", !/—|\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(text(html)))
 
 console.log("\n── the globe in development ──")
-check("a second effect run on the same canvas draws on a fresh one instead of throwing", /canvas\.setAttribute\("data-offscreen", ""\)/.test(globe) && /if \(canvas\.hasAttribute\("data-offscreen"\)\) \{/.test(globe) && /if \(surface !== canvas\) surface\.remove\(\)/.test(globe))
+/* Changed on purpose (landing integration): the globe is the land-globe round's, which swaps a canvas already handed to a worker for a fresh one (its own way of doing what this round did with data-offscreen). */
+check("a second effect run on the same canvas draws on a fresh one instead of throwing", /handedOver\.add\(canvas\)/.test(globe) && /if \(handedOver\.has\(canvas\)\) \{/.test(globe) && /canvas\.replaceWith\(fresh\)/.test(globe))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

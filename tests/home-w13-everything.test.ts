@@ -67,16 +67,19 @@ check("communities, never memberships", EVERYTHING_SLIDES.some((s) => s.tab === 
 
 console.log("\n── card 3: the globe ──")
 check("the globe is in the section, on a canvas", /class="ev-vis ev-g"/.test(html) && /<canvas class="ev-globe-canvas"/.test(html))
-check("it can be dragged (with momentum) and leans toward the mouse; up and down swipes still scroll", /addEventListener\("pointerdown"/.test(globe) && /setPointerCapture/.test(globe) && /st\.vyaw \+= \(AUTO_SPIN - st\.vyaw\)/.test(engine) && /targetLeanX/.test(engine) && /driver\.lean\(/.test(globe) && /touch-action:pan-y/.test(css))
-check("it draws only while the section is live, the tab visible and the globe in view", /driver\.run\(st\.visible && st\.live && !st\.reduced\)/.test(globe) && /new IntersectionObserver/.test(globe) && /st\.running = \(st\.want && !st\.reduced\) \|\| interacting/.test(engine) && /host\.caf\(st\.frame\)/.test(engine))
+check("it can be dragged (with momentum) and leans toward the mouse; up and down swipes still scroll", /addEventListener\("pointerdown"/.test(globe) && /setPointerCapture/.test(globe) && /st\.vyaw \+= \(\(st\.reduced \? 0 : AUTO_SPIN\) - st\.vyaw\)/.test(engine) && /targetLeanX/.test(engine) && /driver\.lean\(/.test(globe) && /touch-action:pan-y/.test(css))
+check("it draws only while the section is live, the tab visible and the globe in view", /driver\.run\(st\.visible && st\.shown && st\.live && !st\.reduced\)/.test(globe) && /visibilitychange/.test(globe) && /new IntersectionObserver/.test(globe) && /st\.running = \(st\.want && !st\.reduced\) \|\| interacting/.test(engine) && /host\.caf\(st\.frame\)/.test(engine))
 check("it is drawn off the page's thread where the browser can hand a worker the canvas", /transferControlToOffscreen\(\)/.test(globe) && /new Worker\(url\)/.test(globe) && /EVERYTHING_GLOBE_WORKER_SOURCE/.test(globe) && /createGlobeEngine/.test(read("components/marketing/home/everything-globe-worker.ts")))
 {
   const build = await import(pathToFileURL(join(root, "scripts/build-globe-worker.mjs")).href)
   check("the worker's string is up to date (node scripts/build-globe-worker.mjs)", read("components/marketing/home/everything-globe-worker-source.ts") === build.everythingGlobeWorkerModule(await build.everythingGlobeWorkerSource()))
 }
 check("its size comes from the ResizeObserver's entry, never measured as it mounts", /entry\.contentRect\.width/.test(globe) && !/box\.getBoundingClientRect\(\)[\s\S]{0,80}\bfit\(\)/.test(globe))
-check("device pixels capped, the sphere painted once per size", /Math\.min\(1\.5, window\.devicePixelRatio/.test(globe) && /const paintStatic = \(\) =>/.test(engine))
-check("the order pill moves by transform only, gliding between the worker's reports", /el\.style\.transform = `translate\(/.test(globe) && !/style\.(left|top) =/.test(globe) && /\.ev-globe-pill\[data-glide\]\{transition:transform \.1s linear\}/.test(css) && /GLOBE_PILL_EVERY_MS = 100/.test(engine))
+check("device pixels capped, the sphere painted once per size", /Math\.min\(2, window\.devicePixelRatio/.test(globe) && /const paintStatic = \(\) =>/.test(engine))
+/* Changed on purpose (land-globe): the pill is placed every frame the city moves (no 100ms glide that trailed the city), so it sits exactly on it. */
+check("the order pill moves by transform only, placed on the city every frame it moves", /el\.style\.transform = `translate\(/.test(globe) && !/style\.(left|top) =/.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i: st\.pill, x, y, on \}\)/.test(engine))
+check("the globe survives a second mount (a canvas handed to a worker is swapped for a fresh one)", /handedOver\.has\(canvas\)/.test(globe) && /canvas\.replaceWith\(fresh\)/.test(globe))
+check("its motion runs on the display's frames by real elapsed time, on a clock that stops while paused", /const dt = Math\.max\(0, Math\.min\(50, t - st\.last\)\)/.test(engine) && /st\.clock \+= dt/.test(engine))
 const symbols: Record<string, string> = { "€": "EUR", "£": "GBP", "CA$": "CAD", "A$": "AUD", "¥": "JPY", RON: "RON", $: "USD" }
 const currencyOf = (price: string) => Object.entries(symbols).find(([sym]) => price.includes(sym))?.[1]
 check("every order is in a currency checkout charges in", EVERYTHING_GLOBE_ORDERS.every((o) => { const c = currencyOf(o.price); return !!c && c in CURRENCY_FEE_RULES }), EVERYTHING_GLOBE_ORDERS.map((o) => o.price))
@@ -102,7 +105,7 @@ check("every loop pauses while the section is not live", /\.ev\[data-platform-li
 check("the active tab's progress bar pauses with the rest", /\.ev\[data-platform-live="false"\] \.ev-tab\[data-on\] \.ev-tab-fill,\.ev:not\(\[data-platform-live\]\) \.ev-tab\[data-on\] \.ev-tab-fill\{animation-play-state:paused\}/.test(css))
 check("nothing at rest has a 3D transform (each would be a compositor layer of its own)", !/\.ev-(p-card|p-img|p-rise|tabs|card|globe-pill-in)\{[^}]*translate3d/.test(css))
 check("transitions move only transform and opacity", [...css.matchAll(/transition:([^;}]+)/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((t) => /^\s*(opacity|transform|color|none)\b/.test(t))), [...css.matchAll(/transition:([^;}]+)/g)].map((m) => m[1]))
-check("reduced motion: nothing loops, the reveal is instant", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-loop,[^{]*\{animation:none !important\}/.test(css) && /if \(st\.reduced && !st\.frame\) draw/.test(engine))
+check("reduced motion: nothing loops, the reveal is instant", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-loop,[^{]*\{animation:none !important\}/.test(css) && /if \(st\.reduced\) \{\s*setRot\(\)\s*draw\(\)/.test(engine))
 check("no :has(), no selector ending in *, no bare tag keyed on a data attribute", !/:has\(/.test(css) && !/\*\s*\{/.test(css) && !/(^|[\s,}])\[data-[^\]]+\]\s+[a-z]+[\s{,]/m.test(css))
 
 console.log(`\n${passed} passed, ${failed} failed`)
