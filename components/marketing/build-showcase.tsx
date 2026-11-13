@@ -10,9 +10,9 @@ import { StoryHeading } from "./story-heading"
   Products / Communities and the Featured cards, in a real colour scheme:
   Pink, Air, Astrid) and two websites drawn by ThemePage with the default
   theme's sections (announcement bar, header, ticker or hero, Product
-  Grid), captured at 2x and scaled to 1440 x 990. The communities are in
-  the layout of a real Storelib community (the community card and places,
-  the space chips and feed, the next event and the leaderboard). Every
+  Grid), captured at 2x and scaled to 1440 x 990. The communities are
+  Storelib's own member frame and feed (components/community/member)
+  rendered with a fictional community's data and photographed at 2x. Every
   creator is fictional; photographs are Unsplash. Satori Studio is a real
   OnePage, storelib.me/satori-studio, as a phone shows it. The OnePages beside them are the live
   OnePage rendered with sample creators, captured at a phone's width.
@@ -47,17 +47,17 @@ const GROUPS = [
   [
     wide("shift", "Sell merch people actually wear", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
-    wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community with a critique post, a roll swap event and a leaderboard"),
+    wide("slowrise", "Bring your community together", "Slow Rise Bakers, a sourdough community on Storelib: a pinned poll for the December bake-along, a crumb shot question, the next live shaping session and the top contributors"),
   ],
   [
     wide("ellie", "Sell digital downloads", "Ellie Brandt's Storelib creator page: a children's illustrator in Melbourne selling a colouring pack, animal posters and Procreate brushes"),
     portrait("jonas", "Links that sell", "Jonas Weber's OnePage, a cycling coach in Girona: his photo across the top in a blue theme, a 12 week base plan for €59 and a 45 minute coaching call for €75"),
-    wide("founders", "A members' club for founders", "Founders After Five, a community where a member shares a $10k MRR milestone"),
+    wide("nightshift", "Gather people around a craft", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
     wide("draft", "Teach what you know", "The Long Draft's Storelib website: a ten-week novel writing course for £240 and three shorter clinics"),
     portrait("hemi", "Show your work", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
-    wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes and a live glaze night"),
+    wide("pinchgrip", "Run a members' club", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
   ],
   [
     wide("tomas", "Sell templates and kits", "Tomás Ferreira's Storelib creator page with Notion and Figma templates from €12"),

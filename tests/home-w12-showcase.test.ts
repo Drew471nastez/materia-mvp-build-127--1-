@@ -39,8 +39,8 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    /* Changed on purpose (landing round 2): the shops are renamed (Low Season, Elena Ruiz's watercolor course, Wren & Ash). */
-    ...(["LowSeason", "Watercolor", "Darkroom", "Lucia", "WrenAsh"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
+    /* Changed on purpose (landing round 2): shops renamed (Low Season, Elena Ruiz's watercolor course, Wren & Ash), the community slide is Charla Circle (the real member frame, photographed), the OnePage is Lucía Ferrer's. */
+    ...(["LowSeason", "Watercolor", "Charla", "Lucia", "WrenAsh"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
     createElement(WebsiteBuilderMock),
     createElement(OnePageEditorMock),
     createElement(CommunityBuilderMock),
@@ -51,8 +51,8 @@ const everyMock = renderToString(
 const ownMock = everyMock.replace(/<img[^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
 assert.ok(/data-home-onepage="gazette"/.test(everyMock) && /data-home-onepage="grunge"/.test(everyMock) && /\/home\/onepage\/op-lucia-desktop\.webp/.test(everyMock) && /\/home\/onepage\/op-rafa-signup\.webp/.test(everyMock), "the OnePages are captures of the live page in shipped themes")
 const srcs = new Set([...ownMock.matchAll(/<img(?![^>]*data-storelib-logo)[^>]*src="([^"]+)"/g)].map((m) => m[1]))
-assert.ok(srcs.size >= 36, `${srcs.size} pictures`)
-/* Changed on purpose (land round 2): the OnePage captures live in /home/onepage/. */
+/* Changed on purpose (landing round 2): the community slide is two photographs of the real member frame, and the OnePage captures live in /home/onepage/. */
+assert.ok(srcs.size >= 30, `${srcs.size} pictures`)
 for (const src of srcs) assert.ok((src.startsWith("/home/showcase/") || src.startsWith("/home/onepage/")) && existsSync(`public${src}`), `${src} exists`)
 /* The logo goes through next/image (lazy by default there; the test stub leaves the attribute out), so the photos are checked here. */
 const photos = ownMock.replace(/<img[^>]*data-storelib-logo[^>]*>/g, "")

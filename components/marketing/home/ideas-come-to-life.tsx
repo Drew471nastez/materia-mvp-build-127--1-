@@ -34,7 +34,7 @@ export const IDEAS_TABS = [
     label: "Community",
     more: " builder",
     title: "Community builder",
-    alt: "Storelib's community builder for Kiln & Clay Collective: a new post about glaze night is written in the composer and posted to Studio news, at the top of the posts list.",
+    alt: "Storelib's community builder for Dawn Chorus Birders: Denise Walker writes a Saturday walk in Epping Forest in the composer and posts it to Walks, at the top of the posts list.",
     Mock: CommunityBuilderMock,
   },
 ] as const
