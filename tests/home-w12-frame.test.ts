@@ -223,8 +223,10 @@ async function main() {
     check("a mounted section is laid out ahead a slice at a time (no long task), and all at once if it comes near first", /const SLICE_ELEMENTS = \d+/.test(src) && /g\.style\.contentVisibility = "hidden"/.test(src) && /if \(e\.isIntersecting\) slicing\.get\(box\)\?\.\(\)/.test(src) && /const stopSlicing = layOutInSlices\(el,/.test(src))
     const globe = code("components/marketing/home/everything-globe.tsx")
     check("the globe hands its worker back when its effect runs again on the same canvas (a canvas is transferred once)", /function holdDriver/.test(globe) && /releaseDriver\(canvas\)/.test(globe) && !/\bdriver\.stop\(\)\s*\n\s*ro\?\.disconnect/.test(globe))
-    const pathname = code("lib/nav/page-pathname.ts")
-    check("the home page is \"/\" even where the server renders it as \"/index\" (Vercel's ISR), so its header is in the HTML", /pathname === "\/index" && below\.every\(\(s\) => s\.startsWith\("\("\)\) \? "\/" : pathname/.test(pathname) && /usePagePathname\(\)/.test(code("components/marketing/conditional-header.tsx")) && !/usePathname\(\)/.test(code("components/platform/platform-header-client.tsx")))
+    const header = code("components/marketing/conditional-header.tsx")
+    const client = code("components/platform/platform-header-client.tsx")
+    const rule = /function homePathname\(pathname: string, segmentBelow\?: string \| null\): string \{\s*if \(pathname !== "\/index"\) return pathname\s*return segmentBelow === undefined \|\| segmentBelow === null \? "\/" : pathname\s*\}/
+    check("the home page is \"/\" even where the server renders it as \"/index\" (Vercel's ISR), so its header is in the HTML", rule.test(header) && rule.test(client) && /homePathname\(usePathname\(\), segmentBelow\)/.test(header) && (client.match(/homePathname\(usePathname\(\)\)/g) || []).length === 2)
   }
 
   console.log("\nNo hotlinked pictures")

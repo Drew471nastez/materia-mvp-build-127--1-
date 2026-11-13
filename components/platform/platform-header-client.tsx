@@ -8,8 +8,7 @@ import type React from "react"
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
-import { usePagePathname } from "@/lib/nav/page-pathname"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
@@ -98,6 +97,21 @@ const SEARCH_BACKDROP =
 const SEARCH_BACKDROP_OPEN = "opacity-100 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0"
 const SEARCH_BACKDROP_LEAVING =
   "pointer-events-none opacity-0 duration-150 ease-[cubic-bezier(0.4,0,1,1)]"
+
+/*
+ * Wave 14: "/" where Vercel's ISR renders the home page under the name
+ * "/index" (its payload's canonical URL parts are ["", "index"]); the
+ * browser hydrates at "/", so the header drew nothing on the server and
+ * React re-drew the whole page (#418). Kept in this file, a plain function
+ * and no hook, so the header's code is bundled as it was. With the marketing
+ * layout's segment (null on its own page), a creator called "index" keeps
+ * its path. The same rule is in components/marketing/conditional-header.tsx
+ * and components/platform/platform-header-client.tsx.
+ */
+function homePathname(pathname: string, segmentBelow?: string | null): string {
+  if (pathname !== "/index") return pathname
+  return segmentBelow === undefined || segmentBelow === null ? "/" : pathname
+}
 
 function useBelowMd(): boolean {
   const [below, setBelow] = useState(false)
@@ -473,7 +487,7 @@ export function DesktopAccountMenu({
   /** Drawn right under who is signed in (a community's member links, round 26); its rows carry role="menuitem". */
   under?: React.ReactNode
 }) {
-  const pathname = usePagePathname()
+  const pathname = homePathname(usePathname())
   const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [present, setPresent] = useState(false)
@@ -1053,7 +1067,7 @@ export function PlatformHeaderClient({
   buyerHeaderLight?: boolean
 }) {
   const router = useRouter()
-  const pathname = usePagePathname()
+  const pathname = homePathname(usePathname())
   /* Not useSearchParams: that suspends the whole bar, so the account page painted an empty header and the real one arrived late. */
   const { t } = useLocale()
   const exploreMarketplaceOn = useExploreMarketplaceEnabled()
