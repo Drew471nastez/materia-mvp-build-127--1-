@@ -46,22 +46,22 @@ const GROUPS = [
   [
     wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates with dashboard previews"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
-    wide("slowrise", "Bring your community together", "Slow Rise Bakers, a sourdough community on Storelib: a pinned poll for the December bake-along, a crumb shot question, the next live shaping session and the top contributors"),
+    wide("slowrise", "Run a community", "Slow Rise Bakers, a sourdough community on Storelib: a pinned poll for the December bake-along, a crumb shot question, the next live shaping session and the top contributors"),
   ],
   [
     wide("hale", "Sell training programs", "Hale Strength, coach Marcus Hale's website with a lifter at the squat rack, a workout log and four strength programs"),
     portrait("gia", "Sell your cookbook", "Gia Romano's OnePage with a pasta ebook, a fresh pasta class and her recipes"),
-    wide("pinchgrip", "Host meetups and events", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
+    wide("pinchgrip", "Host meetups", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
   ],
   [
     wide("stillwater", "Run a membership", "Stillwater, a yoga membership website with a live Sunday class and new on-demand classes"),
-    portrait("hemi", "Sell coaching sessions", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
-    wide("nightshift", "Gather people around a craft", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
+    portrait("hemi", "Sell coaching", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
+    wide("nightshift", "Build a club", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
     wide("lowtide", "Sell sample packs", "Lowtide's Storelib store: a producer's sample packs and drum kits under a recording studio cover"),
     portrait("bea", "Fill your bookings", "Nails by Bea, a nail artist's OnePage with booking, her work and press-on sets"),
-    wide("shift", "Sell merch people actually wear", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
+    wide("shift", "Drop new merch", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
