@@ -18,6 +18,7 @@ import {
   GripVertical,
   Heart,
   Home,
+  ImageIcon,
   Inbox,
   Instagram,
   Layers,
