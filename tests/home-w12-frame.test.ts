@@ -75,10 +75,11 @@ async function main() {
     const { ProductMarquee, MARQUEE_ROWS } = await import("@/components/marketing/product-marquee")
     const html = renderToStaticMarkup(createElement(ProductMarquee))
     check("the heading is Unlimited possibilities", /aria-label="Unlimited possibilities"/.test(html))
-    check("three rows: left, right, left", MARQUEE_ROWS.map((r) => r.direction).join() === "left,right,left" && (html.match(/class="um-row"/g) ?? []).length === 3)
+    /* Changed on purpose (landing round, the owner: "keep only 2 rows, not 3"). */
+    check("two rows: left, right", MARQUEE_ROWS.map((r) => r.direction).join() === "left,right" && (html.match(/class="um-row"/g) ?? []).length === 2)
     const labels = MARQUEE_ROWS.flatMap((r) => r.items.map((i) => i.label))
     check("at least 36 different things, none twice", labels.length >= 36 && new Set(labels).size === labels.length, labels.length)
-    check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 9 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 6)
+    check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 6 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 4)
     /* Changed on purpose (wave 13): the owner wanted the emoji back, the way the chips looked before wave 12, in place of the drawn icons. */
     check("every chip has its emoji", (html.match(/class="um-chip"/g) ?? []).length === labels.length * 3 && (html.match(/<span class="um-emoji" aria-hidden="true">/g) ?? []).length === labels.length * 3 && !/<svg/.test(html))
     check("each emoji is one picture, different in every row", MARQUEE_ROWS.every((r) => r.items.every((i) => /^\p{Extended_Pictographic}/u.test(i.emoji)) && new Set(r.items.map((i) => i.emoji)).size === r.items.length))

@@ -6,11 +6,11 @@ import { StoryHeading } from "./story-heading"
 type Chip = { label: string; emoji: string }
 
 /*
-  WHAT CREATORS SELL, IN THREE ROWS (wave 12, the owner: "Unlimited
-  possibilities", edge to edge, three rows, more of them). Communities, never
-  Memberships: memberships were folded into communities
-  (tests/memberships-folded). Wave 13, the owner: the emoji are back, the
-  way the chips looked before wave 12 (an emoji and a word in a white pill).
+  WHAT CREATORS SELL, IN TWO ROWS (landing round, the owner: "keep only 2
+  rows, not 3"; wave 12 had three). Edge to edge, one moving left and one
+  right. Communities, never Memberships: memberships were folded into
+  communities (tests/memberships-folded). Wave 13, the owner: an emoji and a
+  word in a white pill.
 */
 const ROW_1: Chip[] = [
   { label: "Presets", emoji: "🎛️" },
@@ -25,6 +25,12 @@ const ROW_1: Chip[] = [
   { label: "Notion templates", emoji: "📋" },
   { label: "Photography", emoji: "📸" },
   { label: "Podcasts", emoji: "🎙️" },
+  { label: "Sample packs", emoji: "🥁" },
+  { label: "3D models", emoji: "🧊" },
+  { label: "Recipes", emoji: "🍳" },
+  { label: "Travel guides", emoji: "🗺️" },
+  { label: "Bookings", emoji: "📅" },
+  { label: "Newsletters", emoji: "📬" },
 ]
 const ROW_2: Chip[] = [
   { label: "Music", emoji: "🎵" },
@@ -40,27 +46,16 @@ const ROW_2: Chip[] = [
   { label: "Spreadsheets", emoji: "📊" },
   { label: "Worksheets", emoji: "📄" },
   { label: "Procreate brushes", emoji: "🖌️" },
-]
-const ROW_3: Chip[] = [
-  { label: "Sample packs", emoji: "🥁" },
-  { label: "3D models", emoji: "🧊" },
-  { label: "Recipes", emoji: "🍳" },
-  { label: "Travel guides", emoji: "🗺️" },
-  { label: "Bookings", emoji: "📅" },
-  { label: "Newsletters", emoji: "📬" },
   { label: "Stock footage", emoji: "🎬" },
-  { label: "Color palettes", emoji: "🌈" },
   { label: "Icon packs", emoji: "💠" },
   { label: "Sewing patterns", emoji: "🧵" },
   { label: "Language lessons", emoji: "🗣️" },
-  { label: "Design assets", emoji: "✨" },
-  { label: "Link-in-bio", emoji: "🔗" },
+  { label: "Stickers", emoji: "🏷️" },
 ]
 
 export const MARQUEE_ROWS = [
-  { items: ROW_1, direction: "left", seconds: 64 },
-  { items: ROW_2, direction: "right", seconds: 72 },
-  { items: ROW_3, direction: "left", seconds: 60 },
+  { items: ROW_1, direction: "left", seconds: 92 },
+  { items: ROW_2, direction: "right", seconds: 98 },
 ] as const
 
 /*
@@ -70,7 +65,7 @@ export const MARQUEE_ROWS = [
   the track having a gap, so the three copies are the same width to the
   pixel. Three copies, not two: the two still on screen at the end of a lap
   are over 4,000px, wider than any screen. Only `transform` moves, on the
-  compositor (no layout or paint per frame). All three stop off screen and
+  compositor (no layout or paint per frame). Both stop off screen and
   in a background tab. With reduced motion the rows stand still: one copy
   each, wrapped and centred.
 
@@ -165,7 +160,7 @@ function easeRow(track: HTMLElement, to: number, ms: number): () => void {
   return () => cancelAnimationFrame(frame)
 }
 
-/** "Unlimited possibilities": what creators sell, three edge-to-edge rows moving left, right, left. */
+/** "Unlimited possibilities": what creators sell, two edge-to-edge rows moving left and right. */
 export function ProductMarquee() {
   const ref = useRef<HTMLElement>(null)
   /* Off screen or in a background tab the rows stop, on /pricing too, where no LandingStory watches them. */
