@@ -20,7 +20,7 @@ export type CreatorCard = {
 /** Photos: Unsplash (free licence), cropped 4:5 and stored as 400w/720w WebP
  * under public/home/creators. Every name and product is fictional. */
 export const CREATORS: readonly CreatorCard[] = [
-  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Elif Demir", alt: "Lucía, a YouTuber, laughing in a red sweater", product: { title: "Kitchen Vlog LUT pack", price: "$18", icon: Video } },
+  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Elif Demir", alt: "Elif, a YouTuber, laughing in a red sweater", product: { title: "Kitchen Vlog LUT pack", price: "$18", icon: Video } },
   { slug: "musicians", kind: "Musicians", sells: "Beats & sample packs", name: "Jalen Brooks", alt: "Jalen performing on stage through a cloud of light and smoke", product: { title: "Drum Kit Vol. 2", price: "$29", icon: Music2 } },
   { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Margaret Quinn", alt: "An open paperback beside reading glasses and a latte", product: { title: "The Salt Year, e-book", price: "$14.99", icon: BookOpen } },
   { slug: "educators", kind: "Educators", sells: "Online courses", name: "Rosa Delgado", alt: "Rosa, an educator, smiling in a striped cardigan", product: { title: "Spanish in 6 Weeks", price: "$149", icon: PlayCircle } },
