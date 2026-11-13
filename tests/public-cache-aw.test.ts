@@ -187,5 +187,19 @@ console.log("\nThe image optimizer fetches from Storelib's own storage, never an
   check("  an optimised address for Storelib's storage still asks the optimizer", optimizedImageUrl(OWN, 200).startsWith("/_next/image?url="))
 }
 
+/* ───────────────────────────────────────────────────────────────────────── */
+console.log("\nFinishing onboarding takes down what the CDN kept for the new store's addresses")
+{
+  const fin = readCode("app/api/onboarding/finalize/route.ts")
+  const published = fin.indexOf("await ensureOnePage(admin, userId")
+  const purged = fin.indexOf("await creatorPagesChanged({ userId })")
+  const onepage = fin.indexOf("await onePageChangedFor(userId)")
+  const answered = fin.lastIndexOf('return NextResponse.json({ ok: true, nextPath: "/app" })')
+  check("the creator page and its products by the handle (creator-page-<handle>), after the store and the OnePage exist", published > 0 && purged > published && purged < answered, { published, purged, answered })
+  check("  and the OnePage's names, data and CDN copy (onepage-<name>)", onepage > purged && onepage < answered)
+  check("  through the purges every other publish uses", /from "@\/lib\/storefront\/creator-page-purge"/.test(fin) && /from "@\/lib\/onepage\/public-cache"/.test(fin))
+  check("  neither can fail the step: each catches its own reads", /\}\s*catch\s*\{/.test(readCode("lib/storefront/creator-page-purge.ts")) && /\}\s*catch\s*\{/.test(readCode("lib/onepage/public-cache.ts")))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
