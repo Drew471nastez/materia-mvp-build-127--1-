@@ -415,7 +415,7 @@ const MOTION = u(`
 .cdx[data-mode=card]{--s1:300;--s2:680}
 @container (max-width:560px){.cdx[data-mode=card]{--s1:330;--s2:935}}
 @media (prefers-reduced-motion:no-preference){
-  [data-on] .cdx-ph{animation:cdx-ph .25s linear both}
+  [data-on] .cdx-ph{animation:cdx-ph .06s linear both}
   [data-on] .cdx-v{animation:cdx-type .35s cubic-bezier(.2,.8,.2,1) both}
   [data-on] .cdx[data-mode=wallet] .cdx-ph{animation:none;opacity:1}
   [data-on] .cdx[data-mode=wallet] .cdx-v{animation:none;opacity:0}
