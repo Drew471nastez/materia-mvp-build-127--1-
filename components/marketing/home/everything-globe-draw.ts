@@ -1,55 +1,69 @@
 /*
-  THE "SELL TO FANS ANYWHERE" GLOBE'S ENGINE (wave 13 perf).
+  THE "SELL ANYWHERE" GLOBE'S ENGINE.
 
   Everything the globe does per frame: the spin, the drag with its throw,
-  the lean toward the mouse, the order arcs, the rings and the pill's place.
-  It runs in a worker that owns the canvas (everything-globe-worker.ts,
-  shipped as a string built by scripts/build-globe-worker.mjs), so the
-  page's own thread does nothing per frame; where a canvas cannot be handed
-  to a worker, everything-globe.tsx runs this same engine on the page.
+  the lean toward the mouse, the order shots, the landing pulses and the
+  pill's place. It runs in a worker that owns the canvas
+  (everything-globe-worker.ts, shipped as a string built by
+  scripts/build-globe-worker.mjs), so the page's own thread does nothing per
+  frame but move one pill; where a canvas cannot be handed to a worker,
+  everything-globe.tsx runs this same engine on the page.
 
-  Cost: device pixels capped at 1.5x, a few thousand dots filled as three
-  batched paths by depth, the shaded sphere painted once per size. It draws
-  only while the section is on screen, the tab visible and the globe in
-  view, or while the visitor is turning it. Under reduced motion it stands
-  still (one frame) and redraws only while dragged.
+  Timing: every motion is advanced by the real time between two animation
+  frames (capped, so a frame after a stall does not jump), on the engine's
+  own clock, which stops while the globe is paused. So it turns at the same
+  speed at 60, 120, 144 or 240Hz, only smoother, and a shot in flight picks
+  up where it was when the globe scrolls back into view.
+
+  Cost: device pixels capped at 2x. Nothing is allocated per frame: the
+  land's projected points, the depth buckets they are drawn in and every
+  order's arc are typed arrays made once. Land is a few thousand dots (small
+  squares: a path of circles cost twice as much to raster) in six batched
+  paths by depth, fading out toward the rim so the
+  foreshortened rows there never clump; the shaded sphere, its rim light and
+  atmosphere are painted once per size. It draws only while the section is
+  on screen, the tab visible and the globe in view, or while the visitor is
+  turning it. Under reduced motion it stands still (one frame) and redraws
+  only while dragged.
 */
 
 export type V3 = [number, number, number]
 type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 type AnyCanvas = HTMLCanvasElement | OffscreenCanvas
 
-const AUTO_SPIN = 0.00013 /* radians per ms */
+const AUTO_SPIN = 0.00012 /* radians per ms */
 const BASE_PITCH = 0.42
-const ORDER_EVERY = 2300
-const ARC_MS = 1500
-const TAIL_LAG = 520
-const RING_MS = 1300
-/** Between interactions the pill's place is sent this often; the page glides it there (a CSS transition as long). */
-export const GLOBE_PILL_EVERY_MS = 100
-
-type Arc = { pts: Float32Array; t0: number; order: number; landed?: boolean }
-type Ring = { order: number; t0: number }
+const ORDER_EVERY = 2600
+const ARC_MS = 1250
+/** The tail leaves this long after the head, so the shot is a comet that shrinks into the landing point. */
+const TAIL_LAG = 380
+const PULSE_MS = 1400
+const ARC_N = 96
+const TRAIL_CHUNKS = 14
+const DEPTH_BUCKETS = 6
+/** The pill only shows while its city faces the viewer this much (z of the unit vector). */
+const PILL_MIN_Z = 0.16
 
 /** Where the pill should be: the buyer's city in CSS pixels of the card, and whether it faces the viewer. */
-export type GlobePill = { i: number; x: number; y: number; on: boolean; now: boolean }
+export type GlobePill = { i: number; x: number; y: number; on: boolean }
 
 export type GlobePointer = { kind: "down" | "move" | "up"; x: number; y: number; t: number }
 
-const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t)
 
-/** 48 points along the great circle from a to b, lifted off the surface toward the middle. */
+/** ARC_N + 1 points along the great circle from a to b, lifted off the surface toward the middle. */
 function arcPoints(a: V3, b: V3): Float32Array {
   const dot = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))
   const w = Math.acos(dot)
   const s = Math.sin(w) || 1
-  const lift = 0.1 + 0.38 * (w / Math.PI)
-  const N = 48
-  const out = new Float32Array((N + 1) * 3)
-  for (let i = 0; i <= N; i++) {
-    const t = i / N
-    const ka = Math.sin((1 - t) * w) / s
-    const kb = Math.sin(t * w) / s
+  const lift = 0.06 + 0.32 * (w / Math.PI)
+  const out = new Float32Array((ARC_N + 1) * 3)
+  for (let i = 0; i <= ARC_N; i++) {
+    const t = i / ARC_N
+    const ka = w ? Math.sin((1 - t) * w) / s : 1 - t
+    const kb = w ? Math.sin(t * w) / s : t
     const h = 1 + lift * Math.sin(Math.PI * t)
     out[i * 3] = (ka * a[0] + kb * b[0]) * h
     out[i * 3 + 1] = (ka * a[1] + kb * b[1]) * h
@@ -71,8 +85,35 @@ export type GlobeEngineHost = {
   onDrawn: () => void
 }
 
+const MAX_SHOTS = 3
+const POINTER_SAMPLES = 8
+
 export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, cities: V3[], home: V3) {
   const { canvas, ctx } = host
+  const nPts = pts.length / 3
+  /* Per frame scratch, made once: each land dot's screen place, size and depth bucket, and the dots sorted by bucket. */
+  const px = new Float32Array(nPts)
+  const py = new Float32Array(nPts)
+  const pr = new Float32Array(nPts)
+  const pb = new Int8Array(nPts)
+  const order = new Int32Array(nPts)
+  const bucketCount = new Int32Array(DEPTH_BUCKETS + 1)
+  const bucketAlpha = [0.07, 0.16, 0.28, 0.42, 0.58, 0.78]
+  const bucketStyle = bucketAlpha.map((a) => `rgba(236,233,255,${a})`)
+  /* Every order's arc, made once (the studio and the cities never move). */
+  const arcs = cities.map((c) => arcPoints(home, c))
+
+  /* Shots in flight and landing pulses: a fixed pool, no objects made per frame. */
+  const shotCity = new Int16Array(MAX_SHOTS).fill(-1)
+  const shotT0 = new Float64Array(MAX_SHOTS)
+  const shotLanded = new Uint8Array(MAX_SHOTS)
+
+  /* The last few pointer moves, for the throw's speed. */
+  const sampX = new Float64Array(POINTER_SAMPLES)
+  const sampY = new Float64Array(POINTER_SAMPLES)
+  const sampT = new Float64Array(POINTER_SAMPLES)
+  let sampN = 0
+
   const st = {
     w: 0,
     h: 0,
@@ -80,21 +121,26 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     R: 0,
     cx: 0,
     cy: 0,
-    yaw: 1.05,
+    /* The Atlantic in front (longitude -yaw), the studio and Europe both in view; the spin then carries it west. */
+    yaw: 0.4,
     pitch: BASE_PITCH,
     vyaw: AUTO_SPIN,
+    vpitch: 0,
     leanX: 0,
     leanY: 0,
     targetLeanX: 0,
     targetLeanY: 0,
-    drag: null as null | { x: number; y: number; t: number },
-    arcs: [] as Arc[],
-    rings: [] as Ring[],
-    next: 0,
+    dragging: false,
+    dragX: 0,
+    dragY: 0,
+    /** The engine's clock: real milliseconds of motion, standing still while paused. */
+    clock: 0,
+    next: 600,
     order: 0,
     pill: -1,
     pillOn: false,
-    pillSent: 0,
+    pillX: -1e9,
+    pillY: -1e9,
     bg: null as AnyCanvas | null,
     glow: null as AnyCanvas | null,
     frame: 0,
@@ -103,9 +149,10 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     want: false,
     reduced: false,
     drawn: false,
+    dirty: true,
   }
 
-  /* The shaded sphere and its soft halo, and the glow sprite city lights are stamped with: painted once per size. */
+  /* The shaded sphere, its rim light and atmosphere, and the glow sprite city lights and shot heads are stamped with: painted once per size. */
   const paintStatic = () => {
     const W = canvas.width
     const H = canvas.height
@@ -115,222 +162,327 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     const bg = host.makeCanvas(W, H)
     const g = bg?.getContext("2d") as Ctx2D | null | undefined
     if (g) {
-      const halo = g.createRadialGradient(cx, cy, R * 0.96, cx, cy, R * 1.16)
-      halo.addColorStop(0, "rgba(167,139,250,0.20)")
-      halo.addColorStop(1, "rgba(167,139,250,0)")
+      /* Atmosphere: a soft violet haze just outside the rim. */
+      const halo = g.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.14)
+      halo.addColorStop(0, "rgba(139,92,246,0.22)")
+      halo.addColorStop(0.35, "rgba(139,92,246,0.08)")
+      halo.addColorStop(1, "rgba(139,92,246,0)")
       g.fillStyle = halo
-      g.fillRect(0, 0, W, H)
-      const body = g.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.05, cx, cy, R)
-      body.addColorStop(0, "#2a2a31")
-      body.addColorStop(0.55, "#141418")
-      body.addColorStop(1, "#070709")
+      g.beginPath()
+      g.arc(cx, cy, R * 1.14, 0, Math.PI * 2)
+      g.fill()
+      /* The body, lit from the upper left. */
+      const body = g.createRadialGradient(cx - R * 0.35, cy - R * 0.42, R * 0.04, cx, cy, R)
+      body.addColorStop(0, "#26252e")
+      body.addColorStop(0.55, "#121116")
+      body.addColorStop(1, "#08080a")
       g.fillStyle = body
       g.beginPath()
       g.arc(cx, cy, R, 0, Math.PI * 2)
       g.fill()
-      g.strokeStyle = "rgba(255,255,255,0.10)"
-      g.lineWidth = Math.max(1, st.dpr)
+      /* Rim light: a thin violet glow along the inside of the edge. */
+      const rim = g.createRadialGradient(cx, cy, R * 0.86, cx, cy, R)
+      rim.addColorStop(0, "rgba(167,139,250,0)")
+      rim.addColorStop(0.8, "rgba(167,139,250,0.05)")
+      rim.addColorStop(1, "rgba(196,181,253,0.20)")
+      g.fillStyle = rim
+      g.fill()
+      g.strokeStyle = "rgba(221,214,254,0.16)"
+      g.lineWidth = st.dpr
+      g.beginPath()
+      g.arc(cx, cy, R - st.dpr / 2, 0, Math.PI * 2)
       g.stroke()
     }
     st.bg = bg
-    const s = Math.round(28 * st.dpr)
+    const s = Math.round(32 * st.dpr)
     const glow = host.makeCanvas(s, s)
     const gg = glow?.getContext("2d") as Ctx2D | null | undefined
     if (gg) {
       const r = gg.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2)
       r.addColorStop(0, "rgba(255,255,255,1)")
-      r.addColorStop(0.14, "rgba(255,255,255,0.95)")
-      r.addColorStop(0.3, "rgba(237,233,254,0.35)")
-      r.addColorStop(1, "rgba(237,233,254,0)")
+      r.addColorStop(0.12, "rgba(255,255,255,0.95)")
+      r.addColorStop(0.28, "rgba(221,214,254,0.45)")
+      r.addColorStop(0.6, "rgba(167,139,250,0.12)")
+      r.addColorStop(1, "rgba(167,139,250,0)")
       gg.fillStyle = r
       gg.fillRect(0, 0, s, s)
     }
     st.glow = glow
   }
 
-  /* Rotation of a unit vector into view space: yaw about the axis, then pitch toward the viewer. */
+  /* Rotation of a unit vector into view space: yaw about the axis, then pitch toward the viewer. Results land in rx, ry, rz. */
   let cY = 1
   let sY = 0
   let cP = 1
   let sP = 0
-  const setRot = () => {
-    const yaw = st.yaw + st.leanX
+  let rx = 0
+  let ry = 0
+  let rz = 0
+  const setRot = (extraYaw = 0) => {
+    const yaw = st.yaw + st.leanX + extraYaw
     const pitch = st.pitch + st.leanY
     cY = Math.cos(yaw)
     sY = Math.sin(yaw)
     cP = Math.cos(pitch)
     sP = Math.sin(pitch)
   }
-  const out: V3 = [0, 0, 0]
   const rot = (x: number, y: number, z: number) => {
     const x1 = x * cY + z * sY
     const z1 = -x * sY + z * cY
-    out[0] = x1
-    out[1] = y * cP - z1 * sP
-    out[2] = y * sP + z1 * cP
-    return out
+    rx = x1
+    ry = y * cP - z1 * sP
+    rz = y * sP + z1 * cP
   }
-  const hidden = (x: number, y: number, z: number) => z < 0 && x * x + y * y < 1
+  /** A point of a shot is hidden while it is behind the ball. */
+  const behind = () => rz < 0 && rx * rx + ry * ry < 1
 
-  /* The pill rides on the latest buyer's city, and steps aside when it turns away; its place is sent every frame while the visitor is turning the globe, else every GLOBE_PILL_EVERY_MS. */
-  const sendPill = (now: number, force: boolean) => {
+  /* The pill rides on the latest buyer's city every frame (only a transform on the page), and steps aside when the city turns away. */
+  const sendPill = (force: boolean) => {
     if (st.pill < 0) return
-    setRot()
     const c = cities[st.pill]
-    const p = rot(c[0], c[1], c[2])
-    const on = p[2] > 0.12
-    const interacting = !!st.drag || Math.abs(st.leanX - st.targetLeanX) + Math.abs(st.leanY - st.targetLeanY) > 0.002
-    if (!force && on === st.pillOn && !interacting && now - st.pillSent < GLOBE_PILL_EVERY_MS) return
+    rot(c[0], c[1], c[2])
+    const on = rz > PILL_MIN_Z
+    const x = st.cx + rx * st.R
+    const y = st.cy - ry * st.R
+    if (!force && on === st.pillOn && (!on || (Math.abs(x - st.pillX) < 0.04 && Math.abs(y - st.pillY) < 0.04))) return
     st.pillOn = on
-    st.pillSent = now
-    host.onPill({ i: st.pill, x: st.cx + p[0] * st.R, y: st.cy - p[1] * st.R, on, now: interacting || force })
+    st.pillX = x
+    st.pillY = y
+    host.onPill({ i: st.pill, x, y, on })
   }
 
-  const draw = (now: number) => {
+  /* One point along a shot at fractional index f, rotated: sets rx, ry, rz. */
+  const arcAt = (a: Float32Array, f: number) => {
+    const i = Math.min(ARC_N - 1, Math.floor(f))
+    const u = f - i
+    const k = i * 3
+    rot(a[k] + (a[k + 3] - a[k]) * u, a[k + 1] + (a[k + 4] - a[k + 1]) * u, a[k + 2] + (a[k + 5] - a[k + 2]) * u)
+  }
+
+  /* Strokes the part of a shot between fractional indexes f0 and f1, lifting the pen behind the ball. */
+  let pen = false
+  const spanPoint = (a: Float32Array, f: number, cx: number, cy: number, R: number) => {
+    arcAt(a, f)
+    if (behind()) {
+      pen = false
+      return
+    }
+    const x = cx + rx * R
+    const y = cy - ry * R
+    if (pen) ctx.lineTo(x, y)
+    else ctx.moveTo(x, y)
+    pen = true
+  }
+  const strokeSpan = (a: Float32Array, f0: number, f1: number, cx: number, cy: number, R: number) => {
+    ctx.beginPath()
+    pen = false
+    spanPoint(a, f0, cx, cy, R)
+    for (let i = Math.floor(f0) + 1; i < f1; i++) spanPoint(a, i, cx, cy, R)
+    spanPoint(a, f1, cx, cy, R)
+    ctx.stroke()
+  }
+
+  const draw = () => {
     if (!st.bg || !st.glow) return
+    const now = st.clock
     setRot()
     const d = st.dpr
     const R = st.R * d
     const cx = st.cx * d
     const cy = st.cy * d
     ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = "source-over"
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(st.bg, 0, 0)
 
-    /* Land: three batched paths by depth. */
-    const dot = Math.max(1, R * 0.0085)
-    const far = new Path2D()
-    const mid = new Path2D()
-    const near = new Path2D()
-    for (let i = 0; i < pts.length; i += 3) {
-      const p = rot(pts[i], pts[i + 1], pts[i + 2])
-      const z = p[2]
-      if (z <= 0.04) continue
-      const r = dot * (0.5 + 0.5 * z)
-      const px = cx + p[0] * R - r / 2
-      const py = cy - p[1] * R - r / 2
-      ;(z > 0.6 ? near : z > 0.28 ? mid : far).rect(px, py, r, r)
+    /* Land: project every dot once, bucket by depth, then one path per bucket (squares: as many circles cost twice as much to raster). */
+    const base = Math.max(0.8 * d, R * 0.0046)
+    bucketCount.fill(0)
+    for (let i = 0, k = 0; i < nPts; i++, k += 3) {
+      rot(pts[k], pts[k + 1], pts[k + 2])
+      if (rz <= 0.04) {
+        pb[i] = -1
+        continue
+      }
+      /* Fade toward the rim (where rows crowd together) and shrink a little with depth. */
+      const f = rz < 0.7 ? rz / 0.7 : 1
+      const b = Math.min(DEPTH_BUCKETS - 1, Math.floor(f * f * (3 - 2 * f) * DEPTH_BUCKETS))
+      pb[i] = b
+      px[i] = cx + rx * R
+      py[i] = cy - ry * R
+      pr[i] = base * (0.62 + 0.38 * rz)
+      bucketCount[b + 1]++
     }
-    ctx.fillStyle = "rgba(255,255,255,0.20)"
-    ctx.fill(far)
-    ctx.fillStyle = "rgba(255,255,255,0.44)"
-    ctx.fill(mid)
-    ctx.fillStyle = "rgba(255,255,255,0.72)"
-    ctx.fill(near)
+    for (let b = 1; b <= DEPTH_BUCKETS; b++) bucketCount[b] += bucketCount[b - 1]
+    for (let i = 0; i < nPts; i++) {
+      const b = pb[i]
+      if (b >= 0) order[bucketCount[b]++] = i
+    }
+    /* bucketCount[b] now holds where bucket b ends. */
+    let start = 0
+    for (let b = 0; b < DEPTH_BUCKETS; b++) {
+      const stop = bucketCount[b]
+      if (stop > start) {
+        ctx.beginPath()
+        for (let j = start; j < stop; j++) {
+          const i = order[j]
+          const r = pr[i]
+          ctx.rect(px[i] - r, py[i] - r, 2 * r, 2 * r)
+        }
+        ctx.fillStyle = bucketStyle[b]
+        ctx.fill()
+      }
+      start = stop
+    }
 
-    /* City lights. */
+    /* City lights, the studio brightest. */
     const gs = st.glow.width
     for (let i = 0; i <= cities.length; i++) {
       const c = i < cities.length ? cities[i] : home
-      const p = rot(c[0], c[1], c[2])
-      if (p[2] <= 0.05) continue
-      ctx.globalAlpha = Math.min(1, p[2] * 1.8) * (i === cities.length ? 1 : 0.85)
-      const size = gs * (i === cities.length ? 1.25 : 0.8)
-      ctx.drawImage(st.glow, cx + p[0] * R - size / 2, cy - p[1] * R - size / 2, size, size)
+      rot(c[0], c[1], c[2])
+      if (rz <= 0.04) continue
+      ctx.globalAlpha = Math.min(1, rz * 2) * (i === cities.length ? 1 : 0.7)
+      const size = gs * (i === cities.length ? 1.1 : 0.62)
+      ctx.drawImage(st.glow, cx + rx * R - size / 2, cy - ry * R - size / 2, size, size)
     }
     ctx.globalAlpha = 1
 
-    /* Order arcs: a comet from the studio to the buyer. */
+    /* Shots: a comet from the studio to the buyer, head eased along the great circle, tail fading behind it. */
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
-    const N = 48
-    st.arcs = st.arcs.filter((a) => now - a.t0 < ARC_MS + TAIL_LAG + 80)
-    for (const a of st.arcs) {
-      const head = ease(Math.min(1, (now - a.t0) / ARC_MS))
-      const tail = ease(Math.max(0, Math.min(1, (now - a.t0 - TAIL_LAG) / ARC_MS)))
-      const i0 = Math.floor(tail * N)
-      const i1 = Math.ceil(head * N)
-      if (i1 <= i0) continue
-      ctx.beginPath()
-      let pen = false
-      let hx = 0
-      let hy = 0
-      let hv = false
-      for (let i = i0; i <= i1; i++) {
-        const p = rot(a.pts[i * 3], a.pts[i * 3 + 1], a.pts[i * 3 + 2])
-        const x = cx + p[0] * R
-        const y = cy - p[1] * R
-        if (hidden(p[0], p[1], p[2])) {
-          pen = false
-          hv = false
-          continue
+    for (let s = 0; s < MAX_SHOTS; s++) {
+      const ci = shotCity[s]
+      if (ci < 0) continue
+      const t = now - shotT0[s]
+      const a = arcs[ci]
+      const head = easeInOut(clamp01(t / ARC_MS)) * ARC_N
+      const tail = easeInOut(clamp01((t - TAIL_LAG) / ARC_MS)) * ARC_N
+      /* The route, a faint line that fades as the tail arrives. */
+      const fade = 1 - clamp01((t - ARC_MS) / (TAIL_LAG + 200))
+      if (head > 0.01) {
+        ctx.globalAlpha = 0.16 * fade
+        ctx.strokeStyle = "#c4b5fd"
+        ctx.lineWidth = d
+        strokeSpan(a, 0, head, cx, cy, R)
+      }
+      if (head - tail > 0.02) {
+        const span = head - tail
+        for (let c = 0; c < TRAIL_CHUNKS; c++) {
+          const f0 = tail + (span * c) / TRAIL_CHUNKS
+          const f1 = tail + (span * (c + 1)) / TRAIL_CHUNKS + 0.001
+          const k = (c + 1) / TRAIL_CHUNKS
+          /* Glow under a bright core, both growing toward the head. */
+          ctx.globalAlpha = 0.22 * k * k
+          ctx.strokeStyle = "#8b5cf6"
+          ctx.lineWidth = (3 + 5 * k) * d
+          strokeSpan(a, f0, f1, cx, cy, R)
+          ctx.globalAlpha = 0.15 + 0.85 * k * k
+          ctx.strokeStyle = "#ede9fe"
+          ctx.lineWidth = (0.6 + 1.4 * k) * d
+          strokeSpan(a, f0, f1, cx, cy, R)
         }
-        if (pen) ctx.lineTo(x, y)
-        else ctx.moveTo(x, y)
-        pen = true
-        hx = x
-        hy = y
-        hv = true
       }
-      /* A soft glow under a bright line. */
-      ctx.strokeStyle = "rgba(167,139,250,0.22)"
-      ctx.lineWidth = 6 * d
-      ctx.stroke()
-      ctx.strokeStyle = "rgba(221,214,254,0.95)"
-      ctx.lineWidth = Math.max(1.4, 1.8 * d)
-      ctx.stroke()
-      if (hv && head < 1) {
-        ctx.fillStyle = "#fff"
-        ctx.beginPath()
-        ctx.arc(hx, hy, 3 * d, 0, Math.PI * 2)
-        ctx.fill()
+      if (t < ARC_MS) {
+        arcAt(a, head)
+        if (!behind()) {
+          const hx = cx + rx * R
+          const hy = cy - ry * R
+          const size = gs * 0.95
+          ctx.globalAlpha = 1
+          ctx.drawImage(st.glow, hx - size / 2, hy - size / 2, size, size)
+          ctx.fillStyle = "#fff"
+          ctx.beginPath()
+          ctx.arc(hx, hy, 1.9 * d, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      } else if (t < ARC_MS + PULSE_MS) {
+        /* The landing: a flash and two rings, drawn flat on the surface (ellipses foreshortened toward the rim). */
+        const c = cities[ci]
+        rot(c[0], c[1], c[2])
+        if (rz > 0.04) {
+          const x = cx + rx * R
+          const y = cy - ry * R
+          const ang = Math.atan2(-ry, rx)
+          const face = Math.min(1, rz * 1.6)
+          const k = (t - ARC_MS) / PULSE_MS
+          const flash = 1 - clamp01(k * 3)
+          if (flash > 0) {
+            const size = gs * (0.7 + 0.8 * flash)
+            ctx.globalAlpha = flash * face
+            ctx.drawImage(st.glow, x - size / 2, y - size / 2, size, size)
+          }
+          ctx.strokeStyle = "#c4b5fd"
+          for (let ring = 0; ring < 2; ring++) {
+            const kr = clamp01(k * 1.25 - ring * 0.25)
+            if (kr <= 0 || kr >= 1) continue
+            const rr = (2 + 24 * easeOut(kr)) * d
+            ctx.globalAlpha = (1 - kr) * (1 - kr) * face * (ring ? 0.6 : 1)
+            ctx.lineWidth = (1.6 - 0.6 * kr) * d
+            ctx.beginPath()
+            ctx.ellipse(x, y, rr * Math.max(0.12, rz), rr, ang, 0, Math.PI * 2)
+            ctx.stroke()
+          }
+        }
+      } else if (t > ARC_MS + TAIL_LAG + 220) {
+        shotCity[s] = -1
       }
-    }
-
-    /* The buyer's city rings as the order lands. */
-    st.rings = st.rings.filter((r) => now - r.t0 < RING_MS)
-    for (const r of st.rings) {
-      const c = cities[r.order]
-      const p = rot(c[0], c[1], c[2])
-      if (p[2] <= 0.05) continue
-      const k = (now - r.t0) / RING_MS
-      ctx.globalAlpha = (1 - k) * Math.min(1, p[2] * 1.6)
-      ctx.strokeStyle = "#c4b5fd"
-      ctx.lineWidth = 1.5 * d
-      ctx.beginPath()
-      ctx.arc(cx + p[0] * R, cy - p[1] * R, (3 + 22 * ease(k)) * d, 0, Math.PI * 2)
-      ctx.stroke()
     }
     ctx.globalAlpha = 1
 
-    sendPill(now, false)
+    sendPill(false)
+    st.dirty = false
     if (!st.drawn) {
       st.drawn = true
       host.onDrawn()
     }
   }
 
-  const showPill = (i: number, now: number) => {
+  const showPill = (i: number) => {
     if (st.pill === i) return
     st.pill = i
     st.pillOn = false
-    sendPill(now, true)
+    setRot()
+    sendPill(true)
   }
 
-  /* The next order: the next buyer in the list whose city faces the viewer. */
+  /* The next order: the next buyer in the list whose city will face the viewer when the shot lands. */
   const launch = (now: number) => {
-    setRot()
+    let slot = -1
+    for (let s = 0; s < MAX_SHOTS; s++) if (shotCity[s] < 0) slot = s
+    if (slot < 0) return
+    setRot(st.vyaw * ARC_MS)
     for (let tries = 0; tries < cities.length; tries++) {
       const i = st.order
       st.order = (st.order + 1) % cities.length
       const c = cities[i]
-      if (rot(c[0], c[1], c[2])[2] > 0.3) {
-        st.arcs.push({ pts: arcPoints(home, c), t0: now, order: i })
+      rot(c[0], c[1], c[2])
+      if (rz > 0.4) {
+        shotCity[slot] = i
+        shotT0[slot] = now
+        shotLanded[slot] = 0
         return
       }
     }
   }
 
-  const tick = (now: number) => {
+  const tick = (t: number) => {
     st.frame = 0
-    const dt = Math.min(48, now - st.last)
-    st.last = now
-    if (!st.drag) {
-      st.vyaw += (AUTO_SPIN - st.vyaw) * (1 - Math.exp(-dt / 900))
+    /* Real time since the last frame, capped so a stall never jumps the globe. */
+    const dt = Math.max(0, Math.min(50, t - st.last))
+    st.last = t
+    st.clock += dt
+    const now = st.clock
+    if (!st.dragging) {
+      /* The throw coasts and settles back into the slow spin; the tilt springs back. */
+      st.vyaw += ((st.reduced ? 0 : AUTO_SPIN) - st.vyaw) * (1 - Math.exp(-dt / 1100))
       st.yaw += st.vyaw * dt
-      st.pitch += (BASE_PITCH - st.pitch) * (1 - Math.exp(-dt / 1100))
+      st.vpitch *= Math.exp(-dt / 260)
+      st.pitch += st.vpitch * dt
+      st.pitch += (BASE_PITCH - st.pitch) * (1 - Math.exp(-dt / 1200))
+      st.pitch = Math.max(-0.35, Math.min(1.1, st.pitch))
     }
-    const kl = 1 - Math.exp(-dt / 260)
+    const kl = 1 - Math.exp(-dt / 240)
     st.leanX += (st.targetLeanX - st.leanX) * kl
     st.leanY += (st.targetLeanY - st.leanY) * kl
     if (!st.reduced) {
@@ -338,27 +490,32 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
         launch(now)
         st.next = now + ORDER_EVERY
       }
-      for (const a of st.arcs) {
-        if (!a.landed && now - a.t0 >= ARC_MS) {
-          a.landed = true
-          st.rings.push({ order: a.order, t0: now })
-          showPill(a.order, now)
+      for (let s = 0; s < MAX_SHOTS; s++) {
+        if (shotCity[s] >= 0 && !shotLanded[s] && now - shotT0[s] >= ARC_MS) {
+          shotLanded[s] = 1
+          showPill(shotCity[s])
         }
       }
     }
-    draw(now)
+    draw()
     sync()
   }
 
+  const interacting = () => st.dragging || Math.abs(st.leanX - st.targetLeanX) + Math.abs(st.leanY - st.targetLeanY) > 0.002
+
   const sync = () => {
-    const interacting = !!st.drag || Math.abs(st.leanX - st.targetLeanX) + Math.abs(st.leanY - st.targetLeanY) > 0.002
-    st.running = (st.want && !st.reduced) || interacting
+    st.running = (st.want && !st.reduced) || interacting()
     if (st.running && !st.frame) {
-      if (!st.last || performance.now() - st.last > 100) st.last = performance.now()
-      st.frame = host.raf(tick)
+      st.last = performance.now()
+      st.frame = host.raf((t) => {
+        /* The first frame after a pause only sets the time base. */
+        st.last = t
+        st.frame = host.raf(tick)
+      })
     } else if (!st.running && st.frame) {
       host.caf(st.frame)
       st.frame = 0
+      if (st.dirty) draw()
     }
   }
 
@@ -375,9 +532,9 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
       canvas.width = Math.round(w * dpr)
       canvas.height = Math.round(h * dpr)
       paintStatic()
-      const now = performance.now()
-      draw(now)
-      sendPill(now, true)
+      draw()
+      setRot()
+      sendPill(true)
     },
     /** On screen, the tab visible, the globe in view, motion allowed. */
     run(want: boolean) {
@@ -386,55 +543,95 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     },
     reduced(on: boolean) {
       st.reduced = on
-      if (on && st.pill < 0) {
-        st.yaw = -0.35
-        showPill(0, performance.now())
+      if (on) {
+        /* A still globe with the Atlantic in front and one order shown. */
+        for (let s = 0; s < MAX_SHOTS; s++) shotCity[s] = -1
+        st.yaw = 0.4
+        st.vyaw = 0
+        st.vpitch = 0
+        st.leanX = st.targetLeanX = 0
+        st.leanY = st.targetLeanY = 0
+        if (st.pill < 0) showPill(0)
+      } else {
+        st.vyaw = AUTO_SPIN
       }
+      st.dirty = true
       sync()
-      if (!st.running) draw(performance.now())
+      if (!st.running) draw()
     },
     /** Drag to turn (with momentum); `t` is the event's timeStamp. */
     pointer(e: GlobePointer) {
+      const k = 1 / Math.max(80, st.R)
       if (e.kind === "down") {
-        st.drag = { x: e.x, y: e.y, t: e.t }
+        st.dragging = true
+        st.dragX = e.x
+        st.dragY = e.y
         st.vyaw = 0
+        st.vpitch = 0
+        sampN = 0
+        sampX[0] = e.x
+        sampY[0] = e.y
+        sampT[0] = e.t
+        sampN = 1
       } else if (e.kind === "move") {
-        const dr = st.drag
-        if (!dr) return
-        const dx = e.x - dr.x
-        const dy = e.y - dr.y
-        const dt = Math.max(1, e.t - dr.t)
-        const k = 1 / Math.max(80, st.R)
+        if (!st.dragging) return
+        const dx = e.x - st.dragX
+        const dy = e.y - st.dragY
         st.yaw += dx * k
-        st.pitch = Math.max(-0.3, Math.min(1.05, st.pitch + dy * k))
-        /* Velocity, smoothed so one jittery event does not decide the throw. */
-        st.vyaw = st.vyaw * 0.6 + ((dx * k) / dt) * 0.4
-        dr.x = e.x
-        dr.y = e.y
-        dr.t = e.t
-        if (st.reduced && !st.frame) draw(performance.now())
+        st.pitch = Math.max(-0.35, Math.min(1.1, st.pitch + dy * k))
+        st.dragX = e.x
+        st.dragY = e.y
+        const j = sampN % POINTER_SAMPLES
+        sampX[j] = e.x
+        sampY[j] = e.y
+        sampT[j] = e.t
+        sampN++
+        st.dirty = true
+        if (st.reduced) {
+          setRot()
+          draw()
+        }
       } else {
-        if (!st.drag) return
-        /* A throw that ended with a pause keeps no momentum. */
-        if (e.t - st.drag.t > 90) st.vyaw = 0
-        st.vyaw = Math.max(-0.006, Math.min(0.006, st.vyaw))
-        st.drag = null
-        sendPill(performance.now(), true)
+        if (!st.dragging) return
+        st.dragging = false
+        /* The throw: the pointer's speed over its last ~100ms; a release after a pause throws nothing. */
+        const lastJ = (sampN - 1) % POINTER_SAMPLES
+        const tLast = sampT[lastJ]
+        let firstJ = lastJ
+        for (let n = 1; n < Math.min(sampN, POINTER_SAMPLES); n++) {
+          const j = (sampN - 1 - n) % POINTER_SAMPLES
+          if (tLast - sampT[j] > 100) break
+          firstJ = j
+        }
+        const span = tLast - sampT[firstJ]
+        if (span > 8 && e.t - tLast < 80) {
+          st.vyaw = Math.max(-0.008, Math.min(0.008, ((sampX[lastJ] - sampX[firstJ]) * k) / span))
+          st.vpitch = Math.max(-0.004, Math.min(0.004, ((sampY[lastJ] - sampY[firstJ]) * k) / span))
+        } else {
+          st.vyaw = 0
+          st.vpitch = 0
+        }
+        if (st.reduced) {
+          st.vyaw = 0
+          st.vpitch = 0
+        }
+        setRot()
+        sendPill(true)
       }
       sync()
     },
     /** Lean toward a hovering mouse (fractions of the card, -0.5 to 0.5), or back to 0. */
     lean(fx: number, fy: number) {
       if (st.reduced) return
-      st.targetLeanX = fx * 0.28
-      st.targetLeanY = fy * 0.22
+      st.targetLeanX = fx * 0.26
+      st.targetLeanY = fy * 0.2
       sync()
     },
     stop() {
       if (st.frame) host.caf(st.frame)
       st.frame = 0
       st.want = false
-      st.drag = null
+      st.dragging = false
     },
   }
 }

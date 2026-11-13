@@ -1,5 +1,5 @@
 /*
-  THE "SELL TO FANS ANYWHERE" GLOBE, DRAWN OFF THE PAGE'S THREAD
+  THE "SELL ANYWHERE" GLOBE, DRAWN OFF THE PAGE'S THREAD
   (wave 13 perf; everything-globe.tsx starts it). The page hands its canvas
   over (transferControlToOffscreen) and this worker turns and draws it with
   the engine in everything-globe-draw.ts. Drawn on the page's own thread, a
@@ -9,7 +9,7 @@
   Messages in: init (the canvas, the land points, the cities, the studio),
   size (CSS pixels and device pixel ratio), run (on screen and allowed to
   move), reduced, pointer (a drag's down, move and up), lean (toward the
-  mouse). Out: pill (where the order pill goes) and drawn (after the first
+  mouse). Out: pill (where the order pill goes, each frame it moves) and drawn (after the first
   frame).
 */
 

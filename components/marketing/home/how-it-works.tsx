@@ -11,7 +11,8 @@
  *              one artist's merch (tee, hoodie, crewneck, tote, mug), each
  *              with its price, example production cost, profit and an order
  *              moving from placed to printing to shipped
- *   checkout   a OnePage on a phone: a tap on a product, the product sheet
+ *   checkout   a OnePage on a phone (Amara's page in the Swiss theme, drawn
+ *              by the theme picker's ThemePreview): a tap on a product, the product sheet
  *              slides up, Buy now, Payment complete, and it slides away
  *   digital    the product editor uploading a ZIP, publishing, then the
  *              buyer's "Thanks for your purchase" email with Get your files
@@ -38,6 +39,7 @@ import type { SectionStyle } from "./lazy-section"
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { StoryHeading } from "../story-heading"
 import { commerceProduct, commerceUsd } from "./commerce-kit"
+import { AMARA, HomeOnePage, HomeOnePageStyle } from "./onepage-sample"
 
 const IMG = "/home/commerce"
 const HOW = "/home/how"
@@ -112,14 +114,14 @@ export function HowItWorks() {
       </style>
       <div className="cmh-wrap">
         <div className="story-section-heading">
-          <StoryHeading id="cmh-title" text="Sell what your fans love. We handle the rest." accent={["love"]} />
+          <StoryHeading id="cmh-title" text="Sell what you make. We handle the rest." accent={["make"]} />
         </div>
 
         <div className="cmh-grid">
           <Tile wide tone="merch" caption={<><b>Sell your own merch, no inventory.</b> Design it, set your price, and a print partner you connect prints and ships each order as it comes in.</>}>
             <MerchScene />
           </Tile>
-          <Tile tone="violet" caption={<><b>Fans buy without leaving your page.</b> Tap a product on your OnePage and checkout slides up right there.</>}>
+          <Tile tone="violet" caption={<><b>People buy without leaving your page.</b> Tap a product on your OnePage and checkout slides up right there.</>}>
             <SheetScene />
           </Tile>
           <Tile caption={<><b>Sell digital products.</b> Upload a file once. Every buyer gets it by email the moment they pay.</>}>
@@ -128,7 +130,7 @@ export function HowItWorks() {
           <Tile tone="lilac" caption={<><b>Build and sell a course.</b> Lessons, videos and files, with each student&apos;s progress saved as they go.</>}>
             <CourseScene />
           </Tile>
-          <Tile tone="warm" caption={<><b>Take tips from fans.</b> A thank-you button for the people who just want to support you.</>}>
+          <Tile tone="warm" caption={<><b>Take tips.</b> A thank-you button for the people who just want to support you.</>}>
             <TipScene />
           </Tile>
         </div>
@@ -230,6 +232,7 @@ function MerchScene() {
 function SheetScene() {
   return (
     <div className="cmh-op">
+      <HomeOnePageStyle />
       <div className="cmh-ph">
         <div className="cmh-ph-scr">
           <div className="cmh-ph-sb">
@@ -243,24 +246,11 @@ function SheetScene() {
               <rect x="21.8" y="3.3" width="7.5" height="5.4" rx="1.4" />
             </svg>
           </div>
-          <div className="cmh-op-page">
-            <img className="cmh-op-av" src={`${IMG}/creator-amara.webp`} alt="" loading="lazy" decoding="async" width={160} height={160} />
-            <div className="cmh-op-name">Amara Okafor</div>
-            <div className="cmh-op-bio">Photographer · Lagos</div>
-            <div className="cmh-op-prod">
-              <img src="/home/showcase/lt-field.webp" alt="" loading="lazy" decoding="async" width={320} height={200} />
-              <span className="cmh-op-row">
-                <span>
-                  <b>Golden Hour presets</b>
-                  <small>24 Lightroom presets</small>
-                </span>
-                <b className="cmh-op-price">$19</b>
-              </span>
-              <span className="cmh-a cmh-tap" />
-            </div>
-            <div className="cmh-op-link">Watch my latest shoot</div>
-            <div className="cmh-op-link">Book a portrait session</div>
-          </div>
+          {/* Amara's OnePage in Swiss, a theme the picker ships, drawn by the picker's own ThemePreview (./onepage-sample); the tap lands on her presets. */}
+          <HomeOnePage theme="swiss" who={AMARA} className="cmh-op-page" />
+          <span className="cmh-op-hit">
+            <span className="cmh-a cmh-tap cmh-tap-dark" />
+          </span>
           <span className="cmh-a cmh-dim" />
           <div className="cmh-a cmh-sheet">
             <span className="cmh-grab" />
@@ -546,23 +536,16 @@ const HOW_CSS = `
 /* ── OnePage + product sheet ── */
 .cmh-op{position:absolute;inset:0;display:flex;justify-content:center}
 .cmh-ph{position:absolute;top:30px;bottom:0;width:236px;padding:7px 7px 0;border-radius:40px 40px 0 0;background:#0c0c0e;box-shadow:0 30px 60px -20px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.08);box-sizing:border-box}
-.cmh-ph-scr{position:relative;height:100%;border-radius:33px 33px 0 0;background:#faf8f5;overflow:hidden}
+.cmh-ph-scr{position:relative;height:100%;border-radius:33px 33px 0 0;background:#f2f1ec;overflow:hidden}
 .cmh-ph-sb{display:flex;align-items:center;justify-content:space-between;height:34px;padding:0 20px 0 24px;font-size:12px;color:#111}
 .cmh-ph-sb b{font-weight:600}
 .cmh-ph-isl{width:64px;height:20px;border-radius:12px;background:#0c0c0e}
-.cmh-op-page{padding:6px 14px 0;text-align:center}
-.cmh-op-av{display:block;width:54px;height:54px;margin:0 auto;border-radius:50%;object-fit:cover}
-.cmh-op-name{margin-top:7px;font-size:15px;font-weight:650;letter-spacing:-.01em}
-.cmh-op-bio{font-size:11.5px;color:#71717a}
-.cmh-op-prod{position:relative;margin-top:12px;border-radius:14px;background:#fff;box-shadow:0 0 0 1px rgba(17,17,19,.06);overflow:hidden;text-align:left}
-.cmh-op-prod>img{display:block;width:100%;height:84px;object-fit:cover}
-.cmh-op-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px}
-.cmh-op-row b{display:block;font-size:12.5px;font-weight:600}
-.cmh-op-row small{font-size:11px;color:#71717a}
-.cmh-op-price{font-size:13px}
-.cmh-op-link{margin-top:8px;height:36px;display:grid;place-items:center;border-radius:12px;background:#fff;box-shadow:0 0 0 1px rgba(17,17,19,.06);font-size:12px;font-weight:500}
+.cmh-op-page{position:absolute;left:0;right:0;top:26px;bottom:0}
+.cmh-op .cmh-ph-sb{position:relative;z-index:1}
+.cmh-op-hit{position:absolute;left:0;right:0;top:26px;height:0}
+/* On her presets: the product block is 211 to 288px down the page at this phone's size (one size at every width). */
+.cmh-op-hit .cmh-tap{left:58%;top:236px}
 .cmh-tap{animation-name:cmh-tap;animation-timing-function:ease-out}
-.cmh-op-prod .cmh-tap{left:62%;top:56%}
 @keyframes cmh-tap{0%,11%{opacity:0;transform:scale(.4)}14%{opacity:1;transform:scale(1)}19%,100%{opacity:0;transform:scale(1.7)}}
 .cmh-dim{position:absolute;inset:0;background:rgba(10,10,12,.32);opacity:0;animation-name:cmh-dim;animation-timing-function:ease}
 @keyframes cmh-dim{0%,15%{opacity:0}24%,84%{opacity:1}93%,100%{opacity:0}}

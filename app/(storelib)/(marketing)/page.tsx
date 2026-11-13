@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic"
-import { LandingStory } from "@/components/marketing/landing-story"
+import { LandingStory, StoryBand } from "@/components/marketing/landing-story"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
@@ -41,6 +41,11 @@ export const metadata: Metadata = {
     ones are wrapped in <LazySection>, which lets the browser skip their
     layout and paint until they come near the screen;
 
+    the rhythm (wave 14): white sections, then a band of colour, then white
+    again: black for the kinds of business (and the checkout scene, which
+    draws its own), deep purple for analytics with the map, and for the app
+    (StoryBand, components/marketing/landing-story.tsx);
+
     the motion sections from the other wave-12 tracks are mounted near the
     screen by lazySection() (components/marketing/home/lazy-section): their
     code is not in the first load at all. The slots below mark where each
@@ -74,8 +79,10 @@ export default function StorelibLanding() {
           <ProductMarquee />
         </LazySection>
 
-        {/* 6 EveryKindOfBusiness carousel */}
-        <LazyBusinessCarousel />
+        {/* 6 EveryKindOfBusiness carousel, on a black band */}
+        <StoryBand tone="black">
+          <LazyBusinessCarousel />
+        </StoryBand>
 
         {/* 7 CreatorsCarousel */}
         <LazyCreatorsCarousel />
@@ -89,11 +96,11 @@ export default function StorelibLanding() {
         {/* 10 AudienceOwnership */}
         <LazyAudienceOwnership />
 
-        {/* 11 AnalyticsShowcase */}
-        <LazyAnalyticsShowcase />
-
-        {/* 12 SellEverywhere world map */}
-        <LazySellEverywhereMap />
+        {/* 11 AnalyticsShowcase and 12 SellEverywhere world map, one purple panel */}
+        <StoryBand tone="purple">
+          <LazyAnalyticsShowcase />
+          <LazySellEverywhereMap />
+        </StoryBand>
 
         {/* 13 Integrations */}
         <LazyIntegrationsSection />
@@ -101,8 +108,10 @@ export default function StorelibLanding() {
         {/* 14 EarningsCalculator */}
         <LazyEarningsCalculator />
 
-        {/* 15 RunFromAnywhere */}
-        <LazyAppAnywhere />
+        {/* 15 RunFromAnywhere, a purple panel */}
+        <StoryBand tone="purple">
+          <LazyAppAnywhere />
+        </StoryBand>
 
         {/* 16 PRICING (kept as it was, without its See full pricing button here) */}
         <LazySection name="pricing" minHeight="max(calc(2090px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1045px)">

@@ -84,7 +84,7 @@ console.log("\nCommerce: the figures are Storelib's")
 console.log("\nCommerce: the sections render on the server")
 {
   const how = renderToStaticMarkup(createElement(HowItWorks))
-  check("how it works: its heading", how.includes("Sell what your fans love. We handle the rest."))
+  check("how it works: its heading", how.includes("Sell what you make. We handle the rest."))
   check("how it works: five tiles", (how.match(/class="cmh-tile"/g) ?? []).length === 5)
   /* Changed on purpose (wave 13): the owner removed the profit picker, the "How it works" pill and the subheading. */
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
@@ -100,7 +100,9 @@ console.log("\nCommerce: the sections render on the server")
   check("checkout: the phone draws the real checkout's words", ["Your details", "Email me news and offers", "Payment method", "Pay $19.00 with Apple Pay", "Payment complete", "We sent your receipt and your access to", "Open it now"].every((w) => co.includes(w)))
   /* Added (wave 13). */
   check("checkout: no subheading under the headline, no eyebrow", !/cmc-sub|story-eyebrow/.test(co))
-  check("checkout: the same checkout in a desktop browser, and Google Pay there", (co.match(/class="cmv-br"/g) ?? []).length === 2 && co.includes("Pay $19.00 with Google Pay"))
+  /* Changed on purpose (landing round): the desktop picture is the website checkout as app/(storelib)/checkout/site/site-checkout.tsx draws it, in its own words. */
+  check("checkout: the real desktop checkout, by card and by Google Pay", (co.match(/class="cdx"/g) ?? []).length === 2 && ["Pay Maya Ellis Studio", "Contact information", "Email me with news and offers", "Shipping method", "Payment method", "Add promotion code", "Total due", "Pay $88.36", "Continue shopping"].every((w) => co.includes(w)))
+  check("checkout: the desktop checkout's totals add up", co.includes("$77.00") && co.includes("$6.00") && co.includes("$5.36") && (32 + 26 + 19 === 77) && Math.round((77 + 6 + 5.36) * 100) === 8836)
   check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$19.00", "€17.50", "£15.00", "¥2,900", "C$26.00"].every((p) => co.includes(p)))
   check("checkout: the reminder and the sale note use the real emails' words", co.includes("You left Golden Hour presets at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("You sold Golden Hour presets for $19.00"))
   check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="A Storelib checkout on a phone/.test(co))
