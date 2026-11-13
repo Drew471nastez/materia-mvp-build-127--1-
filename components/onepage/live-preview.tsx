@@ -38,6 +38,8 @@ import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
 
 /** How long a frame has to say it is ready before it is loaded once more. */
 const FRAME_READY_MS = 6000
+/** A frame out of sight is sent the page once edits have paused this long. */
+const HIDDEN_SEND_MS = 250
 
 /** The width the page is drawn at: a phone's, the one the live page is designed at. */
 export const PREVIEW_PHONE_WIDTH = 390
@@ -302,9 +304,21 @@ export function LivePreviewFrame({
     return () => window.clearTimeout(id)
   }, [attempt])
 
-  /* Every change, at most once a frame. */
+  /*
+    Every change, at most once a frame, while the frame can be seen. A frame
+    kept warm out of sight (the phone's preview while the editor is shown, or
+    the phone beside the editor at a width that hides it) draws the page once
+    the typing pauses instead: it used to draw the whole page, and measure every
+    word's legibility over it, on every letter typed, about half of what one
+    keystroke cost on a phone slowed 4x (scripts/check-onepage-au2.mjs).
+  */
   useEffect(() => {
     if (!ready.current) return
+    const el = frame.current
+    if (el && typeof el.checkVisibility === "function" && !el.checkVisibility({ visibilityProperty: true } as CheckVisibilityOptions)) {
+      const id = window.setTimeout(send, HIDDEN_SEND_MS)
+      return () => window.clearTimeout(id)
+    }
     const id = requestAnimationFrame(send)
     return () => cancelAnimationFrame(id)
   }, [page, currency, send])

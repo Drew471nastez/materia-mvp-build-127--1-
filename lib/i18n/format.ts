@@ -15,15 +15,31 @@ import { activeLanguage, activeLocale } from "./text"
 
 const ZONE_KEY = "storelib_timezone"
 
+/*
+  WHETHER A ZONE IS ONE INTL KNOWS, ASKED ONCE PER ZONE (round AU). Building a
+  DateTimeFormat to find out is slow, and appTimeZone() is asked per row per
+  render (the OnePage editor's block rows ask it for their schedule label): on
+  a phone slowed 4x, typing one letter spent about 30ms here. The answer for a
+  zone never changes while the page is open.
+*/
+const zoneValid = new Map<string, boolean>()
 function validZone(zone: string | null | undefined): zone is string {
   if (!zone) return false
+  const known = zoneValid.get(zone)
+  if (known !== undefined) return known
+  let ok: boolean
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: zone })
-    return true
+    ok = true
   } catch {
-    return false
+    ok = false
   }
+  zoneValid.set(zone, ok)
+  return ok
 }
+
+/* The device's own zone, read once: resolvedOptions() builds a formatter each time. */
+let deviceZone: string | null | undefined
 
 /** The creator's time zone: the one chosen in Settings, else the device's, else UTC. */
 export function appTimeZone(): string {
@@ -35,12 +51,15 @@ export function appTimeZone(): string {
       /* Storage refused: the device's zone. */
     }
   }
-  try {
-    const device = Intl.DateTimeFormat().resolvedOptions().timeZone
-    if (validZone(device)) return device
-  } catch {
-    /* No Intl zone data. */
+  if (deviceZone === undefined) {
+    try {
+      deviceZone = Intl.DateTimeFormat().resolvedOptions().timeZone || null
+    } catch {
+      /* No Intl zone data. */
+      deviceZone = null
+    }
   }
+  if (validZone(deviceZone)) return deviceZone
   return "UTC"
 }
 

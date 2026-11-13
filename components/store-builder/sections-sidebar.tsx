@@ -1406,18 +1406,12 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 productId={selectedProductId}
               />
             ) : selectedSectionId === "footer" ? (
-              <FooterSettingsForm
-                settings={(draftConfig.globalSettings || defaultGlobalStoreSettings).footerSettings || {
-                  footerType: "simple",
-                  columns: ["navigation"],
-                  showPaymentIcons: false,
-                  showPoweredBy: true,
-                  sectionHeight: 80,
-                  headingSize: "h3",
-                  textFontSize: "medium",
-                }}
-                onChange={(footerSettings) => updateGlobalSettings({ footerSettings })}
-              />
+              /* Round AU: this named a FooterSettingsForm that was never written, so choosing Footer threw a
+                 ReferenceError and took the whole sections page down. Nothing on a store reads footerSettings,
+                 so there is nothing to set here yet. */
+              <div className="text-center text-[14px] text-[#6b7280] py-8">
+                <p>The footer has no settings yet.</p>
+              </div>
             ) : selectedSection ? (
               <SectionSettingsForm
                 section={selectedSection}

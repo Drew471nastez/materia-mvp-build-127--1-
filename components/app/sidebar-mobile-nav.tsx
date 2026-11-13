@@ -40,6 +40,7 @@ import { endLayerMove } from "@/components/app/page-layer"
 import { hapticTap } from "@/lib/native-bridge"
 import { onPageOf, scrollAppToTop } from "@/lib/ui/scroll-app-top"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
+import { afterResume } from "@/lib/ui/resume"
 import { APP_PAGE_KEPT_MS, PHONE_WIDTH_QUERY, isPhoneShell, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { mayLeave } from "@/lib/ui/leave-guard"
 import { prefetchPlan } from "@/lib/nav/prefetch-policy"
@@ -935,8 +936,13 @@ export function MobileNavPill({
       for (const item of items) onPrefetch(item.href, warmedAsPhone)
     }
     warm()
+    /* Round AU: after the app has settled, not in the instant it comes back (lib/ui/resume). */
+    let resumed = () => {}
     const onVisible = () => {
-      if (document.visibilityState === "visible" && Date.now() - warmedAt > APP_PAGE_KEPT_MS) warm()
+      if (document.visibilityState === "visible" && Date.now() - warmedAt > APP_PAGE_KEPT_MS) {
+        resumed()
+        resumed = afterResume(warm)
+      }
     }
     const narrow = typeof window.matchMedia === "function" ? window.matchMedia(PHONE_WIDTH_QUERY) : null
     const onNarrow = () => {
@@ -945,6 +951,7 @@ export function MobileNavPill({
     document.addEventListener("visibilitychange", onVisible)
     narrow?.addEventListener?.("change", onNarrow)
     return () => {
+      resumed()
       document.removeEventListener("visibilitychange", onVisible)
       narrow?.removeEventListener?.("change", onNarrow)
     }

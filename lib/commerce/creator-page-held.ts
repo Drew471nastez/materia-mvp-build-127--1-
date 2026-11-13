@@ -46,10 +46,51 @@ class NotHeld<T> extends Error {
   }
 }
 
-/** Held under the creator's tags; a value `failed` says is answered once and not held; read directly outside Next. */
+/*
+  A READ THAT FAILED IS ANSWERED WITH THE LAST GOOD ONE (round AU). Production
+  logged "creator-page-head ... Error: a read failed, so the answer is not
+  held" on /<handle>. With a held copy in Next's data cache that is only the
+  refresh behind the visitor failing, and the visitor gets the copy. With none
+  (a first visit, an evicted entry, a save's `expire: 0` followed by a slow
+  database) the visitor got the failed answer: an empty grid, or a head that
+  counted no products and so said noindex, and the CDN kept that page for
+  five minutes (next.config.mjs EDGE_PAGE). So every good answer handed out
+  is also kept on this instance, by its key, and a failed read answers it
+  while it is younger than LAST_GOOD_MAX_AGE_MS. It is a page already shown
+  to every stranger (the anon key, round 49), so it shows nothing new; a save
+  on this instance forgets it (forgetCreatorPageLastGood). Bounded to
+  LAST_GOOD_MAX_KEYS keys, the oldest written first out.
+*/
+export const LAST_GOOD_MAX_AGE_MS = 15 * 60_000
+const LAST_GOOD_MAX_KEYS = 500
+const lastGood = new Map<string, { value: unknown; at: number; creatorId: string; userId: string }>()
+
+function keep(key: string, value: unknown, creatorId: string, userId: string) {
+  lastGood.delete(key)
+  lastGood.set(key, { value, at: Date.now(), creatorId, userId })
+  if (lastGood.size > LAST_GOOD_MAX_KEYS) {
+    const oldest = lastGood.keys().next().value
+    if (oldest !== undefined) lastGood.delete(oldest)
+  }
+}
+
+function kept<T>(key: string): T | undefined {
+  const held = lastGood.get(key)
+  if (!held || Date.now() - held.at > LAST_GOOD_MAX_AGE_MS) return undefined
+  return held.value as T
+}
+
+/** A creator's page changed (lib/storefront/creator-page-purge): this instance's last good copies of it go. No ids: all of them (tests). */
+export function forgetCreatorPageLastGood(id?: string) {
+  if (!id) return lastGood.clear()
+  for (const [k, v] of lastGood) if (v.creatorId === id || v.userId === id) lastGood.delete(k)
+}
+
+/** Held under the creator's tags; a value `failed` says is answered once and not held (or the last good one, above); read directly outside Next. */
 export async function heldForCreatorPage<T>(key: string[], creatorId: string, userId: string, read: () => Promise<T>, failed: (v: T) => boolean): Promise<T> {
+  const id = JSON.stringify(key)
   try {
-    return await unstable_cache(
+    const value = await unstable_cache(
       async () => {
         const value = await read()
         if (failed(value)) throw new NotHeld(value)
@@ -58,8 +99,17 @@ export async function heldForCreatorPage<T>(key: string[], creatorId: string, us
       key,
       { revalidate: CREATOR_PAGE_HOLD_SECONDS, tags: creatorPageTags(creatorId, userId) },
     )()
+    keep(id, value, creatorId, userId)
+    return value
   } catch (e) {
-    if (e instanceof NotHeld) return e.value as T
+    if (e instanceof NotHeld) {
+      const last = kept<T>(id)
+      if (last !== undefined) {
+        console.warn(`[creator-page] ${key[0]}: a read failed, showing the last good answer`) // i18n-ignore: for the log
+        return last
+      }
+      return e.value as T
+    }
     if (e instanceof Error && /incrementalCache missing/.test(e.message)) return read()
     throw e
   }

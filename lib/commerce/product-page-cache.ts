@@ -94,7 +94,9 @@ export const cachedProductBySlug = (slug: string, creatorId?: string | null) =>
       const supabase = createPublicReadClient()
       let query = supabase.from("products").select(PRODUCT_SELECT).eq("slug", slug).eq("status", "published")
       if (creatorId) query = query.eq("creator_id", creatorId)
-      const { data } = await query.order("created_at", { ascending: true }).limit(1)
+      const { data, error } = await query.order("created_at", { ascending: true }).limit(1)
+      /* Round AU: a read that failed is thrown, never held for a minute as "no such product" (a 404 the CDN then kept). The loader reads again (lib/commerce/product-page-data). */
+      if (error) throw new Error(`product ${slug}: ${error.message ?? error.code ?? "the read failed"}`) // i18n-ignore: for the log
       const product=(Array.isArray(data)?data[0]:null)??null
       return product ? (await withVariantPrices(supabase,[product]))[0] : null
     },

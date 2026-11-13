@@ -60,6 +60,8 @@ export function landInPlace(target: string, router: RouterLike | null | undefine
     return
   }
   window.setTimeout(() => {
+    /* Round AU: never while the phone is offline. That load fails, and on Android the system's error page replaces the app; the gate says "No internet connection" instead and goes on when it is back. */
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return
     if (window.location.pathname === "/native-start") window.location.replace(target)
   }, LAND_WATCH_MS)
 }

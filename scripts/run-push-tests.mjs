@@ -23,7 +23,13 @@ import { join, basename, dirname, relative } from "node:path"
 // Fresh/temporary checkouts and parallel SQL changes use the current source catalog.
 execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
 
+/* Round AU: the production build ignores type errors, so a name used but never defined (a missing import,
+   a component never written) used to reach storelib.com as a ReferenceError. Any such name fails the suite. */
+execFileSync(process.execPath, ["scripts/check-unbound-names.mjs"], { stdio: "inherit" })
+
 const SUITES = [
+  /* Round AU: the unbound-name gate reads a tsc log right (scripts/check-unbound-names.mjs) and the two crashes it found are fixed. */
+  "tests/unbound-names-au.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
@@ -1064,6 +1070,8 @@ const SUITES = [
   "tests/native-shell.test.ts",
   /* Round AT (AT3): opening the phone app. The shell opens the gate itself and the gate lands in one router.replace; no spinner under the launch screen, Android's overlay kept up over the gate, iOS's launch screen down on every /app page once the session gate lets it draw; nobody signed in goes to /welcome without the Supabase client, only on proof of no session; scripts/check-app-launch-at3.mjs measures it in Chromium. */
   "tests/app-launch-at3.test.ts",
+  /* Round AU (AU1): the phone app on a bad network and after the background. The launch screen always comes down (12s ceiling, at once on an error, a retry or no connection); a start that cannot land says so with Try again and goes on when the phone is back online; offline, a document load is held back rather than leaving the app for the system's error page; the read aheads wait until the app settled after coming back. scripts/check-app-network-au1.mjs measures it in Chromium. */
+  "tests/app-network-au1.test.ts",
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
   "tests/communities-shell15.test.ts",
@@ -1347,6 +1355,8 @@ const SUITES = [
   "tests/home-w12-platform.test.ts",
   /* Wave 13: home section 3 rebuilt as the owner's 2 x 2 grid (Make the work. Skip the busywork.): four cards, captions in two tones, product slides whose light changes, the draggable order globe in checkout's currencies, storefronts and support; loops paused off screen, its box's height. */
   "tests/home-w13-everything.test.ts",
+  /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
+  "tests/explore-resilience-au.test.ts",
 ]
 
 /**
@@ -1494,6 +1504,8 @@ const STRICT_SUITES = [
   "tests/onepage-as2.test.ts",
   /* Round AT (track 2): Subscribe at full strength, checked on the press; every Links row with the block's own picture (a map of the place, a still, a cover, a preview image); + Add tinted only by a resting finger and opened only by a tap; a haptic on Share; the preview frame with no notch inset, so the profile bar is slim under the editor's; Preview warmed while idle and switched without a layout; the Design panels' sticky way back on its own layer; a block's stats period as a sheet on a phone. scripts/check-onepage-at2.mjs measures them at 390 and 1440. */
   "tests/onepage-at2.test.ts",
+  /* Round AU (track 2): the OnePage editor's unsaved work kept on the device and put back after a reload or an app killed in the background (asked when the page was saved elsewhere since); every save names the copy it started from and the server answers 409 rather than write over a newer one; a save that failed for the network tried again on its own; a throw in one tab or block's settings stays there; the rows ask the time zone only for a scheduled block and a preview out of sight is drawn once typing pauses. scripts/check-onepage-au2.mjs measures typing at 390 (CPU 4x) and 1440, and the save paths offline. */
+  "tests/onepage-au2.test.ts",
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",

@@ -1,4 +1,5 @@
 "use client"
+import { EditorPartBoundary } from "@/components/onepage/editor-part-boundary"
 import {ActionEditor} from "@/components/forms/action-editor"
 import {FormReferenceEditor} from "@/components/forms/form-reference-editor"
 import {actionHref,readAction,whatsappGroupUrl,type ActionType,type NativeAction} from "@/lib/forms/actions"
@@ -3960,6 +3961,8 @@ function BlockItem({
         instead of jumping; a closed card lets its editor go.
       */}
       <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut follow className="rounded-b-2xl">
+        {/* Round AU: a throw in one block's settings stays in that block (components/onepage/editor-part-boundary). */}
+        <EditorPartBoundary part={`block ${block.type}`}>
         <div ref={growTextareas} className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
           {/*
             Round AO: nothing above the Settings | Layout tabs. Move and Remove are
@@ -3978,6 +3981,7 @@ function BlockItem({
             onDeleteChild={onDeleteChild}
           />
         </div>
+        </EditorPartBoundary>
       </Reveal>
     </div>
   )

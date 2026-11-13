@@ -2,7 +2,8 @@
 
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
-import { applyStatusBar, applyThemeColor, hideSplashOnce, isNativeShell, readBand, shouldHideSplashOn } from "@/lib/native-chrome"
+import { applyStatusBar, applyThemeColor, armSplashCap, hideSplashOnce, isNativeShell, readBand, shouldHideSplashOn } from "@/lib/native-chrome"
+import { armOfflineNavigationGuard } from "@/lib/native-offline"
 
 /**
  * ===========================================================================
@@ -61,6 +62,12 @@ export function NativeChrome() {
       document.removeEventListener("visibilitychange", onShow)
     }
   }, [pathname])
+
+  /* Round AU: whatever this document lands on, the launch screen is up for SPLASH_CAP_MS at most, and an offline tap never leaves the app for the system's error page (lib/native-offline.ts). Once per document. */
+  useEffect(() => {
+    armSplashCap()
+    return armOfflineNavigationGuard()
+  }, [])
 
   useEffect(() => {
     if (!isNativeShell()) return

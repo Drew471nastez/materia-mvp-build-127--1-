@@ -5,6 +5,10 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Cannot reach Storelib": "No se puede conectar con Storelib",
+ "Still loading": "Todavía cargando",
+ "The connection is slow right now.": "La conexión va lenta ahora mismo.",
+ "Storelib opens as soon as your phone is back online.": "Storelib se abrirá en cuanto tu teléfono vuelva a tener conexión.",
  "OnePage, {block}": "OnePage, {block}",
  "Checkout, {channel}": "Pago, {channel}",
  "Tips added at checkout are part of total sales. Tips on your OnePage are paid to you on their own and are not in total sales.": "Las propinas añadidas en el pago forman parte de las ventas totales. Las propinas de tu OnePage se te pagan aparte y no están en las ventas totales.",
@@ -13402,7 +13406,15 @@ const words: Record<string, string> = {
  "From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, your paid plan stays active until the end of the period you paid for, then your account moves to Free.": "Desde Facturación en Ajustes, cuando quieras. Una mejora empieza enseguida. Si cancelas, tu plan de pago sigue activo hasta el final del periodo pagado y luego tu cuenta pasa a Gratis.",
  "Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only paid plans have, like your own domain and hidden branding, stop at the end of your paid period.": "Tus productos, páginas, clientes y pedidos se quedan exactamente igual. La comisión de Gratis se aplica a las ventas nuevas, y lo que solo tienen los planes de pago, como tu dominio propio y la marca oculta, se detiene al final de tu periodo pagado.",
  "No. Free asks for no card. You only add one when you upgrade to Pro or Scale.": "No. Gratis no pide tarjeta. Solo añades una al mejorar a Pro o Scale.",
- "Scale plan": "Plan Scale"
+ "Scale plan": "Plan Scale",
+ "This part could not be shown": "Esta parte no se pudo mostrar",
+ "Your changes are kept. The rest of the editor still works.": "Tus cambios se conservan. El resto del editor sigue funcionando.",
+ "Unsaved changes restored": "Cambios sin guardar recuperados",
+ "Unsaved changes on this device": "Cambios sin guardar en este dispositivo",
+ "You made changes here on {when} that were never saved. The page has been saved somewhere else since.": "Hiciste cambios aquí el {when} que nunca se guardaron. Desde entonces, la página se guardó en otro lugar.",
+ "Use the changes from this device": "Usar los cambios de este dispositivo",
+ "Keep the saved page": "Mantener la página guardada",
+ "This page was saved somewhere else. Save again to keep this version": "Esta página se guardó en otro lugar. Guarda de nuevo para conservar esta versión"
 }
 
 export default words
