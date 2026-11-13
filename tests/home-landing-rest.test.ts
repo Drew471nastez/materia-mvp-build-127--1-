@@ -105,7 +105,8 @@ console.log("\n── Pricing ──")
     "Get paid straight to your bank": /stripe_account_id/.test(read("lib/checkout/fulfil-payment.ts")) && exists("app/(storelib)/app/payouts/payouts-client.tsx"),
     "Email your customers": exists("app/(storelib)/app/emails/page.tsx") && exists("app/api/email/send/route.ts"),
     "See your sales and visitors": exists("app/(storelib)/app/analytics/page.tsx"),
-    "Verified badge on your page": /const userHasPro = userPlan === "growth" \|\| userPlan === "pro"/.test(read("components/onepage/onepage-editor.tsx")),
+    /* Changed on purpose (OnePage production audit, ED-1): the gate lets a plan that could not be read through (the save route asks the plan itself), and is still growth or pro. */
+    "Verified badge on your page": /const userHasPro = !planConfirmed \|\| userPlan === "growth" \|\| userPlan === "pro"/.test(read("components/onepage/onepage-editor.tsx")),
     "Everything in Free": true,
     "Everything in Pro": true,
   }
