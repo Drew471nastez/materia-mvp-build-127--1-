@@ -1,4 +1,4 @@
-/* Section 13, integrations: three marquee rows of app icons on a light ground. */
+/* Section 13, integrations: two marquee rows of app icons on a light ground. */
 
 /* The section clips its rows without being a scroll box (clip, not hidden;
    hidden first for browsers without clip), so its heading's scroll-driven
@@ -8,21 +8,32 @@
   overflow: clip;
 }
 
+/*
+  The rows run the page's full width, but what is seen of them is never
+  wider than 1120px: past that the fades are solid white. Each row's set is
+  wider than 1120px plus one tile (integrations-section.tsx), so no icon is
+  seen twice. Landing round: the tiles are a fifth smaller (90px, 67px on a
+  phone).
+*/
 .rows {
   position: relative;
   display: grid;
-  gap: 16px;
-  --tile: 112px;
-  --gap: 16px;
+  --solid: max(0px, calc((100vw - 1120px) / 2));
+  /* The rows' own overlap, given back, so the fades cover every shadow. */
+  padding-block: calc(var(--room) - (var(--gap) + 4px) / 2);
+  --tile: 90px;
+  --gap: 14px;
+  /* Room above and below each row for a tile's shadow and lift (the row clips sideways). */
+  --room: 24px;
 }
 @media (max-width: 639px) {
   .rows {
-    gap: 12px;
-    --tile: 84px;
-    --gap: 12px;
+    --tile: 67px;
+    --gap: 10px;
+    --room: 20px;
   }
 }
-/* The rows fade into the page at both ends. */
+/* The rows fade into the page at both ends, over their full height, shadows included. */
 .rows::before,
 .rows::after {
   content: "";
@@ -30,72 +41,40 @@
   top: 0;
   bottom: 0;
   z-index: 2;
-  width: clamp(28px, 8vw, 140px);
+  width: calc(var(--solid) + clamp(40px, 9vw, 136px));
   pointer-events: none;
 }
 .rows::before {
   left: 0;
-  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0));
+  background: linear-gradient(90deg, #fff calc(var(--solid) + 4px), rgba(255, 255, 255, 0));
 }
 .rows::after {
   right: 0;
-  background: linear-gradient(270deg, #fff, rgba(255, 255, 255, 0));
-}
-
-/*
-  THE LIGHT THAT FOLLOWS THE POINTER. Two fixed-size layers at the rows'
-  top left, moved to the pointer by transform (one write per frame, in
-  integrations-section.tsx): a violet glow under the tiles and a white
-  flash over them. They fade in when a pointer enters and out when it leaves.
-*/
-.glow,
-.spot {
-  position: absolute;
-  left: 0;
-  top: 0;
-  border-radius: 50%;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 360ms ease;
-  will-change: transform;
-}
-.glow {
-  z-index: 0;
-  width: 420px;
-  height: 420px;
-  margin: -210px 0 0 -210px;
-  background: radial-gradient(closest-side, rgba(124, 58, 237, 0.22), rgba(124, 58, 237, 0.08) 55%, rgba(124, 58, 237, 0));
-}
-.spot {
-  z-index: 3;
-  width: 220px;
-  height: 220px;
-  margin: -110px 0 0 -110px;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.14) 55%, rgba(255, 255, 255, 0));
-}
-.rows[data-lit] .glow,
-.rows[data-lit] .spot {
-  opacity: 1;
+  background: linear-gradient(270deg, #fff calc(var(--solid) + 4px), rgba(255, 255, 255, 0));
 }
 
 .row {
   position: relative;
   z-index: 1;
   overflow: hidden;
-  /* Room for a tile's turn and shadow. */
-  padding-block: 8px;
+  padding-block: var(--room);
+  /* Rows overlap by their room, so the tiles sit --gap + 4px apart, not two rooms. */
+  margin-block: calc((var(--gap) + 4px - 2 * var(--room)) / 2);
 }
-/* Each tile carries its own gap on the right (no flex gap), so the four
-   copies are four equal quarters and one loop is exactly -50%. */
+/* Each tile carries its own gap on the right (no flex gap), so the two
+   copies are two equal halves and one loop is exactly -50%. */
 .track {
   display: flex;
   width: max-content;
-  animation: slide var(--dur, 60s) linear infinite;
+  animation: slide var(--dur, 52s) linear infinite;
 }
 .reverse .track {
   animation-direction: reverse;
 }
 @keyframes slide {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
   to {
     transform: translate3d(-50%, 0, 0);
   }
@@ -108,9 +87,11 @@
 }
 
 /*
-  THE TILE IS THE ICON. At rest a tile is flat (no 3D transform, no layer
-  of its own), so a row is one composited track. Only the tile being turned
-  is given a 3D turn, for the 760ms it lasts (Web Animations, in the tsx).
+  THE TILE IS THE ICON. At rest a tile is flat (no 3D transform), so a row
+  is one composited track. Under a pointer it lifts 4px and its shadow
+  deepens (a second shadow faded in: opacity, not a painted box-shadow).
+  Only the tile being turned is given a 3D turn, for the 760ms it lasts
+  (Web Animations, in the tsx).
 */
 .tile {
   position: relative;
@@ -121,6 +102,25 @@
   height: var(--tile);
   cursor: default;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 24%;
+  box-shadow: 0 16px 26px -14px rgba(17, 17, 26, 0.42);
+  opacity: 0;
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover {
+    transform: translate3d(0, -4px, 0);
+  }
+  .tile:hover::before {
+    opacity: 1;
+  }
 }
 .inner {
   position: absolute;
@@ -131,10 +131,11 @@
   border-radius: 24%;
   box-shadow:
     0 0 0 1px rgba(17, 17, 26, 0.07),
-    0 10px 24px -14px rgba(17, 17, 26, 0.35);
+    0 10px 22px -14px rgba(17, 17, 26, 0.32);
 }
 /* A square app icon covers the tile, a hair over, so no edge of its own shows. */
-.cover {
+.cover,
+.whole {
   position: absolute;
   inset: -2%;
   width: 104%;
@@ -147,6 +148,17 @@
   height: calc(var(--tile) * var(--scale, 0.64));
   object-fit: contain;
   user-select: none;
+}
+.vector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--tile) * var(--scale, 0.6));
+}
+.vectorSvg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 .mark {
   position: relative;
@@ -188,10 +200,12 @@
   .track > [data-copy] {
     display: none;
   }
+  .tile,
+  .tile::before {
+    transition: none;
+  }
   .rows::before,
-  .rows::after,
-  .glow,
-  .spot {
+  .rows::after {
     display: none;
   }
 }
