@@ -175,6 +175,7 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
   /* The pill rides on the latest buyer's city, and steps aside when it turns away; its place is sent every frame while the visitor is turning the globe, else every GLOBE_PILL_EVERY_MS. */
   const sendPill = (now: number, force: boolean) => {
     if (st.pill < 0) return
+    setRot()
     const c = cities[st.pill]
     const p = rot(c[0], c[1], c[2])
     const on = p[2] > 0.12
