@@ -80,7 +80,8 @@ const proxy = readCode("proxy.ts")
 /* Changed on purpose (r54): the landing rule names storelib.com's hosts (round 51), so a website's `/` keeps its own ISR header like its subdomain, with no override. */
 check("a built website's homepage on a connected domain is held like its subdomain, not the landing page's hour", !/"public, s-maxage=60, stale-while-revalidate=300"/.test(proxy) && /source: '\/',\s*has: \[\{ type: 'host', value: `\(\?:\$\{STORELIB_HOSTS\}\)` \}\]/.test(config))
 check("and a password page or a market's prices are still never shared", /if \(guardedDomain\) r\.headers\.set\("Cache-Control", "private, no-store"\)/.test(proxy) && /else if \(\/~m-\/\.test\(rewritePath\)\) r\.headers\.set\("Cache-Control", "private, no-cache"\)/.test(proxy))
-check("Supabase pictures are optimized only from storage paths", (config.match(/supabase\.co',\n\s*pathname: '\/storage\/v1\/\*\*'/g) ?? []).length === 2)
+// Changed on purpose (round AW): one pattern per own storage host (OWN_STORAGE_HOSTS), storage paths only; no *.supabase.co.
+check("Supabase pictures are optimized only from storage paths", /\.\.\.OWN_STORAGE_HOSTS\.map\(\(hostname\) => \(\{\s*protocol: 'https',\s*hostname,\s*pathname: '\/storage\/v1\/\*\*',\s*\}\)\)/.test(config) && !/hostname: '\*\.supabase\.co'/.test(config))
 
 console.log("\n3. Polling")
 const detail = readCode("app/(storelib)/app/emails/email-detail.tsx")

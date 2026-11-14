@@ -51,7 +51,8 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 const PHOTO = "https://cdn.example.com/luca-loud.jpg"
 const LOGO = "https://cdn.example.com/ld-logo.png"
-const SUPA = "https://abc.supabase.co/storage/v1/object/public/avatars/u1/avatar-1.jpg"
+// Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
+const SUPA = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/avatars/u1/avatar-1.jpg"
 const brand = { name: "Luca Dragoste", logoUrl: LOGO, storeUrl: "https://storelib.com/luca", accent: "#1a1a2e", address: null }
 
 /** Every <img> except the 1x1 open pixel. */
@@ -130,7 +131,7 @@ console.log("\nThe receipt")
     orderNumber: "1042",
     dateText: "September 27, 2026",
     items: [
-      { title: "Autumn preset pack", variantName: "Lightroom", amountText: "$29.00", note: null, thumbnailUrl: "https://abc.supabase.co/storage/v1/object/public/products/p1/cover.jpg" },
+      { title: "Autumn preset pack", variantName: "Lightroom", amountText: "$29.00", note: null, thumbnailUrl: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/products/p1/cover.jpg" },
       { title: "Night <sky> guide", variantName: null, amountText: "Free", note: null, thumbnailUrl: null },
     ],
     subtotalText: "$29.00",
@@ -148,7 +149,7 @@ console.log("\nThe receipt")
   /* Drawn by the shared layout (lib/emails/layout.ts): 56px thumbnails, fetched at 3x. */
   const thumb = imgs.find((i) => i.includes("e-thumb")) ?? ""
   check("a product's thumbnail is drawn with width, height and its name as alt", /width="56"/.test(thumb) && /height="56"/.test(thumb) && /alt="Autumn preset pack"/.test(thumb), thumb)
-  check("sized for the inbox, absolute https", thumb.includes(`src="${APP_ORIGIN}/api/email/img?u=${encodeURIComponent("https://abc.supabase.co/storage/v1/object/public/products/p1/cover.jpg")}&amp;w=192"`), thumb)
+  check("sized for the inbox, absolute https", thumb.includes(`src="${APP_ORIGIN}/api/email/img?u=${encodeURIComponent("https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/products/p1/cover.jpg")}&amp;w=192"`), thumb)
   check("with a hairline border and a small radius", /border:1px solid #e5e7eb/.test(thumb) && /border-radius:10px/.test(thumb))
   check("a product with no thumbnail gets a tile with its first letter, not a broken picture", /class="e-tile"[^>]*>N<\/td>/.test(html) && imgs.filter((i) => i.includes("e-thumb")).length === 1)
   check("each product's name is there, escaped", html.includes(">Autumn preset pack<") && html.includes("Night &lt;sky&gt; guide") && !html.includes("<sky>"))

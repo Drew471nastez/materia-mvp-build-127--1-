@@ -386,7 +386,8 @@ async function profileByName() {
   const nobody = await visit(() => publicProfileByName(db(), "nobody-here"))
   check("nobody by that name is still nobody", nobody.value === null)
   const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
-  const batch = page.indexOf("{ data: catalogue, error: productsError }")
+  // Changed on purpose (round AW): the products read also keeps its answer's status, so a 5xx counts as no answer.
+  const batch = page.indexOf("{ data: catalogue, error: productsError, status: productsStatus }")
   /* Changed on purpose (round 38): a creator page reads no follower or following count, so there is no followingPromise to start. */
   /* Changed on purpose (round 40): "on creator pages there should be no follow button", so the page no longer asks whether the viewer follows the creator; location and channels still start with the first batch. */
   /* Changed on purpose (round rel2-public): location and channels are asked in the products' own batch, which is held for every visitor (lib/commerce/creator-page-held), so a second visitor waits on none of them. */

@@ -83,7 +83,8 @@ check(
 check("no hand-built srcset in the hero", !/srcSet=/.test(hero))
 {
   /* The helper the rest of the site uses still snaps to a served width and quality. */
-  const small = optimizedImageUrl("https://x.supabase.co/a.webp", 160, 75)
+  // Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
+  const small = optimizedImageUrl("https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/a.webp", 160, 75)
   const widthOf = (u: string) => Number(u.match(/[?&]w=(\d+)/)?.[1])
   check("and the optimizer's helper asks for a quality the config serves", widthOf(small) > 0 && /q=75/.test(small))
 }
