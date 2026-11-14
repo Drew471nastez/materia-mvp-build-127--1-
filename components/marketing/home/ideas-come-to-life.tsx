@@ -182,15 +182,15 @@ const CSS = `
 }
 @keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}6%,29%{opacity:1;transform:none}34%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
 .ideas-sub{max-width:56ch;margin:18px auto 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
-.ideas-tabs-row{display:flex;justify-content:center;margin:clamp(28px,3.4vw,44px) var(--landing-gutter,16px) clamp(20px,2.4vw,32px)}
+.ideas-tabs-row{display:flex;justify-content:center;margin:clamp(24px,3vw,36px) var(--landing-gutter,16px) clamp(18px,2.2vw,28px)}
 .ideas-tabs{display:flex;gap:clamp(18px,3vw,40px);max-width:100%;box-shadow:inset 0 -1px 0 #e7e7ea}
-.ideas-tab{position:relative;height:46px;padding:0 2px;border:0;border-radius:0;background:none;color:#8a8794;font-family:inherit;font-size:16px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .3s ease}
+.ideas-tab{position:relative;height:38px;padding:0 2px;border:0;border-radius:0;background:none;color:#8a8794;font-family:inherit;font-size:16px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .3s ease}
 .ideas-tab::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:2px;background:#18181b;transform:scaleX(0);transform-origin:50% 50%;transition:transform .45s cubic-bezier(.22,1,.36,1)}
 .ideas-tab[aria-selected="true"]{color:#18181b}
 .ideas-tab[aria-selected="true"]::after{transform:none}
 @media(hover:hover){.ideas-tab:not([aria-selected="true"]):hover{color:#18181b}}
 .ideas-tab:focus-visible{outline:2px solid #18181b;outline-offset:2px;border-radius:4px}
-@media(max-width:767px){.ideas-tab{height:42px;font-size:15px}}
+@media(max-width:767px){.ideas-tab{font-size:15px}}
 @media(max-width:379px){.ideas-tabs{gap:14px}.ideas-tab{font-size:14px}}
 .ideas[data-run] .smk-clock[data-on]{animation-play-state:running}
 .ideas-stage{position:relative;display:grid;max-width:1180px;margin:0 auto;padding:0 var(--landing-gutter,clamp(16px,6vw,96px));box-sizing:content-box}
