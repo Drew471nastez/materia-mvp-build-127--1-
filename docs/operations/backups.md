@@ -76,7 +76,9 @@ select public.storelib_restore_deleted_row(123);   -- the id from above
 
 It answers `true` when the row is back, `false` when a row with that id exists
 already. Rows deleted together share a `tx`: restore parents first (a creator
-before its products, a product before its files).
+before its products, a product before its files, a website's
+`store_theme_installs` row before its `store_theme_pages`, `store_theme_settings`
+and `store_theme_custom_files`, which part 466 keeps).
 
 ### The whole database to a moment before something went wrong: layer 2
 
@@ -124,7 +126,7 @@ scripts/backup/backup-storage.sh.)
 
 ## Where the pieces are
 
-- `supabase/sql/run-now/66_deleted_rows_kept.sql`: layer 1.
+- `supabase/sql/run-now/66_deleted_rows_kept.sql`: layer 1. `466_website_pages_deleted_rows_kept.sql` adds a website's pages, theme settings and code files to it.
 - `scripts/backup/backup-database.sh`, `backup-storage.sh`, `restore-drill.sh`, `common.sh`: layers 3 to 5. Each runs locally too (`BACKUP_DEST=file:///some/folder`).
 - `.github/workflows/backup.yml`, `.github/workflows/restore-drill.yml`: the schedules.
 - `app/api/cron/storage-cleanup`: forgets deleted row copies older than 90 days.
