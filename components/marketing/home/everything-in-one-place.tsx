@@ -10,24 +10,22 @@
   products and numbers:
 
     1. Sell anything you make: a product card that slides through merch, a
-       LUT pack, a course and a community page, the calm colour behind it
-       changing with each; the tabs pick one, and it plays by itself while
-       on screen. Under a mouse the white card leans away from the pointer,
+       LUT pack, a course and a community card, a bright gradient behind it
+       cross fading with each; the tabs pick one, and it plays by itself
+       while on screen. Under a mouse the white card leans away from the pointer,
        as if pressed, and springs back when the pointer leaves.
     2. A store that looks like you: creator stores drawn the way a phone
        shows a real Storelib creator page (the newsletter bar, the cover, the
        round photo, name, handle, bio and social icons, Home / Products /
        Communities, Featured and the product cards), each in one of the
        store's real colour schemes (lib/store-builder/defaults themePresets),
-       and between them real OnePages as a phone shows them (captures of live
-       pages, no address bar), drifting past without a stop. Pictures only:
-       nothing in the strip can be hovered, clicked or selected.
+       and between them OnePages and a community as a phone shows them,
+       drifting past, and the strip can be dragged and flicked. Pictures
+       only: nothing inside it can be hovered, clicked or selected.
     3. Sell anywhere in the world: a globe the visitor can spin, with orders
        arcing to buyers in currencies checkout charges in.
-    4. Real support: the Support page of /app (app/(storelib)/app/support),
-       its two inboxes, From buyers and Storelib, and a request thread as it
-       really reads there: the subject, the topic, the status pill, "You" on
-       the right and the other side on the left. Three requests take turns.
+    4. Real support: three requests take turns, a question and its answer,
+       from Storelib's support or from the creator to a buyer.
 
   Motion is transform and opacity only. usePlatformSection writes
   data-platform-in (the first time the section is seen) and
@@ -41,8 +39,10 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type RefO
 import type { SectionStyle } from "./lazy-section"
 import { usePlatformSection } from "./platform-motion"
 import { EverythingGlobe } from "./everything-globe"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
-export const EVERYTHING_HEADING = { lead: "Make the work.", rest: "Skip the busywork." } as const
+/* Landing round 4 (the owner: the old line was "too broad and vague"): what the four cards below say, in the same two tones. */
+export const EVERYTHING_HEADING = { lead: "Sell anything, anywhere.", rest: "Support included." } as const
 
 const IMG = "/home/everything"
 const ST = `${IMG}/stores`
@@ -105,29 +105,29 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
   {
     tab: "Course",
-    name: "Wheel Throwing Basics",
+    name: "Knit Your First Sweater",
     kind: "course",
     img: `${IMG}/course.webp`,
     w: 480,
     h: 480,
     stats: [
-      ["Price", "$129.00"],
-      ["Students", "92"],
-      ["Revenue", "$11,868.00"],
+      ["Price", "$79.00"],
+      ["Students", "146"],
+      ["Revenue", "$11,534.00"],
     ],
     status: "Enrolling",
   },
   {
     tab: "Community",
-    name: "Saturday Run Club",
+    name: "The Paperback Club",
     kind: "community",
     img: `${IMG}/community.webp`,
-    w: 480,
-    h: 480,
+    w: 640,
+    h: 360,
     stats: [
-      ["Price", "$12 / month"],
-      ["Members", "418"],
-      ["Monthly", "$5,016.00"],
+      ["Price", "$8 / month"],
+      ["Members", "1,240"],
+      ["Monthly", "$9,920.00"],
     ],
     status: "Open",
   },
@@ -138,50 +138,44 @@ function Img({ src, w, h, className }: { src: string; w: number; h: number; clas
   return <img className={className} src={src} alt="" width={w} height={h} loading="lazy" decoding="async" draggable={false} />
 }
 
-/** A Storelib community page, small: the top bar, the places, the composer and the newest post. */
-function CommunityPage({ s }: { s: Slide }) {
+/*
+  Landing round 4 (the owner: "a real looking community card"): the
+  community card a Storelib community shows at the top of its left column
+  (components/community/member), small: the cover, the name and address,
+  one line about it, Members, Online and Admins, and the faces of a few
+  members. Drawn at 260px and scaled to the tile.
+*/
+const COMMUNITY_FACES = ["av-n", "av-e", "av-h", "av-f", "av-o"] as const
+function CommunityCard({ s }: { s: Slide }) {
   return (
     <span className="ev-cm">
-      <span className="ev-cm-top">
-        <Img className="ev-cm-mark" src={s.img} w={s.w} h={s.h} />
+      <Img className="ev-cm-cover" src={s.img} w={s.w} h={s.h} />
+      <span className="ev-cm-body">
         <span className="ev-cm-name">{s.name}</span>
-        <Img className="ev-cm-me" src={`${ST}/sol-av.webp`} w={200} h={200} />
-      </span>
-      <span className="ev-cm-tabs">
-        <span data-on="">Community</span>
-        <span>Calendar</span>
-        <span>Members</span>
-        <span>About</span>
-      </span>
-      <span className="ev-cm-feed">
-        <span className="ev-cm-compose">
-          <Img className="ev-cm-av" src={`${ST}/sol-av.webp`} w={200} h={200} />
-          Share something...
+        <span className="ev-cm-url">storelib.com/community/paperback</span>
+        <span className="ev-cm-x">One book a month, a call on the last Sunday.</span>
+        <span className="ev-cm-stats">
+          <span>
+            <b>1.2k</b>
+            <i>Members</i>
+          </span>
+          <span>
+            <b>46</b>
+            <i>
+              <span className="ev-cm-live" />
+              Online
+            </i>
+          </span>
+          <span>
+            <b>2</b>
+            <i>Admins</i>
+          </span>
         </span>
-        <span className="ev-cm-post">
-          <span className="ev-cm-by">
-            <Img className="ev-cm-av" src={`${ST}/theo-av.webp`} w={200} h={200} />
-            <span className="ev-cm-who">
-              <b>Jonas Weber</b>
-              <i>2h · Long runs</i>
-            </span>
-          </span>
-          <span className="ev-cm-t">Sunday long run, 14 km from the pier</span>
-          <span className="ev-cm-x">Easy pace, coffee after. We meet at 8:00 by the boathouse.</span>
-          <span className="ev-cm-foot">
-            <span>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
-              </svg>
-              24
-            </span>
-            <span>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M20 12a8 8 0 0 1-11.7 7.1L4 20l.9-4.3A8 8 0 1 1 20 12Z" />
-              </svg>
-              9
-            </span>
-          </span>
+        <span className="ev-cm-faces">
+          {COMMUNITY_FACES.map((f) => (
+            <Img key={f} className="ev-cm-face" src={`/home/showcase/${f}.webp`} w={96} h={96} />
+          ))}
+          <span className="ev-cm-more">+1.2k</span>
         </span>
       </span>
     </span>
@@ -229,12 +223,12 @@ function ProductPicture({ s }: { s: Slide }) {
         {photo}
         <span className="ev-p-lesson">
           <span className="ev-p-play" />
-          <span className="ev-p-lesson-t">Lesson 3 · Centering</span>
+          <span className="ev-p-lesson-t">Lesson 3 · Casting on</span>
         </span>
         <span className="ev-p-progress" />
       </>
     )
-  if (s.kind === "community") return <CommunityPage s={s} />
+  if (s.kind === "community") return <CommunityCard s={s} />
   return photo
 }
 
@@ -411,7 +405,7 @@ function ProductSlides() {
   is in the page's own pixels (--r is one of them), so the card is that
   page, scaled. Fictional creators, Unsplash photography.
 */
-type StoreProduct = { src: string; name: string; badge: string; price: string; rating?: string }
+type StoreProduct = { src: string; name: string; badge: string; price: string }
 type Storefront = {
   key: string
   name: string
@@ -420,24 +414,12 @@ type Storefront = {
   cover: string
   avatar: string
   /** The store's colour scheme, by its name in themePresets. */
-  scheme: "clay" | "astrid" | "default" | "harbor" | "sage" | "cream"
+  scheme: "astrid" | "default" | "harbor" | "cream"
   products: [StoreProduct, StoreProduct]
 }
 
 export const EVERYTHING_STORES: readonly Storefront[] = [
-  {
-    key: "kiln",
-    name: "Kiln & Clay",
-    handle: "@kilnandclay",
-    bio: "Stoneware and wheel classes in Leeds",
-    cover: `${ST}/kiln-cover.webp`,
-    avatar: `${ST}/kiln-av.webp`,
-    scheme: "clay",
-    products: [
-      { src: `${ST}/kiln-bowls.webp`, name: "Speckled Bowls", badge: "Physical", price: "$64.00", rating: "4.9" },
-      { src: `${ST}/kiln-course.webp`, name: "Wheel Throwing Basics", badge: "Course", price: "$129.00", rating: "5.0" },
-    ],
-  },
+
   {
     key: "lumen",
     name: "Lumen Harbor",
@@ -447,8 +429,8 @@ export const EVERYTHING_STORES: readonly Storefront[] = [
     avatar: `${ST}/lumen-av.webp`,
     scheme: "astrid",
     products: [
-      { src: `${ST}/lumen-lp.webp`, name: "Night Swim LP", badge: "Physical", price: "$28.00", rating: "5.0" },
-      { src: `${ST}/lumen-tee.webp`, name: "Tour Tee 2026", badge: "Physical", price: "$32.00", rating: "4.8" },
+      { src: `${ST}/lumen-lp.webp`, name: "Night Swim LP", badge: "Physical", price: "$28.00" },
+      { src: `${ST}/lumen-tee.webp`, name: "Tour Tee 2026", badge: "Physical", price: "$32.00" },
     ],
   },
   {
@@ -460,8 +442,8 @@ export const EVERYTHING_STORES: readonly Storefront[] = [
     avatar: `${ST}/mila-av.webp`,
     scheme: "default",
     products: [
-      { src: `${ST}/mila-course.webp`, name: "Botanical Sketching", badge: "Course", price: "$49.00", rating: "4.9" },
-      { src: `${ST}/mila-brushes.webp`, name: "Gouache Brush Pack", badge: "Digital", price: "$18.00", rating: "5.0" },
+      { src: `${ST}/mila-course.webp`, name: "Botanical Sketching", badge: "Course", price: "$49.00" },
+      { src: `${ST}/mila-brushes.webp`, name: "Gouache Brush Pack", badge: "Digital", price: "$18.00" },
     ],
   },
   {
@@ -473,23 +455,11 @@ export const EVERYTHING_STORES: readonly Storefront[] = [
     avatar: `${ST}/north-av.webp`,
     scheme: "harbor",
     products: [
-      { src: `${ST}/north-cap.webp`, name: "Ridge Cap", badge: "Physical", price: "$28.00", rating: "4.9" },
-      { src: `${ST}/north-hoodie.webp`, name: "Trail Hoodie", badge: "Physical", price: "$64.00", rating: "4.8" },
+      { src: `${ST}/north-cap.webp`, name: "Ridge Cap", badge: "Physical", price: "$28.00" },
+      { src: `${ST}/north-hoodie.webp`, name: "Trail Hoodie", badge: "Physical", price: "$64.00" },
     ],
   },
-  {
-    key: "sol",
-    name: "Sol & Sage",
-    handle: "@solandsage",
-    bio: "Home cooking and good bread",
-    cover: `${ST}/sol-cover.webp`,
-    avatar: `${ST}/sol-av.webp`,
-    scheme: "sage",
-    products: [
-      { src: `${ST}/sol-guide.webp`, name: "Sourdough at Home", badge: "Digital", price: "$19.00", rating: "4.9" },
-      { src: `${ST}/sol-club.webp`, name: "Bread Club", badge: "Community", price: "$8/month" },
-    ],
-  },
+
   {
     key: "theo",
     name: "Theo Marsh",
@@ -499,8 +469,8 @@ export const EVERYTHING_STORES: readonly Storefront[] = [
     avatar: `${ST}/theo-av.webp`,
     scheme: "cream",
     products: [
-      { src: `${ST}/theo-forest.webp`, name: "Pine Fog Print", badge: "Physical", price: "$45.00", rating: "5.0" },
-      { src: `${ST}/theo-lake.webp`, name: "Lake Morning", badge: "Physical", price: "$45.00", rating: "4.9" },
+      { src: `${ST}/theo-forest.webp`, name: "Pine Fog Print", badge: "Physical", price: "$45.00" },
+      { src: `${ST}/theo-lake.webp`, name: "Field Notes Club", badge: "Community", price: "$6/month" },
     ],
   },
 ]
@@ -524,6 +494,12 @@ function Social() {
   )
 }
 
+/*
+  Landing round 4: the card is a phone's first screen of the page, whole
+  (390 by 650 of its pixels), so nothing runs off its foot: the Featured
+  section with its title hidden and products without reviews yet, both
+  as a creator can set them.
+*/
 function StoreCard({ store }: { store: Storefront }) {
   return (
     <div className={`ev-st ev-st-${store.scheme}`}>
@@ -543,20 +519,11 @@ function StoreCard({ store }: { store: Storefront }) {
         <span>Products</span>
         <span>Communities</span>
       </span>
-      <span className="ev-st-h">Featured</span>
       <span className="ev-st-grid">
         {store.products.map((p) => (
           <span key={p.name} className="ev-st-prod">
             <Img className="ev-st-img" src={p.src} w={480} h={270} />
             <span className="ev-st-body">
-              {p.rating ? (
-                <span className="ev-st-rate">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3L12 17.1l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9L12 2.8Z" />
-                  </svg>
-                  {p.rating}
-                </span>
-              ) : null}
               <span className="ev-st-row">
                 <span className="ev-st-pn">{p.name}</span>
                 <span className="ev-st-badge">{p.badge}</span>
@@ -578,32 +545,196 @@ function StoreCard({ store }: { store: Storefront }) {
   frame as the stores, with no address and no bar over them. The whole strip
   is a picture: it takes no pointer, no focus and no selection.
 */
-/** bg: the page's own ground, which fills the frame under a capture shorter than it. */
-type OnePageShot = { key: string; onepage: string; w: number; h: number; bg: string }
-const OP = "/home/onepage"
-export const EVERYTHING_ONEPAGES: readonly OnePageShot[] = [
-  { key: "op-kofi", onepage: `${OP}/op-kofi.webp`, w: 560, h: 1091, bg: "#07071c" },
-  { key: "op-mariana", onepage: `${OP}/op-mariana.webp`, w: 560, h: 1091, bg: "#f1e9de" },
-  { key: "op-lucia", onepage: `${OP}/op-lucia-phone.webp`, w: 720, h: 1280, bg: "#efeae0" },
-  { key: "op-arjun", onepage: `${OP}/op-arjun.webp`, w: 560, h: 1091, bg: "#008080" },
+/*
+  Landing round 4 (the owner: "not only OnePages but stores, communities on
+  mobile, digital product stores", wider cards, about 2.3 a row, none cut
+  at the bottom, OnePages with their share and subscribe buttons). Each
+  picture is a phone's first screen, 390 by 650 of its pixels, the same
+  shape as a store card: three OnePages (PublicOnePage itself with fixture
+  data, Share top left and Subscribe top right, captured in a dev-only route
+  that is not committed) and a community on a phone (round 2's capture of
+  the real member frame).
+*/
+type Shot = { key: string; src: string; kind: "onepage" | "community"; bg: string }
+const SH = `${IMG}/strip`
+export const EVERYTHING_SHOTS: readonly Shot[] = [
+  { key: "op-wren", src: `${SH}/op-wren.webp`, kind: "onepage", bg: "#c5d3bd" },
+  { key: "cm-charla", src: `${SH}/cm-charla.webp`, kind: "community", bg: "#ffffff" },
+  { key: "op-nina", src: `${SH}/op-nina.webp`, kind: "onepage", bg: "#0b1020" },
+  { key: "op-jun", src: `${SH}/op-jun.webp`, kind: "onepage", bg: "#f3eee4" },
 ]
 
-/** The strip in the order it drifts: a store, a OnePage, a store, and on. */
-export const EVERYTHING_STRIP: ReadonlyArray<Storefront | OnePageShot> = EVERYTHING_STORES.flatMap((store, i) =>
-  i < EVERYTHING_ONEPAGES.length ? [store, EVERYTHING_ONEPAGES[i]] : [store],
+/** The strip in the order it drifts: a store, then a page or a community, and on. */
+export const EVERYTHING_STRIP: ReadonlyArray<Storefront | Shot> = EVERYTHING_STORES.flatMap((store, i) =>
+  i < EVERYTHING_SHOTS.length ? [store, EVERYTHING_SHOTS[i]] : [store],
 )
 
-function Storefronts() {
+/*
+  DRIFTING, AND IT CAN BE TAKEN HOLD OF (landing round 4, the owner: dragged
+  "very smooth and clean by the mouse", like the creators rail). Left alone,
+  the strip drifts left as a Web Animation, which the compositor runs with
+  no script per frame, paused off screen and in a hidden tab. Pressed, it
+  stops under the hand and follows it exactly (a transform, no layout read);
+  let go, it carries the hand's speed and eases back to its drift over about
+  a second, then the Web Animation takes it on from exactly where it is.
+  touch-action leaves vertical swipes to the page. Nothing inside can be
+  hovered or clicked: the cards take no pointer, only the strip does.
+*/
+const DRIFT_PX_S = 26
+function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObject<HTMLDivElement | null>, live: boolean) {
+  const liveRef = useRef(live)
+  const api = useRef<{ setLive: (on: boolean) => void } | null>(null)
+  useEffect(() => {
+    liveRef.current = live
+    api.current?.setLive(live)
+  }, [live])
+  useEffect(() => {
+    const vp = viewport.current
+    const el = track.current
+    if (!vp || !el || typeof el.animate !== "function") return
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)")
+    let loop = 0
+    let x = 0
+    let raf = 0
+    let drift: Animation | null = null
+    let from = 0
+    let drag: { id: number; x0: number; y0: number; at: number; started: boolean; samples: Array<{ t: number; x: number }> } | null = null
+    const wrap = (v: number) => (loop > 0 ? ((v % loop) + loop) % loop : v)
+    const paint = () => {
+      el.style.transform = `translate3d(${(-wrap(x)).toFixed(2)}px,0,0)`
+    }
+    const shown = () => liveRef.current && !document.hidden
+    const stopDrift = () => {
+      if (!drift) return
+      x = from + ((Number(drift.currentTime) || 0) / 1000) * DRIFT_PX_S
+      drift.cancel()
+      drift = null
+      paint()
+    }
+    const startDrift = () => {
+      if (drift || drag || loop <= 0 || reduce.matches) return
+      x = wrap(x)
+      from = x
+      drift = el.animate([{ transform: `translate3d(${-x}px,0,0)` }, { transform: `translate3d(${-(x + loop)}px,0,0)` }], { duration: (loop / DRIFT_PX_S) * 1000, iterations: Infinity, easing: "linear" })
+      if (!shown()) drift.pause()
+    }
+    const glide = (v0: number) => {
+      cancelAnimationFrame(raf)
+      if (reduce.matches) return
+      const t0 = performance.now()
+      let last = t0
+      const target = DRIFT_PX_S
+      const step = (now: number) => {
+        const dt = Math.min(0.05, (now - last) / 1000)
+        last = now
+        const v = target + (v0 - target) * Math.exp(-(now - t0) / 380)
+        x += v * dt
+        paint()
+        if (Math.abs(v - target) > 1.5) raf = requestAnimationFrame(step)
+        else {
+          raf = 0
+          startDrift()
+        }
+      }
+      raf = requestAnimationFrame(step)
+    }
+    const measure = () => {
+      const first = el.children[0] as HTMLElement | undefined
+      const copy = el.children[el.children.length / 2] as HTMLElement | undefined
+      if (!first || !copy) return
+      stopDrift()
+      loop = copy.offsetLeft - first.offsetLeft
+      paint()
+      startDrift()
+    }
+    const down = (e: PointerEvent) => {
+      if (e.button !== 0 || !e.isPrimary) return
+      drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, at: 0, started: false, samples: [] }
+    }
+    const move = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return
+      const dx = e.clientX - drag.x0
+      if (!drag.started) {
+        if (Math.abs(dx) < 6) return
+        if (Math.abs(e.clientY - drag.y0) > Math.abs(dx)) {
+          drag = null
+          return
+        }
+        cancelAnimationFrame(raf)
+        raf = 0
+        stopDrift()
+        drag.started = true
+        drag.at = x + dx
+        vp.setPointerCapture(e.pointerId)
+        vp.dataset.dragging = ""
+      }
+      x = drag.at - dx
+      drag.samples.push({ t: e.timeStamp, x })
+      if (drag.samples.length > 24) drag.samples.shift()
+      paint()
+    }
+    const up = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return
+      const d = drag
+      drag = null
+      if (!d.started) return
+      delete vp.dataset.dragging
+      /* The hand's speed over its last 80ms; a hand that stopped before letting go has none. */
+      const recent = d.samples.filter((p) => e.timeStamp - p.t < 80)
+      let v = 0
+      if (recent.length > 1 && e.timeStamp - recent[recent.length - 1].t < 60) {
+        const a = recent[0]
+        const b = recent[recent.length - 1]
+        v = ((b.x - a.x) / Math.max(1, b.t - a.t)) * 1000
+      }
+      glide(Math.max(-3000, Math.min(3000, v)))
+    }
+    const setLive = (on: boolean) => {
+      if (!drift) return on ? startDrift() : undefined
+      if (on && !document.hidden) drift.play()
+      else drift.pause()
+    }
+    api.current = { setLive }
+    const vis = () => setLive(liveRef.current)
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null
+    ro?.observe(vp)
+    if (!ro) measure()
+    vp.addEventListener("pointerdown", down)
+    vp.addEventListener("pointermove", move)
+    vp.addEventListener("pointerup", up)
+    vp.addEventListener("pointercancel", up)
+    document.addEventListener("visibilitychange", vis)
+    reduce.addEventListener("change", measure)
+    return () => {
+      api.current = null
+      cancelAnimationFrame(raf)
+      drift?.cancel()
+      ro?.disconnect()
+      vp.removeEventListener("pointerdown", down)
+      vp.removeEventListener("pointermove", move)
+      vp.removeEventListener("pointerup", up)
+      vp.removeEventListener("pointercancel", up)
+      document.removeEventListener("visibilitychange", vis)
+      reduce.removeEventListener("change", measure)
+      el.style.transform = ""
+    }
+  }, [viewport, track])
+}
+
+function Storefronts({ live }: { live: boolean }) {
+  const viewport = useRef<HTMLDivElement>(null)
+  const track = useRef<HTMLDivElement>(null)
+  useDriftStrip(viewport, track, live)
   /* The strip twice over: it drifts by one set's width and starts again where it looks the same. */
   const strip = [...EVERYTHING_STRIP, ...EVERYTHING_STRIP]
   return (
-    <div className="ev-vis ev-s" aria-hidden="true" data-mock-still="">
-      <div className="ev-s-track ev-loop">
+    <div ref={viewport} className="ev-vis ev-s" aria-hidden="true" data-mock-still="" data-ev-strip="">
+      <div ref={track} className="ev-s-track">
         {strip.map((item, i) => (
           <div key={i} className="ev-s-slot">
-            {"onepage" in item ? (
-              <div className="ev-st ev-op" style={{ background: item.bg }}>
-                <Img className="ev-op-img" src={item.onepage} w={item.w} h={item.h} />
+            {"src" in item ? (
+              <div className="ev-st ev-op" data-shot={item.kind} style={{ background: item.bg }}>
+                <Img className="ev-op-img" src={item.src} w={585} h={975} />
               </div>
             ) : (
               <StoreCard store={item} />
@@ -618,132 +749,77 @@ function Storefronts() {
 /* ── 4. Support ──────────────────────────────────────────────────────── */
 
 /*
-  Landing round 2 (the owner: smoother, cleaner, accurate, one more
-  example, on autoplay). The Support page of /app as it reads: the two
-  inboxes (From buyers, Storelib), and a thread with its subject, its topic
-  and when it opened, the status pill, the creator's own message on the
-  right in the dark bubble ("You") and the other side's on the left. The
-  pill turns as the answer arrives, with the statuses the page uses
-  (lib/support/tickets and lib/support/cases STATUS_FOR_STORE). One
-  request after another, each held about eight seconds; the clock is a CSS
-  animation, so it stops with the section off screen, and under reduced
-  motion it never runs and the inbox tabs switch by hand.
-
-  Landing round 3 (the owner: no request about a payout that has not reached
-  the bank, "we never have issues with the bank"): none of the three is
-  about money. A creator bringing subscribers over from another tool, a
-  buyer who cannot open a download, a creator's own domain.
+  Landing round 4 (the owner: keep the UI "how it was before", without the
+  From buyers / Storelib switch, and no request about a payout or the bank:
+  "we don't have problems like this"). The card as wave 13 drew it: one
+  thread at a time on a soft grey, its title and what it is about, the
+  question with the asker's photo, the other side typing, then the answer
+  with Storelib's mark or the creator's photo. Three true requests take
+  turns, ten seconds each: a creator bringing subscribers over, a buyer who
+  cannot open a download, a creator's own domain. One CSS clock drives it,
+  paused off screen; under reduced motion the first thread simply stands.
 */
-type Request = {
-  inbox: "buyers" | "storelib"
-  title: string
-  sub: string
-  /** The pill before the answer and after it. */
-  pill: [{ label: string; tone: "blue" | "amber" | "gray" }, { label: string; tone: "blue" | "amber" | "gray" }]
-  ask: { who: string; at: string; body: string; mine: boolean }
-  answer: { who: string; at: string; body: string; mine: boolean }
-}
-
+type Request = { title: string; sub: string; ask: string; askAv: string; reply: string; replyAv: string | null }
+const ME = `${IMG}/av-creator.webp`
 export const EVERYTHING_SUPPORT: readonly Request[] = [
   {
-    inbox: "storelib",
-    title: "Moving my subscribers over",
-    sub: "My account · Opened Nov 6",
-    pill: [
-      { label: "With Storelib", tone: "blue" },
-      { label: "Your reply", tone: "amber" },
-    ],
-    ask: { who: "You", at: "9:41 AM", body: "I have 3,200 subscribers on another newsletter tool. Can I bring them to Storelib?", mine: true },
-    answer: { who: "Storelib support", at: "9:58 AM", body: "Yes. Export them as a CSV with an Email column and import it under Contacts. Names and tags come with them, ready for your next email.", mine: false },
+    title: "Storelib support",
+    sub: "Moving my subscribers over",
+    ask: "I have 3,200 subscribers on another newsletter tool. Can I bring them to Storelib?",
+    askAv: ME,
+    reply: "Yes. Export them as a CSV with an Email column and import it under Contacts. Names and tags come with them.",
+    replyAv: null,
   },
   {
-    inbox: "buyers",
-    title: "I can't open what I bought",
-    sub: "Order #4821 · Leah Moreno · Opened Nov 9",
-    pill: [
-      { label: "Your reply", tone: "amber" },
-      { label: "Waiting on the buyer", tone: "gray" },
-    ],
-    ask: { who: "Leah Moreno", at: "8:12 PM", body: "The download link in my email won't open on my iPad. Could you send it again?", mine: false },
-    answer: { who: "You", at: "8:20 PM", body: "Just sent a fresh link. Your files are also in your Storelib library, so you can download them again anytime.", mine: true },
+    title: "From a buyer",
+    sub: "Order #4821 · Fell Sweater pattern",
+    ask: "The download link in my email won't open on my iPad. Could you send it again?",
+    askAv: `${IMG}/av-buyer.webp`,
+    reply: "Just sent a fresh one. Your files are also in your Storelib library, so you can download them again anytime.",
+    replyAv: ME,
   },
   {
-    inbox: "storelib",
-    title: "My domain says Not secure",
-    sub: "My website · Opened Nov 11",
-    pill: [
-      { label: "With Storelib", tone: "blue" },
-      { label: "Your reply", tone: "amber" },
-    ],
-    ask: { who: "You", at: "2:05 PM", body: "I connected shop.kilnandclay.com an hour ago and the browser still says Not secure.", mine: true },
-    answer: { who: "Storelib support", at: "2:19 PM", body: "Your DNS is right. The certificate was still being issued and it's live now, so reload and you'll see the lock.", mine: false },
+    title: "Storelib support",
+    sub: "My own domain",
+    ask: "I connected shop.junokada.com an hour ago and the browser still says Not secure.",
+    askAv: ME,
+    reply: "Your DNS is right. The certificate was still being issued, and it's live now. Reload and you'll see the lock.",
+    replyAv: null,
   },
 ]
 
-/** One message: who and when over the bubble. The answer also holds the typing dots, in the bubble's place until it arrives. */
-function Bubble({ m, answer }: { m: Request["ask"]; answer?: boolean }) {
+function Thread({ r, i }: { r: Request; i: number }) {
   return (
-    <li className={`ev-c-m ${m.mine ? "ev-c-mine" : "ev-c-theirs"} ${answer ? "ev-c-answer" : "ev-c-ask"}`}>
-      <span className="ev-c-who ev-c-arrive ev-loop">
-        {m.who} <span className="ev-c-at">· {m.at}</span>
-      </span>
-      <span className="ev-c-bw">
-        {answer ? (
-          <span className="ev-c-typing ev-loop">
-            <span className="ev-c-dot ev-loop" />
-            <span className="ev-c-dot ev-loop" />
-            <span className="ev-c-dot ev-loop" />
-          </span>
-        ) : null}
-        <span className="ev-c-b ev-c-arrive ev-loop">{m.body}</span>
-      </span>
-    </li>
+    <div className="ev-c-thread ev-loop" style={{ "--k": i } as CSSProperties}>
+      <div className="ev-c-head">
+        <span>{r.title}</span>
+        <span className="ev-c-sub">{r.sub}</span>
+      </div>
+      <div className="ev-c-msg ev-c-q ev-loop">
+        <p className="ev-c-bubble ev-c-light">{r.ask}</p>
+        <Img className="ev-c-av" src={r.askAv} w={96} h={96} />
+      </div>
+      <div className="ev-c-slot">
+        <div className="ev-c-typing ev-loop">
+          <span className="ev-c-dot ev-loop" />
+          <span className="ev-c-dot ev-loop" />
+          <span className="ev-c-dot ev-loop" />
+        </div>
+        <div className="ev-c-msg ev-c-r ev-loop">
+          <p className="ev-c-bubble ev-c-dark">{r.reply}</p>
+          {r.replyAv ? <Img className="ev-c-av" src={r.replyAv} w={96} h={96} /> : <StorelibLogo size={96} alt="" fluid className="ev-c-av ev-c-logo" />}
+        </div>
+      </div>
+    </div>
   )
 }
 
 function Support() {
-  const [active, setActive] = useState(0)
-  const n = EVERYTHING_SUPPORT.length
-  const next = useCallback(() => setActive((a) => (a + 1) % n), [n])
-  const inbox = EVERYTHING_SUPPORT[active].inbox
-  const open = (to: "buyers" | "storelib") => {
-    if (to === inbox) return
-    const i = EVERYTHING_SUPPORT.findIndex((r, j) => r.inbox === to && j !== active)
-    if (i >= 0) setActive(i)
-  }
   return (
-    <div className="ev-vis ev-c">
-      <div className="ev-c-box">
-        <div className="ev-c-tabs" role="group" aria-label="Support inboxes">
-          <button type="button" className="ev-c-tab" aria-pressed={inbox === "buyers"} data-on={inbox === "buyers" || undefined} onClick={() => open("buyers")}>
-            <span>From buyers</span>
-          </button>
-          <button type="button" className="ev-c-tab" aria-pressed={inbox === "storelib"} data-on={inbox === "storelib" || undefined} onClick={() => open("storelib")}>
-            <span>Storelib</span>
-          </button>
-        </div>
-        <div className="ev-c-stack" aria-hidden="true">
-          {EVERYTHING_SUPPORT.map((r, i) => (
-            <section key={r.title} className="ev-c-thread" data-on={i === active || undefined} data-inbox={r.inbox}>
-              <div className="ev-c-head">
-                <span className="ev-c-ht">
-                  <span className="ev-c-title">{r.title}</span>
-                  <span className="ev-c-sub">{r.sub}</span>
-                </span>
-                <span className="ev-c-pills">
-                  <span className={`ev-c-pill ev-c-${r.pill[0].tone} ev-c-before ev-loop`}>{r.pill[0].label}</span>
-                  <span className={`ev-c-pill ev-c-${r.pill[1].tone} ev-c-after ev-loop`}>{r.pill[1].label}</span>
-                </span>
-              </div>
-              <ol className="ev-c-msgs">
-                <Bubble m={r.ask} />
-                <Bubble m={r.answer} answer />
-              </ol>
-            </section>
-          ))}
-        </div>
-        <span key={active} className="ev-c-clock ev-loop" aria-hidden="true" onAnimationEnd={next} />
-      </div>
+    <div className="ev-vis ev-c" aria-hidden="true">
+      {EVERYTHING_SUPPORT.map((r, i) => (
+        <Thread key={r.sub} r={r} i={i} />
+      ))}
     </div>
   )
 }
@@ -762,7 +838,7 @@ export function EverythingInOnePlace() {
   const { live, reduced } = usePlatformSection(ref)
   const visuals = {
     sell: <ProductSlides />,
-    store: <Storefronts />,
+    store: <Storefronts live={live} />,
     world: (
       <div className="ev-vis ev-g">
         <EverythingGlobe live={live} reduced={reduced} />
@@ -804,8 +880,8 @@ const EASE = "cubic-bezier(.22,1,.36,1)"
 const r = (n: number) => `calc(${n} * var(--r))`
 /** n pixels of the 260px community page drawn in the product tile. */
 const q = (n: number) => `calc(${n} * var(--q))`
-/* One support request's turn, in seconds, and when in it each part arrives. */
-const TURN = 8
+/* One support request's turn, in seconds. */
+const TURN = 10
 const CSS = `
 .ev{position:relative;isolation:isolate;background:#fff;color:#18181b;padding:var(--home-pad,clamp(72px,9vw,128px)) var(--landing-gutter,22px)}
 .ev-in{max-width:1240px;margin:0 auto}
@@ -828,14 +904,28 @@ const CSS = `
 .ev[data-platform-live="false"] .ev-loop,.ev:not([data-platform-live]) .ev-loop{animation-play-state:paused}
 .ev[data-platform-live="false"] .ev-tab[data-on] .ev-tab-fill,.ev:not([data-platform-live]) .ev-tab[data-on] .ev-tab-fill{animation-play-state:paused}
 
-/* 1. Product slides: a calm, plain colour behind each product (landing round: no purple gradients), the product on a light grey tile */
-.ev-p{background:#d9d5ce}
-.ev-p-bg{position:absolute;inset:0;opacity:0;transition:opacity 1s cubic-bezier(.4,0,.2,1)}
+/*
+  1. Product slides. Landing round 4 (the owner: bring back the colours that
+  changed behind each product, "more funky", like his image 30): a soft
+  gradient ground per product, warm coral for merch, lime and mint for the
+  download, sun and tangerine for the course, sky and blush for the
+  community. They cross fade over 1.4s, and each drifts very slowly on its
+  own layer (a transform, paused off screen like every loop), so the colour
+  is never quite still. The product stands on a white card, as before.
+*/
+.ev-p{background:#f2b49b}
+.ev-p-bg{position:absolute;inset:-18%;opacity:0;transition:opacity 1.4s cubic-bezier(.4,0,.2,1);animation:ev-bg-drift 22s ease-in-out infinite alternate;will-change:opacity,transform}
 .ev-p-bg[data-on]{opacity:1}
-.ev-p-bg0{background:linear-gradient(180deg,#e2ded8,#d4cfc7)}
-.ev-p-bg1{background:linear-gradient(180deg,#e3e1d6,#d3d2c3)}
-.ev-p-bg2{background:linear-gradient(180deg,#e6ddd3,#d6cabd)}
-.ev-p-bg3{background:linear-gradient(180deg,#dfe3e4,#ccd3d6)}
+.ev-p-bg0{background:radial-gradient(42% 46% at 22% 26%,#ffb28a 0%,rgba(255,178,138,0) 100%),radial-gradient(46% 50% at 82% 80%,#ffd7a8 0%,rgba(255,215,168,0) 100%),linear-gradient(135deg,#e2434f 0%,#ef6a62 42%,#f6a27f 100%)}
+.ev-p-bg1{background:radial-gradient(42% 46% at 20% 22%,#e6fa8c 0%,rgba(230,250,140,0) 100%),radial-gradient(46% 50% at 84% 82%,#7ce8d2 0%,rgba(124,232,210,0) 100%),linear-gradient(140deg,#1fa58f 0%,#5fcf98 48%,#c7ee7c 100%)}
+.ev-p-bg2{background:radial-gradient(42% 46% at 80% 20%,#ffe88a 0%,rgba(255,232,138,0) 100%),radial-gradient(46% 50% at 18% 84%,#ff9e6b 0%,rgba(255,158,107,0) 100%),linear-gradient(140deg,#ffbf3c 0%,#ff8a4c 55%,#f4645f 100%)}
+.ev-p-bg3{background:radial-gradient(42% 46% at 18% 20%,#a8dcff 0%,rgba(168,220,255,0) 100%),radial-gradient(46% 50% at 84% 84%,#ffc2d6 0%,rgba(255,194,214,0) 100%),linear-gradient(135deg,#2f86f6 0%,#58b9f7 48%,#f7a9c4 100%)}
+.ev-p-bg1{animation-delay:-6s}
+.ev-p-bg2{animation-delay:-12s}
+.ev-p-bg3{animation-delay:-17s}
+@keyframes ev-bg-drift{from{transform:translate3d(-3%,-2%,0) rotate(-4deg) scale(1)}to{transform:translate3d(3%,2%,0) rotate(4deg) scale(1.06)}}
+.ev-p-bg{animation-play-state:paused}
+.ev[data-platform-live="true"] .ev-p-bg[data-on]{animation-play-state:running}
 /* The stage centres the card and holds the perspective the card leans in; the card itself only ever rotates and scales (usePressTilt). */
 .ev-p-stage{position:absolute;left:50%;top:44%;width:min(88%,470px);transform:translate(-50%,-50%);perspective:1100px}
 .ev-p-card{display:flex;align-items:center;gap:clamp(12px,1.8vw,20px);padding:10px;border-radius:17px;background:#fff;box-shadow:0 24px 48px -30px rgba(40,32,20,.45),0 1px 3px rgba(40,32,20,.08);transform-origin:50% 50%;backface-visibility:hidden}
@@ -871,30 +961,23 @@ const CSS = `
 .ev-p-progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.35)}
 .ev-p-progress::after{content:"";position:absolute;inset:0 62% 0 0;background:#fff}
 
-/* The community page in the tile (components/community/member: the white top bar, the places, the grey feed with its cards), drawn at 260px and scaled to the tile. */
-.ev-p-community{--q:calc(100cqw / 260);background:#f8f9fa}
-.ev-cm{position:absolute;inset:0;display:flex;flex-direction:column;color:#1a1a2e;font-size:${q(12)};line-height:1.3;text-align:left}
-.ev-cm-top{display:flex;align-items:center;gap:${q(8)};height:${q(46)};padding:0 ${q(12)};background:#fff}
-.ev-cm-mark{display:block;width:${q(26)};height:${q(26)};border-radius:${q(7)};object-fit:cover}
-.ev-cm-name{flex:1;min-width:0;font-size:${q(13.5)};font-weight:600;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ev-cm-me{display:block;width:${q(24)};height:${q(24)};border-radius:50%;object-fit:cover}
-.ev-cm-tabs{display:flex;gap:${q(14)};padding:0 ${q(12)};background:#fff;border-bottom:1px solid #e6e8ec;font-size:${q(11.5)};color:#6b7280}
-.ev-cm-tabs span{padding:${q(7)} 0 ${q(8)}}
-.ev-cm-tabs span[data-on]{color:#1a1a2e;font-weight:600;box-shadow:inset 0 ${q(-2)} 0 #1a1a2e}
-.ev-cm-feed{display:flex;flex-direction:column;gap:${q(8)};padding:${q(10)}}
-.ev-cm-compose{display:flex;align-items:center;gap:${q(8)};height:${q(40)};padding:0 ${q(10)};border:1px solid rgba(229,231,235,.8);border-radius:${q(13)};background:#fff;font-size:${q(11.5)};color:#9ca3af}
-.ev-cm-av{display:block;flex:none;width:${q(24)};height:${q(24)};border-radius:50%;object-fit:cover}
-.ev-cm-post{display:flex;flex-direction:column;padding:${q(12)} ${q(12)} ${q(10)};border:1px solid rgba(229,231,235,.8);border-radius:${q(13)};background:#fff}
-.ev-cm-by{display:flex;align-items:center;gap:${q(8)}}
-.ev-cm-by .ev-cm-av{width:${q(28)};height:${q(28)}}
-.ev-cm-who{display:flex;flex-direction:column;min-width:0}
-.ev-cm-who b{font-size:${q(11.5)};font-weight:600}
-.ev-cm-who i{font-size:${q(10)};font-style:normal;color:#6b7280}
-.ev-cm-t{margin-top:${q(9)};font-size:${q(13)};font-weight:600;line-height:1.3;letter-spacing:-.005em}
-.ev-cm-x{margin-top:${q(3)};font-size:${q(11)};line-height:1.5;color:#4b5563}
-.ev-cm-foot{display:flex;gap:${q(14)};margin-top:${q(9)};font-size:${q(10.5)};color:#6b7280}
-.ev-cm-foot span{display:flex;align-items:center;gap:${q(4)}}
-.ev-cm-foot svg{width:${q(13)};height:${q(13)};fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+/* The community card in the tile (components/community/member's left column card), drawn at 260px and scaled to the tile. */
+.ev-p-community{--q:calc(100cqw / 260);background:#fff}
+.ev-cm{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#1a1a2e;font-size:${q(12)};line-height:1.3;text-align:left}
+.ev-cm-cover{display:block;width:100%;height:${q(84)};object-fit:cover}
+.ev-cm-body{display:flex;flex-direction:column;padding:${q(12)} ${q(14)} 0}
+.ev-cm-name{font-size:${q(16)};font-weight:600;letter-spacing:-.01em}
+.ev-cm-url{margin-top:${q(2)};font-size:${q(10.5)};color:#6b7280}
+.ev-cm-x{margin-top:${q(8)};font-size:${q(11.5)};line-height:1.45;color:#374151}
+.ev-cm-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:${q(10)};padding:${q(8)} 0;border-top:1px solid #eef0f2;border-bottom:1px solid #eef0f2;text-align:center}
+.ev-cm-stats > span{display:flex;flex-direction:column;align-items:center}
+.ev-cm-stats > span + span{border-left:1px solid #eef0f2}
+.ev-cm-stats b{font-size:${q(14)};font-weight:600}
+.ev-cm-stats i{display:flex;align-items:center;gap:${q(4)};font-size:${q(10)};font-style:normal;color:#6b7280}
+.ev-cm-live{width:${q(6)};height:${q(6)};border-radius:99px;background:#22c55e}
+.ev-cm-faces{display:flex;align-items:center;margin-top:${q(10)}}
+.ev-cm-face{display:block;width:${q(24)};height:${q(24)};margin-right:${q(-6)};border:${q(2)} solid #fff;border-radius:50%;object-fit:cover}
+.ev-cm-more{margin-left:${q(10)};padding:${q(3)} ${q(7)};border-radius:99px;background:#f3f4f6;font-size:${q(10)};font-weight:500;color:#374151}
 
 .ev-p-info{position:relative;display:grid;flex:1 1 auto;min-width:0;align-self:stretch;align-items:center}
 .ev-p-text{grid-area:1/1;min-width:0}
@@ -932,30 +1015,29 @@ const CSS = `
 }
 
 /*
-  2. Storefronts (landing round): the stores twice over in one row, moved by
-  one set's width in a single linear animation, so the drift never stops or
-  steps and the compositor plays it alone. Paused off screen like every loop.
-  Each store is a creator page at a phone's 390px: --r is one of its pixels.
+  2. Storefronts. Landing round 4: the cards are as tall as the card leaves
+  them (20px above and below) and a phone's screen in shape, 390 by 650, so
+  each is whole, rounded on all four corners, and about 2.3 stand in a row on
+  a laptop. --r is one of the page's own pixels. The strip takes the
+  pointer (drag, swipe); the cards inside take none.
 */
-.ev-s{background:#edece8;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
-.ev-s-track{--slot:37cqw;position:absolute;top:24px;bottom:0;left:0;display:flex;width:max-content;animation:ev-stores 100s linear infinite}
-@container (max-width:400px){.ev-s-track{--slot:46cqw;top:18px}}
-.ev-s-slot{flex:none;width:var(--slot);height:100%;padding:0 6px;box-sizing:border-box}
-@keyframes ev-stores{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
-.ev-st{--r:calc((var(--slot) - 12px) / 390);--bg:#ffffff;--ink:#000;--mute:#6b7280;--line:#e5e7eb;--field:#d1d5db;--card:#fff;--card-ink:#2d3034;--card-line:#e5e7eb;--badge:#f3f4f6;--badge-ink:#374151;--btn:#2563eb;--rad:8;position:relative;display:flex;flex-direction:column;align-items:center;min-height:calc(100% + 40px);overflow:hidden;border-radius:${r(20)} ${r(20)} 0 0;background:var(--bg);color:var(--ink);font-size:${r(15)};line-height:1.35;text-align:center;box-shadow:0 18px 36px -26px rgba(30,24,16,.4),0 0 0 1px rgba(30,24,16,.07)}
-.ev-st-clay{--bg:#f5eee8;--ink:#2a1c15;--mute:#7b675b;--line:#e6d8cc;--field:#dccbbd;--card-ink:#2a1c15;--card-line:#e6d8cc;--badge:#f3ece6;--badge-ink:#5c4537;--btn:#a4492a}
+.ev-s{--pad:20px;--card-h:calc(100cqh - var(--pad) * 2);--card-w:calc(var(--card-h) * .6);background:#edece8;container-type:size;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.ev-s[data-dragging]{cursor:grabbing}
+.ev-s-track{position:absolute;top:var(--pad);bottom:var(--pad);left:0;display:flex;width:max-content;will-change:transform;backface-visibility:hidden}
+.ev-s-slot{flex:none;width:var(--card-w);height:var(--card-h);padding:0 6px;box-sizing:content-box;pointer-events:none}
+@container (max-width:400px){.ev-s-slot{padding:0 5px}}
+.ev-st{--r:calc(var(--card-w) / 390);--bg:#ffffff;--ink:#000;--mute:#6b7280;--line:#e5e7eb;--field:#d1d5db;--card:#fff;--card-ink:#2d3034;--card-line:#e5e7eb;--badge:#f3f4f6;--badge-ink:#374151;--btn:#2563eb;--rad:8;position:relative;display:flex;flex-direction:column;align-items:center;height:100%;overflow:hidden;border-radius:${r(26)};background:var(--bg);color:var(--ink);font-size:${r(15)};line-height:1.35;text-align:center;box-shadow:0 18px 36px -26px rgba(30,24,16,.4),0 0 0 1px rgba(30,24,16,.07);box-sizing:border-box}
 .ev-st-astrid{--bg:#111113;--ink:#fafafa;--mute:#a1a1aa;--line:#2e3136;--field:#3a3d43;--card:#1c1e22;--card-ink:#fafafa;--card-line:#2e3136;--badge:#3a3c40;--badge-ink:#e4e4e7;--btn:#2563eb;--rad:10}
 .ev-st-harbor{--bg:#ecf1f5;--ink:#0f1e2c;--mute:#566778;--line:#d4dde6;--field:#c6d2dd;--card-ink:#0f1e2c;--card-line:#d4dde6;--badge:#edf1f5;--badge-ink:#1f4b6e;--btn:#1f4b6e}
-.ev-st-sage{--bg:#eef1ea;--ink:#1b2620;--mute:#5b6a60;--line:#d9e0d2;--field:#cbd4c3;--card-ink:#1b2620;--card-line:#d9e0d2;--badge:#eef1ea;--badge-ink:#2f5d46;--btn:#2f5d46}
 .ev-st-cream{--bg:#faf4e8;--ink:#1d1a14;--mute:#7c6a4c;--line:#e8dfc9;--field:#ddd1b6;--card-ink:#1d1a14;--card-line:#e8dfc9;--badge:#f6efe0;--badge-ink:#896d34;--btn:#896d34}
 .ev-st img{display:block;flex:none}
 /* A OnePage between the stores: the capture of a live page, whole, in the same frame. Nothing over it. */
-.ev-op-img{width:100%;height:auto}
+.ev-op-img{width:100%;height:100%;object-fit:cover;object-position:top}
 .ev-st-bar{display:flex;align-items:center;gap:${r(8)};align-self:stretch;height:${r(60)};padding:0 ${r(12)};box-sizing:border-box}
 .ev-st-bar-av{width:${r(32)};height:${r(32)};border-radius:50%;object-fit:cover}
 .ev-st-email{flex:1;min-width:0;display:flex;align-items:center;height:${r(40)};padding:0 ${r(12)};box-sizing:border-box;border:1px solid var(--field);border-radius:${r(8)};font-size:${r(16)};color:var(--mute);text-align:left}
 .ev-st-sub{display:flex;align-items:center;height:${r(40)};padding:0 ${r(14)};border-radius:${r(8)};background:var(--btn);color:#fff;font-size:${r(15)};font-weight:500}
-.ev-st-cover{width:100%;height:${r(160)};object-fit:cover}
+.ev-st-cover{width:100%;height:${r(124)};object-fit:cover}
 .ev-st-av{width:${r(124)};height:${r(124)};margin-top:${r(-62)};box-sizing:border-box;border:${r(4)} solid var(--bg);border-radius:50%;object-fit:cover}
 .ev-st-name{margin-top:${r(12)};font-size:${r(20)};font-weight:600;line-height:1.3;letter-spacing:-.01em}
 .ev-st-handle{margin-top:${r(2)};color:var(--mute)}
@@ -967,13 +1049,10 @@ const CSS = `
 .ev-st-tabs{display:grid;grid-template-columns:repeat(3,1fr);align-self:stretch;margin:${r(24)} ${r(12)} 0;border-bottom:1px solid var(--line);color:var(--mute)}
 .ev-st-tabs span{padding-bottom:${r(14)}}
 .ev-st-tabs span[data-on]{color:var(--ink);font-weight:500;box-shadow:inset 0 ${r(-2)} 0 currentColor}
-.ev-st-h{align-self:flex-start;margin:${r(26)} ${r(12)} 0;font-size:${r(20)};font-weight:600;letter-spacing:-.01em}
-.ev-st-grid{display:grid;grid-template-columns:1fr 1fr;gap:${r(12)};align-self:stretch;margin:${r(14)} ${r(12)} 0;text-align:left}
+.ev-st-grid{display:grid;grid-template-columns:1fr 1fr;gap:${r(12)};align-self:stretch;margin:${r(16)} ${r(12)} 0;text-align:left}
 .ev-st-prod{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid var(--card-line);border-radius:calc(var(--rad) * var(--r));background:var(--card);color:var(--card-ink)}
 .ev-st-img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--badge)}
 .ev-st-body{display:flex;flex-direction:column;flex:1;padding:${r(14)}}
-.ev-st-rate{display:flex;align-items:center;gap:${r(4)};margin-bottom:${r(8)};font-size:${r(13)};color:var(--mute)}
-.ev-st-rate svg{width:${r(14)};height:${r(14)};fill:var(--card-ink)}
 .ev-st-row{display:flex;align-items:flex-start;justify-content:space-between;gap:${r(6)}}
 .ev-st-pn{flex:1;min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:${r(16)};font-weight:500;line-height:1.25}
 .ev-st-badge{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:${r(2)} ${r(7)};border-radius:${r(6)};background:var(--badge);color:var(--badge-ink);font-size:${r(11.5)};font-weight:500;line-height:1.4}
@@ -982,95 +1061,49 @@ const CSS = `
 ${GLOBE_CSS()}
 
 /*
-  4. Support (landing round 2): the Support page's inbox switch and one
-  thread at a time, the threads stacked in one cell so the box never
-  changes height. Each turn: the question is there, the other side types,
-  the answer arrives and the pill turns. A thread coming in rises a little
-  and fades in; the one leaving fades.
+  4. Support (wave 13's card, landing round 4): three threads stacked in the
+  middle of the card, each on the same ${TURN * 3}s clock and a third of it
+  later than the one before. In its third a thread rises in, the question
+  arrives, the other side types, the answer arrives; then it fades up and
+  out as the next one rises.
 */
 .ev-c{background:#eef0f2;container-type:inline-size}
-.ev-c-box{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;align-items:flex-start;gap:12px;width:min(86%,452px);transform:translate(-50%,-50%)}
-.ev-c-tabs{display:inline-flex;padding:4px;border-radius:11px;background:#e2e5e9}
-.ev-c-tab{position:relative;height:30px;padding:0 13px;border:0;border-radius:8px;background:transparent;color:#6b7280;font-family:inherit;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .3s ease}
-.ev-c-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08);opacity:0;transition:opacity .3s ease}
-.ev-c-tab span{position:relative}
-.ev-c-tab[data-on]{color:#1a1a2e}
-.ev-c-tab[data-on]::before{opacity:1}
-@media(hover:hover){.ev-c-tab:not([data-on]):hover{color:#1a1a2e}}
-.ev-c-tab:focus-visible{outline:2px solid #1a1a2e;outline-offset:2px}
-.ev-c-stack{display:grid;align-self:stretch}
-.ev-c-thread{grid-area:1/1;min-width:0;overflow:hidden;border:1px solid rgba(229,231,235,.6);border-radius:15px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.04),0 22px 44px -32px rgba(20,24,40,.35);opacity:0;transform:translate(0,6px);transition:opacity .3s ease,transform .3s ease}
-/* The leaving thread is gone (0.3s) before the next one rises in, so the two never show through each other. */
-.ev-c-thread[data-on]{opacity:1;transform:none;transition:opacity .6s ease .3s,transform .9s ${EASE} .3s}
-.ev-c-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px 13px;border-bottom:1px solid #f1f2f4}
-.ev-c-ht{display:flex;flex-direction:column;min-width:0}
-.ev-c-title{font-size:15px;font-weight:600;line-height:1.3;color:#1a1a2e}
-.ev-c-sub{margin-top:2px;font-size:12.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ev-c-pills{display:grid;flex:none;justify-items:end}
-.ev-c-pill{grid-area:1/1;display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:500;line-height:16px;white-space:nowrap}
-.ev-c-blue{background:#e0e7ff;color:#3730a3}
-.ev-c-amber{background:#fef3c7;color:#92400e}
-.ev-c-gray{background:#f1f2f4;color:#4b5563}
-.ev-c-before{opacity:0}
-.ev-c-msgs{position:relative;margin:0;padding:14px 16px 16px;list-style:none}
-.ev-c-m{display:flex;flex-direction:column;align-items:flex-start;max-width:86%}
-.ev-c-m + .ev-c-m{margin-top:12px}
-.ev-c-mine{align-items:flex-end;margin-left:auto}
-.ev-c-who{margin:0 4px 4px;font-size:12px;font-weight:500;color:#6b7280}
-.ev-c-at{font-weight:400;color:#9ca3af}
-.ev-c-bw{display:grid;max-width:100%}
-.ev-c-mine .ev-c-bw{justify-items:end}
-.ev-c-b{grid-area:1/1;display:block;padding:9px 13px;border-radius:16px;font-size:13.5px;line-height:20px;text-align:left}
-.ev-c-theirs .ev-c-b{border-top-left-radius:6px;background:#f3f4f6;color:#1a1a2e}
-.ev-c-mine .ev-c-b{border-top-right-radius:6px;background:#1a1a2e;color:#fff}
-.ev-c-typing{grid-area:1/1;align-self:start;justify-self:start;display:flex;gap:4px;padding:12px 13px;border-radius:16px;border-top-left-radius:6px;background:#f3f4f6;opacity:0}
-.ev-c-mine .ev-c-typing{justify-self:end;border-top-left-radius:16px;border-top-right-radius:6px;background:#1a1a2e}
-.ev-c-dot{width:6px;height:6px;border-radius:99px;background:#9ca3af;animation:ev-dot 1.1s ease-in-out infinite}
-.ev-c-mine .ev-c-dot{background:rgba(255,255,255,.7)}
+.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,430px);padding:18px 18px 20px;box-sizing:border-box;border-radius:16px;background:#fff;box-shadow:0 24px 48px -30px rgba(20,24,40,.4),0 1px 3px rgba(20,24,40,.07);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
+.ev-c-thread .ev-c-q,.ev-c-thread .ev-c-r,.ev-c-thread .ev-c-typing{animation-delay:calc(var(--k,0) * ${TURN}s)}
+.ev-c-head{display:flex;flex-direction:column;gap:2px;margin:0 0 14px;font-size:14px;font-weight:600;color:#18181b}
+.ev-c-sub{font-size:12.5px;font-weight:400;color:#7c7a84}
+.ev-c-msg{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
+.ev-c-bubble{flex:1 1 auto;margin:0;padding:11px 13px;border-radius:12px;font-size:13.5px;line-height:1.42}
+.ev-c-light{background:#f0eff2;color:#18181b}
+.ev-c-dark{background:#111113;color:#fff}
+.ev-c-av{display:block;flex:none;width:24px;height:24px;border-radius:7px;object-fit:cover}
+.ev-c-slot{position:relative}
+.ev-c-q{opacity:0;transform:translate3d(0,10px,0);animation:ev-q ${TURN * 3}s ${EASE} infinite}
+.ev-c-r{opacity:0;transform:translate3d(0,10px,0);animation:ev-r ${TURN * 3}s ${EASE} infinite}
+.ev-c-typing{position:absolute;left:0;top:10px;display:flex;gap:4px;padding:11px 13px;border-radius:12px;background:#111113;opacity:0;animation:ev-typing ${TURN * 3}s ease infinite}
+.ev-c-dot{width:6px;height:6px;border-radius:99px;background:#fff;opacity:.5;animation:ev-dot 1.1s ease-in-out infinite}
 .ev-c-dot:nth-child(2){animation-delay:.15s}
 .ev-c-dot:nth-child(3){animation-delay:.3s}
-.ev-c-clock{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;animation:ev-clock ${TURN}s linear both}
-/* Inside the thread on show: the question rises in, the other side types, the answer arrives, the pill turns. Off show, everything simply stands (base styles), so a leaving thread fades whole. */
-.ev-c-thread[data-on] .ev-c-ask .ev-c-arrive{animation:ev-c-in .7s ${EASE} .45s both}
-.ev-c-thread[data-on] .ev-c-typing{animation:ev-c-typing 2.3s ease 1.25s both}
-.ev-c-thread[data-on] .ev-c-answer .ev-c-arrive{animation:ev-c-in .7s ${EASE} 3.35s both}
-.ev-c-thread[data-on] .ev-c-before{animation:ev-c-pill-out .4s ease 3.45s both}
-.ev-c-thread[data-on] .ev-c-after{animation:ev-c-pill-in .45s ease 3.45s both}
-@keyframes ev-clock{from{opacity:0}to{opacity:0}}
-@keyframes ev-c-in{from{opacity:0;transform:translate3d(0,8px,0)}to{opacity:1;transform:none}}
-@keyframes ev-c-typing{0%{opacity:0;transform:translate3d(0,6px,0)}14%,88%{opacity:1;transform:none}100%{opacity:0;transform:none}}
-@keyframes ev-c-pill-out{from{opacity:1}to{opacity:0}}
-@keyframes ev-c-pill-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
-@keyframes ev-dot{0%,100%{opacity:.45;transform:translate3d(0,0,0)}50%{opacity:1;transform:translate3d(0,-2px,0)}}
-/* Compact wherever the card is narrow (a phone, and the two column grid on a tablet or small laptop), so the thread always fits the card. */
-@container (max-width:560px){
-  .ev-c-box{width:92%;gap:8px}
-  .ev-c-tabs{padding:3px;border-radius:10px}
-  .ev-c-tab{height:26px;padding:0 10px;border-radius:7px;font-size:12px}
-  .ev-c-head{gap:8px;padding:10px 12px 9px}
-  .ev-c-title{font-size:13.5px}
-  .ev-c-sub{font-size:11px}
-  .ev-c-pill{padding:2px 7px;font-size:10.5px;line-height:15px}
-  .ev-c-msgs{padding:10px 12px 12px}
-  .ev-c-m{max-width:90%}
-  .ev-c-m + .ev-c-m{margin-top:8px}
-  .ev-c-who{margin-bottom:3px;font-size:10.5px}
-  .ev-c-b{padding:7px 10px;border-radius:14px;font-size:12px;line-height:17px}
-  .ev-c-typing{padding:9px 10px}
-}
-@container (max-width:340px){
-  .ev-c-box{gap:6px}
-  .ev-c-head{padding:9px 10px 8px}
-  .ev-c-msgs{padding:8px 10px 10px}
-  .ev-c-b{font-size:11.5px;line-height:16px}
+@keyframes ev-thread{0%{opacity:0;transform:translate3d(-50%,-46%,0) scale(.97)}2.5%,30.5%{opacity:1;transform:translate3d(-50%,-50%,0)}33.3%,100%{opacity:0;transform:translate3d(-50%,-54%,0) scale(.98)}}
+@keyframes ev-q{0%,1%{opacity:0;transform:translate3d(0,10px,0)}4%,100%{opacity:1;transform:none}}
+@keyframes ev-typing{0%,6%{opacity:0}7.5%,13.5%{opacity:1}14.5%,100%{opacity:0}}
+@keyframes ev-r{0%,14%{opacity:0;transform:translate3d(0,10px,0)}16.5%,100%{opacity:1;transform:none}}
+@keyframes ev-dot{0%,100%{opacity:.35;transform:translate3d(0,0,0)}50%{opacity:1;transform:translate3d(0,-3px,0)}}
+@container (max-width:480px){
+  .ev-c-thread{width:90%;padding:14px 14px 16px}
+  .ev-c-bubble{font-size:12.5px;padding:9px 11px}
+  .ev-c-head{font-size:13px;margin-bottom:10px}
+  .ev-c-sub{font-size:11.5px}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill-in,.ev-c-thread,.ev-c-tab,.ev-c-tab::before{transition:none !important}
+  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill-in{transition:none !important}
   .ev-card{opacity:1;transform:none}
-  .ev-loop,.ev-tab[data-on] .ev-tab-fill{animation:none !important}
+  .ev-loop,.ev-tab[data-on] .ev-tab-fill,.ev-p-bg{animation:none !important}
   .ev-tab-fill{display:none}
   .ev-c-typing{display:none}
+  .ev-c-thread:first-child{opacity:1;transform:translate3d(-50%,-50%,0)}
+  .ev-c-thread:first-child .ev-c-q,.ev-c-thread:first-child .ev-c-r{opacity:1;transform:none}
 }
 @media(scripting:none){.ev-card{opacity:1;transform:none}}
 `

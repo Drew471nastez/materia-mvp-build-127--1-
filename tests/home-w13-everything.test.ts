@@ -42,7 +42,8 @@ const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
 const css = EVERYTHING_STYLES[0]?.css ?? ""
 
 console.log("\n── layout and words ──")
-check("the heading is new, two-tone, and not the old Everything in one place", /<h2 id="everything-in-one-place-title" class="ev-h">Make the work\. <span class="ev-h-mute">Skip the busywork\.<\/span><\/h2>/.test(html) && !/Everything in one place/.test(text(html)) && EVERYTHING_HEADING.lead.endsWith(".") && EVERYTHING_HEADING.rest.endsWith("."))
+/* Changed on purpose (landing round 4): the owner found "Make the work. Skip the busywork." too broad and vague; the same two tones, a specific line. */
+check("the heading is new, two-tone, and not the old Everything in one place", /<h2 id="everything-in-one-place-title" class="ev-h">Sell anything, anywhere\. <span class="ev-h-mute">Support included\.<\/span><\/h2>/.test(html) && !/Everything in one place/.test(text(html)) && EVERYTHING_HEADING.lead.endsWith(".") && EVERYTHING_HEADING.rest.endsWith("."))
 check("the grey half of the heading is grey, the lead is dark", /\.ev-h\{[^}]*color:#18181b/.test(css) && /\.ev-h-mute\{color:#8e8c96\}/.test(css))
 check("no subheading and no eyebrow pill above the heading", !/<h2[\s\S]*?<\/h2>\s*<p/.test(html) && !/eyebrow|rounded-full[^"]*uppercase/.test(html))
 check("exactly four cards", (html.match(/<article /g) ?? []).length === 4 && EVERYTHING_CARDS.length === 4)
@@ -87,9 +88,11 @@ check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSy
 
 console.log("\n── card 2 and 4 ──")
 /* Changed on purpose (landing round): the owner asked for a continuous carousel, like the creators rail; the stores drift without a stop, the set twice over moved by half its width in one linear loop. */
-check("the storefronts drift past without a stop, the strip seamless (the set twice, half its width a loop)", /* Changed on purpose (landing round 3): the strip is the stores with real OnePages between them, still the set twice. */ /const strip = \[\.\.\.EVERYTHING_STRIP, \.\.\.EVERYTHING_STRIP\]/.test(src) && /@keyframes ev-stores\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(-50%,0,0\)\}\}/.test(css) && /animation:ev-stores \d+s linear infinite/.test(css))
+/* Changed on purpose (landing round 4): the strip can be dragged, so its drift is a Web Animation from script (one set's width a loop) that a hand can take over; tests/home-landing-topa4. */
+check("the storefronts drift past without a stop, the strip seamless (the set twice, one set's width a loop)", /const strip = \[\.\.\.EVERYTHING_STRIP, \.\.\.EVERYTHING_STRIP\]/.test(src) && /loop = copy\.offsetLeft - first\.offsetLeft/.test(src) && /iterations: Infinity, easing: "linear"/.test(src))
 /* Changed on purpose (landing round 2): the support card is the Support page as it reads, its two inboxes (From buyers, Storelib) and threads with no avatars, so the Storelib logo avatar went with them. */
-check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /<span>From buyers<\/span>/.test(html) && /data-inbox="buyers"/.test(html) && /data-inbox="storelib"/.test(html))
+/* Changed on purpose (landing round 4): the owner wants the support card of before without the From buyers / Storelib switch; the two kinds of request are told by their titles. */
+check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /From a buyer/.test(html) && !/<span>From buyers<\/span>/.test(html))
 const pics = [...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])
 check("every picture is local and exists", pics.length > 20 && pics.every((u) => u.startsWith("/") && existsSync(join(root, "public", u))), pics.filter((u) => !existsSync(join(root, "public", u))))
 /* Changed on purpose (wave 13 integration): the logo goes through next/image (StorelibLogo), whose test stub leaves out `loading`; it is lazy in production. */
