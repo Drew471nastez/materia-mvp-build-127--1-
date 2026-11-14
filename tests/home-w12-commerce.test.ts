@@ -93,11 +93,12 @@ console.log("\nCommerce: the sections render on the server")
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
   /* Changed on purpose (landing round): the merch tile became one shop's physical and digital products (a tee printed when ordered, an e-book sent when paid), as the owner asked. */
 /* Changed on purpose (landing round 4): the owner wanted the blue tee and Weeknight Pasta gone: an embroidered cap and a night photography e-book. */
-  check("how it works: a $28 cap and a $19 e-book, physical and digital", how.includes("$28.00") && how.includes("$19.00") && how.includes("$15.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/cap-yellow.webp"))
+  // Changed on purpose (landing round 5): the owner did not like the cap: a $45 signed print (an example $14 print cost) and the $19 e-book.
+  check("how it works: a $45 print and a $19 e-book, physical and digital", how.includes("$45.00") && how.includes("$19.00") && how.includes("$14.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/print-lasalle.webp") && !how.includes("cap-yellow"))
   check("how it works: what each product leaves is Storelib's fee and the example cost off the price", HOW_PRODUCTS.every((m) => m.keepCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.keepCents > 0))
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
 /* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
-  check("how it works: the tiles use the product's real words", ["Thanks for your purchase", "Get your files", "Lessons", "2 of 7 done"].every((w) => how.includes(w)) && how.includes("/home/how/op-nadia.webp") && how.includes("/home/how/op-nadia-sheet.webp"))
+  check("how it works: the tiles use the product's real words", ["Thanks for your purchase", "Get your files", "Lessons", "2 of 7 done", "Check out · $45.00"].every((w) => how.includes(w)) && !how.includes("op-nadia"))
   /* Added (landing round): the owner never wants the Golden Hour presets mockups again, nor the camera picture on the course. */
   check("how it works: no Golden Hour presets, no camera course picture, no purple gradient grounds", !/Golden Hour|golden-cover|course-camera|lt-field/i.test(how + src.how) && !/linear-gradient\(160deg,#4c1d95/.test(src.how))
 
@@ -210,7 +211,8 @@ console.log("\nCommerce: images")
   const howFiles = existsSync(howDir) ? readdirSync(howDir) : []
   /* Changed on purpose (landing round): the tee photo and the course's video still, webp, each under 30 KB, and nothing unused. */
 /* Changed on purpose (landing round 4): the cap, the course's street still, and the captured OnePage and its sheet. */
-  check("public/home/how holds the cap, the course and the OnePage pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,course-street.webp,op-nadia-sheet.webp,op-nadia.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 5): the print instead of the captured OnePage; the cap picture stays for the checkout scene's currencies panel.
+  check("public/home/how holds the checkout's cap, the course and the print, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,course-street.webp,print-lasalle.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }

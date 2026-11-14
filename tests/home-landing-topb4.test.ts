@@ -24,8 +24,8 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { IdeasComeToLife, IDEAS_HEADING, IDEAS_HEADINGS, IDEAS_STYLES, IDEAS_SUB, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, DesmondPage, FieldDaySite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
-import { BusinessCarousel, BUSINESS_PLAIN_QUERY, BUSINESS_SLIDES, BUSINESS_STYLES } from "@/components/marketing/home/business-carousel"
+import { BUILDER_CSS, CommunityMock, DesmondPage, SaltmoorSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BusinessCarousel, BUSINESS_SLIDES, BUSINESS_STYLES } from "@/components/marketing/home/business-carousel"
 import { BUSINESS_MOCK_CSS } from "@/components/marketing/home/showcase-mocks/business-mocks"
 import { CreatorsCarousel, CREATORS, CREATORS_CSS } from "@/components/marketing/home/creators-carousel"
 
@@ -60,12 +60,13 @@ const ideasCss = IDEAS_STYLES.find((s) => s.href === "w12-ideas")?.css ?? ""
 const bizCss = BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? ""
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 
-console.log("\n── See your ideas come to life: thin pill tabs, as before ──")
+console.log("\n── See your ideas come to life: tabs (round 5: not pills) ──")
 check("three tabs: the website builder, the OnePage editor, the community", IDEAS_TABS.map((t) => t.title).join() === "Website builder,OnePage editor,Community")
 check("real tabs with their names written out", (ideas.match(/role="tab"/g) ?? []).length === 3 && IDEAS_TABS.every((t) => ideas.includes(`<span>${t.title}</span>`)))
 check("the tabs sit above the picture", ideas.indexOf('class="ideas-tabs"') > 0 && ideas.indexOf('class="ideas-tabs"') < ideas.indexOf('class="ideas-stage"'))
 const tab = rule(ideasCss, ".ideas-tab")
-check("thin pills (30px, Make the work's family), not the 44px ones", /height:30px/.test(tab) && /padding:0 13px/.test(tab) && /border-radius:999px/.test(tab) && !/height:44px/.test(tab))
+// Changed on purpose (landing round 5): the owner wants tabs "not as pill shapes"; tests/home-landing-r5-middle.test.ts pins the new ones.
+check("tabs, not pills: square words with no pill behind them", /border-radius:0/.test(tab) && !/border-radius:999px/.test(tab))
 check("a picture changes by a crossfade, no carousel to drag", /@keyframes ideas-in\{from\{opacity:0\}\}/.test(ideasCss) && !/RailMotion|rail-motion/.test(code(src.ideas)))
 check("autoplay pauses off screen, in a hidden tab and under the pointer (use-auto-tabs)", /useAutoTabs\(/.test(src.ideas) && /\{\.\.\.t\.hoverProps\}/.test(src.ideas) && /data-mock-live=\{\(state === "active" && t\.live\) \|\| undefined\}/.test(src.ideas))
 check("nothing animates before the section is seen", !/data-mock-live="/.test(ideas))
@@ -83,15 +84,16 @@ console.log("\n── On a phone: the editors exactly as on a computer ──")
 check("one design width for every screen, no phone layout in the editors", /\.bm-frame>\.smk\{--w:1280\}/.test(BUILDER_CSS) && !/max-width:767px/.test(BUILDER_CSS) && !/--w:640/.test(BUILDER_CSS))
 check("the picture keeps the computer's shape on a phone", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss) && !/aspect-ratio:640\/836/.test(ideasCss))
 
-console.log("\n── The website builder: a merch store, no sourdough ──")
-const site = renderToStaticMarkup(createElement(FieldDaySite))
+console.log("\n── The website builder: a real small store, no sourdough ──")
+const site = renderToStaticMarkup(createElement(SaltmoorSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-check("Field Day, a store of caps and tees", site.includes("Caps and tees, made in small runs.") && /Cap/.test(site) && /Tee/.test(site) && wb.includes("Field Day"))
-check("its products are photographs that exist and are small", ["fd-hero", "fd-cap-yellow", "fd-trucker", "fd-cap-grey", "hp-tee"].every((n) => {
+// Changed on purpose (landing round 5): "come up with another store, more realistic": Saltmoor, a candle studio, replaces Field Day.
+check("Saltmoor, a candle studio's store", site.includes("Candles poured by hand in Leeds.") && wb.includes("Saltmoor"))
+check("its products are photographs that exist and are small", ["sm-hero", "sm-bergamot", "sm-glass", "sm-votive", "sm-pillar"].every((n) => {
   const f = join(root, `public/home/showcase/${n}.webp`)
   return existsSync(f) && statSync(f).size < 120_000 && site.includes(`/home/showcase/${n}.webp`)
 }))
-check("Publish puts fielddaysupply.com live, the selected sections outlined", wb.includes("fielddaysupply.com") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
+check("Publish puts saltmoorcandles.co.uk live, the selected sections outlined", wb.includes("saltmoorcandles.co.uk") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
 
 console.log("\n── The OnePage editor: a LUT pack on a real theme ──")
 const page = renderToStaticMarkup(createElement(DesmondPage))
@@ -105,23 +107,21 @@ check("the email signup is still the block the editor switches on", page.include
 console.log("\n── One community, drawn as it is inside ──")
 const cm = renderToStaticMarkup(createElement(CommunityMock))
 check("one community example in the section", IDEAS_TABS.filter((t) => /community/i.test(t.title)).length === 1 && !/CommunityBuilderMock|KilnAbout|Kiln &|ce-side/.test(src.builders))
-check("the community's own bar: its mark, name, owner, the menu key, the search", cm.includes("Crema Club") && cm.includes("By Joana Reis") && cm.includes("Search discussions, members, or content..."))
+// Changed on purpose (landing round 5): the community is The Strength Room, a paid strength coaching group.
+check("the community's own bar: its mark, name, owner, the menu key, the search", cm.includes("The Strength Room") && cm.includes("By Rina Castillo") && cm.includes("Search discussions, members, or content..."))
 check("the places row of the member frame (shell-frame.tsx)", ["Community", "Learn", "Calendar", "Members", "Leaderboards", "About"].every((p) => cm.includes(`>${p}<`)))
-check("the community card: cover, address, Members, Online, Admins", cm.includes("storelib.com/community/cremaclub") && ["Members", "Online", "Admins"].every((w) => cm.includes(w)) && cm.includes("Upcoming event"))
+check("the community card: cover, address, Members, Online, Admins", cm.includes("storelib.com/community/strengthroom") && ["Members", "Online", "Admins"].every((w) => cm.includes(w)) && cm.includes("Upcoming event"))
 check("the space chips, the composer and a pinned post", cm.includes("Share something...") && cm.includes("Pinned") && (cm.match(/class="cx-post"/g) ?? []).length === 2)
 
-console.log("\n── One store for everything you sell: held while the scroll steps through it ──")
+/* Changed on purpose (landing round 5): the owner asked for this section "how it was before", with no interactiveness that stops the scroll. tests/home-landing-r5-middle.test.ts pins the restored section; these keep what still holds. */
+console.log("\n── One store for everything you sell: as before, no pin ──")
 const biz = renderToStaticMarkup(createElement(BusinessCarousel))
 check("five kinds in the owner's order", BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
-check("a tall track with the section pinned in it by position: sticky", /\.biz-track\{[^}]*height:calc\(100svh \+ \(var\(--biz-n\) - 1\) \* var\(--biz-step\)\)/.test(bizCss) && /\.biz-pin\{position:sticky;top:0;height:100svh/.test(bizCss))
-check("one marker per kind, read by one IntersectionObserver on a line across the middle of the screen", (biz.match(/class="biz-step"/g) ?? []).length === 5 && /new IntersectionObserver\(/.test(src.business) && /rootMargin: "-50% 0px -50% 0px"/.test(src.business))
-check("no scroll listener, no frame loop, no layout read while scrolling", !/addEventListener\("scroll"|onScroll|requestAnimationFrame|getBoundingClientRect\(\)[^\n]*\n[^\n]*setIndex/.test(code(src.business)) && (code(src.business).match(/getBoundingClientRect/g) ?? []).length === 1 && /const pick = /.test(src.business))
-check("a click still picks a kind, and scrolls to its place in the track while pinned", /onClick=\{\(\) => pick\(i\)\}/.test(src.business) && /window\.scrollTo\(\{ top, behavior: "smooth" \}\)/.test(src.business))
-check("reduced motion or a short screen: no pin, a plain list (tabs on a phone)", BUSINESS_PLAIN_QUERY === "(prefers-reduced-motion: reduce), (max-height: 600px)" && /@media\(prefers-reduced-motion:reduce\),\(max-height:600px\)\{\s*\.biz-track\{height:auto\}\s*\.biz-pin\{position:relative;height:auto/.test(bizCss))
-check("pages change by opacity and transform only", !/\.biz-slide[^{]*\{[^}]*transition:[^}]*(top|height|margin|filter)/.test(bizCss))
+check("no pinned track: no position: sticky, no scroll markers", !/position:sticky/.test(bizCss) && !/biz-track|biz-step/.test(bizCss + biz))
+check("pages change by opacity only", !/\.biz-slide[^{]*\{[^}]*transition:[^}]*(top|height|margin|filter)/.test(bizCss))
 check("it reads on white: dark words, no band colours", /\.biz\{position:relative;background:#fff;color:#18181b\}/.test(bizCss) && !/band-ink|band-muted/.test(src.business))
-check("each product on a white card over its own coloured ground", ["digital", "cap", "course", "community", "booking"].every((k) => new RegExp(`\\.bp-${k}\\{background:linear-gradient\\(`).test(BUSINESS_MOCK_CSS)) && /\.bp-card\{[^}]*background:#fff/.test(BUSINESS_MOCK_CSS))
-check("the physical product is colourful, on a warm ground", /\.bp-warm\{background:radial-gradient/.test(BUSINESS_MOCK_CSS) && biz.includes("Marigold Cap") && existsSync(join(root, "public/home/showcase/bz-cap.webp")))
+check("each product on a white card over the light grey stage, no coloured grounds", /\.bp\{[^}]*background:#eef0f2/.test(BUSINESS_MOCK_CSS) && /\.bp-card\{[^}]*background:#fff/.test(BUSINESS_MOCK_CSS) && !/\.bp-(digital|cap|course|community|booking)\{background:linear-gradient/.test(BUSINESS_MOCK_CSS))
+check("the physical product is the tee of before, its photograph on file", src.pages.includes("Pines Tour Tee") && /Pines Tour Tee/.test(BUSINESS_SLIDES[1].alt) && existsSync(join(root, "public/home/showcase/hp-tee.webp")) && !existsSync(join(root, "public/home/showcase/bz-cap.webp")))
 check("the page is a picture: no pointer, nothing that takes focus", /\.biz-stage \.smk\{pointer-events:none;user-select:none/.test(bizCss) && !/<(a|button|input)\b/.test(biz.slice(biz.indexOf('class="biz-stage"'))))
 
 console.log("\n── Storelib is for creators ──")

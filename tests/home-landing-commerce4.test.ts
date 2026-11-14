@@ -69,18 +69,18 @@ check("none of this round's banned samples", () => {
   const all = FILES.map(read).join("\n") + words(how) + words(co)
   assert.ok(!/sourdough|golden hour|wheel throw|drawing basics|saturday run club|dust & tape|elena ruiz|real mornings|hemi walker|lowtide|bank account/i.test(all))
 })
-check("half physical, half digital: the cap and the e-book in How it works, physical and digital taking turns around the phone", () => {
-  assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["cap", "Physical"], ["ebook", "Digital"]])
+// Changed on purpose (landing round 5): the owner did not like the cap; How it works sells a signed print of Nadia's photograph instead.
+check("half physical, half digital: the print and the e-book in How it works, physical and digital taking turns around the phone", () => {
+  assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["print", "Physical"], ["ebook", "Digital"]])
   const ids = [...co.matchAll(/\/home\/commerce\/float-([a-z]+)\.webp/g)].map((m) => m[1])
   assert.deepEqual(ids, ["ebook", "cap", "course", "tee", "club", "vinyl"])
 })
 
 console.log("\nHow it works")
-check("every tile stands on a colourful ground that changes: two soft layers, moved and faded on the compositor, paused off screen", () => {
-  assert.equal((how.match(/class="cmh-stage" data-ground="[a-z]+"/g) ?? []).length, 6)
-  assert.equal(new Set([...how.matchAll(/data-ground="([a-z]+)"/g)].map((m) => m[1])).size, 6)
-  assert.equal((how.match(/class="cmh-a cmh-gl cmh-gl[12]"/g) ?? []).length, 12)
-  assert.ok(onlyCompositor(keyframes(howCss, "cmh-drift1")) && onlyCompositor(keyframes(howCss, "cmh-drift2")))
+// Changed on purpose (landing round 5): the owner found the colourful grounds "too colorful"; they are a soft grey or near black, and still.
+check("every tile stands on a calm ground in Storelib's colours, nothing drifting behind it, loops paused off screen", () => {
+  assert.equal((how.match(/class="cmh-stage" data-ground="(light|dark)"/g) ?? []).length, 6)
+  assert.ok(!/cmh-gl|cmh-drift/.test(how + howCss))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss) && howCss.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}"))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss))
 })
@@ -91,11 +91,12 @@ check("the first tile is a product card, and its caption is about half as long a
   /* Round 3's caption was 33 words. */
   assert.ok(cap.trim().split(" ").length <= 17, cap)
 })
-check("the checkout tile is the live OnePage and its product sheet, captured, and the sheet's button is the real one for a product that ships", () => {
-  for (const f of ["op-nadia.webp", "op-nadia-sheet.webp"]) {
-    assert.ok(how.includes(`/home/how/${f}`) && existsSync(`public/home/how/${f}`) && statSync(`public/home/how/${f}`).size < 30 * 1024, f)
-  }
-  assert.equal(sheetButtonLabel("Check out", "$28.00", true), "Check out · $28.00")
+// Changed on purpose (landing round 5): the owner wanted the sheet's title and price bigger and bolder, and no cap; the OnePage and its sheet are drawn in HTML with the print.
+check("the checkout tile is the OnePage and its product sheet, and the sheet's button is the real one for a product that ships", () => {
+  for (const f of ["op-nadia.webp", "op-nadia-sheet.webp"]) assert.ok(!how.includes(f) && !existsSync(`public/home/how/${f}`), f)
+  assert.ok(how.includes('class="cmh-a cmh-sheet"') && how.includes("/home/how/print-lasalle.webp") && statSync("public/home/how/print-lasalle.webp").size < 30 * 1024)
+  assert.equal(sheetButtonLabel("Check out", "$45.00", true), "Check out · $45.00")
+  assert.ok(words(how).includes("Check out · $45.00"))
   assert.ok(/const words = p\?\.ships \? "Check out"/.test(read("components/onepage/product-sheet.tsx")))
   assert.ok(onlyCompositor(keyframes(howCss, "cmh-sheet")) && onlyCompositor(keyframes(howCss, "cmh-dim")))
 })
