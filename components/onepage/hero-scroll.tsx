@@ -271,10 +271,16 @@ export function HeroTopBar({
       css = !!anchor && namedTimelines() && pageScrollsHero(anchor)
       if (css && anchor) anchor.style.setProperty("view-timeline-name", BAR_TIMELINE)
       bar.toggleAttribute("data-op-topbar-css", css)
-      if (css) {
-        bar.style.removeProperty("opacity")
-        inner.style.removeProperty("transform")
-      }
+      /*
+        The resting look stays written where the stylesheet draws it too. The
+        animation outranks it while its timeline is live; the moment the name
+        it follows is gone (a theme picked in the editor draws a new header,
+        a layout switched), the animation has no time and the bar falls back
+        to this: hidden. It used to remove these, so a replaced header left
+        the bar fully shown over the top of the page.
+      */
+      bar.style.opacity = "0"
+      inner.style.transform = "translate3d(0, 10px, 0) scale(0.94)"
       last = -1
     }
     /* The bar is fixed: its foot is measured once, and again when the window changes (a phone turned, a computer's window resized). */
@@ -321,6 +327,30 @@ export function HeroTopBar({
       write()
     }
     attach()
+    /*
+      THE HEADER CAN BE DRAWN AGAIN WITHOUT A SCROLL: a theme picked in the
+      editor, the header's layout switched, a photo replaced. The name the bar
+      followed is then gone and a new one is there, with no scroll to say so.
+      Where the stylesheet draws the bar, its timeline lived on the old name:
+      Chromium then leaves the bar at its resting look (hidden), but Safari can
+      run the animation to its end and leave the bar fully shown over the top
+      of the page (the owner's picture, after picking a theme). So a change
+      under the page is looked at at once, in the same task that changed it
+      and before anything is painted: if the name on screen is not the one
+      followed, the new one is followed and the bar drawn for where the page
+      is now. It does nothing for any change that leaves the name in place.
+    */
+    let watchFrame = 0
+    const watch = typeof MutationObserver === "function"
+      ? new MutationObserver(() => {
+          const next = barAnchor()
+          if (next === anchor && anchor?.isConnected) return
+          pick()
+          measure()
+          write()
+        })
+      : null
+    watch?.observe(document.body, { childList: true, subtree: true })
     window.addEventListener("scroll", onScroll, { passive: true })
     window.addEventListener("resize", onResize, { passive: true })
     const mq = window.matchMedia(LIVE_DESKTOP_QUERY)
@@ -328,6 +358,8 @@ export function HeroTopBar({
     return () => {
       window.clearTimeout(timer)
       cancelAnimationFrame(frame)
+      cancelAnimationFrame(watchFrame)
+      watch?.disconnect()
       window.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onResize)
       mq.removeEventListener("change", onResize)
