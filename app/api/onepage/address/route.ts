@@ -8,7 +8,7 @@
  * cached, and never on storelib.me (the proxy answers 404 for it there).
  *
  *   { name, available: true }
- *   { name, available: false, error: "That page address is taken" }
+ *   { name, available: false, taken: true, error: "That page address is taken" }
  */
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ name: verdict.value, available: null, error: "Could not check that name just now" }, { status: 503, headers: NO_STORE })
   }
   return NextResponse.json(
-    taken === "taken" ? { name: verdict.value, available: false, error: "That page address is taken" } : { name: verdict.value, available: true },
+    taken === "taken" ? { name: verdict.value, available: false, taken: true, error: "That page address is taken" } : { name: verdict.value, available: true },
     { headers: NO_STORE },
   )
 }

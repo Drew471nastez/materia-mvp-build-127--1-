@@ -54,6 +54,7 @@ import { audit } from "./audit"
 import { recordActivity } from "./activity"
 import { awardPoints } from "./points"
 import { ownPicture } from "./gallery"
+import { regrantVerdict, type RefundCheck } from "./refunded-payment"
 
 export const PROGRAM_COMPLETED_POINTS = 10
 const STAFF: readonly Role[] = ["owner", "admin", "moderator"]
@@ -543,6 +544,8 @@ export interface ProgramGrant {
   paymentIntentId?: string | null
   amountCents?: number | null
   currency?: string | null
+  /** Round AY: asked only when a revoked row would be opened again (./refunded-payment.ts). */
+  refundCheck?: RefundCheck
 }
 
 /**
@@ -553,7 +556,7 @@ export interface ProgramGrant {
 export async function grantProgram(db: Db, g: ProgramGrant): Promise<{ ok: true; created: boolean } | { ok: false; error: string }> {
   const { data: existing, error: readError } = await db
     .from("community_program_access")
-    .select("program_id, revoked_at, checkout_session_id")
+    .select("program_id, revoked_at, checkout_session_id, payment_intent_id")
     .eq("program_id", g.programId)
     .eq("user_id", g.userId)
     .maybeSingle()
@@ -568,8 +571,13 @@ export async function grantProgram(db: Db, g: ProgramGrant): Promise<{ ok: true;
     revoked_at: null,
   }
   if (existing) {
-    const e = existing as { revoked_at: string | null; checkout_session_id: string | null }
+    const e = existing as { revoked_at: string | null; checkout_session_id: string | null; payment_intent_id?: string | null }
     if (!e.revoked_at) return { ok: true, created: false }
+    /* Round AY: a refunded payment (the same session sent again, or any payment Stripe says is refunded) never opens it again. */
+    if (g.source === "purchase") {
+      const verdict = await regrantVerdict(e, g, g.refundCheck)
+      if (verdict !== "allow") return { ok: false, error: verdict }
+    }
     const { error } = await db.from("community_program_access").update({ ...row, created_at: new Date().toISOString() }).eq("program_id", g.programId).eq("user_id", g.userId)
     if (error && !isUniqueViolation(error)) return { ok: false, error: "failed" }
     return { ok: true, created: !error }

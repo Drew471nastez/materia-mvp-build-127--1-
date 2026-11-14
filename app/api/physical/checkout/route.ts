@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       return v ? visitorHash(v) : null
     })(),
   })
-  if (started.ok === false) return physicalJson({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+  if (started.ok === false) return physicalJson({ error: started.error, field: started.field ?? null, stock: started.stock ?? null, code: started.code ?? null }, started.status)
   /* Written at once, with no payment form: the buyer's session sees the order. */
   if (started.free || started.cod) {
     const { data: co } = await db.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
