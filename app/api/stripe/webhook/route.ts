@@ -133,23 +133,24 @@ function periodEndOf(sub: any): number | null {
  *               written and never before
  */
 async function settleChargeRefund(charge: Stripe.Charge): Promise<{ applied: number; skipped: number }> {
-  const intent = typeof charge.payment_intent === "string" ? charge.payment_intent : (charge.payment_intent?.id ?? null)
-  if (charge.refunded && intent) {
+  const intentId = typeof charge.payment_intent === "string" ? charge.payment_intent : (charge.payment_intent?.id ?? null)
+  if (charge.refunded && intentId) {
     const [{ revokeRefundedProgram }, { revokeRefundedTicket }] = await Promise.all([
       import("@/lib/communities/server/learn-checkout"),
       import("@/lib/communities/server/event-checkout"),
     ])
-    await revokeRefundedProgram(supabaseAdmin, intent)
-    await revokeRefundedTicket(supabaseAdmin, intent)
-    await (await import("@/lib/communities/server/module-sales")).revokeRefundedModule(supabaseAdmin, intent)
+    await revokeRefundedProgram(supabaseAdmin, intentId)
+    await revokeRefundedTicket(supabaseAdmin, intentId)
+    await (await import("@/lib/communities/server/module-sales")).revokeRefundedModule(supabaseAdmin, intentId)
     /* Round 39: a Library sale's record marked; the refund itself takes the product out of the buyer's library (lib/stripe/refund-sync.ts), which locks the item. */
-    await (await import("@/lib/communities/server/library-checkout")).revokeRefundedLibrary(supabaseAdmin, intent)
+    await (await import("@/lib/communities/server/library-checkout")).revokeRefundedLibrary(supabaseAdmin, intentId)
     /* A booking paid with a product and refunded in full is cancelled and its time freed (lib/forms/booking-payment.ts). */
-    await (await import("@/lib/forms/booking-payment-server")).bookingRefunded(supabaseAdmin, intent).catch(() => false)
+    await (await import("@/lib/forms/booking-payment-server")).bookingRefunded(supabaseAdmin, intentId).catch(() => false)
   }
   const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
-  if (intent) {
+  if (intentId) {
     const { syncCheckoutRefunds } = await import("@/lib/physical/orders-server")
+    const intent = intentId
     await syncCheckoutRefunds(supabaseAdmin as never, intent).catch((e) => console.error("[Webhook] physical refund restate:", e instanceof Error ? e.message : e))
   }
   return done

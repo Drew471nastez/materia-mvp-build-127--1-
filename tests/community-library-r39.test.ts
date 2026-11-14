@@ -477,7 +477,7 @@ async function main() {
     const oldPath = hook.indexOf("// --- PAYMENT MODE: Product purchase checkout ---")
     check("the webhook answers a Library session before the older session path, with the product fulfilment", libAt > 0 && (oldPath < 0 || libAt < hook.indexOf('console.log("[Webhook] Checkout session:"')) && /grantLibraryFromSession\(supabaseAdmin, session, \(pi\) => fulfilPaymentIntent\(supabaseAdmin, pi, \{ baseUrl \}\)\)/.test(hook))
     check("the PaymentIntent's own event records the purchase after its order", /recordFromIntent\(supabaseAdmin, pi, result\.orderId\)/.test(hook))
-    check("a full refund marks the Library purchase", /* Changed on purpose (round AW): the call moved into settleChargeRefund, which a late-settling refund runs too. */ /revokeRefundedLibrary\(supabaseAdmin, intent\)/.test(hook))
+    check("a full refund marks the Library purchase", /revokeRefundedLibrary\(supabaseAdmin, intentId\)/.test(hook))
     const orphans = code("lib/communities/server/orphans.ts")
     check("the daily sweep keeps a Library file and any product's file at that path", /from\("community_library_items"\)\.select\("id"\)\.eq\("community_id", c\.id\)\.contains\("files"/.test(orphans) && /from\("digital_assets"\)\.select\("id"\)\.eq\("file_path", path\)/.test(orphans))
   }
