@@ -177,7 +177,7 @@ async function main() {
   console.log("\nAnalytics\n")
   {
     const ship = read("lib/physical/checkout-server.ts")
-    check("an order placed in cash opens its page as just placed, so the store's tags hear the purchase", (ship.match(/\/checkout\/physical\/order\/\$\{encodeURIComponent\([^)]*\)\}\?paid=1`/g) ?? []).length === 4)
+    check("an order placed in cash opens its page as just placed, so the store's tags hear the purchase", (ship.match(/\/checkout\/physical\/order\/\$\{encodeURIComponent\([^)]*\)\}\?paid=1`/g) ?? []).length === 6) // Changed on purpose (round AY): two more, the free order a retried key finds (freeOrderOfKey)
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
