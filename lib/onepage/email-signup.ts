@@ -63,6 +63,26 @@ export function emailSignupStacked(layout: EmailSignupLayout, buttonText: string
 }
 
 /**
+ * Wave 16: the words on the block's button before anyone has joined, as the
+ * live page writes them (components/onepage/public-onepage getButtonText):
+ * the creator's own words, else the preset's, else the saved text. The
+ * editor's Layout picker draws its small pictures with these, so a long
+ * button stacks there exactly as it stacks on the page.
+ */
+const BUTTON_PRESET_WORDS: Record<string, string> = {
+  subscribe: "Subscribe",
+  join: "Join Now",
+  get_access: "Get Access",
+  download: "Download",
+  sign_up: "Sign Up",
+  unlock: "Unlock Now",
+}
+export function emailSignupButtonText(data: { button_preset?: string | null; custom_button_text?: string | null; button_text?: string | null } | null | undefined): string {
+  if (data?.button_preset === "custom" && data.custom_button_text) return data.custom_button_text
+  return BUTTON_PRESET_WORDS[data?.button_preset || "subscribe"] || (data?.button_text ?? "Subscribe")
+}
+
+/**
  * A colour at a share of its strength over the page, for the card's tint.
  * The block added "10" to the button colour, which is a tint only for a
  * six-digit hex: "#000" became "#00010", which is no colour, and the card
