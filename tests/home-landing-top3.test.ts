@@ -118,9 +118,9 @@ console.log("\n── Tabs of one family (the tabs of Make the work) ──")
 const family = (r: string) => /height:30px/.test(r) && /padding:0 13px/.test(r) && /border-radius:999px/.test(r) && /color:#55525c/.test(r) && /font-size:13px/.test(r) && /font-weight:500/.test(r)
 check("Make the work's tab is the reference", family(rule(evCss, ".ev-tab")) && /\.ev-tab\[data-on\]\{color:#18181b\}/.test(evCss) && /\.ev-tab::before\{[^}]*background:#fff/.test(evCss))
 /* Changed on purpose (landing round 4): real tabs (aria-selected) above the picture. */
-// Changed on purpose (landing round 5): the owner wants the ideas tabs "not as pill shapes": words on a hairline, the chosen one dark with a rule under it.
+// Changed on purpose (landing round 6): the owner wants the ideas tabs "with pill shapes like how it was before": the family again, a grey track, the chosen one white.
 check("ideas: tabs in place of the dots, the chosen one dark", /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(src.ideas) && !/ideas-dot/.test(src.ideas))
-check("ideas: no pill track", !/\.ideas-tabs\{[^}]*border-radius:999px/.test(src.ideas) && !/\.ideas-tab\{[^}]*border-radius:999px/.test(src.ideas))
+check("ideas: the same family as Make the work's tabs, on a grey pill track", family(rule(src.ideas, ".ideas-tab")) && /\.ideas-tabs\{[^}]*border-radius:999px;background:#f1f1f2/.test(src.ideas) && /\.ideas-tab::before\{[^}]*background:#fff/.test(src.ideas))
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 check("ideas: one tab an editor, each named in full", (ideas.match(/class="ideas-tab"/g) ?? []).length === IDEAS_TABS.length && IDEAS_TABS.every((s) => ideas.includes(`<span>${s.title}</span>`)))
 check("business, on a phone: the same pill row", /@media\(max-width:899px\)\{[\s\S]*\.biz-kind-s\{[^}]*height:30px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:500/.test(src.business) && /\.biz-kind\[aria-selected="true"\] \.biz-kind-s\{background:#fff\}/.test(src.business))

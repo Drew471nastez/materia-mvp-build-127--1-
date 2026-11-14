@@ -21,7 +21,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { BusinessCarousel, BUSINESS_SLIDES, BUSINESS_STYLES } from "@/components/marketing/home/business-carousel"
 import { BUSINESS_MOCK_CSS, TeePage } from "@/components/marketing/home/showcase-mocks/business-mocks"
 import { IdeasComeToLife, IDEAS_STYLES } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, SaltmoorSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, PlainWeatherSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRINT, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
 import { CNAME_TARGET, DEFAULT_A } from "@/lib/custom-domains/hostname"
 import { sheetButtonLabel } from "@/lib/onepage/product-block"
@@ -66,20 +66,23 @@ check("the tee page draws its photograph", renderToStaticMarkup(createElement(Te
 const lazy = read("components/marketing/home/lazy-sections.tsx")
 check("its placeholder box no longer grows with the screen's height", !/\[data-lazy-section="business"\]\{--lz:calc\(3\d\dsvh/.test(lazy) && !/business:\s*\[\{/.test(read("scripts/measure-home-lazy-heights.mjs")))
 
-console.log("\nSee your ideas come to life: tabs, not pills")
+console.log("\nSee your ideas come to life: three tabs above the picture")
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 const tab = rule(ideasCss, ".ideas-tab")
 check("three real tabs above the picture", (ideas.match(/role="tab"/g) ?? []).length === 3 && ideas.indexOf('class="ideas-tabs"') < ideas.indexOf('class="ideas-stage"'))
-check("no pill: square words on one hairline, no grey track", /border-radius:0/.test(tab) && /background:none/.test(tab) && !/999px/.test(rule(ideasCss, ".ideas-tabs") + tab) && /\.ideas-tabs\{[^}]*box-shadow:inset 0 -1px 0 #e7e7ea/.test(ideasCss))
-check("the chosen tab is dark with a rule under it that grows from its middle (transform only)", /\.ideas-tab::after\{[^}]*transform:scaleX\(0\);[^}]*transition:transform/.test(ideasCss) && /\.ideas-tab\[aria-selected="true"\]::after\{transform:none\}/.test(ideasCss) && /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(ideasCss))
-check("the row keeps round 4's height (38px), so the page does not change length", /height:38px/.test(tab) && /\.ideas-tabs-row\{[^}]*margin:clamp\(24px,3vw,36px\) var\(--landing-gutter,16px\) clamp\(18px,2\.2vw,28px\)/.test(ideasCss))
+// Changed on purpose (landing round 6): the owner wants the pill tabs back "like how it was before"; tests/home-landing-r6-ideas.test.ts pins them.
+check("pills again: a grey track, the chosen tab a white pill", /border-radius:999px/.test(tab) && /\.ideas-tabs\{[^}]*background:#f1f1f2/.test(ideasCss) && !/box-shadow:inset 0 -1px 0 #e7e7ea/.test(ideasCss))
+check("the chosen pill settles in by transform and opacity only", /\.ideas-tab::before\{[^}]*opacity:0;transform:scale\(\.85\);transition:opacity \.35s ease,transform/.test(ideasCss) && /\.ideas-tab\[aria-selected="true"\]::before\{opacity:1;transform:none\}/.test(ideasCss) && /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(ideasCss))
+check("the row keeps round 4's height (30px pills in a 4px track, 38px), so the page does not change length", /height:30px/.test(tab) && /\.ideas-tabs\{[^}]*padding:4px/.test(ideasCss) && /\.ideas-tabs-row\{[^}]*margin:clamp\(24px,3vw,36px\) var\(--landing-gutter,16px\) clamp\(18px,2\.2vw,28px\)/.test(ideasCss))
 
 console.log("\nThe website builder: a real small store")
-const site = renderToStaticMarkup(createElement(SaltmoorSite))
+// Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
+const site = renderToStaticMarkup(createElement(PlainWeatherSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-check("Saltmoor, a two person candle studio in Leeds, with refills and plain specs", site.includes("Candles poured by hand in Leeds.") && /refill/i.test(site) && site.includes("220 g · 45 h") && wb.includes("Saltmoor") && wb.includes("saltmoorcandles.co.uk"))
-check("its five photographs exist, are webp and small", ["sm-hero", "sm-bergamot", "sm-glass", "sm-votive", "sm-pillar"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
-check("calm: no gradient, no orange accent, a serif wordmark", !/\.sm[^{]*\{[^}]*gradient/.test(BUILDER_CSS) && /\.sm-logo\{[^}]*Georgia/.test(BUILDER_CSS))
+check("Plain Weather, a small apparel label, in the builder with its own address", site.includes("Everyday cotton, cut and sewn in Porto.") && wb.includes("Plain Weather") && wb.includes("plainweather.co"))
+check("its five photographs exist, are webp and small", ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
+check("calm: no gradient, a neutral page", !/\.pw[^{]*\{[^}]*gradient/.test(BUILDER_CSS) && /\.pw\{[^}]*background:#fafaf9/.test(BUILDER_CSS))
+check("no Saltmoor left", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/sm-hero.webp"))
 check("no Field Day, no caps left", !/Field Day|FIELD|fielddaysupply|fd-cap|Marigold/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/fd-hero.webp"))
 
 console.log("\nThe community: a paid strength coaching group")

@@ -17,11 +17,16 @@ export const IDEAS_HEADING = "See your ideas come to life."
 
   Landing round 5 (the owner): tabs, "not as pill shapes". Plain words on a
   hairline, the chosen one dark with a short rule under it that grows from
-  its middle (a transform). The website builder shows a candle studio's
-  store, the community is a strength coaching group.
+  its middle (a transform). The community is a strength coaching group.
+
+  Landing round 6 (the owner): the tabs "with pill shapes like how it was
+  before": round 4's grey track again, the chosen tab a white pill that
+  settles in (transform and opacity), the same 38px row, so the section
+  keeps its height. The website builder shows a simple, clean merch brand,
+  Plain Weather, and the line under the heading is shorter.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
-export const IDEAS_SUB = "No code and nothing to install. Drag sections in, change anything on the page itself, and publish when it looks right."
+export const IDEAS_SUB = "No code, nothing to install. Drag sections in, edit on the page, publish when it looks right."
 /** How long each heading stays, in seconds; the three take turns in one CSS loop. */
 export const IDEAS_HEADING_S = 3.6
 
@@ -36,7 +41,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Saltmoor's home page in the sidebar, and the page itself, a small candle studio's store. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Plain Weather's home page in the sidebar, and the page itself, a small apparel label's store with tees, a hoodie and a cap. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
   },
   {
@@ -73,7 +78,7 @@ function Accented({ text }: { text: string }) {
   )
 }
 
-/** Section 4: a heading that changes by itself, tabs on a hairline, and Storelib's own editors behind them. */
+/** Section 4: a heading that changes by itself, pill tabs on a grey track, and Storelib's own editors behind them. */
 export function IdeasComeToLife() {
   const t = useAutoTabs(IDEAS_TABS.length)
   const n = IDEAS_TABS.length
@@ -164,7 +169,7 @@ export function IdeasComeToLife() {
   White, centred. The heading's three lines stand in one grid cell and take
   turns on one CSS loop (transform and opacity only), running only while the
   section is on screen and the tab visible; with reduced motion the first
-  line stands still. The tabs are words on a hairline above the picture, and
+  line stands still. The tabs are pills on a grey track above the picture, and
   a picture changes by a crossfade. On a phone the picture is the
   same desktop editor, only smaller (the owner: not adapted to the phone).
 */
@@ -183,15 +188,15 @@ const CSS = `
 @keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}6%,29%{opacity:1;transform:none}34%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
 .ideas-sub{max-width:56ch;margin:18px auto 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
 .ideas-tabs-row{display:flex;justify-content:center;margin:clamp(24px,3vw,36px) var(--landing-gutter,16px) clamp(18px,2.2vw,28px)}
-.ideas-tabs{display:flex;gap:clamp(18px,3vw,40px);max-width:100%;box-shadow:inset 0 -1px 0 #e7e7ea}
-.ideas-tab{position:relative;height:38px;padding:0 2px;border:0;border-radius:0;background:none;color:#8a8794;font-family:inherit;font-size:16px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .3s ease}
-.ideas-tab::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:2px;background:#18181b;transform:scaleX(0);transform-origin:50% 50%;transition:transform .45s cubic-bezier(.22,1,.36,1)}
+.ideas-tabs{display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#f1f1f2}
+.ideas-tab{position:relative;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
+.ideas-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08);opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s cubic-bezier(.22,1,.36,1)}
+.ideas-tab span{position:relative}
 .ideas-tab[aria-selected="true"]{color:#18181b}
-.ideas-tab[aria-selected="true"]::after{transform:none}
+.ideas-tab[aria-selected="true"]::before{opacity:1;transform:none}
 @media(hover:hover){.ideas-tab:not([aria-selected="true"]):hover{color:#18181b}}
-.ideas-tab:focus-visible{outline:2px solid #18181b;outline-offset:2px;border-radius:4px}
-@media(max-width:767px){.ideas-tab{font-size:15px}}
-@media(max-width:379px){.ideas-tabs{gap:14px}.ideas-tab{font-size:14px}}
+.ideas-tab:focus-visible{outline:2px solid #18181b;outline-offset:2px}
+@media(max-width:379px){.ideas-tab{padding:0 10px;font-size:12.5px}}
 .ideas[data-run] .smk-clock[data-on]{animation-play-state:running}
 .ideas-stage{position:relative;display:grid;max-width:1180px;margin:0 auto;padding:0 var(--landing-gutter,clamp(16px,6vw,96px));box-sizing:content-box}
 .ideas-panel{grid-area:1/1;border-radius:clamp(9px,1.3vw,17px);overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05),0 28px 60px -30px rgba(16,24,40,.35);transition:opacity .55s cubic-bezier(.2,.7,.2,1)}
@@ -208,7 +213,7 @@ const CSS = `
 @media(prefers-reduced-motion:reduce){
   .ideas-line{animation:none!important}
   .ideas-panel{animation:none!important;transition:none!important}
-  .ideas-tab,.ideas-tab::after{transition:none}
+  .ideas-tab,.ideas-tab::before{transition:none}
 }
 `
 
