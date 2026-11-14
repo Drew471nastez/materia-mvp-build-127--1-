@@ -22,6 +22,7 @@ import { enrollInFlows } from "@/lib/automations/run"
 import { normalizeSteps as normalizeFlowSteps, waitMs as flowWaitMs } from "@/lib/automations/flow-model"
 import type { ContactSource } from "@/lib/contacts/contact-source"
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { mailSafeName } from "@/lib/api/mail-name"
 import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
@@ -1626,6 +1627,12 @@ export async function triggerEmailFlows(
   admin: any,
   params: TriggerEmailFlowParams
 ): Promise<{ triggered: number; errors: string[] }> {
+  /*
+    Round AY: the name is the one thing a visitor writes that reached a flow email, which goes to an address
+    they typed. Only a name that reads as a person's is used (lib/api/mail-name.ts); anything else, a link or
+    a sentence, is left out and the email uses its usual greeting.
+  */
+  params = { ...params, recipientName: mailSafeName(params.recipientName) ?? undefined }
   try {
     const result = await enrollInFlows({
       triggerType: params.triggerType,
