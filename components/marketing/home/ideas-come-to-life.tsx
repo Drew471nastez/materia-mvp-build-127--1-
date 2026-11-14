@@ -197,6 +197,7 @@ const CSS = `
 @media(hover:hover){.ideas-tab:not([aria-selected="true"]):hover{color:#18181b}}
 .ideas-tab:focus-visible{outline:2px solid #18181b;outline-offset:2px}
 @media(max-width:379px){.ideas-tab{padding:0 10px;font-size:12.5px}}
+@media(max-width:359px){.ideas-tab{padding:0 8px;font-size:12px}}
 .ideas[data-run] .smk-clock[data-on]{animation-play-state:running}
 .ideas-stage{position:relative;display:grid;max-width:1180px;margin:0 auto;padding:0 var(--landing-gutter,clamp(16px,6vw,96px));box-sizing:content-box}
 .ideas-panel{grid-area:1/1;border-radius:clamp(9px,1.3vw,17px);overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05),0 28px 60px -30px rgba(16,24,40,.35);transition:opacity .55s cubic-bezier(.2,.7,.2,1)}

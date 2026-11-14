@@ -815,13 +815,13 @@ export const BUILDER_CSS = u(`
 .pw-links b{color:#161616;font-weight:500}
 .pw-cart{display:flex;align-items:center;gap:7u;margin-left:auto;font-size:13u;font-weight:500}
 .pw-cart svg{width:15u;height:15u}
-.pw-hero{position:relative;flex:none;display:grid;grid-template-columns:1fr 470u;gap:48u;align-items:center;height:396u;padding:0 40u}
+.pw-hero{position:relative;flex:none;display:grid;grid-template-columns:1fr 470u;gap:48u;align-items:center;height:368u;padding:0 40u}
 .pw-eyebrow{font-size:12u;font-weight:500;color:#6b6b6b}
-.pw-copy h3{margin-top:12u!important;max-width:400u;font-size:44u;font-weight:500;line-height:1.06;letter-spacing:-.035em}
+.pw-copy h3{margin-top:12u!important;max-width:400u;font-size:42u;font-weight:500;line-height:1.06;letter-spacing:-.035em}
 .pw-sub{margin-top:16u!important;max-width:340u;font-size:14.5u;line-height:1.55;color:#5c5c5c}
 .pw-btns{display:flex;margin-top:26u}
 .pw-btns b{display:flex;align-items:center;height:42u;padding:0 22u;border-radius:4u;background:#161616;color:#fafaf9;font-size:13.5u;font-weight:500;white-space:nowrap}
-.pw-photo{position:relative;height:340u;border-radius:4u;overflow:hidden;background:#6f7d74}
+.pw-photo{position:relative;height:316u;border-radius:4u;overflow:hidden;background:#6f7d74}
 .pw-photo img{width:100%!important;height:100%!important;object-fit:cover}
 .pw-shop{position:relative;flex:1 0 auto;padding:22u 40u 40u;border-top:1u solid #ebebe8}
 .pw-h{display:flex;justify-content:space-between;align-items:baseline;font-size:17u;font-weight:500;letter-spacing:-.015em}
