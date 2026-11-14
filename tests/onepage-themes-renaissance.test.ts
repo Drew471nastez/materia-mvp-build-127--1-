@@ -188,7 +188,17 @@ check("each file there, the phone's under 120 KB and the wide one under 220 KB",
 const credit = read("scripts/build-renaissance-paintings.mjs")
 check("credited: the painting, the painter, the museum, public domain, and where the photograph is from", /Titian, "Bacchus and Ariadne"/.test(credit) && /The National Gallery, London/.test(credit) && /Public domain/.test(credit) && /commons\.wikimedia\.org\/wiki\/File:Titian_Bacchus_and_Ariadne\.jpg/.test(credit))
 /* Changed on purpose (wave 15): a soft scrim only where words sit on the painting; plaques under everything else. */
-check("words never sit on the bare painting: a soft scrim under the header, headings and paragraphs, plaques under the buttons", ["[data-op-header]:not([data-op-cover])::before", "[data-onepage-heading]", "[data-op-block]:has(> p.whitespace-pre-line)::before", "[data-hero-title]::before"].every((s) => skinCss.includes(s)) && /mask-composite: intersect/.test(skinCss) && /\[data-op-skin="renaissance"\] :is\(a\.op-btn, \[data-tp-link\]\) \{[^}]*background-color: var\(--sk-surface\) !important/.test(css))
+check("words never sit on the bare painting: a soft scrim under the header, headings and paragraphs, plaques under the buttons", ["[data-op-header]:not([data-op-cover])::before", "[data-onepage-heading]", "[data-op-block]:has(> p.whitespace-pre-line)::before"].every((s) => skinCss.includes(s)) && /mask-composite: intersect/.test(skinCss) && /\[data-op-skin="renaissance"\] :is\(a\.op-btn, \[data-tp-link\]\) \{[^}]*background-color: var\(--sk-surface\) !important/.test(css))
+/*
+  Changed on purpose (wave 16): the Hero's name no longer has a scrim of its own (it was a soft rectangle over the
+  photo's faded end, and the photo faded onto the painting, which showed through the face). The photo now fades onto a
+  plate of the painting's night that eases away under the social row, and the name sits on that night, with the
+  quatrefoil rule under it as on the classic header.
+*/
+const heroPlate = /\[data-op-skin="renaissance"\] \[data-hero-header\]::before \{[^}]*z-index: -1;[^}]*inset: 0 0 -\d+px;[^}]*linear-gradient\(180deg, #121a33 calc\(100% - \d+px\),[^}]*#121a3300 100%\)/.exec(skinCss)
+check("the Hero's photo fades onto the painting's night, which eases away below the name and the social row", !!heroPlate && !skinCss.includes("[data-hero-title]::before"))
+check("the Hero's photo box has no light tint of its own on the night (it was the grey band)", /\[data-op-skin="renaissance"\] \[data-hero-media\] \{\s*background-color: transparent !important;/.test(skinCss))
+check("the Hero's name has the quatrefoil rule under it, as the classic header's does", skinCss.includes(':is([data-op-header], [data-hero-title]) > p::before'))
 check("gilt only as hairlines and the small ornament, never a fill", /border: 1px solid #c6a15b !important/.test(skinCss) && !/background(-color)?: #c6a15b/.test(skinCss) && /--rn-q: url\("data:image\/svg\+xml/.test(skinCss))
 let current = true
 try { execFileSync(process.execPath, ["scripts/build-onepage-skins.mjs", "--check"], { stdio: "pipe" }) } catch { current = false }

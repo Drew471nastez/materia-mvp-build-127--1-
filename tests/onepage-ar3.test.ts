@@ -80,6 +80,11 @@ console.log("PICTURE FIT: COVER, FIT, FULL")
 {
   check("a link card draws Cover, Fit and Full", /const fit=d\.display_mode === "contain" \|\| d\.display_mode === "full"/.test(read("components/onepage/block-presentation.tsx")) && /data-picture-fit="full"/.test(read("components/onepage/block-presentation.tsx")))
   check("a product's picture follows image_fit", /data\.image_fit === "contain" \|\| data\.image_fit === "full"/.test(read("components/onepage/product-block.tsx")))
+  /* Wave 16: the owner's product tiles were empty frames the size of a picture. A picture that will not draw gives way to the next one the block knows, then to none. */
+  {
+    const pb = read("components/onepage/product-block.tsx")
+    check("a product picture that will not draw falls back to the next one, then to no picture (never an empty frame)", /\[data\.custom_thumbnail, data\.product_cover, data\.product_thumbnail\]\.find\(\(u\): u is string => !!u && !unloadable\.includes\(u\)\)/.test(pb) && /onError: \(\) => dropPicture\(src\)/.test(pb) && /el\.complete && el\.naturalWidth === 0/.test(pb) && (pb.match(/pictureFails\(image\)/g) || []).length === 3)
+  }
   check("a shelf's plain cards and a list's pictures follow it too", /const shelfFit = /.test(read("components/onepage/storelib-blocks.tsx")) && /data\.image_fit === "contain" \|\| data\.image_fit === "full"/.test(read("components/onepage/app-block.tsx")))
   check("one control, offered on links with a picture, products, shelves and lists", /export function PictureFitControl/.test(read("components/onepage/layout-pickers.tsx")) && /<PictureFitControl/.test(read("components/onepage/tabs/links-tab.tsx")) && /<PictureFitControl/.test(read("components/onepage/storelib-blocks.tsx")) && /<PictureFitControl/.test(read("components/onepage/app-block-editor.tsx")))
 }

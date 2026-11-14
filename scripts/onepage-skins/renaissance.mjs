@@ -79,6 +79,10 @@ const slip = (fill, line) => `inset 0 0 0 3px ${fill}, inset 0 0 0 4px ${line}`
   the painting): solid where the words are, easing to nothing over 34px beyond them on every side, so it has no
   edge. Two masks intersected make the soft rectangle (--rn-soft, on the page's root).
 */
+/* How far the Hero's night runs past the photo (over the social row), and the eased fade at its foot (a cosine, so neither end has an edge). */
+const HERO_FOOT = 128
+const HERO_EASE = 200
+const HERO_EASING = [.96, .85, .69, .5, .31, .15, .04, 0].map((a, i) => `${P.night}${Math.round(a * 255).toString(16).padStart(2, "0")} ${i === 7 ? "100%" : `calc(100% - ${HERO_EASE - (i + 1) * HERO_EASE / 8}px)`}`).join(", ")
 const FEATHER = 34
 const SOFT = `linear-gradient(90deg, transparent, #000 ${FEATHER}px, #000 calc(100% - ${FEATHER}px), transparent), linear-gradient(180deg, transparent, #000 ${FEATHER}px, #000 calc(100% - ${FEATHER}px), transparent)`
 const MASKED = (v) => `-webkit-mask-image: ${v}; -webkit-mask-composite: source-in; mask-image: ${v}; mask-composite: intersect;`
@@ -122,8 +126,18 @@ export function renaissance() {
   /* A header over a cover picture (the creator's own): only its words get the scrim. */
   rule(A, `--rn-q: ${QUATREFOIL}; --rn-soft: ${SOFT};`)
   scrimUnder(`${A} [data-op-header][data-op-cover] > :is(h1, p)`, { x: 0, y: 0 })
-  /* The Hero's name and line, over the photo's faded end. */
-  scrimUnder(`${A} [data-hero-title]`, { x: 0, y: 0 })
+  /*
+    The Hero (wave 16, the owner: "make it actually look good"): the portrait comes out of the painting's night, as a
+    Titian sitter comes out of his dark ground. The photo fades (lib/onepage/poster-video HERO_FADE_MASK) onto a plate
+    of the night, never onto the painting itself (that drew the painting through the face, a ghost), and the plate
+    eases away below the name and the social row, so the painting comes in after the portrait has gone, with no
+    band and no second fade. The name and its line sit on the plate's solid night: no scrim of their own.
+  */
+  rule(`${A} [data-hero-header]::before`, `
+    content: ""; position: absolute; z-index: -1; pointer-events: none; inset: 0 0 -${HERO_FOOT}px;
+    background: linear-gradient(180deg, ${P.night} calc(100% - ${HERO_EASE}px), ${HERO_EASING});`)
+  /* The photo's own box had a light tint for a picture still loading: on the night it was the grey band. */
+  rule(`${A} [data-hero-media]`, `background-color: transparent !important;`)
   /* A heading, a block's title, a paragraph. */
   scrimUnder(`${A} :is(${HEADING}, ${BLOCK_TITLE})`)
   /* A paragraph clips what overflows it (app/globals.css), so its scrim is its block's. */
@@ -175,7 +189,7 @@ export function renaissance() {
   rule(`${A} :is(${BIO}, ${TEXT}, [data-hero-title] p)`, `text-shadow: 0 1px 12px rgba(6,9,20,.5);`)
   rule(`${A} ${TEXT}`, `font-size: 1rem; line-height: 1.6;`)
   /* The one ornament under the name, over the line under it. */
-  rule(`${A} [data-op-header] > p::before`, `content: ""; display: block; width: 132px; height: 14px; margin: -2px auto 12px; background: ${ornament(132, "center")};`)
+  rule(`${A} :is([data-op-header], [data-hero-title]) > p::before`, `content: ""; display: block; width: 132px; height: 14px; margin: -2px auto 12px; background: ${ornament(132, "center")};`)
   rule(`${A} [data-op-align="left"] [data-op-header] > p::before`, `margin-left: 0;`)
   rule(`${A} :is(${HEADING}, ${BLOCK_TITLE})`, `
     font-size: .95rem !important; font-weight: 600 !important; letter-spacing: .2em; text-transform: uppercase;
