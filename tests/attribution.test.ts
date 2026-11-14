@@ -516,7 +516,7 @@ async function main() {
       const attributions = (src.match(/recordSignupAttribution\(/g) ?? []).length
       check(`${file}: beside every source it records`, re.test(src) && sources === attributions, [sources, attributions])
     }
-    check("the OnePage's lead form sends its origin", /origin: pageOrigin\(\),\n\s+\}\),\n\s+\}\)\n\s+const result = await response\.json\(\)/.test(read("components/onepage/public-onepage.tsx")))
+    check("the OnePage's lead form sends its origin", /origin: pageOrigin\(\),\n(\s+attempt_id: attemptIdOf\(quickClaimAttempt\),\n)?\s+\}\),\n\s+\}\)\n\s+const result = await response\.json\(\)/.test(read("components/onepage/public-onepage.tsx"))) // Changed on purpose (round AW): the free claim also names its press (attempt_id), so a retry is the same order
     const checkoutContacts: Array<[string, RegExp]> = [
       ["lib/checkout/fulfil-payment.ts", /recordContactAttribution\(admin, creatorId, buyerEmail, attribution\)/],
       ["lib/checkout/fulfil-cart-item.ts", /recordContactAttribution\(ctx\.admin, ctx\.creatorId, email, ctx\.attribution\)/],
