@@ -45,7 +45,7 @@ import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper
 /* Round W9: a theme with a skin draws its material and scene here too (lib/onepage/theme-skin). */
 import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
 import type { PreviewAccount } from "@/components/onepage/themes/preview-account"
-import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
+import { skinRootProps, skinVars, themeSkinOf } from "@/lib/onepage/theme-skin"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonFill, buttonHover, buttonHoverVars, buttonShadow, buttonIconSide, buttonSize, buttonAlign, buttonThemeOn, cardButtonTheme, cardRadius, buttonShape, themeButtonStripFill, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
 import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, headerAlignOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
@@ -92,6 +92,8 @@ export const HERO_CARD_SHIFT = 72
 export const HERO_TILE_CARD_SHIFT = 116
 /** Wave 15: a picture that cannot be fetched leaves the theme's own colour under it, never the browser's broken-image mark. */
 const hideBroken = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = "hidden" }
+/** Renaissance's header scrim fades out at its sides and its foot (scripts/onepage-skins/renaissance.mjs). */
+const RN_SCRIM_MASK = "linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent), linear-gradient(180deg, #000 calc(100% - 84px), transparent)"
 /** The live Hero's shape on a phone (public-onepage, round R3). */
 const HERO_ASPECT = "8/9"
 /** The phone's screen, which the page's wallpaper fills (390 by 844). */
@@ -167,6 +169,7 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
   const titleFace = fontStack(c.title_font || c.font_family)
   const pagePaint = c.background_type === "gradient" && c.background_gradient ? c.background_gradient : bg
   const face = who.avatar
+  const renaissance = themeSkinOf(c as never) === "renaissance"
   const heroShift = hero ? (layout === "grid" || layout === "masonry" ? HERO_TILE_CARD_SHIFT : HERO_CARD_SHIFT) : 0
   /* Wave 15: a Hero's words carry a halo of the page's own colour, as the live page's do (public-onepage), not a black shadow. */
   const halo = `color-mix(in srgb, ${pageCanvasColour(c as never)} 72%, transparent)`
@@ -338,11 +341,19 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
     <span
       data-tp-title=""
       className={cn("block max-w-full font-bold leading-[1.5]", phone(titleSizeClass(c as never, hero, false)))}
-      style={{ color: c.title_color || text, fontFamily: titleFace, textShadow: hero ? `0 1px 14px ${halo}, 0 0 2px ${halo}` : undefined, ...titleTypeStyle(c as never) }}
+      style={{ color: c.title_color || text, fontFamily: titleFace, textShadow: hero ? `0 1px 14px ${halo}, 0 0 2px ${halo}` : undefined, ...titleTypeStyle(c as never), ...(renaissance && !hero ? { lineHeight: 1.05 } : null) }}
     >
       {who.name}
     </span>
   )
+  /*
+    Wave 15: Renaissance draws a small gilt quatrefoil rule between the name and the bio (its skin's
+    [data-op-header] > p::before, scripts/onepage-skins/renaissance.mjs): 132 by 14, -2px over it and 12px under it,
+    in the skin's own --rn-q. The card's bio is a clamped span, so the rule is its own span here, at the same place.
+  */
+  const quatrefoil = !hero && !!who.bio && renaissance ? (
+    <span aria-hidden data-tp-rule="" className="block h-[14px] w-[132px] shrink-0" style={{ marginTop: -2, background: "var(--rn-q) center / 26px 14px no-repeat, linear-gradient(90deg, rgba(198,161,91,.5) calc(50% - 16px), transparent 0 calc(50% + 16px), rgba(198,161,91,.5) 0) center / 132px 1px no-repeat" }} />
+  ) : null
   const bio = who.bio ? (
     <span data-tp-bio="" className={cn("line-clamp-2 block max-w-sm leading-relaxed", left ? "text-left" : "text-center", phone(bioSizeClass(c as never, hero, false)))} style={{ color: hero ? c.secondary_text_color || text : secondary, textShadow: hero ? `0 1px 10px ${halo}` : undefined, ...bioTypeStyle(c as never) }}>
       {who.bio}
@@ -404,7 +415,9 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
               </span>
             </span>
           ) : (
-            <span className={cn("flex w-full shrink-0 flex-col gap-3", left ? "items-start text-left" : "items-center text-center")} data-tp-header="">
+            <span className={cn("flex w-full shrink-0 flex-col gap-3", left ? "items-start text-left" : "items-center text-center", renaissance && "relative isolate")} data-tp-header="">
+              {/* Wave 15: Renaissance's soft navy scrim under the header's words, as its skin lays it under the live page's ([data-op-header]::before). */}
+              {renaissance && !cover ? <span aria-hidden data-tp-scrim="" className="absolute z-[-1]" style={{ left: -76, right: -76, top: -200, bottom: -64, background: "rgba(12,17,36,0.66)", WebkitMaskImage: RN_SCRIM_MASK, maskImage: RN_SCRIM_MASK, WebkitMaskComposite: "source-in", maskComposite: "intersect" }} /> : null}
               {cover ? (
                 <span className="relative -mx-5 block w-[calc(100%+40px)]" style={{ marginBottom: `calc(${-(look.size / 2)}px - 0.75rem)` }}>
                   <span className="relative block w-full overflow-hidden" style={{ aspectRatio: String(coverAspect(c, false)), backgroundColor: `color-mix(in srgb, ${text} 8%, transparent)` }}>
@@ -431,6 +444,7 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
                 {face ? <img src={onePageImageSrc(face, 160)} alt="" draggable={false} decoding="async" data-tp-photo="" className="block h-full w-full rounded-[inherit] object-cover" /> : <span data-tp-monogram="">{who.name.charAt(0).toUpperCase()}</span>}
               </span>
               {title}
+              {quatrefoil}
               {bio}
             </span>
           )}

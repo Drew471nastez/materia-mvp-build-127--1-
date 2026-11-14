@@ -303,7 +303,10 @@ const textReport = (scope) => {
       }
       const er = el.getBoundingClientRect()
       const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2
-      if (er.height < Math.min(r.height, line) - 1) out.squeezed.push(`${id} "${n.textContent.trim()}"`)
+      /* Wave 15: a box that is exactly whole lines of a tight leading the theme chose (Renaissance's name at 1.05, as the live page sets it) is not squeezed. */
+      const own = el.offsetHeight || 0
+      const wholeLines = parseFloat(cs.lineHeight) > 0 && own >= line - 1 && Math.abs(own / line - Math.round(own / line)) < 0.05 && line < parseFloat(cs.fontSize) * 1.15
+      if (er.height < Math.min(r.height, line) - 1 && !wholeLines) out.squeezed.push(`${id} "${n.textContent.trim()}"`)
     }
     for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
       const a = boxes[i].r, b = boxes[j].r
