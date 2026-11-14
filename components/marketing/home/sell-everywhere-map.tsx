@@ -116,7 +116,7 @@ export const SELL_COUNTRIES = [
   { code: "US", country: "the United States", city: "New York", cell: [70, 26], total: "$32.00", product: "705 tee", photo: "705-tee.webp", kind: "physical", lang: "en", buy: "Buy now" },
   { code: "DE", country: "Germany", city: "Berlin", cell: [128, 18], total: "19,00 €", product: "Pines LUT pack", photo: "pines-lut-pack.webp", kind: "digital", lang: "de", buy: "Jetzt kaufen" },
   { code: "JP", country: "Japan", city: "Tokyo", cell: [213, 29], total: "¥4,800", product: "Steel bottle", photo: "steel-bottle.webp", kind: "physical", lang: "ja", buy: "今すぐ購入" },
-  { code: "CA", country: "Canada", city: "Vancouver", cell: [37, 20], total: "C$89.00", product: "Drone filming course", photo: "drone-course.webp", kind: "digital", lang: "en", buy: "Buy now" },
+  { code: "CA", country: "Canada", city: "Vancouver", cell: [37, 20], total: "C$89.00", product: "Drone film course", photo: "drone-course.webp", kind: "digital", lang: "en", buy: "Buy now" },
   { code: "FR", country: "France", city: "Paris", cell: [121, 20], total: "24,00 €", product: "Canvas tote", photo: "canvas-tote.webp", kind: "physical", lang: "fr", buy: "Acheter" },
   { code: "AU", country: "Australia", city: "Sydney", cell: [220, 75], total: "A$22.00", product: "Wild Camp e-book", photo: "wild-camp-ebook.webp", kind: "digital", lang: "en", buy: "Buy now" },
 ] as const satisfies ReadonlyArray<{ code: string; country: string; city: string; cell: readonly [number, number]; total: string; product: string; photo: string; kind: "physical" | "digital"; lang: string; buy: string }>
@@ -329,7 +329,7 @@ const MAP_CSS = `
 .cmm-flag:focus-visible{outline:2px solid #c4b5fd;outline-offset:2px;opacity:1}
 .cmm-flags img{width:24px;height:17px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
 .cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:40px;height:40px;border-radius:12px;pointer-events:none;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--a) * 48px),0);transition:transform .7s ${EASE}}
-.cmm-prod{width:200px;padding:12px;border-radius:15px;background:#18181d;color:#f4f3f7;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 24px 48px -24px rgba(0,0,0,.8)}
+.cmm-prod{width:216px;padding:12px;border-radius:15px;background:#18181d;color:#f4f3f7;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 24px 48px -24px rgba(0,0,0,.8)}
 .cmm-photos{position:relative;display:block;aspect-ratio:1/1;border-radius:9px;overflow:hidden;background:#26262c}
 .cmm-photos img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);transition:opacity .7s ease-out,transform 1.1s ${EASE}}
 .cmm-photos img[data-on]{opacity:1;transform:none}
@@ -337,7 +337,8 @@ const MAP_CSS = `
 .cmm-swap{display:grid;min-width:0}
 .cmm-swap span{grid-area:1/1;white-space:nowrap;opacity:0;transform:translate3d(0,-4px,0);transition:opacity .2s ease-out,transform .5s ${EASE}}
 .cmm-swap span[data-on]{opacity:1;transform:none;transition:opacity .4s ease-out .22s,transform .7s ${EASE} .22s}
-.cmm-prod-name{font-weight:500}
+.cmm-prod-name{flex:1 1 auto;font-weight:500;overflow:hidden}
+.cmm-prod-name span{overflow:hidden;text-overflow:ellipsis}
 .cmm-prices{justify-items:end;font-variant-numeric:tabular-nums;color:#c9c7d1}
 .cmm-kind{margin-top:2px;font-size:12.5px;line-height:18px;color:#8f8d99}
 .cmm-buy{display:grid;place-items:center;height:40px;margin-top:11px;border-radius:9px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:600;overflow:hidden}

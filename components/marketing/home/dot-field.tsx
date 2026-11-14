@@ -53,8 +53,8 @@ export const DOT_FIELD_CSS = `
 
 /** The dots' colour per ground, and how bright they rest and how bright the light makes them. */
 export const DOT_FIELD_TONES = {
-  dark: { rgb: "255,255,255", rest: 0.1, lit: 0.34 },
-  purple: { rgb: "237,233,254", rest: 0.11, lit: 0.36 },
+  dark: { rgb: "255,255,255", rest: 0.15, lit: 0.42 },
+  purple: { rgb: "237,233,254", rest: 0.14, lit: 0.4 },
 } as const
 
 /** Largest device pixel ratio the canvas is drawn at. */
@@ -161,7 +161,7 @@ export function DotField({
     let started = false
 
     const buckets: number[][] = Array.from({ length: LEVELS }, () => [])
-    const size = 1.15
+    const size = 1.3
 
     const draw = (t: number, dt: number) => {
       /* Where the light is: the mouse (followed), or a slow wander of its own. */

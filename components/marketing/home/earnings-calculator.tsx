@@ -51,7 +51,8 @@
  * even tiles now (three across, two on a narrow phone), each a soft grey
  * with a 12px corner, the chosen one white with an ink outline; the same
  * shape at every width, and no label is ever cut (checked from 320 to
- * 1440). "Example" is a quiet word, not a pill.
+ * 1440): a tile too narrow for its icon and its word drops the icon (a
+ * container query on the tile). "Example" is a quiet word, not a pill.
  */
 import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
@@ -308,7 +309,9 @@ const EARN_CSS = `
 .cme-num:focus-within{box-shadow:inset 0 0 0 2px #7c3aed}
 .cme-kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .cme-kind{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:9px;min-width:0;height:48px;padding:0 14px;border:0;border-radius:12px;background:#f6f6f8;color:#55525e;font:500 14.5px/1 var(--font-inter,Inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:inset 0 0 0 1px transparent;transition:background-color .2s ease,color .2s ease,box-shadow .2s ease}
+.cme-kind{container-type:inline-size}
 .cme-kind>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+@container (max-width:136px){.cme-kind-i{display:none}.cme-kind>span{flex:1;text-align:center}}
 .cme-kind-i{width:18px;height:18px;flex:none}
 @media (hover:hover) and (pointer:fine){.cme-kind:hover{background:#efeff2;color:#18181b}}
 .cme-kind[aria-checked="true"]{background:#fff;color:#18181b;box-shadow:inset 0 0 0 1.5px #18181b}
