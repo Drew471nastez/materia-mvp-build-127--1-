@@ -292,7 +292,7 @@ function main() {
     check("the picked marks move on opacity and the scale property, named as such", /transition-\[opacity,scale\]/.test(marks) && !/transition-\[opacity,transform\]/.test(marks))
     check("a card, a segment, a theme and a pattern wear the mark instead of swapping classes",
       /<ChoiceMark on=\{selected\} \/>/.test(kit) && /<ChoiceMark on=\{on\} \/>/.test(kit) && !/selected \? choiceOn : choiceOff/.test(kit)
-      && /<CheckMark on=\{selected\}/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
+      && /* Changed on purpose (the theme swatch round): a picked theme wears the ring outside its swatch, as a picked colour does. */ /<SwatchMark on=\{selected\} className="rounded-\[21\.5px\]" \/>/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
     /* The kinds of theme are the editor's one pill-tab row now (components/onepage/pill-tabs): one pill slides between them instead of each chip fading its own fill. */
     check("a chip's fill and a swatch's ring fade too", /<PillTabs\s+dataRow="theme-kinds"/.test(design) && /<SwatchMark on=\{theme\.background_gradient === grad\}/.test(design) && /<SwatchMark on=\{on\} className="rounded-full" \/>/.test(read("components/onepage/color-picker.tsx")))
     /*

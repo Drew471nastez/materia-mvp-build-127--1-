@@ -167,7 +167,7 @@ async function main() {
     /* Changed on purpose (round 11): at the top of the panel nothing is held, so nothing is measured in the press either. */
     check("the rest of the panel is measured before the change, the scroll put back after it",
       /rest: box\.scrollHeight - grid\.offsetHeight/.test(design) && /if \(need > natural\) \{\s*grid\.style\.minHeight = `\$\{need\}px`/.test(design) && /if \(at\.box\.scrollTop !== at\.top\) at\.box\.scrollTop = at\.top/.test(design))
-    check("the grid never stretches its rows to the held height", /grid grid-cols-2 content-start gap-3 sm:grid-cols-3/.test(design))
+    check("the grid never stretches its rows to the held height", /* Changed on purpose (the theme swatch round): the cards are swatches, three across on a phone and four on a computer. */ /grid grid-cols-3 content-start gap-x-3 gap-y-4 sm:grid-cols-4/.test(design))
     /*
       Was: the whole grid faded up from opacity 0 on every pick, over cards
       made anew. That fade blanked every thumbnail, the ones that stayed

@@ -152,7 +152,7 @@ export async function POST(request: Request) {
     */
     const { data: leadRows } = await db.from("onepage_leads").select("id").eq("onepage_id", onepageId).eq("email", normalizedEmail).limit(1)
     const known = Array.isArray(leadRows) && leadRows.length > 0
-    const saved = known ? { ok: true as const, fresh: false } : await saveLead(db, {
+    const saved = known ? { ok: true as const, fresh: !known } : await saveLead(db, {
       onepageId,
       email: normalizedEmail,
       name,

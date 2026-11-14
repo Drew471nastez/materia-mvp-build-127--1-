@@ -91,7 +91,8 @@ for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
 }
 check("the card and its label show the name in the reader's language", /const name = themeLabel\(template\)/.test(design) && /aria-label=\{tt\("\{name\} theme", \{ name \}\)\}/.test(design))
 /* Changed on purpose (round W8): the cut carries the names in capitals too, for the themes that set their name in capitals. */
-check("the names' faces are cut to the letters of the names as the language spells them", /const names = THEME_TEMPLATES\.map\(\(t\) => themeLabel\(t\)\)\.join\(""\);[^\n]*return onePageFontSampleHref\(THEME_NAME_FAMILIES, names \+ names\.toUpperCase\(\) \+ PREVIEW_LETTERS \+ extra/.test(design) /* Changed on purpose (round AT): and any letter of the creator's own words outside the alphabet. */ /* Changed on purpose (round AS): and the letters the cards' creators, links and prices use. */)
+/* Changed on purpose (the theme swatch round): a card sets "Aa" in its theme's title face and nothing else, so the request is cut to those letters, each face at the weight its theme sets its name in (lib/onepage/fonts onePageFontCutHref). */
+check("the cards' faces are cut to the letters a card sets", /export const themeSwatchFontsHref = \(\) => onePageFontCutHref\(THEME_SWATCH_FACES, SWATCH_LETTERS \+ SWATCH_LETTERS\.toUpperCase\(\)\)/.test(design))
 
 console.log("\nA theme card is the page, at a card's scale")
 const preview = read("components/onepage/themes/theme-preview.tsx")

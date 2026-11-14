@@ -34,8 +34,6 @@
  * (https://unsplash.com/license).
  */
 
-import { MOOD_THEMES } from "./mood-themes"
-
 export const R40_THEMES = [
   {
     id: "gallery",
@@ -1592,7 +1590,7 @@ export const THEME_KIND_ORDER = ["light", "gradient", "dark", "image"] as const
 
 /** The catalogue with these (and round 42's) laid into their kinds, each kind keeping its own order and the new ones at its end. */
 export function withR40Themes<T extends { category: string }>(base: readonly T[]): T[] {
-  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[]), ...(W8_THEMES as unknown as T[]), ...(W9_THEMES as unknown as T[]), ...(W10_THEMES as unknown as T[]), ...(AS_THEMES as unknown as T[]), ...(MOOD_THEMES as unknown as T[])]
+  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[]), ...(W8_THEMES as unknown as T[]), ...(W9_THEMES as unknown as T[]), ...(W10_THEMES as unknown as T[]), ...(AS_THEMES as unknown as T[])]
   const rank = (c: string) => {
     const i = (THEME_KIND_ORDER as readonly string[]).indexOf(c)
     return i < 0 ? THEME_KIND_ORDER.length : i
