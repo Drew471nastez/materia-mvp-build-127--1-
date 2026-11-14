@@ -964,6 +964,7 @@ const CSS = `
 .ev-p-luts{background:#0a0a0b}
 .ev-lut{position:absolute;inset:0;display:block;overflow:hidden;background:#0a0a0b;color:#fff}
 .ev-lut-still{position:absolute;left:0;top:0;display:block;width:100%;height:64%;object-fit:cover;object-position:50% 60%}
+.ev-lut::before{content:"";z-index:1;position:absolute;left:0;right:0;top:0;height:30%;background:linear-gradient(rgba(10,10,11,.5),rgba(10,10,11,0))}
 .ev-lut::after{content:"";position:absolute;left:0;right:0;top:26%;height:39%;background:linear-gradient(rgba(10,10,11,0),rgba(10,10,11,.55) 50%,#0a0a0b)}
 .ev-lut-tag{z-index:1;position:absolute;left:7cqw;top:7cqw;font-size:max(4.6cqw,7px);font-weight:600;line-height:1;letter-spacing:.18em;text-transform:uppercase}
 .ev-lut-name{z-index:1;position:absolute;left:6.4cqw;bottom:6.4cqw;display:flex;flex-direction:column;font-size:21cqw;font-weight:800;line-height:.84;letter-spacing:-.05em;text-transform:uppercase}
