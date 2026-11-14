@@ -47,35 +47,28 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^
 const BANNED = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|passive income)\b/i
 const keyframes = (css: string) => [...css.matchAll(/@keyframes [\w-]+\{((?:[^{}]*\{[^}]*\})*)\}/g)].map((m) => m[1]).join("")
 
-console.log("\n── The sheet rises like a sheet ──")
+console.log("\n── The sheet (round 5: plain) ──")
 {
+  // Changed on purpose (landing round 5): the scroll-driven rise, the hold and the dimming are gone (the owner: glitches with black, cut corners, stutter); tests/home-landing-r5-frame.test.ts pins what replaced them.
   const src = code("components/marketing/scroll-reveal-panel.tsx")
   check("no script: no client directive, no hook, no listener", !/"use client"/.test(src) && !/\buse[A-Z]\w*\(/.test(src) && !/addEventListener|requestAnimationFrame/.test(src))
-  const kf = keyframes(SHEET_CSS)
-  const props = [...kf.matchAll(/([a-z-]+):/g)].map((m) => m[1])
-  check("its keyframes move transform and opacity only", props.length > 0 && props.every((p) => p === "transform" || p === "opacity"), props)
-  check("rising: a little narrower (scaled about its top edge), full width as it takes the screen", /@keyframes srp-rise\{from\{transform:scale\(var\(--srp-rise\)\)\}to\{transform:none\}\}/.test(SHEET_CSS) && /--srp-rise:\.9\d+/.test(SHEET_CSS) && /transform-origin:50% 0;animation:srp-rise linear both;animation-timeline:view\(\);animation-range:entry 0% entry 100%/.test(SHEET_CSS))
-  /* Changed on purpose (landing round 4, integration): the block behind only dims, by a dark layer over it; no shrink and not its own opacity (both composited the whole section every frame: most of the slow frames under the sheets, measured on a production build). */
-  check("the block behind dims under the sheet coming over it", !/srp-recede/.test(SHEET_CSS) && /@keyframes srp-dim\{from\{opacity:0\}to\{opacity:calc\(1 - var\(--srp-dim\)\)\}\}/.test(SHEET_CSS) && /\[data-sheet-hold\]>\[data-sheet-backdrop\]::after,\[data-sheet-hold\]>\[data-sheet\]::after\{[^}]*animation:srp-dim linear forwards/.test(SHEET_CSS))
-  check("a held block stops animating and painting once the next sheet covers it", /\[data-sheet-hold\]\[data-sheet-covered\]>\*\{visibility:hidden\}/.test(SHEET_CSS) && /animation-play-state:paused!important/.test(SHEET_CSS))
-  check("timed by the hold box's own view timeline: rising as it enters, dimming over its last screen", /\[data-sheet-hold\]\{view-timeline:--srp-box block\}/.test(SHEET_CSS) && /animation-timeline:--srp-box;animation-range:contain calc\(100% - var\(--srp-cover\)\) contain 100%/.test(SHEET_CSS)) /* Changed on purpose (landing round 4, integration): the last screen times the dimming layer now. */
-  check("only where the browser has view timelines and motion is welcome", /@supports \(animation-timeline:view\(\)\)\{\s*@media \(prefers-reduced-motion:no-preference\)/.test(SHEET_CSS) && SHEET_CSS.indexOf("animation:") > SHEET_CSS.indexOf("@supports (animation-timeline:view())"))
-  check("dimming only while the block is really held (not on a tall window, not a phone's showcase)", /@media \(max-height:1400px\) and \(prefers-reduced-motion:no-preference\)\{\s*\[data-sheet-hold\]>\[data-sheet-backdrop\]::after/.test(SHEET_CSS) && /\[data-sheet-hold="wide"\]>\*,\[data-sheet-hold="wide"\]>\*::after\{animation:none\}/.test(SHEET_CSS)) /* Changed on purpose (landing round 4, integration): the dimming layer replaced the shrink. */
+  check("no keyframes, no scroll-driven animation, no transform", !/@keyframes|animation|view-timeline|transform/.test(SHEET_CSS) && keyframes(SHEET_CSS) === "")
   check("still one scrollbar: nothing scrolls or clips", !/overflow/.test(SHEET_CSS))
   const flat = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "white", arrive: "flat", children: createElement("p", null, "x") }))
-  check("a flat ground: no rise, a square top, fillets that round the dark block above", /<div data-sheet="white" data-sheet-flat="">/.test(flat) && /\[data-sheet\]:not\(\[data-sheet-flat\]\)\{transform-origin/.test(SHEET_CSS) && /\[data-sheet\]\[data-sheet-flat\]\{border-top-left-radius:0;border-top-right-radius:0\}/.test(SHEET_CSS) && /\[data-sheet\]\[data-sheet-flat\]::before\{content:"";position:absolute;[^}]*radial-gradient\(circle at 100% 0,transparent/.test(SHEET_CSS))
-  const plain = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { hold: false, children: createElement("p", null, "x") }))
-  check("a dark stretch can be plain, not held", plain === '<div data-sheet-backdrop=""><p>x</p></div>')
+  check("a flat ground: a square top, fillets that round the dark block above, no lap", /<div data-sheet="white" data-sheet-flat="">/.test(flat) && /\[data-sheet\]:not\(\[data-sheet-flat\]\)\{margin-top/.test(SHEET_CSS) && /\[data-sheet\]\[data-sheet-flat\]\{border-top-left-radius:0;border-top-right-radius:0\}/.test(SHEET_CSS) && /\[data-sheet\]\[data-sheet-flat\]::before\{content:"";position:absolute;[^}]*radial-gradient\(circle at 100% 0,transparent/.test(SHEET_CSS))
+  const plain = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { children: createElement("p", null, "x") }))
+  check("a dark stretch is plain", /<div data-sheet-backdrop=""><p>x<\/p><\/div>$/.test(plain))
   check("the purple sheet still sets the band colours", /\[data-sheet="purple"\]\{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba\(255,255,255,\.16\)/.test(SHEET_CSS))
 }
 
 console.log("\n── The page ──")
 {
   const page = code("app/(storelib)/(marketing)/page.tsx").replace(/\{\s*\}/g, "")
-  check("the hero and showcase are not held, and Make the work sits on a flat ground", /<ScrollRevealBackdrop hold=\{false\}>\s*<Hero \/>\s*<BuildShowcase \/>\s*<\/ScrollRevealBackdrop>\s*<ScrollRevealPanel tone="white" arrive="flat">\s*<LazyEverythingInOnePlace \/>/.test(page))
-  check("the later grounds rise as sheets over held blocks", /<ScrollRevealBackdrop>\s*<LazyCheckoutScene \/>/.test(page) && /<ScrollRevealPanel tone="white" hold>\s*<LazyAudienceOwnership \/>/.test(page) && /<ScrollRevealPanel tone="purple" hold>/.test(page))
-  check("a dot grid over the top of the purple, limited to about a screen", /<ScrollRevealPanel tone="purple" hold>\s*<DotField tone="purple" fade="bottom" style=\{\{ height: "min\(100%, 1100px\)" \}\} \/>/.test(page))
-  check("the close is dark (no purple): the app, then the closing call", /<ScrollRevealBackdrop hold=\{false\}>\s*<LazyAppAnywhere \/>\s*<FinalCta \/>\s*<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page) && (page.match(/<ScrollRevealPanel tone="purple"/g) || []).length === 1)
+  // Changed on purpose (landing round 5): nothing is held anywhere, so no hold props.
+  check("the hero and showcase are not held, and Make the work sits on a flat ground", /<ScrollRevealBackdrop>\s*<Hero \/>\s*<BuildShowcase \/>\s*<\/ScrollRevealBackdrop>\s*<ScrollRevealPanel tone="white" arrive="flat">\s*<LazyEverythingInOnePlace \/>/.test(page))
+  check("the later grounds are sheets over plain blocks, nothing held", /<ScrollRevealBackdrop>\s*<LazyCheckoutScene \/>/.test(page) && /<ScrollRevealPanel tone="white">\s*<LazyAudienceOwnership \/>/.test(page) && /<ScrollRevealPanel tone="purple">/.test(page) && !/\bhold\b/.test(page))
+  check("a dot grid over the top of the purple, limited to about a screen", /<ScrollRevealPanel tone="purple">\s*<DotField tone="purple" fade="bottom" style=\{\{ height: "min\(100%, 1100px\)" \}\} \/>/.test(page))
+  check("the close is dark (no purple): the app, then the closing call", /<ScrollRevealBackdrop>\s*<LazyAppAnywhere \/>\s*<FinalCta \/>\s*<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page) && (page.match(/<ScrollRevealPanel tone="purple"/g) || []).length === 1)
   check("the measured lazy heights are still written in", /LAZY_SECTION_HEIGHTS_CSS/.test(page))
 }
 
