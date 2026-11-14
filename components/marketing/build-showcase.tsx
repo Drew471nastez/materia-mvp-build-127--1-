@@ -166,31 +166,33 @@ export function BuildShowcase() {
   the hero by its radius, so what shows round each corner is the hero.
 */
 const CSS = `
-.build-showcase {--showcase-radius:clamp(24px,2.78vw,48px);position:relative;z-index:2;margin:calc(var(--showcase-radius)*-1) 0 40px;color:#fafafa;background:#050506;border-radius:var(--showcase-radius);box-shadow:inset 0 1px 0 rgba(255,255,255,.065),0 -8px 32px rgba(0,0,0,.08)}
-.build-showcase-card {width:100%;max-width:var(--showcase-max,2020px);margin:0 auto;padding:clamp(72px,7vw,112px) 0 clamp(96px,9vw,156px)}
+.build-showcase {--showcase-radius:clamp(24px,2.78vw,48px);display:flow-root;position:relative;z-index:2;overflow:hidden;overflow:clip;margin:calc(var(--showcase-radius)*-1) 0 40px;color:#fafafa;background:#050506;border-radius:var(--showcase-radius);box-shadow:inset 0 1px 0 rgba(255,255,255,.065),0 -8px 32px rgba(0,0,0,.08)}
+.build-showcase-card {width:100%;max-width:var(--showcase-max,2020px);margin:0 auto;padding:clamp(72px,7vw,112px) 0 0}
 .build-showcase-top {margin:0 calc(var(--showcase-gutter,clamp(20px,5.15vw,84px)) + var(--landing-card-inset,14px)) clamp(38px,4.8vw,65px)}
 .build-showcase h2 {max-width:none;margin:0;font-size:clamp(32px,3.4vw,58px);text-wrap:balance;line-height:1.13}
 .build-showcase .story-heading {--story-muted:#66666e}
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.build-showcase-viewport {position:relative;overflow:hidden;margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px));mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+.build-showcase-viewport {position:relative;overflow:hidden;margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px));margin-bottom:calc(min(100vw,2020px) * -.028);mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
 .build-showcase-viewport::after {content:"";position:absolute;inset:0 auto 0 0;width:var(--showcase-gutter,clamp(20px,5.15vw,84px));background:#050506;pointer-events:none;opacity:0;transition:opacity 200ms ease}
 @media(max-width:767px){.build-showcase[data-showcase-pristine] .build-showcase-viewport::after{opacity:1}}
 /*
-  THE RAIL. Before the script it is a plain horizontal scroller, so the cards
-  can be reached without it; once lib/ui/rail-motion has it (data-rail-ready),
-  nothing scrolls natively and each group or card is moved by a transform.
-  touch-action leaves vertical swipes to the page; overscroll-behavior keeps
-  a sideways trackpad swipe from turning into the browser's back gesture.
+  THE RAIL. It is the browser's own horizontal scroller with snapping: before
+  the script, and for good on a touch screen or under 768px
+  (data-showcase-native, use-showcase-motion.ts, landing round 5), where the
+  browser's gesture recogniser and momentum move it and the script only
+  plays autoplay. With a mouse from 768px lib/ui/rail-motion takes it
+  (data-rail-ready): nothing scrolls natively and each group is moved by a
+  transform. overscroll-behavior keeps a sideways swipe at either end from
+  turning into the browser's back gesture.
 */
-.build-showcase-track {--showcase-gap:16px;position:relative;display:flex;gap:24px;overflow-x:auto;scrollbar-width:none;cursor:grab;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior-x:contain;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.build-showcase-track[data-rail-ready] {overflow:visible;touch-action:pan-y pinch-zoom;overscroll-behavior-x:none}
+.build-showcase-track {--showcase-gap:16px;position:relative;display:flex;gap:24px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;cursor:grab;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.build-showcase-track[data-rail-ready] {overflow:visible;touch-action:pan-y pinch-zoom;overscroll-behavior-x:none;scroll-snap-type:none}
 .build-showcase-track:focus-visible {outline:2px solid #bca3ff;outline-offset:4px}
 .build-showcase-track::-webkit-scrollbar {display:none}
 .build-showcase-track[data-dragging] {cursor:grabbing}
-/* The moving boxes keep their own GPU layers for as long as the rail runs (round 61), and the Web Animations that move them (wave 13) run on those same layers: nothing is promoted or dropped at a step. */
+/* The moving boxes keep their own GPU layers for as long as the rail runs (round 61), and the Web Animations that move them (wave 13) run on those same layers: nothing is promoted or dropped at a step. The native rail needs none: the browser scrolls it as one layer. */
 .build-showcase-track[data-rail-ready] .build-showcase-group {will-change:transform;backface-visibility:hidden}
-@media(max-width:767px){.build-showcase-track[data-rail-ready] .build-showcase-group{will-change:auto}.build-showcase-track[data-rail-ready] .build-showcase-slide{will-change:transform;backface-visibility:hidden}}
-.build-showcase-group {display:grid;grid-template-columns:256fr 90fr 256fr;gap:var(--showcase-gap);align-items:center;flex:0 0 100%;width:100%;padding:10px var(--landing-card-inset,14px);min-width:0;box-sizing:border-box}
+.build-showcase-group {display:grid;grid-template-columns:256fr 90fr 256fr;gap:var(--showcase-gap);align-items:center;flex:0 0 100%;width:100%;padding:10px var(--landing-card-inset,14px) 0;min-width:0;box-sizing:border-box;scroll-snap-align:start}
 .build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:1440/990;margin:0;border-radius:7px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
 .build-showcase-slide[data-format="portrait"] {aspect-ratio:540/1056}
 .build-showcase-slide img {display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
@@ -206,14 +208,21 @@ const CSS = `
 @media(hover:hover) and (pointer:fine){.build-showcase-slide figcaption{will-change:opacity}}
 @media(hover:hover) and (pointer:fine){.build-showcase-track:not([data-dragging]) .build-showcase-slide:hover figcaption{opacity:1;transition-duration:460ms}}
 /* Round 61: the pictures appear where they are, a fade and nothing else. Hidden only once the script is there to show them. */
-.build-showcase-track[data-rail-ready] {opacity:0;transition:opacity 650ms cubic-bezier(.25,.1,.25,1)}
+.build-showcase-track[data-rail-ready],.build-showcase-track[data-showcase-native] {opacity:0;transition:opacity 650ms cubic-bezier(.25,.1,.25,1)}
 .build-showcase-viewport[data-showcase-entered] .build-showcase-track {opacity:1}
 /*
   ON A PHONE (wave 13, the owner's image 28): the heading on the gutter, the
-  cards in one row from the same left edge, the first one large (about three
-  quarters of the width) and the next peeking in from the right, 8px apart,
-  each card its picture's shape and about half the width tall.
+  cards in one row from the same left edge, the first one large and the next
+  peeking in from the right, 8px apart, each card its picture's shape.
+
+  LANDING ROUND 5 (the owner: the cards "a little bit more big, and positioned
+  more to the bottom so they get cut a little bit inside the container, but
+  not so much"): on a phone they are 60% of the width tall (51.5% before; a
+  wide screen already fills its width, its edges kept on the header's), and
+  the section ends inside the cards: no padding under them, and the rail runs
+  past the section's bottom edge by about an eighth of a card, which the
+  section clips (overflow: clip, its own rounded corners).
 */
-@media(max-width:767px){.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;--showcase-height:clamp(170px,51.5vw,380px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:5px}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
+@media(max-width:767px){.build-showcase{--showcase-height:clamp(200px,60vw,440px)}.build-showcase-card{padding:64px 0 0}.build-showcase-top{margin-inline:var(--showcase-gutter)}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;margin-bottom:calc(var(--showcase-height) * -.12);mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;height:var(--showcase-height);gap:var(--showcase-gap);padding-inline:var(--showcase-gutter);scroll-padding-inline:var(--showcase-gutter)}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:5px;scroll-snap-align:start}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
 @media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready]{opacity:1;transition:none}.build-showcase-slide figcaption{transition:none}}
 `

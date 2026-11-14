@@ -8,6 +8,12 @@
  * modest height; a clean, accurate dotted map whose markers never sit on top
  * of each other; an autoplay with no lag.
  *
+ * LANDING ROUND 5, THE OWNER: "a mix of digital products and physical
+ * products, not only physical. And don't add the pill shape there with the
+ * example." Three of the six are digital now (a LUT pack, a drone filming
+ * course, an e-book), each saying under its name how it arrives, and the
+ * Example tag is gone.
+ *
  * LANDING ROUND 4, THE OWNER (this reverses the first round's "never the
  * words on the button"): as the country changes, the PRODUCT changes too, a
  * real photograph of a physical product, and the Buy now button speaks that
@@ -107,13 +113,16 @@ export function sellMapPath(block: 1 | 2 = 1): string {
  * in that country's language (`lang` for the page's own markup).
  */
 export const SELL_COUNTRIES = [
-  { code: "US", country: "the United States", city: "New York", cell: [70, 26], total: "$32.00", product: "705 tee", photo: "705-tee.webp", lang: "en", buy: "Buy now" },
-  { code: "DE", country: "Germany", city: "Berlin", cell: [128, 18], total: "22,00 €", product: "Camp mug", photo: "camp-mug.webp", lang: "de", buy: "Jetzt kaufen" },
-  { code: "JP", country: "Japan", city: "Tokyo", cell: [213, 29], total: "¥4,800", product: "Steel bottle", photo: "steel-bottle.webp", lang: "ja", buy: "今すぐ購入" },
-  { code: "CA", country: "Canada", city: "Vancouver", cell: [37, 20], total: "C$38.00", product: "705 beanie", photo: "705-beanie.webp", lang: "en", buy: "Buy now" },
-  { code: "FR", country: "France", city: "Paris", cell: [121, 20], total: "24,00 €", product: "Canvas tote", photo: "canvas-tote.webp", lang: "fr", buy: "Acheter" },
-  { code: "AU", country: "Australia", city: "Sydney", cell: [220, 75], total: "A$45.00", product: "Washed cap", photo: "washed-cap.webp", lang: "en", buy: "Buy now" },
-] as const satisfies ReadonlyArray<{ code: string; country: string; city: string; cell: readonly [number, number]; total: string; product: string; photo: string; lang: string; buy: string }>
+  { code: "US", country: "the United States", city: "New York", cell: [70, 26], total: "$32.00", product: "705 tee", photo: "705-tee.webp", kind: "physical", lang: "en", buy: "Buy now" },
+  { code: "DE", country: "Germany", city: "Berlin", cell: [128, 18], total: "19,00 €", product: "Pines LUT pack", photo: "pines-lut-pack.webp", kind: "digital", lang: "de", buy: "Jetzt kaufen" },
+  { code: "JP", country: "Japan", city: "Tokyo", cell: [213, 29], total: "¥4,800", product: "Steel bottle", photo: "steel-bottle.webp", kind: "physical", lang: "ja", buy: "今すぐ購入" },
+  { code: "CA", country: "Canada", city: "Vancouver", cell: [37, 20], total: "C$89.00", product: "Drone film course", photo: "drone-course.webp", kind: "digital", lang: "en", buy: "Buy now" },
+  { code: "FR", country: "France", city: "Paris", cell: [121, 20], total: "24,00 €", product: "Canvas tote", photo: "canvas-tote.webp", kind: "physical", lang: "fr", buy: "Acheter" },
+  { code: "AU", country: "Australia", city: "Sydney", cell: [220, 75], total: "A$22.00", product: "Wild Camp e-book", photo: "wild-camp-ebook.webp", kind: "digital", lang: "en", buy: "Buy now" },
+] as const satisfies ReadonlyArray<{ code: string; country: string; city: string; cell: readonly [number, number]; total: string; product: string; photo: string; kind: "physical" | "digital"; lang: string; buy: string }>
+
+/** What each kind says under its name: a parcel ships, a download is there at once. */
+export const SELL_KIND_NOTE = { physical: "Ships in 2 to 4 days", digital: "Instant download" } as const
 
 /** Earlier orders, quiet dots with no words: São Paulo, Mexico City, Los Angeles, Lagos, Johannesburg, Dubai, Mumbai, Singapore. */
 export const SELL_PAST_ORDERS: ReadonlyArray<readonly [number, number]> = [
@@ -201,7 +210,7 @@ export function SellEverywhereMap() {
           <div
             className="cmm-world"
             role="img"
-            aria-label={`A world map with orders from ${SELL_COUNTRIES.map((c) => c.city).join(", ")}, each buyer seeing a product priced in their own money (${SELL_COUNTRIES.map((c) => c.total).join(", ")}) with the buy button in their language.`}
+            aria-label={`A world map with orders from ${SELL_COUNTRIES.map((c) => c.city).join(", ")}, each buyer seeing a product, physical or digital, priced in their own money (${SELL_COUNTRIES.map((c) => c.total).join(", ")}) with the buy button in their language.`}
           >
             <div className="cmm-map" aria-hidden="true">
               <svg className="cmm-svg" viewBox={`0 0 ${SELL_MAP.cols} ${SELL_MAP.rows}`} preserveAspectRatio="xMidYMid meet" focusable="false">
@@ -256,6 +265,13 @@ export function SellEverywhereMap() {
                   ))}
                 </span>
               </div>
+              <span className="cmm-swap cmm-kind">
+                {SELL_COUNTRIES.map((c, i) => (
+                  <span key={c.code} data-on={i === active || undefined}>
+                    {SELL_KIND_NOTE[c.kind]}
+                  </span>
+                ))}
+              </span>
               <span className="cmm-buy">
                 {SELL_COUNTRIES.map((c, i) => (
                   <span key={c.code} lang={c.lang} data-on={i === active || undefined}>
@@ -266,8 +282,6 @@ export function SellEverywhereMap() {
             </div>
           </div>
 
-          {/* The orders are an example: said in a quiet tag, not a line of small print. */}
-          <span className="cmm-tag">Example</span>
           <div className="cmm-copy">
             <h3>Their money, their language</h3>
             <p>Buyers see your prices in their own currency and pay by card, Apple Pay or Google Pay, day or night.</p>
@@ -284,7 +298,7 @@ const MAP_CSS = `
 .cmm-wrap{max-width:1400px;margin:0 auto;padding:0 var(--landing-gutter,22px)}
 .cmm-head{max-width:920px;margin-bottom:clamp(32px,4vw,52px)}
 .cmm-card{position:relative;isolation:isolate;overflow:hidden;border-radius:31px;color:#fff;background:#0f0f12;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);height:500px}
-.cmm-grid,.cmm-world,.cmm-prod,.cmm-tag,.cmm-copy{pointer-events:none}
+.cmm-grid,.cmm-world,.cmm-prod,.cmm-copy{pointer-events:none}
 .cmm-grid{position:absolute;z-index:0;inset:-24px;background-image:radial-gradient(rgba(255,255,255,.13) 1px,transparent 1.6px);background-size:24px 24px;-webkit-mask-image:radial-gradient(90% 90% at 0% 0%,#000 0%,rgba(0,0,0,.45) 45%,transparent 80%);mask-image:radial-gradient(90% 90% at 0% 0%,#000 0%,rgba(0,0,0,.45) 45%,transparent 80%);animation:cmm-grid 10s linear infinite;animation-play-state:paused}
 [data-commerce-live] .cmm-grid{animation-play-state:running}
 @keyframes cmm-grid{from{transform:translate3d(0,0,0)}to{transform:translate3d(24px,24px,0)}}
@@ -315,7 +329,7 @@ const MAP_CSS = `
 .cmm-flag:focus-visible{outline:2px solid #c4b5fd;outline-offset:2px;opacity:1}
 .cmm-flags img{width:24px;height:17px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
 .cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:40px;height:40px;border-radius:12px;pointer-events:none;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--a) * 48px),0);transition:transform .7s ${EASE}}
-.cmm-prod{width:200px;padding:12px;border-radius:15px;background:#18181d;color:#f4f3f7;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 24px 48px -24px rgba(0,0,0,.8)}
+.cmm-prod{width:216px;padding:12px;border-radius:15px;background:#18181d;color:#f4f3f7;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 24px 48px -24px rgba(0,0,0,.8)}
 .cmm-photos{position:relative;display:block;aspect-ratio:1/1;border-radius:9px;overflow:hidden;background:#26262c}
 .cmm-photos img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);transition:opacity .7s ease-out,transform 1.1s ${EASE}}
 .cmm-photos img[data-on]{opacity:1;transform:none}
@@ -323,25 +337,26 @@ const MAP_CSS = `
 .cmm-swap{display:grid;min-width:0}
 .cmm-swap span{grid-area:1/1;white-space:nowrap;opacity:0;transform:translate3d(0,-4px,0);transition:opacity .2s ease-out,transform .5s ${EASE}}
 .cmm-swap span[data-on]{opacity:1;transform:none;transition:opacity .4s ease-out .22s,transform .7s ${EASE} .22s}
-.cmm-prod-name{font-weight:500}
+.cmm-prod-name{flex:1 1 auto;font-weight:500;overflow:hidden}
+.cmm-prod-name span{overflow:hidden;text-overflow:ellipsis}
 .cmm-prices{justify-items:end;font-variant-numeric:tabular-nums;color:#c9c7d1}
+.cmm-kind{margin-top:2px;font-size:12.5px;line-height:18px;color:#8f8d99}
 .cmm-buy{display:grid;place-items:center;height:40px;margin-top:11px;border-radius:9px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:600;overflow:hidden}
 .cmm-buy span{grid-area:1/1;opacity:0;transform:translate3d(0,-6px,0);transition:opacity .2s ease-out,transform .5s ${EASE}}
 .cmm-buy span[data-on]{opacity:1;transform:none;transition:opacity .4s ease-out .26s,transform .7s ${EASE} .26s}
-.cmm-tag{position:absolute;z-index:3;top:22px;right:24px;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.07);font-size:12px;color:#c9c7d1}
 .cmm-copy{position:absolute;z-index:2;left:clamp(28px,3vw,40px);bottom:36px;max-width:clamp(270px,calc(32vw - 64px),380px)}
 .cmm-copy h3{margin:0;font-size:clamp(20px,1.7vw,24px);font-weight:500;letter-spacing:-.02em;line-height:1.2}
 .cmm-copy p{margin:8px 0 0;font-size:15px;line-height:1.55;color:#a3a1ad}
 @media (max-width:1023px){
-  .cmm-card{height:auto;display:flex;flex-direction:column;padding:14px 0 24px;border-radius:25px}
-  .cmm-tag{position:static;order:0;align-self:flex-end;margin:0 14px 10px}
+  .cmm-card{height:auto;display:flex;flex-direction:column;padding:10px 0 24px;border-radius:25px}
   .cmm-world{position:relative;right:auto;top:auto;width:auto;margin:0 10px;transform:none;order:1;aspect-ratio:1/${VIEW_H};overflow:hidden;border-radius:16px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
   .cmm-map{width:${ZOOM * 100}%;transform:translate3d(var(--pan-x,0),var(--pan-y,0),0);transition:transform 1.4s ${EASE}}
   .cmm-side{position:relative;left:auto;top:auto;order:2;flex-direction:column;align-items:stretch;gap:14px;margin:14px 14px 0}
   .cmm-flags{align-self:center;grid-auto-flow:column;grid-auto-rows:auto;grid-auto-columns:40px;gap:8px}
   .cmm-flags .cmm-flag-lit{transform:translate3d(calc(var(--a) * 48px),0,0)}
-  .cmm-prod{display:grid;grid-template-columns:112px minmax(0,1fr);grid-template-rows:1fr auto;column-gap:14px;width:auto;padding:10px}
-  .cmm-photos{grid-row:1/3}
+  .cmm-prod{display:grid;grid-template-columns:112px minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:14px;width:auto;padding:10px}
+  .cmm-photos{grid-row:1/4}
+  .cmm-buy{align-self:end}
   .cmm-prod-row{flex-direction:column;align-items:flex-start;gap:2px;margin-top:4px;font-size:15px}
   .cmm-prices{justify-items:start}
   .cmm-buy{margin-top:10px}

@@ -29,8 +29,7 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToString } from "react-dom/server"
 import { HowItWorks, HOW_PRODUCTS, HOW_DOMAIN, HOW_IT_WORKS_STYLES } from "../components/marketing/home/how-it-works"
-import { CheckoutScene, CHECKOUT_HEADING, CHECKOUT_STYLES } from "../components/marketing/home/checkout-scene"
-import { EBOOK } from "../components/marketing/home/ebook-cover"
+import { CheckoutScene, CHECKOUT_HEADING, CHECKOUT_STYLES, GUIDE } from "../components/marketing/home/checkout-scene"
 import { sheetButtonLabel } from "../lib/onepage/product-block"
 import { CURRENCY_FEE_RULES } from "../lib/payments/fees/currency-rules"
 import { DOMAIN_PURPOSES } from "../lib/custom-domains/hostname"
@@ -69,18 +68,18 @@ check("none of this round's banned samples", () => {
   const all = FILES.map(read).join("\n") + words(how) + words(co)
   assert.ok(!/sourdough|golden hour|wheel throw|drawing basics|saturday run club|dust & tape|elena ruiz|real mornings|hemi walker|lowtide|bank account/i.test(all))
 })
-check("half physical, half digital: the cap and the e-book in How it works, physical and digital taking turns around the phone", () => {
-  assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["cap", "Physical"], ["ebook", "Digital"]])
-  const ids = [...co.matchAll(/\/home\/commerce\/float-([a-z]+)\.webp/g)].map((m) => m[1])
-  assert.deepEqual(ids, ["ebook", "cap", "course", "tee", "club", "vinyl"])
+// Changed on purpose (landing round 5): the owner did not like the cap; How it works sells a signed print of Nadia's photograph instead.
+check("half physical, half digital: the print and the e-book in How it works", () => {
+  assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["print", "Physical"], ["ebook", "Digital"]])
+  /* Changed on purpose (landing round 5): the orbit is gone (the owner: it stuttered under a finger); no product rides around the phone. */
+  assert.ok(!/\/home\/commerce\/float-/.test(co))
 })
 
 console.log("\nHow it works")
-check("every tile stands on a colourful ground that changes: two soft layers, moved and faded on the compositor, paused off screen", () => {
-  assert.equal((how.match(/class="cmh-stage" data-ground="[a-z]+"/g) ?? []).length, 6)
-  assert.equal(new Set([...how.matchAll(/data-ground="([a-z]+)"/g)].map((m) => m[1])).size, 6)
-  assert.equal((how.match(/class="cmh-a cmh-gl cmh-gl[12]"/g) ?? []).length, 12)
-  assert.ok(onlyCompositor(keyframes(howCss, "cmh-drift1")) && onlyCompositor(keyframes(howCss, "cmh-drift2")))
+// Changed on purpose (landing round 5): the owner found the colourful grounds "too colorful"; they are a soft grey or near black, and still.
+check("every tile stands on a calm ground in Storelib's colours, nothing drifting behind it, loops paused off screen", () => {
+  assert.equal((how.match(/class="cmh-stage" data-ground="(light|dark)"/g) ?? []).length, 6)
+  assert.ok(!/cmh-gl|cmh-drift/.test(how + howCss))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss) && howCss.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}"))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss))
 })
@@ -91,11 +90,12 @@ check("the first tile is a product card, and its caption is about half as long a
   /* Round 3's caption was 33 words. */
   assert.ok(cap.trim().split(" ").length <= 17, cap)
 })
-check("the checkout tile is the live OnePage and its product sheet, captured, and the sheet's button is the real one for a product that ships", () => {
-  for (const f of ["op-nadia.webp", "op-nadia-sheet.webp"]) {
-    assert.ok(how.includes(`/home/how/${f}`) && existsSync(`public/home/how/${f}`) && statSync(`public/home/how/${f}`).size < 30 * 1024, f)
-  }
-  assert.equal(sheetButtonLabel("Check out", "$28.00", true), "Check out · $28.00")
+// Changed on purpose (landing round 5): the owner wanted the sheet's title and price bigger and bolder, and no cap; the OnePage and its sheet are drawn in HTML with the print.
+check("the checkout tile is the OnePage and its product sheet, and the sheet's button is the real one for a product that ships", () => {
+  for (const f of ["op-nadia.webp", "op-nadia-sheet.webp"]) assert.ok(!how.includes(f) && !existsSync(`public/home/how/${f}`), f)
+  assert.ok(how.includes('class="cmh-a cmh-sheet"') && how.includes("/home/how/print-lasalle.webp") && statSync("public/home/how/print-lasalle.webp").size < 30 * 1024)
+  assert.equal(sheetButtonLabel("Check out", "$45.00", true), "Check out · $45.00")
+  assert.ok(words(how).includes("Check out · $45.00"))
   assert.ok(/const words = p\?\.ships \? "Check out"/.test(read("components/onepage/product-sheet.tsx")))
   assert.ok(onlyCompositor(keyframes(howCss, "cmh-sheet")) && onlyCompositor(keyframes(howCss, "cmh-dim")))
 })
@@ -108,42 +108,25 @@ check("the domain tile is cleaner and keeps the code's claims: the three purpose
 })
 
 console.log("\nThe checkout scene")
-check("the phone rises from below and stays, the words come in one by one after it, all on view timelines", () => {
-  assert.ok(/view-timeline-name:--cmc[;}]/.test(coCss) && /view-timeline-name:--cmc-cards/.test(coCss) && /timeline-scope:--cmc-cards/.test(coCss))
-  assert.ok(/\.cmc-rise\{animation:cmc-rise linear both;animation-timeline:--cmc;animation-range:entry/.test(coCss))
-  assert.ok(onlyCompositor(keyframes(coCss, "cmc-rise")) && /from\{transform:translate3d\(0,62%,0\)/.test(keyframes(coCss, "cmc-rise")))
+/* Changed on purpose (landing round 5): no view timelines and no orbit. The phone is there from the first pixel and slides up once as the section comes in (one observer, a CSS transition); the cards come up over it with plain scroll. tests/home-landing-r5-checkout.test.ts pins the rest. */
+check("the phone is there from the start and slides up once as the section comes in; the words follow", () => {
+  assert.ok(!/view-timeline|animation-timeline|timeline-scope/.test(coCss))
+  assert.ok(/\.cmc\[data-cmc-armed\]:not\(\[data-cmc-in\]\) \.cmc-rise\{transform:translate3d\(0,22%,0\)/.test(coCss))
   const n = CHECKOUT_HEADING.split(" ").length
   assert.equal((co.match(/class="cmc-w"/g) ?? []).length, n)
-  const starts = [...coCss.matchAll(/\.cmc-w\[data-w="\d+"\]\{animation-range:contain ([\d.]+)%/g)].map((m) => Number(m[1]))
-  assert.equal(starts.length, n)
-  assert.ok(starts.every((s, i) => i === 0 || s > starts[i - 1]))
-  assert.ok(onlyCompositor(keyframes(coCss, "cmc-word")))
 })
-check("the tab cards rise over the phone and the phone sinks back and fades into them", () => {
-  assert.ok(/\.cmc-cards\.cmc-cards\{[^}]*margin:-60vh 0 0/.test(coCss) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5/.test(coCss))
-  assert.ok(/\.cmc-sink\{animation:cmc-sink linear both;animation-timeline:--cmc-cards/.test(coCss))
-  const sink = keyframes(coCss, "cmc-sink")
-  assert.ok(onlyCompositor(sink) && /to\{[^}]*opacity:0/.test(sink))
+check("the tab cards come up over the phone with the page", () => {
+  assert.ok(/\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(64svh \* -1\) 0 0/.test(coCss) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5/.test(coCss))
 })
 check("the scroll never steps through a payment on the phone", () => {
   const phone = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))
   assert.ok(!/Payment complete|Face ID|Double Click|cmc-sheet|data-step/.test(phone))
-  assert.ok(phone.includes("Pay $19.00 with Apple Pay") && phone.includes(EBOOK.title))
+  assert.ok(phone.includes("Pay $19.00 with Apple Pay") && phone.includes(GUIDE.title))
 })
-check("browsers without view timelines: two observers set two attributes, the same states play as transitions; no scroll listener", () => {
+check("one observer, no scroll listener, no layout read, no orbit", () => {
   const src = read(CO)
-  assert.ok(/CSS\.supports\?\.\("animation-timeline: view\(\)"\)/.test(src) && (src.match(/new IntersectionObserver/g) ?? []).length === 2)
-  assert.ok(/data-cmc-in/.test(src) && /data-cmc-over/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
-  assert.ok(/\.cmc\[data-cmc-js\] \.cmc-rise\{[^}]*transition:transform/.test(coCss) && /\.cmc\[data-cmc-js\]\[data-cmc-over\] \.cmc-sink\{opacity:0/.test(coCss))
-})
-check("the products orbit the phone again: pre-blurred files, compositor loops, paused off screen", () => {
-  for (const id of ["ebook", "cap", "course", "tee", "club", "vinyl"]) {
-    for (const f of [`float-${id}.webp`, `float-${id}-blur.webp`]) assert.ok(existsSync(`public/home/commerce/${f}`) && statSync(`public/home/commerce/${f}`).size < 40 * 1024, f)
-  }
-  assert.ok(onlyCompositor(keyframes(coCss, "cmc-lap")) && onlyCompositor(keyframes(coCss, "cmc-focus-sharp")) && onlyCompositor(keyframes(coCss, "cmc-focus-soft")))
-  assert.ok(/\.cmc-lap,\.cmc-sharp,\.cmc-soft\{[^}]*animation-play-state:paused/.test(coCss))
-  assert.ok(/\.cmc-track\[data-commerce-live\] :is\(\.cmc-lap,\.cmc-sharp,\.cmc-soft\)\{animation-play-state:running\}/.test(coCss))
-  assert.ok(!/filter:\s*blur/.test(coCss))
+  assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 1 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
+  assert.ok(!/cmc-orbit|cmc-lap|filter:\s*blur/.test(src))
 })
 check("reduced motion: nothing pinned, no overlap, nothing moving", () => {
   const still = coCss.slice(coCss.lastIndexOf("@media (prefers-reduced-motion:reduce)"))
@@ -162,10 +145,11 @@ check("Built to convert is the website checkout on a computer, and its sums add 
   const w = words(panel)
   for (const t of ["Contact information", "Delivery", "Shipping method", "Payment method", "Powered by Stripe", "Payment complete", "Total due"]) assert.ok(w.includes(t), t)
   assert.ok(read("components/checkout/parts/ui.tsx").includes("Powered by"))
-  assert.equal(2800 + 1900, 4700)
-  assert.equal(4700 + 600 + Math.round(4700 * 0.08), 5676)
-  assert.ok(w.includes("$47.00") && w.includes("$6.00") && w.includes("$3.76") && w.includes("$56.76"))
-  assert.ok(w.includes("New sale: $56.76") && w.includes("Sam Rivera bought Darkroom cap and 1 more for $56.76."))
+  /* Changed on purpose (landing round 5, the owner: "I don't like that cap"): a signed A3 print, LaSalle at dusk, $45. */
+  assert.equal(4500 + 1900, 6400)
+  assert.equal(6400 + 600 + Math.round(6400 * 0.08), 7512)
+  assert.ok(w.includes("$64.00") && w.includes("$6.00") && w.includes("$5.12") && w.includes("$75.12"))
+  assert.ok(w.includes("New sale: $75.12") && w.includes("Sam Rivera bought LaSalle at dusk and 1 more for $75.12."))
   const catalog = read("lib/notify/templates/catalog.ts")
   assert.ok(catalog.includes("New sale: ${total}") && catalog.includes("bought ${thing}"))
 })
@@ -179,7 +163,8 @@ check("One-tap payments: just the phone, with Apple Pay, Google Pay and Stripe, 
 })
 check("Local currencies: a nicer product, the cap, read in five currencies checkout charges in", () => {
   const panel = co.slice(co.indexOf('id="cmc-panel-currency"'), co.indexOf('id="cmc-panel-recover"'))
-  assert.ok(panel.includes("/home/how/cap-yellow.webp") && words(panel).includes("Darkroom cap"))
+  /* Changed on purpose (landing round 5): the print in place of the cap. */
+  assert.ok(panel.includes("/home/commerce/print-lasalle.webp") && words(panel).includes("LaSalle at dusk"))
   for (const code of ["USD", "EUR", "GBP", "JPY", "CAD"]) assert.ok(code in CURRENCY_FEE_RULES && panel.includes(code), code)
 })
 check("Checkout reminders: light, a few layers, the email in within a second and a half, its pictures loaded ahead", () => {

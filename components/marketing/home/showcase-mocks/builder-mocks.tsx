@@ -62,7 +62,8 @@ import { MockFrame, Pic, u } from "./frame"
                       tree-parts.tsx's grid, the page itself with the blue
                       ring and its "Selected" chip (sections/_shared.tsx), and
                       Publish's own panel (publish-panel.tsx). The site is a
-                      merch store, Field Day: caps and tees.
+                      small candle studio's store, Saltmoor (round 5, the
+                      owner: a more realistic store than the merch one).
     OnePage editor    components/onepage/onepage-editor.tsx and tabs/links-tab:
                       undo and redo, the Links / Design / Products pill row
                       and Settings, Save and Share your OnePage; the Links tab
@@ -81,7 +82,10 @@ import { MockFrame, Pic, u } from "./frame"
                       left the community card (cover, name, address, about,
                       Members / Online / Admins, faces) and the next event;
                       in the middle the space chips, the composer and the
-                      posts. One community: Crema Club, home baristas.
+                      posts. One community: The Strength Room, Rina
+                      Castillo's paid strength coaching group (round 5, the
+                      owner: a community like the ones people really pay for
+                      in 2026, not a made up hobby club).
 
   One drawing for every screen (the owner, round 4: on a phone, the editors
   exactly as on a computer). The frame keeps its 1280 design width at every
@@ -102,83 +106,78 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-/* ================================================================ The site in the website builder: Field Day */
-type Product = { pic: string; name: string; price: string; dots: string[]; tee?: boolean }
-const FD_PRODUCTS: Product[] = [
-  { pic: "fd-cap-yellow", name: "Marigold Cap", price: "$34", dots: ["#f2a900", "#1f2a44", "#e9e4da"] },
-  { pic: "hp-tee", name: "Club Tee, boxy fit", price: "$38", dots: ["#151515", "#f4f1ea"], tee: true },
-  { pic: "fd-trucker", name: "Night Trucker", price: "$30", dots: ["#151515", "#c7392f"] },
-  { pic: "fd-cap-grey", name: "Washed Six Panel", price: "$32", dots: ["#5d6066", "#2f4a3a", "#c9b18f"] },
+/* ================================================================ The site in the website builder: Saltmoor */
+type Product = { pic: string; name: string; size: string; price: string }
+const SM_PRODUCTS: Product[] = [
+  { pic: "sm-bergamot", name: "Bergamot & Black Tea", size: "220 g · 45 h", price: "£26" },
+  { pic: "sm-glass", name: "Smoked Vetiver tumbler", size: "300 g · 60 h", price: "£32" },
+  { pic: "sm-votive", name: "Linen votives, set of 3", size: "3 × 80 g", price: "£18" },
+  { pic: "sm-pillar", name: "Unscented pillars, set of 3", size: "3 × 7.5 cm", price: "£22" },
 ]
 
 /**
- * Field Day, a small merch label's store (caps and tees), the site open in the website builder. `rings` outlines
- * the Hero, then the products, the way the builder rings the section it has selected.
+ * Saltmoor, a two person candle studio's store, the site open in the website builder. `rings` outlines the Hero,
+ * then the products, the way the builder rings the section it has selected.
  */
-export function FieldDaySite({ rings = false }: { rings?: boolean }) {
+export function SaltmoorSite({ rings = false }: { rings?: boolean }) {
   return (
-    <div className="fd">
-      <div className="fd-nav">
-        <span className="fd-logo">
-          FIELD<i>/</i>DAY
-        </span>
-        <span className="fd-links">
+    <div className="sm">
+      <div className="sm-nav">
+        <span className="sm-logo">Saltmoor</span>
+        <span className="sm-links">
           <b>Shop all</b>
-          <span>Caps</span>
-          <span>Tees</span>
-          <span>Lookbook</span>
+          <span>Candles</span>
+          <span>Refills</span>
+          <span>Gift sets</span>
+          <span>Our studio</span>
         </span>
-        <span className="fd-cart">
-          <ShoppingBag /> Cart (2)
+        <span className="sm-cart">
+          <ShoppingBag /> Bag (2)
         </span>
       </div>
-      <div className="fd-hero">
-        <div className="fd-copy">
-          <p className="fd-eyebrow">Drop 04 · Summer</p>
-          <h3>Caps and tees, made in small runs.</h3>
-          <p className="fd-sub">Heavy cotton, embroidered in Porto. Each drop is made once, then it is gone.</p>
-          <span className="fd-btns">
-            <b>Shop the drop</b>
-            <span>Lookbook</span>
+      <div className="sm-hero">
+        <div className="sm-copy">
+          <p className="sm-eyebrow">Autumn scents are in</p>
+          <h3>Candles poured by hand in Leeds.</h3>
+          <p className="sm-sub">Rapeseed wax, cotton wicks and scents we blend ourselves. Send an empty jar back and we refill it for £14.</p>
+          <span className="sm-btns">
+            <b>Shop candles</b>
+            <span>How refills work</span>
           </span>
-          <span className="fd-note">Free shipping over $60 · Ships in 2 days</span>
+          <span className="sm-note">Free UK delivery over £40 · Dispatched in 2 days</span>
         </div>
-        <div className="fd-photo">
-          <Pic n="fd-hero" w={640} h={800} />
+        <div className="sm-photo">
+          <Pic n="sm-hero" w={640} h={800} />
           <em>
-            Club Tee <b>$38</b>
+            Amber jar, Fig &amp; Cedar <b>£28</b>
           </em>
         </div>
         {rings && (
-          <span className="fd-ring wx-ring-a">
+          <span className="sm-ring wx-ring-a">
             <em>Selected</em>
           </span>
         )}
       </div>
-      <div className="fd-shop">
-        <p className="fd-h">
-          New this week <span>View all</span>
+      <div className="sm-shop">
+        <p className="sm-h">
+          Bestsellers <span>View all</span>
         </p>
-        <div className="fd-grid">
-          {FD_PRODUCTS.map((p) => (
-            <span key={p.name} className="fd-card">
-              <span className={`fd-img${p.tee ? " fd-img-tee" : ""}`}>
+        <div className="sm-grid">
+          {SM_PRODUCTS.map((p) => (
+            <span key={p.name} className="sm-card">
+              <span className="sm-img">
                 <Pic n={p.pic} w={520} h={520} />
               </span>
               <b>{p.name}</b>
-              <span className="fd-row">
-                <i className="fd-dots">
-                  {p.dots.map((c) => (
-                    <i key={c} style={{ background: c }} />
-                  ))}
-                </i>
+              <span className="sm-row">
+                <i>{p.size}</i>
                 <em>{p.price}</em>
               </span>
             </span>
           ))}
         </div>
         {rings && (
-          <span className="fd-ring wx-ring-b">
+          <span className="sm-ring wx-ring-b">
             <em>Selected</em>
           </span>
         )}
@@ -193,7 +192,7 @@ type TreeRow = { name: string; twisty?: boolean; hl?: string }
 const TREE_PAGE: TreeRow[] = [
   { name: "Hero", twisty: true, hl: "wx-hl-a" },
   { name: "Featured products", twisty: true, hl: "wx-hl-b" },
-  { name: "Lookbook", twisty: true },
+  { name: "Our studio", twisty: true },
   { name: "Reviews", twisty: true },
   { name: "FAQ", twisty: true },
   { name: "Newsletter" },
@@ -272,7 +271,7 @@ function WbBar() {
         <span className="wx-key ghost">
           <ArrowLeftToLine />
         </span>
-        <b className="wx-name">Field Day</b>
+        <b className="wx-name">Saltmoor</b>
         <i className="wx-live" />
         <span className="wx-key">
           <MoreHorizontal />
@@ -338,7 +337,7 @@ function PublishPanel() {
       <p className="wx-pub-l">Website URL</p>
       <span className="wx-pub-url">
         <Globe />
-        <b>fielddaysupply.com</b>
+        <b>saltmoorcandles.co.uk</b>
         <Copy />
         <ExternalLink />
       </span>
@@ -383,7 +382,7 @@ export function WebsiteBuilderMock() {
       </aside>
       <div className="wx-canvas">
         <MockFrame label="" className="wx-site">
-          <FieldDaySite rings />
+          <SaltmoorSite rings />
         </MockFrame>
       </div>
       <PublishPanel />
@@ -621,29 +620,30 @@ export function OnePageEditorMock() {
   )
 }
 
-/* ================================================================ Community: inside Crema Club */
-const CC_CHIPS = [
+/* ================================================================ Community: inside The Strength Room */
+const ST_CHIPS = [
   ["All", ""],
-  ["Brew logs", "☕"],
-  ["Beans", "🫘"],
-  ["Latte art", "🥛"],
-  ["Gear", "🛠️"],
+  ["Wins", "🏆"],
+  ["Form checks", "🎥"],
+  ["Programs", "📋"],
+  ["Nutrition", "🥗"],
   ["Introductions", "👋"],
 ] as const
 
-const CC_PLACES = ["Community", "Learn", "Calendar", "Members", "Leaderboards", "About"]
-const CC_FACES = ["av-k", "av-l", "av-n", "av-c", "av-e", "av-g"]
-const CC_TYPED = "Finally got a tulip to stack on oat milk. Steaming notes in the thread."
+const ST_PLACES = ["Community", "Learn", "Calendar", "Members", "Leaderboards", "About"]
+const ST_FACES = ["av-k", "av-l", "av-n", "av-e", "av-g", "av-j"]
+/** What a member types into the composer; the caret steps once per character (its keyframes read the length). */
+export const ST_TYPED = "3 x 5 on squats at 50 kg today. Video is in Form checks."
 
 export function CommunityMock() {
   return (
     <div className="bm cx">
       <div className="cx-bar">
         <span className="cx-lead">
-          <span className="cx-mark">CC</span>
+          <span className="cx-mark">SR</span>
           <span className="cx-who">
-            <b>Crema Club</b>
-            <i>By Joana Reis</i>
+            <b>The Strength Room</b>
+            <i>By Rina Castillo</i>
           </span>
           <span className="cx-menu">
             <Menu />
@@ -662,7 +662,7 @@ export function CommunityMock() {
         </span>
       </div>
       <div className="cx-tabs">
-        {CC_PLACES.map((p, i) => (
+        {ST_PLACES.map((p, i) => (
           <span key={p} className={i === 0 ? "on" : undefined}>
             {p}
           </span>
@@ -670,32 +670,32 @@ export function CommunityMock() {
       </div>
       <aside className="cx-left">
         <div className="cx-card">
-          <Pic n="cc-cover" w={960} h={540} className="cx-cover" />
+          <Pic n="st-cover" w={960} h={540} className="cx-cover" />
           <div className="cx-card-in">
-            <b className="cx-name">Crema Club</b>
-            <p className="cx-addr">storelib.com/community/cremaclub</p>
-            <p className="cx-sum">Home baristas pulling better shots together. Weekly brew logs, bean swaps and a latte art night every month.</p>
+            <b className="cx-name">The Strength Room</b>
+            <p className="cx-addr">storelib.com/community/strengthroom</p>
+            <p className="cx-sum">Strength training for women, coached by Rina. A new four day program every six weeks, form checks on your videos, a live Q&amp;A on Thursdays.</p>
             <span className="cx-stats">
               <span>
-                <b>2.4k</b>
+                <b>1,284</b>
                 <i>Members</i>
               </span>
               <span>
-                <b>61</b>
+                <b>37</b>
                 <i>
                   <em /> Online
                 </i>
               </span>
               <span>
-                <b>3</b>
+                <b>2</b>
                 <i>Admins</i>
               </span>
             </span>
             <span className="cx-faces">
-              {CC_FACES.map((f) => (
+              {ST_FACES.map((f) => (
                 <Pic key={f} n={f} w={96} h={96} />
               ))}
-              <em>+2.4k</em>
+              <em>+1.2k</em>
             </span>
           </div>
         </div>
@@ -709,10 +709,10 @@ export function CommunityMock() {
               <b>20</b>
             </span>
             <span>
-              <b>Latte art night, live</b>
-              <i>Thu, Nov 20, 7:00 PM GMT</i>
+              <b>Live form check: squat depth</b>
+              <i>Thu, Nov 20, 6:30 PM EST</i>
               <i>
-                <Users /> 84 going
+                <Users /> 46 going
               </i>
             </span>
           </span>
@@ -720,7 +720,7 @@ export function CommunityMock() {
       </aside>
       <main className="cx-main">
         <span className="cx-chips">
-          {CC_CHIPS.map(([t, e], i) => (
+          {ST_CHIPS.map(([t, e], i) => (
             <span key={t} className={i === 0 ? "on" : undefined}>
               {e && <i>{e}</i>}
               {t}
@@ -735,7 +735,7 @@ export function CommunityMock() {
           <span className="cx-field">
             <span className="cx-ph">Share something...</span>
             <span className="cx-typed">
-              {CC_TYPED}
+              {ST_TYPED}
               <i className="cx-type" />
             </span>
           </span>
@@ -748,25 +748,25 @@ export function CommunityMock() {
             <Pic n="av-c" w={96} h={96} className="cx-av" />
             <span>
               <b>
-                Joana Reis <em>Owner</em>
+                Rina Castillo <em>Owner</em>
               </b>
-              <i>2h · ☕ Brew logs</i>
+              <i>2h · 📋 Programs</i>
             </span>
             <MoreHorizontal className="cx-more" />
           </span>
-          <h4>November bean swap: post your roast and where it ships from</h4>
-          <p>Three bags per person, roasted in the last two weeks. Leave the roast date and your grind setting so the next person can dial in fast.</p>
+          <h4>Block 4 is up: four days, 45 minutes, a deadlift focus</h4>
+          <p>Warmups are in Learn. Log your top set every Friday and I will set your weights for the week after. Questions go under this post.</p>
           <span className="cx-foot">
             <span className="cx-heart">
               <Heart className="cx-h-off" />
               <Heart className="cx-h-on" fill="currentColor" strokeWidth={0} />
               <b className="cx-n">
-                <span className="cx-n-a">41</span>
-                <span className="cx-n-b">42</span>
+                <span className="cx-n-a">63</span>
+                <span className="cx-n-b">64</span>
               </b>
             </span>
             <span>
-              <MessageCircle /> <b>27</b>
+              <MessageCircle /> <b>31</b>
             </span>
             <span className="cx-faces cx-faces-s">
               <Pic n="av-l" w={96} h={96} />
@@ -780,16 +780,16 @@ export function CommunityMock() {
           <span className="cx-ph-head">
             <Pic n="av-n" w={96} h={96} className="cx-av" />
             <span>
-              <b>Sam Adeyemi</b>
-              <i>5h · 🥛 Latte art</i>
+              <b>Dana Whitfield</b>
+              <i>5h · 🏆 Wins</i>
             </span>
             <MoreHorizontal className="cx-more" />
           </span>
-          <h4>Week 3 of pouring every morning</h4>
-          <p>Slower milk, cup tilted more, and the rosetta finally has a spine. Left is Monday, right is today.</p>
+          <h4>Eight months in: 70 kg deadlift</h4>
+          <p>In March I could not pull the bar off the floor without my back rounding. Today&apos;s top set on the left, back squats this morning on the right.</p>
           <span className="cx-pics">
-            <Pic n="cc-pour" w={640} h={480} />
-            <Pic n="cc-cup" w={640} h={480} />
+            <Pic n="st-pull" w={640} h={480} />
+            <Pic n="st-squat" w={640} h={480} />
           </span>
         </article>
       </main>
@@ -809,46 +809,43 @@ export const BUILDER_CSS = u(`
 .bm-frame>.smk{--w:1280}
 .bm-cursor{position:absolute;z-index:30;width:22u!important;height:22u!important;opacity:0;filter:drop-shadow(0 2u 3u rgba(0,0,0,.25));pointer-events:none}
 
-/* ---------- the site: Field Day (its own design width) */
+/* ---------- the site: Saltmoor (its own design width). Warm paper, a serif wordmark and headline, photographs that do the talking. */
 .wx-canvas .wx-site{position:absolute;inset:0}
 .wx-site>.smk{--w:1024}
-.fd{position:absolute;inset:0;display:flex;flex-direction:column;background:#f6f3ee;color:#141414;font-family:var(--font-inter,Inter),Inter,sans-serif}
-.fd-nav{flex:none;height:62u;display:flex;align-items:center;gap:34u;padding:0 40u;background:#f6f3ee;border-bottom:1u solid #e6e0d6}
-.fd-logo{font-size:19u;font-weight:800;letter-spacing:.04em;white-space:nowrap}
-.fd-logo i{font-style:normal;color:#ff5a1f;margin:0 2u}
-.fd-links{display:flex;gap:24u;font-size:13.5u;color:#5f5a52}
-.fd-links b{color:#141414;font-weight:600}
-.fd-cart{display:flex;align-items:center;gap:7u;margin-left:auto;padding:8u 14u;border-radius:999u;background:#141414;color:#fff;font-size:13u;font-weight:600}
-.fd-cart svg{width:14u;height:14u}
-.fd-hero{position:relative;flex:none;display:grid;grid-template-columns:430u 1fr;gap:36u;align-items:center;height:400u;padding:0 40u;background:linear-gradient(120deg,#ffe3c9 0%,#ffd0b5 40%,#f9c4cf 100%)}
-.fd-eyebrow{font-size:11.5u;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#c2410c}
-.fd-copy h3{margin-top:12u!important;font-size:50u;font-weight:800;line-height:.98;letter-spacing:-.035em}
-.fd-sub{margin-top:16u!important;max-width:380u;font-size:14.5u;line-height:1.55;color:#4a3f38}
-.fd-btns{display:flex;gap:10u;margin-top:24u}
-.fd-btns>*{display:flex;align-items:center;padding:13u 22u;border-radius:999u;font-size:14u;font-weight:600;white-space:nowrap}
-.fd-btns b{background:#141414;color:#fff}
-.fd-btns span{background:rgba(255,255,255,.6);box-shadow:inset 0 0 0 1u rgba(20,20,20,.12)}
-.fd-note{display:block;margin-top:18u;font-size:12.5u;color:#6b5d54}
-.fd-photo{position:relative;height:350u;border-radius:20u;overflow:hidden;background:#1a1a1a}
-.fd-photo img{object-position:50% 25%}
-.fd-photo em{position:absolute;left:14u;bottom:14u;display:flex;gap:8u;padding:8u 12u;border-radius:999u;background:#fff;color:#141414;font-size:12.5u;font-style:normal;font-weight:600;box-shadow:0 6u 18u -6u rgba(0,0,0,.35)}
-.fd-photo em b{color:#6b6b6b;font-weight:500}
-.fd-shop{position:relative;flex:1 0 auto;padding:22u 40u 40u}
-.fd-h{display:flex;justify-content:space-between;align-items:baseline;font-size:22u;font-weight:800;letter-spacing:-.02em}
-.fd-h span{font-size:13u;font-weight:600;letter-spacing:0;text-decoration:underline;text-underline-offset:3u}
-.fd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
-.fd-card{display:grid;gap:6u}
-.fd-img{display:block;height:190u;border-radius:14u;background:#fff;overflow:hidden;box-shadow:inset 0 0 0 1u rgba(20,20,20,.06)}
-.fd-img img{width:100%!important;height:100%!important;object-fit:cover}
-.fd-img-tee img{object-position:50% 30%}
-.fd-card b{margin-top:4u;font-size:14u;font-weight:600}
-.fd-row{display:flex;align-items:center;justify-content:space-between}
-.fd-row em{font-size:13.5u;font-style:normal;color:#4a3f38}
-.fd-dots{display:flex;gap:5u}
-.fd-dots i{width:11u;height:11u;border-radius:50%;box-shadow:inset 0 0 0 1u rgba(0,0,0,.12)}
-.fd-ring{position:absolute;inset:0;border-radius:4u;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
-.fd-ring em{position:absolute;right:8u;bottom:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
-.fd-ring.wx-ring-b{opacity:0}
+.sm{position:absolute;inset:0;display:flex;flex-direction:column;background:#f6f2ec;color:#211d19;font-family:var(--font-inter,Inter),Inter,sans-serif}
+.sm-nav{flex:none;height:60u;display:flex;align-items:center;gap:36u;padding:0 40u;border-bottom:1u solid #e7e0d5}
+.sm-logo{font-family:Georgia,"Times New Roman",serif;font-size:22u;letter-spacing:.01em;white-space:nowrap}
+.sm-links{display:flex;gap:22u;font-size:13u;color:#6f665c}
+.sm-links b{color:#211d19;font-weight:500}
+.sm-cart{display:flex;align-items:center;gap:7u;margin-left:auto;font-size:13u;font-weight:500}
+.sm-cart svg{width:15u;height:15u}
+.sm-hero{position:relative;flex:none;display:grid;grid-template-columns:1fr 360u;gap:48u;align-items:center;height:396u;padding:0 40u}
+.sm-eyebrow{font-size:12u;font-weight:500;color:#8a6a4b}
+.sm-copy h3{margin-top:12u!important;max-width:470u;font-family:Georgia,"Times New Roman",serif;font-size:50u;font-weight:400;line-height:1.04;letter-spacing:-.02em}
+.sm-sub{margin-top:16u!important;max-width:400u;font-size:14.5u;line-height:1.55;color:#5b5249}
+.sm-btns{display:flex;gap:10u;margin-top:24u}
+.sm-btns>*{display:flex;align-items:center;height:42u;padding:0 20u;border-radius:8u;font-size:13.5u;font-weight:500;white-space:nowrap}
+.sm-btns b{background:#211d19;color:#f6f2ec}
+.sm-btns span{box-shadow:inset 0 0 0 1u #cfc5b7}
+.sm-note{display:block;margin-top:18u;font-size:12u;color:#8a8076}
+.sm-photo{position:relative;height:340u;border-radius:6u;overflow:hidden;background:#d9cfc2}
+.sm-photo img{object-position:50% 80%}
+.sm-photo em{position:absolute;left:12u;bottom:12u;display:flex;gap:8u;padding:7u 11u;border-radius:6u;background:#f6f2ec;color:#211d19;font-size:12u;font-style:normal;font-weight:500}
+.sm-photo em b{color:#7a7066;font-weight:500}
+.sm-shop{position:relative;flex:1 0 auto;padding:20u 40u 40u;border-top:1u solid #e7e0d5}
+.sm-h{display:flex;justify-content:space-between;align-items:baseline;font-family:Georgia,"Times New Roman",serif;font-size:23u;letter-spacing:-.01em}
+.sm-h span{font-family:var(--font-inter,Inter),Inter,sans-serif;font-size:12.5u;font-weight:500;color:#6f665c}
+.sm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
+.sm-card{display:grid;gap:5u}
+.sm-img{display:block;height:184u;border-radius:6u;background:#e9e2d8;overflow:hidden}
+.sm-img img{width:100%!important;height:100%!important;object-fit:cover}
+.sm-card b{margin-top:5u;font-size:13.5u;font-weight:500}
+.sm-row{display:flex;align-items:baseline;justify-content:space-between;font-size:12.5u}
+.sm-row i{font-style:normal;color:#8a8076}
+.sm-row em{font-style:normal;font-weight:500;color:#211d19}
+.sm-ring{position:absolute;inset:0;border-radius:4u;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
+.sm-ring em{position:absolute;right:8u;bottom:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
+.sm-ring.wx-ring-b{opacity:0}
 
 /* ---------- website builder (app/(storelib)/website-builder/editor, its bar, the sidebar card, the canvas) */
 .wb{background:#eef1f5}
@@ -1058,7 +1055,7 @@ export const BUILDER_CSS = u(`
 .dp-vplay{position:absolute;left:50%;top:50%;width:46u;height:46u;margin:-23u 0 0 -23u;border-radius:50%;display:grid;place-items:center;background:#f6b062;color:#1b1612}
 .dp-vplay svg{width:16u;height:16u;margin-left:2u}
 
-/* ---------- inside a community: Crema Club (components/community/member) */
+/* ---------- inside a community: The Strength Room (components/community/member) */
 .cx{background:#f8f9fa;color:#1a1a2e}
 .cx svg{width:18u;height:18u}
 .cx-bar{position:absolute;inset:0 0 auto;height:64u;display:flex;align-items:center;gap:24u;padding:0 40u;background:#fff}
@@ -1158,5 +1155,5 @@ export const BUILDER_CSS = u(`
 @keyframes sxk-cx-nb{0%,24%{opacity:0}25%,94%{opacity:1}95%,100%{opacity:0}}
 @keyframes sxk-cx-ph{0%,52%{opacity:1}53%,96%{opacity:0}97%,100%{opacity:1}}
 @keyframes sxk-cx-typed{0%,52%{opacity:0}53%,96%{opacity:1}97%,100%{opacity:0}}
-@keyframes sxk-cx-type{0%,53%{transform:none;animation-timing-function:steps(71,end)}80%,100%{transform:translateX(100%)}}
+@keyframes sxk-cx-type{0%,53%{transform:none;animation-timing-function:steps(${ST_TYPED.length},end)}80%,100%{transform:translateX(100%)}}
 `)

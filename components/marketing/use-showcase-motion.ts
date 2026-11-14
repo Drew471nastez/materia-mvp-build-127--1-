@@ -22,6 +22,30 @@ import { RailMotion, SHOWCASE_MOTION, type RailMotionConfig } from "@/lib/ui/rai
 const PHONE = "(max-width: 767px)"
 
 /*
+  LANDING ROUND 5, THE OWNER (on an iPhone): "the swipe doesn't work at all.
+  I go with the touch and it doesn't work. It doesn't initialize. It thinks
+  that I want to scroll the page." Wanted: a swipe that is smooth,
+  "butterish", and autoplay that "doesn't interfere with it" and still runs.
+
+  So on a touch screen, and on any screen under 768px, the rail is the
+  browser's own horizontal scroller with scroll snapping, and the script only
+  runs autoplay (useNativeRail below). The finger is then the browser's, as
+  in the photo row of a native app: the browser's own gesture recogniser
+  decides the axis, so a sideways swipe moves the cards at once and a
+  vertical one scrolls the page; the throw carries on with the system's
+  momentum and lands on a card (scroll-snap-type: x mandatory, a hard flick
+  passes several); overscroll-behavior-x keeps a swipe at either end from
+  becoming the back gesture. It all runs on the compositor's scroll thread,
+  no script per frame. A rail driven by pointer events has to win the
+  gesture from the page first, and on iOS that race is what was lost.
+
+  With a mouse from 768px up, RailMotion keeps the rail as before.
+*/
+const NATIVE = "(max-width: 767px), (pointer: coarse)"
+/** Autoplay on the native rail: a card every so often, and how long after the last touch it waits to come back. */
+export const SHOWCASE_NATIVE = { intervalMs: 4200, resumeMs: 4000 } as const
+
+/*
   LANDING ROUND, THE OWNER: pull to drag and swipe, with the mouse and the
   finger, "butter" smooth. The hand still holds the rail exactly; what
   changes is the letting go. The settle used to leave at up to half of the
@@ -49,54 +73,274 @@ export const SHOWCASE_RAIL: RailMotionConfig = {
   glideSettle: { minMs: 280, maxMs: 520, msPerPx: 0.18, minLaunch: 0.7 },
 }
 
+type Hooks = { onFirstMove: () => void; setVisible: (fn: (visible: boolean) => void) => void }
+
+/** The rail under a mouse from 768px: RailMotion, as before. Returns its cleanup. */
+function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () => void {
+  const phone = matchMedia(PHONE)
+  const groups = () => [...el.querySelectorAll<HTMLElement>(".build-showcase-group")]
+  const slides = () => [...el.querySelectorAll<HTMLElement>(".build-showcase-slide")]
+  const parts = () => (phone.matches ? { items: slides(), snaps: slides() } : { items: groups(), snaps: groups() })
+
+  /* Whatever the native scroller was moved to before the script came is undone, then it stops scrolling. */
+  el.scrollLeft = 0
+  el.dataset.railReady = "true"
+  const { items, snaps } = parts()
+  const motion = new RailMotion(el, items, snaps, SHOWCASE_RAIL, {
+    /* Wave 13: nothing on the page restyles while the rail moves; the first move only lets the phone's left gutter show the card before. */
+    onMoving: (moving) => {
+      if (moving) hooks.onFirstMove()
+    },
+    onDragging: (dragging) => {
+      if (dragging) el.dataset.dragging = "true"
+      else delete el.dataset.dragging
+    },
+    onIndex: (index) => {
+      el.dataset.showcaseIndex = String(index)
+    },
+  })
+  hooks.setVisible((visible) => motion.setVisible(visible))
+
+  /* Layout changes (a resize, images arriving) are measured once and never during motion. */
+  let frame = 0
+  const remeasure = () => {
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(() => {
+      const next = parts()
+      motion.measure(next.items, next.snaps)
+    })
+  }
+  const resize = typeof ResizeObserver === "function" ? new ResizeObserver(remeasure) : null
+  resize?.observe(viewport)
+  phone.addEventListener("change", remeasure)
+
+  return () => {
+    cancelAnimationFrame(frame)
+    resize?.disconnect()
+    phone.removeEventListener("change", remeasure)
+    motion.dispose()
+    delete el.dataset.railReady
+    delete el.dataset.dragging
+  }
+}
+
+/**
+ * The native rail on a touch screen or a phone width: the browser scrolls and snaps, this only plays autoplay and
+ * steps aside for the reader. Nothing here runs per frame; card places are read once per layout change.
+ */
+function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () => void {
+  el.dataset.showcaseNative = "true"
+  const phone = matchMedia(PHONE)
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)")
+  const snapsOf = () => [...el.querySelectorAll<HTMLElement>(phone.matches ? ".build-showcase-slide" : ".build-showcase-group")]
+  /* Each card's resting scrollLeft, read once per layout change (offsetLeft is from the rail's own padding box). */
+  let stops: number[] = []
+  const measure = () => {
+    const pad = phone.matches ? parseFloat(getComputedStyle(el).scrollPaddingLeft) || 0 : 0
+    const max = el.scrollWidth - el.clientWidth
+    stops = snapsOf().map((s) => Math.min(max, Math.max(0, s.offsetLeft - pad)))
+    stops = stops.filter((v, i) => i === 0 || v > stops[i - 1] + 1)
+  }
+
+  let visible = false
+  let paused = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let resumeAt = 0
+  let touching = false
+
+  const canPlay = () => visible && !paused && !touching && !document.hidden && !reduce.matches && stops.length > 1
+  const schedule = () => {
+    clearTimeout(timer)
+    if (!canPlay()) return
+    const wait = Math.max(SHOWCASE_NATIVE.intervalMs, resumeAt - performance.now())
+    timer = setTimeout(step, wait)
+  }
+  const step = () => {
+    if (!canPlay()) return
+    const x = el.scrollLeft
+    /* The card the rail rests on now (the reader may have left it anywhere), then the next, or back to the first. */
+    let at = 0
+    for (let i = 0; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[at] - x)) at = i
+    const next = at + 1 < stops.length ? at + 1 : 0
+    el.scrollTo({ left: stops[next], behavior: "smooth" })
+    schedule()
+  }
+  /* The reader takes the rail: autoplay waits until resumeMs after they let go. */
+  const hold = () => {
+    hooks.onFirstMove()
+    clearTimeout(timer)
+    resumeAt = performance.now() + SHOWCASE_NATIVE.resumeMs
+  }
+  const onTouchStart = () => {
+    touching = true
+    hold()
+  }
+  const onTouchEnd = () => {
+    touching = false
+    hold()
+    schedule()
+  }
+  const onPointerDown = (e: PointerEvent) => {
+    if (e.pointerType === "touch") return
+    hold()
+    schedule()
+  }
+  const onWheel = (e: WheelEvent) => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+    hold()
+    schedule()
+  }
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === " ") {
+      e.preventDefault()
+      paused = !paused
+      el.dataset.autoplayPaused = String(paused)
+      schedule()
+      return
+    }
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return
+    e.preventDefault()
+    hold()
+    const x = el.scrollLeft
+    const target = e.key === "ArrowRight" ? stops.find((s) => s > x + 2) : [...stops].reverse().find((s) => s < x - 2)
+    if (target !== undefined) el.scrollTo({ left: target, behavior: reduce.matches ? "auto" : "smooth" })
+    schedule()
+  }
+  /* The first sideways move by the reader lets the phone's left gutter show the card before (data-showcase-pristine). */
+  const onScroll = () => {
+    if (el.scrollLeft > 4) hooks.onFirstMove()
+  }
+
+  /*
+    A mouse on a narrow window (or a touch laptop's mouse) can still pull the rail: it scrolls it by hand with the
+    snapping off, and on release the rail is handed the nearest card. A finger never comes here.
+  */
+  let drag: { id: number; x0: number; left: number; moved: boolean } | null = null
+  const onMouseDown = (e: PointerEvent) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return
+    drag = { id: e.pointerId, x0: e.clientX, left: el.scrollLeft, moved: false }
+  }
+  const onMouseMove = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const dx = e.clientX - drag.x0
+    if (!drag.moved) {
+      if (Math.abs(dx) < 6) return
+      drag.moved = true
+      el.dataset.dragging = "true"
+      el.style.scrollSnapType = "none"
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {}
+    }
+    el.scrollLeft = drag.left - dx
+  }
+  const onMouseUp = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const moved = drag.moved
+    const dx = e.clientX - drag.x0
+    drag = null
+    if (!moved) return
+    delete el.dataset.dragging
+    const x = el.scrollLeft
+    /* The card in the direction pulled, once past a sixth of the way. */
+    let at = 0
+    for (let i = 0; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[at] - x)) at = i
+    el.style.scrollSnapType = ""
+    el.scrollTo({ left: stops[at] ?? 0, behavior: "smooth" })
+    if (Math.abs(dx) > 0) hold()
+    schedule()
+  }
+  const onClick = (e: MouseEvent) => {
+    if (el.dataset.dragging) e.preventDefault()
+  }
+  const onVisibility = () => schedule()
+
+  measure()
+  let frame = 0
+  const remeasure = () => {
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(measure)
+  }
+  const resize = typeof ResizeObserver === "function" ? new ResizeObserver(remeasure) : null
+  resize?.observe(viewport)
+  phone.addEventListener("change", remeasure)
+  reduce.addEventListener("change", schedule)
+
+  const passive = { passive: true } as const
+  el.addEventListener("touchstart", onTouchStart, passive)
+  el.addEventListener("touchend", onTouchEnd, passive)
+  el.addEventListener("touchcancel", onTouchEnd, passive)
+  el.addEventListener("pointerdown", onPointerDown, passive)
+  el.addEventListener("pointerdown", onMouseDown)
+  el.addEventListener("pointermove", onMouseMove)
+  el.addEventListener("pointerup", onMouseUp)
+  el.addEventListener("pointercancel", onMouseUp)
+  el.addEventListener("click", onClick, true)
+  el.addEventListener("wheel", onWheel, passive)
+  el.addEventListener("keydown", onKey)
+  el.addEventListener("scroll", onScroll, passive)
+  document.addEventListener("visibilitychange", onVisibility)
+  hooks.setVisible((v) => {
+    visible = v
+    schedule()
+  })
+
+  return () => {
+    clearTimeout(timer)
+    cancelAnimationFrame(frame)
+    resize?.disconnect()
+    phone.removeEventListener("change", remeasure)
+    reduce.removeEventListener("change", schedule)
+    el.removeEventListener("touchstart", onTouchStart)
+    el.removeEventListener("touchend", onTouchEnd)
+    el.removeEventListener("touchcancel", onTouchEnd)
+    el.removeEventListener("pointerdown", onPointerDown)
+    el.removeEventListener("pointerdown", onMouseDown)
+    el.removeEventListener("pointermove", onMouseMove)
+    el.removeEventListener("pointerup", onMouseUp)
+    el.removeEventListener("pointercancel", onMouseUp)
+    el.removeEventListener("click", onClick, true)
+    el.removeEventListener("wheel", onWheel)
+    el.removeEventListener("keydown", onKey)
+    el.removeEventListener("scroll", onScroll)
+    document.removeEventListener("visibilitychange", onVisibility)
+    el.style.scrollSnapType = ""
+    delete el.dataset.showcaseNative
+    delete el.dataset.dragging
+  }
+}
+
 export function useShowcaseMotion() {
-  const rail = useRef<RailMotion | null>(null)
-  const node = useRef<HTMLDivElement | null>(null)
   const cleanup = useRef<(() => void) | null>(null)
 
   const attach = useCallback((el: HTMLDivElement | null) => {
     cleanup.current?.()
     cleanup.current = null
-    node.current = el
     if (!el) return
     const section = el.closest<HTMLElement>("[data-build-showcase]")
     const viewport = el.parentElement ?? el
-    const phone = matchMedia(PHONE)
-    const groups = () => [...el.querySelectorAll<HTMLElement>(".build-showcase-group")]
-    const slides = () => [...el.querySelectorAll<HTMLElement>(".build-showcase-slide")]
-    const parts = () => (phone.matches ? { items: slides(), snaps: slides() } : { items: groups(), snaps: groups() })
+    const native = matchMedia(NATIVE)
 
-    /* Whatever the native scroller was moved to before the script came is undone, then it stops scrolling. */
-    el.scrollLeft = 0
-    el.dataset.railReady = "true"
-    const { items, snaps } = parts()
-    const motion = new RailMotion(el, items, snaps, SHOWCASE_RAIL, {
-      /* Wave 13: nothing on the page restyles while the rail moves (the heading used to dim, a repaint at every autoplay step); the first move only lets the phone's left gutter show the card before. */
-      onMoving: (moving) => {
-        if (moving && section?.hasAttribute("data-showcase-pristine")) section.removeAttribute("data-showcase-pristine")
+    /* Autoplay only while half the rail is on screen; the first sight of it plays the cards' entrance. */
+    let visible = !("IntersectionObserver" in window)
+    let onVisible: (visible: boolean) => void = () => {}
+    const hooks: Hooks = {
+      onFirstMove: () => {
+        if (section?.hasAttribute("data-showcase-pristine")) section.removeAttribute("data-showcase-pristine")
       },
-      onDragging: (dragging) => {
-        if (dragging) el.dataset.dragging = "true"
-        else delete el.dataset.dragging
+      setVisible: (fn) => {
+        onVisible = fn
+        fn(visible)
       },
-      onIndex: (index) => {
-        el.dataset.showcaseIndex = String(index)
-      },
-    })
-    rail.current = motion
-
-    /* Layout changes (a resize, the phone breakpoint, images arriving) are measured once and never during motion. */
-    let frame = 0
-    const remeasure = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        const next = parts()
-        motion.measure(next.items, next.snaps)
-      })
     }
-    const resize = typeof ResizeObserver === "function" ? new ResizeObserver(remeasure) : null
-    resize?.observe(viewport)
-    phone.addEventListener("change", remeasure)
+    let stop = (native.matches ? startNative : startRail)(el, viewport, hooks)
+    /* A window resized across 768px, or a mouse plugged into a tablet: the other rail takes over from the start. */
+    const swap = () => {
+      stop()
+      el.scrollLeft = 0
+      stop = (native.matches ? startNative : startRail)(el, viewport, hooks)
+    }
+    native.addEventListener("change", swap)
 
     /*
       Wave 14: every card's picture is fetched and decoded as soon as the
@@ -116,7 +360,6 @@ export function useShowcaseMotion() {
       }
     }
 
-    /* Autoplay only while half the rail is on screen; the first sight of it plays the cards' entrance. */
     const seen =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(
@@ -124,7 +367,8 @@ export function useShowcaseMotion() {
               for (const entry of entries) {
                 if (entry.isIntersecting) warm()
                 if (entry.target === el) {
-                  motion.setVisible(entry.intersectionRatio >= 0.5)
+                  visible = entry.intersectionRatio >= 0.5
+                  onVisible(visible)
                   if (entry.isIntersecting) viewport.setAttribute("data-showcase-entered", "")
                 } else if (entry.isIntersecting) section?.setAttribute("data-showcase-entered", "")
               }
@@ -135,19 +379,12 @@ export function useShowcaseMotion() {
     seen?.observe(el)
     const heading = section?.querySelector(".build-showcase-top")
     if (heading) seen?.observe(heading)
-    if (!seen) {
-      motion.setVisible(true)
-      warm()
-    }
+    if (!seen) warm()
 
     cleanup.current = () => {
-      cancelAnimationFrame(frame)
-      resize?.disconnect()
       seen?.disconnect()
-      phone.removeEventListener("change", remeasure)
-      motion.dispose()
-      rail.current = null
-      delete el.dataset.railReady
+      native.removeEventListener("change", swap)
+      stop()
     }
   }, [])
 

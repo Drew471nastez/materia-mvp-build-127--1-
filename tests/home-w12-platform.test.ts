@@ -57,7 +57,7 @@ const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").repl
 
 const SECTIONS: Array<{ file: string; name: string; C: ComponentType; id: string; heading: string }> = [
   /* Changed on purpose (landing round 4): the owner found "Make the work. Skip the busywork." too broad and vague; the line now says what the four cards show. */
-  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Sell anything, anywhere. Support included." },
+  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Sell what you make. Get paid worldwide." /* Changed on purpose (landing round 5): the owner's new heading. */ },
   { file: "audience-ownership", name: "AudienceOwnership", C: AudienceOwnership, id: "audience-ownership", heading: "Your audience belongs to you." },
   { file: "analytics-showcase", name: "AnalyticsShowcase", C: AnalyticsShowcase, id: "analytics-showcase", heading: "Know what's working, as it happens." },
   { file: "integrations-section", name: "IntegrationsSection", C: IntegrationsSection, id: "integrations", heading: "Connect your favorite apps" },
@@ -147,14 +147,14 @@ console.log("\n── truth: audience and emails ──")
 const aud = text(html["audience-ownership"] ?? "")
 for (const p of ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"]) check(`syncs to ${p}, a platform the catalog syncs`, aud.includes(p) && byName.has(p) && !byName.get(p)?.comingSoon)
 check("unsubscribes come back, as the catalog says", /Unsubscribes come back/.test(aud) && /Unsubscribes come back/.test(read("lib/integrations/catalog.ts")))
-check("the composer has the real fields and buttons", ["To", "From", "Subject", "Send test", "Schedule", "Send"].every((w) => aud.includes(w)))
+check("Contacts has its real header: the count and Export CSV", aud.includes("Contacts") && aud.includes("Export CSV") && aud.includes("18,240"))  /* Changed on purpose (landing round 5): the composer is gone; the picture is Contacts. */
 /* Added (wave 13): light, no subheading, a believable creator email, the five platforms in their own marks. */
 {
   const audSrc = read(`${DIR}/audience-ownership.tsx`)
   check("audience: a light section (not black UI)", /className=\{`\$\{m\.root\} bg-white /.test(audSrc) && !/bg-black|#121214|\bdark\b \/>/.test(audSrc))
-  check("audience: no subheading under the heading", /<StoryHeading id="audience-ownership-title"[^>]*\/>\s*<\/div>/.test(audSrc))
+  check("audience: no subheading under the heading", /<StoryHeading id="audience-ownership-title"[^>]*\/>\s*<ul className=\{s\.points\}>/.test(audSrc))  /* Changed on purpose (landing round 5): the three rows follow the heading directly. */
   check("audience: the ceramics example is gone", !/glaze|ceramic|Maya Lin/i.test(aud))
-  check("audience: the sent email reports delivered, opened and clicked, as Emails does", ["Delivered", "Opened", "Clicked"].every((w) => aud.includes(w)) && /tt\("Opened"/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /tt\("Clicked"/.test(read("app/(storelib)/app/emails/emails-home.tsx")))
+  check("audience: email from Storelib counts opens and clicks, as Emails does", /opens and clicks counted/.test(aud) && /tt\("Opened"/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /tt\("Clicked"/.test(read("app/(storelib)/app/emails/emails-home.tsx")))  /* Changed on purpose (landing round 5): no composer, so no sent figures. */
   const logos = read(`${DIR}/email-platform-logos.tsx`)
   check("audience: each platform is drawn in its own mark, not a word in a pill", ["KlaviyoLogo", "OmnisendLogo", "BrevoLogo", "MailerLiteLogo", "KitLogo"].every((n) => new RegExp(`export function ${n}\\(`).test(logos)) && /EMAIL_PLATFORMS\.map/.test(audSrc))
   check("audience: subscribers come in by doors Contacts names", ["OnePage", "Checkout", "Website", "Free download"].every((w) => audSrc.includes(`via: "${w}"`)) && /onepage: "OnePage"/.test(read("lib/contacts/contact-source.ts")))
@@ -224,10 +224,10 @@ check("loops stop under reduced motion", /prefers-reduced-motion: reduce\)[\s\S]
 check("content is visible without JavaScript", /@media \(scripting: none\)/.test(shared))
 const motion = read(`${DIR}/platform-motion.tsx`)
 check("count-ups change a text node's data, never insert one", /node\.data = next/.test(motion) && !/textContent = formatRef\.current\(n\)/.test(motion))
-check("the composer types with a CSS cover, not per-letter DOM writes", !/textContent/.test(read(`${DIR}/audience-ownership.tsx`)) && /steps\(var\(--steps/.test(read(`${DIR}/audience-ownership.module.css`)))
+check("the audience picture writes nothing into the page after it is drawn", !/textContent|useEffect|setInterval/.test(read(`${DIR}/audience-ownership.tsx`)))  /* Changed on purpose (landing round 5): the composer is gone; nothing in the section moves. */
 /* Changed on purpose (landing round): no visitor toasts any more; the engine switcher is fixed slots too, moved by data-rel. */
 /* Changed on purpose (landing round 4): the subscriber rows became one line naming the newest sign-up; every name is in the page and the newest is faded in (data-on), so nothing is inserted. */
-check("the newest sign-up and the engine switcher are fixed slots, never inserted", /data-on=\{k === head \|\| undefined\}/.test(read(`${DIR}/audience-ownership.tsx`)) && /data-rel=\{rel\}/.test(read(`${DIR}/analytics-showcase.tsx`)))
+check("the engine switcher is fixed slots, never inserted", /data-rel=\{rel\}/.test(read(`${DIR}/analytics-showcase.tsx`)))  /* Changed on purpose (landing round 5): the newest sign-up line went with the audience redesign. */
 const globe = read(`${DIR}/platform-globe.tsx`)
 check("the globe runs only while on screen, and draws once under reduced motion", /if \(!running \|\| !inView\) return/.test(globe) && /if \(reduced\)/.test(globe) && /cancelAnimationFrame/.test(globe))
 check("the globe caps device pixels", /Math\.min\(1\.5, window\.devicePixelRatio/.test(globe))

@@ -93,11 +93,12 @@ console.log("\nCommerce: the sections render on the server")
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
   /* Changed on purpose (landing round): the merch tile became one shop's physical and digital products (a tee printed when ordered, an e-book sent when paid), as the owner asked. */
 /* Changed on purpose (landing round 4): the owner wanted the blue tee and Weeknight Pasta gone: an embroidered cap and a night photography e-book. */
-  check("how it works: a $28 cap and a $19 e-book, physical and digital", how.includes("$28.00") && how.includes("$19.00") && how.includes("$15.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/cap-yellow.webp"))
+  // Changed on purpose (landing round 5): the owner did not like the cap: a $45 signed print (an example $14 print cost) and the $19 e-book.
+  check("how it works: a $45 print and a $19 e-book, physical and digital", how.includes("$45.00") && how.includes("$19.00") && how.includes("$14.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/print-lasalle.webp") && !how.includes("cap-yellow"))
   check("how it works: what each product leaves is Storelib's fee and the example cost off the price", HOW_PRODUCTS.every((m) => m.keepCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.keepCents > 0))
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
 /* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
-  check("how it works: the tiles use the product's real words", ["Thanks for your purchase", "Get your files", "Lessons", "2 of 7 done"].every((w) => how.includes(w)) && how.includes("/home/how/op-nadia.webp") && how.includes("/home/how/op-nadia-sheet.webp"))
+  check("how it works: the tiles use the product's real words", ["Thanks for your purchase", "Get your files", "Lessons", "2 of 7 done", "Check out · $45.00"].every((w) => how.includes(w)) && !how.includes("op-nadia"))
   /* Added (landing round): the owner never wants the Golden Hour presets mockups again, nor the camera picture on the course. */
   check("how it works: no Golden Hour presets, no camera course picture, no purple gradient grounds", !/Golden Hour|golden-cover|course-camera|lt-field/i.test(how + src.how) && !/linear-gradient\(160deg,#4c1d95/.test(src.how))
 
@@ -115,15 +116,16 @@ console.log("\nCommerce: the sections render on the server")
   /* Changed on purpose (landing round 3): the owner wants the wallets tab to be a phone and nothing else, so the second browser (the one with Google Pay) is gone; the tab's words still name both wallets. */
 /* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again, as the owner asked. */
   check("checkout: the website checkout in a desktop browser, once, and both wallets named", (co.match(/class="cdx-win"/g) ?? []).length === 1 && co.includes("Apple Pay and Google Pay, built in"))
-  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$28.00", "€26.00", "£22.00", "¥4,300", "C$38.00"].every((p) => co.includes(p)))
+  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$45.00", "€42.00", "£36.00", "¥6,900", "C$62.00"].every((p) => co.includes(p))) /* Changed on purpose (landing round 5): the $45 print in place of the cap. */
   /* Changed on purpose (landing round): the product is Maya Ellis's e-book, Weeknight Pasta, not the Golden Hour presets the owner found AI looking. */
 /* Changed on purpose (landing round 4): new products; the seller's note is the in-app sale notification ("New sale: <total>", "<buyer> bought <thing> for <total>."). */
-  check("checkout: the reminder and the sale note use the real words", co.includes("You left Darkroom cap at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $56.76") && co.includes("Sam Rivera bought Darkroom cap and 1 more for $56.76."))
+  check("checkout: the reminder and the sale note use the real words", co.includes("You left LaSalle at dusk at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $75.12") && co.includes("Sam Rivera bought LaSalle at dusk and 1 more for $75.12.")) /* Changed on purpose (landing round 5): the print in place of the cap. */
   check("checkout: no Golden Hour presets anywhere, and less fans in the words", !/Golden Hour|golden-cover|Presets/.test(co + src.checkout) && !/\bfans?\b/i.test(co.replace(/<style[\s\S]*?<\/style>/g, "")))
   check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="A Storelib checkout on a phone/.test(co))
   /* Changed on purpose (landing round): the orbiting products (the Golden preset box, the camera course, a purple membership card) are gone with the orbit. */
 /* Changed on purpose (landing round 4): the owner asked for the products orbiting the phone back, none of them the Golden Hour box or the purple membership card, each crossfading to a pre-blurred file (never a live filter). */
-  check("checkout: products orbit the phone again, new ones, pre-blurred files", /cmc-orbit/.test(co) && ["ebook", "cap", "course", "tee", "club", "vinyl"].every((id) => co.includes(`/home/commerce/float-${id}.webp`) && co.includes(`/home/commerce/float-${id}-blur.webp`)) && !/float-(box|member)/.test(co + src.checkout))
+  /* Changed on purpose (landing round 5): the orbit is gone, it stuttered under a finger. */
+  check("checkout: no products orbit the phone", !/cmc-orbit|\/home\/commerce\/float-/.test(co + src.checkout))
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
@@ -131,7 +133,7 @@ console.log("\nCommerce: the sections render on the server")
   check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
   /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
   /* Changed on purpose (landing round 4): the owner asked for the product to change with the country, so each country has its own product and price (USD, EUR, JPY, CAD, AUD). */
-  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "22,00 €", "¥4,800", "C$38.00", "24,00 €", "A$45.00"].every((p) => map.includes(p)) && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))
+  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "19,00 €", "¥4,800", "C$89.00", "24,00 €", "A$22.00"].every((p) => map.includes(p)) && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))  /* Changed on purpose (landing round 5): three digital products, priced as they are. */
   {
     /* Changed on purpose (landing round 4): the owner reversed the first round's ask; the button speaks the country's language (Jetzt kaufen, 今すぐ購入, Acheter). */
     check("map: the button in the buyer's language", ["Buy now", "Jetzt kaufen", "今すぐ購入", "Acheter"].every((w) => map.includes(`>${w}</span>`)))
@@ -179,8 +181,9 @@ console.log("\nCommerce: motion and performance rules")
   }
   /* Changed on purpose (landing round): the owner found scrolling through the scene "very bad". The scroll no longer scrubs anything frame by frame: an IntersectionObserver sets data-step as bands cross the middle of the screen, and each step plays as a CSS transition of transform and opacity. Stricter than before: no scroll listener at all, no per-frame custom property, no 3D orbit. */
 /* Changed on purpose (landing round 4): the phone rises and stays, the words come in, the tab cards rise over the phone: CSS view timelines (transform and opacity, on the compositor, reversible), and where a browser has none, two IntersectionObservers set two attributes and the same states play as transitions. Still no scroll listener and no layout read. */
-  check("checkout: scroll-driven by view timelines, with an observer fallback, no scroll listener, no layout read", /view-timeline-name:--cmc[;}]/.test(src.checkout) && /view-timeline-name:--cmc-cards/.test(src.checkout) && /timeline-scope:--cmc-cards/.test(src.checkout) && /animation-timeline:--cmc[;,]/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
-  check("checkout: a pinned stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:-60vh 0 0/.test(src.checkout))
+  /* Changed on purpose (landing round 5): no scroll timelines; one observer starts a one-shot entrance, plain scroll does the rest. */
+  check("checkout: one observer for the entrance, no scroll timeline, no scroll listener, no layout read", !/view-timeline|animation-timeline/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
+  check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(\$\{OVERLAP\} \* -1\) 0 0/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
   check("checkout: keyframes animate transform and opacity only", [...src.checkout.matchAll(/@keyframes [\w-]+\{([^@]*?)\}\}/g)].every((m) => !/(width|height|top|left|margin|background|box-shadow|filter)\s*:/.test(m[1])))
@@ -210,7 +213,8 @@ console.log("\nCommerce: images")
   const howFiles = existsSync(howDir) ? readdirSync(howDir) : []
   /* Changed on purpose (landing round): the tee photo and the course's video still, webp, each under 30 KB, and nothing unused. */
 /* Changed on purpose (landing round 4): the cap, the course's street still, and the captured OnePage and its sheet. */
-  check("public/home/how holds the cap, the course and the OnePage pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,course-street.webp,op-nadia-sheet.webp,op-nadia.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 5): the print instead of the captured OnePage; the cap picture stays for the checkout scene's currencies panel.
+  check("public/home/how holds the checkout's cap, the course and the print, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,course-street.webp,print-lasalle.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }

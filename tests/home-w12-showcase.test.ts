@@ -41,7 +41,7 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    ...([Biz.TemplatePage, Biz.CoursePage, Biz.CommunityPage, Biz.CapPage, Biz.BookingPage] as const).map((P) => createElement(P)),
+    ...([Biz.TemplatePage, Biz.CoursePage, Biz.CommunityPage, Biz.TeePage, Biz.BookingPage] as const).map((P) => createElement(P)),
     createElement(DesmondPage),
     createElement(WebsiteBuilderMock),
     createElement(OnePageEditorMock),
@@ -112,7 +112,8 @@ assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:op
 assert.ok(/@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(showcaseSrc), "and shows only under a resting mouse, never while dragging")
 assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 1, "no other rule shows it")
 // On a phone: the row starts on the heading's gutter, the first card about three quarters wide, the next peeking, 8px apart.
-assert.ok(/--showcase-gap:8px;--showcase-height:clamp\(170px,51\.5vw,380px\)/.test(showcaseSrc) && /padding-left:var\(--showcase-gutter/.test(showcaseSrc))
+/* Changed on purpose (landing round 5): the owner wanted the cards "a little bit more big": 60% of the width tall on a phone. */
+assert.ok(/--showcase-height:clamp\(200px,60vw,440px\)/.test(showcaseSrc) && /--showcase-gap:8px;height:var\(--showcase-height\)/.test(showcaseSrc) && /padding-inline:var\(--showcase-gutter/.test(showcaseSrc))
 {
   const h = 0.515 * 390
   const first = 1.4545 * h
@@ -163,8 +164,8 @@ assert.deepEqual(
 )
 const biz = renderToString(createElement(BusinessCarousel))
 assert.equal((biz.match(/role="tab"/g) || []).length, 5)
-/* Changed on purpose (landing round 4): the scroll steps through every kind while the section is pinned, so all five pages are drawn and one is shown. */
-assert.equal((biz.match(/role="tabpanel"/g) || []).length, 5)
+// Changed on purpose (landing round 5): the section is the round 3 one again (no pin), so only the active page is server-rendered.
+assert.equal((biz.match(/role="tabpanel"/g) || []).length, 1, "only the active page is server-rendered")
 assert.equal((biz.match(/class="biz-slide" data-pane="active"/g) || []).length, 1)
 assert.ok(biz.includes("aspect-ratio:640/520"))
 assert.ok(!/<figcaption|>Next<|Pause the|Play the|biz-phone|biz-chrome/.test(biz))
@@ -186,8 +187,8 @@ assert.ok(/const select = useCallback\(\s*\(to: number\) => \{\s*setPlaying\(fal
 const pills = read(`${MOCKS}/pills.ts`)
 assert.ok(/height:44px/.test(pills), "44px tap targets")
 assert.ok(/\.smk-clock\{[^}]*opacity:0/.test(pills) && /\.smk-clock\[data-on\]\{animation:smk-clock 1s linear both paused\}/.test(pills))
-/* Changed on purpose (landing round 4): section 4 is back on the invisible clock behind its tabs; section 6 has no autoplay at all, the page's scroll steps through it. */
-for (const f of ["ideas-come-to-life.tsx"]) {
+// Changed on purpose (landing round 5): section 6 is back on the invisible clock too (the round 4 scroll pin is gone).
+for (const f of ["ideas-come-to-life.tsx", "business-carousel.tsx"]) {
   const s = read(`components/marketing/home/${f}`)
   assert.ok(s.includes("onAnimationEnd={t.advance}") && s.includes('className="smk-clock"') && s.includes("animation-play-state:running"))
   assert.ok(s.includes("prefers-reduced-motion:reduce"))
@@ -221,7 +222,7 @@ assert.deepEqual(brandImports, ["SiInstagram,SiTiktok,SiVimeo,SiYoutube"])
 assert.ok(!/\b(Shopify|Nike|Notion Labs|Figma Inc)\b/.test(source))
 
 /* A slide put away keeps the height it last drew (contain-intrinsic-block-size: auto, set on every slide since the browser only records the size while the rule is already there), so the business stage never shrinks when a shorter slide comes up (it scored a 0.02 layout shift on phones). */
-/* Changed on purpose (landing round 4): every page stays drawn in one grid cell (opacity only), so the stage never changes size between kinds. */
-assert.ok(read("components/marketing/home/business-carousel.tsx").includes('.biz-slide{grid-area:1/1;opacity:0;'))
+// Changed on purpose (landing round 5): the round 3 rule again, a page put away keeps its last height.
+assert.ok(read("components/marketing/home/business-carousel.tsx").includes('.biz-slide{grid-area:1/1;contain-intrinsic-block-size:auto 0px;'))
 
 console.log("home-w12-showcase: ok")

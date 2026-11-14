@@ -1431,6 +1431,16 @@ const SUITES = [
   "tests/home-landing-topb4.test.ts",
   /* Landing round 4 (frame): sheets rise like a phone's sheet (a small side inset settling to full width, the held block behind shrinking a little and dimming), CSS scroll-driven, transform and opacity only, off for reduced motion; Make the work on a flat ground, not a drawer; the globe's pill glides on the compositor a few times a second and its move path reads no layout; the app and the closing call on a dark close with no seam into the footer; a calmer FAQ with a neutral plus and grid-row opening; a small dot grid background. */
   "tests/home-landing-frame4.test.ts",
+  /* Landing round 5 (top): the showcase is the browser's own snapping scroller on a touch screen or phone width (autoplay steps aside for a touch and comes back), its cards bigger and cut a little by the section's bottom edge; Make the work's new heading, no support labels, a Pilates course and a plain LUT pack cover; the globe's order notification stands in one place and only fades in and out, the globe capped at 60fps and 2x (1.5x on a low end phone) and a finger takes it only sideways. */
+  "tests/home-landing-r5-top.test.ts",
+  /* Landing round 5, middle: One store for everything you sell as it was before (no scroll pin, the clock, the grey stage); Ideas behind plain tabs with a candle studio's store and a paid strength coaching community; How it works without the cap, a bold drawn product sheet, calm grey and dark grounds, a simple dark domain card. */
+  "tests/home-landing-r5-middle.test.ts",
+  /* Landing round 5, checkout: the phone shows the real instant checkout (393px wide, scaled whole), there from the start and sliding up once, held by sticky while the tab cards come up over it, no orbit or scroll timelines; tab cards again, not pills; Built to convert's desktop window whole on any screen; The Loop in place of After Dark. */
+  "tests/home-landing-r5-checkout.test.ts",
+  /* Landing round 5, lower: a short audience section with one Contacts picture and nothing moving; the AI terminal alone again; white report pills, a quieter SEO grid and the earlier engine switcher with one quiet turning light; physical and digital products on the map, no Example pill; earnings kinds as even tiles; a canvas dot field whose light follows the mouse, paused off screen. */
+  "tests/home-landing-r5-lower.test.ts",
+  /* Landing round 5 (frame): plain rounded sheets that lap over the block before by their corner, nothing held, no scroll-driven motion, the cover watch gone; the header keeps one height and its Start now / Sign up fades in once the hero's buttons have gone under it. */
+  "tests/home-landing-r5-frame.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

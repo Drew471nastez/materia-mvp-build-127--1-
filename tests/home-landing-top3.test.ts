@@ -94,19 +94,21 @@ check("the strip still drifts in one loop, by one set's width", /el\.animate\(\[
 
 console.log("\n── Support: three requests, none about missing money ──")
 /* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2 (one thread at a time, photos and Storelib's mark), without the From buyers / Storelib switch. Three true requests still take turns, none about money. */
-const supportWords = EVERYTHING_SUPPORT.map((r) => [r.title, r.sub, r.ask, r.reply].join(" ")).join(" ")
+const supportWords = EVERYTHING_SUPPORT.map((r) => [r.sub, r.ask, r.reply].join(" ")).join(" ")
 check("three requests taking turns", EVERYTHING_SUPPORT.length === 3 && (everything.match(/class="ev-c-thread ev-loop"/g) ?? []).length === 3)
 check("no request about a payout or a bank", !/payout|bank|hasn't arrived|\$\d/i.test(supportWords), supportWords.match(/payout|bank|\$\d[\d,.]*/gi))
-check("the first request is Storelib's, about bringing subscribers over", EVERYTHING_SUPPORT[0].title === "Storelib support" && /subscribers/i.test(EVERYTHING_SUPPORT[0].sub) && /CSV/.test(EVERYTHING_SUPPORT[0].reply))
-check("a buyer's request is there too", EVERYTHING_SUPPORT.some((r) => r.title === "From a buyer"))
+/* Changed on purpose (landing round 5): no "Storelib support" / "From a buyer" labels over the threads (the owner); Storelib answers with its mark (replyAv null), the creator answers a buyer with their photo. */
+check("the first request is to support, about bringing subscribers over", EVERYTHING_SUPPORT[0].replyAv === null && /subscribers/i.test(EVERYTHING_SUPPORT[0].sub) && /CSV/.test(EVERYTHING_SUPPORT[0].reply))
+check("a buyer's request is there too", EVERYTHING_SUPPORT.some((r) => r.replyAv !== null))
 
 console.log("\n── The digital product is a real one ──")
 const digital = EVERYTHING_SLIDES.find((s) => s.tab === "Digital")
 check("it is a LUT pack, named like one", digital?.name === "Cine Tones, 12 LUTs" && digital.kind === "luts")
 check("its numbers add up", digital?.stats.map(([, v]) => v).join() === "$29.00,386,$11,194.00" && 29 * 386 === 11194)
-check("drawn as the pack: a frame split flat and graded, the looks, the file", /class="ev-lut-flat"/.test(everything) && (everything.match(/class="ev-lut-look ev-lut-/g) ?? []).length === 5 && everything.includes("CT_04_Dusk.cube"))
+/* Changed on purpose (landing round 5): the owner found the pack's panel "too complex and non realistic"; it is the cover a seller uploads, one photo split flat and graded with the pack's name (tests/home-landing-r5-top). */
+check("drawn as the pack's cover: one photo split flat and graded, its name", /class="ev-lut-flat"/.test(everything) && !/ev-lut-look/.test(everything) && !everything.includes("CT_04_Dusk.cube"))
 check("no book cover and no guide left in the product card", !/ev-p-book|ev-p-guide|Sourdough at Home<\/p>|page guide/i.test(everything) && !existsSync(join(root, "public/home/everything/guide-bread.webp")))
-check("its one photo exists and is small", existsSync(join(root, "public/home/everything/lut-frame.webp")) && statSync(join(root, "public/home/everything/lut-frame.webp")).size < 40_000)
+check("its one photo exists and is small", existsSync(join(root, "public/home/everything/lut-cover.webp")) && statSync(join(root, "public/home/everything/lut-cover.webp")).size < 40_000)
 const pack = renderToStaticMarkup(createElement(TemplatePage))
 /* Changed on purpose (landing round 4, the owner did not like Dust & Tape Drums): a Notion template, drawn in HTML. */
 check("the business section's digital product is a template drawn in HTML, with no photograph", BUSINESS_SLIDES[0].id === "digital" && pack.includes("Studio OS for Notion") && !/<img/.test(pack))
@@ -116,8 +118,9 @@ console.log("\n── Tabs of one family (the tabs of Make the work) ──")
 const family = (r: string) => /height:30px/.test(r) && /padding:0 13px/.test(r) && /border-radius:999px/.test(r) && /color:#55525c/.test(r) && /font-size:13px/.test(r) && /font-weight:500/.test(r)
 check("Make the work's tab is the reference", family(rule(evCss, ".ev-tab")) && /\.ev-tab\[data-on\]\{color:#18181b\}/.test(evCss) && /\.ev-tab::before\{[^}]*background:#fff/.test(evCss))
 /* Changed on purpose (landing round 4): real tabs (aria-selected) above the picture. */
-check("ideas: tabs in place of the dots, the same pill", family(rule(src.ideas, ".ideas-tab")) && /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(src.ideas) && /\.ideas-tab::before\{[^}]*background:#fff/.test(src.ideas) && !/ideas-dot/.test(src.ideas))
-check("ideas: a grey pill track", /\.ideas-tabs\{[^}]*padding:4px;border-radius:999px;background:#f1f1f2/.test(src.ideas))
+// Changed on purpose (landing round 5): the owner wants the ideas tabs "not as pill shapes": words on a hairline, the chosen one dark with a rule under it.
+check("ideas: tabs in place of the dots, the chosen one dark", /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(src.ideas) && !/ideas-dot/.test(src.ideas))
+check("ideas: no pill track", !/\.ideas-tabs\{[^}]*border-radius:999px/.test(src.ideas) && !/\.ideas-tab\{[^}]*border-radius:999px/.test(src.ideas))
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 check("ideas: one tab an editor, each named in full", (ideas.match(/class="ideas-tab"/g) ?? []).length === IDEAS_TABS.length && IDEAS_TABS.every((s) => ideas.includes(`<span>${s.title}</span>`)))
 check("business, on a phone: the same pill row", /@media\(max-width:899px\)\{[\s\S]*\.biz-kind-s\{[^}]*height:30px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:500/.test(src.business) && /\.biz-kind\[aria-selected="true"\] \.biz-kind-s\{background:#fff\}/.test(src.business))
@@ -131,7 +134,8 @@ check("no icons and no coloured chips in the tabs", !/<svg|<img/.test(tabs) && !
 console.log("\n── One store for everything you sell, on white ──")
 check("dark text on white by itself", /\.biz\{position:relative;background:#fff;color:#18181b\}/.test(src.business) && !/band-ink|band-muted/.test(src.business))
 /* Changed on purpose (landing round 4, the owner: colourful grounds behind the products): each page a white card on its own soft gradient, on the white sheet. */
-check("each page a white card on its own coloured ground", /\.bp-card\{[^}]*background:#fff/.test(src.pages) && /\.bp-cap\{background:linear-gradient/.test(src.pages))
+// Changed on purpose (landing round 5): "how it was before": the light grey stage of round 3, no coloured grounds.
+check("each page a white card on the light grey stage", /\.bp-card\{[^}]*background:#fff/.test(src.pages) && /\.bp\{[^}]*background:#eef0f2/.test(src.pages) && !/linear-gradient\(1[45]0deg/.test(src.pages))
 check("the page in the stage is a picture: no pointer, no selection, nothing that takes focus", /\.biz-stage \.smk\{pointer-events:none;user-select:none/.test(src.business) && !/<(a|button|input)\b/.test(biz.slice(biz.indexOf('class="biz-stage"'))))
 check("the editors' previews take no pointer either", /\.ideas-mock\{[^}]*pointer-events:none/.test(src.ideas))
 check("no hover style inside any mock", !/:hover/.test(src.pages) && !/:hover/.test(read("components/marketing/home/showcase-mocks/builder-mocks.tsx")))
@@ -147,7 +151,7 @@ const storeProducts = EVERYTHING_STORES.flatMap((s) => s.products)
 check("the stores sell both kinds", storeProducts.some((p) => p.badge === "Physical") && storeProducts.some((p) => p.badge === "Digital") && storeProducts.some((p) => p.badge === "Course") && storeProducts.some((p) => p.badge === "Community"))
 
 console.log("\n── The words ──")
-const words = [EVERYTHING_SUPPORT.map((r) => `${r.title} ${r.ask} ${r.reply}`).join(" "), BUSINESS_SLIDES.map((s) => `${s.label} ${s.line} ${s.alt}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
+const words = [EVERYTHING_SUPPORT.map((r) => `${r.sub} ${r.ask} ${r.reply}`).join(" "), BUSINESS_SLIDES.map((s) => `${s.label} ${s.line} ${s.alt}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
 check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|passive income|fans?)\b/i.test(words))
 
 console.log(`\n${passed} passed, ${failed} failed`)
