@@ -167,7 +167,9 @@ export async function saveOwnTrackingAccount(db: Db, creatorId: string, body: Re
 
 /** The seller changed a shipment's number: it is registered and read again on the next run. Quiet before part 160. */
 export async function trackingNumberChanged(db: Db, fulfillmentId: string): Promise<void> {
-  await db.from("fulfillments").update({ tracking_next_check_at: null, tracking_stopped_at: null, tracking_failures: 0, tracking_error: null }).eq("id", fulfillmentId)
+  /* The old number's carrier state goes with it: kept, the new number's first state was compared against it and never applied, so a parcel already delivered stayed "in transit" for good. */
+  const cleared = await db.from("fulfillments").update({ tracking_next_check_at: null, tracking_stopped_at: null, tracking_failures: 0, tracking_error: null, tracking_status: null }).eq("id", fulfillmentId)
+  if (cleared?.error) await db.from("fulfillments").update({ tracking_next_check_at: null, tracking_stopped_at: null, tracking_failures: 0, tracking_error: null }).eq("id", fulfillmentId)
 }
 
 /** Pause or resume automatic updates on one shipment; the seller's own statuses always work. */

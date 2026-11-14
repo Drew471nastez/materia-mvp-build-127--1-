@@ -48,7 +48,9 @@ console.log("\nStates come from the store, never a guess\n")
 {
   const none = appStatesFrom(unknown)
   check("a read that failed shows nothing", ["storelib-payments", "storelib-taxes", "storelib-domain", "storelib-discounts", "storelib-reviews", "storelib-email-marketing"].every((id) => none[id] === null))
-  check("  only what is on for every store says On by itself (customer emails, analytics, tracking)", Object.entries(none).filter(([, v]) => v === "on").map(([k]) => k).sort().join() === "courier-tracking,storelib-analytics,storelib-customer-emails")
+  /* Changed on purpose (round AW): Courier tracking is On only while something follows the parcels (Storelib's tracking key set, or the store's own account); unread, it says nothing. */
+  check("  only what is on for every store says On by itself (customer emails, analytics)", Object.entries(none).filter(([, v]) => v === "on").map(([k]) => k).sort().join() === "storelib-analytics,storelib-customer-emails")
+  check("  Courier tracking follows whether parcels are followed", none["courier-tracking"] === null && appStatesFrom({ ...unknown, trackingOn: true })["courier-tracking"] === "on" && appStatesFrom({ ...unknown, trackingOn: false })["courier-tracking"] === "setup")
   const s = appStatesFrom({ ...unknown, paymentsReady: true, taxRegions: 0, coupons: 3, reviewsOn: false, abandonedRecovery: false, requireAccount: true, shippingRates: 0, pickupOrLocal: 1, domainLive: false })
   check("ready is On, nothing yet is Set up, a switch turned off is Off", s["storelib-payments"] === "on" && s["storelib-taxes"] === "setup" && s["storelib-discounts"] === "on" && s["storelib-reviews"] === "off" && s["storelib-checkout-reminders"] === "off" && s["storelib-accounts"] === "on" && s["storelib-domain"] === "setup")
   check("  shipping counts local pickup or delivery as a way to get it there", s["storelib-shipping"] === "on" && s["storelib-pickup"] === "on")

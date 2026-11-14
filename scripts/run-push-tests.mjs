@@ -28,8 +28,14 @@ execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inhe
 execFileSync(process.execPath, ["scripts/check-unbound-names.mjs"], { stdio: "inherit" })
 
 const SUITES = [
+  /* Round AW: a label purchase with no answer (a timeout, a dropped connection, "still making it") is settled with Shippo or EasyPost before its claim is touched, so a paid label is never lost and never bought twice; a parcel for another country carries a customs declaration made from the order (value paid, weight as sold, the product's origin and HS code), with what is missing said and never filled in; Print label reads the label from the provider each time (Shippo's address expires); a carrier's price in the checkout's own minor units. */
+  "tests/labels-safe-aw.test.ts",
+  /* Round AW: what the commerce audit found, held in place: a refund that settles late restates the order and tells the buyer, one refund email per press, a receipt that did not go is tried again, a paid basket is never dropped on a Stripe read failure, Cash out's lock undone, a Stripe customer reused only for the member's own row, a guest membership found only by a proven address, members' files not downloads, another store's collection not rewritten, plans not sold through the basket, one stock hold per option and place, the paid race, cancelled orders not sent to partners, "keep it" returns, packing slips, ShipStation's hosts, one purchase id. */
+  "tests/commerce-aw.test.ts",
   /* Round AU: the unbound-name gate reads a tsc log right (scripts/check-unbound-names.mjs) and the two crashes it found are fixed. */
   "tests/unbound-names-au.test.ts",
+  /* Round AW: a timer the instance slept through is asked again (the false "no answer in 3000ms"); a new AI website is counted as one however it is asked for; a handed over business drops the founder's Google Calendar; a booking form prices its own store's product only */
+  "tests/platform-reliability-aw.test.ts",
   /* Round AV: a seller Stripe has not approved transfers-only accounts for is told why (not "try again"); a store's address answers from the last good lookup when the database is slow, not with a 500 */
   "tests/platform-issues-av.test.ts",
   /* Round AW (track B, paid calls): an email change's and an account deletion's codes counted where the route's own delete cannot erase them; the OnePage music and video lookups signed in, counted and on the service's own address only; Start with AI counted as a new website by the in-request build (only without the jobs table) and by Start over; the meta description model sent the start of a description; the decide route's model counted, the rules answering over the limit. */
@@ -518,14 +524,18 @@ const SUITES = [
   "tests/auth-arrival-r3.test.ts",
   /* Cinematic homepage: fixed first line, reserved rotating phrases, one deferred video, native signup. scripts/check-home-hero.mjs measures real SSR/hydration and media fallbacks. */
   "tests/home-hero.test.ts",
-  /* Wave 12, the home page's frame: the order and slots, Unlimited possibilities (three edge-to-edge rows), the closing call, the dark footer with the app badges, lazySection/LazySection. */
+  /* Wave 12, the home page's frame: the order and slots, Unlimited possibilities (two edge-to-edge rows since the landing round), the closing call, the dark footer with the app badges, lazySection/LazySection. */
   "tests/home-w12-frame.test.ts",
   /* Wave 12 showcase: nine branded examples in the build gallery, live builder previews (section 4) and the business carousel (section 6), with lazy local images and timer-free autoplay. */
   "tests/home-w12-showcase.test.ts",
-  /* W12 creators: section 7, the creators carousel (endless transform-only rail, bubble morph on hover/centre/tap, drag, reduced-motion grid) and the motion primitives in components/marketing/home/motion (morphing pill cluster, orbit badge, sale pop). */
+  /* Landing round: home sections 4 to 6 as the owner asked. The ideas heading flips with a carousel of the real editors (rail-motion: drag, swipe, autoplay off screen paused), the same drawing on a phone, the community page editor as it is; no florals, no Golden Hour presets, no fans; Unlimited possibilities in two rows; Every business, one home replaced by what a store sells, a list beside one product page. */
+  "tests/home-landing-ideas.test.ts",
+  /* W12 creators: section 7, the creators carousel (endless transform-only rail, drag, reduced-motion grid). */
   "tests/home-w12-creators.test.ts",
   /* Wave 12, commerce: the home page's How it works tiles and profit picker, the checkout scroll scene, the dotted world map and the earnings calculator (components/marketing/home). Fees from lib/payments/fees, Pro's price from lib/billing/plans, server rendered roles and copy, reduced motion, compositor-only motion, local webp under budget. */
   "tests/home-w12-commerce.test.ts",
+  /* Landing round, creators builder: the creators rail (no hover bump, the card's foot as before, no sale notifications, new photographs), How it works (less "fans", physical and digital products, the course player, no Golden Hour presets) and the checkout scene's scroll in steps set by an IntersectionObserver and played on the compositor. */
+  "tests/home-landing-creators.test.ts",
   /* Round 60: the showcase rail's motion as numbers: drag, flick, settle, wheel, loop, any frame rate. */
   "tests/rail-motion.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
@@ -1363,6 +1373,10 @@ const SUITES = [
   "tests/chrome-kit-p4.test.ts",
   /* Round Q (Q1): the chrome platform. Currency labels by currency (never a market's name), once each, languages in their own words, a dropdown switch with no script; a header's box sticks when it asks (data-storelib-sticky) with the scroll's state written on it; a menu drawer never empty (the site's menu or pages drawn in), the page still under it; the dark band's buttons in the site's own colours, no indigo fallback on a free site; icons by name; every field with a label and a placeholder. Real Chromium. */
   "tests/chrome-platform-q1.test.ts",
+  /* A cart, search window or menu drawer of the site's own (sections/own-panel-layer.ts): not drawn while shut, before any script too; open, a fixed one covers the screen exactly from inside a blurred, hide-on-the-way-down header, under old WebKit's containment, without the top layer and in the builder's canvas; the page behind holds still; nothing left behind when it shuts. Real Chromium. */
+  "tests/own-panel-layer.test.ts",
+  /* An inline native form takes the colours of the section it stands in (lib/website-builder/form-islands.ts formSurfaceVars): a booking form on a dark band read 1.1:1, every text now 4.5:1 or better on dark, light and coloured bands; a section naming its own --sheet-ink is left alone. Real Chromium. */
+  "tests/form-surface.test.ts",
   /* Round O (O4): the rendered visual critic (lib/ai-builder/visual-critic). The draft drawn from the job's own project with no script in it (stripped, CSP), photographed in REAL Chromium at 1440 and 390 with JavaScript disabled (proven: a page script that would hide its overflow never runs) and a fenced network; measured (sideways scroll at 390, a dead call to action in the first screen and unreadable contrast are hard gates; heading wrap, tap targets, broken or missing pictures, no CTA, instructions to the creator printed in the page); a scripted vision model reviews 4 pictures per page on spec 8.2's seven axes with a bounded JSON repair retry; in the agent loop the defects come back as numbered repair tasks naming the file, two reviews at most, the review's spend in the job's spend, a gate that stays ends partial, and no browser is "Not visually checked", never a pass. Without Chromium the browser sections say so and skip. */
   "tests/ai-visual-critic-o4.test.ts",
   /* Round P (P5): the website agent's own quality. A placement with no blocks gets its schema's filled preset items (fresh ids); a section whose item types have no filled preset is refused at write; finish refuses too few items (min_blocks, 3 for a repeating list, fewer when the store has fewer), placeholder items and copies; template first with a scripted model and a stub template (applied in the brief phase, its components as few-shot, untouched copy and imagery refused, adapting clears it); every picture slot filled when pictures can be made, text-forward otherwise, an empty frame refused; the critic's hard gates for empty slots, empty item lists, empty sections and an empty <img>; models by phase (plan, build on opus high, repair on sonnet) and the cost estimate inside the raised cap. */
@@ -1371,6 +1385,12 @@ const SUITES = [
   "tests/home-w12-platform.test.ts",
   /* Wave 13: home section 3 rebuilt as the owner's 2 x 2 grid (Make the work. Skip the busywork.): four cards, captions in two tones, product slides whose light changes, the draggable order globe in checkout's currencies, storefronts and support; loops paused off screen, its box's height. */
   "tests/home-w13-everything.test.ts",
+  /* Landing round, the lower sections: audience with real faces and the header's logo, analytics smaller with a dark globe card and SEO · GEO · AEO, the map without "fans" and with an English Buy now everywhere, integrations in two rows that never show a tile twice, crisp marks, no light under the pointer. */
+  "tests/home-landing-lower.test.ts",
+  /* Landing round: the showcase drags and settles on a glide (autoplay kept), and "Make the work" shows real products (no Golden Hour preset), a calm community, the tee on a grey tile and a continuous storefront rail. */
+  "tests/home-landing-top.test.ts",
+  /* Landing round (rest): See what you could earn gets one flash photograph and loses its small print; the app's line is short; the public plan cards say plain things, each from the plan tables, with a quiet tick; Your AI tools work here too: the marks, a line true to a connection, the real MCP tools in a terminal on the compositor, paused off screen, still under reduced motion, after the integrations. */
+  "tests/home-landing-rest.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
@@ -1493,6 +1513,8 @@ const STRICT_SUITES = [
   "tests/legal-and-onepage-settings-r40.test.ts",
   /* Round 41: a OnePage's button edges (the fill stops inside the border), X posts at their card's width and corners, social icons that do not grow, Share as it was with the creator's photo and Subscribe with it, neither touching the page's scrollbar; three choices for a product tap, the sheet's own button, option and quantity before paying; a new profile video with no gap. scripts/check-onepage-r41.mjs measures them. */
   "tests/onepage-public-r41.test.ts",
+  /* The OnePage production audit (ONEPAGE_PRODUCTION_AUDIT.md): each fixed finding pinned through pure functions, the real routes over tests/_journey, or the component's source. Strict: it drives the routes through tests/_journey. */
+  "tests/onepage-production-audit.test.ts",
   /* Round 43: the OnePage product sheet chosen as the product page chooses (swatches, image swatches, sizes, a variant's picture, the sale badge, the price on the button, personalization on the cart line), the email signup's Connect, Personal note and Bar, product tiles paired in a group, the layout pickers in the page's colours. scripts/check-onepage-r43.mjs measures them. */
   "tests/onepage-r43-blocks.test.ts",
   /* Round 53: the product sheet's dots ride the scroll, 4:5 on a phone, themed arrows and question lines, videos in the gallery and full screen; scripts/check-product-sheet-r53.mjs measures it frame by frame. */

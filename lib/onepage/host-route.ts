@@ -135,6 +135,23 @@ export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string
   /* The contact form block (lib/website-builder/contact-client.ts). */
   { path: /^\/api\/website-builder\/contact\/?$/, methods: ["POST"] },
   /*
+    THE BLOCKS A VISITOR ANSWERS ON THE LIVE PAGE. A poll (its tally and a
+    vote, components/onepage/data-blocks.tsx), an event's RSVP, a paid block
+    asking whether this browser bought it, a tip and its confirmation
+    (components/onepage/tip-block.tsx, whose route already sends Stripe back
+    to storelib.me), and a lead magnet's download or code
+    (components/onepage/storelib-blocks.tsx). Each is a guest route that reads
+    no session, so none of them reaches an account from this host. Left off
+    this list they answered 404 here: every one worked in the editor's
+    preview on storelib.com and failed on the page visitors actually see.
+  */
+  { path: /^\/api\/onepage\/poll\/?$/, methods: ["GET", "POST"] },
+  { path: /^\/api\/onepage\/rsvp\/?$/, methods: ["POST"] },
+  { path: /^\/api\/onepage\/access\/?$/, methods: ["POST"] },
+  { path: /^\/api\/onepage\/tip\/?$/, methods: ["POST"] },
+  { path: /^\/api\/onepage\/email-capture\/?$/, methods: ["POST"] },
+  { path: /^\/api\/onepage\/lead-magnet\/?$/, methods: ["POST"] },
+  /*
     The platform's switches (lib/platform/use-flags.ts), which the root layout's
     header asks for on every page, the OnePage included: a 404 on every view of
     storelib.me (round 11). The same answer for everybody, asked without

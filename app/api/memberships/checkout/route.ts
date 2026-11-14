@@ -16,6 +16,7 @@ import { buyerCustomer, buyerMessageFor, createSubscription, ensurePrice, intent
 import { syncSubscription } from "@/lib/memberships/sync"
 import { grantsAccess, type BillingInterval } from "@/lib/memberships/state"
 import { MEMBERSHIP_COLUMNS, NOT_SET_UP, PLAN_COLUMNS, UUID, ownerFilter, tableMissing, type MembershipRow, type PlanRow } from "@/lib/memberships/server"
+import { provenViewer } from "@/lib/memberships/viewer"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
@@ -124,7 +125,9 @@ export async function POST(request: Request) {
   */
   const rows: MembershipRow[] = []
   if (user) {
-    const owner = ownerFilter({ id: user.id, email: (user.email ?? "").toLowerCase() || null, emailConfirmed: !!user.email_confirmed_at })
+    /* By its address only when this account proved it (lib/memberships/viewer.ts provenViewer). */
+    const proven = await provenViewer({ id: user.id, email: (user.email ?? "").toLowerCase() || null, emailConfirmed: !!user.email_confirmed_at }, admin)
+    const owner = ownerFilter(proven!)
     const { data: history } = await admin.from("memberships").select(MEMBERSHIP_COLUMNS).eq("product_id", productId).or(owner).order("created_at", { ascending: false }).limit(20)
     rows.push(...((history as MembershipRow[] | null) ?? []))
   } else if (typeof body.previousMembershipId === "string" && UUID.test(body.previousMembershipId)) {

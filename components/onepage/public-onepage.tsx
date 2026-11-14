@@ -124,6 +124,8 @@ import { OnePageShareSheet } from "@/components/onepage/share-sheet"
 import { emailSignupImage, emailSignupLayout, emailSignupStacked, signupEmailReady } from "@/lib/onepage/email-signup"
 import { pixelLead } from "@/lib/analytics/pixels"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
+import { openableUrl } from "@/lib/onepage/safe-urls"
+import { linkHref } from "@/lib/onepage/public-shape"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -2998,11 +3000,13 @@ function CoreBlockRenderer({
             >
               {data.show_name !== false &&
                 ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
+                  /* The verified badge beside a logo too (the OnePage production audit, D2): it was drawn only inside the text name, so a paid badge vanished on every logo page. */
+                  <span className="inline-flex max-w-full items-center justify-center gap-1.5" data-logo-title="">
                   <img
                     src={onePageImageSrc((theme as any).title_logo_url, 320) || "/placeholder.svg"}
                     alt={profile.title || "Logo"}
                     data-op-bar-anchor=""
-                    className="mx-auto w-auto"
+                    className="mx-auto w-auto min-w-0"
                     style={{
                       maxHeight:
                         (theme as any).title_size === "large"
@@ -3025,10 +3029,14 @@ function CoreBlockRenderer({
                       marginTop: (theme as any).logo_position === "more_up" ? "-10px" : undefined,
                     }}
                   />
+                  {settings?.verified_badge_enabled && (
+                    <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} />
+                  )}
+                  </span>
                 ) : (
                   profile.title && (
                     <h1
-                      className={cn("font-bold inline-flex items-center justify-center", titleSizeClass(theme as never, true, isDesktop))}
+                      className={cn("font-bold inline-flex max-w-full min-w-0 items-center justify-center [overflow-wrap:anywhere]", titleSizeClass(theme as never, true, isDesktop))}
                       style={{
                         color: (theme as any).title_color || theme.text_color,
                         fontFamily: fontStack((theme as any).title_font || theme.font_family),
@@ -3048,7 +3056,7 @@ function CoreBlockRenderer({
                 ))}
               {data.show_bio !== false && profile.bio && (
                 <p
-                  className={cn("mt-2 max-w-sm mx-auto", bioSizeClass(theme as never, true, isDesktop))}
+                  className={cn("mt-2 max-w-sm mx-auto [overflow-wrap:anywhere]", bioSizeClass(theme as never, true, isDesktop))}
                   style={{
                     color: theme.secondary_text_color || theme.text_color,
                     textShadow: `0 1px 10px ${halo}`,
@@ -3259,11 +3267,12 @@ function CoreBlockRenderer({
           )}
           {data.show_name !== false &&
             ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
+              <span className="inline-flex max-w-full items-center justify-center gap-1.5" data-logo-title="">
               <img
                 src={onePageImageSrc((theme as any).title_logo_url, 320) || "/placeholder.svg"}
                 alt={profile.title || "Logo"}
                 data-op-bar-anchor=""
-                className="mx-auto w-auto my-2"
+                className="mx-auto w-auto my-2 min-w-0"
                 style={{
                   maxHeight:
                     (theme as any).title_size === "large" ? (isDesktop ? "76px" : "65px") : isDesktop ? "65px" : "56px",
@@ -3279,10 +3288,14 @@ function CoreBlockRenderer({
                   marginTop: (theme as any).logo_position === "more_up" ? "-5px" : undefined,
                 }}
               />
+              {settings?.verified_badge_enabled && (
+                <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} />
+              )}
+              </span>
             ) : (
               profile.title && (
                 <h1
-                  className={cn("font-bold text-center inline-flex items-center justify-center", titleSizeClass(theme as never, false, isDesktop))}
+                  className={cn("font-bold text-center inline-flex max-w-full min-w-0 items-center justify-center [overflow-wrap:anywhere]", titleSizeClass(theme as never, false, isDesktop))}
                   style={{
                     color: (theme as any).title_color || theme.text_color,
                     fontFamily: fontStack((theme as any).title_font || theme.font_family),
@@ -3301,7 +3314,7 @@ function CoreBlockRenderer({
             ))}
           {data.show_bio !== false && profile.bio && (
             <p
-              className={cn("text-center leading-relaxed max-w-sm mx-auto", bioSizeClass(theme as never, false, isDesktop))}
+              className={cn("text-center leading-relaxed max-w-sm mx-auto [overflow-wrap:anywhere]", bioSizeClass(theme as never, false, isDesktop))}
               style={{ color: theme.secondary_text_color || `${theme.text_color}cc`, ...bioTypeStyle(theme as never) }}
             >
               {profile.bio}
@@ -4347,46 +4360,13 @@ function CoreBlockRenderer({
       }
 
       // Check if user has exceeded subscription limit (3 per device in 3 days)
-      const checkSubscriptionLimit = (): boolean => {
-        const rateLimitKey = `onepage_subscription_limit`
-        const threeDaysMs = 3 * 24 * 60 * 60 * 1000
-        try {
-          const stored = localStorage.getItem(rateLimitKey)
-          if (stored) {
-            const data = JSON.parse(stored)
-            const now = Date.now()
-            // Filter out entries older than 3 days
-            const recentAttempts = (data.attempts || []).filter((timestamp: number) => now - timestamp < threeDaysMs)
-            if (recentAttempts.length >= 3) {
-              return false // Limit exceeded
-            }
-          }
-          return true // Within limit
-        } catch {
-          return true // Default to allowing if localStorage fails
-        }
-      }
-
-      // Record a subscription attempt
-      const recordSubscriptionAttempt = () => {
-        const rateLimitKey = `onepage_subscription_limit`
-        const threeDaysMs = 3 * 24 * 60 * 60 * 1000
-        try {
-          const stored = localStorage.getItem(rateLimitKey)
-          const now = Date.now()
-          let attempts: number[] = []
-          if (stored) {
-            const data = JSON.parse(stored)
-            // Keep only recent attempts (within 3 days)
-            attempts = (data.attempts || []).filter((timestamp: number) => now - timestamp < threeDaysMs)
-          }
-          attempts.push(now)
-          localStorage.setItem(rateLimitKey, JSON.stringify({ attempts }))
-        } catch {
-          // Ignore localStorage errors
-        }
-      }
-
+      /*
+        NO LIMIT PER DEVICE ACROSS EVERY PAGE. A count kept in this browser
+        under one key for every OnePage (they all share storelib.me) stopped a
+        fourth signup on any creator's page for three days, with an alert, after
+        a visitor joined three others. The route limits by address and by the
+        email being signed up (app/api/onepage/leads, lib/api/rate-limit).
+      */
       const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (isSubmitting || emailSubmitted) return
@@ -4398,12 +4378,6 @@ function CoreBlockRenderer({
         if (!signupEmailReady(email)) {
           setLeadError(tt("Enter a valid email address."))
           ;(e.currentTarget as HTMLFormElement | null)?.querySelector<HTMLInputElement>("input[type=email]")?.focus({ preventScroll: true })
-          return
-        }
-
-        // Check subscription rate limit
-        if (!checkSubscriptionLimit()) {
-          alert("You've reached the maximum number of subscriptions from this device. Please try again in 3 days.")
           return
         }
 
@@ -4430,21 +4404,19 @@ function CoreBlockRenderer({
               block_id: block.id,
               lead_magnet_id: data.lead_magnet_id,
               enable_digital_product: data.enable_digital_product,
-              digital_product_file_url: data.digital_product_file_url,
               digital_product_title: data.digital_product_title,
               /* Where this visit came from, for the contact's source (lib/attribution). */
               origin: pageOrigin(),
             }),
           })
-          const result = await response.json()
+          /* A gateway's HTML error page is a failure said as one, not a throw that only reaches the console. */
+          const result = await response.json().catch(() => ({}))
           if (response.ok) {
             setEmailSubmitted(true)
             /* Round 41: the store's pixels hear the signup (Meta Lead, TikTok SubmitForm, GA4 generate_lead), by the lead's own id. */
             pixelLead(window, { form: "signup", eventId: typeof result?.lead_id === "string" ? result.lead_id : null })
-            // Record the subscription attempt for rate limiting
-            recordSubscriptionAttempt()
-            /* The server's link: the block's own upload, or a link to the product the block gives (round AR), read from the published page. */
-            const given = typeof result?.downloadLink === "string" && result.downloadLink ? result.downloadLink : data.enable_digital_product && data.digital_product_file_url ? data.digital_product_file_url : null
+            /* The server's link only: the block's own upload, or a link to the product the block gives (round AR), read from the published page. The page itself no longer holds the file's address (lib/onepage/paid-access withoutLocked). */
+            const given = typeof result?.downloadLink === "string" && result.downloadLink ? result.downloadLink : null
             if (given) setDownloadLink(given)
             // Save subscription state to localStorage for persistence
             const storageKey = `onepage_subscribed_${onepageId}_${block.id}`
@@ -4463,6 +4435,8 @@ function CoreBlockRenderer({
           }
         } catch (error) {
           console.error("Submit error:", error)
+          /* No connection, or an answer cut off: said under the form, so the visitor knows to try again. */
+          setLeadError(tt("That did not go through. Try again."))
         } finally {
           setIsSubmitting(false)
         }
@@ -4961,7 +4935,9 @@ function CoreBlockRenderer({
         trackClick(block.id, pdfUrl)
         if (interaction === "direct" || !pageSheet.available) {
           if (isOnePagePreview()) return showPreviewNotice("link")
-          window.open(pdfUrl, '_blank', 'noopener')
+          /* Only an http(s) address or a path here is opened: never a javascript: one (lib/onepage/safe-urls). */
+          const target = openableUrl(pdfUrl)
+          if (target) window.open(target, '_blank', 'noopener')
           return
         }
         pageSheet.open({
@@ -5165,7 +5141,9 @@ function CoreBlockRenderer({
         trackClick(block.id, pdfUrl)
         if (interaction === "direct" || !pageSheet.available) {
           if (isOnePagePreview()) return showPreviewNotice("link")
-          window.open(pdfUrl, '_blank', 'noopener')
+          /* Only an http(s) address or a path here is opened: never a javascript: one (lib/onepage/safe-urls). */
+          const target = openableUrl(pdfUrl)
+          if (target) window.open(target, '_blank', 'noopener')
           return
         }
         pageSheet.open({
@@ -5316,7 +5294,8 @@ function CoreBlockRenderer({
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
       /* A Calendly or a Cal.com page (lib/onepage/creator-blocks bookingSource), on https; anything older is drawn as it was saved. */
-      const calendlyUrl = bookingSource(data.calendly_url)?.url ?? data.calendly_url
+      /* An older booking page that is neither still opens, but only as an http(s) address: never javascript: (lib/onepage/safe-urls). */
+      const calendlyUrl = bookingSource(data.calendly_url)?.url ?? openableUrl(linkHref(data.calendly_url))
 
       // Button styles for Calendly block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -5368,7 +5347,7 @@ function CoreBlockRenderer({
         trackClick(block.id, calendlyUrl)
 
         if (interaction === "direct" || !blockSheet.available) {
-          window.open(calendlyUrl, '_blank')
+          window.open(calendlyUrl, '_blank', 'noopener')
           return
         }
         blockSheet.open({

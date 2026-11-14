@@ -166,7 +166,7 @@ section("The inline build carries on after a reload (no jobs table)")
 
   const route = code("app/api/website-builder/themes/[installId]/generate/route.ts")
   check("the route sends a checkpoint with every saved state, null once done", /type: "job", job: view, checkpoint: j\.step === "done" \? null : checkpointOf\(j\)/.test(route))
-  check("and still checks the caller owns the website before it trusts one", /if \(!site\.isOwner\) return/.test(route) && /withStoredCode\(fromCheckpoint\(job, body\.checkpoint\), installId\)/.test(route))
+  check("and still checks the caller owns the website before it trusts one", /if \(!site\.isOwner\) return/.test(route) && /fromCheckpoint\(job, body\.checkpoint as Record<string, unknown>\)/.test(route) && /withStoredCode\(carried, installId\)/.test(route))
   const hook = code("lib/website-builder/ai-site/use-generation.ts")
   check("the editor's follower keeps each checkpoint as it comes", /"checkpoint" in line[\s\S]{0,200}onCheckpoint\?\.\(line\.checkpoint \?\? null\)/.test(hook))
   check("and starts a cut short build from the kept one", /checkpoint\.current === null && source\.checkpoint\) checkpoint\.current = source\.checkpoint/.test(hook))

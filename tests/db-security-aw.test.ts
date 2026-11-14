@@ -185,10 +185,9 @@ async function addresses() {
   check("Eve's own name still finds Eve's own page", (await pageOf("eve")) === "op-eve-1")
   check("a page's own address is unchanged", (await pageOf("mara-lind")) === "op-mara" && (await pageOf("free-gift")) === "op-eve-1")
   const found = readCode("lib/onepage/address-lookup.ts")
-  check("  the lookup asks for the account's own pages by store, then by the login",
-    /published\(\)\.eq\("seller_id", creator\.id\)\.eq\("owner_id", accountId\)\.limit\(1\)\.maybeSingle\(\)/.test(found) &&
-      /published\(\)\.eq\("creator_id", creator\.id\)\.eq\("owner_id", accountId\)\.limit\(1\)\.maybeSingle\(\)/.test(found) &&
-      /published\(\)\.eq\("owner_id", accountId\)\.limit\(1\)\.maybeSingle\(\)/.test(found))
+  /* Changed on purpose (round AW merge): main's equivalent rule, the account's own page by the login alone; a page's store columns never find it. */
+  check("  the lookup asks for the account's own page by the login that owns it, never by the store a page names",
+    /published\(\)\.eq\("owner_id", accountId\)\.limit\(1\)\.maybeSingle\(\)/.test(found) && !/published\(\)\.eq\("(seller_id|creator_id)"/.test(found))
 }
 
 /* ───────────────────────────────────────────────────────────────────────── */

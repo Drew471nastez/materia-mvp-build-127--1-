@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { ownerStoreId } from "@/lib/onepage/page-store"
 import { NextRequest, NextResponse } from "next/server"
 import { collectFrom } from "@/lib/analytics/collect-route"
 import type { CollectOutcome } from "@/lib/analytics/collect"
@@ -30,14 +31,11 @@ import type { CollectOutcome } from "@/lib/analytics/collect"
 async function recordLinkClick(request: NextRequest, body: Record<string, unknown>): Promise<CollectOutcome | null> {
   try {
     const admin = createAdminClient()
-    const { data: page } = await admin.from("onepages").select("id, seller_id, creator_id, owner_id").eq("id", body.onepage_id).maybeSingle()
-    const row = page as { id: string; seller_id?: string | null; creator_id?: string | null; owner_id?: string | null } | null
+    /* A published page's click only, counted for its OWNER's store: never the row's own seller_id, which the owner can write (lib/onepage/page-store). */
+    const { data: page } = await admin.from("onepages").select("id, owner_id").eq("id", body.onepage_id).eq("status", "published").maybeSingle()
+    const row = page as { id: string; owner_id?: string | null } | null
     if (!row) return null
-    let creatorId = row.seller_id || row.creator_id || null
-    if (!creatorId && row.owner_id) {
-      const { data: creator } = await admin.from("creators").select("id").eq("user_id", row.owner_id).maybeSingle()
-      creatorId = (creator as { id?: string } | null)?.id ?? null
-    }
+    const creatorId = await ownerStoreId(admin, row.owner_id)
     if (!creatorId) return null
     return await collectFrom(
       request,
@@ -55,7 +53,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    /* A beacon whose body is not JSON (cut off, or not ours) is a bad request, not a server error in the logs. */
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== "object") return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     const { onepage_id, block_id, event_type } = body
 
     if (!onepage_id || !event_type) {

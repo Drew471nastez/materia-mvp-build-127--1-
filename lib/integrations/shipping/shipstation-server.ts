@@ -267,7 +267,8 @@ export async function applyShipments(db: Db, ctx: { creatorId: string; checkoutI
     const listed = (s.items ?? [])
       .map((i) => ({ orderId: checkoutIdOf(i.lineItemKey) ?? "", quantity: Math.min(i.quantity, open.get(checkoutIdOf(i.lineItemKey) ?? "") ?? 0) }))
       .filter((i) => i.orderId && i.quantity > 0)
-    const items = listed.length ? listed : [...open.entries()].map(([orderId, quantity]) => ({ orderId, quantity })).filter((i) => i.quantity > 0)
+    /* Every open item only when ShipStation named none. A shipment that names items already shipped (a second label for a lost parcel) ships nothing more: it used to mark the rest of the order shipped. */
+    const items = (s.items ?? []).length ? listed : [...open.entries()].map(([orderId, quantity]) => ({ orderId, quantity })).filter((i) => i.quantity > 0)
     if (items.length === 0) continue
     const r = await deps.fulfilItems(db, ctx.creatorId, ctx.checkoutId, { items, carrier: s.carrier, trackingNumber: s.trackingNumber, notifyBuyer: true, key: `shipstation:${s.shipmentId}`, partner: { provider: "shipstation", name: NAME } })
     if (r.ok) {

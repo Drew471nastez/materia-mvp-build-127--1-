@@ -3,25 +3,27 @@
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { StoryHeading } from "./story-heading"
 /*
-  TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 13).
-  The stores are drawn in the layout of a real Storelib creator store (the
-  newsletter bar, the cover, the round avatar, Home / Products / Communities
-  and the product cards, in the store's own colour scheme) and the
-  communities in the layout of a real Storelib community (the community card
-  and places, the space chips and feed, the next event and the leaderboard),
-  for fictional creators, with stock photography. The course page and three
-  OnePages are the shared showcase mocks (components/marketing/home/
-  showcase-mocks); Satori Studio is a real OnePage, storelib.me/satori-studio,
-  as a phone shows it.
+  TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 14 and
+  landing round 2, merged). Each group is a store or website, a OnePage and
+  a community, so every swipe shows all three things Storelib makes, for
+  fictional creators who sell what real Storelib creators sell. The stores
+  are drawn in the layout of a real Storelib creator store, the websites as
+  sites built on Storelib, the OnePages each in its own theme (Hemi Walker's
+  is the live OnePage captured at a phone's width), and the communities are
+  Storelib's own member frame and feed (components/community/member)
+  rendered with a fictional community's data and photographed at 2x.
+  Satori Studio is a real OnePage, storelib.me/satori-studio, as a phone
+  shows it. Photographs are Unsplash.
 
   EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
   pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
   card with no bars and nothing cropped. At one height they are 1.4545 and
   0.5114 wide, which is still 256fr 90fr 256fr.
 
-  THE CAPTION waits for a pointer to rest on the picture (a mouse or a pen:
-  hover and a fine pointer), then fades in; on a touch screen the pictures
-  stand on their own and the caption is read by assistive technology only.
+  THE CAPTION (three words at most, the owner) waits for a pointer to rest
+  on the picture (a mouse or a pen: hover and a fine pointer), then fades
+  in; on a touch screen the pictures stand on their own and the caption is
+  read by assistive technology only.
 */
 const wide = (brand: string, label: string, alt: string) => ({
   src: `/home/showcase/a-${brand}.webp`,
@@ -39,27 +41,27 @@ const portrait = (brand: string, label: string, alt: string) => ({
   width: 540,
   height: 1056,
 })
-/* The OnePage captions are three words at most (the owner, wave 13). */
+/* Every caption is three words at most (the owner, waves 13 and 14). */
 const GROUPS = [
   [
-    wide("neonmoth", "Sell merch people actually wear", "Neon Moth's Storelib store: a tour tee, a vinyl LP and a track set under a neon concert cover"),
+    wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates with dashboard previews"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
-    wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community with a critique post, a roll swap event and a leaderboard"),
+    wide("slowrise", "Run a community", "Slow Rise Bakers, a sourdough community on Storelib: a pinned poll for the December bake-along, a crumb shot question, the next live shaping session and the top contributors"),
   ],
   [
-    wide("mila", "Sell digital downloads", "Mila Draws' Storelib store with a gouache brush pack, a digital planner and texture scans"),
-    portrait("maya", "Links that sell", "Maya Okafor's OnePage with a marathon plan, run club and coaching links"),
-    wide("founders", "A members' club for founders", "Founders After Five, a community where a member shares a $10k MRR milestone"),
+    wide("hale", "Sell training programs", "Hale Strength, coach Marcus Hale's website with a lifter at the squat rack, a workout log and four strength programs"),
+    portrait("gia", "Sell your cookbook", "Gia Romano's OnePage with a pasta ebook, a fresh pasta class and her recipes"),
+    wide("pinchgrip", "Host meetups", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
   ],
   [
-    wide("bloom", "Teach what you know", "Brush & Bloom's watercolor course site with modules and reviews"),
-    portrait("lio", "Show your work", "Lio Tanaka's dark OnePage with photos, presets and print links"),
-    wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes and a live glaze night"),
+    wide("stillwater", "Run a membership", "Stillwater, a yoga membership website with a live Sunday class and new on-demand classes"),
+    portrait("hemi", "Sell coaching", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
+    wide("nightshift", "Build a club", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
-    wide("gridline", "Sell templates and kits", "Gridline Studio's Storelib store with workspace templates and a wireframe kit"),
-    portrait("priya", "All your links", "Sol & Sage's OnePage with a cookbook, recipes and a cooking class"),
-    wide("hollow", "Merch for the whole tour", "Hollow Pines' Storelib store with a hoodie, a tee and a cap under a forest cover"),
+    wide("lowtide", "Sell sample packs", "Lowtide's Storelib store: a producer's sample packs and drum kits under a recording studio cover"),
+    portrait("bea", "Fill your bookings", "Nails by Bea, a nail artist's OnePage with booking, her work and press-on sets"),
+    wide("shift", "Drop new merch", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
@@ -180,7 +182,7 @@ const CSS = `
 .build-showcase-track[data-rail-ready] .build-showcase-group {will-change:transform;backface-visibility:hidden}
 @media(max-width:767px){.build-showcase-track[data-rail-ready] .build-showcase-group{will-change:auto}.build-showcase-track[data-rail-ready] .build-showcase-slide{will-change:transform;backface-visibility:hidden}}
 .build-showcase-group {display:grid;grid-template-columns:256fr 90fr 256fr;gap:var(--showcase-gap);align-items:center;flex:0 0 100%;width:100%;padding:10px var(--landing-card-inset,14px);min-width:0;box-sizing:border-box}
-.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:1440/990;margin:0;border-radius:8px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
+.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:1440/990;margin:0;border-radius:7px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
 .build-showcase-slide[data-format="portrait"] {aspect-ratio:540/1056}
 .build-showcase-slide img {display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
 /*
@@ -203,6 +205,6 @@ const CSS = `
   quarters of the width) and the next peeking in from the right, 8px apart,
   each card its picture's shape and about half the width tall.
 */
-@media(max-width:767px){.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;--showcase-height:clamp(170px,51.5vw,380px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:6px}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
+@media(max-width:767px){.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}.build-showcase-track{--showcase-gap:8px;--showcase-height:clamp(170px,51.5vw,380px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.4545);aspect-ratio:auto;border-radius:5px}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.5114)}}
 @media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready]{opacity:1;transition:none}.build-showcase-slide figcaption{transition:none}}
 `

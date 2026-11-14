@@ -12,6 +12,7 @@ import { trialDaysOf } from "./plan"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { canReadMembership } from "./access"
 import { viewerOf } from "./server"
+import { provenViewer } from "./viewer"
 
 export interface ProductPageMembership {
   interval: "month" | "year"
@@ -24,7 +25,7 @@ export async function membershipForProductPage(productId: string, user: { id: st
     const admin = createAdminClient()
     const { data: plan } = await admin.from("membership_plans").select("monthly_price_cents, yearly_price_cents, trial_days").eq("product_id", productId).maybeSingle()
     const interval = plan?.monthly_price_cents ? "month" : plan?.yearly_price_cents ? "year" : "month"
-    const viewer = viewerOf(user)
+    const viewer = await provenViewer(viewerOf(user), admin)
     let memberHref: string | null = null
     if (viewer) {
       const access = await canReadMembership(admin, viewer, productId)

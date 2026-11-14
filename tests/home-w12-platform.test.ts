@@ -81,14 +81,16 @@ for (const s of SECTIONS) {
   check(`${s.file}: no em dash in the words`, !/—/.test(text(out)))
   check(`${s.file}: no lorem`, !/lorem|ipsum/i.test(out))
 }
-/* Changed on purpose (land round): the storefront card's OnePages are drawn by the theme picker's ThemePreview (components/marketing/home/onepage-sample), whose pictures go through the image optimizer as the picker's do (data-tp-photo, data-theme-thumb); the sections' own pictures are checked here. */
+/* Changed on purpose (land round): pictures drawn by the theme picker's ThemePreview, if a section shows one, go through the image optimizer as the picker's do (data-tp-photo, data-theme-thumb); the sections' own pictures are checked here. */
 const page = Object.values(html).join("\n").replace(/<img [^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
 
 console.log("\n── images ──")
 const srcs = [...page.matchAll(/\s(?:src|srcSet|srcset)="([^"]+)"/g)].flatMap((m) => m[1].split(",").map((p) => p.trim().split(/\s+/)[0]))
 check("pictures found in the markup", srcs.length > 20, srcs.length)
 check("no picture is hotlinked", srcs.every((u) => u.startsWith("/")), srcs.filter((u) => !u.startsWith("/")))
-const missing = [...new Set(srcs)].filter((u) => !existsSync(join(root, "public", u)))
+/* Changed on purpose (landing round): the Storelib logo in the audience section is the header's own (StorelibLogo, through next/image), so its address is the image optimizer's; that file is checked by name. */
+const missing = [...new Set(srcs)].filter((u) => !u.startsWith("/_next/image?") && !existsSync(join(root, "public", u)))
+check("the optimizer's pictures are the Storelib logo", [...new Set(srcs)].filter((u) => u.startsWith("/_next/image?")).every((u) => decodeURIComponent(u).includes("storelib")))
 check("every local picture exists", missing.length === 0, missing)
 const allSrc = SECTIONS.map((s) => read(`${DIR}/${s.file}.tsx`)).join("\n") + read(`${DIR}/platform-globe.tsx`)
 check("no remote image host in the sources", !/images\.unsplash\.com|plus\.unsplash\.com|https?:\/\/[^"'\s]+\.(png|jpe?g|webp|svg|gif)/.test(strip(allSrc)))
@@ -114,7 +116,8 @@ for (const a of PLATFORM_INTEGRATION_APPS) {
   const row = byName.get(name)
   const ok = RUNS_ON.has(name) || (!!row && !row.comingSoon && !row.paused)
   check(`${a.name}: Storelib connects to it today`, ok, row ? { comingSoon: row.comingSoon } : "not in the catalog")
-  if (a.logo) check(`${a.name}: its logo is the catalog's own file`, existsSync(join(root, "public", a.logo)) && (!row || row.logo === a.logo), { logo: a.logo, catalog: row?.logo })
+  /* Changed on purpose (landing round): the owner found some tiles pixelated, so a mark the catalog only has as a 128px file is drawn from the company's own app icon at three times the tile's size, under public/home/apps. */
+  if (a.logo) check(`${a.name}: its logo is the catalog's own file or the company's icon, sharp`, existsSync(join(root, "public", a.logo)) && (!row || row.logo === a.logo || a.logo.startsWith("/home/apps/")), { logo: a.logo, catalog: row?.logo })
 }
 check("PostHog is a real Send analytics destination", /PostHog/.test(read("lib/integrations/catalog.ts")))
 check("Google Calendar is a real bookings connection", existsSync(join(root, "lib/google-calendar/server.ts")))
@@ -134,7 +137,8 @@ check("every mark used is in the generated file", used.every((n) => generated.in
   check("no count, no hover hint, no subheading, no text on a tile", !/\d+ apps|hover or tap|Paste a key/i.test(text(ih)) && !/aria-pressed/.test(ih))
   check("the section is light", /bg-white/.test(ih) && !/bg-\[#0b0b0c\]/.test(ih))
   check("the turn lands where it started: edge on at the half, round from the other side", /rotateY\(90deg\)", offset: 0\.5/.test(integ) && /rotateY\(-90deg\)", offset: 0\.5/.test(integ) && /rotateY\(0deg\)" \},?\s*\]/.test(integ))
-  check("the light follows the pointer by transform, one write per frame", /requestAnimationFrame\(paint\)/.test(integ) && /translate3d\(\$\{x\}px, \$\{y\}px, 0\)/.test(integ))
+  /* Changed on purpose (landing round): the owner found the violet light under the tiles cut off and asked for something cleaner that does not lag, so no light follows the pointer: a tile lifts under it (CSS, transform and opacity), and nothing is read from the layout on a move. */
+  check("no light follows the pointer; a tile lifts in CSS; nothing measured on a move", !/data-glow|data-spot|pointermove|getBoundingClientRect/.test(integ) && /\.tile:hover \{\s*transform: translate3d\(0, -4px, 0\)/.test(read(`${DIR}/integrations-section.module.css`)))
 }
 
 console.log("\n── truth: audience and emails ──")
@@ -160,18 +164,21 @@ const ana = text(html["analytics-showcase"] ?? "")
 const reports = read("app/(storelib)/app/analytics/analytics-reports.tsx")
 /* Changed on purpose (wave 13): the owner asked for a simpler analytics section, so it shows three of the real cards (the Operating systems and OnePage links cards are left out, not renamed). */
 for (const card of ["Traffic sources", "Countries", "Devices"]) check(`card "${card}" is a real Analytics card`, ana.includes(card) && reports.includes(`tt("${card}")`))
-/* Added (wave 13): the four figures are the Analytics page's own four, in its words. */
-{
-  const words = read("lib/i18n/translations.ts")
-  check("the four figures are the page's own: Visitors, Total Revenue, Total Orders, Conversion Rate", ["Visitors", "Total Revenue", "Total Orders", "Conversion Rate"].every((w) => ana.includes(w) && words.includes(`: "${w}"`)) && /CORE_TABS = \["views", "revenue", "orders", "conversion"\]/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")))
-}
-for (const tab of ["Source", "Social", "Campaign", "Visitors", "Orders", "Device", "Browser"]) check(`tab "${tab}" is a real tab`, ana.includes(tab) && reports.includes(`tt("${tab}")`))
+/* Changed on purpose (landing round): the owner found the section too big, so the figures, the chart and the cards with tabs gave way to the reports named as chips, a globe card and an SEO card; every report named is one Analytics has. */
+for (const w of ["Top links", "Sales", "Visitors"]) check(`"${w}" is a real Analytics report`, ana.includes(w) && (reports.includes(`tt("${w}")`) || read("app/(storelib)/app/analytics/analytics-client.tsx").includes(`tt("${w}")`)))
+check("the top places are countries, the finest place Storelib keeps", /Top places/.test(ana) && ["United States", "United Kingdom", "Germany"].every((c) => ana.includes(c)))
+check("SEO, GEO and AEO, with a search that is not about vases, and the engines by name", /SEO · GEO · AEO/.test(ana) && /Improve how your store appears in Google, ChatGPT and answer engines\./.test(ana) && !/vase/i.test(ana) && ["Google", "ChatGPT", "Claude", "Perplexity", "Gemini"].every((e) => ana.includes(e)))
+check("no fans and no real people in the section", !/\bfans?\b/i.test(ana) && !/Ice Spice|@icespice/i.test(ana))
 /* Changed on purpose (wave 13): simpler, so the line saying there is no age or gender report went; nothing claims one either. */
 check("no invented age or gender chart", !/\b(Age|Ages|Gender|18-24|25-34|Female|Male)\b/i.test(ana))
 check("no city report shown (Storelib has none)", !/Top cities|\bCities\b/.test(ana))
 check("live is Home's live visitors", /live/.test(ana) && /dashboard\.liveVisitors/.test(read("components/app/dashboard-client.tsx")))
-const spotBlock = read(`${DIR}/analytics-showcase.tsx`).split("const SPOT_COUNTRY")[1]?.split("\n]")[0] ?? ""
-check("every globe spot names its country", PLATFORM_GLOBE_SPOTS.length === (spotBlock.match(/\["[A-Z]{2}", "[^"]+"\]/g) ?? []).length, PLATFORM_GLOBE_SPOTS.length)
+/* Changed on purpose (landing round): the analytics globe is section 3's engine and worker with this section's places (analytics-globe.tsx); the platform globe stays for its own tests. */
+{
+  const ag = read(`${DIR}/analytics-globe.tsx`)
+  check("the analytics globe reuses section 3's engine and worker, read only", /from "\.\/everything-globe-draw"/.test(ag) && /EVERYTHING_GLOBE_WORKER_SOURCE/.test(ag) && /transferControlToOffscreen\(\)/.test(ag) && PLATFORM_GLOBE_SPOTS.length > 0)
+  check("it turns only while live and in view, and stands still under reduced motion", /driver\.run\(st\.visible && st\.live && !st\.reduced\)/.test(ag) && /IntersectionObserver/.test(ag) && /driver\.reduced\(next\.reduced\)/.test(ag))
+}
 const bits = Buffer.from(PLATFORM_LAND_B64, "base64")
 let land = 0
 for (const b of bits) for (let k = 0; k < 8; k++) land += (b >> k) & 1
@@ -215,7 +222,8 @@ check("content is visible without JavaScript", /@media \(scripting: none\)/.test
 const motion = read(`${DIR}/platform-motion.tsx`)
 check("count-ups change a text node's data, never insert one", /node\.data = next/.test(motion) && !/textContent = formatRef\.current\(n\)/.test(motion))
 check("the composer types with a CSS cover, not per-letter DOM writes", !/textContent/.test(read(`${DIR}/audience-ownership.tsx`)) && /steps\(var\(--steps/.test(read(`${DIR}/audience-ownership.module.css`)))
-check("subscriber rows and visitor toasts are fixed slots, never inserted", /key=\{k\}/.test(read(`${DIR}/audience-ownership.tsx`)) && /slots\.map/.test(read(`${DIR}/analytics-showcase.tsx`)))
+/* Changed on purpose (landing round): no visitor toasts any more; the engine switcher is fixed slots too, moved by data-rel. */
+check("subscriber rows and the engine switcher are fixed slots, never inserted", /key=\{k\}/.test(read(`${DIR}/audience-ownership.tsx`)) && /data-rel=\{rel\}/.test(read(`${DIR}/analytics-showcase.tsx`)))
 const globe = read(`${DIR}/platform-globe.tsx`)
 check("the globe runs only while on screen, and draws once under reduced motion", /if \(!running \|\| !inView\) return/.test(globe) && /if \(reduced\)/.test(globe) && /cancelAnimationFrame/.test(globe))
 check("the globe caps device pixels", /Math\.min\(1\.5, window\.devicePixelRatio/.test(globe))

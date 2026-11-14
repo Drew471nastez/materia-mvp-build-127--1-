@@ -4,6 +4,7 @@ import { fullUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadMembershipPage } from "@/lib/memberships/library"
 import { NOT_SET_UP, viewerOf } from "@/lib/memberships/server"
+import { provenViewer } from "@/lib/memberships/viewer"
 import { MemberPage } from "@/components/memberships/member-page"
 
 export const dynamic = "force-dynamic"
@@ -24,7 +25,7 @@ interface Props {
  */
 export default async function MembershipPageRoute({ params, searchParams }: Props) {
   const [{ id }, query, { user }] = await Promise.all([params, searchParams, fullUserForRequest()])
-  const viewer = viewerOf(user)
+  const viewer = await provenViewer(viewerOf(user))
   if (!viewer) return null
   const read = await loadMembershipPage(createAdminClient(), viewer, id)
   if (read.state === "missing-tables") {

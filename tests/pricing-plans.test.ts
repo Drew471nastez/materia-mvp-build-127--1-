@@ -216,7 +216,7 @@ function main() {
   const editor = readCode("components/onepage/onepage-editor.tsx")
   check(
     "the verified badge gate lets growth through",
-    /verified_badge_enabled/.test(editor) && /const userHasPro = userPlan === "growth" \|\| userPlan === "pro"/.test(editor),
+    /verified_badge_enabled/.test(editor) && /* Changed on purpose (OnePage production audit, ED-1): a plan that could not be read lets the save through; the route asks the plan itself. */ /const userHasPro = !planConfirmed \|\| userPlan === "growth" \|\| userPlan === "pro"/.test(editor),
   )
 
   console.log("\nThe offer surfaces show nothing of the old line-up")

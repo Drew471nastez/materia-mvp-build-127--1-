@@ -15,7 +15,7 @@ import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
-import { pageGroundIsLight, socialIconStyleOf, socialIconToneOf, socialMarkColorOf, socialTileStyle } from "@/lib/onepage/social-look"
+import { pageGroundIsLight, socialIconStyleOf, socialIconToneOf, socialIsBrandDisc, socialMarkColorOf, socialTileStyle } from "@/lib/onepage/social-look"
 import {
   ArrowLeft,
   AtSign,
@@ -102,7 +102,7 @@ import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
 import { GradientDirection } from "@/components/onepage/themes/gradient-direction"
 import { WallpaperLibrary } from "@/components/onepage/themes/wallpaper-library"
-import { blockLayoutOf, blockSpacingOf, coverImageOf, linearGradientValue } from "@/lib/onepage/theme-layout"
+import { blockLayoutOf, blockSpacingOf, coverImageOf, editLinearGradient, readLinearGradient } from "@/lib/onepage/theme-layout"
 
 type DesignSection = "header" | "theme" | "layout" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
@@ -2927,13 +2927,13 @@ function WallpaperSection() {
   const currentHeaderLayout = (theme as any).header_layout || "classic"
 
   // Parse current gradient to extract colors and direction
+  /* Start is the first stop and End the last, however many lie between (lib/onepage/theme-layout readLinearGradient). */
   const parseGradient = (gradient: string) => {
-    const directionMatch = gradient.match(/(\d+)deg/)
-    const colorMatches = gradient.match(/#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}/g)
+    const read = readLinearGradient(gradient)
     return {
-      direction: directionMatch ? parseInt(directionMatch[1]) : 135,
-      color1: colorMatches?.[0] || "#f0a8b8",
-      color2: colorMatches?.[1] || "#b2846c"
+      direction: read ? read.direction : 135,
+      color1: read?.stops[0]?.color || "#f0a8b8",
+      color2: read?.stops[read.stops.length - 1]?.color || "#b2846c",
     }
   }
 
@@ -2966,8 +2966,14 @@ function WallpaperSection() {
     setPendingImageFile(null)
   }
 
+  /* Only what was changed: the angle, the first colour or the last; the theme's other stops stay (lib/onepage/theme-layout editLinearGradient). */
   const handleGradientChange = (direction: number, color1: string, color2: string) => {
-    updateTheme({ background_gradient: linearGradientValue(direction, color1, color2) })
+    const change = {
+      ...(direction !== gradientInfo.direction ? { direction } : {}),
+      ...(color1 !== gradientInfo.color1 ? { first: color1 } : {}),
+      ...(color2 !== gradientInfo.color2 ? { last: color2 } : {}),
+    }
+    updateTheme({ background_gradient: editLinearGradient(theme.background_gradient || DEFAULT_GRADIENT, change, { direction, first: color1, last: color2 }) })
   }
 
   /* The chosen picture shows at once from the device and goes up behind its progress; the uploaded one replaces it once it has loaded. */
@@ -3211,7 +3217,7 @@ function WallpaperSection() {
       {bgType === "gradient" && (
         <>
           <PanelSection>
-            <div className="h-24 w-full rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: `linear-gradient(${gradientInfo.direction}deg, ${gradientInfo.color1} 0%, ${gradientInfo.color2} 100%)` }} />
+            <div className="h-24 w-full rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: theme.background_gradient || DEFAULT_GRADIENT }} />
             <div className="mt-5 space-y-3">
               <ColorRow label={tt("Start")} value={gradientInfo.color1} onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)} />
               <ColorRow label={tt("End")} value={gradientInfo.color2} onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)} />
@@ -4074,7 +4080,8 @@ function ButtonsSection() {
         </div>
         {shape === "rounded" ? (
           <div className="mt-5">
-            <RangeRow label={tt("Corners")} value={Math.min(radius, 24)} min={2} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" />
+            {/* A theme's own corners can be rounder than 24 (Terrazzo and Haze are 28): the slider shows them and can go back to them (the OnePage production audit, D6). */}
+            <RangeRow label={tt("Corners")} value={radius} min={2} max={Math.max(24, radius)} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" />
           </div>
         ) : null}
       </PanelSection>
@@ -4273,7 +4280,8 @@ function SocialsSection() {
           value={(theme as any).social_icon_color || null}
           emptyLabel={tt("Text colour")}
           fallback={theme.text_color}
-          onChange={(color) => updateTheme({ social_icon_color: color } as any)}
+          /* A colour picked while the icons wear their brands' own discs is a colour the creator wants to see (the OnePage production audit, D5): the icons take it, in one colour, instead of nothing changing. */
+          onChange={(color) => updateTheme({ social_icon_color: color, ...(socialIsBrandDisc(theme as never) ? { social_icon_tone: "mono" } : {}) } as any)}
           onClear={() => updateTheme({ social_icon_color: null } as any)}
           suggestions={["#000000", "#ffffff", "#1a1a2e", theme.text_color, theme.button_color, "#e1306c"]}
         />

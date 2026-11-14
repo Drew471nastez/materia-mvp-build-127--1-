@@ -3,13 +3,13 @@
 .panel {
   position: relative;
   overflow: hidden;
-  border-radius: 28px;
+  border-radius: 27px;
   background: #f5f4f7;
   color: #0f0e13;
 }
 @media (max-width: 639px) {
   .panel {
-    border-radius: 22px;
+    border-radius: 21px;
   }
 }
 /* The composer's card: the same grey, a soft violet light in one corner. */
@@ -24,22 +24,22 @@
     #efeafd;
 }
 
-/* The composer runs off the card's bottom edge, a fixed height so nothing moves. */
+/* The composer runs off the card's bottom edge, a fixed height so nothing moves (landing round: smaller, the owner found it took too much of the card). */
 .bleed {
-  height: 600px;
+  height: 430px;
   margin-bottom: -1px;
   overflow: hidden;
 }
 @media (min-width: 640px) {
   .bleed {
-    height: 640px;
+    height: 460px;
   }
 }
 @media (min-width: 1024px) {
   .bleed {
     flex: 1 1 0;
     height: auto;
-    min-height: 560px;
+    min-height: 380px;
   }
 }
 

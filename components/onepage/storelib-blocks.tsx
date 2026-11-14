@@ -1150,12 +1150,22 @@ async function loadFreeProducts(): Promise<FreeProduct[]> {
   if (!creator) return []
   const { data } = await supabase
     .from("products")
-    .select("id, title, thumbnail_url, price_cents, status, type")
+    .select("id, title, thumbnail_url, price_cents, status, type, pay_what_you_want, pwyw_min_price_cents")
     .eq("creator_id", (creator as { id: string }).id)
     .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(200)
-  return ((data ?? []) as (FreeProduct & { price_cents: number | null; type: string | null })[]).filter((p) => !(p.price_cents && p.price_cents > 0) && (p.type ?? "digital") === "digital")
+  type Row = FreeProduct & { price_cents: number | null; type: string | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null }
+  /*
+    FREE AS THE DOWNLOAD FORM DECIDES IT (app/api/onepage/email-capture): no
+    price, not pay what you want above nothing, and no paid option. A product
+    the form would refuse to hand over is not offered here.
+  */
+  const rows = ((data ?? []) as Row[]).filter((p) => !(p.price_cents && p.price_cents > 0) && !(p.pay_what_you_want && Number(p.pwyw_min_price_cents) > 0) && (p.type ?? "digital") === "digital")
+  if (rows.length === 0) return []
+  const { data: paid } = await supabase.from("product_variants").select("product_id").in("product_id", rows.map((p) => p.id)).or("price_cents.gt.0,pay_what_you_want.eq.true")
+  const withPaidOption = new Set(((paid ?? []) as { product_id: string }[]).map((v) => v.product_id))
+  return rows.filter((p) => !withPaidOption.has(p.id)).map(({ id, title, thumbnail_url }) => ({ id, title, thumbnail_url }))
 }
 
 function LeadMagnetEditor({ data, updateData }: { data: LeadMagnetBlockData; updateData: (u: Partial<LeadMagnetBlockData>) => void }) {

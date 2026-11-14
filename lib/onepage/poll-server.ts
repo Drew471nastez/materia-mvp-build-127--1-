@@ -26,27 +26,18 @@ export function voterKey(voterId: string, onepageId: string, blockId: string): s
 }
 
 /*
-  THE TOTALS ARE COUNTED BY THE DATABASE, NOT READ OUT ROW BY ROW (round AW).
-  This read every vote's row ("up to 50,000") and counted them here, but
-  PostgREST answers at most its max_rows, 1,000 on Supabase, whatever the
-  limit asks for: past its thousandth vote a poll said 1,000 votes in all,
-  shared out by whichever thousand rows came back, and every visitor who had
-  voted, and every new vote, had those thousand rows read again. Each answer
-  is now a head count on onepage_poll_votes_block_idx (onepage_id, block_id,
-  option_id, run-now part 411), the six at most side by side: exact at any
-  size, a few numbers on the wire. Votes for an answer the creator removed
-  are still left out. A count that fails is no tally, as a failed read was.
+  COUNTED BY THE DATABASE, ONE NUMBER PER ANSWER. The votes used to be read
+  as rows and counted here, `.limit(50_000)`, but the API hands back at most
+  1,000 rows a read, so past a thousand votes every visitor and the editor saw
+  a total stuck at 1,000 and shares from whichever thousand came back. A poll
+  has a handful of answers: each is one exact count, asked together.
 */
 export async function tallyFor(db: Db, onepageId: string, blockId: string, options: { id: string; label: string }[]): Promise<PollTally | null> {
-  const ids = [...new Set(options.map((o) => o.id))]
+  if (options.length === 0) return tallyVotes(options, {})
   const counted = await Promise.all(
-    ids.map(async (id) => {
-      try {
-        const { count, error } = await db.from("onepage_poll_votes").select("option_id", { count: "exact", head: true }).eq("onepage_id", onepageId).eq("block_id", blockId).eq("option_id", id)
-        return error || typeof count !== "number" ? null : ([id, count] as const)
-      } catch {
-        return null
-      }
+    options.slice(0, 20).map(async (o) => {
+      const { count, error } = await db.from("onepage_poll_votes").select("option_id", { count: "exact", head: true }).eq("onepage_id", onepageId).eq("block_id", blockId).eq("option_id", o.id)
+      return error ? null : ([o.id, Number(count) || 0] as const)
     }),
   )
   if (counted.some((c) => c === null)) return null

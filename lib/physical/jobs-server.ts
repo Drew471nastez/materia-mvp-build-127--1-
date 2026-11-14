@@ -106,7 +106,43 @@ export async function queueCancelledEmail(db: Db, checkoutId: string, creatorId:
  */
 export async function queueRefundEmail(db: Db, checkoutId: string, creatorId: string, refundedCents: number, amountCents: number): Promise<void> {
   if (amountCents <= 0) return
-  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:refund:${checkoutId}:${refundedCents}`, payload: { template: "refund", checkoutId, refundedCents, amountCents } })
+  /*
+    ONE EMAIL FOR ONE PRESS. Cancel and refund walks an order's lines, one Stripe refund each, and Stripe's event
+    follows each: every step queued an email keyed by the running total, so a three line order sent three refund
+    emails. Each now waits a short while; when it goes, one whose total has been passed says nothing (the later one
+    tells all of it), and the one that goes names everything refunded since the buyer was last told (sendBuyerEmail).
+  */
+  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:refund:${checkoutId}:${refundedCents}`, payload: { template: "refund", checkoutId, refundedCents, amountCents }, runAfter: new Date(Date.now() + refundEmailSettleMs()) })
+  /* The ten minute cron would send it; this request waits out the pause and sends it itself, so the buyer hears within the minute. */
+  try {
+    after(async () => {
+      await new Promise((r) => setTimeout(r, refundEmailSettleMs() + 1500))
+      await runJobs(db, 5)
+    })
+  } catch {
+    /* Outside a request: the cron picks it up. */
+  }
+}
+
+/** How long a refund email waits for the other refunds of the same press. STORELIB_REFUND_EMAIL_SETTLE_MS changes it (the test runner sets 0, so suites need no clock). */
+export function refundEmailSettleMs(): number {
+  const n = Number(process.env.STORELIB_REFUND_EMAIL_SETTLE_MS)
+  return Number.isFinite(n) && n >= 0 && process.env.STORELIB_REFUND_EMAIL_SETTLE_MS !== undefined && process.env.STORELIB_REFUND_EMAIL_SETTLE_MS !== "" ? Math.min(n, 120_000) : 20_000
+}
+
+/** The largest refunded total a refund email has already told this order's buyer (the email.sent entries, keyed by that total). */
+async function refundTold(db: Db, checkoutId: string): Promise<number> {
+  try {
+    const { data } = await db.from("commerce_order_events").select("idempotency_key").eq("checkout_id", checkoutId).eq("kind", "email.sent").ilike("idempotency_key", `email_sent:refund:${checkoutId}:%`).limit(200)
+    let most = 0
+    for (const r of (data ?? []) as { idempotency_key: string | null }[]) {
+      const n = Number(String(r.idempotency_key ?? "").split(":").pop())
+      if (Number.isFinite(n) && n > most) most = n
+    }
+    return most
+  } catch {
+    return 0
+  }
 }
 
 /**
@@ -551,7 +587,7 @@ export async function runJobs(db: Db, limit = 20): Promise<{ done: number; faile
           checkoutId: job.payload.checkoutId,
           creatorId: job.creator_id,
           kind: "job.failed",
-          message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : job.kind === "forward_fulfillment" ? "The order could not be sent to your print partner. Send it to them yourself." : job.kind === "tracking_sync" ? "Tracking could not be read from your print partner. Check the order there." : job.kind === "shipstation_push" ? "ShipStation could not be updated with this order. Check it there, or ship it from Storelib." : job.kind === "shipstation_sync" ? "Shipments could not be read from ShipStation. Check the order there." : "The order could not be sent to your webhook.",
+          message: job.kind === "send_email" ? (job.payload?.template === "seller" ? "An email to you about this order could not be sent." : "An email to the buyer could not be sent.") : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : job.kind === "forward_fulfillment" ? "The order could not be sent to your print partner. Send it to them yourself." : job.kind === "tracking_sync" ? "Tracking could not be read from your print partner. Check the order there." : job.kind === "shipstation_push" ? "ShipStation could not be updated with this order. Check it there, or ship it from Storelib." : job.kind === "shipstation_sync" ? "Shipments could not be read from ShipStation. Check the order there." : "The order could not be sent to your webhook.",
           detail: { error: message, ...(job.payload?.locationId ? { location_id: String(job.payload.locationId), job: job.kind } : {}) },
           key: `job_dead:${job.id}`,
         })
@@ -687,7 +723,8 @@ export function savingsOf(lines: Record<string, any>[]): { label: string; cents:
 }
 
 function addressOf(a: Record<string, any> | null) {
-  return a ? { name: a.name, line1: a.line1, line2: a.line2, city: a.city, region: a.region, postalCode: a.postalCode, country: a.country, phone: a.phone } : null
+  /* The company too: a checkout that asks for one (Settings › Checkout) had it dropped from every email, the supplier's "Ship to" among them. */
+  return a ? { name: a.name, ...(typeof a.company === "string" && a.company.trim() ? { company: a.company.trim() } : {}), line1: a.line1, line2: a.line2, city: a.city, region: a.region, postalCode: a.postalCode, country: a.country, phone: a.phone } : null
 }
 
 /** The same line in two parcels, once, with both quantities. */
@@ -765,6 +802,11 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
   if (!co.buyer_email) return
   /* A declined payment is only news while the order is still unpaid: paid since, cancelled or refunded, nothing goes. */
   if (p.template === "payment_failed" && co.status !== "pending" && co.status !== "expired" && co.status !== "failed") return
+  /* Or they paid after all on a fresh try: a reload makes a new checkout, so this one stays unpaid while the same buyer has a paid order from this store made since. "Your order wasn't placed" after their confirmation is wrong. */
+  if (p.template === "payment_failed") {
+    const { data: paidSince } = await db.from("commerce_checkouts").select("id").eq("creator_id", co.creator_id).eq("buyer_email", co.buyer_email).in("status", ["paid", "partially_refunded", "refunded"]).gte("created_at", co.created_at ?? new Date(0).toISOString()).limit(1)
+    if (Array.isArray(paidSince) && paidSince.length > 0) return
+  }
   if (await overBuyerLimit(db, co.id)) {
     await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "email.held", message: `An email to the buyer was held: this order already sent ${BUYER_EMAILS_PER_ORDER_PER_DAY} today.`, key: `email_held:${co.id}:${new Date().toISOString().slice(0, 13)}` })
     return
@@ -884,12 +926,17 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
       )
     }
   } else if (p.template === "return") {
+    /* A parcel refused at the door comes back as a return in the books; its buyer sent nothing and is owed nothing, so "we received your return, your refund follows" is not theirs to get. */
+    if (co.cancel_reason === "Refused on delivery" && co.provider === COD_PROVIDER && !co.cod_collected_at) return
     const [{ data: r }, { data: items }] = await Promise.all([
-      db.from("commerce_returns").select("merchant_note, refunded_cents").eq("id", p.returnId).maybeSingle(),
+      db.from("commerce_returns").select("merchant_note, refunded_cents, method").eq("id", p.returnId).maybeSingle(),
       db.from("commerce_return_items").select("order_id, quantity").eq("return_id", p.returnId),
     ])
     const returned = await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[])
-    const returnAddress = p.status === "approved" ? await returnAddressOf(db, co.creator_id) : null
+    /* "Keep it, no need to send": no address, and nothing "arrived back". */
+    const keepIt = r?.method === "no_return_needed"
+    if (keepIt && p.status === "received") return
+    const returnAddress = p.status === "approved" && !keepIt ? await returnAddressOf(db, co.creator_id) : null
     mail = say(() =>
       returnEmail({
       shopName,
@@ -901,6 +948,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
       statusUrl: orderUrl,
       lines: returned,
       returnAddress,
+      keep: keepIt,
       brand,
       copy: copyFor(emailIdForJob("return", null, p.status), returned),
       orderDate,
@@ -919,8 +967,17 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
     const checkoutUrl = site ? siteCheckoutHref({ origin, items }) : physicalCheckoutHref(co.creator_id, items, null, origin)
     mail = say(() => paymentFailedEmail({ shopName, buyerFirstName: firstName, lines: emailLines(co.lines), checkoutUrl, brand, copy: copyFor("payment_failed", co.lines) }))
   } else if (p.template === "cancelled") {
-    mail = say(() => orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines), orderDate }))
+    /* Paid in cash on delivery and never collected: nothing was charged, so nothing is said about a refund. A reason the seller never typed (the default) is not printed as theirs. */
+    const unpaidCash = co.provider === COD_PROVIDER && !co.cod_collected_at
+    const typedReason = co.cancel_reason && !["Cancelled by the shop", "Refused on delivery", "Refunded in full before it shipped"].includes(co.cancel_reason) ? co.cancel_reason : null
+    mail = say(() => orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, nothingPaid: unpaidCash, refused: co.cancel_reason === "Refused on delivery", reason: typedReason, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines), orderDate }))
   } else if (p.template === "refund") {
+    /* A later refund of the same press has its own email waiting, with the larger total: this one says nothing (queueRefundEmail). */
+    const mine = Math.max(0, Number(p.refundedCents) || 0)
+    if (Math.max(0, Number(co.refunded_cents ?? 0)) > mine) return
+    const told = await refundTold(db, co.id)
+    if (told >= mine && mine > 0) return
+    if (mine > told) p = { ...p, amountCents: mine - told }
     const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
     const creditNote = await refundCreditNote(db, co.id, co.creator_id)
     mail = say(() => refundEmail({ creditNote, shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate, cash: paidRow?.payment_method === COD_PAYMENT_METHOD }))
@@ -1068,8 +1125,14 @@ function partnerPageUrl(checkoutId: string, location: { id: string; email: strin
   return token ? `https://${getMainDomain()}${PARTNER_PAGE_PREFIX}${token}` : null
 }
 
+/** An order that is cancelled, or no longer paid, is not sent to anybody to ship: a job that waited out a failure used to go after the cancellation, with no cancel to follow it. */
+function notToShip(co: CheckoutForEmail & { cancelled_at?: string | null }): boolean {
+  return !!co.cancelled_at || (!!co.status && co.status !== "paid" && co.status !== "partially_refunded")
+}
+
 async function sendSupplierEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
+  if (notToShip(co)) return
   const { data: loc } = await db.from("inventory_locations").select("id, name, email, forwarding").eq("id", p.locationId).eq("creator_id", co.creator_id).maybeSingle()
   if (!loc?.email) throw new Error("The location has no email address.")
   const identity = await resolveCreatorIdentity(db, co.creator_id)
@@ -1113,6 +1176,7 @@ function postJson(url: string, body: string, headers: Record<string, string>): P
 
 async function deliverWebhook(db: Db, p: Record<string, any>): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
+  if ((p.event ?? "order.paid") === "order.paid" && notToShip(co)) return
   const { data: integration } = await db.from("commerce_integrations").select("id, config, webhook_secret_ciphertext, status").eq("creator_id", co.creator_id).eq("provider", "custom_webhook").maybeSingle()
   const url = integration?.config?.url as string | undefined
   if (!integration || !url) throw new Error("No webhook address is set.")

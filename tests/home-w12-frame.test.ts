@@ -75,10 +75,11 @@ async function main() {
     const { ProductMarquee, MARQUEE_ROWS } = await import("@/components/marketing/product-marquee")
     const html = renderToStaticMarkup(createElement(ProductMarquee))
     check("the heading is Unlimited possibilities", /aria-label="Unlimited possibilities"/.test(html))
-    check("three rows: left, right, left", MARQUEE_ROWS.map((r) => r.direction).join() === "left,right,left" && (html.match(/class="um-row"/g) ?? []).length === 3)
+    /* Changed on purpose (landing round, the owner: "keep only 2 rows, not 3"). */
+    check("two rows: left, right", MARQUEE_ROWS.map((r) => r.direction).join() === "left,right" && (html.match(/class="um-row"/g) ?? []).length === 2)
     const labels = MARQUEE_ROWS.flatMap((r) => r.items.map((i) => i.label))
     check("at least 36 different things, none twice", labels.length >= 36 && new Set(labels).size === labels.length, labels.length)
-    check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 9 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 6)
+    check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 6 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 4)
     /* Changed on purpose (wave 13): the owner wanted the emoji back, the way the chips looked before wave 12, in place of the drawn icons. */
     check("every chip has its emoji", (html.match(/class="um-chip"/g) ?? []).length === labels.length * 3 && (html.match(/<span class="um-emoji" aria-hidden="true">/g) ?? []).length === labels.length * 3 && !/<svg/.test(html))
     check("each emoji is one picture, different in every row", MARQUEE_ROWS.every((r) => r.items.every((i) => /^\p{Extended_Pictographic}/u.test(i.emoji)) && new Set(r.items.map((i) => i.emoji)).size === r.items.length))
@@ -139,7 +140,8 @@ async function main() {
     const Lazy = lazySection(async () => () => createElement("p", null, "loaded"), { name: "probe", minHeight: "777px" })
     const box = renderToStaticMarkup(createElement(Lazy))
     check("lazySection draws only a box of the section's height on the server", /data-lazy-section="probe"/.test(box) && /min-height:777px/.test(box) && !/loaded/.test(box))
-    check("it mounts when the box comes within a screen and a half", LAZY_AHEAD === "150% 0px 150% 0px" && /new IntersectionObserver/.test(src) && /io\.disconnect\(\)\s*mount\(\)/.test(src))
+    /* Changed on purpose (wave 14): two and a half screens; at a screen and a half a fling on a phone reached the box before its section. */
+    check("it mounts when the box comes within two and a half screens", LAZY_AHEAD === "250% 0px 250% 0px" && /new IntersectionObserver/.test(src) && /io\.disconnect\(\)\s*mount\(\)/.test(src))
     check("at once for reduced motion, a link into the page, or no observer", /location\.hash\.length > 1/.test(src) && /prefers-reduced-motion: reduce/.test(src) && /typeof IntersectionObserver !== "function"/.test(src))
     check("the code is fetched ahead when idle, after load, not on Save-Data", /requestIdleCallback/.test(src) && /addEventListener\("load"/.test(src) && /saveData/.test(src))
     const kept = renderToStaticMarkup(createElement(LazySection, { name: "faq", minHeight: "900px", children: createElement("h2", null, "Questions") }))
@@ -153,14 +155,17 @@ async function main() {
     const src = code("components/marketing/home/lazy-section.tsx")
     const { LAZY_IDLE_AHEAD, insertSectionStyles } = await import("@/components/marketing/home/lazy-section")
     check("a section is drawn as a transition, so its render is sliced between frames", /startTransition\(\(\) => setSection/.test(src))
-    check("further ahead it mounts when idle, and once the code is here the rest mount one per roomy idle slot", LAZY_IDLE_AHEAD === "300% 0px 300% 0px" && /function mountNext/.test(src) && /timeRemaining\(\) < IDLE_ROOM_MS/.test(src) && /else idle\(mountNext\)/.test(src))
-    check("the idle prefetch has no timeout, starts after load, and skips Save-Data and 2g", /afterLoad\(\)\.then\(start\)/.test(src) && /saveData/.test(src) && !/timeout: 4000/.test(src))
+    /* Changed on purpose (wave 14): five screens ahead when idle (was three), and the chain mounts the waiting section nearest the screen first. */
+    check("further ahead it mounts when idle, and once the code is here the rest mount one per roomy idle slot", LAZY_IDLE_AHEAD === "500% 0px 500% 0px" && /function mountNext/.test(src) && /timeRemaining\(\) < IDLE_ROOM_MS/.test(src) && /idle\(mountNext\)/.test(src))
+    /* Changed on purpose (wave 14): it also starts LAZY_PREFETCH_LATEST_MS after the page came alive when the load event is late (a slow network), two sections at a time. */
+    check("the idle prefetch has no timeout, starts after load, and skips Save-Data and 2g", /afterLoad\(\)\.then\(start\)/.test(src) && /saveData/.test(src) && !/timeout: 4000/.test(src) && /LAZY_PREFETCH_LATEST_MS\)/.test(src))
     check("insertSectionStyles does nothing on the server", (insertSectionStyles([{ href: "x", precedence: "default", css: "" }]), true))
     /* Every stylesheet a lazy section lists is one it draws: the same href, so React finds it in <head> and adds none on mount. */
     const lazy = read("components/marketing/home/lazy-sections.tsx")
     const listed = [...lazy.matchAll(/styles: \(\) => import\("\.\/([\w-]+)"\)\.then\(\(m\) => m\.(\w+)\)/g)]
     /* Changed on purpose (wave 13): section 3 (everything-in-one-place) now draws its own stylesheet too, so it is listed. */
-    check("the sections that draw their own stylesheets list them", listed.length === 8 && listed.some((m) => m[1] === "everything-in-one-place"), listed.map((m) => m[1]))
+    /* Changed on purpose (landing round): the new Your AI tools work here too section (ai-tools-section) draws its own stylesheet too, so nine are listed. */
+    check("the sections that draw their own stylesheets list them", listed.length === 9 && listed.some((m) => m[1] === "everything-in-one-place") && listed.some((m) => m[1] === "ai-tools-section"), listed.map((m) => m[1]))
     const modules: Record<string, Record<string, unknown>> = {
       "everything-in-one-place": await import("@/components/marketing/home/everything-in-one-place"),
       "ideas-come-to-life": await import("@/components/marketing/home/ideas-come-to-life"),
@@ -170,6 +175,7 @@ async function main() {
       "checkout-scene": await import("@/components/marketing/home/checkout-scene"),
       "sell-everywhere-map": await import("@/components/marketing/home/sell-everywhere-map"),
       "earnings-calculator": await import("@/components/marketing/home/earnings-calculator"),
+      "ai-tools-section": await import("@/components/marketing/home/ai-tools-section"),
     }
     for (const [, file, name] of listed) {
       const mod = modules[file] ?? {}
@@ -190,7 +196,8 @@ async function main() {
   {
     const src = code("components/marketing/home/lazy-section.tsx")
     check("a mounted lazy section stays in its box, which the browser skips off screen", /data-lazy-mounted=""/.test(src) && /contentVisibility: "auto"/.test(src) && /containIntrinsicSize: `auto \$\{options\.minHeight\}`/.test(src))
-    check("right after mounting it is laid out once in an idle slot and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /el\.style\.containIntrinsicSize = `auto \$\{Math\.round\(height\)\}px`/.test(src))
+    /* Changed on purpose (wave 14): laid out in slices (layOutInSlices), then its height kept as before. */
+    check("right after mounting it is laid out in idle slots and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /el\.style\.containIntrinsicSize = `auto \$\{Math\.round\(height\)\}px`/.test(src))
     const css = read("app/globals.css")
     const heading = code("components/marketing/story-heading.tsx")
     check("headings ink and rise from scroll-driven animations where the browser has them (no script per frame)", /@property --story-progress/.test(css) && /animation-timeline:--story-heading/.test(css) && /@keyframes story-heading-rise \{from\{transform:translate3d\(0,12px,0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(css) && /function inkedByCss/.test(heading) && /data-story-js/.test(heading))
@@ -198,12 +205,32 @@ async function main() {
     check("the script keeps only headings inside a scrolling box; the showcase heading inks from the scroll too", !/hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading) && !/data-story-showcase\]\):not/.test(css) && !/"--story-progress": 1/.test(heading))
     const creators = code("components/marketing/home/creators-carousel.tsx")
     check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(goal\)/.test(creators))
-    /* Changed on purpose (wave 13): the sale dot and its looping ping are gone; the sale notification moves by transitions between states, with no loop left running off screen. */
-    check("the creators section runs no endless CSS loop of its own", !/infinite/.test(creators) && !/infinite/.test(code("components/marketing/home/motion/sale-pop.tsx")))
+    /* Changed on purpose (landing round): the sale notification is gone (the owner found it AI looking), so only the rail itself is checked. */
+    check("the creators section runs no endless CSS loop of its own", !/infinite/.test(creators) && !existsSync("components/marketing/home/motion/sale-pop.tsx"))
     for (const f of ["how-it-works", "earnings-calculator"]) {
       const own = read(`components/marketing/home/${f}.tsx`)
       check(`${f}: rules keyed on data-commerce-live end in a class, not a tag`, !/\[data-commerce-live\][^{},]*\s(span|li|div|b|i|img|svg|path)\s*[,{]/.test(own) && !/\[data-commerce-live\][^{},]*>\s*(span|li)\s*[,{]/.test(own))
     }
+  }
+
+  /* Added on purpose (wave 14, scroll): sections arrive drawn, and idle work never lands in a scroll. */
+  console.log("\nSections drawn before they arrive (wave 14)")
+  {
+    const src = code("components/marketing/home/lazy-section.tsx")
+    const { LAZY_DRAW_AHEAD } = await import("@/components/marketing/home/lazy-section")
+    check("a box is drawn a screen and a half ahead, with the containment content-visibility: auto gave it", LAZY_DRAW_AHEAD === "150% 0px 150% 0px" && /box\.style\.contentVisibility = e\.isIntersecting \? "visible" : "auto"/.test(src) && /box\.style\.contain = e\.isIntersecting \? "layout paint style" : ""/.test(src))
+    check("both kinds of box are drawn ahead (mounted sections and server-drawn LazySection)", (src.match(/watchDraw\(el\)/g) || []).length === 2)
+    check("idle work waits until the page has stopped scrolling", /const CALM_MS = \d+/.test(src) && /since < CALM_MS/.test(src) && /addEventListener\("scroll", \(\) => \(lastScroll = performance\.now\(\)\), \{ passive: true, capture: true \}\)/.test(src))
+    check("the idle chain mounts the waiting section nearest the screen first", /farness\(a\) - farness\(b\)/.test(src))
+    check("a box hydrates empty, as the server drew it, even when its code arrived first (no hydration mismatch on a slow network)", /useSyncExternalStore\(noSubscription, drawnInBrowser, drawnOnServer\)/.test(src) && /useState<ComponentType<P> \| null>\(\(\) => \(browserDrawn \? cached : null\)\)/.test(src))
+    check("a mounted section is laid out ahead a slice at a time (no long task), and all at once if it comes near first", /const SLICE_ELEMENTS = \d+/.test(src) && /g\.style\.contentVisibility = "hidden"/.test(src) && /if \(e\.isIntersecting\) slicing\.get\(box\)\?\.\(\)/.test(src) && /const stopSlicing = layOutInSlices\(el,/.test(src))
+    const globe = code("components/marketing/home/everything-globe.tsx")
+    /* Changed on purpose (wave 14 integration): main fixed the same crash first, by drawing a second run on a fresh canvas instead of keeping the worker per canvas; main's version is kept, so this checks that. */
+    check("the globe never asks a canvas it already handed to a worker for a context again (a second run gets a fresh canvas)", /const handedOver = new WeakSet<HTMLCanvasElement>\(\)/.test(globe) && /handedOver\.add\(canvas\)/.test(globe) && /if \(handedOver\.has\(canvas\)\) \{[\s\S]{0,200}canvas\.replaceWith\(fresh\)/.test(globe))
+    const header = code("components/marketing/conditional-header.tsx")
+    const client = code("components/platform/platform-header-client.tsx")
+    /* Changed on purpose (wave 14 integration): main shipped the same /index fix as one shared useRoutePath (lib/navigation/route-path.ts, covered in home-hero too); main's version is kept, so this checks that. */
+    check("the home page is \"/\" even where the server renders it as \"/index\" (Vercel's ISR), so its header is in the HTML", /const pathname = useRoutePath\(\)/.test(header) && (client.match(/const pathname = useRoutePath\(\)/g) || []).length === 2 && !/usePathname\(\)/.test(header))
   }
 
   console.log("\nNo hotlinked pictures")

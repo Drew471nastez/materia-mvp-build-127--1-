@@ -2,6 +2,7 @@ import "server-only"
 
 import { loadLibraryMemberships } from "@/lib/memberships/library"
 import { viewerOf, type Db } from "@/lib/memberships/server"
+import { provenViewer } from "@/lib/memberships/viewer"
 import type { MembershipCard } from "@/lib/memberships/view-types"
 
 /**
@@ -30,7 +31,7 @@ export async function libraryMemberships(
   user: Parameters<typeof viewerOf>[0],
   opts: { communities: boolean },
 ): Promise<MembershipCard[]> {
-  const viewer = viewerOf(user)
+  const viewer = await provenViewer(viewerOf(user))
   if (!viewer) return []
   const list = await loadLibraryMemberships(db, viewer).catch(() => ({ available: false as const }))
   if (!list.available) return []

@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
     notes.push("The seller's balance will update when Stripe's refund event arrives.")
   }
 
-  if (plan.total >= (o.amount_cents ?? 0) && o.buyer_id && o.product_id) {
+  if (plan.total >= (o.amount_cents ?? 0) && o.buyer_id && o.product_id && !(await (await import("@/lib/stripe/refund-sync")).paidElsewhere(admin, { id: o.id, buyer_id: o.buyer_id, product_id: o.product_id, variant_id: o.variant_id ?? null }))) {
     let revoke = admin.from("entitlements").delete().eq("buyer_id", o.buyer_id).eq("product_id", o.product_id)
     revoke = o.variant_id ? revoke.eq("variant_id", o.variant_id) : revoke.is("variant_id", null)
     const { error } = await revoke

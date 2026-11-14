@@ -574,7 +574,8 @@ async function main() {
        event; the analytics copy is the one record, and the older rows are still read as they were. */
     check("a OnePage click is recorded by the pipeline alone, and writes nothing to the older table",
       /await recordLinkClick\(request, body\)/.test(route) && !/from\("onepage_clicks"\)|from\("onepage_views"\)/.test(route) && !/lib\/supabase\/server/.test(route))
-    check("  whose OnePage it is comes from the row, never the page", /from\("onepages"\)\.select\("id, seller_id, creator_id, owner_id"\)\.eq\("id", body\.onepage_id\)/.test(route))
+    /* Changed on purpose (OnePage production audit, SEC1 and SEC8): a published page's row, and its OWNER's store (lib/onepage/page-store), never the row's own seller_id. */
+    check("  whose OnePage it is comes from the row, never the page", /from\("onepages"\)\.select\("id, owner_id"\)\.eq\("id", body\.onepage_id\)\.eq\("status", "published"\)/.test(route) && /const creatorId = await ownerStoreId\(admin, row\.owner_id\)/.test(route))
     const onePageRoute = read("app/(storelib)/(marketing)/l/[slug]/page.tsx")
     /* Changed on purpose (rel-public): the render no longer writes onepage_views. That table is read only before a
        OnePage's first view event (the check below), and the tracker records that event for every visit. */

@@ -143,7 +143,8 @@ async function roundTrips() {
   const lib = readCode("lib/onepage/published-page.ts")
   check("the held reads ask nothing about the visitor", !/next\/headers|lib\/supabase\/server|cookies\(|getUser|currentUser/.test(lib))
   check("  three reads held, each for a minute at most, under tags", (lib.match(/heldRead\(/g) ?? []).length === 3 && (lib.match(/revalidate: ONE_PAGE_HOLD_SECONDS/g) ?? []).length === 3)
-  check("  what is held of the row is the published copy (publishedOnly)", /answer\.kind === "page" \? \{ \.\.\.answer, page: publishedOnly\(answer\.page\) \} : answer/.test(lib))
+  /* Changed on purpose (OnePage production audit, SEC1): the held page also carries its owner's store (lib/onepage/page-store withOwnerStore). */
+  check("  what is held of the row is the published copy (publishedOnly)", /if \(answer\.kind !== "page"\) return answer/.test(lib) && /const page = await withOwnerStore\(db, publishedOnly\(answer\.page\)\)/.test(lib))
 }
 
 /* ── PUBLISH ───────────────────────────────────────────────────────────── */
@@ -200,7 +201,8 @@ async function publishing() {
   check("  and the publish is one update of every published field together", (publish.match(/\.update\(publishData\)/g) ?? []).length === 1)
   const put = readCode("app/api/onepage/route.ts")
   check("a draft save clears the live copy only when it changed what the live page reads (settings, address, share picture, photo)",
-    /if \(updates\.settings !== undefined \|\| updates\.slug !== undefined \|\| updates\.share_image_mode !== undefined \|\| photoNow !== undefined\) \{\s*await onePageChangedFor\(ownerId, \[existing\.slug\]\)/.test(put) &&
+    /* Changed on purpose (OnePage production audit, S2): a save that publishes (publish: true) changed the live copy, so it clears it too, under the old address and the one it wrote. */
+    /if \(publishing \|\| updates\.settings !== undefined \|\| updates\.slug !== undefined \|\| updates\.share_image_mode !== undefined \|\| photoNow !== undefined\) \{\s*await onePageChangedFor\(ownerId, \[existing\.slug, \(updated as \{ slug\?: string \| null \} \| null\)\?\.slug\]\)/.test(put) &&
       put.indexOf("await onePageChangedFor(") > put.indexOf("if (error) {"))
   check("a new creator page domain clears it", /if \(moved && userId\) await onePageChangedFor\(userId\)/.test(readCode("lib/custom-domains/store.ts")))
   check("the creator page's publish (its name and photo sync) clears it", (readCode("app/api/store-builder/route.ts").match(/await onePageChangedFor\(page\.profileId\)/g) ?? []).length === 2)
@@ -458,7 +460,7 @@ async function privatePages() {
   /* The held OnePage copy carries no viewer input: its keys are the page's own. */
   const lib = readCode("lib/onepage/published-page.ts")
   check("held OnePage entries are keyed by the page alone (name, ids, block fingerprint)",
-    /\["onepage-address", "v1", slug\]/.test(lib) && /\["onepage-owner", "v1", sellerId \?\? "", creatorId \?\? "", ownerId \?\? ""\]/.test(lib) && /* Changed on purpose (round AR): v2, the held blocks now carry the data blocks' fill (lib/onepage/data-blocks-server). */ /\["onepage-live-blocks", "v2", creatorId, fingerprint\]/.test(lib))
+    /* Changed on purpose (OnePage production audit, SEC1): v2, the held page carries its owner's store (lib/onepage/page-store). */ /\["onepage-address", "v2", slug\]/.test(lib) && /\["onepage-owner", "v1", sellerId \?\? "", creatorId \?\? "", ownerId \?\? ""\]/.test(lib) && /* Changed on purpose (round AR): v2, the held blocks now carry the data blocks' fill (lib/onepage/data-blocks-server). */ /\["onepage-live-blocks", "v2", creatorId, fingerprint\]/.test(lib))
 }
 
 /* ── SPIKES AND ABUSE ──────────────────────────────────────────────────── */

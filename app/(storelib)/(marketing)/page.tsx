@@ -14,8 +14,10 @@ import {
   LazyAnalyticsShowcase,
   LazySellEverywhereMap,
   LazyIntegrationsSection,
+  LazyAiToolsSection,
   LazyEarningsCalculator,
   LazyAppAnywhere,
+  LAZY_SECTION_HEIGHTS_CSS,
 } from "@/components/marketing/home/lazy-sections"
 import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -63,6 +65,8 @@ export default function StorelibLanding() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibHomeJsonLd()) }} />
 
       {/* 1 HERO */}
+      {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
+      <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
       <Hero />
       <LandingStory>
         {/* 2 BUILD SHOWCASE (its content: track showcase) */}
@@ -105,6 +109,9 @@ export default function StorelibLanding() {
         {/* 13 Integrations */}
         <LazyIntegrationsSection />
 
+        {/* 13b Your AI tools work here too (landing round): Claude Code, Codex or Cursor connected to a site, building it as drafts */}
+        <LazyAiToolsSection />
+
         {/* 14 EarningsCalculator */}
         <LazyEarningsCalculator />
 
@@ -113,8 +120,8 @@ export default function StorelibLanding() {
           <LazyAppAnywhere />
         </StoryBand>
 
-        {/* 16 PRICING (kept as it was, without its See full pricing button here) */}
-        <LazySection name="pricing" minHeight="max(calc(2090px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1045px)">
+        {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
+        <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">
           <PricingSection editorial hideDetailsLink />
         </LazySection>
 

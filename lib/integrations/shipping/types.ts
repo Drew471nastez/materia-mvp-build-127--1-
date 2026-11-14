@@ -48,6 +48,38 @@ export interface LabelRate {
   days: number | null
 }
 
+/**
+ * One line of a parcel that crosses a customs border, as the declaration
+ * reads it. Every figure is the order's own: what the buyer paid for the
+ * line, its weight as sold, where the product says it was made. Nothing
+ * here is ever made up for a form (./customs.ts refuses instead).
+ */
+export interface CustomsLine {
+  description: string
+  quantity: number
+  /** The whole line's weight, in grams. */
+  grams: number
+  /** The whole line's value, what the buyer paid for it, in the minor units of `currency`. */
+  cents: number
+  currency: string
+  /** ISO 3166-1 alpha-2: where it was made. */
+  originCountry: string
+  /** The HS tariff number the product carries, digits only, or null. */
+  hsCode: string | null
+  sku: string | null
+}
+
+export interface CustomsForm {
+  lines: CustomsLine[]
+  /** Who certifies the declaration: the store, by name. */
+  signer: string
+  /**
+   * The United States' export filing exemption, set only for a parcel that leaves the US under the value that
+   * needs a filing: "30.36" to Canada, "30.37a" elsewhere. Null from any other country.
+   */
+  usExemption: "30.36" | "30.37a" | null
+}
+
 export interface AddressCheck {
   /** False when the provider says the address can't be delivered to as written. */
   ok: boolean
@@ -65,11 +97,40 @@ export interface LabelPurchase {
   trackingUrl: string | null
   /** A PDF, at the provider's https address. */
   labelUrl: string
+  /** The commercial invoice of a parcel that crosses customs, when the provider made one. */
+  invoiceUrl?: string | null
   cents: number
   currency: string
 }
 
 export type VoidOutcome = "voided" | "pending" | "rejected"
+
+/**
+ * A quoted shipment's label, asked of the provider itself: after a purchase
+ * whose answer never arrived (a timeout is not a no), and to print a label
+ * again, since a provider's label address stops working after a while.
+ *
+ *   bought    a label exists; `labelUrl` is fresh
+ *   pending   the provider is still making it
+ *   none      nothing was bought for this shipment
+ */
+export type FoundLabel =
+  | {
+      state: "bought"
+      labelId: string
+      trackingNumber: string | null
+      trackingUrl: string | null
+      labelUrl: string
+      /** The commercial invoice of a parcel that crosses customs, when the provider made one. */
+      invoiceUrl: string | null
+      /** What the provider says it charged, when it says. */
+      cents?: number | null
+      currency?: string | null
+      carrier?: string | null
+      service?: string | null
+    }
+  | { state: "pending" }
+  | { state: "none" }
 
 export interface LabelApi {
   id: LabelProviderId
@@ -78,10 +139,12 @@ export interface LabelApi {
   isTestKey(key: string): boolean
   checkAddress(key: string, address: LabelAddress): Promise<AddressCheck>
   /** A shipment at the provider for this parcel, and the rates it offers. `reference` is written on it so a purchase can be checked against the order. */
-  rates(key: string, input: { from: LabelAddress; to: LabelAddress; parcel: Parcel; reference: string }): Promise<{ shipmentId: string; rates: LabelRate[]; messages: string[] }>
+  rates(key: string, input: { from: LabelAddress; to: LabelAddress; parcel: Parcel; reference: string; /** The customs declaration, for a parcel that crosses a customs border. */ customs?: CustomsForm | null }): Promise<{ shipmentId: string; rates: LabelRate[]; messages: string[] }>
   /** One rate, read back from the provider: what a purchase is priced at, never what the browser said. */
   readRate(key: string, shipmentId: string, rateId: string): Promise<(LabelRate & { reference: string | null }) | null>
   buy(key: string, rate: LabelRate): Promise<LabelPurchase>
+  /** The label of a quoted shipment, as the provider has it now. `labelId` is the one kept from the purchase, when there was an answer. */
+  findLabel(key: string, where: { shipmentId: string; rateId: string | null; labelId: string | null }): Promise<FoundLabel>
   voidLabel(key: string, purchase: { labelId: string; shipmentId: string }): Promise<VoidOutcome>
 }
 

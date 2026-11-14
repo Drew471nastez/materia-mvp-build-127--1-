@@ -131,18 +131,19 @@ async function main() {
     const probe = gen.indexOf("inlineBuildGate(await site.supabase.from(JOBS_TABLE).select(\"id\").limit(1))")
     check("the route asks whether the jobs table is there, after the owner check and before reading the body", owner > 0 && probe > owner && probe < gen.indexOf("req.json()"))
     check("  answers 409 with the table there, 503 when it could not tell", /if \(gate === "jobs"\) return NextResponse\.json\([^)]*\{ status: 409 \}\)/.test(gen) && /if \(gate === "unknown"\) return NextResponse\.json\(\{ error: AI_LIMIT_UNREADABLE \}, \{ status: 503 \}\)/.test(gen))
-    const job = gen.indexOf("withStoredCode(fromCheckpoint(job, body.checkpoint), installId)")
-    const bucket = gen.indexOf("const bucket = inlineBuildBucket(!!resuming, job.plan)")
+    /* Changed on purpose (round AW merge): main's equivalent of the same rule (only a checkpoint that carries a plan past planning is a Continue), with a day's ceiling on resumes of its own. */
+    const carried = gen.indexOf("const carried = body?.checkpoint && typeof body.checkpoint === \"object\" ? fromCheckpoint(job,")
+    const resumingAt = gen.indexOf("const resuming = !!carried && !!carried.plan && carried.step !== \"plan\"")
     const limited = gen.indexOf("const limited = await rateLimit({")
-    check("the allowance is chosen from the job the checkpoint turned into, not from whether one was sent", job > 0 && bucket > job && limited > bucket && !/bucket: resuming \?/.test(gen))
-    check("  the new website's allowance for a new website, the Continue's for a Continue", /windows: bucket === "site-generate-continue" \? LIMITS\.siteAi : LIMITS\.siteGenerate/.test(gen))
+    check("the allowance is chosen from the job the checkpoint turned into, not from whether one was sent", carried > 0 && resumingAt > carried && limited > resumingAt)
+    check("  the new website's allowance for a new website, the Continue's for a Continue", /bucket: resuming \? "site-generate-continue" : "site-generate"/.test(gen) && /windows: resuming \? \[\.\.\.LIMITS\.siteAi, RESUMES_A_DAY\] : LIMITS\.siteGenerate/.test(gen))
     check("  and nothing is built before the limit has answered", limited > 0 && limited < gen.indexOf("new ReadableStream") && /if \(limited\) return limited/.test(gen))
 
     const cont = readCode("app/api/website-builder/ai-jobs/[jobId]/continue/route.ts")
     const over = between(cont, 'if (action === "start_over") {', "const plan = planContinue(")
     const replay = over.indexOf("if (same) return")
     const counted = over.indexOf('bucket: "site-generate", subjects: [`creator:${creatorId}`], windows: LIMITS.siteGenerate')
-    check("Start over is counted as a new website, per store", counted > 0 && /if \(fresh\) return fresh/.test(over))
+    check("Start over is counted as a new website, per store", counted > 0 && /if \(capped\) return capped/.test(over)) // Changed on purpose (round AW merge): main's identical limit, named capped
     check("  after the replay of the same press, and before the new job is written", replay > 0 && counted > replay && counted < over.indexOf(".insert("))
     check("  the press itself is still limited as before", /bucket: "site-generate-continue", subjects: \[`user:\$\{site\.userId\}`\], windows: LIMITS\.siteAi/.test(cont))
   }

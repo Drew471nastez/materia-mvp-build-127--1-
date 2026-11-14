@@ -190,6 +190,35 @@ export function linearGradientValue(direction: number, color1: string, color2: s
   return `linear-gradient(${normalAngle(direction)}deg, ${color1} 0%, ${color2} 100%)`
 }
 
+/** A linear gradient's angle and stops, read as the Design tab shows them, or null for one it cannot read. */
+export function readLinearGradient(value: string | null | undefined): { direction: number; stops: { color: string; at: string | null }[] } | null {
+  const g = (value || "").trim()
+  if (!/^linear-gradient\(/i.test(g)) return null
+  const angle = g.match(/\(\s*(-?\d+(?:\.\d+)?)deg/i)
+  const stops = [...g.matchAll(/(#[0-9a-f]{3,8}\b|rgba?\([^)]*\))\s*(-?[\d.]+%)?/gi)].map((m) => ({ color: m[1], at: m[2] ?? null }))
+  if (stops.length < 2) return null
+  return { direction: angle ? Number(angle[1]) : 180, stops }
+}
+
+/**
+ * THE GRADIENT WITH ONE THING CHANGED, EVERY OTHER STOP KEPT (the OnePage
+ * production audit, D1). Fifteen themes paint three or four stops (Peach's
+ * pink, Sunset's, Aurora's...), and the Design tab rebuilt every edit as two
+ * stops from the first two colours it found: turning the direction alone took
+ * the pink out of Peach, and "End" showed the middle stop. Now the angle, the
+ * first stop's colour or the last stop's colour is changed in place; a value
+ * this cannot read becomes the plain two stop gradient, as before.
+ */
+export function editLinearGradient(value: string | null | undefined, change: { direction?: number; first?: string; last?: string }, fallback: { direction: number; first: string; last: string }): string {
+  const read = readLinearGradient(value)
+  if (!read) return linearGradientValue(change.direction ?? fallback.direction, change.first ?? fallback.first, change.last ?? fallback.last)
+  const stops = read.stops.map((s) => ({ ...s }))
+  if (change.first) stops[0].color = change.first
+  if (change.last) stops[stops.length - 1].color = change.last
+  const at = (s: { at: string | null }, i: number) => s.at ?? (i === 0 ? "0%" : i === stops.length - 1 ? "100%" : `${Math.round((i / (stops.length - 1)) * 100)}%`)
+  return `linear-gradient(${normalAngle(change.direction ?? read.direction)}deg, ${stops.map((s, i) => `${s.color} ${at(s, i)}`).join(", ")})`
+}
+
 /* ─── Font pairs ──────────────────────────────────────────────────────── */
 
 /**

@@ -10,56 +10,69 @@
   products and numbers:
 
     1. Sell anything you make: a product card that slides through merch, a
-       preset pack, a course and a community, the light behind it changing
-       with each; the tabs pick one, and it plays by itself while on screen.
-    2. A store that looks like you: three creators' storefronts and three
-       OnePages (real OnePage themes, ./onepage-sample) gliding past.
-    3. Sell in every country: a globe the visitor can spin, with orders
+       PDF guide, a course and a community page, the calm colour behind it
+       changing with each; the tabs pick one, and it plays by itself while
+       on screen. Under a mouse the white card leans away from the pointer,
+       as if pressed, and springs back when the pointer leaves.
+    2. A store that looks like you: creator stores drawn the way a phone
+       shows a real Storelib creator page (the newsletter bar, the cover, the
+       round photo, name, handle, bio and social icons, Home / Products /
+       Communities, Featured and the product cards), each in one of the
+       store's real colour schemes (lib/store-builder/defaults themePresets),
+       drifting past without a stop.
+    3. Sell anywhere in the world: a globe the visitor can spin, with orders
        arcing to buyers in currencies checkout charges in.
-    4. Real support: a creator's question answered by a person at Storelib
-       (app/support), and a buyer's question answered by the store.
+    4. Real support: the Support page of /app (app/(storelib)/app/support),
+       its two inboxes, From buyers and Storelib, and a request thread as it
+       really reads there: the subject, the topic, the status pill, "You" on
+       the right and the other side on the left. Three requests take turns.
 
   Motion is transform and opacity only. usePlatformSection writes
   data-platform-in (the first time the section is seen) and
   data-platform-live (on screen and the tab visible); every loop here is an
   .ev-loop, paused while not live, and the globe stops drawing. Under
-  reduced motion nothing loops and the tabs still work by hand.
+  reduced motion nothing loops, the card does not lean, and the tabs still
+  work by hand.
 */
 
-import { StorelibLogo } from "@/components/brand/storelib-logo"
-import { useCallback, useRef, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type RefObject } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { usePlatformSection } from "./platform-motion"
 import { EverythingGlobe } from "./everything-globe"
-import { CLARA, HomeOnePage, HomeOnePageStyle, NOA, THEO, type HomeThemeId } from "./onepage-sample"
-import type { PreviewAccount } from "@/components/onepage/themes/preview-account"
 
 export const EVERYTHING_HEADING = { lead: "Make the work.", rest: "Skip the busywork." } as const
 
 const IMG = "/home/everything"
+const ST = `${IMG}/stores`
 
 /* ── 1. Sell anything you make ───────────────────────────────────────── */
 
 type Slide = {
   tab: string
   name: string
+  /** How the product's picture is drawn in the card: a photo on its own, or a cover or page built around one. */
+  kind: "tee" | "guide" | "course" | "community"
   img: string
   w: number
   h: number
-  cutout: boolean
   stats: Array<[string, string]>
   status: string
 }
 
-/** Each product's numbers add up: sold times price is the revenue. */
+/*
+  Landing round: four real-looking products on a light grey tile. Each
+  product's numbers add up: sold times price is the revenue. The community
+  is its page as a member sees it (components/community/member): the top
+  bar with the community's mark, the places, "Share something..." and a post.
+*/
 export const EVERYTHING_SLIDES: Slide[] = [
   {
     tab: "Merch",
     name: "Midnight Studio Tee",
+    kind: "tee",
     img: `${IMG}/tee.webp`,
-    w: 360,
-    h: 360,
-    cutout: false,
+    w: 480,
+    h: 480,
     stats: [
       ["Price", "$32.00"],
       ["Sold", "214"],
@@ -69,25 +82,25 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
   {
     tab: "Digital",
-    name: "Golden Hour Preset Pack",
-    img: `${IMG}/presets.webp`,
-    w: 274,
-    h: 300,
-    cutout: true,
+    name: "Sourdough at Home",
+    kind: "guide",
+    img: `${IMG}/guide-bread.webp`,
+    w: 400,
+    h: 361,
     stats: [
-      ["Price", "$24.00"],
-      ["Downloads", "486"],
-      ["Revenue", "$11,664.00"],
+      ["Price", "$19.00"],
+      ["Downloads", "612"],
+      ["Revenue", "$11,628.00"],
     ],
     status: "Live",
   },
   {
     tab: "Course",
-    name: "Shoot in Manual, in a Week",
+    name: "Wheel Throwing Basics",
+    kind: "course",
     img: `${IMG}/course.webp`,
-    w: 360,
-    h: 360,
-    cutout: false,
+    w: 480,
+    h: 480,
     stats: [
       ["Price", "$129.00"],
       ["Students", "92"],
@@ -97,72 +110,242 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
   {
     tab: "Community",
-    name: "Inner Circle",
+    name: "Saturday Run Club",
+    kind: "community",
     img: `${IMG}/community.webp`,
-    w: 400,
-    h: 261,
-    cutout: true,
+    w: 480,
+    h: 480,
     stats: [
       ["Price", "$12 / month"],
       ["Members", "418"],
       ["Monthly", "$5,016.00"],
     ],
-    status: "Live",
+    status: "Open",
   },
 ]
+
+function Img({ src, w, h, className }: { src: string; w: number; h: number; className?: string }) {
+  /* eslint-disable-next-line @next/next/no-img-element */
+  return <img className={className} src={src} alt="" width={w} height={h} loading="lazy" decoding="async" draggable={false} />
+}
+
+/** A Storelib community page, small: the top bar, the places, the composer and the newest post. */
+function CommunityPage({ s }: { s: Slide }) {
+  return (
+    <span className="ev-cm">
+      <span className="ev-cm-top">
+        <Img className="ev-cm-mark" src={s.img} w={s.w} h={s.h} />
+        <span className="ev-cm-name">{s.name}</span>
+        <Img className="ev-cm-me" src={`${ST}/sol-av.webp`} w={200} h={200} />
+      </span>
+      <span className="ev-cm-tabs">
+        <span data-on="">Community</span>
+        <span>Calendar</span>
+        <span>Members</span>
+        <span>About</span>
+      </span>
+      <span className="ev-cm-feed">
+        <span className="ev-cm-compose">
+          <Img className="ev-cm-av" src={`${ST}/sol-av.webp`} w={200} h={200} />
+          Share something...
+        </span>
+        <span className="ev-cm-post">
+          <span className="ev-cm-by">
+            <Img className="ev-cm-av" src={`${ST}/theo-av.webp`} w={200} h={200} />
+            <span className="ev-cm-who">
+              <b>Jonas Weber</b>
+              <i>2h · Long runs</i>
+            </span>
+          </span>
+          <span className="ev-cm-t">Sunday long run, 14 km from the pier</span>
+          <span className="ev-cm-x">Easy pace, coffee after. We meet at 8:00 by the boathouse.</span>
+          <span className="ev-cm-foot">
+            <span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
+              </svg>
+              24
+            </span>
+            <span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 12a8 8 0 0 1-11.7 7.1L4 20l.9-4.3A8 8 0 1 1 20 12Z" />
+              </svg>
+              9
+            </span>
+          </span>
+        </span>
+      </span>
+    </span>
+  )
+}
+
+/** The product's picture: the photo, or for the PDF guide its cover, standing on the tile. */
+function ProductPicture({ s }: { s: Slide }) {
+  const photo = <Img src={s.img} w={s.w} h={s.h} />
+  if (s.kind === "guide")
+    return (
+      <span className="ev-p-book">
+        <span className="ev-p-book-photo">{photo}</span>
+        <span className="ev-p-book-title">Sourdough at Home</span>
+        <span className="ev-p-book-sub">A 52 page guide</span>
+      </span>
+    )
+  if (s.kind === "course")
+    return (
+      <>
+        {photo}
+        <span className="ev-p-lesson">
+          <span className="ev-p-play" />
+          <span className="ev-p-lesson-t">Lesson 3 · Centering</span>
+        </span>
+        <span className="ev-p-progress" />
+      </>
+    )
+  if (s.kind === "community") return <CommunityPage s={s} />
+  return photo
+}
+
+/*
+  PRESSED, IT GIVES (the owner: "like I'm actually pinching it and pushing
+  it back"). Under a mouse the white card leans away from the pointer by a
+  few degrees and sinks a little, on a spring that runs only while it is
+  moving, and springs back when the pointer leaves. Transform only, written
+  straight to the element once a frame (no React state per frame). The
+  pointer is placed against the stage the card stands on, which never
+  leans, read at the start of a frame before anything is written. A
+  finger, a pen without hover and reduced motion get none of it.
+*/
+const TILT_DEG = 5
+function usePressTilt(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current
+    const stage = el?.parentElement
+    if (!el || !stage || typeof window.matchMedia !== "function") return
+    const fine = window.matchMedia("(hover: hover) and (pointer: fine)")
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)")
+    let inside = false
+    let px = 0
+    let py = 0
+    let raf = 0
+    let last = 0
+    /* Targets, and the springs' values and speeds: lean about x, lean about y, and the press. */
+    const target = [0, 0, 0]
+    const value = [0, 0, 0]
+    const speed = [0, 0, 0]
+    const step = (now: number) => {
+      if (inside) {
+        const box = stage.getBoundingClientRect()
+        const nx = Math.max(-0.5, Math.min(0.5, (px - box.left) / box.width - 0.5))
+        const ny = Math.max(-0.5, Math.min(0.5, (py - box.top) / box.height - 0.5))
+        /* The side under the pointer goes in: pressed at the top, the top leans back; at the right, the right does. */
+        target[0] = ny * -2 * TILT_DEG * 0.7
+        target[1] = nx * 2 * TILT_DEG
+        target[2] = 1
+      }
+      const dt = Math.min(0.032, last ? (now - last) / 1000 : 1 / 60)
+      last = now
+      let moving = false
+      for (let i = 0; i < 3; i++) {
+        /* A soft spring, a touch under critical damping: it settles with the smallest give, never a wobble. */
+        const a = 210 * (target[i] - value[i]) - 26 * speed[i]
+        speed[i] += a * dt
+        value[i] += speed[i] * dt
+        if (Math.abs(target[i] - value[i]) > 0.002 || Math.abs(speed[i]) > 0.01) moving = true
+      }
+      if (!moving)
+        for (let i = 0; i < 3; i++) {
+          value[i] = target[i]
+          speed[i] = 0
+        }
+      if (!moving && !inside) {
+        el.style.transform = ""
+        el.style.willChange = ""
+      } else el.style.transform = `rotateX(${value[0].toFixed(3)}deg) rotateY(${value[1].toFixed(3)}deg) scale(${(1 - value[2] * 0.015).toFixed(4)})`
+      raf = moving ? requestAnimationFrame(step) : 0
+      if (!raf) last = 0
+    }
+    const run = () => {
+      if (!raf) raf = requestAnimationFrame(step)
+    }
+    const enter = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse" || !fine.matches || reduce.matches) return
+      inside = true
+      el.style.willChange = "transform"
+      move(e)
+    }
+    const move = (e: PointerEvent) => {
+      if (!inside || e.pointerType !== "mouse") return
+      px = e.clientX
+      py = e.clientY
+      run()
+    }
+    const leave = () => {
+      if (!inside) return
+      inside = false
+      target[0] = target[1] = target[2] = 0
+      run()
+    }
+    el.addEventListener("pointerenter", enter)
+    el.addEventListener("pointermove", move)
+    el.addEventListener("pointerleave", leave)
+    return () => {
+      el.removeEventListener("pointerenter", enter)
+      el.removeEventListener("pointermove", move)
+      el.removeEventListener("pointerleave", leave)
+      if (raf) cancelAnimationFrame(raf)
+      el.style.transform = ""
+      el.style.willChange = ""
+    }
+  }, [ref])
+}
 
 function ProductSlides() {
   const [active, setActive] = useState(0)
   const n = EVERYTHING_SLIDES.length
   const next = useCallback(() => setActive((a) => (a + 1) % n), [n])
+  const card = useRef<HTMLDivElement>(null)
+  usePressTilt(card)
   return (
     <div className="ev-vis ev-p">
       {EVERYTHING_SLIDES.map((s, i) => (
         <div key={s.tab} className={`ev-p-bg ev-p-bg${i}`} data-on={i === active || undefined} aria-hidden="true" />
       ))}
-      <div className="ev-p-card">
-        <div className="ev-p-media" aria-hidden="true">
-          {EVERYTHING_SLIDES.map((s, i) => {
-            const pos = (i - active + n) % n
-            return (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                key={s.tab}
-                src={s.img}
-                alt=""
-                width={s.w}
-                height={s.h}
-                loading="lazy"
-                decoding="async"
-                className={`ev-p-img${s.cutout ? " ev-p-cut" : ""}`}
-                data-pos={pos === 0 ? "on" : pos === n - 1 ? "prev" : "next"}
-              />
-            )
-          })}
-        </div>
-        <div className="ev-p-info">
-          {EVERYTHING_SLIDES.map((s, i) => (
-            <div key={s.tab} className="ev-p-text" data-on={i === active || undefined} aria-hidden={i !== active || undefined}>
-              <p className="ev-p-name ev-p-rise" style={{ "--d": 0 } as CSSProperties}>
-                {s.name}
-              </p>
-              <dl className="ev-p-stats">
-                {s.stats.map(([k, v], j) => (
-                  <div key={k} className="ev-p-rise" style={{ "--d": j + 1 } as CSSProperties}>
-                    <dt className="ev-p-k">{k}</dt>
-                    <dd className={j === 2 ? "ev-p-v ev-p-money" : "ev-p-v"}>{v}</dd>
-                  </div>
-                ))}
-                <div className="ev-p-rise" style={{ "--d": 4 } as CSSProperties}>
-                  <dt className="ev-p-k">Status</dt>
-                  <dd className="ev-p-v">
-                    <span className="ev-p-dot" aria-hidden="true" />
-                    {s.status}
-                  </dd>
+      <div className="ev-p-stage">
+        <div ref={card} className="ev-p-card" data-press-tilt="">
+          <div className="ev-p-media" aria-hidden="true">
+            {EVERYTHING_SLIDES.map((s, i) => {
+              const pos = (i - active + n) % n
+              return (
+                <div key={s.tab} className={`ev-p-img ev-p-${s.kind}`} data-pos={pos === 0 ? "on" : pos === n - 1 ? "prev" : "next"}>
+                  <ProductPicture s={s} />
                 </div>
-              </dl>
-            </div>
-          ))}
+              )
+            })}
+          </div>
+          <div className="ev-p-info">
+            {EVERYTHING_SLIDES.map((s, i) => (
+              <div key={s.tab} className="ev-p-text" data-on={i === active || undefined} aria-hidden={i !== active || undefined}>
+                <p className="ev-p-name ev-p-rise" style={{ "--d": 0 } as CSSProperties}>
+                  {s.name}
+                </p>
+                <dl className="ev-p-stats">
+                  {s.stats.map(([k, v], j) => (
+                    <div key={k} className="ev-p-rise" style={{ "--d": j + 1 } as CSSProperties}>
+                      <dt className="ev-p-k">{k}</dt>
+                      <dd className={j === 2 ? "ev-p-v ev-p-money" : "ev-p-v"}>{v}</dd>
+                    </div>
+                  ))}
+                  <div className="ev-p-rise" style={{ "--d": 4 } as CSSProperties}>
+                    <dt className="ev-p-k">Status</dt>
+                    <dd className="ev-p-v">
+                      <span className="ev-p-dot" aria-hidden="true" />
+                      {s.status}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       <div className="ev-tabs" role="group" aria-label="Product types">
@@ -179,147 +362,190 @@ function ProductSlides() {
 
 /* ── 2. A store that looks like you ─────────────────────────────────── */
 
-function Bar({ logo }: { logo: string }) {
-  return (
-    <div className="ev-ph-bar">
-      <span className="ev-ph-burger" />
-      <span className="ev-ph-logo">{logo}</span>
-      <span className="ev-ph-bag" />
-    </div>
-  )
-}
-
-function Pic({ src, w, h, className }: { src: string; w: number; h: number; className: string }) {
-  /* eslint-disable-next-line @next/next/no-img-element */
-  return <img className={className} src={`${IMG}/${src}`} alt="" width={w} height={h} loading="lazy" decoding="async" />
-}
-
-function StoreNorthbound() {
-  return (
-    <div className="ev-ph ev-ph-north">
-      <Bar logo="NORTHBOUND" />
-      <div className="ev-ph-hero">
-        <Pic className="ev-ph-hero-img" src="store-hoodie.webp" w={420} h={520} />
-        <div className="ev-ph-hero-copy">
-          <span className="ev-ph-kicker">Fall 26</span>
-          <span className="ev-ph-title">Layers for long walks</span>
-        </div>
-      </div>
-      <div className="ev-ph-cta">Shop the drop</div>
-      <div className="ev-ph-grid">
-        <div>
-          <Pic className="ev-ph-thumb" src="store-crew.webp" w={220} h={220} />
-          <span className="ev-ph-pn">Trail Crew</span>
-          <span className="ev-ph-pp">$58</span>
-        </div>
-        <div>
-          <Pic className="ev-ph-thumb" src="store-cap.webp" w={220} h={220} />
-          <span className="ev-ph-pn">Ridge Cap</span>
-          <span className="ev-ph-pp">$28</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StoreKiln() {
-  return (
-    <div className="ev-ph ev-ph-kiln">
-      <Bar logo="Kiln & Clay" />
-      <div className="ev-ph-serif">
-        Spring
-        <br />
-        Glaze Drop
-      </div>
-      <Pic className="ev-ph-wide" src="store-cups.webp" w={420} h={340} />
-      <div className="ev-ph-row">
-        <Pic className="ev-ph-sq" src="store-vases.webp" w={220} h={220} />
-        <div>
-          <span className="ev-ph-pn">Speckled vase set</span>
-          <span className="ev-ph-pp">$86.00</span>
-        </div>
-      </div>
-      <div className="ev-ph-row">
-        <span className="ev-ph-sq ev-ph-swatch" />
-        <div>
-          <span className="ev-ph-pn">Wheel class, Sat 10am</span>
-          <span className="ev-ph-pp">$65.00</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StoreLumen() {
-  return (
-    <div className="ev-ph ev-ph-lumen">
-      <Bar logo="LUMEN HARBOR" />
-      <Pic className="ev-ph-album" src="store-album.webp" w={400} h={400} />
-      <div className="ev-ph-album-copy">
-        <span className="ev-ph-title">Night Swim</span>
-        <span className="ev-ph-sub">New album · 10 tracks</span>
-      </div>
-      <div className="ev-ph-buy">
-        <span>Vinyl LP</span>
-        <span>$28.00</span>
-      </div>
-      <div className="ev-ph-buy ev-ph-buy-ghost">
-        <span>Digital album</span>
-        <span>$9.00</span>
-      </div>
-      <div className="ev-ph-tracks">
-        {[
-          ["1", "Low Tide", "3:42"],
-          ["2", "Harbor Lights", "4:05"],
-          ["3", "Undertow", "3:18"],
-        ].map(([n, t, d]) => (
-          <div key={n} className="ev-ph-track">
-            <span className="ev-ph-tn">{n}</span>
-            {t}
-            <span className="ev-ph-td">{d}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 /*
-  Between the stores, three OnePages (the land round, the owner: "use some of
-  the themes that we have on OnePage ... actually representative"): Ember,
-  Halo and Atlas as the theme picker ships them, drawn by the picker's own
-  ThemePreview (./onepage-sample). Each sits under the link it is shared by (storelib.me/<handle>,
-  lib/url-helpers getLinksShareUrl), in a browser's address bar.
+  Landing round 2 (the owner: "realistic and accurate, like real Storelib
+  stores"). Each store is a creator page exactly as a phone draws it,
+  measured from storelib.com/andrewrullz at 390px and the components
+  behind it: the subscribe bar (photo, "Your email", Subscribe in the
+  scheme's button colour), the cover band, the round photo at the small
+  size (124px, avatarSizeMap) straddling the cover's edge, name, @handle,
+  bio and social icons, the underline tabs Home / Products / Communities in
+  three equal columns, "Featured", and the explore product card
+  (components/explore/product-card.tsx): a 16:9 cover, the rating, the
+  title with its category badge, the price, in two columns (the Featured
+  section's mobileListing: 2). The colours are the store's real schemes
+  (themePresets): Clay, Astrid, Default, Harbor, Sage and Cream. Every size
+  is in the page's own pixels (--r is one of them), so the card is that
+  page, scaled. Fictional creators, Unsplash photography.
 */
-function onePage(theme: HomeThemeId, who: PreviewAccount, handle: string) {
-  return function OnePagePhone() {
-    return (
-      <div className="ev-ph ev-ph-op">
-        <span className="ev-ph-op-bar">
-          <span className="ev-ph-op-link">storelib.me/{handle}</span>
-        </span>
-        <HomeOnePage theme={theme} who={who} className="ev-ph-op-page" />
-      </div>
-    )
-  }
+type StoreProduct = { src: string; name: string; badge: string; price: string; rating?: string }
+type Storefront = {
+  key: string
+  name: string
+  handle: string
+  bio: string
+  cover: string
+  avatar: string
+  /** The store's colour scheme, by its name in themePresets. */
+  scheme: "clay" | "astrid" | "default" | "harbor" | "sage" | "cream"
+  products: [StoreProduct, StoreProduct]
 }
-const OnePageNoa = onePage("ember", NOA, "noalind")
-const OnePageClara = onePage("halo", CLARA, "clarapaints")
-const OnePageTheo = onePage("atlas", THEO, "theomarsh")
 
-/* A store, a OnePage, a store, a OnePage: what the caption says, both ways to sell. */
-const STORES = [StoreNorthbound, OnePageNoa, StoreKiln, OnePageClara, StoreLumen, OnePageTheo]
+export const EVERYTHING_STORES: readonly Storefront[] = [
+  {
+    key: "kiln",
+    name: "Kiln & Clay",
+    handle: "@kilnandclay",
+    bio: "Stoneware and wheel classes in Leeds",
+    cover: `${ST}/kiln-cover.webp`,
+    avatar: `${ST}/kiln-av.webp`,
+    scheme: "clay",
+    products: [
+      { src: `${ST}/kiln-bowls.webp`, name: "Speckled Bowls", badge: "Physical", price: "$64.00", rating: "4.9" },
+      { src: `${ST}/kiln-course.webp`, name: "Wheel Throwing Basics", badge: "Course", price: "$129.00", rating: "5.0" },
+    ],
+  },
+  {
+    key: "lumen",
+    name: "Lumen Harbor",
+    handle: "@lumenharbor",
+    bio: "Indie band from Bristol",
+    cover: `${ST}/lumen-cover.webp`,
+    avatar: `${ST}/lumen-av.webp`,
+    scheme: "astrid",
+    products: [
+      { src: `${ST}/lumen-lp.webp`, name: "Night Swim LP", badge: "Physical", price: "$28.00", rating: "5.0" },
+      { src: `${ST}/lumen-tee.webp`, name: "Tour Tee 2026", badge: "Physical", price: "$32.00", rating: "4.8" },
+    ],
+  },
+  {
+    key: "mila",
+    name: "Mila Draws",
+    handle: "@miladraws",
+    bio: "Illustrator in Lisbon",
+    cover: `${ST}/mila-cover.webp`,
+    avatar: `${ST}/mila-av.webp`,
+    scheme: "default",
+    products: [
+      { src: `${ST}/mila-course.webp`, name: "Botanical Sketching", badge: "Course", price: "$49.00", rating: "4.9" },
+      { src: `${ST}/mila-brushes.webp`, name: "Gouache Brush Pack", badge: "Digital", price: "$18.00", rating: "5.0" },
+    ],
+  },
+  {
+    key: "north",
+    name: "Northbound",
+    handle: "@northbound",
+    bio: "Outdoor layers, made in small runs",
+    cover: `${ST}/north-cover.webp`,
+    avatar: `${ST}/north-av.webp`,
+    scheme: "harbor",
+    products: [
+      { src: `${ST}/north-cap.webp`, name: "Ridge Cap", badge: "Physical", price: "$28.00", rating: "4.9" },
+      { src: `${ST}/north-hoodie.webp`, name: "Trail Hoodie", badge: "Physical", price: "$64.00", rating: "4.8" },
+    ],
+  },
+  {
+    key: "sol",
+    name: "Sol & Sage",
+    handle: "@solandsage",
+    bio: "Home cooking and good bread",
+    cover: `${ST}/sol-cover.webp`,
+    avatar: `${ST}/sol-av.webp`,
+    scheme: "sage",
+    products: [
+      { src: `${ST}/sol-guide.webp`, name: "Sourdough at Home", badge: "Digital", price: "$19.00", rating: "4.9" },
+      { src: `${ST}/sol-club.webp`, name: "Bread Club", badge: "Community", price: "$8/month" },
+    ],
+  },
+  {
+    key: "theo",
+    name: "Theo Marsh",
+    handle: "@theomarsh",
+    bio: "Landscape prints from the road",
+    cover: `${ST}/theo-cover.webp`,
+    avatar: `${ST}/theo-av.webp`,
+    scheme: "cream",
+    products: [
+      { src: `${ST}/theo-forest.webp`, name: "Pine Fog Print", badge: "Physical", price: "$45.00", rating: "5.0" },
+      { src: `${ST}/theo-lake.webp`, name: "Lake Morning", badge: "Physical", price: "$45.00", rating: "4.9" },
+    ],
+  },
+]
+
+/* The three social icons a creator page shows by default (TikTok, Instagram, YouTube), drawn plain in the scheme's muted ink. */
+function Social() {
+  return (
+    <span className="ev-st-social">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M14.5 3h2.6c.3 2 1.6 3.4 3.6 3.6v2.7c-1.4 0-2.7-.4-3.7-1.1v6.3a5.6 5.6 0 1 1-5.6-5.6c.3 0 .6 0 .9.1v2.8a2.9 2.9 0 1 0 2.2 2.8V3Z" />
+      </svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="ev-st-line">
+        <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.3" cy="6.7" r=".9" className="ev-st-fill" />
+      </svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.5 2.5 0 0 0 2.4 7.2 26 26 0 0 0 2 12a26 26 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8A26 26 0 0 0 22 12a26 26 0 0 0-.4-4.8ZM10 15V9l5.2 3L10 15Z" />
+      </svg>
+    </span>
+  )
+}
+
+function StoreCard({ store }: { store: Storefront }) {
+  return (
+    <div className={`ev-st ev-st-${store.scheme}`}>
+      <span className="ev-st-bar">
+        <Img className="ev-st-bar-av" src={store.avatar} w={200} h={200} />
+        <span className="ev-st-email">Your email</span>
+        <span className="ev-st-sub">Subscribe</span>
+      </span>
+      <Img className="ev-st-cover" src={store.cover} w={640} h={264} />
+      <Img className="ev-st-av" src={store.avatar} w={200} h={200} />
+      <span className="ev-st-name">{store.name}</span>
+      <span className="ev-st-handle">{store.handle}</span>
+      <span className="ev-st-bio">{store.bio}</span>
+      <Social />
+      <span className="ev-st-tabs">
+        <span data-on="">Home</span>
+        <span>Products</span>
+        <span>Communities</span>
+      </span>
+      <span className="ev-st-h">Featured</span>
+      <span className="ev-st-grid">
+        {store.products.map((p) => (
+          <span key={p.name} className="ev-st-prod">
+            <Img className="ev-st-img" src={p.src} w={480} h={270} />
+            <span className="ev-st-body">
+              {p.rating ? (
+                <span className="ev-st-rate">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3L12 17.1l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9L12 2.8Z" />
+                  </svg>
+                  {p.rating}
+                </span>
+              ) : null}
+              <span className="ev-st-row">
+                <span className="ev-st-pn">{p.name}</span>
+                <span className="ev-st-badge">{p.badge}</span>
+              </span>
+              <span className="ev-st-pp">{p.price}</span>
+            </span>
+          </span>
+        ))}
+      </span>
+    </div>
+  )
+}
 
 function Storefronts() {
-  /* The last one, the six, then the first two again: the strip glides one phone at a time and starts over where it looks the same. */
-  const strip = [STORES[5], ...STORES, STORES[0], STORES[1]]
+  /* The stores twice over: the strip drifts by one set's width and starts again where it looks the same. */
+  const strip = [...EVERYTHING_STORES, ...EVERYTHING_STORES]
   return (
     <div className="ev-vis ev-s" aria-hidden="true">
-      <HomeOnePageStyle />
       <div className="ev-s-track ev-loop">
-        {strip.map((Store, i) => (
+        {strip.map((store, i) => (
           <div key={i} className="ev-s-slot">
-            <Store />
+            <StoreCard store={store} />
           </div>
         ))}
       </div>
@@ -329,56 +555,128 @@ function Storefronts() {
 
 /* ── 4. Support ──────────────────────────────────────────────────────── */
 
-function Thread({ variant, title, sub, ask, askAv, reply, replyAv, replyLogo }: { variant: "a" | "b"; title: string; sub: string; ask: string; askAv: string; reply: string; replyAv: string; replyLogo?: boolean }) {
+/*
+  Landing round 2 (the owner: smoother, cleaner, accurate, one more
+  example, on autoplay). The Support page of /app as it reads: the two
+  inboxes (From buyers, Storelib), and a thread with its subject, its topic
+  and when it opened, the status pill, the creator's own message on the
+  right in the dark bubble ("You") and the other side's on the left. The
+  pill turns as the answer arrives, with the statuses the page uses
+  (lib/support/tickets and lib/support/cases STATUS_FOR_STORE). One
+  request after another, each held about eight seconds; the clock is a CSS
+  animation, so it stops with the section off screen, and under reduced
+  motion it never runs and the inbox tabs switch by hand.
+*/
+type Request = {
+  inbox: "buyers" | "storelib"
+  title: string
+  sub: string
+  /** The pill before the answer and after it. */
+  pill: [{ label: string; tone: "blue" | "amber" | "gray" }, { label: string; tone: "blue" | "amber" | "gray" }]
+  ask: { who: string; at: string; body: string; mine: boolean }
+  answer: { who: string; at: string; body: string; mine: boolean }
+}
+
+export const EVERYTHING_SUPPORT: readonly Request[] = [
+  {
+    inbox: "storelib",
+    title: "Payout hasn't arrived",
+    sub: "Payouts · Opened Nov 6",
+    pill: [
+      { label: "With Storelib", tone: "blue" },
+      { label: "Your reply", tone: "amber" },
+    ],
+    ask: { who: "You", at: "9:41 AM", body: "My October payout says sent, but it isn't in my bank yet. Can you check?", mine: true },
+    answer: { who: "Storelib support", at: "9:58 AM", body: "It left on Nov 4, and banks take 2 to 3 business days, so your $2,184.60 lands by Friday. We'll keep this open until it does.", mine: false },
+  },
+  {
+    inbox: "buyers",
+    title: "I can't open what I bought",
+    sub: "Order #4821 · Leah Moreno · Opened Nov 9",
+    pill: [
+      { label: "Your reply", tone: "amber" },
+      { label: "Waiting on the buyer", tone: "gray" },
+    ],
+    ask: { who: "Leah Moreno", at: "8:12 PM", body: "The download link in my email won't open on my iPad. Could you send it again?", mine: false },
+    answer: { who: "You", at: "8:20 PM", body: "Just sent a fresh link. Your files are also in your Storelib library, so you can download them again anytime.", mine: true },
+  },
+  {
+    inbox: "storelib",
+    title: "My domain says Not secure",
+    sub: "My website · Opened Nov 11",
+    pill: [
+      { label: "With Storelib", tone: "blue" },
+      { label: "Your reply", tone: "amber" },
+    ],
+    ask: { who: "You", at: "2:05 PM", body: "I connected shop.kilnandclay.com an hour ago and the browser still says Not secure.", mine: true },
+    answer: { who: "Storelib support", at: "2:19 PM", body: "Your DNS is right. The certificate was still being issued and it's live now, so reload and you'll see the lock.", mine: false },
+  },
+]
+
+/** One message: who and when over the bubble. The answer also holds the typing dots, in the bubble's place until it arrives. */
+function Bubble({ m, answer }: { m: Request["ask"]; answer?: boolean }) {
   return (
-    <div className={`ev-c-thread ev-c-${variant} ev-loop`}>
-      <div className="ev-c-head">
-        <span>{title}</span>
-        <span className="ev-c-sub">{sub}</span>
-      </div>
-      <div className="ev-c-msg ev-c-q ev-loop">
-        <p className="ev-c-bubble ev-c-light">{ask}</p>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="ev-c-av" src={askAv} alt="" width={96} height={96} loading="lazy" decoding="async" />
-      </div>
-      <div className="ev-c-slot">
-        <div className="ev-c-typing ev-loop">
-          <span className="ev-c-dot ev-loop" />
-          <span className="ev-c-dot ev-loop" />
-          <span className="ev-c-dot ev-loop" />
-        </div>
-        <div className="ev-c-msg ev-c-r ev-loop">
-          <p className="ev-c-bubble ev-c-dark">{reply}</p>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {replyLogo ? <StorelibLogo size={96} alt="" fluid className="ev-c-av ev-c-logo" /> : <img className="ev-c-av" src={replyAv} alt="" width={96} height={96} loading="lazy" decoding="async" />}
-        </div>
-      </div>
-    </div>
+    <li className={`ev-c-m ${m.mine ? "ev-c-mine" : "ev-c-theirs"} ${answer ? "ev-c-answer" : "ev-c-ask"}`}>
+      <span className="ev-c-who ev-c-arrive ev-loop">
+        {m.who} <span className="ev-c-at">· {m.at}</span>
+      </span>
+      <span className="ev-c-bw">
+        {answer ? (
+          <span className="ev-c-typing ev-loop">
+            <span className="ev-c-dot ev-loop" />
+            <span className="ev-c-dot ev-loop" />
+            <span className="ev-c-dot ev-loop" />
+          </span>
+        ) : null}
+        <span className="ev-c-b ev-c-arrive ev-loop">{m.body}</span>
+      </span>
+    </li>
   )
 }
 
 function Support() {
+  const [active, setActive] = useState(0)
+  const n = EVERYTHING_SUPPORT.length
+  const next = useCallback(() => setActive((a) => (a + 1) % n), [n])
+  const inbox = EVERYTHING_SUPPORT[active].inbox
+  const open = (to: "buyers" | "storelib") => {
+    if (to === inbox) return
+    const i = EVERYTHING_SUPPORT.findIndex((r, j) => r.inbox === to && j !== active)
+    if (i >= 0) setActive(i)
+  }
   return (
-    <div className="ev-vis ev-c" aria-hidden="true">
-      <Thread
-        variant="a"
-        title="Storelib support"
-        sub="Payout for October"
-        ask="My October payout says sent, but it isn't in my bank yet. Can you check?"
-        askAv={`${IMG}/av-creator.webp`}
-        reply="It left on Nov 4, and banks take 2 to 3 business days, so your $2,184.60 lands by Friday. I'll keep this open until it does."
-        replyAv=""
-        replyLogo
-      />
-      <Thread
-        variant="b"
-        title="From a buyer"
-        sub="Order #4821 · Golden Hour Preset Pack"
-        ask="The download link in my email won't open on my iPad. Could you send it again?"
-        askAv={`${IMG}/av-buyer.webp`}
-        reply="Just sent a fresh one. Your files are also in your Storelib library, so you can download them again anytime."
-        replyAv={`${IMG}/av-creator.webp`}
-      />
+    <div className="ev-vis ev-c">
+      <div className="ev-c-box">
+        <div className="ev-c-tabs" role="group" aria-label="Support inboxes">
+          <button type="button" className="ev-c-tab" aria-pressed={inbox === "buyers"} data-on={inbox === "buyers" || undefined} onClick={() => open("buyers")}>
+            <span>From buyers</span>
+          </button>
+          <button type="button" className="ev-c-tab" aria-pressed={inbox === "storelib"} data-on={inbox === "storelib" || undefined} onClick={() => open("storelib")}>
+            <span>Storelib</span>
+          </button>
+        </div>
+        <div className="ev-c-stack" aria-hidden="true">
+          {EVERYTHING_SUPPORT.map((r, i) => (
+            <section key={r.title} className="ev-c-thread" data-on={i === active || undefined} data-inbox={r.inbox}>
+              <div className="ev-c-head">
+                <span className="ev-c-ht">
+                  <span className="ev-c-title">{r.title}</span>
+                  <span className="ev-c-sub">{r.sub}</span>
+                </span>
+                <span className="ev-c-pills">
+                  <span className={`ev-c-pill ev-c-${r.pill[0].tone} ev-c-before ev-loop`}>{r.pill[0].label}</span>
+                  <span className={`ev-c-pill ev-c-${r.pill[1].tone} ev-c-after ev-loop`}>{r.pill[1].label}</span>
+                </span>
+              </div>
+              <ol className="ev-c-msgs">
+                <Bubble m={r.ask} />
+                <Bubble m={r.answer} answer />
+              </ol>
+            </section>
+          ))}
+        </div>
+        <span key={active} className="ev-c-clock ev-loop" aria-hidden="true" onAnimationEnd={next} />
+      </div>
     </div>
   )
 }
@@ -388,7 +686,7 @@ function Support() {
 export const EVERYTHING_CARDS = [
   { key: "sell", wide: true, lead: "Sell anything you make.", rest: "Merch, downloads, courses and communities live in one catalog, with one checkout for all of them." },
   { key: "store", wide: false, lead: "Build a store that looks like you.", rest: "Start from a template and make every part yours, or skip the website and share a OnePage link." },
-  { key: "world", wide: false, lead: "Sell in every country.", rest: "Buyers see your prices in their currency and your pages in their language, wherever they find you." },
+  { key: "world", wide: false, lead: "Sell anywhere in the world.", rest: "Buyers see your prices in their currency and your pages in their language, wherever they find you." },
   { key: "support", wide: true, lead: "Real support for you and your buyers.", rest: "A person at Storelib reads and answers every request, and buyers reach you right from their order page." },
 ] as const
 
@@ -435,7 +733,12 @@ export function EverythingInOnePlace() {
   mounts. Only transform and opacity animate.
 */
 const EASE = "cubic-bezier(.22,1,.36,1)"
-const GLIDE = "cubic-bezier(.65,0,.35,1)"
+/** n of the storefront's own pixels (one --r), for the store cards drawn at a phone's 390px. */
+const r = (n: number) => `calc(${n} * var(--r))`
+/** n pixels of the 260px community page drawn in the product tile. */
+const q = (n: number) => `calc(${n} * var(--q))`
+/* One support request's turn, in seconds, and when in it each part arrives. */
+const TURN = 8
 const CSS = `
 .ev{position:relative;isolation:isolate;background:#fff;color:#18181b;padding:var(--home-pad,clamp(72px,9vw,128px)) var(--landing-gutter,22px)}
 .ev-in{max-width:1240px;margin:0 auto}
@@ -449,8 +752,8 @@ const CSS = `
 }
 .ev-card{min-width:0;opacity:0;transform:translate(0,28px);transition:opacity .7s ${EASE},transform .9s ${EASE};transition-delay:calc(var(--i,0) * 90ms)}
 .ev[data-platform-in] .ev-card{opacity:1;transform:none}
-.ev-vis{position:relative;overflow:hidden;height:clamp(300px,86vw,380px);border-radius:18px;isolation:isolate;contain:paint}
-@media(min-width:768px){.ev-vis{height:clamp(320px,32vw,440px);border-radius:20px}}
+.ev-vis{position:relative;overflow:hidden;height:clamp(300px,86vw,380px);border-radius:17px;isolation:isolate;contain:paint}
+@media(min-width:768px){.ev-vis{height:clamp(320px,32vw,440px);border-radius:19px}}
 .ev-cap{margin:18px 0 0;max-width:46ch;font-size:15.5px;line-height:1.5;color:#7c7a84;text-wrap:pretty}
 .ev-cap-lead{font-weight:500;color:#18181b}
 @media(min-width:768px){.ev-cap{font-size:16px}}
@@ -458,20 +761,59 @@ const CSS = `
 .ev[data-platform-live="false"] .ev-loop,.ev:not([data-platform-live]) .ev-loop{animation-play-state:paused}
 .ev[data-platform-live="false"] .ev-tab[data-on] .ev-tab-fill,.ev:not([data-platform-live]) .ev-tab[data-on] .ev-tab-fill{animation-play-state:paused}
 
-/* 1. Product slides */
-.ev-p{background:#5b2a8a}
+/* 1. Product slides: a calm, plain colour behind each product (landing round: no purple gradients), the product on a light grey tile */
+.ev-p{background:#d9d5ce}
 .ev-p-bg{position:absolute;inset:0;opacity:0;transition:opacity 1s cubic-bezier(.4,0,.2,1)}
 .ev-p-bg[data-on]{opacity:1}
-.ev-p-bg0{background:radial-gradient(60% 70% at 18% 20%,#ff9cbd 0%,rgba(255,156,189,0) 70%),radial-gradient(55% 65% at 88% 88%,#ffbb8f 0%,rgba(255,187,143,0) 70%),linear-gradient(135deg,#c2417a 0%,#a947a8 55%,#e27a86 100%)}
-.ev-p-bg1{background:radial-gradient(60% 70% at 82% 16%,#ffd89c 0%,rgba(255,216,156,0) 70%),radial-gradient(60% 70% at 12% 92%,#f58ab5 0%,rgba(245,138,181,0) 70%),linear-gradient(140deg,#e9884f 0%,#cb5a8d 55%,#7b3fc4 100%)}
-.ev-p-bg2{background:radial-gradient(60% 70% at 18% 14%,#93b6ff 0%,rgba(147,182,255,0) 70%),radial-gradient(55% 65% at 88% 88%,#bda2ff 0%,rgba(189,162,255,0) 70%),linear-gradient(135deg,#2d3a9e 0%,#4a3fbf 50%,#7b5bd9 100%)}
-.ev-p-bg3{background:radial-gradient(60% 70% at 86% 14%,#dccaff 0%,rgba(220,202,255,0) 70%),radial-gradient(55% 65% at 10% 88%,#8f6bff 0%,rgba(143,107,255,0) 70%),linear-gradient(135deg,#5b21b6 0%,#7c3aed 50%,#a78bfa 100%)}
-.ev-p-card{position:absolute;left:50%;top:44%;display:flex;align-items:center;gap:clamp(12px,1.8vw,20px);width:min(88%,470px);padding:10px;border-radius:14px;background:#fff;box-shadow:0 30px 60px -28px rgba(30,10,60,.55),0 2px 6px rgba(30,10,60,.08);transform:translate(-50%,-50%)}
-.ev-p-media{position:relative;flex:0 0 42%;aspect-ratio:1;border-radius:9px;overflow:hidden;background:#f3f2f4}
-.ev-p-img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:translate(32%,0) scale(.9);transition:opacity .4s ease,transform .9s ${EASE}}
-.ev-p-cut{left:12%;top:12%;width:76%;height:76%;object-fit:contain}
+.ev-p-bg0{background:linear-gradient(180deg,#e2ded8,#d4cfc7)}
+.ev-p-bg1{background:linear-gradient(180deg,#e3e1d6,#d3d2c3)}
+.ev-p-bg2{background:linear-gradient(180deg,#e6ddd3,#d6cabd)}
+.ev-p-bg3{background:linear-gradient(180deg,#dfe3e4,#ccd3d6)}
+/* The stage centres the card and holds the perspective the card leans in; the card itself only ever rotates and scales (usePressTilt). */
+.ev-p-stage{position:absolute;left:50%;top:44%;width:min(88%,470px);transform:translate(-50%,-50%);perspective:1100px}
+.ev-p-card{display:flex;align-items:center;gap:clamp(12px,1.8vw,20px);padding:10px;border-radius:17px;background:#fff;box-shadow:0 24px 48px -30px rgba(40,32,20,.45),0 1px 3px rgba(40,32,20,.08);transform-origin:50% 50%;backface-visibility:hidden}
+.ev-p-media{position:relative;flex:0 0 42%;aspect-ratio:1;border-radius:11px;overflow:hidden;background:#ededed;container-type:inline-size}
+.ev-p-img{position:absolute;inset:0;opacity:0;transform:translate(32%,0) scale(.9);transition:opacity .4s ease,transform .9s ${EASE}}
+.ev-p-img > img{display:block;width:100%;height:100%;object-fit:cover}
 .ev-p-img[data-pos="prev"]{transform:translate(-32%,0) scale(.9)}
 .ev-p-img[data-pos="on"]{opacity:1;transform:none;transition:opacity .6s ease .1s,transform 1s ${EASE} .06s}
+.ev-p-guide{display:grid;place-items:center;background:#ecebe7}
+.ev-p-book{position:relative;display:flex;flex-direction:column;width:60%;aspect-ratio:3/4;padding:6% 6% 0;box-sizing:border-box;border-radius:3px 5px 5px 3px;background:#fbf8f2;box-shadow:inset 3px 0 0 rgba(0,0,0,.05),2px 0 0 #f1ede5,3px 0 0 #e2ddd2,0 14px 22px -12px rgba(40,30,15,.45)}
+.ev-p-book-photo{display:block;overflow:hidden;aspect-ratio:400/361;border-radius:2px}
+.ev-p-book-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.ev-p-book-title{margin-top:9%;font-family:Georgia,"Times New Roman",serif;font-size:clamp(10px,1.05vw,13px);line-height:1.1;color:#2b2419}
+.ev-p-book-sub{margin-top:5%;font-size:clamp(6.5px,.62vw,8px);letter-spacing:.06em;text-transform:uppercase;color:#8a8070}
+.ev-p-lesson{position:absolute;left:8px;bottom:12px;display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;border-radius:999px;background:rgba(20,20,20,.55);color:#fff;font-size:10.5px;line-height:1;white-space:nowrap}
+.ev-p-play{position:relative;width:16px;height:16px;border-radius:99px;background:#fff}
+.ev-p-play::after{content:"";position:absolute;left:6px;top:4.5px;border-left:6px solid #18181b;border-top:3.5px solid transparent;border-bottom:3.5px solid transparent}
+.ev-p-progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.35)}
+.ev-p-progress::after{content:"";position:absolute;inset:0 62% 0 0;background:#fff}
+
+/* The community page in the tile (components/community/member: the white top bar, the places, the grey feed with its cards), drawn at 260px and scaled to the tile. */
+.ev-p-community{--q:calc(100cqw / 260);background:#f8f9fa}
+.ev-cm{position:absolute;inset:0;display:flex;flex-direction:column;color:#1a1a2e;font-size:${q(12)};line-height:1.3;text-align:left}
+.ev-cm-top{display:flex;align-items:center;gap:${q(8)};height:${q(46)};padding:0 ${q(12)};background:#fff}
+.ev-cm-mark{display:block;width:${q(26)};height:${q(26)};border-radius:${q(7)};object-fit:cover}
+.ev-cm-name{flex:1;min-width:0;font-size:${q(13.5)};font-weight:600;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-cm-me{display:block;width:${q(24)};height:${q(24)};border-radius:50%;object-fit:cover}
+.ev-cm-tabs{display:flex;gap:${q(14)};padding:0 ${q(12)};background:#fff;border-bottom:1px solid #e6e8ec;font-size:${q(11.5)};color:#6b7280}
+.ev-cm-tabs span{padding:${q(7)} 0 ${q(8)}}
+.ev-cm-tabs span[data-on]{color:#1a1a2e;font-weight:600;box-shadow:inset 0 ${q(-2)} 0 #1a1a2e}
+.ev-cm-feed{display:flex;flex-direction:column;gap:${q(8)};padding:${q(10)}}
+.ev-cm-compose{display:flex;align-items:center;gap:${q(8)};height:${q(40)};padding:0 ${q(10)};border:1px solid rgba(229,231,235,.8);border-radius:${q(13)};background:#fff;font-size:${q(11.5)};color:#9ca3af}
+.ev-cm-av{display:block;flex:none;width:${q(24)};height:${q(24)};border-radius:50%;object-fit:cover}
+.ev-cm-post{display:flex;flex-direction:column;padding:${q(12)} ${q(12)} ${q(10)};border:1px solid rgba(229,231,235,.8);border-radius:${q(13)};background:#fff}
+.ev-cm-by{display:flex;align-items:center;gap:${q(8)}}
+.ev-cm-by .ev-cm-av{width:${q(28)};height:${q(28)}}
+.ev-cm-who{display:flex;flex-direction:column;min-width:0}
+.ev-cm-who b{font-size:${q(11.5)};font-weight:600}
+.ev-cm-who i{font-size:${q(10)};font-style:normal;color:#6b7280}
+.ev-cm-t{margin-top:${q(9)};font-size:${q(13)};font-weight:600;line-height:1.3;letter-spacing:-.005em}
+.ev-cm-x{margin-top:${q(3)};font-size:${q(11)};line-height:1.5;color:#4b5563}
+.ev-cm-foot{display:flex;gap:${q(14)};margin-top:${q(9)};font-size:${q(10.5)};color:#6b7280}
+.ev-cm-foot span{display:flex;align-items:center;gap:${q(4)}}
+.ev-cm-foot svg{width:${q(13)};height:${q(13)};fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+
 .ev-p-info{position:relative;display:grid;flex:1 1 auto;min-width:0;align-self:stretch;align-items:center}
 .ev-p-text{grid-area:1/1;min-width:0}
 .ev-p-rise{opacity:0;transform:translate(0,10px);transition:opacity .25s ease,transform .3s ease}
@@ -480,86 +822,175 @@ const CSS = `
 .ev-p-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin:0}
 .ev-p-k{margin:0 0 2px;font-size:11px;color:#8b8994}
 .ev-p-v{margin:0;display:flex;align-items:center;gap:6px;font-size:clamp(12.5px,1.15vw,14.5px);font-weight:500;color:#18181b;white-space:nowrap;font-variant-numeric:tabular-nums}
-.ev-p-money{color:#6d28d9}
+.ev-p-money{color:#18181b}
 .ev-p-dot{width:7px;height:7px;flex:none;border-radius:99px;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
-.ev-tabs{position:absolute;left:50%;bottom:16px;display:flex;gap:2px;padding:4px;border-radius:999px;background:rgba(18,8,36,.3);transform:translate(-50%,0)}
-.ev-tab{position:relative;overflow:hidden;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.88);font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
+.ev-tabs{position:absolute;left:50%;bottom:16px;display:flex;gap:2px;padding:4px;border-radius:999px;background:rgba(255,255,255,.5);transform:translate(-50%,0)}
+.ev-tab{position:relative;overflow:hidden;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
 .ev-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s ${EASE}}
 .ev-tab[data-on]{color:#18181b}
 .ev-tab[data-on]::before{opacity:1;transform:none}
-@media(hover:hover){.ev-tab:not([data-on]):hover{color:#fff}}
-.ev-tab:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media(hover:hover){.ev-tab:not([data-on]):hover{color:#18181b}}
+.ev-tab:focus-visible{outline:2px solid #18181b;outline-offset:2px}
 .ev-tab-label{position:relative}
-.ev-tab-fill{position:absolute;inset:0;border-radius:inherit;background:rgba(124,58,237,.16);transform:scaleX(0);transform-origin:0 50%;opacity:0}
+.ev-tab-fill{position:absolute;inset:0;border-radius:inherit;background:rgba(24,24,27,.07);transform:scaleX(0);transform-origin:0 50%;opacity:0}
 .ev-tab[data-on] .ev-tab-fill{opacity:1;animation:ev-fill 4.6s linear both}
 @media(hover:hover){.ev-p:hover .ev-tab-fill{animation-play-state:paused}}
 @keyframes ev-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @media(max-width:479px){
   .ev-tab{padding:0 10px;font-size:12.5px}
-  .ev-p-card{top:43%;width:92%;gap:12px}
+  .ev-p-stage{top:43%;width:92%}
+  .ev-p-card{gap:12px}
   .ev-p-media{flex-basis:40%}
   .ev-p-stats{gap:8px 8px}
   .ev-p-k{font-size:10.5px}
   .ev-p-v{font-size:12px}
 }
 
-/* 2. Storefronts */
-.ev-s{background:#ececef;container-type:inline-size}
-.ev-s-track{--slot:46cqw;position:absolute;top:30px;bottom:0;left:calc(50% - 1.5 * var(--slot));display:flex;animation:ev-stores 27s infinite}
-@media(max-width:767px){.ev-s-track{--slot:54cqw;top:24px}}
-.ev-s-slot{flex:none;width:var(--slot);height:100%;padding:0 7px;box-sizing:border-box}
-@keyframes ev-stores{
-  0%,12.67%{transform:translate3d(0,0,0);animation-timing-function:${GLIDE}}
-  16.67%,29.33%{transform:translate3d(calc(-100% / 9),0,0);animation-timing-function:${GLIDE}}
-  33.33%,46%{transform:translate3d(calc(-200% / 9),0,0);animation-timing-function:${GLIDE}}
-  50%,62.67%{transform:translate3d(calc(-300% / 9),0,0);animation-timing-function:${GLIDE}}
-  66.67%,79.33%{transform:translate3d(calc(-400% / 9),0,0);animation-timing-function:${GLIDE}}
-  83.33%,96%{transform:translate3d(calc(-500% / 9),0,0);animation-timing-function:${GLIDE}}
-  100%{transform:translate3d(calc(-600% / 9),0,0)}
-}
-.ev-ph{--u:calc(var(--slot) / 25);position:relative;height:calc(100% + 40px);overflow:hidden;border-radius:calc(var(--u) * 2.6) calc(var(--u) * 2.6) 0 0;background:#fff;font-size:var(--u);line-height:1.3;box-shadow:0 20px 40px -24px rgba(20,14,40,.35),0 0 0 1px rgba(20,14,40,.06)}
-.ev-ph-bar{display:flex;align-items:center;justify-content:space-between;height:4.6em;padding:0 1.5em}
-.ev-ph-burger{position:relative;width:1.6em;height:1.1em;border-top:.18em solid currentColor;border-bottom:.18em solid currentColor;box-sizing:border-box}
-.ev-ph-burger::after{content:"";position:absolute;left:0;right:0;top:50%;height:.18em;margin-top:-.09em;background:currentColor}
-.ev-ph-bag{width:1.5em;height:1.6em;border:.18em solid currentColor;border-radius:.2em .2em .4em .4em;box-sizing:border-box}
-.ev-ph-logo{font-size:1.35em;font-weight:700;letter-spacing:.12em;white-space:nowrap}
-.ev-ph-hero{position:relative;margin:0 1em;border-radius:1.4em;overflow:hidden}
-.ev-ph-hero-img{display:block;width:100%;height:21em;object-fit:cover}
-.ev-ph-hero-copy{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:.35em;padding:3.4em 1.3em 1.3em;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.6));color:#fff}
-.ev-ph-kicker{font-size:.95em;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
-.ev-ph-title{font-size:1.8em;font-weight:700;line-height:1.08;letter-spacing:-.02em}
-.ev-ph-cta{display:grid;place-items:center;height:3.7em;margin:1em 1em 0;border-radius:.9em;font-size:1.1em;font-weight:700;letter-spacing:.03em}
-.ev-ph-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9em;margin:1.2em 1em 0}
-.ev-ph-thumb{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:1em;background:#fff}
-.ev-ph-pn{display:block;margin-top:.5em;font-size:1.1em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ev-ph-pp{display:block;font-size:1.05em;opacity:.7}
-.ev-ph-north{background:#2b1d6e;color:#fff}
-.ev-ph-north .ev-ph-cta{background:#c9b8ff;color:#1c1150}
-.ev-ph-kiln{background:#f5efe6;color:#3b2a1e}
-.ev-ph-kiln .ev-ph-logo{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:500;letter-spacing:0;font-size:1.65em}
-.ev-ph-serif{padding:.5em .55em .55em;font-family:Georgia,"Times New Roman",serif;font-size:2.7em;line-height:1;letter-spacing:-.02em;color:#8a3b1f}
-.ev-ph-wide{display:block;width:calc(100% - 2em);height:15em;margin:0 1em;object-fit:cover;border-radius:1.2em}
-.ev-ph-row{display:flex;align-items:center;gap:1em;margin:1em 1em 0;padding:.8em;border-radius:1.1em;background:rgba(255,255,255,.75);min-width:0}
-.ev-ph-row > div{min-width:0}
-.ev-ph-sq{display:block;flex:none;width:4.6em;height:4.6em;border-radius:.8em;object-fit:cover}
-.ev-ph-swatch{background:linear-gradient(135deg,#e2b48c,#8a3b1f)}
-.ev-ph-row .ev-ph-pn{margin-top:0}
-.ev-ph-lumen{background:#0e0f1a;color:#eef0ff}
-.ev-ph-album{display:block;width:calc(100% - 2em);aspect-ratio:1;margin:0 1em;object-fit:cover;border-radius:1.2em}
-.ev-ph-album-copy{display:flex;flex-direction:column;gap:.3em;padding:1.2em 1.3em .7em}
-.ev-ph-sub{font-size:1.05em;opacity:.6}
-.ev-ph-buy{display:flex;justify-content:space-between;align-items:center;height:3.6em;margin:.6em 1em 0;padding:0 1.2em;border-radius:.9em;background:#7c3aed;color:#fff;font-size:1.1em;font-weight:600}
-.ev-ph-buy-ghost{background:rgba(255,255,255,.08)}
-.ev-ph-tracks{margin:1em 1.3em 0}
-.ev-ph-track{display:flex;align-items:center;gap:1em;padding:.75em 0;border-top:1px solid rgba(255,255,255,.08);font-size:1.1em}
-.ev-ph-tn{width:1em;opacity:.5}
-.ev-ph-td{margin-left:auto;opacity:.5}
-.ev-ph-op{background:#f6f6f7}
-.ev-ph-op-bar{display:flex;align-items:center;justify-content:center;height:4.6em;color:#18181b}
-.ev-ph-op-link{padding:.45em 1.3em;border-radius:999px;background:#e8e8ec;font-size:1.1em;font-weight:600;white-space:nowrap}
-.ev-ph-op-page{position:absolute;left:0;right:0;top:calc(var(--u) * 4.6);bottom:0}
+/*
+  2. Storefronts (landing round): the stores twice over in one row, moved by
+  one set's width in a single linear animation, so the drift never stops or
+  steps and the compositor plays it alone. Paused off screen like every loop.
+  Each store is a creator page at a phone's 390px: --r is one of its pixels.
+*/
+.ev-s{background:#edece8;container-type:inline-size}
+.ev-s-track{--slot:37cqw;position:absolute;top:24px;bottom:0;left:0;display:flex;width:max-content;animation:ev-stores 60s linear infinite}
+@container (max-width:400px){.ev-s-track{--slot:46cqw;top:18px}}
+.ev-s-slot{flex:none;width:var(--slot);height:100%;padding:0 6px;box-sizing:border-box}
+@keyframes ev-stores{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+.ev-st{--r:calc((var(--slot) - 12px) / 390);--bg:#ffffff;--ink:#000;--mute:#6b7280;--line:#e5e7eb;--field:#d1d5db;--card:#fff;--card-ink:#2d3034;--card-line:#e5e7eb;--badge:#f3f4f6;--badge-ink:#374151;--btn:#2563eb;--rad:8;position:relative;display:flex;flex-direction:column;align-items:center;min-height:calc(100% + 40px);overflow:hidden;border-radius:${r(20)} ${r(20)} 0 0;background:var(--bg);color:var(--ink);font-size:${r(15)};line-height:1.35;text-align:center;box-shadow:0 18px 36px -26px rgba(30,24,16,.4),0 0 0 1px rgba(30,24,16,.07)}
+.ev-st-clay{--bg:#f5eee8;--ink:#2a1c15;--mute:#7b675b;--line:#e6d8cc;--field:#dccbbd;--card-ink:#2a1c15;--card-line:#e6d8cc;--badge:#f3ece6;--badge-ink:#5c4537;--btn:#a4492a}
+.ev-st-astrid{--bg:#111113;--ink:#fafafa;--mute:#a1a1aa;--line:#2e3136;--field:#3a3d43;--card:#1c1e22;--card-ink:#fafafa;--card-line:#2e3136;--badge:#3a3c40;--badge-ink:#e4e4e7;--btn:#2563eb;--rad:10}
+.ev-st-harbor{--bg:#ecf1f5;--ink:#0f1e2c;--mute:#566778;--line:#d4dde6;--field:#c6d2dd;--card-ink:#0f1e2c;--card-line:#d4dde6;--badge:#edf1f5;--badge-ink:#1f4b6e;--btn:#1f4b6e}
+.ev-st-sage{--bg:#eef1ea;--ink:#1b2620;--mute:#5b6a60;--line:#d9e0d2;--field:#cbd4c3;--card-ink:#1b2620;--card-line:#d9e0d2;--badge:#eef1ea;--badge-ink:#2f5d46;--btn:#2f5d46}
+.ev-st-cream{--bg:#faf4e8;--ink:#1d1a14;--mute:#7c6a4c;--line:#e8dfc9;--field:#ddd1b6;--card-ink:#1d1a14;--card-line:#e8dfc9;--badge:#f6efe0;--badge-ink:#896d34;--btn:#896d34}
+.ev-st img{display:block;flex:none}
+.ev-st-bar{display:flex;align-items:center;gap:${r(8)};align-self:stretch;height:${r(60)};padding:0 ${r(12)};box-sizing:border-box}
+.ev-st-bar-av{width:${r(32)};height:${r(32)};border-radius:50%;object-fit:cover}
+.ev-st-email{flex:1;min-width:0;display:flex;align-items:center;height:${r(40)};padding:0 ${r(12)};box-sizing:border-box;border:1px solid var(--field);border-radius:${r(8)};font-size:${r(16)};color:var(--mute);text-align:left}
+.ev-st-sub{display:flex;align-items:center;height:${r(40)};padding:0 ${r(14)};border-radius:${r(8)};background:var(--btn);color:#fff;font-size:${r(15)};font-weight:500}
+.ev-st-cover{width:100%;height:${r(160)};object-fit:cover}
+.ev-st-av{width:${r(124)};height:${r(124)};margin-top:${r(-62)};box-sizing:border-box;border:${r(4)} solid var(--bg);border-radius:50%;object-fit:cover}
+.ev-st-name{margin-top:${r(12)};font-size:${r(20)};font-weight:600;line-height:1.3;letter-spacing:-.01em}
+.ev-st-handle{margin-top:${r(2)};color:var(--mute)}
+.ev-st-bio{max-width:88%;margin-top:${r(14)};color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-st-social{display:flex;gap:${r(12)};margin-top:${r(14)};color:var(--mute)}
+.ev-st-social svg{width:${r(18)};height:${r(18)};fill:currentColor}
+.ev-st-social .ev-st-line{fill:none;stroke:currentColor;stroke-width:2}
+.ev-st-social .ev-st-fill{fill:currentColor;stroke:none}
+.ev-st-tabs{display:grid;grid-template-columns:repeat(3,1fr);align-self:stretch;margin:${r(24)} ${r(12)} 0;border-bottom:1px solid var(--line);color:var(--mute)}
+.ev-st-tabs span{padding-bottom:${r(14)}}
+.ev-st-tabs span[data-on]{color:var(--ink);font-weight:500;box-shadow:inset 0 ${r(-2)} 0 currentColor}
+.ev-st-h{align-self:flex-start;margin:${r(26)} ${r(12)} 0;font-size:${r(20)};font-weight:600;letter-spacing:-.01em}
+.ev-st-grid{display:grid;grid-template-columns:1fr 1fr;gap:${r(12)};align-self:stretch;margin:${r(14)} ${r(12)} 0;text-align:left}
+.ev-st-prod{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid var(--card-line);border-radius:calc(var(--rad) * var(--r));background:var(--card);color:var(--card-ink)}
+.ev-st-img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--badge)}
+.ev-st-body{display:flex;flex-direction:column;flex:1;padding:${r(14)}}
+.ev-st-rate{display:flex;align-items:center;gap:${r(4)};margin-bottom:${r(8)};font-size:${r(13)};color:var(--mute)}
+.ev-st-rate svg{width:${r(14)};height:${r(14)};fill:var(--card-ink)}
+.ev-st-row{display:flex;align-items:flex-start;justify-content:space-between;gap:${r(6)}}
+.ev-st-pn{flex:1;min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:${r(16)};font-weight:500;line-height:1.25}
+.ev-st-badge{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:${r(2)} ${r(7)};border-radius:${r(6)};background:var(--badge);color:var(--badge-ink);font-size:${r(11.5)};font-weight:500;line-height:1.4}
+.ev-st-pp{margin-top:auto;padding-top:${r(14)};font-size:${r(15)};font-weight:600}
 
-/* 3. Globe */
+${GLOBE_CSS()}
+
+/*
+  4. Support (landing round 2): the Support page's inbox switch and one
+  thread at a time, the threads stacked in one cell so the box never
+  changes height. Each turn: the question is there, the other side types,
+  the answer arrives and the pill turns. A thread coming in rises a little
+  and fades in; the one leaving fades.
+*/
+.ev-c{background:#eef0f2;container-type:inline-size}
+.ev-c-box{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;align-items:flex-start;gap:12px;width:min(86%,452px);transform:translate(-50%,-50%)}
+.ev-c-tabs{display:inline-flex;padding:4px;border-radius:11px;background:#e2e5e9}
+.ev-c-tab{position:relative;height:30px;padding:0 13px;border:0;border-radius:8px;background:transparent;color:#6b7280;font-family:inherit;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .3s ease}
+.ev-c-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08);opacity:0;transition:opacity .3s ease}
+.ev-c-tab span{position:relative}
+.ev-c-tab[data-on]{color:#1a1a2e}
+.ev-c-tab[data-on]::before{opacity:1}
+@media(hover:hover){.ev-c-tab:not([data-on]):hover{color:#1a1a2e}}
+.ev-c-tab:focus-visible{outline:2px solid #1a1a2e;outline-offset:2px}
+.ev-c-stack{display:grid;align-self:stretch}
+.ev-c-thread{grid-area:1/1;min-width:0;overflow:hidden;border:1px solid rgba(229,231,235,.6);border-radius:15px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.04),0 22px 44px -32px rgba(20,24,40,.35);opacity:0;transform:translate(0,6px);transition:opacity .3s ease,transform .3s ease}
+/* The leaving thread is gone (0.3s) before the next one rises in, so the two never show through each other. */
+.ev-c-thread[data-on]{opacity:1;transform:none;transition:opacity .6s ease .3s,transform .9s ${EASE} .3s}
+.ev-c-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px 13px;border-bottom:1px solid #f1f2f4}
+.ev-c-ht{display:flex;flex-direction:column;min-width:0}
+.ev-c-title{font-size:15px;font-weight:600;line-height:1.3;color:#1a1a2e}
+.ev-c-sub{margin-top:2px;font-size:12.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-c-pills{display:grid;flex:none;justify-items:end}
+.ev-c-pill{grid-area:1/1;display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:500;line-height:16px;white-space:nowrap}
+.ev-c-blue{background:#e0e7ff;color:#3730a3}
+.ev-c-amber{background:#fef3c7;color:#92400e}
+.ev-c-gray{background:#f1f2f4;color:#4b5563}
+.ev-c-before{opacity:0}
+.ev-c-msgs{position:relative;margin:0;padding:14px 16px 16px;list-style:none}
+.ev-c-m{display:flex;flex-direction:column;align-items:flex-start;max-width:86%}
+.ev-c-m + .ev-c-m{margin-top:12px}
+.ev-c-mine{align-items:flex-end;margin-left:auto}
+.ev-c-who{margin:0 4px 4px;font-size:12px;font-weight:500;color:#6b7280}
+.ev-c-at{font-weight:400;color:#9ca3af}
+.ev-c-bw{display:grid;max-width:100%}
+.ev-c-mine .ev-c-bw{justify-items:end}
+.ev-c-b{grid-area:1/1;display:block;padding:9px 13px;border-radius:16px;font-size:13.5px;line-height:20px;text-align:left}
+.ev-c-theirs .ev-c-b{border-top-left-radius:6px;background:#f3f4f6;color:#1a1a2e}
+.ev-c-mine .ev-c-b{border-top-right-radius:6px;background:#1a1a2e;color:#fff}
+.ev-c-typing{grid-area:1/1;align-self:start;justify-self:start;display:flex;gap:4px;padding:12px 13px;border-radius:16px;border-top-left-radius:6px;background:#f3f4f6;opacity:0}
+.ev-c-mine .ev-c-typing{justify-self:end;border-top-left-radius:16px;border-top-right-radius:6px;background:#1a1a2e}
+.ev-c-dot{width:6px;height:6px;border-radius:99px;background:#9ca3af;animation:ev-dot 1.1s ease-in-out infinite}
+.ev-c-mine .ev-c-dot{background:rgba(255,255,255,.7)}
+.ev-c-dot:nth-child(2){animation-delay:.15s}
+.ev-c-dot:nth-child(3){animation-delay:.3s}
+.ev-c-clock{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;animation:ev-clock ${TURN}s linear both}
+/* Inside the thread on show: the question rises in, the other side types, the answer arrives, the pill turns. Off show, everything simply stands (base styles), so a leaving thread fades whole. */
+.ev-c-thread[data-on] .ev-c-ask .ev-c-arrive{animation:ev-c-in .7s ${EASE} .45s both}
+.ev-c-thread[data-on] .ev-c-typing{animation:ev-c-typing 2.3s ease 1.25s both}
+.ev-c-thread[data-on] .ev-c-answer .ev-c-arrive{animation:ev-c-in .7s ${EASE} 3.35s both}
+.ev-c-thread[data-on] .ev-c-before{animation:ev-c-pill-out .4s ease 3.45s both}
+.ev-c-thread[data-on] .ev-c-after{animation:ev-c-pill-in .45s ease 3.45s both}
+@keyframes ev-clock{from{opacity:0}to{opacity:0}}
+@keyframes ev-c-in{from{opacity:0;transform:translate3d(0,8px,0)}to{opacity:1;transform:none}}
+@keyframes ev-c-typing{0%{opacity:0;transform:translate3d(0,6px,0)}14%,88%{opacity:1;transform:none}100%{opacity:0;transform:none}}
+@keyframes ev-c-pill-out{from{opacity:1}to{opacity:0}}
+@keyframes ev-c-pill-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+@keyframes ev-dot{0%,100%{opacity:.45;transform:translate3d(0,0,0)}50%{opacity:1;transform:translate3d(0,-2px,0)}}
+/* Compact wherever the card is narrow (a phone, and the two column grid on a tablet or small laptop), so the thread always fits the card. */
+@container (max-width:560px){
+  .ev-c-box{width:92%;gap:8px}
+  .ev-c-tabs{padding:3px;border-radius:10px}
+  .ev-c-tab{height:26px;padding:0 10px;border-radius:7px;font-size:12px}
+  .ev-c-head{gap:8px;padding:10px 12px 9px}
+  .ev-c-title{font-size:13.5px}
+  .ev-c-sub{font-size:11px}
+  .ev-c-pill{padding:2px 7px;font-size:10.5px;line-height:15px}
+  .ev-c-msgs{padding:10px 12px 12px}
+  .ev-c-m{max-width:90%}
+  .ev-c-m + .ev-c-m{margin-top:8px}
+  .ev-c-who{margin-bottom:3px;font-size:10.5px}
+  .ev-c-b{padding:7px 10px;border-radius:14px;font-size:12px;line-height:17px}
+  .ev-c-typing{padding:9px 10px}
+}
+@container (max-width:340px){
+  .ev-c-box{gap:6px}
+  .ev-c-head{padding:9px 10px 8px}
+  .ev-c-msgs{padding:8px 10px 10px}
+  .ev-c-b{font-size:11.5px;line-height:16px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill-in,.ev-c-thread,.ev-c-tab,.ev-c-tab::before{transition:none !important}
+  .ev-card{opacity:1;transform:none}
+  .ev-loop,.ev-tab[data-on] .ev-tab-fill{animation:none !important}
+  .ev-tab-fill{display:none}
+  .ev-c-typing{display:none}
+}
+@media(scripting:none){.ev-card{opacity:1;transform:none}}
+`
+
+/** The globe card's styles (unchanged by this round). */
+function GLOBE_CSS() {
+  return `/* 3. Globe */
 .ev-g{background:#060608}
 .ev-globe{position:absolute;inset:0;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .ev-globe[data-dragging]{cursor:grabbing}
@@ -574,49 +1005,8 @@ const CSS = `
 .ev-globe-pill[data-on] .ev-globe-pill-in{opacity:1;transform:translate(-50%,0)}
 .ev-globe-flag{display:block;width:16px;height:12px;border-radius:2px;object-fit:cover}
 .ev-globe-city{color:#55535c}
-.ev-globe-price{font-weight:600;font-variant-numeric:tabular-nums}
-
-/* 4. Support */
-.ev-c{background:radial-gradient(70% 80% at 15% 10%,#f08bb0 0%,rgba(240,139,176,0) 70%),radial-gradient(60% 70% at 90% 95%,#e8a47c 0%,rgba(232,164,124,0) 70%),linear-gradient(160deg,#a8326a 0%,#b0447f 45%,#7c3aed 120%)}
-.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,430px);padding:18px 18px 20px;border-radius:16px;background:#fff;box-shadow:0 30px 60px -30px rgba(40,6,40,.55);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread 22s ${EASE} infinite}
-.ev-c-b,.ev-c-b .ev-c-q,.ev-c-b .ev-c-r,.ev-c-b .ev-c-typing{animation-delay:-11s}
-.ev-c-head{display:flex;flex-direction:column;gap:2px;margin:0 0 14px;font-size:14px;font-weight:600;color:#18181b}
-.ev-c-sub{font-size:12.5px;font-weight:400;color:#7c7a84}
-.ev-c-msg{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
-.ev-c-bubble{flex:1 1 auto;margin:0;padding:11px 13px;border-radius:12px;font-size:13.5px;line-height:1.42}
-.ev-c-light{background:#f0eff2;color:#18181b}
-.ev-c-dark{background:#111113;color:#fff}
-.ev-c-av{display:block;flex:none;width:24px;height:24px;border-radius:7px;object-fit:cover}
-.ev-c-slot{position:relative}
-.ev-c-q{opacity:0;transform:translate3d(0,10px,0);animation:ev-q 22s ${EASE} infinite}
-.ev-c-r{opacity:0;transform:translate3d(0,10px,0);animation:ev-r 22s ${EASE} infinite}
-.ev-c-typing{position:absolute;left:0;top:10px;display:flex;gap:4px;padding:11px 13px;border-radius:12px;background:#111113;opacity:0;animation:ev-typing 22s ease infinite}
-.ev-c-dot{width:6px;height:6px;border-radius:99px;background:#fff;opacity:.5;animation:ev-dot 1.1s ease-in-out infinite}
-.ev-c-dot:nth-child(2){animation-delay:.15s}
-.ev-c-dot:nth-child(3){animation-delay:.3s}
-@keyframes ev-thread{0%{opacity:0;transform:translate3d(-50%,-46%,0) scale(.97)}4%,46%{opacity:1;transform:translate3d(-50%,-50%,0)}50%,100%{opacity:0;transform:translate3d(-50%,-54%,0) scale(.98)}}
-@keyframes ev-q{0%,1%{opacity:0;transform:translate3d(0,10px,0)}5%,100%{opacity:1;transform:none}}
-@keyframes ev-typing{0%,8%{opacity:0}10%,18%{opacity:1}19%,100%{opacity:0}}
-@keyframes ev-r{0%,18.5%{opacity:0;transform:translate3d(0,10px,0)}22%,100%{opacity:1;transform:none}}
-@keyframes ev-dot{0%,100%{opacity:.35;transform:translate3d(0,0,0)}50%{opacity:1;transform:translate3d(0,-3px,0)}}
-@media(max-width:479px){
-  .ev-c-thread{width:90%;padding:14px 14px 16px}
-  .ev-c-bubble{font-size:12.5px;padding:9px 11px}
-  .ev-c-head{font-size:13px;margin-bottom:10px}
-  .ev-c-sub{font-size:11.5px}
+.ev-globe-price{font-weight:600;font-variant-numeric:tabular-nums}`
 }
-
-@media(prefers-reduced-motion:reduce){
-  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill-in{transition:none !important}
-  .ev-card{opacity:1;transform:none}
-  .ev-loop,.ev-tab[data-on] .ev-tab-fill{animation:none !important}
-  .ev-tab-fill{display:none}
-  .ev-c-b,.ev-c-typing{display:none}
-  .ev-c-a{opacity:1;transform:translate3d(-50%,-50%,0)}
-  .ev-c-a .ev-c-q,.ev-c-a .ev-c-r{opacity:1;transform:none}
-}
-@media(scripting:none){.ev-card{opacity:1;transform:none}}
-`
 
 /** The section's stylesheet, put in <head> ahead of it while the browser is idle (lazy-sections.tsx). */
 export const EVERYTHING_STYLES: readonly SectionStyle[] = [{ href: "w13-everything", precedence: "w13-home", css: CSS }]

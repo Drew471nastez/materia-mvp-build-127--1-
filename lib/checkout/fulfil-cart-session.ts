@@ -41,7 +41,7 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { randomBytes } from "node:crypto"
 import { unpackItems, packedTotalCents, apportionFee, lineTotalCents, type PackedItem } from "./cart-items"
 import { cartLineFollowups, fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
-import { beginFollowups, resumeFollowups, type FollowupKind, type Followups } from "./followups"
+import { beginFollowups, resumeFollowups, sent, type FollowupKind, type Followups } from "./followups"
 import { isMissingColumn, recordCouponUse } from "./coupons"
 import { ORIGIN_METADATA_KEY, decodeOrigin, orderOriginFrom } from "@/lib/orders/order-source"
 import { attributionFromMetadata } from "@/lib/attribution/server"
@@ -77,8 +77,11 @@ export async function fulfilCartSession(
     session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ["payment_intent", "payment_intent.latest_charge", "payment_intent.latest_charge.transfer"],
     })
-  } catch {
-    return { ok: false, status: 404, reason: "not_found" }
+  } catch (e) {
+    /* Only "Stripe has no such session" is a 404. Stripe busy or unreachable is a 503, so the webhook answers 500 and Stripe sends the event again: a paid basket was dropped for good when this read failed once. */
+    const code = (e as { statusCode?: number; type?: string })?.statusCode
+    if (code === 404 || (e as { type?: string })?.type === "StripeInvalidRequestError") return { ok: false, status: 404, reason: "not_found" }
+    return { ok: false, status: 503, reason: "failed" }
   }
   if (!isCartSession(session)) return { ok: false, status: 400, reason: "unreadable" }
   if (session.payment_status !== "paid") return { ok: false, status: 409, reason: "unpaid" }
@@ -605,21 +608,25 @@ async function sideEffects(
        session and lists them with one total. */
     if (ctx.buyerEmail) {
       const first = s.created.find((l) => l.index === 0)!
+      /* Not sent is a failed step, so the sweep sends it (./followups.ts sent). */
       await once("buyer email", async () =>
-        sendBuyerDownloadEmail(admin, {
-          attachments: s.paidTotal > 0 ? await basketPdf(admin, ctx.sessionId, s) : undefined,
-          orderId: first.orderId,
-          creatorId: ctx.creatorId,
-          buyerEmail: ctx.buyerEmail as string,
-          buyerFirstName: ctx.buyerFirstName ?? "",
-          productTitle: titles.get(first.productId) ?? "Your purchase",
-          receiptToken: s.receiptToken,
-          sellerReplyTo: sellerEmail,
-          baseUrl: s.baseUrl,
-          receiptBaseUrl: s.buyerBaseUrl ?? null,
-          lang: s.buyerLang ?? null,
-          amountCents: s.paidTotal,
-        }),
+        sent(
+          await sendBuyerDownloadEmail(admin, {
+            attachments: s.paidTotal > 0 ? await basketPdf(admin, ctx.sessionId, s) : undefined,
+            orderId: first.orderId,
+            creatorId: ctx.creatorId,
+            buyerEmail: ctx.buyerEmail as string,
+            buyerFirstName: ctx.buyerFirstName ?? "",
+            productTitle: titles.get(first.productId) ?? "Your purchase",
+            receiptToken: s.receiptToken,
+            sellerReplyTo: sellerEmail,
+            baseUrl: s.baseUrl,
+            receiptBaseUrl: s.buyerBaseUrl ?? null,
+            lang: s.buyerLang ?? null,
+            amountCents: s.paidTotal,
+          }),
+          "The buyer's receipt",
+        ),
       )
     }
     /* The seller's push is raiseSaleEvents' own, once per purchase. */
@@ -658,20 +665,23 @@ async function sideEffects(
     discountCents: s.items[l.index]?.discountCents ?? 0,
   }))
   for (const line of s.created) {
-    await line.f.once("seller email", () =>
-      sendSellerNotificationEmail(admin, {
-        orderId: line.orderId,
-        creatorId: ctx.creatorId,
-        sellerEmail,
-        productTitle: titles.get(line.productId) ?? "Your purchase",
-        buyerFirstName: ctx.buyerFirstName ?? "",
-        buyerLastName: ctx.buyerLastName ?? "",
-        buyerEmail: ctx.buyerEmail ?? "",
-        amountCents: line.amountCents,
-        feeCents: 0,
-        baseUrl: s.baseUrl,
-        sale: { couponCode: s.couponCode, lines: saleLines, buyerNote: s.buyerNote ?? null },
-      }),
+    await line.f.once("seller email", async () =>
+      sent(
+        await sendSellerNotificationEmail(admin, {
+          orderId: line.orderId,
+          creatorId: ctx.creatorId,
+          sellerEmail,
+          productTitle: titles.get(line.productId) ?? "Your purchase",
+          buyerFirstName: ctx.buyerFirstName ?? "",
+          buyerLastName: ctx.buyerLastName ?? "",
+          buyerEmail: ctx.buyerEmail ?? "",
+          amountCents: line.amountCents,
+          feeCents: 0,
+          baseUrl: s.baseUrl,
+          sale: { couponCode: s.couponCode, lines: saleLines, buyerNote: s.buyerNote ?? null },
+        }),
+        "The seller's new order email",
+      ),
     )
   }
 }

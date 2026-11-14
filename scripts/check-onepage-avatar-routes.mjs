@@ -16,6 +16,10 @@ const mocks={
   '@/lib/social/onepage-sync':`export const changedLinks=()=>({});export const onePageLinks=()=>({});export const syncOnePageLinksToCreatorPage=async()=>false`,
   '@/lib/storefront/creator-page-purge':`export const creatorPagesChanged=async()=>{}`,
   '@/lib/onepage/storelib-blocks':`export const stripResolved=blocks=>blocks`,
+  /* The OnePage production audit: the page's store from its owner, and a paid block's locked part sealed where it is stored. */
+  'server-only':`export {}`,
+  '@/lib/onepage/page-store':`export const ownerStoreId=async()=>'creator';export const withOwnerStore=async(db,row)=>row?{...row,seller_id:'creator',creator_id:'creator'}:null`,
+  '@/lib/onepage/locked-seal':`export const sealLocked=blocks=>blocks;export const openLocked=blocks=>blocks;export const openLockedData=data=>data`,
 }
 const load=async path=>{
   const built=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'esm',logLevel:'warning',plugins:[{name:'database-boundary',setup(b){

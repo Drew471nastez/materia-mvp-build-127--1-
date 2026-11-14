@@ -26,6 +26,15 @@ type Block = { type?: unknown; enabled?: unknown; data?: any; schedule?: unknown
 
 /* Blocks that say nothing on their own: the page's top and the space between things. */
 const FRAME = new Set(["header", "divider", "spacer"])
+/*
+  AND A SIGNUP FORM ALONE (the OnePage production audit, P-F7). Every new page
+  is made published with "Join my newsletter" on it (lib/onepage/ensure-onepage),
+  so a creator who never opened the editor had a page of a name and a form
+  listed in the sitemap and asked to be indexed: thousands of the same thin
+  page. A form is something to do on a page that says something, not what it
+  says; a bio, a link or any other block still counts.
+*/
+const NOT_CONTENT = new Set(["email_capture"])
 
 const blocksOf = (list: unknown): Block[] => (Array.isArray(list) ? (list as Block[]).filter((b) => !!b && typeof b === "object") : [])
 
@@ -64,7 +73,7 @@ export function onePageShowsSomething(input: { blocks: unknown; bio: unknown; so
   const now = input.now ?? Date.now()
   if (plainText(input.bio)) return true
   if (Object.keys(onePageSocialLinks({ blocks: input.blocks, socialLinks: input.socialLinks, now })).length > 0) return true
-  return blocksOf(input.blocks).some((b) => typeof b.type === "string" && !FRAME.has(b.type) && b.type !== "social_row" && isBlockShown(b, now))
+  return blocksOf(input.blocks).some((b) => typeof b.type === "string" && !FRAME.has(b.type) && !NOT_CONTENT.has(b.type) && b.type !== "social_row" && isBlockShown(b, now))
 }
 
 /**

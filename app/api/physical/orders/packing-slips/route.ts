@@ -65,7 +65,9 @@ export async function GET(request: Request) {
     if (!order || seen.has(order.id)) continue
     seen.add(order.id)
     const lines = slipLines(order, {})
-    if (!lines.length || order.cancelledAt) continue
+    /* Nothing left to pack: left out. slipLines answers every line again once all has shipped (a reprint of the whole order), so the pile used to include orders already sent. */
+    const left = order.lines.some((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)
+    if (!lines.length || order.cancelledAt || !left) continue
     slips.push(packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null, returnAddress, contact: slipContact(store) }, { tt, lang: language, timeZone: zone, back: "/app/orders", paper, paperShown, controls, prices: withPrices ? { currency: order.currency, totals: null } : null }))
   }
   if (slips.length === 0) return page(tt("None of these orders has anything left to pack."), 404)

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef } from "react"
-import { RailMotion, SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
+import { RailMotion, SHOWCASE_MOTION, type RailMotionConfig } from "@/lib/ui/rail-motion"
 
 /*
   THE SHOWCASE'S MOTION (round 60). One controller (lib/ui/rail-motion) owns
@@ -20,6 +20,22 @@ import { RailMotion, SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
   screen and the tab is visible.
 */
 const PHONE = "(max-width: 767px)"
+
+/*
+  LANDING ROUND, THE OWNER: pull to drag and swipe, with the mouse and the
+  finger, "butter" smooth. The hand still holds the rail exactly; what
+  changes is the letting go. The settle used to leave at up to half of the
+  fastest speed a spring could take (a whole group at about 8,000px/s after
+  a slow pull), a visible jolt. Now it glides on from the hand's own speed
+  (glideCurve: no jump in speed, never past its place, about half a second
+  for a whole group), and a hard flick on a phone carries on through up to
+  three cards, as a native scroller would. Autoplay is unchanged.
+*/
+export const SHOWCASE_RAIL: RailMotionConfig = {
+  ...SHOWCASE_MOTION,
+  swipeMaxSteps: 3,
+  glideSettle: { minMs: 280, maxMs: 520, msPerPx: 0.18, minLaunch: 0.7 },
+}
 
 export function useShowcaseMotion() {
   const rail = useRef<RailMotion | null>(null)
@@ -42,7 +58,7 @@ export function useShowcaseMotion() {
     el.scrollLeft = 0
     el.dataset.railReady = "true"
     const { items, snaps } = parts()
-    const motion = new RailMotion(el, items, snaps, SHOWCASE_MOTION, {
+    const motion = new RailMotion(el, items, snaps, SHOWCASE_RAIL, {
       /* Wave 13: nothing on the page restyles while the rail moves (the heading used to dim, a repaint at every autoplay step); the first move only lets the phone's left gutter show the card before. */
       onMoving: (moving) => {
         if (moving && section?.hasAttribute("data-showcase-pristine")) section.removeAttribute("data-showcase-pristine")
@@ -70,12 +86,31 @@ export function useShowcaseMotion() {
     resize?.observe(viewport)
     phone.addEventListener("change", remeasure)
 
+    /*
+      Wave 14: every card's picture is fetched and decoded as soon as the
+      section comes on screen, not when its card is moved into view. The
+      pictures are lazy in the markup (nothing off screen costs the page's
+      first load), but a card brought in by a swipe or autoplay was still
+      empty for a moment at 4x CPU while its picture loaded. Twelve small
+      webps, decoded off the main thread (decoding="async", img.decode()).
+    */
+    let warmed = false
+    const warm = () => {
+      if (warmed) return
+      warmed = true
+      for (const img of el.querySelectorAll<HTMLImageElement>("img")) {
+        img.loading = "eager"
+        img.decode?.().catch(() => {})
+      }
+    }
+
     /* Autoplay only while half the rail is on screen; the first sight of it plays the cards' entrance. */
     const seen =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(
             (entries) => {
               for (const entry of entries) {
+                if (entry.isIntersecting) warm()
                 if (entry.target === el) {
                   motion.setVisible(entry.intersectionRatio >= 0.5)
                   if (entry.isIntersecting) viewport.setAttribute("data-showcase-entered", "")
@@ -88,7 +123,10 @@ export function useShowcaseMotion() {
     seen?.observe(el)
     const heading = section?.querySelector(".build-showcase-top")
     if (heading) seen?.observe(heading)
-    if (!seen) motion.setVisible(true)
+    if (!seen) {
+      motion.setVisible(true)
+      warm()
+    }
 
     cleanup.current = () => {
       cancelAnimationFrame(frame)

@@ -186,10 +186,22 @@ export async function POST(request: Request) {
     }
 
     // Get Stripe balance in native currency
-    const stripeBalance = await stripe.balance.retrieve(
-      {},
-      { stripeAccount: stripeAccountId },
-    )
+    /*
+      The wallet is locked now (available moved to in transit). If Stripe can't be read here nothing was paid, so
+      the lock is undone before answering. It used to be left: no payout existed to clear it, and every later press
+      was told "A payout is already on the way to your bank" until the row was edited by hand.
+    */
+    let stripeBalance: Awaited<ReturnType<typeof stripe.balance.retrieve>>
+    try {
+      stripeBalance = await stripe.balance.retrieve({}, { stripeAccount: stripeAccountId })
+    } catch (balanceErr) {
+      await adminSupabase
+        .from("seller_ledger")
+        .update({ available_amount: cashoutWalletMinor, in_transit_amount: Math.max(0, (lockedLedger.in_transit_amount || 0) - cashoutWalletMinor) })
+        .eq("creator_id", creator.id)
+      console.error("[cashout] Stripe balance not read; the wallet lock was undone:", balanceErr instanceof Error ? balanceErr.message : "unknown")
+      return NextResponse.json({ error: "Stripe could not be reached. Nothing was paid out. Try again in a few minutes." }, { status: 503 })
+    }
 
     const nativeCurrency = (creator.default_currency || "").toLowerCase()
     const nativeEntry = stripeBalance.available.find(

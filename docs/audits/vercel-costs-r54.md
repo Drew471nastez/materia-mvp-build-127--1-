@@ -131,7 +131,7 @@ At 5,000 creators, `notifications` (hourly, all creators) should become event-dr
 - Every production deploy since the fixes finished (83 more commits from other work), none out of memory. Build peak on today's main: about 7.8 GB on 4 CPUs. At the peak, Turbopack itself is about 7.5 GB, pnpm's own two processes about 180 MB and three small CSS workers about 180 MB. The last two come from how the build is launched, not from Storelib's code.
 - `node scripts/check-cdn-cache.mjs`: every public address HIT (pages, creator page, website as a browser and as a crawler, live marker, picture). Also HIT: storelib.me OnePages, Explore, product pages, and creator pages with `?utm_` links.
 - Still a function per visit, by design: `/p/<slug>` (the old product address; the main `/<handle>/<product>` address is cached), community pages (they show a member and a stranger different things; their data is cached), AI-built sites (10 seconds at the CDN so a publish shows at once).
-- Production errors (last day): rare Supabase timeouts on Explore's product read, which its cache rides out. SQL part 445 adds the index that keeps that read quick as products grow.
+- Production errors (last day): rare Supabase timeouts on Explore's product read, which its cache rides out. SQL part 451 (Explore's catalogue index) keeps that read quick as products grow; part 445, written before 451 landed, now only removes its own duplicate index.
 - Scale of the hourly notifications job: leased batches, least recently checked first, stopping at a time budget, about 5,000 creators an hour at today's speed. It carries over safely when there are more.
 
 ## H. Open items and missing evidence

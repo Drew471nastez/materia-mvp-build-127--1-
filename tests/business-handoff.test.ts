@@ -498,6 +498,8 @@ async function main() {
     /* Lia's plan for the studio ended last month; the webhook's row still names her Stripe customer. Tom's own store pays. */
     w.db.tables.subscriptions.push({ id: "sub-ended", creator_id: STUDIO_CREATOR, stripe_subscription_id: "sub_lia", stripe_customer_id: "cus_lia", plan_id: "pro", status: "canceled" })
     w.db.tables.subscriptions.push({ id: "sub-tom", creator_id: "tom-creator", stripe_subscription_id: "sub_tom", stripe_customer_id: "cus_tom", plan_id: "pro", status: "active" })
+    /* Lia connected her own Google account for the studio's bookings; Tom's store has his. */
+    w.db.tables.google_calendar_connections = [{ owner_id: STUDIO, google_email: "lia@gmail.example" }, { owner_id: "tom-user", google_email: "tom@gmail.example" }]
     const signedOut = await readClaim(w.deps, token, null)
     check("signed out: the business, its addresses and counts, and Create account", signedOut.ok && signedOut.state.kind === "signed_out" && signedOut.preview?.products === 3 && signedOut.preview?.domains[0] === "glowstudio.co" && signedOut.preview?.onePageAddress?.endsWith("/glowstudio") === true)
     const signup = claimSignInPath(token, { signup: true, email: null })
@@ -537,6 +539,7 @@ async function main() {
     check("the business's sign in address is made from the new owner's, so seller emails reach them", !!upd && /^new\+slb-[0-9a-f]{8}@example\.com$/.test(String(upd.attrs.email)) && (upd.attrs.app_metadata as any)?.business_owner === NEWBIE, upd)
     check("  every session the business had (the founder's) is ended", w.calls.signOuts.includes(STUDIO))
     check("  billing starts fresh: the founder's ended plan row (her Stripe customer) is gone, nobody else's plan touched", !w.db.tables.subscriptions.some((r: any) => r.creator_id === STUDIO_CREATOR) && w.db.tables.subscriptions.some((r: any) => r.id === "sub-tom"))
+    check("  the founder's own Google Calendar does not go with the business, and nobody else's is touched", !w.db.tables.google_calendar_connections.some((r: any) => r.owner_id === STUDIO) && w.db.tables.google_calendar_connections.some((r: any) => r.owner_id === "tom-user"))
     check("  the OnePage, store and domain caches forget it", w.calls.caches.some((c: any) => c.userId === STUDIO && c.creatorId === STUDIO_CREATOR))
     check("  the founder is emailed that it was taken", w.calls.mails.some((m) => m.to === "lia@example.com" && /new owner/.test(m.subject + m.text)))
     const ev = w.db.tables.business_handoff_events.map((e: any) => e.event)

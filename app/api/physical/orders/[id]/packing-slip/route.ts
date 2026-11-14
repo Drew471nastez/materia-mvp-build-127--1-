@@ -61,7 +61,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   /* Where a return goes, printed on the slip as the return email says it: the store's own address when it ships from one. The store's whole identity (round 51): its website, email and phone go under its name. */
   const [store, zone, { tt, language }, returnAddress] = await Promise.all([storeIdentity(c.db, c.creatorId).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt(), returnAddressOf(c.db, c.creatorId).catch(() => null)])
   const lines = slipLines(order, { shipmentId, locationId: isUuid(loc) ? loc : null })
-  const shipmentIndex = shipmentId ? order.shipments.findIndex((s) => s.id === shipmentId) : -1
+  /* Numbered among the parcels that still stand: after a cancelled first shipment the second read "Package 3 of 2". */
+  const liveShipments = order.shipments.filter((s) => s.status !== "cancelled")
+  const shipmentIndex = shipmentId ? liveShipments.findIndex((s) => s.id === shipmentId) : -1
+  /* A shipment that is not this order's is not found, never the whole order's slip under its name. */
+  if (shipmentId && !order.shipments.some((s) => s.id === shipmentId)) return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "private, no-store" } })
   /* A4 or Letter, prices or none: the bar's links are this same page with the one thing changed. */
   const paper = paperAsked(url.searchParams.get("paper"))
   const withPrices = url.searchParams.get("prices") === "1"
@@ -80,7 +84,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       lang: language,
       timeZone: zone,
       paper: slipPaper(paper, request.headers.get("accept-language")),
-      shipmentLabel: shipmentIndex >= 0 ? tt("Package {n} of {total}", { n: shipmentIndex + 1, total: order.shipments.filter((s) => s.status !== "cancelled").length || 1 }) : null,
+      shipmentLabel: shipmentIndex >= 0 ? tt("Package {n} of {total}", { n: shipmentIndex + 1, total: liveShipments.length || 1 }) : null,
     })
     return new NextResponse(new Uint8Array(pdf), {
       status: 200,
@@ -102,7 +106,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     controls: { a4: linkTo({ paper: "a4" }), letter: linkTo({ paper: "letter" }), prices: linkTo({ prices: withPrices ? null : "1" }) },
     /* The Orders page opens an order by one of its lines. */
     back: `/app/orders?order=${encodeURIComponent(order.lines[0]?.orderId ?? order.id)}`,
-    shipmentLabel: shipmentIndex >= 0 ? tt("Package {n} of {total}", { n: shipmentIndex + 1, total: order.shipments.filter((s) => s.status !== "cancelled").length || 1 }) : null,
+    shipmentLabel: shipmentIndex >= 0 ? tt("Package {n} of {total}", { n: shipmentIndex + 1, total: liveShipments.length || 1 }) : null,
   })
   return new NextResponse(html, { status: 200, headers: HEADERS })
 }

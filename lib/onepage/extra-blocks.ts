@@ -149,7 +149,8 @@ export function isBlockShown(block: any, now: number = Date.now()): boolean {
   }
   if (block.type === "image") {
     const images = block.data?.images || (block.data?.image_url ? [{ image_url: block.data.image_url }] : [])
-    return images.length > 0 && !!images[0]?.image_url
+    /* Any picture shows the block: the first one cleared (or added after the second) used to hide all of them. */
+    return images.some((i: { image_url?: unknown } | null) => typeof i?.image_url === "string" && !!i.image_url)
   }
   if(block.type === "form_quiz")return !!block.data?.form_id
   if (block.type === "link_button") return hasRealUrl(block.data?.url)

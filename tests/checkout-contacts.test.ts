@@ -155,9 +155,14 @@ async function main() {
     /* And somebody who only wrote through a contact form (lib/site-contact), the
        same way: the update is conditional on the status that was read. */
     check("a website's sign-up box turns a customer into a subscriber, with the welcome", /const customer = existing\?\.status === "customer" \|\| existing\?\.status === "wrote"/.test(site) && /if \(existing && !customer\) return/.test(site) && /\.update\(\{ status: "subscribed", is_active: true, subscribed_at: now, consent_text: consentFor\(body\.placement\), consent_timestamp: now \}\)\.eq\("id", existing!\.id\)\.eq\("status", existing!\.status\)/.test(site))
-    for (const f of ["app/api/onepage/email-capture/route.ts", "app/api/onepage/leads/route.ts"]) {
+    for (const f of ["app/api/onepage/leads/route.ts"]) {
       const src = read(f)
       check(`${f.replace("app/api/", "")}: a customer is subscribed like somebody coming back, and the consent is written`, /status === "unsubscribed" \|\| existing(Sub|Subscriber)\.status === "customer"/.test(src) && /consent_timestamp: new Date\(\)\.toISOString\(\),\s*\}\)\s*\.eq\("id", existing(Sub|Subscriber)\.id\)/.test(src))
+    }
+    /* Changed on purpose (OnePage production audit, C1/F3): the download form joins through lib/onepage/signup-server addSubscriber, shared with the lead magnet and RSVP. */
+    {
+      const shared = read("lib/onepage/signup-server.ts")
+      check("onepage/email-capture/route.ts: a customer is subscribed like somebody coming back, and the consent is written (lib/onepage/signup-server)", /addSubscriber\(db, creatorId,/.test(read("app/api/onepage/email-capture/route.ts")) && /existing\.status === "unsubscribed" \|\| existing\.status === "customer"/.test(shared) && /\.update\(\{ status: "subscribed", is_active: true, subscribed_at: at, unsubscribed_at: null, consent_text: input\.consentText, consent_timestamp: at \}\)\.eq\("id", existing\.id\)/.test(shared))
     }
     for (const f of ["app/api/subscribers/route.ts", "app/api/subscribe/route.ts"]) {
       const src = read(f)

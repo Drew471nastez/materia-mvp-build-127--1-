@@ -36,6 +36,21 @@
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
+/**
+ * AN EMAIL THAT DID NOT GO IS A FAILED STEP, NOT A DONE ONE. The senders
+ * (lib/email.tsx) answer { success: false } when the email service is down
+ * or refuses; they never throw. A once-step that ignored the answer was
+ * recorded done, so the ten minute sweep never tried again: a buyer whose
+ * receipt met a minute of Mailgun trouble never got it, and neither did the
+ * seller their new order. Thrown here, the step is recorded failed and the
+ * next retry sends it. Each sender checks email_logs first, so the half
+ * that did go is never sent twice.
+ */
+export function sent<T extends { success: boolean; error?: string }>(result: T, what: string): T {
+  if (!result.success) throw new Error(`${what} not sent: ${(result.error ?? "the email service did not take it").slice(0, 200)}`)
+  return result
+}
+
 /** What each checkout type is, so the sweep knows how to read its payment again. */
 export type FollowupKind = "payment" | "cart_session" | "cart_payment" | "physical" | "cart_free"
 

@@ -21,7 +21,15 @@ export function isPaidBlock(block: Block | null | undefined): boolean {
   return !!block && block.type === "app" && (block.data as { provider?: unknown } | null)?.provider === "paid"
 }
 
-/** The blocks with every paid access block's locked part taken out, groups included. A copy: the input is not changed. */
+/**
+ * The blocks with every paid access block's locked part taken out, groups included. A copy: the input is not changed.
+ *
+ * AND AN EMAIL SIGNUP'S FILE. A signup that gives a file for an address kept
+ * the file's own address in the block, so it was in every visitor's page
+ * source and opened without any email. The route reads the file from the
+ * published page and answers it to the signup (app/api/onepage/leads,
+ * lib/onepage/signup-file); the page is only told that there is one.
+ */
 export function withoutLocked<T>(blocks: T): T {
   if (!Array.isArray(blocks)) return blocks
   return blocks.map((raw) => {
@@ -29,11 +37,17 @@ export function withoutLocked<T>(blocks: T): T {
     if (!b || typeof b !== "object") return raw
     const data = (b.data ?? null) as Record<string, unknown> | null
     if (b.type === "group" && Array.isArray(data?.children)) return { ...b, data: { ...data, children: withoutLocked(data!.children) } }
+    if (b.type === "email_capture" && data && "digital_product_file_url" in data) {
+      const { digital_product_file_url: file, ...rest } = data
+      return { ...b, data: { ...rest, digital_product_has_file: typeof file === "string" && !!file.trim() } }
+    }
     if (!isPaidBlock(b) || !data) return raw
     const clean: Record<string, unknown> = { ...data }
     for (const k of LOCKED_FIELDS) delete clean[k]
-    clean.locked_has_text = typeof data.locked_text === "string" && !!data.locked_text.trim()
-    clean.locked_has_link = typeof data.locked_url === "string" && !!data.locked_url.trim()
+    /* The sealed copy (lib/onepage/locked-seal) stays on the server too; its flags were written beside it when it was sealed. */
+    delete clean.locked_sealed
+    clean.locked_has_text = typeof data.locked_text === "string" ? !!data.locked_text.trim() : data.locked_has_text === true
+    clean.locked_has_link = typeof data.locked_url === "string" ? !!data.locked_url.trim() : data.locked_has_link === true
     return { ...b, data: clean }
   }) as unknown as T
 }
