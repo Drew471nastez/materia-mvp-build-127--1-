@@ -197,3 +197,28 @@ export function dotPosition(scrollLeft: number, slideWidth: number, count: numbe
   if (!(slideWidth > 0) || count < 2) return 0
   return Math.max(0, Math.min(count - 1, scrollLeft / slideWidth))
 }
+
+/**
+ * WAVE 16, THE DOTS. The owner: "the media player's navigation dots must be smooth, clean, modern". The dot shown is a
+ * pill (DOT_PILL_PX wide), the others small dots (DOT_PX), on a soft frosted capsule. Each dot's width follows the
+ * scroll in every frame: half way through a swipe the pill has given half its extra width to the next dot. The
+ * extra widths always add up to one pill's, so the capsule never changes size and nothing beside it moves.
+ */
+export const DOT_PX = 6
+export const DOT_PILL_PX = 18
+
+/** How lit each dot is (0 to 1) for a scroll position in slides: the two dots either side of it share one. */
+export function dotLights(pos: number, count: number): number[] {
+  const out: number[] = []
+  for (let i = 0; i < count; i++) out.push(Math.max(0, 1 - Math.abs(pos - i)))
+  return out
+}
+
+/**
+ * WAVE 16: is this font stack a book face (its generic is `serif`, as lib/onepage/fonts fontStack writes it)? A book
+ * face such as Renaissance's Cormorant Garamond draws its small letters much smaller than Inter at the same size, so
+ * the sheet sets its title and price a step larger in one, to read at the same weight on the page.
+ */
+export function bookFace(stack: string | null | undefined): boolean {
+  return typeof stack === "string" && /(?:^|,)\s*serif\s*(?:,|$)/i.test(stack)
+}

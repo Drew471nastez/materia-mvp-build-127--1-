@@ -207,7 +207,7 @@ import { FilesLibraryChooser, LibraryRow, fileFromLibrary } from "@/components/o
 import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 import { EmailLayoutThumb } from "@/components/onepage/email-signup"
-import { connectButtonPatch, emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
+import { connectButtonPatch, emailSignupButtonText, emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
 import { canGoInGroup, deleteFromGroup, findBlockDeep, groupCandidates, moveIntoGroup, moveOutOfGroup, updatePlanDeep } from "@/lib/onepage/group"
 import { GroupExistingBlocks } from "@/components/onepage/group-add-existing"
 
@@ -5346,32 +5346,56 @@ function BlockEditor({
                 cards with the picture in a 4:3 frame, the name centred under it, the editor's ChoiceMark.
               */}
               <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Layout")}</p>
-              <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" data-email-layouts="">
+              {/*
+                Wave 16: four across only where the panel itself has room for four (480px), two otherwise. It went by the
+                window (sm:), so a narrow editor panel on a computer squeezed four cards into it, too small to read.
+              */}
+              <div className="@container">
+              <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-2 gap-2.5 @min-[480px]:grid-cols-4" data-email-layouts="">
                 {emailLayouts.map((option) => {
                   const on = currentEmailLayout === option.id
+                  /*
+                    Wave 16: the picture lies over the card rather than in its button (it is the block itself, made small,
+                    with the block's own fields and buttons, which may not sit inside a button), in the very spot the
+                    card keeps for it: its 4:3 frame, 6px in. The frame's size is the card's alone, so nothing in the
+                    picture can move the card; the picture lets every press and hover through to the button under it.
+                  */
                   return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      data-email-layout-option={option.id}
-                      onClick={() => {
-                        if (on) return
-                        /* Connect says "Connect with" beside your picture, unless the button already has words you chose. */
-                        hapticTap("soft")
-                        updateData({ layout_type: option.id as EmailCaptureLayoutType, ...(option.id === "connect" ? connectButtonPatch(data, tt("Connect with")) ?? {} : {}) })
-                      }}
-                      className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none transition-[border-color] duration-150 hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
-                    >
-                      <ChoiceMark on={on} />
-                      <span className="flex aspect-[4/3] items-center overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)] [&>[data-email-thumb]]:h-full [&>[data-email-thumb]]:rounded-xl">
-                        <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} avatar={onepage?.avatar_url ?? null} headline={data.headline} />
+                    <div key={option.id} className="relative">
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        data-email-layout-option={option.id}
+                        onClick={() => {
+                          if (on) return
+                          /* Connect says "Connect with" beside your picture, unless the button already has words you chose. */
+                          hapticTap("soft")
+                          updateData({ layout_type: option.id as EmailCaptureLayoutType, ...(option.id === "connect" ? connectButtonPatch(data, tt("Connect with")) ?? {} : {}) })
+                        }}
+                        className="relative flex w-full cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none transition-[border-color] duration-150 hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+                      >
+                        <ChoiceMark on={on} />
+                        <span aria-hidden className="block aspect-[4/3] rounded-xl" />
+                        <span className={cn("block truncate py-1.5 text-center text-[12.5px] font-medium transition-colors duration-150", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{option.label}</span>
+                      </button>
+                      <span className="pointer-events-none absolute inset-x-1.5 top-1.5 block aspect-[4/3] overflow-hidden rounded-xl [&>[data-email-thumb]]:rounded-xl after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.07)] after:content-['']" data-email-thumb-frame="">
+                        <EmailLayoutThumb
+                          layout={option.id}
+                          image={emailImage}
+                          theme={onepage?.theme ?? {}}
+                          avatar={onepage?.avatar_url ?? null}
+                          name={onepage?.title ?? null}
+                          headline={data.headline}
+                          description={data.description}
+                          buttonText={option.id === "connect" ? emailSignupButtonText({ ...data, ...connectButtonPatch(data, tt("Connect with")) }) : emailSignupButtonText(data)}
+                          placeholder={data.placeholder ?? null}
+                        />
                       </span>
-                      <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{option.label}</span>
-                    </button>
+                    </div>
                   )
                 })}
+              </div>
               </div>
               {emailImage ? null : (
                 <p className="text-[12.5px] leading-[1.4] text-[#6b7280]">{tt("Add an image in Settings to show it in Featured, Cover, Solid, Simple and Bar.")}</p>

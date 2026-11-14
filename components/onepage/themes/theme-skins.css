@@ -2381,12 +2381,12 @@
   content: ""; position: absolute; z-index: -1; pointer-events: none;
   inset: -34px -34px; background: rgba(12,17,36,0.66); -webkit-mask-image: var(--rn-soft); -webkit-mask-composite: source-in; mask-image: var(--rn-soft); mask-composite: intersect;
 }
-[data-op-skin="renaissance"] [data-hero-title] {
-  position: relative;
+[data-op-skin="renaissance"] [data-hero-header]::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none; inset: 0 0 -128px;
+  background: linear-gradient(180deg, #121a33 calc(100% - 200px), #121a33f5 calc(100% - 175px), #121a33d9 calc(100% - 150px), #121a33b0 calc(100% - 125px), #121a3380 calc(100% - 100px), #121a334f calc(100% - 75px), #121a3326 calc(100% - 50px), #121a330a calc(100% - 25px), #121a3300 100%);
 }
-[data-op-skin="renaissance"] [data-hero-title]::before {
-  content: ""; position: absolute; z-index: -1; pointer-events: none;
-  inset: -34px -34px; background: rgba(12,17,36,0.66); -webkit-mask-image: var(--rn-soft); -webkit-mask-composite: source-in; mask-image: var(--rn-soft); mask-composite: intersect;
+[data-op-skin="renaissance"] [data-hero-media] {
+  background-color: transparent !important;
 }
 [data-op-skin="renaissance"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
   position: relative;
@@ -2416,7 +2416,7 @@
 [data-op-skin="renaissance"] :is(.op-btn, [data-tp-link]):is([data-hover="fill"], [data-hover="pop"])::after {
   box-shadow: inset 0 0 0 1px #c6a15b, inset 0 0 0 4px var(--op-fill, #f4ecda), inset 0 0 0 5px rgba(198,161,91,.5);
 }
-[data-op-skin="renaissance"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
+[data-op-skin="renaissance"] :is([data-product-cta], :is([data-email-form=row],[data-email-form=stacked]) button[type=submit], [data-onepage-contact] button[type=submit]) {
   background-color: #f4ecda !important; background-image: none;
   color: #17224a !important; border: 1px solid #c6a15b !important; border-radius: 2px !important;
   box-shadow: inset 0 0 0 3px #f4ecda, inset 0 0 0 4px rgba(198,161,91,.5) !important;
@@ -2454,13 +2454,13 @@
 [data-op-skin="renaissance"] :is([data-email-layout], [data-onepage-contact]):not([data-product-block="overlay"]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
   color: #f4ecda !important;
 }
-[data-op-skin="renaissance"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
+[data-op-skin="renaissance"] :is([data-email-form=row],[data-email-form=stacked], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
   background: #0f1631 !important; border: 1px solid rgba(198,161,91,.5) !important; border-radius: 2px !important; color: #f4ecda !important; box-shadow: none !important;
 }
-[data-op-skin="renaissance"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea)::placeholder {
+[data-op-skin="renaissance"] :is([data-email-form=row],[data-email-form=stacked], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea)::placeholder {
   color: rgba(244,236,218,.7) !important;
 }
-[data-op-skin="renaissance"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea):focus {
+[data-op-skin="renaissance"] :is([data-email-form=row],[data-email-form=stacked], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea):focus {
   border-color: #c6a15b !important; box-shadow: 0 0 0 1px #c6a15b !important;
 }
 
@@ -2477,7 +2477,7 @@
 [data-op-skin="renaissance"] [data-op-block] > p.whitespace-pre-line {
   font-size: 1rem; line-height: 1.6;
 }
-[data-op-skin="renaissance"] [data-op-header] > p::before {
+[data-op-skin="renaissance"] :is([data-op-header], [data-hero-title]) > p::before {
   content: ""; display: block; width: 132px; height: 14px; margin: -2px auto 12px; background: var(--rn-q) center / 26px 14px no-repeat, linear-gradient(90deg, rgba(198,161,91,.5) calc(50% - 16px), transparent 0 calc(50% + 16px), rgba(198,161,91,.5) 0) center / 132px 1px no-repeat;
 }
 [data-op-skin="renaissance"] [data-op-align="left"] [data-op-header] > p::before {

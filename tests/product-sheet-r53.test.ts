@@ -17,7 +17,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { DOT_STEP_PX, SHEET_COLUMN_RATIO, SHEET_PHONE_RATIO, dotPosition, mediaFit, sheetImages, sheetModel } from "@/lib/onepage/product-sheet"
+import { DOT_PILL_PX, DOT_PX, DOT_STEP_PX, SHEET_COLUMN_RATIO, SHEET_PHONE_RATIO, bookFace, dotLights, dotPosition, mediaFit, sheetImages, sheetModel } from "@/lib/onepage/product-sheet"
 import { mediaOf } from "@/lib/media/video"
 
 let passed = 0
@@ -56,13 +56,15 @@ check("and draws it as a video with its stored first frame", media[1].type === "
 
 console.log("\nThe sheet")
 const sheet = strip(read("components/onepage/product-sheet.tsx"))
-check("the lit dot is its own element, moved by translate from the scroll", /data-product-sheet-dot-on/.test(sheet) && /style\.translate = `\$\{pos \* DOT_STEP_PX\}px 0`/.test(sheet))
+/* Changed on purpose (wave 16): the owner asked for smooth, modern dots; the dot shown is a pill whose width flows from dot to dot with the scroll (dotLights), written to the style, no render. */
+check("the dots follow the scroll: each one's width and strength written from it, no render", /const lights = dotLights\(pos, count\)/.test(sheet) && /d\.style\.width = `\$\{DOT_PX \+ l \* \(DOT_PILL_PX - DOT_PX\)\}px`/.test(sheet) && /data-product-sheet-dot=""/.test(sheet))
 check("no dot animates its width", !/transition-\[width/.test(sheet))
 check("the dots fade in when they arrive (starting style)", /data-product-sheet-dots[\s\S]{0,10}/.test(sheet) && /starting:opacity-0" data-product-sheet-dots/.test(sheet))
 check("a step's way there is not read back as steps (heading)", /heading\.current !== null/.test(sheet))
 check("slides are keyed by place", !/key=\{src\}/.test(sheet) && /<SlideVideo\s+key=\{i\}/.test(sheet))
 /* Changed on purpose (round W8): the owner asked for a square gallery, every picture filled, instead of the first picture's own (tall) shape. */
-check("the box is the square gallery and caps its viewport height", /aspectRatio:String\(ratio\)/.test(sheet) && /60dvh/.test(sheet) && /const ratio = SHEET_GALLERY_RATIO/.test(sheet))
+/* Changed on purpose (wave 16): the owner asked for the main image at the full width; no viewport-height cap. */
+check("the box is the square gallery, the full width", /aspectRatio:String\(ratio\)/.test(sheet) && !/60dvh/.test(sheet) && /const ratio = SHEET_GALLERY_RATIO/.test(sheet))
 check("arrows take the sheet's surface and ink, not white with the theme's ink", /bg-\[var\(--opk-surface,#ffffff\)\]\/92 text-\[color:var\(--opk-ink,#111113\)\]/.test(sheet) && !/bg-white\/95 text-\[#111113\]/.test(sheet))
 check("arrows are dimmed at the ends, not gone", /disabled:opacity-35/.test(sheet) && !/disabled:opacity-0/.test(sheet))
 check("a video slide: muted, looping, inline, its first frame as poster", /<video[\s\S]{0,200}muted\s+loop\s+playsInline/.test(sheet) && /poster=\{entry\.poster \?\? undefined\}/.test(sheet))
@@ -79,6 +81,35 @@ const box = strip(read("components/onepage/product-lightbox.tsx"))
 check("Storelib's own player, fetched when a video is opened (React.lazy)", /React\.lazy\(\(\) => import\("@\/components\/media\/video-player"\)/.test(box) && !/^import[^\n]*video-player/m.test(box))
 check("it sits over the dialogs' layer, ground and panel", /z-\[2147483640\] bg-black\/95/.test(box) && /media-viewer-panel z-\[2147483641\]/.test(box))
 check("the arrows inside the player seek, elsewhere they step", /closest\?\.\("\[data-video-player\]"\)/.test(box))
+
+/*
+  WAVE 16, the owner on the product sheet: thumbnails left aligned, the main image full width, unselected thumbnails not
+  dimmed, the title, price, compare at price and product info at the best size, and smooth, modern dots.
+*/
+console.log("\nWave 16")
+{
+  const same = (a: number[], b: number[]) => a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) < 1e-9)
+  check("at rest the dot shown is the pill, the others small", same(dotLights(0, 3), [1, 0, 0]) && same(dotLights(2, 3), [0, 0, 1]))
+  check("half way through a swipe the two dots share the pill", same(dotLights(0.5, 3), [0.5, 0.5, 0]) && same(dotLights(1.25, 4), [0, 0.75, 0.25, 0]))
+  check("the lit share always adds up to one pill, so the capsule never changes size", [0, 0.2, 0.5, 1.7, 3].every((pos) => Math.abs(dotLights(pos, 4).reduce((a, b) => a + b, 0) - 1) < 1e-9))
+  check("a pill wider than a dot", DOT_PILL_PX > DOT_PX * 2 && DOT_PX === 6)
+  check("a book face is one whose generic is serif", bookFace("'Cormorant Garamond', serif") && bookFace("'Lora', Georgia, serif") && !bookFace("'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif") && !bookFace(null) && !bookFace("ui-monospace, monospace"))
+  const g = sheet.slice(sheet.indexOf("function Gallery"))
+  check("the main picture is the full width: no height cap, not centred", /className="relative isolate w-full overflow-hidden rounded-2xl/.test(g) && !/60dvh/.test(g) && !/relative isolate mx-auto/.test(g))
+  check("the thumbnails start at the picture's left edge (no auto margins)", !/first:ml-auto|last:mr-auto/.test(g) && /-m-1 mt-1\.5 flex gap-2 overflow-x-auto p-1/.test(g))
+  check("no thumbnail is dimmed; the one shown has a ring of the ink, a hair off it", !/opacity-60/.test(g) && /i === at && "shadow-\[0_0_0_2px_var\(--opk-surface,#ffffff\),0_0_0_3\.5px_var\(--opk-ink,#111113\)\]/.test(g))
+  check("the thumbnail row moves only when the one shown is out of view", /if \(left === null\) return/.test(g))
+  check("the dots: white (#fff, which no theme repaints), on a frosted capsule", /rounded-full bg-\[#fff\]/.test(g) && /bg-black\/30[^"]*backdrop-blur-md/.test(g) && !/data-product-sheet-dot-on/.test(g))
+  check("their first frame is the pill on the first slide, never set by a render after", /style=\{\{ width: i === 0 \? DOT_PILL_PX : DOT_PX, opacity: i === 0 \? 1 : 0\.5 \}\}/.test(g))
+  check("reduced motion: a step and the thumbnail row move at once", (g.match(/prefers-reduced-motion: reduce/g) ?? []).length >= 2)
+  check("the title 22px (24px beside the pictures), 25px (28px) in a book face", /"text-\[25px\] font-medium tracking-\[-0\.005em\]" : "text-\[22px\] font-semibold tracking-\[-0\.015em\]"/.test(sheet) && /bookTitle \? "sm:text-\[28px\]" : "sm:text-\[24px\]"/.test(sheet))
+  check("the price 20px semibold (22px), the compare at 15px (17px) with a thin strike", /bookBody \? "text-\[22px\]" : "text-\[20px\] tracking-\[-0\.01em\]"/.test(sheet) && /decoration-1", bookBody \? "text-\[17px\]" : "text-\[15px\]"/.test(sheet))
+  check("Save is a soft pill of the ink, not a filled block", /bg-\[color-mix\(in_srgb,var\(--opk-ink,#111113\)_9%,transparent\)\][^"]*" data-product-sheet-sale/.test(sheet) && !/bg-\[#111113\] px-2 text-\[12px\]/.test(sheet))
+  check("size chips 44px tall, the button 52px at 16px", /"min-h-11 min-w-12 rounded-xl border px-4 text-\[14px\]/.test(sheet) && /flex h-\[52px\] items-center justify-center overflow-hidden rounded-xl bg-\[#111113\] text-\[16px\] font-semibold/.test(sheet))
+  const blocks = strip(read("components/website-builder/sections/renderers/product/product-blocks.tsx"))
+  const price = blocks.slice(blocks.indexOf("function Price("), blocks.indexOf("const PICK_SIZE"))
+  check("the product page's price matches: compare at three quarters, Save a soft pill of the sale colour", /size \* 0\.75/.test(price) && /color-mix\(in srgb, \$\{tone\} 12%, transparent\)/.test(price) && /data-product-price-saving/.test(price))
+}
 
 console.log("\nThe questions")
 const faq = strip(read("components/product/size-chart-panel.tsx"))
