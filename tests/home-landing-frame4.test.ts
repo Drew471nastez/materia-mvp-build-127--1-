@@ -125,10 +125,11 @@ console.log("\n── The dot grid ──")
 {
   const src = code("components/marketing/home/dot-field.tsx")
   const props = [...keyframes(DOT_FIELD_CSS).matchAll(/([a-z-]+):/g)].map((m) => m[1])
-  check("its only motion is the light's transform", props.length > 0 && props.every((p) => p === "transform"))
-  check("dots from one CSS radial gradient; the light cut out of the same grid by a mask", /\.dotf-dots\{background-image:radial-gradient\(/.test(DOT_FIELD_CSS) && /\.dotf-lit\{-webkit-mask-image:radial-gradient\(/.test(DOT_FIELD_CSS))
-  check("paused unless on screen and the tab visible", /animation-play-state:paused\}/.test(DOT_FIELD_CSS) && /\.dotf\[data-run\] \.dotf-light\{animation-play-state:running\}/.test(DOT_FIELD_CSS) && /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && !/useState/.test(src))
-  check("still under reduced motion; behind the content; takes no pointer", /@media \(prefers-reduced-motion:reduce\)\{\.dotf-light\{animation:none;transform:none\}\}/.test(DOT_FIELD_CSS) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
+  /* Changed on purpose (landing round 5): the dot field is one canvas now (scattered dots, a light that follows the mouse), so its CSS has no keyframes; the canvas fades in once. */
+  check("no CSS animation: the canvas draws the motion, the CSS only fades it in once", props.length === 0 && /\.dotf canvas\{[^}]*transition:opacity/.test(DOT_FIELD_CSS))
+  check("one canvas, scattered dots drawn in batches by alpha, the device pixel ratio capped", /<canvas ref=\{canvasRef\}/.test(src) && /Math\.min\(DOT_FIELD_MAX_DPR/.test(src) && /ctx\.fill\(\)/.test(src))
+  check("runs only on screen and with the tab visible; no React state", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /cancelAnimationFrame/.test(src) && !/useState/.test(src))
+  check("still under reduced motion; behind the content; takes no pointer", /&& !reduced/.test(src) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

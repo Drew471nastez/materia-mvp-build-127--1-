@@ -61,13 +61,16 @@ console.log("\n── audience ──")
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
   const faces = [...src.matchAll(/photo: "([a-z]+)"/g)].map((m) => m[1])
-  check("every subscriber has a real face, a small webp under public/home/audience/people", faces.length === 8 && faces.every((f) => existsSync(join(root, "public/home/audience/people", `${f}.webp`)) && statSync(join(root, "public/home/audience/people", `${f}.webp`)).size < 12 * 1024), faces)
-  check("no initials in place of a face", !/initials\(|tint:/.test(src) && /\/people\/\$\{r\.photo\}\.webp/.test(src))
+  /* Changed on purpose (landing round 5): the section is one Contacts picture now: five people, each a real face. */
+  check("every contact shown has a real face, a small webp under public/home/audience/people", faces.length === 5 && faces.every((f) => existsSync(join(root, "public/home/audience/people", `${f}.webp`)) && statSync(join(root, "public/home/audience/people", `${f}.webp`)).size < 12 * 1024), faces)
+  check("no initials in place of a face", !/initials\(|tint:/.test(src) && /\$\{IMG\}\/\$\{p\.photo\}\.webp/.test(src))
   /* Changed on purpose (landing round 4): the owner asked for a smaller, lighter audience section; the sync card is a plain row now, the platforms in their own marks without the Storelib logo above them. */
   check("the sync row shows the email platforms in their own marks, not the old tree", /EMAIL_PLATFORMS\.map/.test(src) && !/STORELIB_S_PATH/.test(src) && !/s\.tree/.test(src))
-  check("the composer is smaller: a narrower window and a shorter well", /max-w-\[520px\]/.test(src) && /min-height: 380px/.test(css) && !/lg:row-span-2/.test(src))
-  check("Download every contact, any time, as it was", /Download every contact, any time/.test(words) && /Names, emails, tags and where each person came from, as a CSV\. Bring a list in the same way\./.test(words) && /contacts\.csv/.test(words))
-  check("cards a pixel less round (27px, 21px on a phone)", /border-radius: 27px/.test(css) && /border-radius: 21px/.test(css) && !/border-radius: 28px/.test(css))
+  /* Changed on purpose (landing round 5): the owner found the composer too big and asked for one compact picture; the composer is gone. */
+  check("no composer: one compact picture", !/Composer|s\.bleed/.test(src) && !/\.bleed/.test(css))
+  check("Download every contact, any time, as it was", /Download every contact, any time/.test(words) && /Names, emails, tags and where each person came from, as a CSV\./.test(words) && /Export CSV/.test(words))  /* Changed on purpose (landing round 5): the CSV is the picture's Export CSV button now. */
+  /* Changed on purpose (landing round 5): one card, the Contacts picture, at 20px. */
+  check("one card, a 20px corner", /\.mock \{[^}]*border-radius: 20px;/.test(css) && !/border-radius: 28px/.test(css))
   check("no fans in the words", !/\bfans?\b/i.test(words))
 }
 
@@ -89,7 +92,7 @@ console.log("\n── analytics ──")
   check("the search thumbnails are local webp files", ["lut-fog", "lut-neon", "lut-autumn"].every((f) => existsSync(join(root, "public/home/analytics", `${f}.webp`)) && html.includes(`/home/analytics/${f}.webp`)))
   const marks = read(`${DIR}/engine-marks.tsx`)
   check("five engines in their own vector marks", ["GoogleG", "OpenAIMark", "ClaudeMark", "PerplexityMark", "GeminiMark"].every((n) => new RegExp(`export function ${n}\\(`).test(marks)) && ["Google", "ChatGPT", "Claude", "Perplexity", "Gemini"].every((e) => src.includes(`name: "${e}"`)))
-  check("the switcher turns only while live, never under reduced motion, by transform and opacity", /if \(!live \|\| reduced\) return/.test(src) && /window\.clearInterval/.test(src) && /\.engine \{[\s\S]*?transition:\s*transform 900ms[^;]*,\s*opacity 700ms/.test(css)) /* Changed on purpose (landing round 4): a slower, smoother change, as the owner asked. */
+  check("the switcher turns only while live, never under reduced motion, by transform and opacity", /if \(!live \|\| reduced\) return/.test(src) && /window\.clearInterval/.test(src) && /\.engine \{[\s\S]*?transition:\s*transform 800ms[^;]*,\s*opacity 600ms/.test(css)) /* Changed on purpose (landing round 5): the switcher is the one from before round 4 again, as the owner asked. */
   check("keyframes animate only transform and opacity", keyframeProps(css).every((p) => p === "transform" || p === "opacity"), keyframeProps(css))
   check("cards a pixel less round (27px, 21px on a phone)", /border-radius: 27px/.test(css) && /border-radius: 21px/.test(css))
   check("smaller: two fixed rows of 400px, no dashboard, no tabbed cards", /\.globeCard,\s*\.fixed \{\s*height: 400px;/.test(css) && !/Total Revenue|Conversion Rate|Previous period/.test(words))

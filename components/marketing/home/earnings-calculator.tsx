@@ -45,6 +45,13 @@
  * day on one side; on the other the month's total, three figures under it
  * and a Start earning button. The photograph stays. Figures are on the
  * Free plan's fee (5% + $0.25 a sale), which the line under them says.
+ *
+ * Landing round 5, the owner: "I don't like the pill shapes ... they look
+ * bad, cut and not consistent on desktop and mobile." What you sell is six
+ * even tiles now (three across, two on a narrow phone), each a soft grey
+ * with a 12px corner, the chosen one white with an ink outline; the same
+ * shape at every width, and no label is ever cut (checked from 320 to
+ * 1440). "Example" is a quiet word, not a pill.
  */
 import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
@@ -219,7 +226,7 @@ export function EarningsCalculator() {
             <div className="cme-out" aria-live="off">
               <div className="cme-out-top">
                 <span>You keep each month</span>
-                <span className="cme-pill">Example</span>
+                <span className="cme-example">Example</span>
               </div>
               <CommerceNumber cents={m.keep} whole className="cme-big" />
               <dl className="cme-stats">
@@ -299,17 +306,18 @@ const EARN_CSS = `
 .cme-num{display:inline-flex;align-items:baseline;gap:1px;padding:2px 10px;border-radius:9px;background:#f6f6f8;box-shadow:inset 0 0 0 1px #ececf0}
 .cme-num input{min-width:2ch;border:0;outline:0;background:transparent;font:inherit;color:inherit;text-align:right;padding:0;font-variant-numeric:tabular-nums}
 .cme-num:focus-within{box-shadow:inset 0 0 0 2px #7c3aed}
-.cme-kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:4px;border-radius:26px;background:#f1f1f1;box-shadow:inset 0 0 0 1px #e6e6e6}
-.cme-kind{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0;height:44px;padding:0 10px;border:0;border-radius:999px;background:transparent;color:#616161;font:500 15px/1 var(--font-inter,Inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .2s ease,color .2s ease,box-shadow .2s ease}
+.cme-kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cme-kind{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:9px;min-width:0;height:48px;padding:0 14px;border:0;border-radius:12px;background:#f6f6f8;color:#55525e;font:500 14.5px/1 var(--font-inter,Inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:inset 0 0 0 1px transparent;transition:background-color .2s ease,color .2s ease,box-shadow .2s ease}
+.cme-kind>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .cme-kind-i{width:18px;height:18px;flex:none}
-@media (hover:hover) and (pointer:fine){.cme-kind:hover{background:#e7e7e7;color:#303030}}
-.cme-kind[aria-checked="true"]{background:#fff;color:#303030;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 1px 1px rgba(0,0,0,.06),inset 0 -1px 0 rgba(0,0,0,.07)}
+@media (hover:hover) and (pointer:fine){.cme-kind:hover{background:#efeff2;color:#18181b}}
+.cme-kind[aria-checked="true"]{background:#fff;color:#18181b;box-shadow:inset 0 0 0 1.5px #18181b}
 .cme-kind:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
-@media (max-width:480px){.cme-kind{gap:5px;padding:0 2px;font-size:13.5px}.cme-kind-i{width:16px;height:16px}}
-@media (max-width:359px){.cme-kind-i{display:none}}
+@media (max-width:479px){.cme-kinds{grid-template-columns:repeat(2,minmax(0,1fr))}.cme-kind{height:46px;padding:0 12px}}
+@media (min-width:900px) and (max-width:1100px){.cme-kind{gap:7px;padding:0 10px;font-size:14px}}
 .cme-out{position:relative;display:flex;flex-direction:column;padding:clamp(24px,3vw,40px);border-left:1px solid #ececf0}
 .cme-out-top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:15px;color:#71717a}
-.cme-pill{padding:4px 10px;border-radius:99px;background:#f4f4f5;font-size:12px;color:#52525b}
+.cme-example{font-size:13px;color:#a1a1aa}
 .cme-big{display:block;margin-top:12px;font-size:clamp(46px,5vw,76px);font-weight:400;letter-spacing:-.055em;line-height:1;color:#0f0e13;font-variant-numeric:tabular-nums}
 .cme-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:clamp(22px,2.4vw,30px) 0 0;padding-top:18px;border-top:1px solid #ececf0}
 .cme-stats div{min-width:0}
