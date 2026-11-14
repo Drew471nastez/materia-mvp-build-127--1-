@@ -1445,6 +1445,8 @@ const SUITES = [
   "tests/home-landing-r6-globe.test.ts",
   /* Landing round 6, ideas: the editors' tabs are thin pills on a grey track again, the website builder shows Plain Weather (a simple, clean apparel label), and the line under the heading is shorter. */
   "tests/home-landing-r6-ideas.test.ts",
+  /* Landing round 6 (showcase): captions on a line under each card and the cards inside the section with room below; 4:3 phone cards 78% wide with the next peeking; autoplay waits 6s after the reader's last scroll and never moves a rail in motion. */
+  "tests/home-landing-r6-showcase.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
