@@ -61,9 +61,11 @@ console.log("\n── See what you could earn ──")
   check("its two sizes exist, each under 120 KB", files.every((f) => existsSync(join(dir, f)) && statSync(join(dir, f)).size < 120_000), files.map((f) => (existsSync(join(dir, f)) ? statSync(join(dir, f)).size : "missing")))
   check("nothing hotlinked", !/https?:\/\/[^"'`\s]*\.(png|jpe?g|webp|avif)/i.test(src) && !/images\.unsplash\.com/.test(src))
   check("the small print under the result is gone", !/cme-fine|not a forecast|A month is 30 days\.|Production costs are typical/.test(html))
-  check("not wider: three columns only from 1280px, the photo the narrowest", /@media \(min-width:1280px\)\{\s*\.cme-card\{grid-template-columns:minmax\(0,\.64fr\) minmax\(0,1\.1fr\) minmax\(0,\.95fr\)\}/.test(css))
-  check("not much taller: the photo is a short band under 1280px, at most 300px on a phone", /\.cme-photo\{grid-column:1\/-1;position:relative;height:clamp\(240px,30vw,320px\)/.test(css) && /\.cme-photo\{height:auto;aspect-ratio:16\/10;max-height:300px\}/.test(css))
-  check("corners a pixel tighter", /\.cme-inputs\{[^}]*border-radius:clamp\(21px,2\.4vw,31px\)/.test(css) && /\.cme-out\{[^}]*border-radius:clamp\(21px,2\.4vw,31px\)/.test(css) && !/clamp\(22px,2\.4vw,32px\)/.test(css))
+  /* Changed on purpose (landing round 4): no dark result card, so the photo and one white panel share the row from 1280px, the photo the narrower. */
+  check("not wider: the photo beside the panel only from 1280px, the photo the narrower", /@media \(min-width:1280px\)\{\s*\.cme-card\{grid-template-columns:minmax\(0,\.62fr\) minmax\(0,2fr\)\}/.test(css))
+  check("not much taller: the photo is a short band under 1280px, at most 300px on a phone", /\.cme-photo\{position:relative;height:clamp\(240px,30vw,320px\)/.test(css) /* Changed on purpose (landing round 4): one column under 1280px, so no grid-column span. */ && /\.cme-photo\{height:auto;aspect-ratio:16\/10;max-height:300px\}/.test(css))
+  /* Changed on purpose (landing round 4): one white panel holds the inputs and the result. */
+  check("corners a pixel tighter", /\.cme-panel\{[^}]*border-radius:clamp\(21px,2\.4vw,31px\)/.test(css) && /\.cme-photo\{[^}]*border-radius:clamp\(21px,2\.4vw,31px\)/.test(css) && !/clamp\(22px,2\.4vw,32px\)/.test(css))
   check("no fans", !/\bfans?\b/i.test(text(html)))
 }
 

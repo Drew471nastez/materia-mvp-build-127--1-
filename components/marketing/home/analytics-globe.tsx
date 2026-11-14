@@ -22,22 +22,26 @@ import { PLATFORM_LAND_B64, PLATFORM_LAND_H, PLATFORM_LAND_W } from "./platform-
 import { createGlobeEngine, type V3 } from "./everything-globe-draw"
 import { EVERYTHING_GLOBE_WORKER_SOURCE } from "./everything-globe-worker-source"
 
-/** Where the creator works from (Lisbon), where every arc lands. */
-const HOME: [number, number] = [38.72, -9.14]
-/** Where visits come from: lat, lng. */
+/** Where the creator works from (Oslo, landing round 4: Nora Vik is a colorist there), where every arc lands. */
+const HOME: [number, number] = [59.91, 10.75]
+/**
+ * Where visits come from: lat, lng. Her top places lead, in the order the
+ * card lists them (the United States, the United Kingdom, Germany), then
+ * the rest of her 31 countries' busiest.
+ */
 export const ANALYTICS_GLOBE_PLACES: Array<[number, number]> = [
   [40.71, -74.0],
-  [51.5, -0.12],
-  [52.52, 13.4],
-  [43.65, -79.38],
-  [48.86, 2.35],
-  [-23.55, -46.63],
-  [40.42, -3.7],
-  [52.37, 4.9],
-  [41.88, -87.63],
-  [53.35, -6.26],
-  [59.33, 18.07],
   [34.05, -118.24],
+  [41.88, -87.63],
+  [51.5, -0.12],
+  [53.48, -2.24],
+  [52.52, 13.4],
+  [48.14, 11.58],
+  [48.86, 2.35],
+  [52.37, 4.9],
+  [43.65, -79.38],
+  [-23.55, -46.63],
+  [-33.87, 151.21],
 ]
 
 const DEG = Math.PI / 180
