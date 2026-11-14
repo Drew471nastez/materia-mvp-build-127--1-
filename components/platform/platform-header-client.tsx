@@ -1923,6 +1923,40 @@ export function PlatformHeaderClient({
     }
   }, [])
   /*
+    ON THE HOME PAGE THE BAR'S CALL COMES IN ONCE THE HERO'S HAS GONE (landing
+    round 5, the owner: "The Start Now button should appear in the header very
+    smoothly after I get over with the scroll under the hero section"). While
+    the hero's own buttons are on screen the bar's Start now (a phone) and
+    Sign up (a computer) are faded out where they stand, holding their room,
+    so nothing in the bar moves and the bar never changes height; once the
+    hero's buttons have gone under the bar they fade and rise in (the CSS is
+    the hero's, components/marketing/hero.tsx). One observer and an attribute
+    on the bar: no scroll listener, no state, no re-render.
+  */
+  useEffect(() => {
+    const el = headerRootRef.current
+    if (!el || pathname !== "/") return
+    const cta = document.querySelector("[data-home-hero] .cinematic-actions")
+    if (!cta || typeof IntersectionObserver !== "function") {
+      el.setAttribute("data-home-cta", "shown")
+      return () => el.removeAttribute("data-home-cta")
+    }
+    /* The bar's own height, read once: the hero's buttons count as gone when they are under it. */
+    const top = Math.round(el.offsetHeight)
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        const gone = !entry.isIntersecting && entry.boundingClientRect.top < (entry.rootBounds?.top ?? top)
+        el.setAttribute("data-home-cta", gone ? "shown" : "hidden")
+      },
+      { rootMargin: `-${top}px 0px 0px 0px` },
+    )
+    io.observe(cta)
+    return () => {
+      io.disconnect()
+      el.removeAttribute("data-home-cta")
+    }
+  }, [pathname])
+  /*
     THE DESKTOP FIELD'S LINE IS THE BOTTOM OF THIS BAR. "It needs to appear
     smooth, when I start scrolling down past the initial search bar under the
     Discover heading." The field arrives as the page's own goes under the
