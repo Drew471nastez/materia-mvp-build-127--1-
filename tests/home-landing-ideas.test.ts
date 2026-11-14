@@ -107,7 +107,8 @@ console.log("\nWhat a store sells (was: Every business, one home)")
   check("a vertical list of tabs, not a row of pills", /role="tablist" aria-orientation="vertical"/.test(html) && !/className="[^"]*smk-pills/.test(src.business))
   /* Changed on purpose (landing round 4): the scroll steps through the kinds while the section is pinned, so every page is drawn and one is shown at a time. */
   check("one product page shown at a time, drawn at one size for every screen", (html.match(/class="biz-slide" data-pane="active"/g) ?? []).length === 1 && html.includes("aspect-ratio:640/520") && !/Mobile|Desktop/.test(src.pages.replace(/\/\*[\s\S]*?\*\//g, "")))
-  check("pages change by a crossfade, still under reduced motion", /\.biz-slide\{grid-area:1\/1;opacity:0;/.test(src.business) && /\.biz-slide,\.biz-line span\{transition:none!important\}/.test(src.business))
+  // Changed on purpose (landing round 5): the round 3 section again: a crossfade between pages, none under reduced motion.
+  check("pages change by a crossfade, still under reduced motion", /@keyframes biz-in\{from\{opacity:0\}\}/.test(src.business) && /\.biz-slide\{animation:none!important;transition:none!important\}/.test(src.business))
   check("nothing moves inside the pages", !/@keyframes|animation:/.test(src.pages))
 }
 
@@ -117,9 +118,10 @@ console.log("\nSecond pass: the website builder as it really is, without Ask Sto
   const html = renderToStaticMarkup(createElement(WebsiteBuilderMock))
   const words = Object.values(src).map(visible).join("\n")
   check("no Loose florals, no Brush and Bloom, anywhere in these sections", !/loose florals|brush (&amp;|&|and) bloom|\bbloom\b/i.test(words))
-  check("the site is a real looking brand (Field Day, caps and tees)", html.includes("Field Day") && html.includes("Caps and tees, made in small runs."))
+  // Changed on purpose (landing round 5): "come up with another store, more realistic": Saltmoor, a candle studio.
+  check("the site is a real looking brand (Saltmoor, a candle studio)", html.includes("Saltmoor") && html.includes("Candles poured by hand in Leeds."))
   check("no Storelib AI key beside Publish (no logo, no Ask Storelib)", !/data-storelib-logo|bm-logo|wx-ask|Ask Storelib/.test(html) && !/StorelibLogo|StorelibTile/.test(visible(src.builders)))
-  check("the bar: Back, the name, Preview, the page pill, undo, redo, the inspector, Publish", ["Field Day", "Preview", "Home", "Publish"].every((w) => html.includes(w)) && /class="wx-key wx-inspect"/.test(html))
+  check("the bar: Back, the name, Preview, the page pill, undo, redo, the inspector, Publish", ["Saltmoor", "Preview", "Home", "Publish"].every((w) => html.includes(w)) && /class="wx-key wx-inspect"/.test(html))
   check("the sidebar's Header, Page and Footer groups with Add section in its raised key (tree-parts.tsx)", /Header<\/p>[\s\S]*Page<\/p>[\s\S]*Footer<\/p>/.test(html) && (html.match(/class="wx-add-key"/g) ?? []).length === 3 && (html.match(/class="wx-badge"/g) ?? []).length === 2)
   check("Theme's tab wears the Settings icon, as the editor's does", /<span>[^<]*<svg[^>]*lucide-settings[^>]*>[\s\S]*?<\/svg> Theme<\/span>/.test(html))
   check("the selected section's chip says Selected (sections/_shared.tsx)", (html.match(/<em>Selected<\/em>/g) ?? []).length === 2)

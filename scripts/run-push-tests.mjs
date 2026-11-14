@@ -1433,6 +1433,8 @@ const SUITES = [
   "tests/home-landing-frame4.test.ts",
   /* Landing round 5 (top): the showcase is the browser's own snapping scroller on a touch screen or phone width (autoplay steps aside for a touch and comes back), its cards bigger and cut a little by the section's bottom edge; Make the work's new heading, no support labels, a Pilates course and a plain LUT pack cover; the globe's order notification stands in one place and only fades in and out, the globe capped at 60fps and 2x (1.5x on a low end phone) and a finger takes it only sideways. */
   "tests/home-landing-r5-top.test.ts",
+  /* Landing round 5, middle: One store for everything you sell as it was before (no scroll pin, the clock, the grey stage); Ideas behind plain tabs with a candle studio's store and a paid strength coaching community; How it works without the cap, a bold drawn product sheet, calm grey and dark grounds, a simple dark domain card. */
+  "tests/home-landing-r5-middle.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

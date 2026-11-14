@@ -2,16 +2,16 @@ import { Check, Clock, Copy, Download, Lock, Play, RefreshCw, Truck, Users, Vide
 import { Pic, u } from "./frame"
 
 /*
-  ONE PRODUCT PAGE PER KIND OF THING SOLD ON STORELIB (landing round 4).
+  ONE PRODUCT PAGE PER KIND OF THING SOLD ON STORELIB (landing round 5).
   One calm product page for each kind of thing a Storelib store sells, the
-  way a buyer sees it before paying, a white card on a coloured ground that
-  changes with the kind (the owner: colourful, changing gradients behind the
-  products, as the commerce sites do). Real photographs, a digital product
-  drawn in HTML where a photo would be a stock render, and only what the page
-  would really say: the price, the format, how it arrives.
+  way a buyer sees it before paying, a white card on the light grey stage of
+  round 3 (the owner, round 5: "how it was before", clean, not colourful).
+  Real photographs, a digital product drawn in HTML where a photo would be a
+  stock render, and only what the page would really say: the price, the
+  format, how it arrives.
 
     Digital product   Studio OS, Priya Raman's Notion workspace for freelancers
-    Physical product  The Marigold Cap from Field Day, on a warm ground
+    Physical product  The Pines Tour Tee, printed and shipped for Hollow Pines
     Course            Mixing in key, Tomás Reyes's course for new DJs
     Community         Second Serve, a padel community that finds you a game
     Booking           A portfolio review on a video call with Ines Duarte
@@ -91,34 +91,35 @@ export function TemplatePage() {
 }
 
 /* ================================================================ Physical product */
-const SWATCHES = [
-  ["marigold", "#f2a900"],
-  ["navy", "#1f2a44"],
-  ["bone", "#e9e4da"],
-] as const
+const SIZES = ["S", "M", "L", "XL", "XXL"]
 
-export function CapPage() {
+export function TeePage() {
   return (
-    <div className="bp bp-cap">
+    <div className="bp bp-tee">
       <div className="bp-card bp-split">
-        <div className="bp-media bp-warm">
-          <Pic n="bz-cap" w={800} h={800} className="bp-cap-pic" />
-          <em className="bp-tag">Drop 04</em>
+        <div className="bp-media bp-gray">
+          <Pic n="hp-tee" w={640} h={640} className="bp-tee-pic" />
         </div>
         <div className="bp-info">
           <Kicker>Physical product</Kicker>
-          <h4>Marigold Cap</h4>
-          <p className="bp-by">Field Day</p>
-          <p className="bp-price">$34</p>
-          <p className="bp-label">Color: Marigold</p>
+          <h4>Pines Tour Tee</h4>
+          <p className="bp-by">Hollow Pines</p>
+          <p className="bp-price">$32</p>
+          <p className="bp-label">Color: Black</p>
           <span className="bp-swatches">
-            {SWATCHES.map(([n, c]) => (
-              <i key={n} className={n === "marigold" ? "on" : undefined} style={{ background: c }} />
+            <i className="on" />
+            <i className="sand" />
+          </span>
+          <p className="bp-label">Size</p>
+          <span className="bp-sizes">
+            {SIZES.map((s) => (
+              <i key={s} className={s === "M" ? "on" : ""}>
+                {s}
+              </i>
             ))}
           </span>
-          <p className="bp-label">One size, adjustable strap</p>
           <p className="bp-ship">
-            <Truck /> Embroidered in Porto, ships in 2 days
+            <Truck /> Printed and shipped for you in 3 to 5 days
           </p>
           <span className="bp-btn">Add to cart</span>
         </div>
@@ -274,14 +275,9 @@ export function BookingPage() {
 
 /* ================================================================ styles */
 export const BUSINESS_MOCK_CSS = u(`
-.bp{position:absolute;inset:0;padding:30u;color:#18181b;font-family:var(--font-inter,Inter),Inter,system-ui,sans-serif;font-size:14u;line-height:1.4}
-.bp-digital{background:linear-gradient(140deg,#c7d7ff 0%,#d9c8ff 55%,#f6c9e8 100%)}
-.bp-cap{background:linear-gradient(150deg,#ffb36b 0%,#ff7a4d 50%,#f2507a 100%)}
-.bp-course{background:linear-gradient(150deg,#9fe3dc 0%,#7cc4f0 55%,#8f9ff5 100%)}
-.bp-community{background:linear-gradient(150deg,#d6f28a 0%,#9ee6a8 55%,#7fd6c8 100%)}
-.bp-booking{background:linear-gradient(150deg,#ffd6c2 0%,#ffc2d4 55%,#e9c4ff 100%)}
+.bp{position:absolute;inset:0;padding:30u;background:#eef0f2;color:#18181b;font-family:var(--font-inter,Inter),Inter,system-ui,sans-serif;font-size:14u;line-height:1.4}
 .bp svg{width:15u;height:15u;flex:none}
-.bp-card{position:relative;height:100%;border-radius:17u;background:#fff;overflow:hidden;box-shadow:0 1u 2u rgba(16,24,40,.06),0 24u 48u -28u rgba(16,24,40,.45)}
+.bp-card{position:relative;height:100%;border-radius:17u;background:#fff;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 1u 2u rgba(16,24,40,.04),0 18u 40u -24u rgba(16,24,40,.25)}
 .bp-split{display:grid;grid-template-columns:262u 1fr}
 .bp-media{position:relative;display:grid;place-items:center;overflow:hidden;margin:14u 0 14u 14u;border-radius:13u}
 .bp-info{display:flex;flex-direction:column;padding:28u 26u 24u}
@@ -297,9 +293,9 @@ export const BUSINESS_MOCK_CSS = u(`
 .bp-label{margin-top:14u!important;font-size:12.5u;font-weight:500;color:#52525b}
 
 /* digital: the template itself, a Notion page with its clients table */
-.bp-tint{background:linear-gradient(160deg,#eef2ff,#f5edff)}
-.bp-notion{position:relative;display:flex;flex-direction:column;width:226u;height:300u;border-radius:9u;background:#fff;overflow:hidden;box-shadow:0 1u 2u rgba(30,20,60,.12),0 18u 30u -18u rgba(60,40,120,.45);font-size:9.5u;color:#37352f}
-.bp-n-cover{display:block;height:54u;background:linear-gradient(120deg,#6d8cff,#b37dff 60%,#ff9ec7)}
+.bp-tint{background:#ededee}
+.bp-notion{position:relative;display:flex;flex-direction:column;width:226u;height:300u;border-radius:9u;background:#fff;overflow:hidden;box-shadow:0 1u 2u rgba(16,24,40,.1),0 18u 30u -18u rgba(16,24,40,.35);font-size:9.5u;color:#37352f}
+.bp-n-cover{display:block;height:54u;background:#d9d2c5}
 .bp-n-icon{margin:-17u 0 0 14u;font-size:28u;line-height:1}
 .bp-n-title{margin:6u 14u 0;font-size:17u;font-weight:700;letter-spacing:-.01em}
 .bp-n-tabs{display:flex;gap:10u;margin:9u 14u 0;padding-bottom:6u;border-bottom:1u solid #ececea;color:#9b9a97}
@@ -315,15 +311,19 @@ export const BUSINESS_MOCK_CSS = u(`
 .bp-chip.green{background:#dbeddb;color:#1c3829}
 .bp-chip.grey{background:#ececea;color:#5f5e5b}
 
-/* physical: the cap on a warm ground */
-.bp-warm{background:radial-gradient(90% 70% at 50% 40%,#fff3e6 0%,#ffe0cc 60%,#ffd0c4 100%)}
-.bp-cap-pic{width:96%!important;height:auto!important;aspect-ratio:1;mix-blend-mode:multiply;background:none}
-.bp-tag{position:absolute;left:12u;top:12u;padding:4u 9u;border-radius:999u;background:#fff;color:#c2410c;font-size:11u;font-style:normal;font-weight:700;letter-spacing:.02em;box-shadow:0 1u 3u rgba(120,40,10,.15)}
-.bp-swatches{display:flex;gap:9u;margin-top:8u}
-.bp-swatches i{width:24u;height:24u;border-radius:50%;box-shadow:inset 0 0 0 1u rgba(0,0,0,.1)}
+/* physical: the tee on a light grey card */
+.bp-gray{background:#ededee}
+.bp-tee-pic{width:92%!important;height:auto!important;aspect-ratio:1;mix-blend-mode:multiply;background:none}
+.bp-swatches{display:flex;gap:8u;margin-top:7u}
+.bp-swatches i{width:24u;height:24u;border-radius:50%;background:#1c1c1e;box-shadow:inset 0 0 0 1u rgba(0,0,0,.1)}
+.bp-swatches i.sand{background:#d8cdb8}
 .bp-swatches i.on{box-shadow:0 0 0 2u #fff,0 0 0 3.5u #18181b}
+.bp-sizes{display:flex;gap:6u;margin-top:7u}
+.bp-sizes i{display:grid;place-items:center;min-width:38u;height:32u;padding:0 8u;border-radius:8u;font-size:12.5u;font-style:normal;font-weight:500;box-shadow:inset 0 0 0 1u #e4e4e7}
+.bp-sizes i.on{background:#18181b;color:#fff;box-shadow:none}
 .bp-ship{display:flex;align-items:center;gap:8u;margin:16u 0 14u!important;font-size:12.5u;color:#52525b}
-.bp-cap .bp-price{margin-top:8u!important}
+.bp-tee .bp-price{margin-top:8u!important}
+.bp-tee .bp-info{padding-top:24u}
 
 /* course */
 .bp-course .bp-card{display:flex;flex-direction:column}
