@@ -27,6 +27,8 @@ import "server-only"
  * from the model.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
+import { bankSource } from "@/lib/storelib-ai/bank/store"
+import { bankTemplateLibrary, preloadBankTemplate } from "./bank-templates"
 import { resolveForCreator } from "@/lib/sites/agent/provider"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
@@ -202,8 +204,16 @@ export async function agentDeps(job: { creatorId: string; ownerUserId: string | 
   const admin = createAdminClient() as unknown as Db
   /* Given models (a scripted run, tests/ai-builder-e2e-kit.ts) are used as they are: no key is looked up for them. */
   const models = extra.models ?? (await agentModels(job.creatorId))
+  const store = supabaseProjectStore(admin, job.installId)
+  /*
+    Round AZ: the AI source bank (/admin/ai-bank, part 467) in front of the built-in templates. A site already
+    started from a bank entry gets that entry back, fitted as it was, for this slice's finish gate.
+  */
+  const bank = bankSource(admin as unknown as Parameters<typeof bankSource>[0])
+  const startedFrom = await store.readSettings().then((s) => preloadBankTemplate(bank, s)).catch(() => null)
   return {
-    store: supabaseProjectStore(admin, job.installId),
+    store,
+    templates: bankTemplateLibrary(bank, startedFrom ? { preloaded: [startedFrom] } : {}),
     models,
     /*
       Round O (O4): the visual critic. The draft drawn from this install's own project in headless Chromium with

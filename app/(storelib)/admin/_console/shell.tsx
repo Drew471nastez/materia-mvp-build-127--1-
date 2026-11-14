@@ -56,6 +56,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
       { href: "/admin/integrations", label: "Integrations" },
       { href: "/admin/ai-runs", label: "Storelib AI runs" },
       { href: "/admin/design-references", label: "Design references" },
+      { href: "/admin/ai-bank", label: "AI source bank" },
       { href: "/admin/translations", label: "Translations" },
       { href: "/admin/blog/dashboard/sales-trigger", label: "Test sale" },
     ],
