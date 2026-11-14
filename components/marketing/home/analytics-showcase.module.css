@@ -1,4 +1,4 @@
-/* Section 11, analytics (landing round: smaller). Only transform and opacity animate; the globe is one canvas. */
+/* Section 11, analytics (landing round 4). Only transform and opacity animate; the globe is one canvas. */
 
 /* Every card is a dark surface with a hairline: the section sits on the purple sheet (landing round 3). */
 .dark {
@@ -10,23 +10,30 @@
   color: #fff;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
-/* Mocks are pictures: nothing in a card answers the pointer. */
+/* Mocks are pictures: nothing in a card answers the pointer, except the engine buttons (below). */
 .dark > * {
   pointer-events: none;
 }
-/* The reports: outlined in the ground's own ink, light on the purple sheet and dark on a white one. */
+/*
+  The reports, as few words as say them, lit from above: a soft white
+  gradient and a hairline highlight on the top edge give them a little depth
+  on the purple ground. Their text keeps the ground's own ink.
+*/
 .report {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 14px;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px 0 12px;
   border-radius: 999px;
   font-size: 13.5px;
   font-weight: 500;
   color: var(--band-ink, #1f1d26);
-  background: color-mix(in srgb, var(--band-ink, #1f1d26) 6%, transparent);
-  box-shadow: inset 0 0 0 1px var(--band-line, rgba(15, 14, 19, 0.08));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.07) 55%, rgba(255, 255, 255, 0.04) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px var(--band-line, rgba(15, 14, 19, 0.08)),
+    0 8px 18px -10px rgba(10, 4, 30, 0.55);
 }
 @media (max-width: 639px) {
   .dark {
@@ -44,7 +51,7 @@
 }
 @media (max-width: 639px) {
   .globeCard {
-    height: 400px;
+    height: 470px;
   }
   .fixed {
     height: auto;
@@ -57,6 +64,12 @@
   right: 0;
   top: 5%;
   bottom: -4%;
+}
+@media (max-width: 639px) {
+  .globe {
+    top: 3%;
+    bottom: 34%;
+  }
 }
 .globe canvas {
   opacity: 0;
@@ -109,6 +122,7 @@
   }
 }
 
+/* The profile and the top places: two solid dark chips side by side, stacked full width on a phone. */
 .overlay {
   position: absolute;
   z-index: 1;
@@ -117,10 +131,9 @@
   bottom: 18px;
   display: flex;
   justify-content: center;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 10px;
 }
-/* Solid dark chips, a shade above the card, so nothing white floats on black. */
 .profile,
 .places {
   border-radius: 17px;
@@ -132,39 +145,91 @@
 .profile {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  width: 216px;
+  padding: 14px 16px;
+}
+.who {
+  display: flex;
   align-items: center;
-  width: 196px;
-  padding: 16px 16px 14px;
-  text-align: center;
+  gap: 11px;
+}
+.avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.figures > div + div {
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 .places {
-  width: 236px;
+  width: 252px;
   padding: 14px 16px;
+}
+/* Each place's share of her visitors: a hairline track, filled by a static transform. */
+.share {
+  display: block;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.share > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8b7cf6, #c4b5fd);
+  transform-origin: 0 50%;
 }
 @media (max-width: 639px) {
   .overlay {
     left: 12px;
     right: 12px;
     bottom: 12px;
+    flex-direction: column;
     gap: 8px;
   }
   .profile {
     width: auto;
-    flex: 1 1 0;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 14px;
+  }
+  .who {
     min-width: 0;
-    padding: 14px 10px 12px;
+    flex: 1;
+  }
+  .avatar {
+    width: 38px;
+    height: 38px;
+  }
+  .figures {
+    flex: none;
+    padding-top: 0;
+    border-top: 0;
   }
   .places {
     width: auto;
-    flex: 1.2 1 0;
-    min-width: 0;
-    padding: 12px;
+    padding: 12px 14px;
   }
 }
 
 /* The search results: a night search, one shade above the card, running off its foot. */
 .serp {
   border-radius: 15px 15px 0 0;
+  position: relative;
   background: #15151a;
   padding: 16px 16px 0;
   flex: 1 1 auto;
@@ -183,11 +248,68 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
+/*
+  The dot grid behind the SEO card (the owner's reference: a fine dot grid on
+  a dark ground). One layer a cell larger than the card, faded towards the
+  results, drifting one cell diagonally and starting again: a transform loop,
+  without a seam because the pattern repeats every cell.
+*/
+.dots {
+  position: absolute;
+  inset: -22px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1.6px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(120% 80% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.5) 40%, transparent 72%);
+  mask-image: radial-gradient(120% 80% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.5) 40%, transparent 72%);
+  animation: dotsDrift 9s linear infinite;
+}
+@keyframes dotsDrift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(22px, 22px, 0);
+  }
+}
+
+/*
+  The engines card: behind it one soft light per engine, in its colours; the
+  chosen one fades in as the last fades out, and the lights breathe slowly
+  together (one transform on their layer), so the change reads as a
+  gradient moving, not a cut.
+*/
+.glows {
+  position: absolute;
+  inset: 0;
+  animation: glowDrift 12s ease-in-out infinite alternate;
+}
+.glow {
+  position: absolute;
+  inset: -30% -20% 10%;
+  opacity: 0;
+  background:
+    radial-gradient(42% 46% at 32% 42%, var(--c1), transparent 70%),
+    radial-gradient(40% 44% at 70% 56%, var(--c2), transparent 70%);
+  transition: opacity 1400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glow[data-on] {
+  opacity: 1;
+}
+@keyframes glowDrift {
+  from {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(5%, 3%, 0) scale(1.08);
+  }
+}
+
 /* The engines take turns in one pill: the one in turn in the middle, its neighbours faint at the sides. */
 .engines {
   --step: 168px;
   position: relative;
   height: 64px;
+  pointer-events: auto;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%);
   mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%);
 }
@@ -204,10 +326,10 @@
   height: 64px;
   margin-left: -98px;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 18px 36px -18px rgba(0, 0, 0, 0.8);
 }
 .engine {
@@ -221,16 +343,22 @@
   width: 180px;
   height: 64px;
   margin-left: -90px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
   font-size: 19px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: #fff;
   white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   opacity: 0;
   transform: translate3d(calc(var(--rel, 0) * var(--step)), 0, 0) scale(0.84);
   transition:
-    transform 800ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 600ms ease-out;
+    transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 700ms ease-out;
 }
 .engineMark {
   width: 22px;
@@ -239,6 +367,7 @@
 }
 .engine[data-rel="-2"] {
   --rel: -2;
+  pointer-events: none;
 }
 .engine[data-rel="-1"] {
   --rel: -1;
@@ -255,17 +384,65 @@
 }
 .engine[data-rel="2"] {
   --rel: 2;
+  pointer-events: none;
+}
+
+/* The engines as real buttons: five marks in a thin row, the chosen one lit. */
+.engineTabs {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+.engineTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.5;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    opacity 400ms ease-out,
+    background-color 400ms ease-out;
+}
+.engineTab[aria-pressed="true"] {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+@media (hover: hover) and (pointer: fine) {
+  .engineTab:hover {
+    opacity: 1;
+  }
+}
+.engineTab:focus-visible,
+.engine:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 2px;
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .globe canvas,
-  .engine {
+  .engine,
+  .glow,
+  .engineTab {
     transition: none;
   }
   .globe canvas {
     opacity: 1;
   }
-  .liveDot::after {
+  .liveDot::after,
+  .dots,
+  .glows {
     animation: none;
   }
 }

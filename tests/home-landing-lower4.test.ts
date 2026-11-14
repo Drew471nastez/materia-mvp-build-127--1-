@@ -1,0 +1,161 @@
+/**
+ * ===========================================================================
+ *  HOME, LANDING ROUND 4: THE LOWER SECTIONS, AS THE OWNER ASKED
+ * ===========================================================================
+ *   audience      smaller and lighter: one card (the composer) and three
+ *                 plain rows beside it, no card per idea.
+ *   analytics     no sourdough: the search is for a LUT pack; a quiet dot
+ *                 grid on the SEO card, which stays dark; the engine switcher
+ *                 plays by itself AND can be pressed, with a soft light in
+ *                 the engine's colours changing behind it; fewer report
+ *                 chips, lit from above; the globe's cards say each place's
+ *                 share and stack on a phone.
+ *   map           the product changes with the country (real photographs of
+ *                 physical products) and the Buy now button speaks that
+ *                 country's language; on a phone the map is drawn larger and
+ *                 glides to the country in turn; a dot grid on the card.
+ *   integrations  fades a fifth narrower and lighter, the strip wider; no
+ *                 bump under the pointer, nothing square behind a turn.
+ *   earnings      no Free and Pro switch, no black result card: one white
+ *                 panel with the kinds, the two sliders, the total, three
+ *                 figures and Start earning; the photograph kept.
+ *   AI tools      the terminal starts about a quarter written, a preview
+ *                 fills in beside it, its words cannot be selected; the card
+ *                 is the page's container width with the words above.
+ *   widths        every section here in the page's one container: 1400px
+ *                 wide with the page's gutter inside it.
+ */
+import { existsSync, readFileSync, statSync } from "node:fs"
+import { join } from "node:path"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { AudienceOwnership } from "@/components/marketing/home/audience-ownership"
+import { AnalyticsShowcase } from "@/components/marketing/home/analytics-showcase"
+import { SellEverywhereMap, SELL_COUNTRIES, SELL_MAP, sellMapPan } from "@/components/marketing/home/sell-everywhere-map"
+import { IntegrationsSection } from "@/components/marketing/home/integrations-section"
+import { EarningsCalculator, EARNINGS_STYLES } from "@/components/marketing/home/earnings-calculator"
+import { AiToolsSection, AI_TOOLS_SCRIPT, AI_TOOLS_STYLES, AI_TOOLS_START_S } from "@/components/marketing/home/ai-tools-section"
+
+let passed = 0
+let failed = 0
+function check(name: string, ok: boolean, detail?: unknown) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 600)}`}`)
+  }
+}
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+const DIR = "components/marketing/home"
+const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
+const BANNED = /\b(unlock|elevate|seamless(ly)?|powerful|effortless(ly)?|supercharge|transform(s|ing)?)\b|passive income|—/i
+/** Every property a CSS file's keyframes set. */
+const keyframeProps = (css: string) => [...css.matchAll(/@keyframes [\w-]+\s*\{([\s\S]*?\})\s*\}/g)].flatMap((m) => [...m[1].matchAll(/([a-z-]+)\s*:/g)].map((p) => p[1]))
+/** Sample content the owner banned this round. */
+const BANNED_SAMPLES = /sourdough|weeknight pasta|golden hour|wheel throwing|drawing basics|saturday run club|dust & tape|elena ruiz|hemi walker|lowtide|payout/i
+
+console.log("\n── audience: smaller and lighter ──")
+{
+  const src = read(`${DIR}/audience-ownership.tsx`)
+  const css = read(`${DIR}/audience-ownership.module.css`)
+  const html = renderToStaticMarkup(createElement(AudienceOwnership))
+  const words = text(html)
+  check("one card only: the composer; the rest are plain rows", (src.match(/\$\{s\.panel\}/g) ?? []).length === 1 && (src.match(/className=\{s\.item\}/g) ?? []).length === 3)
+  check("the rows are hairlines, not cards", /\.item \{[^}]*border-top: 1px solid #ececf0;/.test(css) && !/\.item \{[^}]*background/.test(css))
+  check("the old tree, list and pill row are gone", !/s\.tree|s\.list|s\.yours|StorelibLogo/.test(src) && !/\.tree|\.yours|\.list\[/.test(css))
+  check("the newest sign-up is faded in, nothing inserted", /\.newest > span \{[^}]*opacity: 0;/.test(css) && /data-on=\{k === head \|\| undefined\}/.test(src))
+  check("the words the owner kept", ["Write once, reach everyone", "Download every contact, any time", "No lock-in. If you ever leave, your list leaves with you.", "Delivered", "Opened", "Clicked"].every((w) => words.includes(w)))
+  check("in the page's container", /mx-auto max-w-\[1400px\] px-\[var\(--landing-gutter,22px\)\]/.test(src) && !/className=\{`\$\{m\.root\} bg-white px-/.test(src))
+  check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
+}
+
+console.log("\n── analytics ──")
+{
+  const src = read(`${DIR}/analytics-showcase.tsx`)
+  const css = read(`${DIR}/analytics-showcase.module.css`)
+  const html = renderToStaticMarkup(createElement(AnalyticsShowcase))
+  const words = text(html)
+  check("no sourdough anywhere: a LUT pack search, its stills local", !/sourdough/i.test(src + css) && words.includes("cinematic LUT pack for Premiere Pro") && ["lut-fog", "lut-neon", "lut-autumn"].every((f) => existsSync(join(root, "public/home/analytics", `${f}.webp`)) && statSync(join(root, "public/home/analytics", `${f}.webp`)).size < 60_000))
+  check("the sourdough stills are gone from the repo", ["sourdough-loaf", "sourdough-crumb", "sourdough-rustic"].every((f) => !existsSync(join(root, "public/home/analytics", `${f}.webp`))))
+  check("the SEO card stays a dark card, with a quiet dot grid drifting by transform", /function SearchCard[\s\S]*?\$\{s\.dark\}/.test(src) && /\.dots \{[^}]*radial-gradient\(rgba\(255, 255, 255, 0\.16\) 1px/.test(css) && /@keyframes dotsDrift \{\s*from \{\s*transform:[^}]*\}\s*to \{\s*transform: translate3d\(22px, 22px, 0\);/.test(css) && /\$\{s\.dots\} \$\{m\.loop\}/.test(src))
+  check("the switcher plays by itself and can be pressed: five named buttons, one pressed", (html.match(/class="[^"]*engineTab[^"]*"[^>]*aria-pressed="(true|false)"/g) ?? []).length === 5 && (html.match(/aria-pressed="true"/g) ?? []).length === 1 && /role="group" aria-label="Search engines and AI assistants"/.test(html) && /setInterval\(\(\) => setActive/.test(src) && /\}, \[live, reduced, picks\]\)/.test(src))
+  check("a press restarts the turn from the chosen engine", /const choose = \(i: number\) => \{\s*setActive\(i\)\s*setPicks/.test(src))
+  check("soft light in each engine's colours changes behind it (opacity), breathing by transform", (html.match(/class="[^"]*\bglow\b[^"]*"/g) ?? []).length === 5 && /\.glow \{[^}]*transition: opacity 1400ms/.test(css) && /\.glow\[data-on\] \{\s*opacity: 1;/.test(css))
+  check("the engine buttons answer the pointer; the rest of the card does not", /\.engineTabs \{[^}]*pointer-events: auto;/.test(css) && /\.dark > \* \{\s*pointer-events: none;/.test(css) && /\.engineTab:focus-visible/.test(css))
+  check("fewer words around the reports: six chips, one short line", (html.match(/class="[^"]*report[^"]*"/g) ?? []).length === 6 && words.includes("Every visit and sale on your page and store, live.") && !/No setup, no extra app/.test(words))
+  check("the chips have a little depth: a soft white gradient and a lit top edge", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.2\)/.test(css) && /\.report \{[^}]*inset 0 1px 0 rgba\(255, 255, 255, 0\.28\)/.test(css))
+  check("top places show each one's share of the visitors, drawn by a static transform", (html.match(/class="[^"]*share[^"]*"/g) ?? []).length === 3 && /46%/.test(words) && /scaleX\(0\.458\)/.test(html))
+  check("the creator is a colorist now, and her globe's arcs land in Oslo", words.includes("@noravik.grade") && /const HOME: \[number, number\] = \[59\.91, 10\.75\]/.test(read(`${DIR}/analytics-globe.tsx`)))
+  check("on a phone the globe's cards stack full width", /@media \(max-width: 639px\) \{[\s\S]*?\.overlay \{[^}]*flex-direction: column;/.test(css))
+  check("keyframes animate only transform and opacity", keyframeProps(css).every((p) => p === "transform" || p === "opacity"), keyframeProps(css))
+  check("reduced motion stops the dots and the lights", /prefers-reduced-motion: reduce\) \{[\s\S]*\.dots,\s*\.glows \{\s*animation: none;/.test(css))
+  check("in the page's container", /mx-auto max-w-\[1400px\] px-\[var\(--landing-gutter,22px\)\]/.test(src))
+  check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
+}
+
+console.log("\n── the map ──")
+{
+  const src = read(`${DIR}/sell-everywhere-map.tsx`)
+  const css = src.split("const MAP_CSS = `")[1] ?? ""
+  const html = renderToStaticMarkup(createElement(SellEverywhereMap))
+  check("a product per country, every one a local photograph of a physical product", SELL_COUNTRIES.length === 6 && new Set(SELL_COUNTRIES.map((c) => c.product)).size === 6 && SELL_COUNTRIES.every((c) => existsSync(join(root, "public/home/sell-map", c.photo)) && statSync(join(root, "public/home/sell-map", c.photo)).size < 60_000 && html.includes(`src="/home/sell-map/${c.photo}"`)))
+  check("one photo shown at a time: the one in turn faded in", (html.match(/<img src="\/home\/sell-map\/[^"]+"[^>]*data-on="true"/g) ?? []).length === 1 && /\.cmm-photos img\{[^}]*opacity:0/.test(css) && /\.cmm-photos img\[data-on\]\{opacity:1/.test(css))
+  check("the button speaks the country's language, marked with lang", SELL_COUNTRIES.every((c) => html.includes(`lang="${c.lang}"`) && html.includes(`>${c.buy}</span>`)) && ["Jetzt kaufen", "今すぐ購入", "Acheter", "Buy now"].every((w) => SELL_COUNTRIES.some((c) => c.buy === w)))
+  check("the country's language and its money: Germany in German and euros, Japan in Japanese and yen", SELL_COUNTRIES.some((c) => c.code === "DE" && c.buy === "Jetzt kaufen" && c.total.endsWith("€")) && SELL_COUNTRIES.some((c) => c.code === "JP" && c.lang === "ja" && c.total.startsWith("¥")))
+  check("the product, the price and the words change one after the other (out, then in)", /\.cmm-swap span\[data-on\]\{opacity:1;transform:none;transition:opacity \.4s ease-out \.22s/.test(css) && /\.cmm-buy span\[data-on\]\{opacity:1;transform:none;transition:opacity \.4s ease-out \.26s/.test(css))
+  check("on a phone the map is drawn larger and glides to the country (one transform)", /\.cmm-map\{width:\$\{ZOOM \* 100\}%;transform:translate3d\(var\(--pan-x,0\),var\(--pan-y,0\),0\);transition:transform 1\.4s/.test(css) && /"--pan-x": pan\.x/.test(src))
+  const pans = SELL_COUNTRIES.map((c) => sellMapPan(c.cell))
+  check("the pan never shows past the map's edges", pans.every((p) => parseFloat(p.x) <= 0 && parseFloat(p.x) >= -100 * (1 - 1 / 1.9) - 0.01 && parseFloat(p.y) <= 0), pans)
+  check("a quiet dot grid on the dark card, drifting only while live", /\.cmm-grid\{[^}]*radial-gradient\(rgba\(255,255,255,\.13\) 1px/.test(css) && /\[data-commerce-live\] \.cmm-grid\{animation-play-state:running\}/.test(css) && /@keyframes cmm-grid\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(24px,24px,0\)\}\}/.test(css))
+  check("reduced motion: nothing glides or fades", /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-grid\{animation:none\}[\s\S]*\.cmm-photos img,\.cmm-map\{transition:none\}/.test(css))
+  check("still the same accurate map", SELL_MAP.cols === 240 && SELL_MAP.rows === 90)
+  check("no banned samples", !BANNED_SAMPLES.test(text(html)))
+}
+
+console.log("\n── integrations ──")
+{
+  const css = read(`${DIR}/integrations-section.module.css`)
+  const src = read(`${DIR}/integrations-section.tsx`)
+  const html = renderToStaticMarkup(createElement(IntegrationsSection))
+  check("the fades a fifth narrower (152px at most, was 190px)", /--ramp: clamp\(45px, 9\.6vw, 152px\);/.test(css) && !/190px/.test(css))
+  check("the fades lighter, and the seen strip wider (1210px, was 1120px)", /rgba\(255, 255, 255, 0\.8\) calc\(var\(--solid\) \+ var\(--ramp\) \* 0\.18\)/.test(css) && !/0\.92\)/.test(css) && /100vw - 1210px/.test(css))
+  check("no bump under the pointer: no lift, no shadow layer of the tile's own", !/\.tile:hover|\.tile::before|translate3d\(0, -4px, 0\)/.test(css))
+  check("nothing square behind a turning icon: only the rounded face turns, its back hidden, a hairline only round light icons", /\.inner \{[^}]*border-radius: 24%;[^}]*backface-visibility: hidden;/.test(css) && /\.inner\[data-light\]/.test(css) && /data-light=/.test(src) && (html.match(/data-light="true"/g) ?? []).length >= 8)
+  check("one smooth turn", /const TURN_MS = 900/.test(src) && /perspective\(700px\) rotateY\(90deg\)", offset: 0\.5/.test(src))
+}
+
+console.log("\n── earnings ──")
+{
+  const css = EARNINGS_STYLES.map((s) => s.css).join("\n")
+  const src = read(`${DIR}/earnings-calculator.tsx`)
+  const html = renderToStaticMarkup(createElement(EarningsCalculator))
+  const words = text(html)
+  check("no Free and Pro switch", !/cme-plan|role="radio"[^>]*>Pro</.test(html) && !/>Free<|>Pro</.test(html))
+  check("no black Monthly revenue card", !/Monthly revenue/.test(words) && !/\.cme-out\{[^}]*background:#1/.test(css))
+  check("one white panel: the kinds, two sliders, then the total, three figures and Start earning", /class="cme-panel"/.test(html) && (html.match(/type="range"/g) ?? []).length === 2 && words.includes("You keep each month") && (html.match(/<dt>/g) ?? []).length === 3 && /<a[^>]*href="\/signup"[^>]*>Start earning/.test(html))
+  check("the figures say which fee they use", words.includes("After Storelib's 5% + $0.25 a sale") || words.includes("After Storelib&#x27;s 5% + $0.25 a sale"))
+  check("the photograph kept", html.includes("/home/earnings/night-flash-tee-640.webp"))
+  check("in the page's container", /\.cme-wrap\{max-width:1400px;/.test(css) && /plan: CommercePlan/.test(src))
+}
+
+console.log("\n── your AI tools ──")
+{
+  const css = AI_TOOLS_STYLES.map((s) => s.css).join("\n")
+  const html = renderToStaticMarkup(createElement(AiToolsSection))
+  const shown = AI_TOOLS_SCRIPT.filter((l) => l.at <= AI_TOOLS_START_S - 0.32).length / AI_TOOLS_SCRIPT.length
+  check("the terminal starts about a fifth to a third written", shown >= 0.2 && shown <= 0.34, shown)
+  check("every part of the run shares the starting delay, set after the shorthands", new RegExp(`@keyframes ait-blink[^\\n]*\\n\\.ait-line,\\.ait-pv-a,\\.ait-cover\\{animation-delay:-${AI_TOOLS_START_S}s\\}`).test(css))
+  check("its words cannot be selected", /\.ait-term\{[^}]*user-select:none/.test(css))
+  check("a preview fills in beside the log: the page, the hero, the products, the theme, the checks, the draft ready", ["ait-pv-page", "ait-pv-hero", "ait-pv-patch", "ait-pv-cream", "ait-pv-tests", "ait-pv-ready"].every((n) => html.includes(n) && new RegExp(`@keyframes ${n}\\{`).test(css)))
+  check("the preview runs only while live and stands finished under reduced motion", /\.ait-term\[data-live\] \.ait-pv-a\{animation-play-state:running\}/.test(css) && /\.ait-pv-a\{animation:none!important;opacity:1;transform:none\}/.test(css))
+  check("the preview's pictures are local", [...html.matchAll(/<img src="([^"]+)"/g)].every((m) => m[1].startsWith("/home/") && existsSync(join(root, "public", m[1]))))
+  check("the card is wider: the words above, the terminal across the container", /\.ait-copy\{display:grid;/.test(css) && /\.ait-panes\{display:grid;grid-template-columns:minmax\(0,1fr\)\}/.test(css) && /@media \(max-width:639px\)\{\s*\.ait-card\{padding:22px 16px 16px/.test(css))
+  check("keyframes move transform and opacity only", [...css.matchAll(/@keyframes ait-[\w-]+\{([\s\S]*?\})\}/g)].every((m) => !/(width|height|top|left|margin|padding|filter|clip|background)\s*:/.test(m[1])))
+  check("no banned words", !BANNED.test(text(html)))
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed) process.exit(1)

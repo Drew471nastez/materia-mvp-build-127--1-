@@ -8,12 +8,21 @@ import { StoryHeading } from "./story-heading"
   a community, so every swipe shows all three things Storelib makes, for
   fictional creators who sell what real Storelib creators sell. The stores
   are drawn in the layout of a real Storelib creator store, the websites as
-  sites built on Storelib, the OnePages each in its own theme (Hemi Walker's
-  is the live OnePage captured at a phone's width), and the communities are
+  sites built on Storelib, the OnePages each in its own theme, and the
+  communities are
   Storelib's own member frame and feed (components/community/member)
   rendered with a fictional community's data and photographed at 2x.
   Satori Studio is a real OnePage, storelib.me/satori-studio, as a phone
   shows it. Photographs are Unsplash.
+
+  LANDING ROUND 4 (the owner): Gia Romano's and Bea's pages made again,
+  higher quality and truer to the real thing, and Kai Moreno (prints, the
+  Gallery theme) and Northline Coffee (a subscription, the Terrazzo theme,
+  as a laptop shows it) are new. All four are PublicOnePage itself, rendered
+  with fixture data in a dev-only route that is not committed, captured at
+  the sizes below. The yoga website, the surf coach, the sample pack store
+  and the sourdough community are gone; The Long Draft (ThemePage) and
+  Charla Circle (the member frame), round 2's captures, take two places.
 
   EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
   pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
@@ -46,21 +55,21 @@ const GROUPS = [
   [
     wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates with dashboard previews"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn"),
-    wide("slowrise", "Run a community", "Slow Rise Bakers, a sourdough community on Storelib: a pinned poll for the December bake-along, a crumb shot question, the next live shaping session and the top contributors"),
+    wide("charla", "Run a community", "Charla Circle, a conversation club on Storelib: a pinned post for Thursday's call, a member's small win and the next online meetup"),
   ],
   [
     wide("hale", "Sell training programs", "Hale Strength, coach Marcus Hale's website with a lifter at the squat rack, a workout log and four strength programs"),
-    portrait("gia", "Sell your cookbook", "Gia Romano's OnePage with a pasta ebook, a fresh pasta class and her recipes"),
+    portrait("gia", "Sell your cookbook", "Gia Romano's OnePage: her Pasta Sunday ebook for $18, a tagliatelle class on Saturday and photos of her dishes"),
     wide("pinchgrip", "Host meetups", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
   ],
   [
-    wide("stillwater", "Run a membership", "Stillwater, a yoga membership website with a live Sunday class and new on-demand classes"),
-    portrait("hemi", "Sell coaching", "Hemi Walker's OnePage, a surf coach in Raglan: a carousel of surfing photos, a video coaching session for NZ$85 and a pop-up drills course"),
+    wide("draft", "Teach a course", "The Long Draft's Storelib website: a ten-week novel writing course for £240 and three shorter clinics"),
+    portrait("kai", "Sell your prints", "Kai Moreno's OnePage, a landscape photographer: signed A3 prints for $65 and a photo walk in Lisbon"),
     wide("nightshift", "Build a club", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
-    wide("lowtide", "Sell sample packs", "Lowtide's Storelib store: a producer's sample packs and drum kits under a recording studio cover"),
-    portrait("bea", "Fill your bookings", "Nails by Bea, a nail artist's OnePage with booking, her work and press-on sets"),
+    wide("northline", "Sell subscriptions", "Northline Coffee's OnePage on a wide screen: a coffee subscription for $18 a month and two bags of beans"),
+    portrait("bea", "Fill your bookings", "Nails by Bea, a nail artist's OnePage: Book an appointment, her work and two press-on sets"),
     wide("shift", "Drop new merch", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
   ],
 ]

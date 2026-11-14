@@ -84,7 +84,8 @@ const CSS = `
 .um-head .story-heading{margin-inline:auto}
 .um-sub{margin:20px auto 0;max-width:46ch;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#6b6874;text-wrap:pretty}
 [data-landing-story] [data-story-section] > .um-rows,.um-rows{max-width:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(4px,.6vw,8px)}
-.um-row{position:relative;width:100%;overflow:hidden;padding-block:8px 12px}
+/* Landing round 4 (the owner: a pill's hover shadow was cut by its row). The row clips sideways only, so the lifted pill's shadow (28px under it) falls outside the row; where overflow-x: clip is not known, the row keeps overflow: hidden and has room for the shadow in its padding, given back by a negative margin so the rows sit where they did. */
+.um-row{position:relative;width:100%;overflow:hidden;overflow:clip visible;padding-block:8px 30px;margin-bottom:-18px}
 .um-track{display:flex;width:max-content;will-change:transform;backface-visibility:hidden;animation:um-left var(--um-s,64s) linear infinite}
 .um-row[data-dir="right"] .um-track{animation-name:um-right}
 .um-copy{display:flex;margin:0;padding:0;list-style:none;flex:none}

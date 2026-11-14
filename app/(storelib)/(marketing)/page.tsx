@@ -1,7 +1,9 @@
 import dynamic from "next/dynamic"
 import { LandingStory } from "@/components/marketing/landing-story"
 import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/scroll-reveal-panel"
+import { SheetCoverWatch } from "@/components/marketing/sheet-cover-watch"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
+import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
 import {
@@ -49,13 +51,14 @@ export const metadata: Metadata = {
     over it as the page scrolls, two stretches on purple ones
     (ScrollRevealPanel, components/marketing/scroll-reveal-panel.tsx):
 
-      dark     the hero and the showcase
+      dark     the hero and the showcase, sitting on
       white    Make the work, ideas, possibilities, one store, creators, how it works
+               (a flat ground, round 4: it does not rise as a sheet)
       dark     the checkout scene (it draws its own black)
       white    your audience, your apps, your AI tools
       purple   what is working, the map
       white    what you could earn, pricing, the questions
-      purple   the app and the closing call, then the black footer
+      dark     the app and the closing call, running on into the black footer
 
     the motion sections from the other wave-12 tracks are mounted near the
     screen by lazySection() (components/marketing/home/lazy-section): their
@@ -75,15 +78,17 @@ export default function StorelibLanding() {
 
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
+      {/* Held blocks stop animating once the next sheet covers them (components/marketing/sheet-cover-watch.tsx). */}
+      <SheetCoverWatch />
       <LandingStory>
-        {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). They hold still for their last screen while the first sheet rises over them (from a tablet up: on a phone the showcase is dragged, and scrolls as it did). */}
-        <ScrollRevealBackdrop lift="var(--home-header-height, 0px)" holdOnPhone={false}>
+        {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). Round 4: not held; the page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). */}
+        <ScrollRevealBackdrop hold={false}>
           <Hero />
           <BuildShowcase />
         </ScrollRevealBackdrop>
 
-        {/* WHITE SHEET */}
-        <ScrollRevealPanel tone="white">
+        {/* WHITE GROUND: flat, not a sheet that rises. Its top runs straight on under the showcase, whose bottom corners it rounds. */}
+        <ScrollRevealPanel tone="white" arrive="flat">
           {/* 3 EverythingInOnePlace */}
           <LazyEverythingInOnePlace />
 
@@ -124,6 +129,8 @@ export default function StorelibLanding() {
 
         {/* PURPLE SHEET: 13 AnalyticsShowcase and 14 SellEverywhere world map */}
         <ScrollRevealPanel tone="purple" hold>
+          {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
+          <DotField tone="purple" fade="bottom" style={{ height: "min(100%, 1100px)" }} />
           <LazyAnalyticsShowcase />
           <LazySellEverywhereMap />
         </ScrollRevealPanel>
@@ -144,11 +151,11 @@ export default function StorelibLanding() {
           </LazySection>
         </ScrollRevealPanel>
 
-        {/* PURPLE CLOSE: 18 RunFromAnywhere and 19 FINAL CTA (frame) */}
-        <ScrollRevealPanel tone="purple">
+        {/* DARK CLOSE (round 4: no purple): 18 RunFromAnywhere and 19 FINAL CTA (frame), running on into the black footer with no seam */}
+        <ScrollRevealBackdrop hold={false}>
           <LazyAppAnywhere />
           <FinalCta />
-        </ScrollRevealPanel>
+        </ScrollRevealBackdrop>
       </LandingStory>
       {/* 20 FOOTER: components/marketing/footer.tsx, drawn under every marketing page by the layout (ConditionalFooter). */}
     </div>

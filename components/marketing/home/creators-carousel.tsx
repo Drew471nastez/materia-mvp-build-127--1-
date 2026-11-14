@@ -15,16 +15,16 @@ export type CreatorCard = {
 /** Photos: Unsplash (free licence), cropped 4:5 and stored as 400w/720w WebP
  * under public/home/creators. Every name is fictional. */
 export const CREATORS: readonly CreatorCard[] = [
-  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lena Marsh", alt: "Lena at the desk she films at, a camera in the foreground" },
-  { slug: "musicians", kind: "Musicians", sells: "Beats & sample packs", name: "Jalen Brooks", alt: "Jalen playing an acoustic guitar in a bright room" },
+  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lena Marsh", alt: "Lena laughing on her purple lit set, a clapperboard held up for the next take" },
+  { slug: "musicians", kind: "Musicians", sells: "Songs, vinyl & lessons", name: "Inés Calla", alt: "Inés smiling at her guitar on a dark stage, a microphone in front of her" },
   { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Clara Whitfield", alt: "Clara writing in a notebook at a window table" },
-  { slug: "educators", kind: "Educators", sells: "Online courses", name: "Rosa Delgado", alt: "Rosa, an educator, smiling in a striped cardigan" },
+  { slug: "educators", kind: "Educators", sells: "Online courses", name: "Teo Alvarez", alt: "Teo in his sunlit painting studio, an apron on and a brush in hand" },
   { slug: "influencers", kind: "Influencers", sells: "Merch drops", name: "Adaeze Nwosu", alt: "Adaeze, an influencer, in a bold patterned top" },
   { slug: "podcasters", kind: "Podcasters", sells: "Bonus episodes & memberships", name: "The Late Signal", alt: "The host of The Late Signal laughing into his microphone, headphones on" },
   { slug: "artists", kind: "Artists", sells: "Prints & original pieces", name: "Iris Calder", alt: "Iris painting on a canvas at an easel" },
   { slug: "streamers", kind: "Streamers", sells: "Sub perks & emote packs", name: "Kai Navarro", alt: "Kai streaming at a glowing desk setup with a headset on" },
   { slug: "coaches", kind: "Coaches", sells: "1:1 calls & programs", name: "Dev Mehta", alt: "Dev, a coach, smiling in a white tee against a concrete wall" },
-  { slug: "agencies", kind: "Agencies", sells: "Storefronts for every client", name: "Northfield Studio", alt: "A designer at Northfield Studio pinning work to a moodboard wall" },
+  { slug: "agencies", kind: "Agencies", sells: "Storefronts for every client", name: "Northfield Studio", alt: "The Northfield Studio team laughing around a laptop, a painted mural behind them" },
   { slug: "photographers", kind: "Photographers", sells: "Photo presets & prints", name: "Jonah Price", alt: "Jonah tossing a camera toward the lens in an autumn forest" },
   { slug: "fitness", kind: "Fitness", sells: "Training plans & challenges", name: "Sasha Ivanova", alt: "Sasha lifting a kettlebell overhead in a bright gym" },
 ]
@@ -359,12 +359,12 @@ export const CREATORS_CSS = `
 @media(min-width:1024px){.cc-head{grid-template-columns:minmax(0,1fr) auto;gap:56px}}
 .cc-head .story-heading{font-size:clamp(36px,5vw,72px);max-width:15ch}
 
-/* The one call to action, in Storelib's own primary look (the page's other Start for free and Sign Up buttons): violet, 12px corners, white words, the arrow easing on hover. */
-.cc-cta{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 22px 0 24px;border-radius:12px;background:#7c3aed;color:#fff;font-size:15.5px;font-weight:600;letter-spacing:-.01em;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 1px 2px rgba(24,24,27,.12);transition:background-color 200ms ease,transform 200ms var(--cc-ease)}
-.cc-cta-ic{display:grid;place-items:center;width:16px;height:16px}
+/* Landing round 4 (the owner: "don't make the button solid purple"): the one call to action is a calm white pill on a hairline, its arrow in a small violet disc that leads the eye; on hover the disc nudges and the pill takes the faintest violet tint. */
+.cc-cta{display:inline-flex;align-items:center;gap:12px;height:52px;padding:0 8px 0 24px;border-radius:999px;background:#fff;color:#18181b;font-size:15.5px;font-weight:600;letter-spacing:-.01em;text-decoration:none;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(24,24,27,.12),0 1px 2px rgba(24,24,27,.06),0 8px 24px -14px rgba(76,29,149,.35);transition:background-color 200ms ease,box-shadow 200ms ease,transform 200ms var(--cc-ease)}
+.cc-cta-ic{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#7c3aed;color:#fff}
 .cc-cta-ic svg{transition:transform 300ms var(--cc-ease)}
-.cc-cta:hover{background:#6d28d9}
-.cc-cta:hover .cc-cta-ic svg{transform:translate3d(3px,0,0)}
+.cc-cta:hover{background:#faf8ff;box-shadow:inset 0 0 0 1px rgba(124,58,237,.28),0 1px 2px rgba(24,24,27,.06),0 10px 28px -14px rgba(76,29,149,.45)}
+.cc-cta:hover .cc-cta-ic svg{transform:translate3d(2px,0,0)}
 .cc-cta:active{transform:scale(.98)}
 .cc-cta:focus-visible,.cc-viewport:focus-visible{outline:2px solid #7c3aed;outline-offset:3px}
 @media(min-width:1024px){.cc-cta{margin-bottom:10px}}

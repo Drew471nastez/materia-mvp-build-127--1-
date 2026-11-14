@@ -74,7 +74,7 @@ export function LandingStory({ children }: { children: ReactNode }) {
 
 /*
   THE PAGE'S GROUNDS (landing round 3, the owner). The page's base is dark;
-  the light sections ride on white sheets and two stretches on purple ones,
+  the light sections ride on white sheets and one stretch on a purple one,
   each a rounded surface that rises over the dark by the page's own scroll
   (components/marketing/scroll-reveal-panel.tsx, which replaced the wave 14
   bands and their scroll-driven scale: the owner's spec allows no scaling).
@@ -89,19 +89,8 @@ export const BAND_CSS = `
 [data-band] .story-heading{--story-ink:#fff;--story-muted:rgba(255,255,255,.34);--story-accent:#c4b5fd}
 [data-band="purple"] .story-heading{font-weight:400;letter-spacing:-.05em}
 
-/* Analytics, the world map and the app, on purple: the white wrappers clear, the light cards kept as cards. */
-[data-band] #analytics-showcase,[data-band] #app-anywhere{background:transparent;color:#fff}
+/* Analytics and the world map, on purple: the white wrappers clear, the light cards kept as cards. (Round 4: the app and the closing call are on the page's dark close and draw themselves for dark.) */
+[data-band] #analytics-showcase{background:transparent;color:#fff}
 [data-band] .cmm{background:transparent;color:#fff}
 [data-band] .cmm-card{box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 40px 80px -40px rgba(8,2,24,.9)}
-
-/* The closing call, on purple: light words, a white button. */
-[data-band] .fcta{background:transparent}
-[data-band] .fcta-title{color:#fff}
-[data-band] .fcta-title em{color:#c4b5fd}
-[data-band] .fcta-note{color:#cdc2f7}
-[data-band] .fcta-primary{background:#fff;color:#18181b}
-[data-band] .fcta-primary:hover{background:#ede9fe}
-[data-band] .fcta-secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.28)}
-[data-band] .fcta-secondary:hover{border-color:#fff}
-[data-band] .fcta-btn:focus-visible{outline-color:#fff}
 `

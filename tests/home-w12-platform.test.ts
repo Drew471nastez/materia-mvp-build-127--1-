@@ -56,7 +56,8 @@ const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|
 const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ")
 
 const SECTIONS: Array<{ file: string; name: string; C: ComponentType; id: string; heading: string }> = [
-  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Make the work. Skip the busywork." },
+  /* Changed on purpose (landing round 4): the owner found "Make the work. Skip the busywork." too broad and vague; the line now says what the four cards show. */
+  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Sell anything, anywhere. Support included." },
   { file: "audience-ownership", name: "AudienceOwnership", C: AudienceOwnership, id: "audience-ownership", heading: "Your audience belongs to you." },
   { file: "analytics-showcase", name: "AnalyticsShowcase", C: AnalyticsShowcase, id: "analytics-showcase", heading: "Know what's working, as it happens." },
   { file: "integrations-section", name: "IntegrationsSection", C: IntegrationsSection, id: "integrations", heading: "Connect your favorite apps" },
@@ -138,7 +139,8 @@ check("every mark used is in the generated file", used.every((n) => generated.in
   check("the section is light", /bg-white/.test(ih) && !/bg-\[#0b0b0c\]/.test(ih))
   check("the turn lands where it started: edge on at the half, round from the other side", /rotateY\(90deg\)", offset: 0\.5/.test(integ) && /rotateY\(-90deg\)", offset: 0\.5/.test(integ) && /rotateY\(0deg\)" \},?\s*\]/.test(integ))
   /* Changed on purpose (landing round): the owner found the violet light under the tiles cut off and asked for something cleaner that does not lag, so no light follows the pointer: a tile lifts under it (CSS, transform and opacity), and nothing is read from the layout on a move. */
-  check("no light follows the pointer; a tile lifts in CSS; nothing measured on a move", !/data-glow|data-spot|pointermove|getBoundingClientRect/.test(integ) && /\.tile:hover \{\s*transform: translate3d\(0, -4px, 0\)/.test(read(`${DIR}/integrations-section.module.css`)))
+  /* Changed on purpose (landing round 4): the owner asked for no bump under the pointer and nothing square behind a turning icon, so a tile no longer lifts and has no shadow layer of its own; it only turns. */
+  check("no light follows the pointer; no bump; nothing measured on a move", !/data-glow|data-spot|pointermove|getBoundingClientRect/.test(integ) && !/\.tile:hover|\.tile::before/.test(read(`${DIR}/integrations-section.module.css`)))
 }
 
 console.log("\n── truth: audience and emails ──")
@@ -167,7 +169,8 @@ for (const card of ["Traffic sources", "Countries", "Devices"]) check(`card "${c
 /* Changed on purpose (landing round): the owner found the section too big, so the figures, the chart and the cards with tabs gave way to the reports named as chips, a globe card and an SEO card; every report named is one Analytics has. */
 for (const w of ["Top links", "Sales", "Visitors"]) check(`"${w}" is a real Analytics report`, ana.includes(w) && (reports.includes(`tt("${w}")`) || read("app/(storelib)/app/analytics/analytics-client.tsx").includes(`tt("${w}")`)))
 check("the top places are countries, the finest place Storelib keeps", /Top places/.test(ana) && ["United States", "United Kingdom", "Germany"].every((c) => ana.includes(c)))
-check("SEO, GEO and AEO, with a search that is not about vases, and the engines by name", /SEO · GEO · AEO/.test(ana) && /Improve how your store appears in Google, ChatGPT and answer engines\./.test(ana) && !/vase/i.test(ana) && ["Google", "ChatGPT", "Claude", "Perplexity", "Gemini"].every((e) => ana.includes(e)))
+/* Changed on purpose (landing round 4): the owner asked for less text, so the card's line is shorter. */
+check("SEO, GEO and AEO, with a search that is not about vases, and the engines by name", /SEO · GEO · AEO/.test(ana) && /Show up in Google, ChatGPT and answer engines\./.test(ana) && !/vase/i.test(ana) && ["Google", "ChatGPT", "Claude", "Perplexity", "Gemini"].every((e) => ana.includes(e)))
 check("no fans and no real people in the section", !/\bfans?\b/i.test(ana) && !/Ice Spice|@icespice/i.test(ana))
 /* Changed on purpose (wave 13): simpler, so the line saying there is no age or gender report went; nothing claims one either. */
 check("no invented age or gender chart", !/\b(Age|Ages|Gender|18-24|25-34|Female|Male)\b/i.test(ana))
@@ -223,7 +226,8 @@ const motion = read(`${DIR}/platform-motion.tsx`)
 check("count-ups change a text node's data, never insert one", /node\.data = next/.test(motion) && !/textContent = formatRef\.current\(n\)/.test(motion))
 check("the composer types with a CSS cover, not per-letter DOM writes", !/textContent/.test(read(`${DIR}/audience-ownership.tsx`)) && /steps\(var\(--steps/.test(read(`${DIR}/audience-ownership.module.css`)))
 /* Changed on purpose (landing round): no visitor toasts any more; the engine switcher is fixed slots too, moved by data-rel. */
-check("subscriber rows and the engine switcher are fixed slots, never inserted", /key=\{k\}/.test(read(`${DIR}/audience-ownership.tsx`)) && /data-rel=\{rel\}/.test(read(`${DIR}/analytics-showcase.tsx`)))
+/* Changed on purpose (landing round 4): the subscriber rows became one line naming the newest sign-up; every name is in the page and the newest is faded in (data-on), so nothing is inserted. */
+check("the newest sign-up and the engine switcher are fixed slots, never inserted", /data-on=\{k === head \|\| undefined\}/.test(read(`${DIR}/audience-ownership.tsx`)) && /data-rel=\{rel\}/.test(read(`${DIR}/analytics-showcase.tsx`)))
 const globe = read(`${DIR}/platform-globe.tsx`)
 check("the globe runs only while on screen, and draws once under reduced motion", /if \(!running \|\| !inView\) return/.test(globe) && /if \(reduced\)/.test(globe) && /cancelAnimationFrame/.test(globe))
 check("the globe caps device pixels", /Math\.min\(1\.5, window\.devicePixelRatio/.test(globe))

@@ -21,7 +21,7 @@ import { createElement } from "react"
 import { renderToString } from "react-dom/server"
 import { CreatorsCarousel, CREATORS, CREATORS_CSS } from "../components/marketing/home/creators-carousel"
 import { HowItWorks, HOW_HEADING, HOW_PRODUCTS, HOW_IT_WORKS_STYLES } from "../components/marketing/home/how-it-works"
-import { CheckoutScene, CHECKOUT_STEPS, CHECKOUT_STYLES } from "../components/marketing/home/checkout-scene"
+import { CheckoutScene, CHECKOUT_STYLES } from "../components/marketing/home/checkout-scene"
 import { EBOOK, EBOOK_COVER_CSS } from "../components/marketing/home/ebook-cover"
 
 let passed = 0
@@ -64,7 +64,8 @@ check("seven kinds have new photographs, each 4:5 WebP within budget", () => {
     }
   }
   const alt = (slug: string) => CREATORS.find((c) => c.slug === slug)?.alt ?? ""
-  assert.ok(/guitar/.test(alt("musicians")) && /notebook/.test(alt("authors")) && /microphone/.test(alt("podcasters")) && /easel/.test(alt("artists")) && /moodboard/.test(alt("agencies")) && /kettlebell/.test(alt("fitness")) && /camera/.test(alt("youtubers")))
+  /* Changed on purpose (landing round 4): new pictures for agencies and YouTubers (and musicians and educators), their words with them. */
+  assert.ok(/guitar/.test(alt("musicians")) && /notebook/.test(alt("authors")) && /microphone/.test(alt("podcasters")) && /easel/.test(alt("artists")) && /laptop/.test(alt("agencies")) && /kettlebell/.test(alt("fitness")) && /clapperboard/.test(alt("youtubers")))
 })
 check("the rail stays endless, on the compositor, and draggable without fighting the page's scroll", () => {
   const src = read(CC)
@@ -78,50 +79,47 @@ check("the heading and captions lean less on fans", () => {
 })
 check("no Golden Hour presets, no camera picture, no purple gradient grounds", () => {
   assert.ok(!/Golden Hour|golden|course-camera|lt-field|Presets/i.test(how + read(HOW)))
-  assert.ok(!/linear-gradient|radial-gradient/.test(HOW_IT_WORKS_STYLES[0].css))
+  /* Changed on purpose (landing round 4): the owner asked for colourful, changing gradient grounds behind every tile; they live only in the two ground layers, and none is purple. */
+  const css = HOW_IT_WORKS_STYLES[0].css
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*\.cmh-gl[12]$/.test(m[1]), m[1])
+  assert.ok(!/#7c3aed|#8b5cf6|#a855f7/.test(css.slice(0, css.indexOf(".cmh-dm-addr"))))
 })
 check("one tile sells physical and digital products, each with what the seller keeps", () => {
   assert.deepEqual(HOW_PRODUCTS.map((p) => p.kind), ["Physical", "Digital"])
   const t = words(how)
-  assert.ok(t.includes("Sell physical and digital products.") && t.includes("Printed when ordered") && t.includes("Instant download"))
+  /* Changed on purpose (landing round 4): one card at a time on a coloured ground, the cap made to order and the e-book delivered at once. */
+  assert.ok(t.includes("Sell physical and digital products.") && t.includes("Production cost") && t.includes("Instant"))
   assert.ok(!/Sell your own merch, no inventory/.test(t))
   assert.ok(HOW_PRODUCTS.every((p) => t.includes(`You keep $${(p.keepCents / 100).toFixed(2)}`)))
 })
 check("the course tile is the course player: Lessons, done count, the round marks", () => {
   const t = words(how)
-  assert.ok(t.includes("Lessons") && t.includes("2 of 6 done") && /data-state="done"/.test(how) && /data-state="now"/.test(how) && how.includes("/home/how/course-pasta.webp"))
+  /* Changed on purpose (landing round 4): a new course, no pasta. */
+  assert.ok(t.includes("Lessons") && t.includes("2 of 7 done") && /data-state="done"/.test(how) && /data-state="now"/.test(how) && how.includes("/home/how/course-street.webp"))
 })
 check("every loop still pauses off screen and holds still for reduced motion", () => {
   const css = HOW_IT_WORKS_STYLES[0].css
-  assert.ok(css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /prefers-reduced-motion:reduce\)\{\s*\.cmh-a,\.cmh-spin\{animation:none!important\}/.test(css))
+  assert.ok(css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(css)) /* Changed on purpose (landing round 4): no spinner any more, the sheet is the captured one. */
 })
 
 console.log("\nCheckout")
-check("the scroll never scrubs: an IntersectionObserver sets the step, no scroll listener, no rAF, no layout read", () => {
+/* Changed on purpose (landing round 4): the owner asked for the phone to rise and stay, the products to orbit it again, and the tab cards to rise over it; the scroll no longer presses Pay. Driven by view timelines, with observers setting two attributes as the fallback. */
+check("the scroll never steps through a payment, and no scroll listener, rAF or layout read drives it", () => {
   const src = read(CO)
-  assert.ok(/new IntersectionObserver/.test(src) && /track\.dataset\.step = String\(step\)/.test(src))
+  const stage = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))
+  assert.ok(!/data-step|cmc-band|Face ID|Payment complete/.test(stage))
   assert.ok(!/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offset(Top|Height)|useState\(0\)/.test(src))
-  assert.ok(/data-step="0"/.test(co) && (co.match(/<span class="cmc-band" data-cmc-band="\d"/g) ?? []).length === 4)
+  assert.ok(/view-timeline-name:--cmc[;}]/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
 })
-check("each step plays as a transition of transform and opacity only", () => {
-  const css = CHECKOUT_STYLES.map((s) => s.css).join("\n")
-  const rules = [...css.matchAll(/\.cmc-(?:stage|track)[^{]*\{[^}]*transition:([^;}]+)/g)]
-  assert.ok(rules.length >= 6)
-  for (const m of rules) for (const part of m[1].split(/,(?![^(]*\))/)) assert.ok(/^\s*(transform|opacity|none)\b/.test(part), m[1])
-})
-check("the three steps are named beside the headline", () => {
-  assert.deepEqual([...CHECKOUT_STEPS], ["Tap Pay", "Confirm with Face ID", "Paid, receipt sent"])
-  for (const s of CHECKOUT_STEPS) assert.ok(co.includes(s))
-})
-check("no orbiting products, no purple glow, no Golden Hour presets, less fans", () => {
+check("no purple glow, no Golden Hour presets, less fans", () => {
   const src = read(CO)
-  assert.ok(!/float-|cmc-orbit|cmc-lap|rgba\(124,58,237/.test(src + co.replace(/<style[\s\S]*?<\/style>/g, "")))
+  assert.ok(!/rgba\(124,58,237/.test(src))
   assert.ok(!/Golden Hour|golden/i.test(src + co))
   assert.ok(!/\bfans?\b/i.test(words(co)) && co.includes("Prices people read without a calculator"))
 })
-check("the product is a real looking e-book: a local photograph under a serif title", () => {
-  assert.ok(co.includes(`${EBOOK.title}</div>`) && co.includes("/home/commerce/ebook-pasta.webp"))
-  assert.ok(existsSync("public/home/commerce/ebook-pasta.webp") && statSync("public/home/commerce/ebook-pasta.webp").size < 60 * 1024)
+check("the product is a real looking e-book: a local photograph under its title", () => {
+  assert.ok(co.includes(`${EBOOK.title}</div>`) && co.includes("/home/commerce/ebook-night.webp"))
+  assert.ok(existsSync("public/home/commerce/ebook-night.webp") && statSync("public/home/commerce/ebook-night.webp").size < 60 * 1024)
   assert.ok(/container-type:inline-size/.test(EBOOK_COVER_CSS) && !/https?:/.test(EBOOK_COVER_CSS + read("components/marketing/home/ebook-cover.tsx")))
 })
 check("reduced motion: nothing pinned, nothing moves", () => {
@@ -131,8 +129,9 @@ check("reduced motion: nothing pinned, nothing moves", () => {
 })
 
 console.log("\nThe coordinator's follow ups")
-check("the creators button is Storelib's violet primary, not black", () => {
-  assert.ok(/\.cc-cta\{[^}]*background:#7c3aed;color:#fff/.test(CREATORS_CSS) && /\.cc-cta:hover\{background:#6d28d9\}/.test(CREATORS_CSS))
+/* Changed on purpose (landing round 4, the owner: "don't make the button solid purple"): a calm white pill, its arrow in a violet disc; still not black. */
+check("the creators button is calm, not solid purple and not black", () => {
+  assert.ok(/\.cc-cta\{[^}]*background:#fff;color:#18181b/.test(CREATORS_CSS) && /\.cc-cta-ic\{[^}]*background:#7c3aed/.test(CREATORS_CSS) && !/\.cc-cta\{[^}]*background:#7c3aed/.test(CREATORS_CSS))
 })
 check("no small print under How it works or the checkout tabs", () => {
   assert.ok(!/Example prices|cmh-fine/.test(how) && !/Card payments are processed by Stripe|cmc-foot/.test(co))
