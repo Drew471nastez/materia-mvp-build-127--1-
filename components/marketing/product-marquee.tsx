@@ -10,7 +10,8 @@ type Chip = { label: string; emoji: string }
   rows, not 3"; wave 12 had three). Edge to edge, one moving left and one
   right. Communities, never Memberships: memberships were folded into
   communities (tests/memberships-folded). Wave 13, the owner: an emoji and a
-  word in a white pill.
+  word in a white pill. Landing round 3: about half of them are things that
+  ship (tees, vinyl, mugs, prints), half are digital or a community.
 */
 const ROW_1: Chip[] = [
   { label: "Presets", emoji: "🎛️" },
@@ -20,34 +21,34 @@ const ROW_1: Chip[] = [
   { label: "Communities", emoji: "👥" },
   { label: "1:1 coaching", emoji: "🤝" },
   { label: "Ebooks", emoji: "📚" },
-  { label: "Fonts", emoji: "✏️" },
-  { label: "Templates", emoji: "📐" },
+  { label: "T-shirts", emoji: "👕" },
+  { label: "Hoodies", emoji: "🧥" },
   { label: "Notion templates", emoji: "📋" },
-  { label: "Photography", emoji: "📸" },
+  { label: "Vinyl records", emoji: "💿" },
   { label: "Podcasts", emoji: "🎙️" },
   { label: "Sample packs", emoji: "🥁" },
-  { label: "3D models", emoji: "🧊" },
-  { label: "Recipes", emoji: "🍳" },
-  { label: "Travel guides", emoji: "🗺️" },
+  { label: "Mugs", emoji: "☕" },
+  { label: "Tote bags", emoji: "👜" },
+  { label: "Posters", emoji: "📌" },
   { label: "Bookings", emoji: "📅" },
-  { label: "Newsletters", emoji: "📬" },
+  { label: "Candles", emoji: "🕯️" },
 ]
 const ROW_2: Chip[] = [
   { label: "Music", emoji: "🎵" },
-  { label: "Software", emoji: "💻" },
+  { label: "Ceramics", emoji: "🏺" },
   { label: "Workshops", emoji: "🧑‍🏫" },
   { label: "Event tickets", emoji: "🎟️" },
   { label: "Art prints", emoji: "🖼️" },
   { label: "Digital art", emoji: "🎨" },
   { label: "Video tutorials", emoji: "🎥" },
   { label: "Fitness plans", emoji: "🏋️" },
-  { label: "Game assets", emoji: "🎮" },
-  { label: "Plugins", emoji: "🧩" },
-  { label: "Spreadsheets", emoji: "📊" },
-  { label: "Worksheets", emoji: "📄" },
+  { label: "Zines", emoji: "📰" },
+  { label: "Hats", emoji: "🧢" },
+  { label: "Jewelry", emoji: "💍" },
+  { label: "Signed books", emoji: "📖" },
   { label: "Procreate brushes", emoji: "🖌️" },
   { label: "Stock footage", emoji: "🎬" },
-  { label: "Icon packs", emoji: "💠" },
+  { label: "Phone cases", emoji: "📱" },
   { label: "Sewing patterns", emoji: "🧵" },
   { label: "Language lessons", emoji: "🗣️" },
   { label: "Stickers", emoji: "🏷️" },

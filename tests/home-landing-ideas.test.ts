@@ -66,7 +66,8 @@ console.log("\nThe previews: a carousel that drags, swipes and plays by itself")
   check("one slide in front for one scripted moment of its editor, then the next glides in", IDEAS_MOTION.autoplayIntervalMs > 6000 && IDEAS_MOTION.autoplayIntervalMs <= BUILDER_DURATION_MS && IDEAS_MOTION.autoplayStepMs >= 800)
   check("autoplay and the editors' animations stop off screen and in a background tab", /rail\.setVisible\(e\.intersectionRatio >= 0\.4\)/.test(src.ideas) && /visibilitychange/.test(src.ideas) && /data-mock-live=\{\(i === index && live\) \|\| undefined\}/.test(src.ideas))
   check("nothing animates before the section is seen", !/data-mock-live="/.test(html))
-  check("dots to jump to a slide, each named", (html.match(/class="ideas-dot"/g) ?? []).length === 4 && IDEAS_SLIDES.every((s) => html.includes(`aria-label="${s.title}"`)))
+  /* Changed on purpose (landing round 3): the owner likes the tabs of "Make the work", so the four dots are four tabs of that family. */
+  check("tabs to jump to a slide, each named", (html.match(/class="ideas-tab"/g) ?? []).length === 4 && IDEAS_SLIDES.every((s) => html.includes(`aria-label="${s.title}"`)))
   check("no timers of its own", !/setInterval|setTimeout/.test(src.ideas))
   check("its stylesheets are the frame, the builders and its own", IDEAS_STYLES.map((s) => s.href).join() === "w12-smk-frame,w12-smk-builder,w12-ideas")
 }

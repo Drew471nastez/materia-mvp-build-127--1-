@@ -40,7 +40,7 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    ...([Biz.EbookPage, Biz.CoursePage, Biz.CommunityPage, Biz.TeePage, Biz.BookingPage] as const).map((P) => createElement(P)),
+    ...([Biz.SamplePackPage, Biz.CoursePage, Biz.CommunityPage, Biz.TeePage, Biz.BookingPage] as const).map((P) => createElement(P)),
     createElement(NinaPage),
     createElement(WebsiteBuilderMock),
     createElement(DesignMock),
@@ -157,7 +157,8 @@ assert.notEqual(BUSINESS_HEADING, "Made for every kind of business.")
 assert.ok(!/Every business|Explore the different ways/.test(read("components/marketing/home/business-carousel.tsx")))
 assert.deepEqual(
   BUSINESS_SLIDES.map((s) => s.label),
-  ["Digital products", "Courses", "Communities", "Physical products", "Bookings"],
+  /* Changed on purpose (landing round 3): half of the examples ship in a box, so the physical product comes second. */
+  ["Digital products", "Physical products", "Courses", "Communities", "Bookings"],
 )
 const biz = renderToString(createElement(BusinessCarousel))
 assert.equal((biz.match(/role="tab"/g) || []).length, 5)

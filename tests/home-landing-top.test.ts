@@ -103,7 +103,8 @@ const tee = EVERYTHING_SLIDES.find((s) => s.tab === "Merch")
 /* Changed on purpose (landing round 2): every corner of the section about a pixel tighter, the tile 12px to 11px. */
 check("the Midnight Studio Tee sits on a light grey, rounded tile", tee?.name === "Midnight Studio Tee" && tee.kind === "tee" && /\.ev-p-media\{[^}]*border-radius:11px;[^}]*background:#ededed[;}]/.test(css))
 const digital = EVERYTHING_SLIDES.find((s) => s.tab === "Digital")
-check("the digital product is a real one: a PDF guide with its cover", digital?.kind === "guide" && /class="ev-p-book"/.test(html) && /class="ev-p-book-title">Sourdough at Home</.test(html))
+/* Changed on purpose (landing round 3): the owner did not want a cover with a photograph for the digital product; it is a LUT pack, shown as its frame and looks (tests/home-landing-top3). */
+check("the digital product is a real one: a LUT pack with its looks", digital?.kind === "luts" && /class="ev-lut"/.test(html) && digital.name === "Cine Tones, 12 LUTs")
 const course = EVERYTHING_SLIDES.find((s) => s.tab === "Course")
 check("the course is a lesson on its video, not a camera", course?.kind === "course" && !/camera|manual/i.test(course.name) && /class="ev-p-lesson"/.test(html))
 const community = EVERYTHING_SLIDES.find((s) => s.tab === "Community")
