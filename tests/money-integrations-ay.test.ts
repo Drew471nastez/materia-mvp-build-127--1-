@@ -13,7 +13,7 @@
  */
 import { memDb } from "./_classroom-db"
 import { readCode } from "./_source"
-import { regrantVerdict } from "@/lib/communities/server/refunded-payment"
+import { regrantVerdict } from "@/lib/communities/refund-verdict"
 import { grantProgram } from "@/lib/communities/server/learn"
 import { grantFromSession, revokeRefundedProgram } from "@/lib/communities/server/learn-checkout"
 import { grantModuleFromSession, revokeRefundedModule } from "@/lib/communities/server/module-sales"
