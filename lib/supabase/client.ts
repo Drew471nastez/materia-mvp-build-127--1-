@@ -138,7 +138,7 @@ export const capacitorStorage = {
   async getItem(key: string): Promise<string | null> {
     const device = await deviceStorage.getItem(key)
     if (key !== storedSessionKey()) return device
-    const cookie = await readSessionFromCookies(key, readCookieHeader())
+    const cookie = await readSessionFromCookies(key, readCookieHeader(), { retireLegacy: secureCookies() && !onLocalhost() })
     const newest = fresherSession(device, cookie)
     /* The server renewed it last: bring the device copy up to date, so the
        backup is never the one that falls behind. */
@@ -179,14 +179,15 @@ export const browserSessionCookies = {
   getAll(): { name: string; value: string }[] {
     const key = storedSessionKey()
     let pairs = cookiePairs(readCookieHeader())
-    let view = sessionView(pairs, key)
     const https = secureCookies()
     const host = writesHostCookies({ https, localhost: onLocalhost(), pairs, key })
+    /* After LEGACY_SESSION_CUTOFF_MS a lone old name is expired, never read (round AY). */
+    let view = sessionView(pairs, key, [], { retireLegacy: host })
     if (!host) return view.cookies
     if (view.tossed.length > 0 && typeof location !== "undefined") {
       writeCookies(plantedExpiries(view.tossed, getMainDomain(), location.pathname))
       pairs = cookiePairs(readCookieHeader())
-      view = sessionView(pairs, key)
+      view = sessionView(pairs, key, [], { retireLegacy: host })
     }
     if (view.migrate.length > 0) {
       writeCookies([
