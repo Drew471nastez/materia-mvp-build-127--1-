@@ -317,12 +317,15 @@ async function main() {
       brand: async () => "Maralind",
       recordSource: async () => {},
       notify: async (n) => { notices.push(n); await notifyCreatorOfMessage(db, n) },
+      /* Round AX: A's sign in address is its support address, so the support address is proven (lib/seller-inbox provenInbox). */
+      loginEmail: async (id) => (id === USER_A ? "help@maralind.com" : null),
     }
     const body = (extra: Record<string, unknown> = {}) => ({ creator_id: A, name: "Jo Visitor", email: "jo@example.org", subject: "My order", message: "Where is my parcel?", consent: false, company: "", elapsed: 9000, page: "contact", section_id: null, ...extra })
 
     const reply = await handleContact(body(), deps)
     check("a message is answered 200", reply.status === 200, reply)
     const mail = sent[0]
+    // Changed on purpose (round AX): the support address is used because it is A's own sign in address here.
     check("(a) emailed to A's support address, Reply going to the visitor", mail?.to === "help@maralind.com" && mail?.replyTo === "jo@example.org")
     check("    the subject says who and where", mail?.subject === "New message from Jo Visitor on maralind.storelib.com: My order", mail?.subject)
     /* Changed on purpose (wave 8): the email and the bell link straight to the message in Contacts › Forms. */
