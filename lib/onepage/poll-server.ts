@@ -11,7 +11,7 @@ import "server-only"
  */
 import { createHash } from "node:crypto"
 import { pollOptions, type AppBlockData } from "./app-blocks"
-import { countRows, pollOptionOf, pollShowsResults, tallyVotes, type PollTally } from "./poll"
+import { pollOptionOf, pollShowsResults, tallyVotes, type PollTally } from "./poll"
 import { liveAppBlockData, publishedBlocksOf } from "./page-block"
 import { readLivePage } from "./tips-server"
 
@@ -19,17 +19,38 @@ import { readLivePage } from "./tips-server"
 type Db = any
 
 const MISSING = new Set(["42P01", "PGRST205", "42703", "PGRST204"])
-const COUNT_LIMIT = 50_000
 
 /** The key a vote is kept under: the cookie, for this poll only, hashed (the cookie itself is never stored). */
 export function voterKey(voterId: string, onepageId: string, blockId: string): string {
   return createHash("sha256").update(`${onepageId}:${blockId}:${voterId}`).digest("hex").slice(0, 40)
 }
 
+/*
+  THE TOTALS ARE COUNTED BY THE DATABASE, NOT READ OUT ROW BY ROW (round AW).
+  This read every vote's row ("up to 50,000") and counted them here, but
+  PostgREST answers at most its max_rows, 1,000 on Supabase, whatever the
+  limit asks for: past its thousandth vote a poll said 1,000 votes in all,
+  shared out by whichever thousand rows came back, and every visitor who had
+  voted, and every new vote, had those thousand rows read again. Each answer
+  is now a head count on onepage_poll_votes_block_idx (onepage_id, block_id,
+  option_id, run-now part 411), the six at most side by side: exact at any
+  size, a few numbers on the wire. Votes for an answer the creator removed
+  are still left out. A count that fails is no tally, as a failed read was.
+*/
 export async function tallyFor(db: Db, onepageId: string, blockId: string, options: { id: string; label: string }[]): Promise<PollTally | null> {
-  const { data, error } = await db.from("onepage_poll_votes").select("option_id").eq("onepage_id", onepageId).eq("block_id", blockId).limit(COUNT_LIMIT)
-  if (error) return null
-  return tallyVotes(options, countRows(data as { option_id: string }[]))
+  const ids = [...new Set(options.map((o) => o.id))]
+  const counted = await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const { count, error } = await db.from("onepage_poll_votes").select("option_id", { count: "exact", head: true }).eq("onepage_id", onepageId).eq("block_id", blockId).eq("option_id", id)
+        return error || typeof count !== "number" ? null : ([id, count] as const)
+      } catch {
+        return null
+      }
+    }),
+  )
+  if (counted.some((c) => c === null)) return null
+  return tallyVotes(options, Object.fromEntries(counted as (readonly [string, number])[]))
 }
 
 export type VoteAnswer =

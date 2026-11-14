@@ -40,6 +40,8 @@ const SUITES = [
   "tests/db-security-aw.test.ts",
   /* Round AW (public pages and caching): a product page whose owner got no answer is the shop's error screen, never a redirect or a 404 the CDN keeps; a creator page whose products read got no answer is the error screen, never an empty shop the CDN keeps; the image optimizer fetches from Storelib's own storage only, never any Supabase project. */
   "tests/public-cache-aw.test.ts",
+  /* Round AW (heavy load): every Google Calendar call ends (8 s), a signed campaign link redirects without waiting on the database, poll totals and review ratings are counted by the database instead of from a 1,000 row read, and /api/products/prices is limited per address, memory first. */
+  "tests/heavy-load-aw.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
