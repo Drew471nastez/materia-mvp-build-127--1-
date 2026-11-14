@@ -33,10 +33,8 @@ import { chooseSwipeTarget, SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
 import {
   EverythingInOnePlace,
   EVERYTHING_HEADING,
-  EVERYTHING_SHOTS,
   EVERYTHING_SLIDES,
   EVERYTHING_STORES,
-  EVERYTHING_STRIP,
   EVERYTHING_STYLES,
   EVERYTHING_SUPPORT,
 } from "@/components/marketing/home/everything-in-one-place"
@@ -101,7 +99,8 @@ check("a specific line in the two tones", EVERYTHING_HEADING.lead === "Sell what
 
 console.log("\n── Make the work: the product card ──")
 check("merch, digital, course, community", EVERYTHING_SLIDES.map((s) => s.tab).join() === "Merch,Digital,Course,Community")
-check("the merch and the LUT pack are kept", EVERYTHING_SLIDES[0].name === "Midnight Studio Tee" && EVERYTHING_SLIDES[1].name === "Cine Tones, 12 LUTs")
+/* Changed on purpose (landing round 6): the pack is "Cine Tones LUT Pack", no count (the owner). */
+check("the merch and the LUT pack are kept", EVERYTHING_SLIDES[0].name === "Midnight Studio Tee" && EVERYTHING_SLIDES[1].name === "Cine Tones LUT Pack")
 /* Changed on purpose (landing round 5): the owner found the knitting course "really bad"; a home Pilates course in its place. */
 check("a new course and a new community", EVERYTHING_SLIDES[2].name === "28 Day Mat Pilates" && EVERYTHING_SLIDES[3].name === "The Paperback Club")
 check("every product's numbers add up", [32 * 214 === 6848, 29 * 386 === 11194, 39 * 412 === 16068, 8 * 1240 === 9920].every(Boolean) && EVERYTHING_SLIDES[2].stats[2][1] === "$16,068.00" && EVERYTHING_SLIDES[3].stats[2][1] === "$9,920.00")
@@ -116,17 +115,18 @@ check("the card still leans under the mouse", /usePressTilt\(card\)/.test(evSrc)
 check("the course and community pictures exist and are small", ["pilates", "community"].every((k) => statSync(join(root, `public/home/everything/${k}.webp`)).size < 60_000))
 
 console.log("\n── Make the work: Build a store that looks like you ──")
-check("stores, OnePages and a community on a phone", EVERYTHING_STORES.length >= 4 && EVERYTHING_SHOTS.filter((s) => s.kind === "onepage").length >= 3 && EVERYTHING_SHOTS.some((s) => s.kind === "community"))
-check("the stores sell physical and digital products, a course and a community", ["Physical", "Digital", "Course", "Community"].every((b) => EVERYTHING_STORES.some((s) => s.products.some((p) => p.badge === b))))
+/* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
+check("merch stores and link pages", EVERYTHING_STORES.filter((s) => s.kind === "merch").length >= 3 && EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3)
+check("every merch store shows four pieces, each with a name and a price", EVERYTHING_STORES.every((s) => s.kind !== "merch" || (s.products.length === 4 && s.products.every((p) => p.name && /^\$\d+$/.test(p.price)))))
 check("no wheel throwing, no sourdough in the stores", !BANNED.test(JSON.stringify(EVERYTHING_STORES)))
-check("every card is a phone's first screen, 390 by 650, sized from the card's height (about 2.3 a row on a laptop)", /--card-h:calc\(100cqh - var\(--pad\) \* 2\);--card-w:calc\(var\(--card-h\) \* \.6\)/.test(evCss) && /container-type:size/.test(rule(evCss, ".ev-s")) && /height:100%/.test(rule(evCss, ".ev-st")))
-check("each card is rounded on all four corners, so none ends cut", /border-radius:calc\(26 \* var\(--r\)\)/.test(rule(evCss, ".ev-st")) && !/min-height:calc\(100% \+ 40px\)/.test(evCss))
+check("every card is drawn at a phone's 390px, its width following the picture's, as tall as the picture and set a fixed inset down", /--card-w:clamp\(170px,56cqw,270px\)/.test(rule(evCss, ".ev-s")) && /container-type:size/.test(rule(evCss, ".ev-s")) && /top:var\(--top\)/.test(rule(evCss, ".ev-s-track")) && /height:100cqh/.test(rule(evCss, ".ev-s-track")) && /height:100%/.test(rule(evCss, ".ev-st")))
+check("each card is rounded, and runs off the picture's foot as in the reference", /border-radius:calc\(30 \* var\(--r\)\)/.test(rule(evCss, ".ev-st")))
 check("the strip can be dragged: it takes the pointer, leaves vertical swipes to the page", /cursor:grab/.test(rule(evCss, ".ev-s")) && /touch-action:pan-y/.test(rule(evCss, ".ev-s")) && /addEventListener\("pointerdown", down\)/.test(evSrc) && /setPointerCapture/.test(evSrc))
 check("the cards inside take no pointer, and there is no hover anywhere in the strip", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))
 check("it drifts as a Web Animation, paused off screen and in a hidden tab", /el\.animate\(/.test(evSrc) && /drift\.pause\(\)/.test(evSrc) && /visibilitychange/.test(evSrc) && /<Storefronts live=\{live\} \/>/.test(evSrc))
 check("a release glides from the hand's speed back to the drift", /Math\.exp\(-\(now - t0\) \/ 380\)/.test(evSrc))
-check("the OnePages and the community exist and are small", EVERYTHING_SHOTS.every((s) => existsSync(join(root, "public", s.src)) && statSync(join(root, "public", s.src)).size < 120_000))
-check("a store, then a picture, taking turns", EVERYTHING_STRIP.every((item, i) => ("src" in item) === (i % 2 === 1)))
+check("every picture in the strip exists and is small", EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : [s.ground, ...s.products])).every((u) => existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120_000))
+check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind === (i % 2 === 1 ? "link" : "merch")))
 
 console.log("\n── Make the work: Real support ──")
 check("no inbox switch: no From buyers / Storelib buttons", !/ev-c-tabs|Support inboxes|From buyers<\/span>/.test(everything) && !/<button[^>]*ev-c-tab/.test(everything))

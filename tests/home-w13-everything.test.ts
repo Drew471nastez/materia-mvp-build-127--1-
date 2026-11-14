@@ -93,7 +93,8 @@ check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSy
 console.log("\n── card 2 and 4 ──")
 /* Changed on purpose (landing round): the owner asked for a continuous carousel, like the creators rail; the stores drift without a stop, the set twice over moved by half its width in one linear loop. */
 /* Changed on purpose (landing round 4): the strip can be dragged, so its drift is a Web Animation from script (one set's width a loop) that a hand can take over; tests/home-landing-topa4. */
-check("the storefronts drift past without a stop, the strip seamless (the set twice, one set's width a loop)", /const strip = \[\.\.\.EVERYTHING_STRIP, \.\.\.EVERYTHING_STRIP\]/.test(src) && /loop = copy\.offsetLeft - first\.offsetLeft/.test(src) && /iterations: Infinity, easing: "linear"/.test(src))
+/* Changed on purpose (landing round 6): the strip is EVERYTHING_STORES (merch stores and link pages), twice over. */
+check("the storefronts drift past without a stop, the strip seamless (the set twice, one set's width a loop)", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && /loop = copy\.offsetLeft - first\.offsetLeft/.test(src) && /iterations: Infinity, easing: "linear"/.test(src))
 /* Changed on purpose (landing round 2): the support card is the Support page as it reads, its two inboxes (From buyers, Storelib) and threads with no avatars, so the Storelib logo avatar went with them. */
 /* Changed on purpose (landing round 4): the owner wants the support card of before without the From buyers / Storelib switch; the two kinds of request are told by their titles. */
 /* Changed on purpose (landing round 5): the "Storelib support" and "From a buyer" labels are gone (the owner); the thread's subject heads it. */

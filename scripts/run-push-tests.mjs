@@ -1441,6 +1441,8 @@ const SUITES = [
   "tests/home-landing-r5-lower.test.ts",
   /* Landing round 5 (frame): plain rounded sheets that lap over the block before by their corner, nothing held, no scroll-driven motion, the cover watch gone; the header keeps one height and its Start now / Sign up fades in once the hero's buttons have gone under it. */
   "tests/home-landing-r5-frame.test.ts",
+  /* Landing round 6, everything: "Cine Tones LUT Pack" on a bold black cover with no count; the store strip as the owner's reference (merch stores and link pages, tall cards a fixed inset down and cut at the foot); each card rises in once as it scrolls into view. */
+  "tests/home-landing-r6-everything.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

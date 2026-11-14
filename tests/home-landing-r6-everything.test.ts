@@ -1,0 +1,96 @@
+/**
+ * ===========================================================================
+ *  HOME, LANDING ROUND 6 (EVERYTHING): "SELL WHAT YOU MAKE. GET PAID WORLDWIDE."
+ * ===========================================================================
+ * components/marketing/home/everything-in-one-place.tsx and its pictures
+ * under public/home/everything (the globe files belong to another track).
+ *
+ * The owner, round 6:
+ *   - The LUT pack: "without the 12, just LUT pack", and its cover "more
+ *     realistic, more clean and smooth, more bold, black, modern".
+ *   - Build a store that looks like you: the cards like his reference
+ *     picture, "positioning and spacing and all, and bottom padding": tall
+ *     rounded cards on a light grey picture, the middle one whole and its
+ *     neighbours cut by the sides, a fixed inset from the top and running
+ *     off the foot; merch stores like "Signal Drop" and link pages like
+ *     "Zach Dagger", with other names, colours, photos and words.
+ *   - As he scrolls down the cards should "come in smooth and clean":
+ *     "normal, natural, buttery, not so heavy, not so subtle, not
+ *     attention grabby".
+ *
+ * MEASURED_PLACEHOLDER
+ */
+import { existsSync, readFileSync, statSync } from "node:fs"
+import { join } from "node:path"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { EverythingInOnePlace, EVERYTHING_SLIDES, EVERYTHING_STORES, EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(name: string, ok: boolean, detail?: unknown) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    failures.push(name)
+    console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 600)}`}`)
+  }
+}
+const root = process.cwd()
+const src = readFileSync(join(root, "components/marketing/home/everything-in-one-place.tsx"), "utf8")
+const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
+const css = EVERYTHING_STYLES[0]?.css ?? ""
+const rule = (sel: string) => css.match(new RegExp(`(^|\\n|\\})${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\{[^}]*\\}`))?.[0] ?? ""
+const small = (u: string) => existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120_000
+
+console.log("\n── 1. The LUT pack ──")
+const luts = EVERYTHING_SLIDES.find((s) => s.kind === "luts")
+check("named \"Cine Tones LUT Pack\", no number in its name", luts?.name === "Cine Tones LUT Pack" && !/\d/.test(luts.name))
+const cover = html.slice(html.indexOf('class="ev-lut"'), html.indexOf("</span></span>", html.indexOf('class="ev-lut-name"')))
+check("the cover is a still, \"LUT Pack\" and the name over two lines, and no number on it", /<img class="ev-lut-still"[^>]*src="\/home\/everything\/lut-still\.webp"/.test(cover) && /<span class="ev-lut-tag">LUT Pack<\/span>/.test(cover) && /<span class="ev-lut-name"><span>Cine<\/span><span>Tones/.test(cover) && !/\d+ ?LUTs|ev-lut-count/.test(html), cover)
+check("no flat half, no split line left from round 5", !/ev-lut-flat|ev-lut-split/.test(html + css))
+check("black, the still fading into it, the name big and heavy", /background:#0a0a0b/.test(rule(".ev-lut")) && /linear-gradient\(rgba\(10,10,11,0\)/.test(rule(".ev-lut::after")) && /font-size:21cqw;font-weight:800/.test(rule(".ev-lut-name")))
+check("the still exists, is a real webp and small", small("/home/everything/lut-still.webp") && readFileSync(join(root, "public/home/everything/lut-still.webp")).subarray(8, 12).toString() === "WEBP")
+check("the round 5 cover picture is gone", !existsSync(join(root, "public/home/everything/lut-cover.webp")))
+
+console.log("\n── 2. Build a store that looks like you ──")
+const merch = EVERYTHING_STORES.filter((s) => s.kind === "merch")
+const links = EVERYTHING_STORES.filter((s) => s.kind === "link")
+check("three merch stores and three link pages, taking turns", merch.length === 3 && links.length === 3 && EVERYTHING_STORES.every((s, i) => s.kind === (i % 2 ? "link" : "merch")))
+check("no Signal Drop, Zach Dagger or Post Trend themselves", !/signal drop|zach dagger|post trend/i.test(JSON.stringify(EVERYTHING_STORES)))
+check("every name is different", new Set(EVERYTHING_STORES.map((s) => (s.kind === "merch" ? s.title.join(" ") : s.name))).size === EVERYTHING_STORES.length)
+check("a merch store: brand and Cart with a menu, the drop's name over two lines, four pieces with a name and a price", (html.match(/<span class="ev-mc-top"><span>[^<]+<\/span><span class="ev-mc-cart">Cart<span class="ev-mc-menu"><\/span><\/span><\/span><span class="ev-mc-title"><span>[^<]+<\/span><span>[^<]+<\/span><\/span>/g) ?? []).length === merch.length * 2 && (html.match(/<span class="ev-mc-name">[^<]+<\/span><span class="ev-mc-price">\$\d+<\/span>/g) ?? []).length === merch.length * 2 * 4)
+check("the name airy, its second line pushed right; a two column grid of 4:5 photos", /font-weight:400/.test(rule(".ev-mc-title")) && /align-self:flex-end/.test(rule(".ev-mc-title span + span")) && /grid-template-columns:1fr 1fr/.test(rule(".ev-mc-grid")) && /aspect-ratio:4\/5/.test(rule(".ev-mc-img")))
+check("a link page: a blurred photo, the name big and bold in its colour, four icons, two buttons, two product photos", (html.match(/class="ev-st ev-lp" style="background:#[0-9a-f]{6};--accent:#[0-9a-f]{6}"><img class="ev-lp-ground"/g) ?? []).length === links.length * 2 && /font-weight:800/.test(rule(".ev-lp-name")) && /color:var\(--accent\)/.test(rule(".ev-lp-name")) && (html.match(/<span class="ev-lp-social">(<svg[\s\S]*?<\/svg>){4}<\/span>/g) ?? []).length === links.length * 2 && (html.match(/class="ev-lp-btn"/g) ?? []).length === links.length * 4 && (html.match(/class="ev-lp-img"/g) ?? []).length === links.length * 4)
+check("each link page in its own colour, warm or bright", new Set(links.map((l) => l.kind === "link" && l.accent)).size === 3)
+check("no frosted glass: the buttons are a plain tint", !/backdrop-filter|filter:blur/.test(css) && /background:rgba\(255,255,255,\.14\)/.test(rule(".ev-lp-btn")))
+check("every strip picture is local under stores/, a real webp, small", EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : [s.ground, ...s.products])).every((u) => u.startsWith("/home/everything/stores/") && small(u) && readFileSync(join(root, "public", u)).subarray(8, 12).toString() === "WEBP"))
+check("the old creator pages and OnePage captures are gone", !existsSync(join(root, "public/home/everything/strip")) && !/ev-st-bar|ev-op-img|EVERYTHING_SHOTS/.test(src))
+check("a light grey picture, cards a fixed inset from its top, as tall as it, so they run off its foot", /background:#ebebeb/.test(rule(".ev-s")) && /--top:clamp\(24px,8cqw,34px\)/.test(rule(".ev-s")) && /top:var\(--top\)/.test(rule(".ev-s-track")) && /height:100cqh/.test(rule(".ev-s-track")))
+check("a card is 56% of the picture's width (170 to 270px): one whole and two cut on a phone and a laptop", /--card-w:clamp\(170px,56cqw,270px\)/.test(rule(".ev-s")) && /--r:calc\(var\(--card-w\) \/ 390\)/.test(rule(".ev-st")))
+check("it starts with the first page in the middle, read once", /if \(!placed && loop > 0\) \{\s*placed = true\s*x = first\.offsetLeft \+ first\.offsetWidth \/ 2 - vp\.clientWidth \/ 2/.test(src))
+check("the drift is still one Web Animation of transform, paused off screen and in a hidden tab", /el\.animate\(\[\{ transform: `translate3d\(\$\{-x\}px,0,0\)` \}/.test(src) && /drift\.pause\(\)/.test(src) && /visibilitychange/.test(src))
+check("a finger: vertical swipes stay the page's, the axis decided after 8px, capture only after", /touch-action:pan-y/.test(rule(".ev-s")) && /if \(Math\.hypot\(dx, dy\) < 8\) return/.test(src) && /if \(Math\.abs\(dy\) >= Math\.abs\(dx\)\) \{\s*drag = null/.test(src) && src.indexOf("vp.setPointerCapture") > src.indexOf("Math.hypot(dx, dy) < 8"))
+check("nothing in the strip takes the pointer or focus", /pointer-events:none/.test(rule(".ev-s-slot")) && /class="ev-vis ev-s" aria-hidden="true"/.test(html))
+check("more room under every picture before its caption (24px)", /margin:24px 0 0/.test(rule(".ev-cap")))
+
+console.log("\n── 3. The cards come in as the page scrolls ──")
+check("one IntersectionObserver, each card once, a tenth of the screen in", /function useCardReveal\(/.test(src) && /new IntersectionObserver\(/.test(src) && /io\.unobserve\(e\.target\)/.test(src) && /rootMargin: "0px 0px -10% 0px"/.test(src) && /useCardReveal\(grid\)/.test(src))
+check("from 24px down and clear, 700ms on the section's ease, opacity and transform only", /opacity:0;transform:translate\(0,24px\);transition:opacity \.7s \$\{EASE\},transform \.7s \$\{EASE\}/.test(src) && /\.ev-card\[data-in\]\{opacity:1;transform:none\}/.test(css) && /const EASE = "cubic-bezier\(\.22,1,\.36,1\)"/.test(src))
+check("the second card of a row follows 110ms later, on a wide screen only", /@media\(min-width:768px\)\{\.ev-card:nth-child\(even\)\{--d:110ms\}\}/.test(css) && /transition-delay:var\(--d,0ms\)/.test(rule(".ev-card")))
+check("no scroll listener, no layout read for it, no section wide reveal left", !/addEventListener\(\s*["']scroll/.test(src) && !/\.ev\[data-platform-in\] \.ev-card/.test(css) && !/getBoundingClientRect\(\)[^\n]*ev-card/.test(src))
+check("it stands without script, under reduced motion and without IntersectionObserver", /@media\(scripting:none\)\{\.ev-card\{opacity:1;transform:none\}\}/.test(css) && /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-card\{opacity:1;transform:none\}/.test(css) && /typeof IntersectionObserver !== "function" \|\| matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches/.test(src))
+check("server markup leaves every card to the observer (no data-in baked in)", (html.match(/<article class="ev-card/g) ?? []).length === 4 && !/<article[^>]*data-in/.test(html))
+
+console.log("\n── The words ──")
+const words = [JSON.stringify(EVERYTHING_STORES), ...EVERYTHING_SLIDES.map((s) => s.name), html.replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " ")].join(" ")
+check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|fans?)\b/i.test(words))
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed) {
+  console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
+  process.exit(1)
+}
