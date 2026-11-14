@@ -214,7 +214,8 @@ async function main() {
     const { deps: d, rec } = deps(db)
     await handleContact(body({ message: `<script>alert(1)</script>\n\nSecond paragraph & more`, subject: "Order <b>7</b>" }), d)
     const mail = rec.sent[0]
-    check("goes to the store's support email", mail?.to === "help@maralind.com", mail?.to)
+    // Changed on purpose (round AX): an unconfirmed support email is passed over for the account's own address (lib/seller-inbox provenInbox).
+    check("goes to the account's own address, the unproven support email passed over", mail?.to === "owner@maralind.com", mail?.to)
     check("with Reply going to the visitor", mail?.replyTo === VISITOR_EMAIL)
     check("typed markup is escaped, never markup", !!mail && !/<script>/.test(mail.html) && /&lt;script&gt;/.test(mail.html) && /&amp; more/.test(mail.html) && !/<b>7<\/b>/.test(mail.html))
     check("the subject is one line", !!mail && !/[\r\n]/.test(mail.subject))
@@ -223,8 +224,10 @@ async function main() {
   }
   {
     const db = contactDb()
-    check("the older section's own Recipient Email wins, read from the published page", (await creatorInbox(db, CREATOR, "legacy-form")) === "orders@maralind.com")
-    check("otherwise the support email", (await creatorInbox(db, CREATOR, "new-form")) === "help@maralind.com")
+    // Changed on purpose (round AX): the section's address and the support email are used only when they are a proven sign in address.
+    check("the older section's own Recipient Email wins when it is the account's sign in address, read from the published page", (await creatorInbox(db, CREATOR, "legacy-form", async (id) => (id === "u-1" ? "orders@maralind.com" : null))) === "orders@maralind.com")
+    check("an unproven Recipient Email is passed over", (await creatorInbox(db, CREATOR, "legacy-form", async (id) => (id === "u-1" ? "owner@maralind.com" : null))) === "owner@maralind.com")
+    check("otherwise the support email, when it is the sign in address", (await creatorInbox(db, CREATOR, "new-form", async (id) => (id === "u-1" ? "help@maralind.com" : null))) === "help@maralind.com")
     const noSupport = contactDb({ support: null })
     check("and without one, the account's email", (await creatorInbox(noSupport, CREATOR, null)) === "owner@maralind.com")
     const inbox = creatorEmail({ store: "Maralind", site: "maralind.storelib.com", contactUrl: "https://storelib.com/app/emails", msg: { creatorId: CREATOR, name: "", email: VISITOR_EMAIL, subject: "", message: "hi", consent: true, page: "home", sectionId: null } as ContactMessage })

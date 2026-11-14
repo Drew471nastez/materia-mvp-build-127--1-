@@ -30,8 +30,9 @@ import "server-only"
  *               (community_refunds holds the refund id unique; before part
  *               101, the refund's own metadata remembers it).
  *   CONTACT     a member writes to the owner: to the address the owner set
- *               for the community, else the seller inbox Storelib already
- *               uses (lib/seller-inbox), with Reply-To the member. The owner's
+ *               for the community when the store has proven it owns it, else
+ *               the account's own (lib/seller-inbox provenInbox, round AX),
+ *               with Reply-To the member. The owner's
  *               address never reaches the page. Rate limited by the route,
  *               and capped per day here from the messages table.
  *   ANALYTICS   cancellationsWithReasons and refundsFor, for worker A's
@@ -896,11 +897,13 @@ export function defaultContactDeps(db: Db): ContactDeps {
   const refund = defaultRefundDeps(db)
   return {
     ownerInbox: async (community) => {
-      const own = (await communityPolicy(db, community.id)).contactEmail
-      if (own) return own
+      /* Round AX: the community's own address only when the store has proven it owns it (the account's or a
+         team member's sign in address); any other is passed over for the account's own (lib/seller-inbox
+         provenInbox), so a member's words are never relayed to an inbox nobody confirmed. */
       if (!community.creator_id) return null
-      const { loginEmailFrom, sellerInbox } = await import("@/lib/seller-inbox")
-      return (await sellerInbox(db, community.creator_id, loginEmailFrom(db)))?.to ?? null
+      const own = (await communityPolicy(db, community.id)).contactEmail
+      const { loginEmailFrom, provenInbox } = await import("@/lib/seller-inbox")
+      return (await provenInbox(db, community.creator_id, loginEmailFrom(db), own ? [own] : []))?.to ?? null
     },
     sendMail: refund.sendMail,
     baseUrl: refund.baseUrl,

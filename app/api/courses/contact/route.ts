@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { sellerNumberAndRef } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendSellerMessageEmail } from "@/lib/email"
-import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
+import { loginEmailFrom, provenInbox } from "@/lib/seller-inbox"
 import { LIMITS, addressSubject, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { CONTACT_MAX_CHARS, cleanMessage } from "@/lib/receipts/contact"
 import { isUuid } from "@/lib/courses/access"
@@ -19,7 +19,8 @@ const MAX_PER_DAY = 5
  *
  * A question to the course's creator, from inside the course. The same
  * message the receipt's Contact seller sends (lib/receipts/contact.ts), to
- * the same inbox (lib/seller-inbox: the creator's support address, else
+ * the same inbox (lib/seller-inbox provenInbox: the support address when the
+ * store has proven it owns it, else
  * their login's), with Reply-To the buyer's own account address, so the
  * creator's answer goes straight to them. Only a buyer of the course may
  * write; five a day per course, and the shared limit on email forms.
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
     const buyerEmail = String(p.email ?? "").trim().toLowerCase()
     if (!buyerEmail.includes("@")) return NextResponse.json({ error: "Your account has no email address to reply to." }, { status: 409, headers: PRIVATE })
 
-    const inbox = await sellerInbox(admin, product.creator_id, loginEmailFrom(admin))
+    const inbox = await provenInbox(admin, product.creator_id, loginEmailFrom(admin))
     if (!inbox) return NextResponse.json({ error: "This creator has no email address to write to yet, so the message was not sent." }, { status: 409, headers: PRIVATE })
 
     const lesson = typeof body.lessonTitle === "string" ? body.lessonTitle.replace(/\s+/g, " ").trim().slice(0, 120) : ""
