@@ -295,7 +295,6 @@ export function OnePageShareSheet({
             type="button"
             onClick={t.go}
             aria-live={t.live ? "polite" : undefined}
-            aria-label={"label" in t ? t.label : undefined}
             className="flex w-[76px] flex-col items-center gap-1.5 rounded-xl p-2 transition-colors duration-150 hover:bg-[color-mix(in_srgb,currentColor_8%,transparent)] active:bg-[color-mix(in_srgb,currentColor_12%,transparent)]"
             data-share-target={t.name}
           >
