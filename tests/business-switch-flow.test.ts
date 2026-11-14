@@ -377,9 +377,10 @@ async function main() {
     check("stored as the client stores it: the tokens, the expiry, the user", parsed.access_token === SESSION.access_token && parsed.refresh_token === "r" && parsed.expires_at === SESSION.expires_at && parsed.user?.id === NEW && parsed.token_type === "bearer")
     const header = sessionCookieWrites(key, json, "", true).map((l) => l.split(";")[0]).join("; ")
     check("  and read back from the jar as exactly that", (await readSessionFromCookies(key, header)) === json)
-    const { set, expire } = sessionCookieChunks(key, json, [`${key}.0`, `${key}.1`, `${key}.2`, "other"])
+    // Changed on purpose (round AX): on HTTPS both the browser and the server write the session under its __Host- name (lib/supabase/host-session.ts), so the server's chunks are asked for with host = true and every old-name chunk is expired.
+    const { set, expire } = sessionCookieChunks(key, json, [`${key}.0`, `${key}.1`, `${key}.2`, "other"], true)
     check("  the server's own chunks are the same chunks, and older ones it no longer needs are expired",
-      set.map((c) => `${c.name}=${encodeURIComponent(c.value)}`).join("; ") === header && expire.every((n) => n.startsWith(key)) && !expire.includes("other"))
+      set.map((c) => `${c.name}=${encodeURIComponent(c.value)}`).join("; ") === header && expire.length === 3 && expire.every((n) => n.startsWith(key)) && !expire.includes("other"))
     const older = JSON.stringify({ ...JSON.parse(json), expires_at: SESSION.expires_at - 600, access_token: jwt(OLD) })
     check("  and the app's device copy of the business before loses to it: the new page opens as the new business", fresherSession(older, json) === json)
     const missing = JSON.parse(storedSessionJson({ access_token: "a", refresh_token: "b", expires_in: 3600 }, 1_000))

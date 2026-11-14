@@ -2335,7 +2335,8 @@ check(
       expire > -1 &&
       reissue < expire &&
       /headers\.append\(/.test(body) &&
-      proxy.includes("retireDomainScopedCookies(supabaseResponse, request)")
+      // Changed on purpose (round AX): it is told which names to leave to the __Host- move (sealSession).
+      proxy.includes("retireDomainScopedCookies(supabaseResponse, request, retireSkips)")
     )
   })(),
 )

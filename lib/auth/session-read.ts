@@ -88,7 +88,8 @@ export function hasStoredSessionToken(): boolean {
    */
   try {
     const jar = parseCookieHeader(document.cookie)
-    return Boolean(jar.get(key) || jar.get(`${key}.0`))
+    /* The `__Host-` name first (lib/supabase/host-session.ts, round AX), the old one while a browser still has it. */
+    return Boolean(jar.get(`__Host-${key}`) || jar.get(`__Host-${key}.0`) || jar.get(key) || jar.get(`${key}.0`))
   } catch {
     // No cookie jar either: no evidence either way. `false` is right, this
     // function answers "do we have proof", and we do not.

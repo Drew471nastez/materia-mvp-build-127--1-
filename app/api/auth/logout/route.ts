@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { HOST_PREFIX, plantedExpiries } from "@/lib/supabase/host-session"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -32,7 +33,7 @@ export const dynamic = "force-dynamic"
  * Same origin only. Nothing here signs anybody in or reads anybody's data.
  */
 
-const SESSION_COOKIE = /^sb-[^=;]+-auth-token(?:\.\d+)?$|^sb-[^=;]+-auth-token-code-verifier$/
+const SESSION_COOKIE = /^(?:__Host-)?sb-[^=;]+-auth-token(?:\.\d+)?$|^(?:__Host-)?sb-[^=;]+-auth-token-code-verifier$/
 
 function sameOrigin(request: NextRequest): boolean {
   const origin = request.headers.get("origin")
@@ -76,11 +77,25 @@ export async function POST(request: NextRequest) {
 
   /* Whatever Auth said, this browser's session ends here. */
   const jar = await cookies()
+  const legacy: string[] = []
   for (const c of jar.getAll()) {
-    if (SESSION_COOKIE.test(c.name)) jar.set(c.name, "", { path: "/", maxAge: 0 })
+    if (!SESSION_COOKIE.test(c.name)) continue
+    /* A `__Host-` cookie (round AX, lib/supabase/host-session.ts) is only expired by a Secure Set-Cookie. */
+    if (c.name.startsWith(HOST_PREFIX)) jar.set(c.name, "", { path: "/", maxAge: 0, secure: true })
+    else {
+      jar.set(c.name, "", { path: "/", maxAge: 0 })
+      legacy.push(c.name)
+    }
   }
 
   const headers = { "Cache-Control": "no-store" }
-  if (form) return NextResponse.redirect(new URL("/", request.url), { status: 303, headers })
-  return NextResponse.json({ ok: true, auth }, { headers })
+  const res = form ? NextResponse.redirect(new URL("/", request.url), { status: 303, headers }) : NextResponse.json({ ok: true, auth }, { headers })
+  /*
+    AN OLD-NAME COPY A PUBLISHED SITE PLANTED (Domain=storelib.com) GOES TOO. While the `__Host-` session stood it
+    was never read; with it gone, it would be the only session left and the browser would be signed in to the
+    planter's account. Expired at the domain only: a copy this host set itself is not touched by it.
+  */
+  const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+  if (!mainDomain.includes("localhost")) for (const line of plantedExpiries(legacy, mainDomain, "/")) res.headers.append("Set-Cookie", line)
+  return res
 }
