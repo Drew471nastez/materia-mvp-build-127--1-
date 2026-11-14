@@ -3820,9 +3820,10 @@ function AvatarFrameSection() {
           <Segmented
             className={row}
             label={tt("Profile image size")}
-            value={avatarSizeOf(theme)}
-            options={[{ id: "small", label: tt("Small") }, { id: "medium", label: tt("Medium") }, { id: "large", label: tt("Large") }] as const}
-            onChange={(id) => updateTheme({ avatar_size: id === "medium" ? null : id } as never)}
+            /* Round 17: two sizes. Small is the default and is saved as none, so every page that never chose one stays Small. */
+            value={avatarSizeOf(theme) === "large" ? "large" : "small"}
+            options={[{ id: "small", label: tt("Small") }, { id: "large", label: tt("Large") }] as const}
+            onChange={(id) => updateTheme({ avatar_size: id === "small" ? null : id } as never)}
           />
         </SettingRow>
         <SettingRow label={tt("Shape")} stackOnPhone>

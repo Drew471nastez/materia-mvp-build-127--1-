@@ -10008,8 +10008,16 @@ html[data-op-press] [data-op-letgo] {
    (scroll-padding), and has room above and below for a shadow: a card is cut
    only by the screen or the card's own rounded edge. Inside a half width
    block or a pair, where the edge is a neighbour, it keeps a few px. */
+/*
+  Round 17, the owner: "why do some blocks that don't need vertical scrolling scroll". A box that scrolls sideways
+  (overflow-x: auto) has its other direction computed to auto as well, so a rail whose cards stood a few px taller
+  than its room (a shadow, a hover lift, a hard shadow's offset) became a scroller up and down too, and caught the
+  page's own scroll under a finger or a wheel. A rail scrolls sideways only; what does not fit above and below is
+  cut where it was already cut (an auto box clips there too), and the page's scroll passes through.
+*/
 .op-rail {
   width: auto;
+  overflow-y: hidden;
   margin-inline: calc(-1 * var(--op-gutter, 4px));
   padding-inline: var(--op-gutter, 4px);
   scroll-padding-inline: var(--op-gutter, 4px);

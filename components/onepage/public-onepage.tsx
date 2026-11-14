@@ -1961,7 +1961,13 @@ function VerifiedBadge({ isDesktop = false, badgeType, size: sizeOwn, tip = true
       {tip ? (
         <span
           className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
-          style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}
+          /*
+            Round 17, the owner: the tooltip took the name's own font (a display serif, a mono, capitals with wide
+            spacing), since it sits inside the name. It is a plain label: the app's text face, its own weight and
+            case, whatever the name is set in.
+          */
+          style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)", fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, sans-serif", fontWeight: 500, fontStyle: "normal", textTransform: "none", letterSpacing: "normal", lineHeight: 1.25, fontVariant: "normal" }}
+          data-verified-tip=""
         >
           {label}
         </span>
