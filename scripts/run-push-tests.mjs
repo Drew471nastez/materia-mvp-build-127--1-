@@ -66,6 +66,8 @@ const SUITES = [
   "tests/data-safety-ay.test.ts",
   /* Round AX (OnePage drafts, round AY): a signed in stranger cannot read another account's draft_blocks or archived_blocks (part 465), the onboarding name check asks /api/onepage/address instead of reading other pages with the browser key. */
   "tests/onepage-drafts-ay.test.ts",
+  /* Round AX (AY-5 money and integrations): a refunded community program or module never opens again from its own paid session. */
+  "tests/money-integrations-ay.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
