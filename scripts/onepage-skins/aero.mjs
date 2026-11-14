@@ -170,7 +170,7 @@ export function aero() {
 }
 
 export function aeroAquarium() {
-  banner("AERO AQUARIUM: the same glass under water at night, a lit surface, light shafts, goldfish at three depths, plants and rising bubbles (round 17)")
+  banner("AERO AQUARIUM: the same glass under water at night, goldfish and rising bubbles")
   const sc = SCENE("aero2")
   /* Round 17, the owner: "make the Aero Aquarium much better, smooth, clean, great". The water is lit from above now: a bright surface band that ripples, shafts that sway from it, four plants in three greens, five goldfish at three depths and speeds, ten bubbles. */
   rule(`${sc} [data-sk="surface"]`, `
@@ -188,11 +188,13 @@ export function aeroAquarium() {
     background: radial-gradient(60px 18px at 20% 30%, rgba(190,245,255,.35), transparent 70%), radial-gradient(80px 20px at 62% 18%, rgba(190,245,255,.3), transparent 70%), radial-gradient(70px 16px at 84% 44%, rgba(190,245,255,.25), transparent 70%), radial-gradient(50px 14px at 40% 60%, rgba(190,245,255,.22), transparent 70%);
     animation: sk-shimmer 6s ease-in-out infinite alternate;`)
   rule(`${sc} [data-sk="sand"]`, `position: absolute; left: 0; right: 0; bottom: 0; height: 96px; background: ${SAND} center bottom / 100% 100% no-repeat; opacity: .6;`)
+  /* The two plant pictures once, on the scene; every plant names one (the sheet carries each picture a single time). */
+  rule(sc, `--aq-weed-a: ${WEED("#1f7a63")}; --aq-weed-b: ${WEED("#26876b")};`)
   rule(`${sc} [data-sk="weed"]`, `position: absolute; bottom: 34px; width: 70px; height: 220px; background: center bottom / contain no-repeat; transform-origin: 50% 100%; opacity: .55; animation: sk-weed 9s ease-in-out infinite alternate;`)
-  rule(`${sc} [data-sk="weed"]:nth-child(5)`, `left: -6px; background-image: ${WEED("#1f7a63")};`)
-  rule(`${sc} [data-sk="weed"]:nth-child(6)`, `left: 34px; height: 150px; width: 52px; background-image: ${WEED("#2f9a72")}; opacity: .4; animation-delay: -4s; animation-duration: 10s;`)
-  rule(`${sc} [data-sk="weed"]:nth-child(7)`, `right: -2px; height: 260px; background-image: ${WEED("#26876b")}; animation-delay: -3s; animation-duration: 8.5s;`)
-  rule(`${sc} [data-sk="weed"]:nth-child(8)`, `right: 40px; height: 170px; width: 56px; background-image: ${WEED("#3aa07a")}; opacity: .38; animation-delay: -6s; animation-duration: 11s;`)
+  rule(`${sc} [data-sk="weed"]:nth-child(5)`, `left: -6px; background-image: var(--aq-weed-a);`)
+  rule(`${sc} [data-sk="weed"]:nth-child(6)`, `left: 34px; height: 150px; width: 52px; background-image: var(--aq-weed-a); opacity: .4; animation-delay: -4s; animation-duration: 10s;`)
+  rule(`${sc} [data-sk="weed"]:nth-child(7)`, `right: -2px; height: 260px; background-image: var(--aq-weed-b); animation-delay: -3s; animation-duration: 8.5s;`)
+  rule(`${sc} [data-sk="weed"]:nth-child(8)`, `right: 40px; height: 170px; width: 56px; background-image: var(--aq-weed-b); opacity: .38; animation-delay: -6s; animation-duration: 11s;`)
   rule(`${sc} [data-sk="fish"]`, `position: absolute; width: 46px; height: 24px; background: ${GOLDFISH} center / contain no-repeat; opacity: .9; animation: sk-swim 18s ease-in-out infinite alternate; filter: drop-shadow(0 3px 4px rgba(0,10,25,.3));`)
   rule(`${sc} [data-sk="fish"]:nth-child(9)`, `top: 128px; left: 5%;`)
   rule(`${sc} [data-sk="fish"]:nth-child(10)`, `top: 64px; right: 16%; width: 34px; height: 18px; scale: -1 1; animation-duration: 21s; animation-delay: -6s; opacity: .75;`)

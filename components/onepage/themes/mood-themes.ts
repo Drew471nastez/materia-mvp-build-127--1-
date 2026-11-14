@@ -1090,10 +1090,12 @@ export const MOOD_THEMES = [
       title_weight: 700,
       social_icon_color: "#ffffff",
       background_pattern: "none",
+      header_layout: "hero",
       block_layout: "compact",
       header_align: "center",
     },
-    profile_layout: "classic" as const,
+    /* Round 17: a Hero, the picture full bleed over the stars (one of five now Midnight is gone). */
+    profile_layout: "hero" as const,
     light_button_text_color: "#ffffff",
     solid_button_text_color: "#07070f",
     outline_button_text_color: "#ffffff",

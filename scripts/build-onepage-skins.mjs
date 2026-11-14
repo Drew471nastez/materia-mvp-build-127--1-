@@ -31,7 +31,7 @@ import { aqua, aquaGraphite } from "./onepage-skins/aqua.mjs"
 import { messenger, messengerOlive } from "./onepage-skins/messenger.mjs"
 import { y2k, y2kKawaii } from "./onepage-skins/y2k.mjs"
 import { playful, playfulNight } from "./onepage-skins/playful.mjs"
-import { grunge, grungeZine } from "./onepage-skins/grunge.mjs"
+import { grungeZine } from "./onepage-skins/grunge.mjs"
 import { classic98 } from "./onepage-skins/classic98.mjs"
 import { vaporwave } from "./onepage-skins/vaporwave.mjs"
 import { arcade } from "./onepage-skins/arcade.mjs"
@@ -45,7 +45,7 @@ aqua()
 messenger()
 y2k()
 playful()
-grunge()
+/* Round 17: Grunge is retired (lib/onepage/retired-themes moves a page on it to Grunge Zine when read), so its skin is no longer written: the sheet carries what a page can wear. */
 aeroAquarium()
 aquaGraphite()
 messengerOlive()

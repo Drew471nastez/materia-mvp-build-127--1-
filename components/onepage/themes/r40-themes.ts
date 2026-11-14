@@ -387,7 +387,7 @@ export const AP_THEMES = [
     theme_config: {
       background_type: "gradient" as const,
       background_color: "#f8f5ec",
-      background_gradient: "linear-gradient(90deg, #f8f5ec00 0px, #f8f5ec00 30px, #e0525255 30px, #e0525255 32px, #f8f5ec00 32px), repeating-linear-gradient(180deg, #f8f5ec 0px, #f8f5ec 31px, #9fb4e0a6 31px, #9fb4e0a6 32px)",
+      background_gradient: "linear-gradient(90deg, #f8f5ec00 0px, #f8f5ec00 30px, #f0c4c4 30px, #f0c4c4 32px, #f8f5ec00 32px), repeating-linear-gradient(180deg, #f8f5ec 0px, #f8f5ec 31px, #cdd8ee 31px, #cdd8ee 32px)",
       background_image_url: "",
       gradient_noise: true,
       noise_strength: 10,

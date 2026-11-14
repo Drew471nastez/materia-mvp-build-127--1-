@@ -15,7 +15,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { AP_THEMES, R40_THEMES, R42_THEMES, withR40Themes } from "@/components/onepage/themes/r40-themes"
-import { LOOK_RESET, contrastRatio, lookFromTemplate } from "@/lib/onepage/theme-apply"
+import { LOOK_RESET, THEME_TYPE_KEYS, contrastRatio, lookFromTemplate } from "@/lib/onepage/theme-apply"
 import { buttonFill, buttonHover } from "@/lib/onepage/button-style"
 import { ONEPAGE_FONTS, familyOf } from "@/lib/onepage/fonts"
 import { blockLayoutOf, headerAlignOf } from "@/lib/onepage/theme-layout"
@@ -52,7 +52,7 @@ check("Cobalt is the only bright Hero: a photo over a saturated gradient, with S
   AP_THEMES[0].profile_layout === "hero" && cobalt.background_type === "gradient" && buttonFill(cobalt as never) === "soft" && !/button_style: "soft"/.test(design) && !all.some((t) => (t.theme_config as any).button_style === "soft"))
 /* Changed on purpose (round AR): Mixed is no longer Notebook's alone; Terrazzo, Peach and Graphite lay their links out that way too (each theme now differs in structure, tests/onepage-ar5.test.ts). Notebook is still the only ruled, flush left, outlined one. */
 check("Notebook is ruled paper with a handwritten name, flush left, its links two to a row (Mixed)",
-  notebook.background_pattern === "lines" && familyOf(notebook.title_font) === "Caveat" && headerAlignOf(notebook) === "left" && blockLayoutOf(notebook) === "masonry")
+  /* Changed on purpose (round 17): the rules and the red margin are drawn in the wallpaper itself, so they run the whole page. */ /repeating-linear-gradient\(180deg/.test(notebook.background_gradient) && familyOf(notebook.title_font) === "Caveat" && headerAlignOf(notebook) === "left" && blockLayoutOf(notebook) === "masonry")
 check("neither shares a title face with another theme", AP_THEMES.every((t) => ![...all.map((o) => (o.theme_config as any).title_font), ...[...design.matchAll(/title_font: "([^"]+)"/g)].map((m) => m[1])].includes(t.theme_config.title_font)))
 
 for (const t of AP_THEMES) {
@@ -70,19 +70,19 @@ for (const t of AP_THEMES) {
   check(`${t.name}: fonts the page loads`, [c.font_family, c.title_font].every((f) => Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, familyOf(f) || "")))
   check(`${t.name}: no violet`, !/#(8b5cf6|7c3aed|a855f7|9333ea|6d28d9)/i.test(JSON.stringify(c)))
   const beyond = Object.keys(c).filter((k) => !["background_type", "background_color", "text_color", "button_color", "button_text_color", "button_style", "button_border_radius", "button_border_color", "font_family", "spacing", "card_width", "header_layout"].includes(k))
-  check(`${t.name}: everything else it sets is reset by the next theme`, beyond.every((k) => k in LOOK_RESET), beyond.filter((k) => !(k in LOOK_RESET)).join())
+  /* Changed on purpose (round 17): the name's weight and size are THEME_TYPE_KEYS, taken back on the next pick when the theme set them (lib/onepage/theme-apply typeKeysFor). */ check(`${t.name}: everything else it sets is reset by the next theme`, beyond.every((k) => k in LOOK_RESET || (THEME_TYPE_KEYS as readonly string[]).includes(k)), beyond.filter((k) => !(k in LOOK_RESET) && !(THEME_TYPE_KEYS as readonly string[]).includes(k)).join())
   const page = { id: "p", theme: { template_id: t.id, ...c }, settings: {}, draft_blocks: [] } as never
   const next = lookFromTemplate(page, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }).theme as unknown as Record<string, unknown>
   check(`${t.name}: picking another theme leaves none of it behind`, next.block_layout === null && next.background_pattern === "none" && next.title_font === null && next.button_hover_fill === null)
 }
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }])
 /* Changed on purpose (round W8): Gazette (light) and Halo (gradient) now follow Notebook and Cobalt at the end of their kinds. */
-check("Notebook joins the light themes and Cobalt the gradients", merged.map((t) => t.id).join(",").includes("folio,notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,b,lagoon,cobalt,halo,aero,y2k2,vaporwave") /* Changed on purpose (round W10): the W10 themes follow the W9 ones. */ /* Changed on purpose (round W9): Aqua, Messenger, Playful and Grunge join the light themes, Aero the gradients. */, merged.map((t) => t.id).join(","))
+/* Changed on purpose (round 17): Folio and Grunge are retired (lib/onepage/retired-themes), so they leave the catalogue's order. */ check("Notebook joins the light themes and Cobalt the gradients", merged.map((t) => t.id).join(",").includes("notebook,gazette,aqua,messenger,playful,aqua2,messenger2,grunge2,b,lagoon,cobalt,halo,aero,y2k2,vaporwave") /* Changed on purpose (round W10): the W10 themes follow the W9 ones. */ /* Changed on purpose (round W9): Aqua, Messenger, Playful and Grunge join the light themes, Aero the gradients. */, merged.map((t) => t.id).join(","))
 
 console.log("\nEvery theme's name in six languages")
 const names = read("components/onepage/themes/theme-names.ts")
 const ids = [...design.matchAll(/\n  \{\n    id: "([a-z0-9-]+)",/g)].map((m) => m[1]).concat([...all, ...AP_THEMES].map((t) => t.id))
-check("every theme has a line", ids.length >= 34 && ids.every((id) => new RegExp(`\\n  ${id}: \\(\\) => ttx\\("theme", "`).test(names)), ids.filter((id) => !new RegExp(`\\n  ${id}: \\(\\)`).test(names)).join())
+/* Changed on purpose (round 17): Folio and Midnight are retired, so the lists read here hold 32. */ check("every theme has a line", ids.length >= 32 && ids.every((id) => new RegExp(`\\n  ${id}: \\(\\) => ttx\\("theme", "`).test(names)), ids.filter((id) => !new RegExp(`\\n  ${id}: \\(\\)`).test(names)).join())
 const words = [...names.matchAll(/ttx\("theme", "([^"]+)"\)/g)].map((m) => `theme::${m[1]}`)
 for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
   const cat = readCatalog(join(process.cwd(), "lib/i18n/catalog", `${lang}.ts`)) as Record<string, string>

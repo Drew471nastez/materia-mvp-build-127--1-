@@ -384,7 +384,8 @@ export function withoutRetiredTheme<T>(theme: T): T {
   for (const key of new Set([...Object.keys(look), ...Object.keys(toLook)])) {
     const cur = own[key]
     /* The retired theme's own value, or nothing at all: the successor's. A value the creator chose stays. */
-    const fromTheme = cur === undefined || cur === null || (key in look && look[key] === cur)
+    /* Round 17: a switch left off by the reset (false, and not the retired theme's own value) is nothing chosen too, so the successor's grain or motion is laid on. */
+    const fromTheme = cur === undefined || cur === null || (key in look && look[key] === cur) || (cur === false && !(key in look))
     if (!fromTheme) continue
     if (key in toLook) next[key] = toLook[key]
     else if (key === "cover_image_url" || key === "title_case" || key === "button_text_align" || key === "button_icon_position") next[key] = null

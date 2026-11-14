@@ -92,10 +92,10 @@ console.log("\n3. Share to Instagram Story")
   const hook = code("components/onepage/use-story-share.ts")
   check("the picture is drawn before the tap, so the share keeps the tap's permission", /requestIdleCallback/.test(hook) && /ready\.current/.test(hook))
   const sheet = code("components/onepage/share-sheet.tsx")
-  check("the visitor's sheet: Story, no Facebook", /name: "Story"/.test(sheet) && /label: "Share to Instagram Story"/.test(sheet) && !/facebook\.com\/sharer|name: "Facebook"/.test(sheet))
-  check("after a download, one line on the link sticker", /Image saved and link copied\. In your story, add a Link sticker and paste it\./.test(sheet))
+  /* Changed on purpose (round 17), the owner: "get rid of the Share to Instagram story options". */ check("the visitor's sheet: Story, no Facebook", !/name: "Story"/.test(sheet) && !/Share to Instagram Story/.test(sheet) && /name: "Facebook"/.test(sheet) && /facebook\.com\/sharer/.test(sheet))
+  /* Changed on purpose (round 17): no story picture, so no line about one. */ check("after a download, one line on the link sticker", !/Link sticker/.test(sheet))
   const editor = code("components/onepage/onepage-editor.tsx")
-  check("the creator's Share window has it too", /tt\("Share to Instagram Story"\)/.test(editor) && /data-share-story=""/.test(editor))
+  /* Changed on purpose (round 17): gone from the creator's Share window too. */ check("the creator's Share window has it too", !/Share to Instagram Story/.test(editor) && !/data-share-story=""/.test(editor))
 }
 
 console.log("\n4. An Instagram profile's picture")

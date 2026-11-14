@@ -10017,10 +10017,10 @@ html[data-op-press] [data-op-letgo] {
 */
 .op-rail {
   width: auto;
-  overflow-y: hidden;
   margin-inline: calc(-1 * var(--op-gutter, 4px));
   padding-inline: var(--op-gutter, 4px);
   scroll-padding-inline: var(--op-gutter, 4px);
+  overflow-y: hidden;
   margin-block: -10px;
   padding-block: 10px;
 }

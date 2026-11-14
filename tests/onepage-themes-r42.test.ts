@@ -32,11 +32,11 @@ const ratio = (a: string, b: string) => contrastRatio(a, b) ?? 0
 
 async function main() {
   console.log("\nTwo more themes, each its own kind of page")
-  check("two themes, new ids", R42_THEMES.length === 2 && R42_THEMES.every((t) => !R40_THEMES.some((o) => o.id === t.id)))
+  /* Changed on purpose (round 17): Folio is retired (to Paper, lib/onepage/retired-themes); Ledger stays. */ check("two themes, new ids", R42_THEMES.length === 1 && R42_THEMES.every((t) => !R40_THEMES.some((o) => o.id === t.id)))
   const design = read("components/onepage/tabs/design-tab.tsx")
   check("no id an older theme has", R42_THEMES.every((t) => !design.includes(`\n    id: "${t.id}",`)))
   const kinds = R42_THEMES.map((t) => `${coverImageOf(t.theme_config) ? "cover" : "plain"}/${themeProductLayoutOf(t.theme_config)}`)
-  check("one has a cover picture and products as tiles, the other products as rows", kinds.join() === "cover/grid,plain/rows", kinds.join())
+  check("one has a cover picture and products as tiles, the other products as rows", /* Changed on purpose (round 17): Folio, the one with the cover, is retired. */ kinds.join() === "plain/rows", kinds.join())
   for (const t of R42_THEMES) {
     const c = t.theme_config as Record<string, any>
     check(`${t.name}: text and bio read at 4.5:1`, ratio(c.background_color, c.text_color) >= 4.5 && ratio(c.background_color, c.secondary_text_color) >= 4.5)
@@ -47,10 +47,10 @@ async function main() {
     check(`${t.name}: everything it sets beyond the basics is reset by the next theme`, ["product_layout", "cover_image_url", "block_layout", "header_align", "button_hover_fill", "button_hover_text"].filter((k) => k in c).every((k) => k in LOOK_RESET))
   }
   const cover = coverImageOf(R42_THEMES[0].theme_config)!
-  check("Folio's cover is the editor's own library photo", /photo-1507400492013-162706c8c05e/.test(cover) && read("lib/onepage/wallpaper-library.ts").includes("photo-1507400492013-162706c8c05e"))
+  /* Changed on purpose (round 17): Folio is retired; a page that wore it is moved to Paper when read. */ check("Folio's cover is the editor's own library photo", read("lib/onepage/retired-themes.ts").includes("folio: { look: FOLIO_LOOK, to: \"paper\"") && read("lib/onepage/wallpaper-library.ts").includes("photo-1507400492013-162706c8c05e"))
   const merged = withR40Themes([{ id: "a", category: "light" }, { id: "c", category: "dark" }])
   /* Changed on purpose (round AP): Notebook and Cobalt join after them, in their own kinds. */
-  check("Folio joins the light themes and Ledger the dark", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,lagoon,cobalt,halo,aero,y2k2,vaporwave,dune,c,ember,ledger,acid,y2k,aero2,playful2,classic98,arcade,stoicism,atlas" /* Changed on purpose (round AT): Stoicism (was Plaster) and Dune. */ /* Changed on purpose (round AS): Plaster. */ /* Changed on purpose (round W8): Gazette, Halo and Acid. Changed on purpose (round W9): the six W9 themes. Changed on purpose (round W10): the nine W10 themes. */, merged.map((t) => t.id).join(","))
+  /* Changed on purpose (round 17): Folio and Grunge are retired (lib/onepage/retired-themes), so they leave the catalogue's order. */ check("Folio joins the light themes and Ledger the dark", merged.map((t) => t.id).join(",") === "a,gallery,swiss,notebook,gazette,aqua,messenger,playful,aqua2,messenger2,grunge2,lagoon,cobalt,halo,aero,y2k2,vaporwave,dune,c,ember,ledger,acid,y2k,aero2,playful2,classic98,arcade,stoicism,atlas" /* Changed on purpose (round AT): Stoicism (was Plaster) and Dune. */ /* Changed on purpose (round AS): Plaster. */ /* Changed on purpose (round W8): Gazette, Halo and Acid. Changed on purpose (round W9): the six W9 themes. Changed on purpose (round W10): the nine W10 themes. */, merged.map((t) => t.id).join(","))
   const page = { id: "p", theme: { template_id: "folio", ...R42_THEMES[0].theme_config }, settings: {}, draft_blocks: [] } as never
   /* Changed on purpose (round AR): the picker passes the theme the page wore (lib/onepage/theme-apply ownCover), so Folio's own cover is known as Folio's and taken back; a cover the creator chose stays. */
   const after = lookFromTemplate(page, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }, undefined, R42_THEMES[0] as never).theme as unknown as Record<string, unknown>

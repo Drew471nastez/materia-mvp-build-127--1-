@@ -61,7 +61,7 @@ const older = [
 ]
 
 console.log("\nThree more themes, valid and each its own")
-check(`the older catalogue was read (${older.length} themes)`, older.length >= 34) /* Editorial retired */
+/* Changed on purpose (round 17): Folio and Midnight retired. */ check(`the older catalogue was read (${older.length} themes)`, older.length >= 32) /* Editorial retired */
 check("three themes, new ids", W8_THEMES.length === 3 && W8_THEMES.every((t) => !older.some((o) => o.id === t.id)))
 check("in three kinds: light, gradient, dark", W8_THEMES.map((t) => t.category).sort().join() === "dark,gradient,light")
 
@@ -128,7 +128,7 @@ check("Acid: acid lime square buttons two to a row with a hard magenta shadow, a
   buttonShadow(acid as never) === "hard" && acid.button_border_radius === 0 && blockLayoutOf(acid) === "grid" && avatarShapeOf(acid) === "square" && themeProductLayoutOf(acid) === "grid" && acid.background_pattern === "grid")
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }])
 const order = merged.map((t) => t.id).join(",")
-check("each joins the end of its kind", order.includes("notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,b") && order.includes("cobalt,halo,aero,y2k2,vaporwave,dune,c") && order.endsWith("ledger,acid,y2k,aero2,playful2,classic98,arcade,stoicism,atlas") /* Changed on purpose (round AT): Plaster is Stoicism, and Dune ends the gradients. */ /* Changed on purpose (round AS): Plaster. */ /* Changed on purpose (round W10): the W10 themes after the W9 ones. */ /* Changed on purpose (round W9): the six W9 themes join the end of their kinds after these. */, order)
+/* Changed on purpose (round 17): Folio and Grunge are retired (lib/onepage/retired-themes), so they leave the catalogue's order. */ check("each joins the end of its kind", order.includes("notebook,gazette,aqua,messenger,playful,aqua2,messenger2,grunge2,b") && order.includes("cobalt,halo,aero,y2k2,vaporwave,dune,c") && order.endsWith("ledger,acid,y2k,aero2,playful2,classic98,arcade,stoicism,atlas") /* Changed on purpose (round AT): Plaster is Stoicism, and Dune ends the gradients. */ /* Changed on purpose (round AS): Plaster. */ /* Changed on purpose (round W10): the W10 themes after the W9 ones. */ /* Changed on purpose (round W9): the six W9 themes join the end of their kinds after these. */, order)
 
 console.log("\nPicking a theme, and the next")
 const byId = (id: string) => W8_THEMES.find((t) => t.id === id) as unknown as ThemeTemplateLike
