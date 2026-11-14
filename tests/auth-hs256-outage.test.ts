@@ -211,7 +211,8 @@ async function main() {
     const t = Date.now()
     const res = await syncPost(new Request("https://storelib.com/auth/sync-session", { method: "POST", body: form, headers: { origin: "https://storelib.com" } }))
     const took = Date.now() - t
-    const set = written.some((w) => w.startsWith(COOKIE) && w.endsWith("=set"))
+    // Changed on purpose (round AX): on HTTPS the session is written under its __Host- name (lib/supabase/host-session.ts).
+    const set = written.some((w) => (w.startsWith(COOKIE) || w.startsWith(`__Host-${COOKIE}`)) && w.endsWith("=set"))
     check(`${label}: session cookie ${want} (${took}ms)`, want === "written" ? set : !set, written)
     check(`  ${label}: on to /app, not /login`, res.status === 303 && (res.headers.get("location") ?? "").endsWith("/app"), res.headers.get("location"))
     check(`  ${label}: bounded`, took < 3_500, took)

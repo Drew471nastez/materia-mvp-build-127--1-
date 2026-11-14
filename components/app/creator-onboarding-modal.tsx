@@ -63,6 +63,38 @@ import { msg, tt } from "@/lib/i18n/text"
   two pages on top of each other. The footer's buttons, the progress bar and
   the setup screen's lines move on the same curve.
 */
+/** The store address a store name makes: accents folded, at most the 30 characters a handle may have. */
+function storeSlugFrom(name: string): string {
+  return slugifyHandle(name, 30)
+}
+
+/*
+  THE STORE'S HANDLE IS CLAIMED ON THE SERVER (round AX). It becomes
+  storelib.com/<handle>, <handle>.storelib.com and storelib.me/<handle>, and
+  every rule on a name (reserved words, names for a fake sign in page, a name
+  somebody gave up, another website's address) is the server's
+  (lib/profile/move-handle.ts claimStoreHandle). This setup used to write the
+  name straight into profiles.username and creators.slug from the browser,
+  unchecked; the database now refuses that (supabase/sql/run-now/462). The
+  server answers with the handle it gave, which is the one on screen when it
+  is free, else the account's own, else a free one made from it. Null when it
+  could not be reached: the setup goes on and /api/onboarding/finalize claims
+  one for the store it makes.
+*/
+async function claimStoreHandle(wanted: string): Promise<string | null> {
+  try {
+    const res = await fetch("/api/profile/username", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: wanted, store: true, claim: true }),
+    })
+    const data = (await res.json().catch(() => null)) as { username?: string } | null
+    return res.ok && data?.username ? data.username : null
+  } catch {
+    return null
+  }
+}
+
 const STEP_IN_MS = 280
 const STEP_OUT_MS = 160
 const STEP_SHIFT = 16
@@ -1180,6 +1212,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         avatarUrl: saved.avatarUrl,
         socials: saved.socials,
         selectedCategory: saved.selectedCategory,
+        handle: typeof saved.handle === "string" ? saved.handle : undefined,
       })
     } catch {
       // Malformed localStorage — fall back to plan step
@@ -1197,7 +1230,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     // Persist form state in case of unexpected page loss (not strictly needed for free)
     try {
       localStorage.setItem("storelib_onboarding_state", JSON.stringify({
-        displayName, bio, avatarUrl, socials, selectedCategory, planId: "free",
+        displayName, bio, avatarUrl, socials, selectedCategory, planId: "free", handle: getSlug(),
       }))
     } catch {}
     startSetup()
@@ -1208,14 +1241,18 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     if (planCheckoutLoading) return
     setPlanCheckoutLoading(planId)
 
-    const _slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "creator"
+    const wanted = getSlug() || "creator"
+    let _slug = wanted
 
     // Persist form state so we can restore it when the user returns from Stripe.
-    try {
-      localStorage.setItem("storelib_onboarding_state", JSON.stringify({
-        displayName, bio, avatarUrl, socials, selectedCategory, planId,
-      }))
-    } catch {}
+    const remember = () => {
+      try {
+        localStorage.setItem("storelib_onboarding_state", JSON.stringify({
+          displayName, bio, avatarUrl, socials, selectedCategory, planId, handle: _slug,
+        }))
+      } catch {}
+    }
+    remember()
 
     try {
       // The billing API requires a creators record. At this onboarding stage none
@@ -1234,6 +1271,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         .maybeSingle()
 
       if (!existingCreator) {
+        /* The server gives the handle first: a store row may only carry the account's own (part 462). */
+        _slug = (await claimStoreHandle(wanted)) || wanted
+        remember()
         const { error: createError } = await supabase
           .from("creators")
           .insert({
@@ -1315,23 +1355,29 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   useEffect(() => {
     const slug = !slugFollowsName.current && seededSlug.current
       ? seededSlug.current
-      : displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+      : storeSlugFrom(displayName)
     if (!slug) {
       setUsernameAvailable(null)
       return
     }
+    /* Too short to be a handle: the server makes one from it when the store is set up (claimStoreHandle), so the name never stops here. */
+    if (slug.length < 3) {
+      setUsernameAvailable(true)
+      return
+    }
 
+    /*
+      The same question the save asks (GET /api/profile/username): taken
+      anywhere a handle lives, or a name the rules refuse. It used to ask
+      only whether a OnePage had the name.
+    */
     const checkAvailability = async () => {
       setCheckingUsername(true)
       try {
-        // Check onepages table
-        const { data: existing } = await supabase
-          .from("onepages")
-          .select("id")
-          .eq("slug", slug)
-          .single()
-
-        setUsernameAvailable(!existing)
+        const res = await fetch(`/api/profile/username?handle=${encodeURIComponent(slug)}`, { cache: "no-store" })
+        const data = (await res.json().catch(() => null)) as { available?: boolean } | null
+        /* Not answered (signed out, offline, rate limited): the setup claims a free one in the end. */
+        setUsernameAvailable(res.ok && data && typeof data.available === "boolean" ? data.available : true)
       } catch {
         setUsernameAvailable(true)
       } finally {
@@ -1346,7 +1392,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   // Get slug from display name
   const getSlug = () => {
     if (!slugFollowsName.current && seededSlug.current) return seededSlug.current
-    return displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    return storeSlugFrom(displayName)
   }
 
   const uploadAvatarBlob = async (blob: Blob, previewUrl?: string) => {
@@ -1729,6 +1775,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     avatarUrl?: string | null
     socials?: { instagram: string; tiktok: string; youtube: string }
     selectedCategory?: string | null
+    handle?: string
   }) => {
     // Resolve effective values — override data wins over React state.
     const _dn = overrideData?.displayName ?? displayName
@@ -1736,7 +1783,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const _av = overrideData?.avatarUrl !== undefined ? overrideData.avatarUrl : avatarUrl
     const _soc = overrideData?.socials ?? socials
     const _cat = overrideData?.selectedCategory !== undefined ? overrideData.selectedCategory : selectedCategory
-    const _slug = _dn.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    /* The address on screen, or the one saved before the Stripe redirect; the server says which one it is (claimStoreHandle). */
+    const wanted = overrideData?.handle || (overrideData ? storeSlugFrom(_dn) : getSlug())
+    let _slug = wanted
 
     /* From the plan step it crossfades like any other step; back from Stripe it is simply there. */
     showStep(5, "right", !overrideData)
@@ -1754,6 +1803,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error(tt("Not authenticated"))
 
+      /* The handle first, on the server: it moves the username, an existing store's address and its OnePage together. */
+      _slug = (await claimStoreHandle(wanted)) || wanted
+
       // Get creator ID (use maybeSingle to not throw error if no record exists)
       const { data: creator } = await supabase
         .from("creators")
@@ -1767,7 +1819,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         .update({
           is_creator: true,
           welcome_completed: true,
-          username: _slug,
           display_name: _dn,
           avatar_url: _av,
         })
@@ -1778,7 +1829,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         await supabase
           .from("creators")
           .update({
-            slug: _slug,
             bio: _bio,
             niche_tags: _cat ? [_cat] : [],
             onboarding_completed: true,

@@ -124,7 +124,7 @@ export interface StoredItem {
  * without being listed and given a category.
  */
 export const STORED: StoredItem[] = [
-  { name: "sb-*-auth-token", category: "necessary", kind: "cookie", purpose: "Keeps you signed in", lasts: "Until you sign out" },
+  { name: "__Host-sb-*-auth-token", category: "necessary", kind: "cookie", purpose: "Keeps you signed in", lasts: "Until you sign out" },
   { name: "sb-host-only", category: "necessary", kind: "cookie", purpose: "Keeps your sign-in to this address only", lasts: "1 year" },
   { name: "materia_session", category: "necessary", kind: "cookie", purpose: "Recognises the device a purchase was made on, so its downloads open", lasts: "1 year" },
   { name: "storelib_auth_redirect", category: "necessary", kind: "cookie", purpose: "Returns you to the right page after signing in", lasts: "10 minutes" },

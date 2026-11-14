@@ -77,6 +77,7 @@ import { summaryRows } from "@/lib/checkout/summary-rows"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { displayEmail } from "@/lib/businesses/email-alias"
+import { attemptIdOf } from "@/lib/checkout/attempt-id"
 
 export interface SiteCheckoutProps {
   shopId: string
@@ -500,6 +501,8 @@ export function SiteCheckout({
   const secretRef = React.useRef<string | null>(null)
   /* A held checkout's key (a cart that ships): the same while the order is the same, a new one once it changes. */
   const intentKey = React.useRef<{ key: string; sig: string; at: number } | null>(null)
+  /* This page's press of the free order (lib/checkout/attempt-id): sent again after a lost answer, the server answers the basket it already wrote (lib/checkout/free-claim). */
+  const freeAttempt = React.useRef<string | null>(null)
 
   const [arriving, setArriving] = React.useState(false)
   const siteHost = (() => {
@@ -781,7 +784,7 @@ export function SiteCheckout({
     setBusy(true)
     try {
       const body = orderBody()
-      const res = await call<{ thanks?: string }>({ action: "free", ...body, business: null, clientKey: newKey() })
+      const res = await call<{ thanks?: string }>({ action: "free", ...body, business: null, clientKey: newKey(), attemptId: attemptIdOf(freeAttempt) })
       if (!res.ok || !res.data.thanks) throw new Error(ct(res.data.error || "The order could not be finished. Try again."))
       setPaid({ total: 0, free: true })
       go(res.data.thanks)

@@ -49,7 +49,8 @@ process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon"
 process.env.SUPABASE_SERVICE_ROLE_KEY = "service"
 process.env.NEXT_PUBLIC_MAIN_DOMAIN = "storelib.com"
 
-const KEY = "sb-abcdefgh-auth-token"
+/* The name a browser holds since round AX (lib/supabase/host-session.ts); scripts/check-session-cookies-ax.mjs covers the move from the old one. */
+const KEY = "__Host-sb-abcdefgh-auth-token"
 const now = () => Math.floor(Date.now() / 1000)
 const user = { id: "u1", aud: "authenticated", role: "authenticated", email: "owner@example.com", app_metadata: {}, user_metadata: {} }
 const session = (rt, expiresIn) => ({
