@@ -36,7 +36,7 @@ import { bundleProject } from "./bundle"
 import { contentTypeFor } from "./content-type"
 import { VENDOR_PREFIX, publishedDocument } from "./preview-document"
 import { readProject } from "./projects"
-import { allocateSiteSlug, siteSlugError } from "./slug"
+import { allocateSiteSlug, newSiteSlugError, siteSlugError } from "./slug"
 import type { ProjectFiles, Site } from "./types"
 
 export const DEPLOYMENT_BUCKET = "site-deployments"
@@ -125,7 +125,15 @@ export async function publishPreflight(): Promise<string | null> {
  * a separate, deliberate action.
  */
 export async function ensureSlug(site: Site): Promise<string> {
-  if (site.slug && !siteSlugError(site.slug)) return site.slug
+  /*
+    An address already published keeps working, whatever it says. One that
+    was never published is still being chosen, so the phishing-name rule
+    applies to it too (lib/sites/slug.ts newSiteSlugError, round AW): a site
+    named "PayPal Login" before that rule existed does not go live as
+    paypal-login.storelib.com.
+  */
+  const keeps = site.status === "draft" ? newSiteSlugError : siteSlugError
+  if (site.slug && !keeps(site.slug)) return site.slug
 
   const admin = createAdminClient()
   const slug = await allocateSiteSlug(site.name, async (candidate) => {

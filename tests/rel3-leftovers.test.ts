@@ -206,7 +206,9 @@ async function cspStaysReportOnly() {
   const vercel = JSON.parse(read("vercel.json")) as { headers: { source: string; headers: { key: string; value: string }[] }[] }
   const keys = vercel.headers.flatMap((h) => h.headers.map((x) => x.key))
   const { CONTENT_SECURITY_POLICY, CSP_REPORT_PATH } = await import("@/lib/security/csp")
-  check("vercel.json sends the policy report only, and enforces none", keys.includes("Content-Security-Policy-Report-Only") && !keys.includes("Content-Security-Policy"))
+  /* Changed on purpose (round AW): /media/ answers carry an enforced `sandbox` of their own (a stored SVG never runs as storelib.com), so "enforces none" became "the page policy is never the enforced one, and the only enforced policy is that sandbox, on /media/ alone". */
+  const enforced = vercel.headers.flatMap((h) => h.headers.filter((x) => x.key === "Content-Security-Policy").map((x) => ({ source: h.source, value: x.value })))
+  check("vercel.json sends the policy report only, and enforces none", keys.includes("Content-Security-Policy-Report-Only") && enforced.every((e) => e.value === "sandbox" && e.source.startsWith("/media/")) && !enforced.some((e) => e.value.includes("default-src")))
   check("  the same policy as lib/security/csp.ts, reporting to /api/csp-report", read("vercel.json").includes(CONTENT_SECURITY_POLICY) && CONTENT_SECURITY_POLICY.endsWith(`report-uri ${CSP_REPORT_PATH}`))
   const doc = read("docs/reliability/SECURITY.md")
   const note = doc.slice(doc.indexOf("## 6. CSP readiness"))
