@@ -28,7 +28,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import {
   EverythingInOnePlace,
-  EVERYTHING_ONEPAGES,
+  EVERYTHING_SHOTS,
   EVERYTHING_SLIDES,
   EVERYTHING_STORES,
   EVERYTHING_STRIP,
@@ -72,30 +72,32 @@ const strip = everything.slice(everything.indexOf('class="ev-vis ev-s"'), everyt
 console.log("\n── Build a store that looks like you: stores and real OnePages, a picture only ──")
 check("no storelib.me address in the section, in its markup or its source", !/storelib\.me/i.test(everything) && !/storelib\.me/i.test(src.everything))
 check("no address of any kind in the strip (no URL bar over a page)", !/https?:|www\.|\.com|\.me\b|ev-(op|st)-(url|bar-url|chrome|address)/i.test(strip.replace(/src="[^"]*"/g, "")))
-check("OnePages stand between the stores", EVERYTHING_ONEPAGES.length >= 3 && EVERYTHING_STRIP.length === EVERYTHING_STORES.length + EVERYTHING_ONEPAGES.length)
+/* Changed on purpose (landing round 4): the owner asked for stores, communities on a phone and OnePages with their share and subscribe buttons, each card whole, and a strip that can be dragged. So the pictures between the stores are OnePages and a community at a phone's first screen (EVERYTHING_SHOTS, public/home/everything/strip), and the strip takes the pointer (only the strip: the cards inside take none) and drifts as a Web Animation from script. tests/home-landing-topa4.test.ts pins the rest. */
+check("pictures stand between the stores", EVERYTHING_SHOTS.length >= 3 && EVERYTHING_STRIP.length === EVERYTHING_STORES.length + EVERYTHING_SHOTS.length)
 check(
-  "a store, then a OnePage, taking turns",
-  EVERYTHING_STRIP.slice(0, EVERYTHING_ONEPAGES.length * 2).every((item, i) => "onepage" in item === (i % 2 === 1)),
+  "a store, then a picture, taking turns",
+  EVERYTHING_STRIP.slice(0, EVERYTHING_SHOTS.length * 2).every((item, i) => "src" in item === (i % 2 === 1)),
 )
 check(
-  "each OnePage is a capture of a live page that exists, at a phone's shape, and small",
-  EVERYTHING_ONEPAGES.every((p) => {
-    const file = join(root, "public", p.onepage)
-    return p.onepage.startsWith("/home/onepage/") && existsSync(file) && statSync(file).size < 120_000 && p.h / p.w > 1.7
+  "each picture is a capture that exists, at a phone screen's shape (390 by 650), and small",
+  EVERYTHING_SHOTS.every((p) => {
+    const file = join(root, "public", p.src)
+    return p.src.startsWith("/home/everything/strip/") && existsSync(file) && statSync(file).size < 120_000
   }),
 )
-check("a OnePage in the strip is its picture and nothing else", (strip.match(/class="ev-st ev-op"[^>]*><img[^>]*class="ev-op-img"[^>]*><\/div>/g) ?? []).length === EVERYTHING_ONEPAGES.length * 2)
-check("the strip takes no pointer and no selection", /pointer-events:none/.test(rule(evCss, ".ev-s")) && /user-select:none/.test(rule(evCss, ".ev-s")))
+check("a picture in the strip is its picture and nothing else", (strip.match(/class="ev-st ev-op"[^>]*><img[^>]*class="ev-op-img"[^>]*><\/div>/g) ?? []).length === EVERYTHING_SHOTS.length * 2)
+check("the cards in the strip take no pointer, and nothing is selectable", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && /user-select:none/.test(rule(evCss, ".ev-s")))
 check("the strip is hidden from assistive tech and holds nothing that takes focus", /class="ev-vis ev-s" aria-hidden="true"/.test(everything) && !/<(a|button|input|select|textarea)\b|tabindex/i.test(strip))
 check("no hover style on anything in the strip", !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))
-check("the strip still drifts in one loop, by one set's width", /@keyframes ev-stores\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(-50%,0,0\)\}\}/.test(evCss) && /class="ev-s-track ev-loop"/.test(everything))
+check("the strip still drifts in one loop, by one set's width", /el\.animate\(\[\{ transform: `translate3d\(\$\{-x\}px,0,0\)` \}, \{ transform: `translate3d\(\$\{-\(x \+ loop\)\}px,0,0\)` \}\]/.test(src.everything) && /class="ev-s-track"/.test(everything))
 
 console.log("\n── Support: three requests, none about missing money ──")
-const supportWords = EVERYTHING_SUPPORT.map((r) => [r.title, r.sub, r.ask.body, r.answer.body].join(" ")).join(" ")
-check("three requests taking turns", EVERYTHING_SUPPORT.length === 3 && /class="ev-c-clock ev-loop"/.test(everything))
+/* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2 (one thread at a time, photos and Storelib's mark), without the From buyers / Storelib switch. Three true requests still take turns, none about money. */
+const supportWords = EVERYTHING_SUPPORT.map((r) => [r.title, r.sub, r.ask, r.reply].join(" ")).join(" ")
+check("three requests taking turns", EVERYTHING_SUPPORT.length === 3 && (everything.match(/class="ev-c-thread ev-loop"/g) ?? []).length === 3)
 check("no request about a payout or a bank", !/payout|bank|hasn't arrived|\$\d/i.test(supportWords), supportWords.match(/payout|bank|\$\d[\d,.]*/gi))
-check("the Storelib inbox's first request is about bringing subscribers over", EVERYTHING_SUPPORT[0].inbox === "storelib" && /subscribers/i.test(EVERYTHING_SUPPORT[0].title) && /CSV/.test(EVERYTHING_SUPPORT[0].answer.body))
-check("both inboxes still have a request", EVERYTHING_SUPPORT.some((r) => r.inbox === "buyers") && EVERYTHING_SUPPORT.filter((r) => r.inbox === "storelib").length === 2)
+check("the first request is Storelib's, about bringing subscribers over", EVERYTHING_SUPPORT[0].title === "Storelib support" && /subscribers/i.test(EVERYTHING_SUPPORT[0].sub) && /CSV/.test(EVERYTHING_SUPPORT[0].reply))
+check("a buyer's request is there too", EVERYTHING_SUPPORT.some((r) => r.title === "From a buyer"))
 
 console.log("\n── The digital product is a real one ──")
 const digital = EVERYTHING_SLIDES.find((s) => s.tab === "Digital")
@@ -139,7 +141,7 @@ const storeProducts = EVERYTHING_STORES.flatMap((s) => s.products)
 check("the stores sell both kinds", storeProducts.some((p) => p.badge === "Physical") && storeProducts.some((p) => p.badge === "Digital") && storeProducts.some((p) => p.badge === "Course") && storeProducts.some((p) => p.badge === "Community"))
 
 console.log("\n── The words ──")
-const words = [EVERYTHING_SUPPORT.map((r) => `${r.title} ${r.ask.body} ${r.answer.body}`).join(" "), BUSINESS_SLIDES.map((s) => `${s.label} ${s.line} ${s.alt}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
+const words = [EVERYTHING_SUPPORT.map((r) => `${r.title} ${r.ask} ${r.reply}`).join(" "), BUSINESS_SLIDES.map((s) => `${s.label} ${s.line} ${s.alt}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
 check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|passive income|fans?)\b/i.test(words))
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -56,7 +56,8 @@ const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|
 const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ")
 
 const SECTIONS: Array<{ file: string; name: string; C: ComponentType; id: string; heading: string }> = [
-  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Make the work. Skip the busywork." },
+  /* Changed on purpose (landing round 4): the owner found "Make the work. Skip the busywork." too broad and vague; the line now says what the four cards show. */
+  { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Sell anything, anywhere. Support included." },
   { file: "audience-ownership", name: "AudienceOwnership", C: AudienceOwnership, id: "audience-ownership", heading: "Your audience belongs to you." },
   { file: "analytics-showcase", name: "AnalyticsShowcase", C: AnalyticsShowcase, id: "analytics-showcase", heading: "Know what's working, as it happens." },
   { file: "integrations-section", name: "IntegrationsSection", C: IntegrationsSection, id: "integrations", heading: "Connect your favorite apps" },
