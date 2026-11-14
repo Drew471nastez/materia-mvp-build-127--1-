@@ -1389,6 +1389,8 @@ const SUITES = [
   "tests/home-landing-lower.test.ts",
   /* Landing round 3: the lower sections on their new grounds (dark cards on purple, the tab family, inert mocks). */
   "tests/home-landing-lower3.test.ts",
+  /* Landing round 4, the lower sections: audience lighter (one card, three plain rows); analytics without sourdough (a LUT pack search), a dot grid on the dark SEO card, an engine switcher that plays and can be pressed with light in each engine's colours, fewer chips with depth; the map's product and Buy now language change with the country, larger on a phone; integrations' fades lighter and narrower, no bump, nothing square behind a turn; earnings without the plan switch or the black card; the AI terminal a quarter written with a preview, words unselectable, the card wider. */
+  "tests/home-landing-lower4.test.ts",
   /* Landing round: the showcase drags and settles on a glide (autoplay kept), and "Make the work" shows real products (no Golden Hour preset), a calm community, the tee on a grey tile and a continuous storefront rail. */
   "tests/home-landing-top.test.ts",
   /* Landing round 3, the top sections: the store strip has real OnePages and no address, and takes no pointer; no support request about a payout; the digital product is a LUT pack (and a sample pack in the business section); the ideas and business tabs are of Make the work's family; the business section reads on white; half of the examples ship. */

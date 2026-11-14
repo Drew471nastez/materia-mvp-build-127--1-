@@ -17,35 +17,98 @@
     border-radius: 21px;
   }
 }
-/* What stays yours: four plain words in a row, hairlines between them, no pills (landing round 3). */
-.yours {
+/*
+  Landing round 4: beside the composer, three plain rows with a hairline
+  between them, no cards, in the page's own type sizes.
+*/
+.items {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.item {
+  padding: 22px 0;
+  border-top: 1px solid #ececf0;
+}
+.item:first-child {
+  padding-top: 4px;
+  border-top: 0;
+}
+.itemTitle {
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #0f0e13;
+}
+.itemText {
+  margin-top: 6px;
+  max-width: 46ch;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #55525e;
+}
+.faces {
+  display: flex;
+}
+.faces img {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: #eceaf0;
+  box-shadow: 0 0 0 2.5px #fff;
+}
+.faces img + img {
+  margin-left: -9px;
+}
+/* The newest sign-up: every name in the page, the newest faded in. */
+.newest {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 0;
-  margin: 0;
+}
+.newest > span {
+  grid-area: 1 / 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  transition:
+    opacity 400ms ease-out,
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.newest > span[data-on] {
+  opacity: 1;
+  transform: none;
+}
+.platforms {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 380px;
   padding: 0;
   list-style: none;
-  font-size: 14px;
+  text-align: center;
+}
+.platformIcon {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 11px;
+  box-shadow:
+    0 0 0 1px rgba(16, 24, 40, 0.08),
+    0 2px 6px -2px rgba(16, 24, 40, 0.12);
+}
+.lockIn {
+  padding-top: 20px;
+  border-top: 1px solid #ececf0;
+  font-size: clamp(17px, 1.35vw, 19px);
   font-weight: 500;
-  color: #3f3f46;
-}
-.yours li {
-  padding: 2px 0;
-}
-@media (min-width: 640px) {
-  .yours {
-    display: flex;
-    gap: 0;
-  }
-  .yours li {
-    padding: 2px 18px;
-    border-left: 1px solid #dcdce0;
-    white-space: nowrap;
-  }
-  .yours li:first-child {
-    padding-left: 0;
-    border-left: 0;
-  }
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: #0f0e13;
 }
 
 /* The composer runs off the card's bottom edge, a fixed height so nothing moves (landing round: smaller, the owner found it took too much of the card). */
@@ -205,137 +268,18 @@
   transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1) 200ms;
 }
 
-/* New subscribers slide in at the top of the list; the newest one is lit. */
-.row {
-  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.05), 0 1px 2px rgba(16, 24, 40, 0.04);
-}
-.row[data-fresh] {
-  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.28), 0 8px 20px -12px rgba(124, 58, 237, 0.45);
-}
-.list[data-shift="0"] {
-  animation: shiftA 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.list[data-shift="1"] {
-  animation: shiftB 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.list[data-shift="0"] > .row:first-child {
-  animation: freshA 650ms ease-out both;
-}
-.list[data-shift="1"] > .row:first-child {
-  animation: freshB 650ms ease-out both;
-}
-@keyframes shiftA {
-  from {
-    transform: translate3d(0, -84px, 0);
-  }
-  to {
-    transform: none;
-  }
-}
-@keyframes shiftB {
-  from {
-    transform: translate3d(0, -84px, 0);
-  }
-  to {
-    transform: none;
-  }
-}
-@keyframes freshA {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes freshB {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* Sync: a trunk from Storelib, a bar, and a drop to each platform. */
-.tree {
-  position: relative;
-  padding-top: 16px;
-}
-.trunk {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 1px;
-  height: 16px;
-  background: #d9d3ea;
-}
-.bar {
-  position: absolute;
-  top: 16px;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: #d9d3ea;
-}
-.drop {
-  position: relative;
-  display: block;
-  width: 1px;
-  height: 22px;
-  margin-bottom: 6px;
-  overflow: hidden;
-  background: #d9d3ea;
-}
-.dot {
-  position: absolute;
-  left: -1.5px;
-  top: 0;
-  width: 4px;
-  height: 8px;
-  border-radius: 4px;
-  background: #7c3aed;
-  opacity: 0;
-  animation: flow 2.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
-  animation-delay: calc(var(--k, 0) * 0.32s);
-}
-@keyframes flow {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, -8px, 0);
-  }
-  15% {
-    opacity: 1;
-  }
-  45% {
-    opacity: 1;
-    transform: translate3d(0, 22px, 0);
-  }
-  46%,
-  100% {
-    opacity: 0;
-    transform: translate3d(0, 22px, 0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .window,
   .fill,
   .face,
   .progress,
-  .swap > span {
+  .swap > span,
+  .newest > span {
     transition: none !important;
   }
   .caret,
   .typeCover,
-  .typeCaret,
-  .list,
-  .list > .row:first-child,
-  .dot {
+  .typeCaret {
     animation: none;
   }
 }

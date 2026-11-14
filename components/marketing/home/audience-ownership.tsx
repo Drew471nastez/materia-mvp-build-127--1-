@@ -9,8 +9,8 @@
     Preview, then the email itself. Once sent, an email's figures are the
     ones Emails lists for it: delivered, opened and clicked, with the open
     and click rates (app/(storelib)/app/emails/emails-home.tsx).
-  - new subscribers as Contacts sees them: a name, an address and the door
-    they came in by (lib/contacts/contact-source.ts: OnePage, Website,
+  - new subscribers as Contacts sees them: a name and the door they came
+    in by (lib/contacts/contact-source.ts: OnePage, Website,
     Checkout, a free download).
   - the five email platforms lib/integrations/catalog syncs today, Klaviyo,
     Omnisend, Brevo, MailerLite and Kit, in their own marks
@@ -26,14 +26,18 @@
   envelope turns into the figures. Off screen, nothing runs.
 
   Landing round 3: the section sits on the white sheet, so its cards are one
-  neutral soft grey (no violet light in a corner, no lilac card); what stays
-  yours is four plain words in a row, not pills; and the composer, the list,
-  the file and the tree are pictures, so nothing in them answers the pointer.
+  neutral soft grey; and the composer and the small pictures beside it are
+  pictures, so nothing in them answers the pointer.
+
+  Landing round 4, the owner: smaller, simpler, lighter, closer to the rest
+  of the page. One card (the composer), and beside it three plain rows with
+  hairlines between them and no cards: one list from every sign-up (the
+  count, real faces, the newest sign-up), the email platforms it syncs with
+  in their own marks, and the CSV download, then the no lock-in line.
 */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
-import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { PlatformCount, usePlatformSection } from "./platform-motion"
 import { EMAIL_PLATFORMS } from "./email-platform-logos"
 import m from "./platform.module.css"
@@ -226,59 +230,45 @@ const PEOPLE = [
   { name: "Amara Okafor", email: "amara.okafor@gmail.com", via: "Free download", from: "LUT pack", photo: "amara" },
   { name: "Inès Laurent", email: "ines.laurent@orange.fr", via: "OnePage", from: "from TikTok", photo: "ines" },
 ]
-const WHEN = ["Just now", "2 min ago", "6 min ago", "11 min ago"]
 
-function Subscribers({ live, seen }: { live: boolean; seen: boolean }) {
-  const [head, setHead] = useState(0)
+/*
+  One list, from every door: the count, five real faces, and the newest
+  sign-up named under them. Every name is in the page from the start; the
+  newest is faded in (opacity and transform), so a new subscriber inserts
+  nothing and the site's :has() rules never restyle the document for one.
+*/
+function OneList({ live, seen }: { live: boolean; seen: boolean }) {
   const [added, setAdded] = useState(0)
   useEffect(() => {
     if (!live) return
-    const id = window.setInterval(() => {
-      setHead((h) => (h + 1) % PEOPLE.length)
-      setAdded((a) => a + 1)
-    }, 2800)
+    const id = window.setInterval(() => setAdded((a) => a + 1), 2800)
     return () => window.clearInterval(id)
   }, [live])
-  /*
-    Four rows that stay in the page: each newcomer shifts the words down a
-    row and the list slides in from above (the animation restarts by
-    swapping between two identical keyframes). Nothing is inserted, so the
-    site's :has() rules never restyle the document for a new subscriber.
-  */
-  const rows = [0, 1, 2, 3].map((k) => PEOPLE[(head - k + PEOPLE.length * 4) % PEOPLE.length])
+  const head = added % PEOPLE.length
+  const faces = PEOPLE.slice(0, 5)
   return (
-    <div className={`${s.panel} ${m.reveal} flex h-full flex-col p-5 sm:p-7`} style={{ "--i": 1 } as CSSProperties}>
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h3 className="text-[15px] font-medium text-[#55525e]">Subscribers</h3>
-          <div className="mt-1 text-[clamp(32px,3.4vw,42px)] font-semibold leading-none tracking-[-0.045em] text-[#0f0e13]">
-            <PlatformCount value={AUDIENCE + added} from={AUDIENCE - 900} start={seen} duration={1800} />
-          </div>
-        </div>
-        <span className="mb-0.5 inline-flex items-center rounded-full bg-[#e9f7ef] px-2.5 py-1 text-[12px] font-medium text-[#15803d]">+{n(312 + added)} this week</span>
+    <div className={s.item}>
+      <h3 className={s.itemTitle}>One list from every sign-up</h3>
+      <div className={`${s.mock} mt-4 flex flex-wrap items-center gap-x-4 gap-y-3`} aria-hidden="true">
+        <span className={s.faces}>
+          {faces.map((r) => (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img key={r.photo} src={`${IMG}/people/${r.photo}.webp`} alt="" width={36} height={36} decoding="async" />
+          ))}
+        </span>
+        <span className="text-[clamp(24px,2.2vw,30px)] font-semibold leading-none tracking-[-0.04em] text-[#0f0e13]">
+          <PlatformCount value={AUDIENCE + added} from={AUDIENCE - 900} start={seen} duration={1800} />
+        </span>
+        <span className="inline-flex items-center rounded-full bg-[#e9f7ef] px-2.5 py-1 text-[12px] font-medium text-[#15803d]">+{n(312 + added)} this week</span>
       </div>
-      <ul className={`${s.list} ${s.mock} ${m.loop} mt-5 grid gap-2`} data-shift={added ? added % 2 : undefined} aria-hidden="true">
-        {rows.map((r, k) => (
-          <li key={k} className={`${s.row} flex items-center gap-3 rounded-[13px] bg-white px-3 py-2.5`} data-fresh={k === 0 && added > 0 ? "" : undefined}>
-            {/* A real face, as Contacts shows a person's picture. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`${IMG}/people/${r.photo}.webp`} alt="" width={36} height={36} decoding="async" className="h-9 w-9 shrink-0 rounded-full bg-[#eceaf0] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.06)]" />
-            <span className="min-w-0 flex-1">
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-[13.5px] font-medium text-[#14131a]">{r.name}</span>
-                <span className="shrink-0 text-[11.5px] text-[#8a8794]">{WHEN[k]}</span>
-              </span>
-              <span className="block truncate text-[12px] text-[#6b6875]">{r.email}</span>
-              <span className="mt-1 block truncate text-[11.5px] text-[#55525e]">
-                <span className="font-medium text-[#14131a]">{r.via}</span> · {r.from}
-              </span>
-            </span>
-          </li>
+      <div className={`${s.mock} ${s.newest} mt-3 text-[13px] text-[#55525e]`} aria-hidden="true">
+        {PEOPLE.map((r, k) => (
+          <span key={r.photo} data-on={k === head || undefined}>
+            <span className="font-medium text-[#14131a]">{r.name}</span> joined by {r.via} · {r.from}
+          </span>
         ))}
-      </ul>
-      <p className="mt-auto pt-5 text-[14px] leading-[1.55] text-[#55525e]">
-        Every sign-up form, checkout and free download adds to one list. Only people who said yes get your emails.
-      </p>
+      </div>
+      <p className={s.itemText}>Sign-up forms, checkouts and free downloads all add to it. Only people who said yes get your emails.</p>
     </div>
   )
 }
@@ -286,95 +276,41 @@ function Subscribers({ live, seen }: { live: boolean; seen: boolean }) {
 /* ── Sync to an email platform ───────────────────────────────────────── */
 function Sync() {
   return (
-    <div className={`${s.panel} ${m.reveal} flex h-full flex-col p-5 sm:p-7`} style={{ "--i": 2 } as CSSProperties}>
-      <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#0f0e13]">Already on an email platform?</h3>
-      <p className="mt-1.5 text-[14.5px] leading-[1.55] text-[#55525e]">Subscribers, buyers and every order go out. Unsubscribes come back.</p>
-      <div className={`${s.mock} mt-auto pt-6`} aria-hidden="true">
-        <div className="flex justify-center">
-          <span className="relative z-[1] block h-11 w-11">
-            <StorelibLogo size={44} alt="" />
-          </span>
-        </div>
-        {/* The branches: a trunk, a bar and a drop to each platform. A dot runs down each drop. */}
-        <div className={s.tree}>
-          <span className={s.trunk} />
-          <span className={s.bar} />
-          <ul className="grid grid-cols-5">
-            {EMAIL_PLATFORMS.map(({ name, Logo }, k) => (
-              <li key={name} className="flex flex-col items-center">
-                <span className={s.drop}>
-                  <span className={`${s.dot} ${m.loop}`} style={{ "--k": k } as CSSProperties} />
-                </span>
-                <span className="block h-11 w-11 overflow-hidden rounded-[12px] shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_2px_6px_-2px_rgba(16,24,40,0.12)] sm:h-12 sm:w-12">
-                  <Logo className="block h-full w-full" />
-                </span>
-                <span className="mt-2 text-[11.5px] font-medium text-[#2a2833] sm:text-[12.5px]">{name}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+    <div className={s.item}>
+      <h3 className={s.itemTitle}>Already on an email platform?</h3>
+      <p className={s.itemText}>Subscribers, buyers and every order go out. Unsubscribes come back.</p>
+      <ul className={`${s.mock} ${s.platforms} mt-4`} aria-hidden="true">
+        {EMAIL_PLATFORMS.map(({ name, Logo }) => (
+          <li key={name} title={name}>
+            <span className={s.platformIcon}>
+              <Logo className="block h-full w-full" />
+            </span>
+            <span className="mt-1.5 block text-[11.5px] font-medium text-[#55525e]">{name}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
 
 /* ── Export, and no lock-in ──────────────────────────────────────────── */
-const CSV_ROWS = [
-  ["sofia.marin@gmail.com", "Sofia Marín", "OnePage"],
-  ["jonah.reyes@outlook.com", "Jonah Reyes", "Checkout"],
-  ["aiko.tanaka@icloud.com", "Aiko Tanaka", "Free download"],
-]
-
 function Export() {
   return (
-    <div className={`${s.panel} ${m.reveal} flex h-full flex-col gap-6 p-5 sm:p-7 md:flex-row md:items-center`} style={{ "--i": 3 } as CSSProperties}>
-      <div className="min-w-0 md:w-[46%] md:shrink-0">
-        <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#0f0e13]">Download every contact, any time</h3>
-        <p className="mt-1.5 text-[14.5px] leading-[1.55] text-[#55525e]">Names, emails, tags and where each person came from, as a CSV. Bring a list in the same way.</p>
-        <span className={`${s.mock} mt-5 inline-flex h-9 items-center gap-2 rounded-lg border border-[#e2e4e8] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e]`} aria-hidden="true">
+    <div className={s.item}>
+      <h3 className={s.itemTitle}>Download every contact, any time</h3>
+      <p className={s.itemText}>Names, emails, tags and where each person came from, as a CSV. Bring a list in the same way.</p>
+      <div className={`${s.mock} mt-4 flex flex-wrap items-center gap-2.5`} aria-hidden="true">
+        <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e2e4e8]">
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" />
           </svg>
           Export CSV
         </span>
-      </div>
-      {/* contacts.csv, opened: the columns the export writes. */}
-      <div className={`${s.mock} min-w-0 flex-1 overflow-hidden rounded-xl bg-white shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_12px_28px_-18px_rgba(24,24,27,0.2)]`} aria-hidden="true">
-        <div className="flex items-center gap-2 border-b border-[#eef0f2] px-3.5 py-2.5">
+        <span className="inline-flex h-9 items-center gap-2 text-[12.5px] text-[#55525e]">
           <span className="flex h-6 w-5 items-center justify-center rounded-[4px] bg-[#15803d] text-[7px] font-bold text-white">CSV</span>
-          <span className="text-[12.5px] font-medium text-[#1a1a2e]">contacts.csv</span>
-          <span className="ml-auto text-[11.5px] text-[#6b7280]">{n(AUDIENCE)} rows</span>
-        </div>
-        <table className="w-full table-fixed font-mono text-[10.5px] text-[#374151] sm:text-[11px]">
-          <thead className="bg-[#fafafb] text-left text-[#6b7280]">
-            <tr>
-              <th className="w-[60%] truncate px-3.5 py-1.5 font-medium">email</th>
-              <th className="truncate px-2 py-1.5 font-medium">source</th>
-            </tr>
-          </thead>
-          <tbody>
-            {CSV_ROWS.map((r) => (
-              <tr key={r[0]} className="border-t border-[#f1f2f4]">
-                <td className="truncate px-3.5 py-1.5">{r[0]}</td>
-                <td className="truncate px-2 py-1.5">{r[2]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          contacts.csv · {n(AUDIENCE)} rows
+        </span>
       </div>
-    </div>
-  )
-}
-
-function NoLockIn() {
-  return (
-    <div className={`${s.panel} ${m.reveal} flex h-full flex-col justify-between gap-5 p-5 sm:p-7 lg:flex-row lg:items-center`} style={{ "--i": 4 } as CSSProperties}>
-      <div className="text-[clamp(22px,2.2vw,28px)] font-medium leading-[1.18] tracking-[-0.03em] text-[#0f0e13]">No lock-in. If you ever leave, your list leaves with you.</div>
-      <ul className={`${s.yours} lg:shrink-0`} aria-label="What leaves with you">
-        {["Contacts", "Order history", "Sign-up forms", "Sending domain"].map((t) => (
-          <li key={t}>{t}</li>
-        ))}
-      </ul>
     </div>
   )
 }
@@ -387,34 +323,29 @@ export function AudienceOwnership() {
       ref={ref}
       id="audience-ownership"
       aria-labelledby="audience-ownership-title"
-      className={`${m.root} bg-white px-[var(--landing-gutter,22px)] py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#0f0e13]`}
+      className={`${m.root} bg-white py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#0f0e13]`}
     >
-      <div className="mx-auto max-w-[1400px]">
+      <div className="mx-auto max-w-[1400px] px-[var(--landing-gutter,22px)]">
         <div className="mb-10 max-w-[920px] sm:mb-14">
           <StoryHeading id="audience-ownership-title" text="Your audience belongs to you." accent={["belongs", "to", "you"]} />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-12">
+        <div className="grid items-stretch gap-4 lg:grid-cols-12 lg:gap-10">
           <div className={`${s.panel} ${m.reveal} flex flex-col px-3 pt-6 sm:px-8 sm:pt-9 lg:col-span-7`} style={{ "--i": 0 } as CSSProperties}>
             <div className="mb-6 px-2 sm:px-0">
               <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#0f0e13]">Write once, reach everyone</h3>
-              <p className="mt-1.5 max-w-[48ch] text-[14.5px] leading-[1.55] text-[#55525e]">Campaigns and automations from the same place as your products, with opens and clicks counted for you.</p>
+              <p className="mt-1.5 max-w-[48ch] text-[14.5px] leading-[1.55] text-[#55525e]">Campaigns from the same place as your products, with opens and clicks counted for you.</p>
             </div>
             <div className={s.bleed}>
               <Composer live={live} reduced={reduced} />
             </div>
           </div>
-          <div className="lg:col-span-5">
-            <Subscribers live={live} seen={seen} />
-          </div>
-          <div className="lg:col-span-7">
-            <Export />
-          </div>
-          <div className="lg:col-span-5">
+          {/* Three plain rows, no cards: what the list is, where it can go, and that it leaves with you. */}
+          <div className={`${s.items} ${m.reveal} pt-6 lg:col-span-5 lg:pt-0`} style={{ "--i": 1 } as CSSProperties}>
+            <OneList live={live} seen={seen} />
             <Sync />
-          </div>
-          <div className="lg:col-span-12">
-            <NoLockIn />
+            <Export />
+            <p className={s.lockIn}>No lock-in. If you ever leave, your list leaves with you.</p>
           </div>
         </div>
       </div>

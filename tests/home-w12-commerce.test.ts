@@ -25,7 +25,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { HowItWorks, HOW_PRODUCTS, HOW_HEADING } from "@/components/marketing/home/how-it-works"
 import { CheckoutScene, CHECKOUT_STYLES } from "@/components/marketing/home/checkout-scene"
-import { SellEverywhereMap, SELL_MAP, SELL_COUNTRIES, SELL_BUY_LABEL, sellMapPath } from "@/components/marketing/home/sell-everywhere-map"
+import { SellEverywhereMap, SELL_MAP, SELL_COUNTRIES, sellMapPath } from "@/components/marketing/home/sell-everywhere-map"
 import { EarningsCalculator, commerceMonth } from "@/components/marketing/home/earnings-calculator"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_PRO_MONTHLY_CENTS, COMMERCE_PRODUCTS, commerceSale, commerceUsd } from "@/components/marketing/home/commerce-kit"
 import { PRO_PRICE_CENTS } from "@/lib/billing/plans"
@@ -122,25 +122,29 @@ console.log("\nCommerce: the sections render on the server")
   check("map: its heading and a labelled map", map.includes("Your store never closes.") && !/\bfans?\b/i.test(map.replace(/<style[\s\S]*?<\/style>/g, "")) && /role="img" aria-label="A world map/.test(map))
   check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
   /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
-  check("map: orders in the buyers' money, as checkout charges it", ["$64.00", "£52.00", "¥9,800", "C$88.00", "59,00 €", "A$98.00"].every((p) => map.includes(p)) && ["USD", "GBP", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))
+  /* Changed on purpose (landing round 4): the owner asked for the product to change with the country, so each country has its own product and price (USD, EUR, JPY, CAD, AUD). */
+  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "22,00 €", "¥4,800", "C$38.00", "24,00 €", "A$45.00"].every((p) => map.includes(p)) && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))
   {
-    /* Changed on purpose (landing round): the owner did not want the button translated, so it says the storefront's "Buy now" in every country. */
-    check("map: the button is Buy now, in English, whatever the country", SELL_BUY_LABEL === "Buy now" && (map.match(/class="cmm-buy">([^<]*)</g) ?? []).every((b) => b.endsWith(">Buy now<")) && !/Jetzt kaufen|Acheter|Comprar|Acquista/.test(map))
+    /* Changed on purpose (landing round 4): the owner reversed the first round's ask; the button speaks the country's language (Jetzt kaufen, 今すぐ購入, Acheter). */
+    check("map: the button in the buyer's language", ["Buy now", "Jetzt kaufen", "今すぐ購入", "Acheter"].every((w) => map.includes(`>${w}</span>`)))
     check("map: real flags for each country, from the site's own flag files", SELL_COUNTRIES.every((c) => map.includes(`/flags/${c.code}.svg`) && existsSync(join(ROOT, "public/flags", `${c.code}.svg`))))
     /* Changed on purpose (landing round): the owner asked for a little less rounding (32px to 31px). */
     check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:31px/.test(src.map) && /\.cmm-wrap\{max-width:1400px/.test(src.map))
     check("map: the country changes only while the section is on screen, and never under reduced motion", /if \(!live\) return/.test(src.map) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(src.map) && /window\.clearInterval/.test(src.map))
-    check("map: the product photo exists", /const PHOTO = "\/home\/sell-map\/ridge-hoodie\.webp"/.test(src.map) && existsSync(join(ROOT, "public/home/sell-map/ridge-hoodie.webp")))
+    /* Changed on purpose (landing round 4): one product photograph per country. */
+    check("map: each product photo exists", SELL_COUNTRIES.every((c) => existsSync(join(ROOT, "public/home/sell-map", c.photo)) && map.includes(`/home/sell-map/${c.photo}`)))
   }
 
   const earn = renderToStaticMarkup(createElement(EarningsCalculator))
   check("calculator: its heading", earn.includes("See what your work could earn."))
   check("calculator: Start earning goes to /signup", /<a[^>]*href="\/signup"[^>]*>Start earning/.test(earn))
-  check("calculator: price and sales sliders, typed fields, a plan choice", (earn.match(/type="range"/g) ?? []).length === 2 && earn.includes('aria-label="Selling price in dollars"') && earn.includes('aria-label="Sales a day"') && earn.includes(">Pro<"))
+  /* Changed on purpose (landing round 4): the owner removed the Free and Pro plan choice. */
+  check("calculator: price and sales sliders, typed fields, no plan choice", (earn.match(/type="range"/g) ?? []).length === 2 && earn.includes('aria-label="Selling price in dollars"') && earn.includes('aria-label="Sales a day"') && !/cme-plan|>Pro</.test(earn))
   check("calculator: the default month is $2,850", earn.includes("$2,850"))
   /* Added (wave 13): the owner asked for the pill and the subheading gone, and a smoother result than the bar chart. */
   check("calculator: no eyebrow pill and no subheading", !/story-eyebrow|Earnings calculator|The math uses/.test(earn))
-  check("calculator: one smooth line of the year, drawn in by a transform, not bars", /cme-line/.test(earn) && !/cme-bar/.test(earn) && /@keyframes cme-draw\{from\{transform:scaleX\(1\)\}to\{transform:scaleX\(0\)\}\}/.test(src.earn))
+  /* Changed on purpose (landing round 4): the owner asked for the black result card to go; the total and three figures sit on the white panel, no chart. */
+  check("calculator: no chart and no bars, the total and three figures", !/cme-line|cme-bar/.test(earn) && (earn.match(/<dt>/g) ?? []).length === 3)
   check("/signup exists", existsSync(join(ROOT, "app/(storelib)/(auth)/signup")) || readdirSync(join(ROOT, "app/(storelib)"), { recursive: true }).some((f) => String(f).replace(/\\/g, "/").endsWith("signup/page.tsx")))
 }
 
