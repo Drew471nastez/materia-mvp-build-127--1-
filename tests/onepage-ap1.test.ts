@@ -48,7 +48,7 @@ section("A shelf of chosen products")
   check("Choose with nothing picked shows nothing (not all)", JSON.stringify(shelfPickedIds({ source: "digital", pick: "some", product_ids: [] })) === "[]")
   const server = code("lib/onepage/storelib-blocks-server.ts")
   check("the server reads only the page owner's published products, by id", /\.eq\("creator_id", creatorId\)\.eq\("status", "published"\)/.test(server) && /if \(ids\) q = q\.in\("id", ids\)/.test(server) && /shelfItems\(db, creatorId, shelfSource\(d\.source\), shelfLimit\(d\.limit\), shelfPickedIds\(d\)\)/.test(server))
-  const editor = code("components/onepage/storelib-blocks.tsx")
+  const editor = (code("components/onepage/storelib-blocks.tsx") + "\n" + code("components/onepage/storelib-blocks-editor.tsx"))
   check("the editor lists the creator's own products (useCreatorProducts) as All, Choose and One", /<ShelfProductPick data=\{data\} source=\{source\} products=\{products\}/.test(editor) && /\{ id: "all", label: tt\("All"\) \}/.test(editor) && /\{ id: "some", label: tt\("Choose"\) \}/.test(editor) && /\{ id: "one", label: tt\("One"\) \}/.test(editor))
   check("the page shows every product picked, How many only for All", /const limit = picked \? Math\.max\(1, picked\.length\) : shelfLimit\(data\.limit\)/.test(editor) && /shelfPick\(data\) === "all" \? <HowManyControl/.test(editor))
 }
@@ -101,7 +101,7 @@ section("No cookie card in the editor's preview")
 
 section("Thumbnails: the picture whole, Replace and Remove")
 {
-  const blocks = code("components/onepage/storelib-blocks.tsx")
+  const blocks = (code("components/onepage/storelib-blocks.tsx") + "\n" + code("components/onepage/storelib-blocks-editor.tsx"))
   check("a shelf's custom thumbnail and a post's cover are the picture row", (blocks.match(/<OnePageImageField/g) ?? []).length === 2 && !/ImageUpload/.test(blocks))
   check("Remove takes the shelf's own picture off (the product's shows again)", /fallback=\{products\?\.find\(\(p\) => p\.id === editing\)\?\.thumbnail_url \|\| null\}/.test(blocks) && /url \? \{ \.\.\.rest, custom_thumbnail: url \} : rest/.test(blocks))
   check("a product block's custom thumbnail is the same row", /<OnePageImageField\s+prefix=\{`thumb_\$\{block\.id\}`\}\s+value=\{data\.custom_thumbnail \|\| null\}\s+fallback=\{data\.product_thumbnail \|\| null\}/.test(code("components/onepage/tabs/links-tab.tsx")))

@@ -142,7 +142,7 @@ async function main() {
       /* Round 11 put the embed block (lib/onepage/creator-blocks embedSource) beside them on purpose. Round 40: the page's id goes too, for the lead magnet (pin updated on purpose). Changed on purpose (round 41): and whether it sits in a group or a carousel, where its buttons keep still as a link does. */
       /case "course":\s*case "music":\s*case "testimonials":\s*case "contact_form":\s*case "embed":\s*case "heading":[\s\S]{0,120}return <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId, onepageId, still: isInsideCarousel \|\| isInsideGroup \}\} \/>/.test(live))
     check("and the preview is that live page, in a frame", /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx")))
-    const module = read("components/onepage/creator-blocks.tsx")
+    const module = (read("components/onepage/creator-blocks.tsx") + "\n" + read("components/onepage/creator-blocks-editor.tsx"))
     check("a contact message goes through the website's contact pipeline, with its spam checks", /sendContactMessage\(\{/.test(module) && /company,/.test(module) && /elapsed: Date\.now\(\) - shownAt\.current/.test(module) && /page: "onepage"/.test(module))
     check("and the editor's preview never sends one", /if \(look\.preview\) \{\s*setError\(tt\("Messages send from your live page\."\)\)/.test(module))
   }
@@ -228,7 +228,7 @@ async function main() {
     check("the link after joining is offered once they have joined, with the thanks", /afterSignup=\{afterSignupLink\}/.test(email) && /submitted \? \(\s*<div data-email-thanks="">[\s\S]*?\{afterSignup\}/.test(read("components/onepage/email-signup.tsx")) && /\/\^https\?:\\\/\\\/\/i\.test\(afterUrl\)/.test(email))
     const tab = read("components/onepage/tabs/links-tab.tsx")
     check("the editor asks for both, and says where signups go", /updateData\(\{ ask_name: checked \}\)/.test(tab) && /updateData\(\{ after_signup_url: e\.target\.value\.trim\(\) \}\)/.test(tab) && /* Round 40: it is told which tool the block was added as (pin updated on purpose). */ /<SignupDestination suggest=\{data\.integration_hint \?\? null\} \/>/.test(tab))
-    const module = read("components/onepage/creator-blocks.tsx")
+    const module = (read("components/onepage/creator-blocks.tsx") + "\n" + read("components/onepage/creator-blocks-editor.tsx"))
     check("which is Emails › Subscribers, and Klaviyo or Omnisend when connected", /href="\/app\/emails\?tab=subscribers"/.test(module) && /fetch\("\/api\/store\/integrations\/marketing"\)/.test(module) && /* Round 40: Omnisend when the block was added as Omnisend (pin updated on purpose). */ /href=\{`\/app\/integrations\?integration=\$\{suggest === "omnisend" \? "omnisend" : "klaviyo"\}`\}/.test(module))
   }
 

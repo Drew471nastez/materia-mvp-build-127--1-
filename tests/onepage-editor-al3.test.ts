@@ -81,7 +81,7 @@ console.log("\n3. Layout draws, Settings says")
   const many = renderToStaticMarkup(React.createElement(HowManyControl, { value: 6, options: [3, 6, 9, 12], onChange: () => {} }))
   check("  how many, in Layout", /aria-checked="true" data-segment="6"/.test(many))
 
-  const shelf = read("components/onepage/storelib-blocks.tsx")
+  const shelf = (read("components/onepage/storelib-blocks.tsx") + "\n" + read("components/onepage/storelib-blocks-editor.tsx"))
   const settingsHalf = shelf.slice(shelf.indexOf("const settingsHalf"), shelf.indexOf("const layoutHalf"))
   const layoutHalf = shelf.slice(shelf.indexOf("const layoutHalf"), shelf.indexOf("if (part === \"settings\") return settingsHalf"))
   check("a shelf: how many and the arrangement are in Layout only", !/How many/.test(settingsHalf) && /<HowManyControl/.test(layoutHalf) && /<ArrangePicker/.test(layoutHalf) && /<CardsInViewControl/.test(layoutHalf))
@@ -106,7 +106,7 @@ console.log("\n3. Layout draws, Settings says")
     && tab.indexOf("<BlockAnimationButton") < tab.indexOf('title={tt("View Stats")}'))
   check("  only on the blocks where it helps", /ANIMATED_BLOCKS = new Set\(\["link_button", "product", "email_capture", "pdf_document", "food_menu", "calendly"\]\)/.test(settings))
   check("Profile card is a layout only, not a second choice in Settings", !/tt\("Profile card"\)/.test(settings))
-  check("one Alignment for a heading and a text, which writes their own field", /ownAlign \? \{ alignment: align \} : undefined/.test(settings) && !/data\.alignment === align/.test(tab) && !/tt\("Alignment"\)/.test(read("components/onepage/extra-blocks.tsx")))
+  check("one Alignment for a heading and a text, which writes their own field", /ownAlign \? \{ alignment: align \} : undefined/.test(settings) && !/data\.alignment === align/.test(tab) && !/tt\("Alignment"\)/.test((read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx"))))
   check("a link's layout pictures carry its own title", /title=\{data\.label\}/.test(settings))
 }
 

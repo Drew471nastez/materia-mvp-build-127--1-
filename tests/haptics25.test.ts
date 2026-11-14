@@ -40,7 +40,7 @@ console.log("\nThe controls an iPhone answers with a tick, tick")
 check("a switch flips with a light knock", /hapticTap\('light'\)\s*\n\s*onCheckedChange\?\.\(checked\)/.test(readCode("components/ui/switch.tsx")))
 check("a checkbox with the soft tick", /hapticTap\('soft'\)\s*\n\s*onCheckedChange\?\.\(checked\)/.test(readCode("components/ui/checkbox.tsx")))
 for (const f of ["radio-group", "tabs", "select"]) check(`${f}: the soft tick as the choice moves`, /hapticTap\('soft'\)\s*\n\s*onValueChange\?\.\(value\)/.test(readCode(`components/ui/${f}.tsx`)))
-const own = ["app/(storelib)/app/products/new/editor-controls.tsx", "components/app/settings/account-panels.tsx", "components/community/creator/parts.tsx", "components/community/member/heart.tsx", "components/website-builder/editor/design-panels.tsx", "components/website-builder/github-sync-panel.tsx", "components/website-builder/link-picker.tsx", "components/website-builder/ask-model-picker.tsx", "components/reviews/widgets/widget-customizer.tsx", "components/onepage/extra-blocks.tsx"]
+const own = ["app/(storelib)/app/products/new/editor-controls.tsx", "components/app/settings/account-panels.tsx", "components/community/creator/parts.tsx", "components/community/member/heart.tsx", "components/website-builder/editor/design-panels.tsx", "components/website-builder/github-sync-panel.tsx", "components/website-builder/link-picker.tsx", "components/website-builder/ask-model-picker.tsx", "components/reviews/widgets/widget-customizer.tsx", "components/onepage/extra-blocks-editor.tsx"]
 check("the app's own switches too", own.every((f) => /hapticTap\("light"\)/.test(readCode(f))))
 
 check("this suite runs with the others", readCode("scripts/run-push-tests.mjs").includes('"tests/haptics25.test.ts"'))
