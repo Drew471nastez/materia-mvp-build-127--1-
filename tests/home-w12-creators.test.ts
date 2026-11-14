@@ -135,8 +135,9 @@ check("cards: still under the pointer, the creator's words on a shade inside the
 })
 
 /* Changed on purpose (landing round): the owner did not want the button black; it takes Storelib's own primary look, as the page's other Start for free and Sign Up buttons draw it (violet #7c3aed, 12px corners, white words). */
-check("the CTA: Storelib's violet primary button to /signup, not black, focus ring", () => {
-  assert.ok(/\.cc-cta\{[^}]*border-radius:12px;background:#7c3aed;color:#fff/.test(CREATORS_CSS) && !/\.cc-cta\{[^}]*background:var\(--cc-ink\)/.test(CREATORS_CSS))
+/* Changed on purpose (landing round 4, the owner: "don't make the button solid purple"): a white pill on a hairline, the arrow in a violet disc. */
+check("the CTA: a calm white pill to /signup with a violet arrow, not black, focus ring", () => {
+  assert.ok(/\.cc-cta\{[^}]*border-radius:999px;background:#fff;color:#18181b/.test(CREATORS_CSS) && !/\.cc-cta\{[^}]*background:var\(--cc-ink\)/.test(CREATORS_CSS))
   assert.ok(/\.cc-cta:focus-visible/.test(CREATORS_CSS))
 })
 

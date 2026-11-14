@@ -1399,6 +1399,8 @@ const SUITES = [
   "tests/home-landing-commerce3.test.ts",
   /* Landing round 3 (frame): the page's base is dark and the light sections ride on rounded white and purple sheets that rise by the page's own scroll (no script, no animation, held by position: sticky alone, off for reduced motion); the grounds in the owner's order with One store on white; the footer without the newsletter box, in four columns with the app badges under the logo; a Start now pill, or the person's photo, beside the menu on the home page's phone bar. */
   "tests/home-landing-frame3.test.ts",
+  /* Landing round 4, top B: See your ideas come to life behind thin pill tabs again (Website builder, OnePage editor, Community), a heading that changes by itself, the desktop editors on a phone, a merch store, a LUT pack on the Ember theme, one community drawn as it is inside; One store for everything you sell pinned while the scroll steps through the five kinds (sticky and one IntersectionObserver, a plain list under reduced motion or on a short screen), new examples on coloured grounds; the creators button calm, four new photographs. */
+  "tests/home-landing-topb4.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

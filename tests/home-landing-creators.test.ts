@@ -64,7 +64,8 @@ check("seven kinds have new photographs, each 4:5 WebP within budget", () => {
     }
   }
   const alt = (slug: string) => CREATORS.find((c) => c.slug === slug)?.alt ?? ""
-  assert.ok(/guitar/.test(alt("musicians")) && /notebook/.test(alt("authors")) && /microphone/.test(alt("podcasters")) && /easel/.test(alt("artists")) && /moodboard/.test(alt("agencies")) && /kettlebell/.test(alt("fitness")) && /camera/.test(alt("youtubers")))
+  /* Changed on purpose (landing round 4): new pictures for agencies and YouTubers (and musicians and educators), their words with them. */
+  assert.ok(/guitar/.test(alt("musicians")) && /notebook/.test(alt("authors")) && /microphone/.test(alt("podcasters")) && /easel/.test(alt("artists")) && /laptop/.test(alt("agencies")) && /kettlebell/.test(alt("fitness")) && /clapperboard/.test(alt("youtubers")))
 })
 check("the rail stays endless, on the compositor, and draggable without fighting the page's scroll", () => {
   const src = read(CC)
@@ -131,8 +132,9 @@ check("reduced motion: nothing pinned, nothing moves", () => {
 })
 
 console.log("\nThe coordinator's follow ups")
-check("the creators button is Storelib's violet primary, not black", () => {
-  assert.ok(/\.cc-cta\{[^}]*background:#7c3aed;color:#fff/.test(CREATORS_CSS) && /\.cc-cta:hover\{background:#6d28d9\}/.test(CREATORS_CSS))
+/* Changed on purpose (landing round 4, the owner: "don't make the button solid purple"): a calm white pill, its arrow in a violet disc; still not black. */
+check("the creators button is calm, not solid purple and not black", () => {
+  assert.ok(/\.cc-cta\{[^}]*background:#fff;color:#18181b/.test(CREATORS_CSS) && /\.cc-cta-ic\{[^}]*background:#7c3aed/.test(CREATORS_CSS) && !/\.cc-cta\{[^}]*background:#7c3aed/.test(CREATORS_CSS))
 })
 check("no small print under How it works or the checkout tabs", () => {
   assert.ok(!/Example prices|cmh-fine/.test(how) && !/Card payments are processed by Stripe|cmc-foot/.test(co))
