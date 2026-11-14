@@ -144,10 +144,11 @@ check("Built to convert is the website checkout on a computer, and its sums add 
   const w = words(panel)
   for (const t of ["Contact information", "Delivery", "Shipping method", "Payment method", "Powered by Stripe", "Payment complete", "Total due"]) assert.ok(w.includes(t), t)
   assert.ok(read("components/checkout/parts/ui.tsx").includes("Powered by"))
-  assert.equal(2800 + 1900, 4700)
-  assert.equal(4700 + 600 + Math.round(4700 * 0.08), 5676)
-  assert.ok(w.includes("$47.00") && w.includes("$6.00") && w.includes("$3.76") && w.includes("$56.76"))
-  assert.ok(w.includes("New sale: $56.76") && w.includes("Sam Rivera bought Darkroom cap and 1 more for $56.76."))
+  /* Changed on purpose (landing round 5, the owner: "I don't like that cap"): a signed A3 print, LaSalle at dusk, $45. */
+  assert.equal(4500 + 1900, 6400)
+  assert.equal(6400 + 600 + Math.round(6400 * 0.08), 7512)
+  assert.ok(w.includes("$64.00") && w.includes("$6.00") && w.includes("$5.12") && w.includes("$75.12"))
+  assert.ok(w.includes("New sale: $75.12") && w.includes("Sam Rivera bought LaSalle at dusk and 1 more for $75.12."))
   const catalog = read("lib/notify/templates/catalog.ts")
   assert.ok(catalog.includes("New sale: ${total}") && catalog.includes("bought ${thing}"))
 })
@@ -161,7 +162,8 @@ check("One-tap payments: just the phone, with Apple Pay, Google Pay and Stripe, 
 })
 check("Local currencies: a nicer product, the cap, read in five currencies checkout charges in", () => {
   const panel = co.slice(co.indexOf('id="cmc-panel-currency"'), co.indexOf('id="cmc-panel-recover"'))
-  assert.ok(panel.includes("/home/how/cap-yellow.webp") && words(panel).includes("Darkroom cap"))
+  /* Changed on purpose (landing round 5): the print in place of the cap. */
+  assert.ok(panel.includes("/home/commerce/print-lasalle.webp") && words(panel).includes("LaSalle at dusk"))
   for (const code of ["USD", "EUR", "GBP", "JPY", "CAD"]) assert.ok(code in CURRENCY_FEE_RULES && panel.includes(code), code)
 })
 check("Checkout reminders: light, a few layers, the email in within a second and a half, its pictures loaded ahead", () => {

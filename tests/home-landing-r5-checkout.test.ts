@@ -80,6 +80,7 @@ check("  both columns, the order and the form", ["Pay Nadia Brooks", "Total due"
 
 console.log("\nThe product")
 check("not After Dark: The Loop, by Nadia Brooks, its cover a real picture file under 60 KB", !/After Dark|ebook-night|ebook-cover/.test(src + co) && GUIDE.title === "The Loop" && co.includes("/home/commerce/guide-loop.webp") && existsSync("public/home/commerce/guide-loop.webp") && statSync("public/home/commerce/guide-loop.webp").size < 60 * 1024)
+check("no cap: the physical product is a signed A3 print, LaSalle at dusk, its picture under 30 KB", !/cap-yellow|Darkroom cap/.test(src + co) && words(co).includes("LaSalle at dusk") && words(co).includes("Signed print, A3") && existsSync("public/home/commerce/print-lasalle.webp") && statSync("public/home/commerce/print-lasalle.webp").size < 30 * 1024)
 check("the photograph is credited to its Unsplash id in the code", /photo-1519501025264-65ba15a82390/.test(src))
 
 console.log("\nCopy")

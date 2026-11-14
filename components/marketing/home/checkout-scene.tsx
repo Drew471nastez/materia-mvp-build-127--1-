@@ -48,7 +48,6 @@ import { COMMERCE_CURRENCY_COUNT, COMMERCE_KIT_STYLE, CommerceKitStyle, useComme
 import { u } from "./showcase-mocks/frame"
 
 const IMG = "/home/commerce"
-const HOW = "/home/how"
 /**
  * What the phone sells: Nadia Brooks's field guide to street photography in
  * Chicago's Loop, an e-book. Its cover is a picture file, as a creator uploads
@@ -58,8 +57,8 @@ const HOW = "/home/how"
 export const GUIDE = { title: "The Loop", author: "Nadia Brooks", price: "$19.00", cover: `${IMG}/guide-loop.webp` } as const
 const PRODUCT = GUIDE.title
 const SELLER = GUIDE.author
-/** The physical product the demos sell beside the e-book: an embroidered cap, made when it is ordered. */
-const CAP = { title: "Darkroom cap", option: "Yellow", price: "$28.00", img: `${HOW}/cap-yellow.webp` } as const
+/** The physical product the demos sell beside the e-book: a signed A3 print of LaSalle Street (the same photograph, public/home/commerce/print-lasalle.webp). The owner did not want the cap. */
+const PRINT = { title: "LaSalle at dusk", option: "Signed print, A3", price: "$45.00", img: `${IMG}/print-lasalle.webp` } as const
 
 export const CHECKOUT_HEADING = "Checkout that turns a tap into a sale"
 
@@ -521,12 +520,12 @@ const Panel = memo(function Panel({ id, on }: { id: TabId; on: boolean }) {
 
 type Line = { id: string; img: string; title: string; option?: string; price: string; physical: boolean }
 const CART: Line[] = [
-  { id: "cap", img: CAP.img, title: CAP.title, option: CAP.option, price: CAP.price, physical: true },
+  { id: "print", img: PRINT.img, title: PRINT.title, option: PRINT.option, price: PRINT.price, physical: true },
   { id: "guide", img: GUIDE.cover, title: PRODUCT, price: GUIDE.price, physical: false },
 ]
-/* $28.00 + $19.00 = $47.00; + $6.00 shipping + $3.76 tax (8% of the goods, an example) = $56.76. */
-const SUB = "$47.00"
-const TOTAL = "$56.76"
+/* $45.00 + $19.00 = $64.00; + $6.00 shipping + $5.12 tax (8% of the goods, an example) = $75.12. */
+const SUB = "$64.00"
+const TOTAL = "$75.12"
 const SHOP_HOST = "nadiabrooks.storelib.com"
 
 /** A field as the checkout draws one: the label above, the box, the placeholder until it is filled. */
@@ -597,7 +596,7 @@ function VisConvert() {
                   <ul className="cdx-lines">
                     {CART.map((l) => (
                       <li key={l.id}>
-                        <span className="cdx-thumb" data-cut={l.id === "cap" || undefined}>
+                        <span className="cdx-thumb" data-cut={l.id === "print" || undefined}>
                           <img src={l.img} alt="" loading="eager" decoding="async" width={96} height={96} />
                         </span>
                         <span className="cdx-li">
@@ -635,7 +634,7 @@ function VisConvert() {
                       <span>Tax</span>
                       <span className="cdx-swap">
                         <span className="cdx-s0">Calculated next</span>
-                        <span className="cdx-s1">$3.76</span>
+                        <span className="cdx-s1">$5.12</span>
                       </span>
                     </div>
                     <div className="cdx-row cdx-due">
@@ -763,7 +762,7 @@ function VisConvert() {
             <small>now</small>
           </span>
           <span className="cmv-note-p">
-            Sam Rivera bought {CAP.title} and 1 more for {TOTAL}.
+            Sam Rivera bought {PRINT.title} and 1 more for {TOTAL}.
           </span>
         </span>
       </div>
@@ -817,15 +816,15 @@ function VisTap() {
   )
 }
 
-/* ── Local currencies: one cap, five readings ────────────────────────── */
+/* ── Local currencies: one print, five readings ────────────────────────── */
 
-/* Example prices for one $28 cap as each currency would show it. */
+/* Example prices for one $45 print as each currency would show it. */
 const PRICES = [
-  { code: "USD", flag: "US", where: "United States", price: "$28.00" },
-  { code: "EUR", flag: "EU", where: "Euro area", price: "€26.00" },
-  { code: "GBP", flag: "GB", where: "United Kingdom", price: "£22.00" },
-  { code: "JPY", flag: "JP", where: "Japan", price: "¥4,300" },
-  { code: "CAD", flag: "CA", where: "Canada", price: "C$38.00" },
+  { code: "USD", flag: "US", where: "United States", price: "$45.00" },
+  { code: "EUR", flag: "EU", where: "Euro area", price: "€42.00" },
+  { code: "GBP", flag: "GB", where: "United Kingdom", price: "£36.00" },
+  { code: "JPY", flag: "JP", where: "Japan", price: "¥6,900" },
+  { code: "CAD", flag: "CA", where: "Canada", price: "C$62.00" },
 ] as const
 
 function Flag({ code }: { code: string }) {
@@ -837,11 +836,11 @@ function VisCurrency() {
     <div className="cmv-cur">
       <div className="cmv-cc">
         <span className="cmv-cc-pic">
-          <img src={CAP.img} alt="" loading="eager" decoding="async" width={600} height={600} />
+          <img src={PRINT.img} alt="" loading="eager" decoding="async" width={600} height={600} />
         </span>
         <div className="cmv-cc-b">
-          <b className="cmv-cc-name">{CAP.title}</b>
-          <small className="cmv-cc-sub">Embroidered cap · {SELLER}</small>
+          <b className="cmv-cc-name">{PRINT.title}</b>
+          <small className="cmv-cc-sub">Signed print, A3 · {SELLER}</small>
           <span className="cmv-stack cmv-price">
             {PRICES.map((p, i) => (
               <span key={p.code} className="cmv-cyc" data-first={i === 0 || undefined} style={{ "--i": i } as React.CSSProperties}>
@@ -889,7 +888,7 @@ function VisRecover() {
         </span>
         <span className="cmv-st cmv-st3">
           <i />
-          <b>Paid {CAP.price}</b>
+          <b>Paid {PRINT.price}</b>
           <small>3:31 PM</small>
         </span>
       </div>
@@ -901,16 +900,16 @@ function VisRecover() {
             <small>to Sam · 3:14 PM</small>
           </span>
         </div>
-        <div className="cmv-mail-subj">You left {CAP.title} at checkout</div>
+        <div className="cmv-mail-subj">You left {PRINT.title} at checkout</div>
         <div className="cmv-mail-h">Still thinking it over?</div>
         <p>Hi Sam, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.</p>
         <span className="cmv-mail-btn">Finish checkout</span>
         <div className="cmv-mail-line">
           <span className="cmv-thumb">
-            <img src={CAP.img} alt="" loading="eager" decoding="async" width={96} height={96} />
+            <img src={PRINT.img} alt="" loading="eager" decoding="async" width={96} height={96} />
           </span>
-          <span>{CAP.title}</span>
-          <b>{CAP.price}</b>
+          <span>{PRINT.title}</span>
+          <b>{PRINT.price}</b>
         </div>
       </div>
     </div>
@@ -1181,7 +1180,8 @@ const TABS_CSS = `
 
 /* One-tap payments: the phone and the three it pays with. */
 .cmv-tap{position:absolute;inset:0}
-.cmv-phone{position:absolute;left:5.5em;top:2.4em;--pw:17em}
+/* --pw in the demo box's own units (not em): the screen reads it again inside, where 1em is 16px. */
+.cmv-phone{position:absolute;left:5.5em;top:2.4em;--pw:calc(100cqw * 17 / 48)}
 .cmv-phone .cmc-phone{box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 1.5em 3em rgba(0,0,0,.55)}
 .cmv-links{position:absolute;left:25.5em;right:2.4em;top:9.5em;display:grid;gap:1em}
 .cmv-link{position:relative;display:flex;align-items:center;gap:.9em;height:4.6em;padding:0 1em;font-size:1em}
@@ -1196,7 +1196,7 @@ const TABS_CSS = `
 .cmv-ok{position:relative;flex:none;width:1.5em;height:1.5em;border-radius:50%;background:rgba(74,222,128,.16)}
 .cmv-ok::after{content:"";position:absolute;left:.52em;top:.36em;width:.36em;height:.62em;border:solid #4ade80;border-width:0 .16em .16em 0;transform:rotate(45deg)}
 
-/* Currencies: one cap, five readings. */
+/* Currencies: one print, five readings. */
 .cmv-cur{position:absolute;inset:0;display:grid;place-items:center}
 .cmv-cc{width:34em;display:grid;grid-template-columns:12.5em 1fr;gap:0 1.6em;padding:1.6em;box-sizing:border-box}
 .cmv-cc-pic{display:block;aspect-ratio:1;border-radius:1em;overflow:hidden;background:#f3f3f1}
@@ -1207,7 +1207,7 @@ const TABS_CSS = `
 .cmv-stack{position:relative;display:grid}
 .cmv-cyc{grid-area:1/1;opacity:0}
 .cmv-cyc[data-first]{opacity:1}
-.cmv-price{margin-top:.5em;font-size:3.6em;font-weight:300;letter-spacing:-.045em;line-height:1.1;font-variant-numeric:tabular-nums}
+.cmv-price{margin-top:.5em;font-size:3.6em;font-weight:600;letter-spacing:-.035em;line-height:1.1;font-variant-numeric:tabular-nums}
 .cmv-where{font-size:.95em;color:#a1a1aa}
 .cmv-chips{grid-column:1/-1;position:relative;display:grid;grid-template-columns:repeat(5,1fr);margin-top:1.4em;padding:.3em;border-radius:1.2em;background:#111113;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
 .cmv-chip{position:relative;display:flex;align-items:center;justify-content:center;gap:.45em;height:2.8em;font-size:.95em;font-weight:600;letter-spacing:.02em;color:#e4e4e7}
@@ -1250,7 +1250,7 @@ const TABS_CSS = `
   .cmc-vis-in{font-size:calc(100cqw / 30)}
   /* Built to convert: the same desktop window, whole, a little taller so the page shows more of itself. */
   .cdx{--ar:880/1000}
-  .cmv-phone{left:1.4em;top:1.6em;--pw:14.2em}
+  .cmv-phone{left:1.4em;top:1.6em;--pw:calc(100cqw * 14.2 / 30)}
   .cmv-links{left:12.4em;right:.8em;top:6.5em;gap:.8em}
   .cmv-link{height:4.4em;padding:0 .7em;gap:.6em;font-size:.86em}
   .cmv-link-t small{display:none}
