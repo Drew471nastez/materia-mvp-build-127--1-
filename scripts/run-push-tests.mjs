@@ -1393,6 +1393,8 @@ const SUITES = [
   "tests/home-landing-top.test.ts",
   /* Landing round (rest): See what you could earn gets one flash photograph and loses its small print; the app's line is short; the public plan cards say plain things, each from the plan tables, with a quiet tick; Your AI tools work here too: the marks, a line true to a connection, the real MCP tools in a terminal on the compositor, paused off screen, still under reduced motion, after the integrations. */
   "tests/home-landing-rest.test.ts",
+  /* Landing round 3, commerce: a sixth How it works tile for a creator's own domain (the three things a domain can serve, Pro, the DNS check and HTTPS, each held to the code), six even tiles, checkout demos that start over, a phone alone for one-tap payments, the pill tabs in their dark form, dark cards on black, and mocks that take no pointer. */
+  "tests/home-landing-commerce3.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

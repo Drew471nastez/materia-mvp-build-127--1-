@@ -2,7 +2,7 @@
 
 /**
  * ===========================================================================
- *  HOW IT WORKS: FIVE TILES (home, section 8)
+ *  HOW IT WORKS: SIX TILES (home, section 8)
  * ===========================================================================
  * Light, neutral grounds, and in each one the product as it really looks:
  *
@@ -17,6 +17,8 @@
  *   course     the course player: the lesson playing, the Lessons list with
  *              its "2 of 6 done" and the lesson ticked off as it ends
  *   tips       a tip card choosing an amount, sending it, and the tip landing
+ *   domain     the shop's website under a large address pill, and the three
+ *              things a creator's own domain can serve, each checked in turn
  *
  * Every loop is CSS keyframes on transform and opacity only, stacked layers
  * in fixed-size boxes (grid overlap, never absolute heights that change), so
@@ -31,10 +33,21 @@
  * (lib/notify/templates/catalog.ts PURCHASE_CONFIRMATION), the player's are
  * the course player's (components/courses/course-player.tsx: "Lessons",
  * "2 of 6 done", the round marks). What the seller keeps is after Storelib's
- * real fee (lib/payments/fees/calculate).
+ * real fee (lib/payments/fees/calculate). A domain a creator owns serves one
+ * of three things, which is all the domain tile shows: their website, their
+ * creator page (with its products, and the OnePage at /links) or one
+ * community (lib/custom-domains/hostname DOMAIN_PURPOSES, store.ts,
+ * community.ts). Connecting one is on Pro (lib/sites/plan customDomain);
+ * Storelib reads the DNS and waits for the certificate itself
+ * (app/api/domains/verify). tests/home-landing-commerce3.test.ts holds the
+ * tile to those files.
+ *
+ * NOTHING IN A TILE IS A CONTROL: the stages take no pointer and have no
+ * hover states, so a drawn button never looks like one that works.
  */
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import type { SectionStyle } from "./lazy-section"
+import type { DomainPurpose } from "@/lib/custom-domains/hostname"
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { StoryHeading } from "../story-heading"
 import { commerceProduct, commerceUsd } from "./commerce-kit"
@@ -70,6 +83,22 @@ export const HOW_PRODUCTS = [
     ...sale(EBOOK.priceCents, 0),
   },
 ] as const
+
+/**
+ * Maya's own domain (made up), and the three things Storelib serves on a
+ * creator's domain. One address each: a domain row has one purpose, so a
+ * creator who wants all three connects the domain and two subdomains of it.
+ */
+export const HOW_DOMAIN = {
+  name: "www.mayaelliscooks",
+  tld: ".com",
+  targets: [
+    { purpose: "website", sub: "www", what: "Website" },
+    { purpose: "creator_page", sub: "shop", what: "Creator page, OnePage" },
+    { purpose: "community", sub: "club", what: "Community" },
+  ] satisfies readonly { purpose: DomainPurpose; sub: string; what: string }[],
+} as const
+const DOMAIN_ROOT = `${HOW_DOMAIN.name.replace(/^www\./, "")}${HOW_DOMAIN.tld}`
 
 const vars = (v: Record<string, string | number>) => v as CSSProperties
 
@@ -128,7 +157,7 @@ export function HowItWorks() {
         </div>
 
         <div className="cmh-grid">
-          <Tile wide caption={<><b>Sell physical and digital products.</b> Merch is printed and shipped by a print partner you connect as each order comes in, so there is no stock to hold. Files go out the moment someone pays.</>}>
+          <Tile caption={<><b>Sell physical and digital products.</b> A print partner you connect prints and ships merch as orders come in, so you hold no stock. Files go out the moment someone pays.</>}>
             <ProductsScene />
           </Tile>
           <Tile tone="stone" caption={<><b>Checkout without leaving your page.</b> Tap a product on your OnePage and checkout slides up right there.</>}>
@@ -143,15 +172,18 @@ export function HowItWorks() {
           <Tile tone="stone" caption={<><b>Take tips.</b> A thank-you button for the people who just want to support you.</>}>
             <TipScene />
           </Tile>
+          <Tile caption={<><b>Use your own domain.</b> On Pro, point a domain you own at your website, your creator page or a community. Storelib checks the DNS and adds HTTPS.</>}>
+            <DomainScene />
+          </Tile>
         </div>
       </div>
     </section>
   )
 }
 
-function Tile({ children, caption, wide = false, tone }: { children: ReactNode; caption: ReactNode; wide?: boolean; tone?: "stone" | "paper" }) {
+function Tile({ children, caption, tone }: { children: ReactNode; caption: ReactNode; tone?: "stone" | "paper" }) {
   return (
-    <article className="cmh-tile" data-wide={wide || undefined}>
+    <article className="cmh-tile">
       <div className="cmh-stage" data-tone={tone} aria-hidden="true">
         {children}
       </div>
@@ -400,13 +432,79 @@ function TipScene() {
   )
 }
 
+/* 6. Maya's website under her own address, and what else the domain serves, checked one after another. */
+function DomainScene() {
+  return (
+    <div className="cmh-dm">
+      <div className="cmh-dm-top">
+        <div className="cmh-dm-site">
+          <div className="cmh-dm-nav">
+            <img src={`${IMG}/creator-maya.webp`} alt="" loading="lazy" decoding="async" width={160} height={160} />
+            <b>{EBOOK.author}</b>
+            <span>Shop</span>
+            <span>Recipes</span>
+            <span>About</span>
+          </div>
+          <div className="cmh-dm-hero">
+            <img src={`${HOW}/course-pasta.webp`} alt="" loading="lazy" decoding="async" width={640} height={360} />
+            <span>
+              <b>Recipes for busy evenings</b>
+              <i>Shop</i>
+            </span>
+          </div>
+          <div className="cmh-dm-shelf">
+            <span>
+              <EbookCover className="cmh-dm-cover" />
+              <b>{EBOOK.title}</b>
+              <small>$19</small>
+            </span>
+            <span>
+              <img src={`${HOW}/tee-heather.webp`} alt="" loading="lazy" decoding="async" width={480} height={480} />
+              <b>Heavyweight tee</b>
+              <small>$30</small>
+            </span>
+            <span>
+              <img src={`${HOW}/course-pasta.webp`} alt="" loading="lazy" decoding="async" width={640} height={360} />
+              <b>Fresh Pasta at Home</b>
+              <small>Course</small>
+            </span>
+          </div>
+        </div>
+        <div className="cmh-dm-pill">
+          <span className="cmh-dm-addr">
+            {HOW_DOMAIN.name}
+            <b>{HOW_DOMAIN.tld}</b>
+          </span>
+          <span className="cmh-a cmh-dm-ok">
+            <Check size={13} />
+          </span>
+        </div>
+      </div>
+      <div className="cmh-dm-rows">
+        {HOW_DOMAIN.targets.map((t, i) => (
+          <div key={t.purpose} className="cmh-dm-row">
+            <span className="cmh-dm-mark">
+              <span className="cmh-a cmh-dm-tick" data-k={i}>
+                <Check size={9} />
+              </span>
+            </span>
+            <span className="cmh-dm-host">
+              <b>{t.sub}</b>.{DOMAIN_ROOT}
+            </span>
+            <span className="cmh-dm-what">{t.what}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const HOW_CSS = `
 .cmh{background:#fff;color:#18181b}
 .cmh-wrap{max-width:1320px;margin:0 auto;padding:0 var(--landing-gutter,clamp(20px,5vw,72px))}
-.cmh-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(16px,2vw,24px)}
-.cmh-tile{grid-column:span 2;min-width:0}
-.cmh-tile[data-wide]{grid-column:span 4}
-.cmh-stage{position:relative;height:clamp(340px,28vw,400px);border-radius:clamp(21px,2.4vw,27px);background:#f4f4f5;overflow:hidden;contain:paint;font-family:inherit}
+.cmh-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(16px,2vw,24px);row-gap:clamp(28px,3vw,40px)}
+.cmh-tile{min-width:0}
+.cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;height:clamp(380px,28vw,400px);border-radius:clamp(21px,2.4vw,27px);background:#f4f4f5;overflow:hidden;contain:paint;font-family:inherit}
 .cmh-stage[data-tone=stone]{background:#efeeec}
 .cmh-stage[data-tone=paper]{background:#f3f1ec}
 .cmh-cap{margin:16px 4px 0;font-size:15.5px;line-height:1.55;color:#71717a;max-width:52ch;text-wrap:pretty}
@@ -422,23 +520,24 @@ const HOW_CSS = `
 .cmh-tap-light{background:rgba(255,255,255,.4)}
 
 /* ── products ── */
-.cmh-pr{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:clamp(14px,2vw,22px);padding:24px;box-sizing:border-box}
-.cmh-pc{width:clamp(200px,17vw,250px);flex:none;padding:10px 10px 14px;border-radius:19px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.05),0 1px 2px rgba(24,24,27,.05),0 18px 40px -26px rgba(24,24,27,.28);box-sizing:border-box}
+.cmh-pr{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:12px;padding:18px;box-sizing:border-box}
+.cmh-pc{width:min(calc(50% - 6px),184px);flex:none;padding:8px 8px 12px;border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.05),0 1px 2px rgba(24,24,27,.05),0 18px 40px -26px rgba(24,24,27,.28);box-sizing:border-box}
 .cmh-pc-pic{aspect-ratio:1;border-radius:12px;overflow:hidden;background:#ececee}
 .cmh-pc-pic>img{display:block;width:100%;height:100%;object-fit:cover}
 .cmh-pc-cover{width:72%;margin:14% auto 0;border-radius:3px;box-shadow:0 1px 2px rgba(24,24,27,.12),0 14px 26px -14px rgba(24,24,27,.45)}
-.cmh-pc-b{display:grid;gap:3px;padding:12px 4px 0}
+.cmh-pc-b{display:grid;gap:3px;padding:10px 3px 0}
 .cmh-pc-kind{font-size:11.5px;color:#8b8b94}
-.cmh-pc-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.cmh-pc-name{min-width:0;font-size:14.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmh-pc-price{flex:none;font-size:14.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.cmh-pc-k{display:none}
+.cmh-pc-row{display:grid;gap:1px}
+.cmh-pc-name{min-width:0;font-size:13.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-pc-price{flex:none;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums}
 .cmh-pc-keep{font-size:12px;color:#15803d;font-variant-numeric:tabular-nums}
-.cmh-pc-st{margin-top:9px;padding-top:9px;border-top:1px solid #f0f0f2;font-size:12px;color:#52525b}
-.cmh-pc-step{display:flex;align-items:center;gap:7px;white-space:nowrap;opacity:0;animation-name:cmh-st;animation-duration:9s;animation-delay:calc(var(--o) + var(--k) * 3s - 9s)}
+.cmh-pc-st{margin-top:9px;padding-top:9px;border-top:1px solid #f0f0f2;font-size:11.5px;color:#52525b}
+.cmh-pc-step{display:flex;align-items:flex-start;gap:7px;line-height:1.3;min-height:2.6em;opacity:0;animation-name:cmh-st;animation-duration:9s;animation-delay:calc(var(--o) + var(--k) * 3s - 9s)}
 .cmh-pc-step[data-k="0"]{--k:0;opacity:1}
 .cmh-pc-step[data-k="1"]{--k:1}
 .cmh-pc-step[data-k="2"]{--k:2}
-.cmh-pc-step i{width:6px;height:6px;flex:none;border-radius:50%;background:#a1a1aa}
+.cmh-pc-step i{width:6px;height:6px;flex:none;margin-top:4px;border-radius:50%;background:#a1a1aa}
 .cmh-pc-step i[data-k="1"]{background:#d97706}
 .cmh-pc-step i[data-k="2"]{background:#16a34a}
 @keyframes cmh-st{0%,28%{opacity:1;transform:none}32%{opacity:0;transform:translate3d(0,-4px,0)}32.5%,96%{opacity:0;transform:translate3d(0,4px,0)}100%{opacity:1;transform:none}}
@@ -569,24 +668,49 @@ const HOW_CSS = `
 .cmh-tip-pop b{color:#15803d;font-weight:700;font-size:13px}
 @keyframes cmh-tpop{0%,36%{opacity:0;transform:translate3d(-50%,14px,0) scale(.94)}42%,70%{opacity:1;transform:translate3d(-50%,0,0)}78%,100%{opacity:0;transform:translate3d(-50%,-10px,0)}}
 
-@media (max-width:1023px){
+/* ── your own domain ── */
+.cmh-dm{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 20px 18px;box-sizing:border-box;container-type:inline-size}
+.cmh-dm .cmh-a{animation-duration:9s;animation-timing-function:cubic-bezier(.3,1.4,.5,1)}
+.cmh-dm-top{position:relative;flex:1;min-height:0;width:100%;display:flex;justify-content:center}
+.cmh-dm-site{width:min(100%,262px);height:100%;border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 0 0 1px rgba(24,24,27,.05),0 1px 2px rgba(24,24,27,.05),0 18px 40px -26px rgba(24,24,27,.28);color:#18181b}
+.cmh-dm-nav{display:flex;align-items:center;gap:9px;height:30px;padding:0 12px;font-size:8.5px;color:#71717a}
+.cmh-dm-nav img{width:15px;height:15px;border-radius:50%;object-fit:cover;margin-right:-3px}
+.cmh-dm-nav b{margin-right:auto;font-size:9.5px;font-weight:600;color:#18181b}
+.cmh-dm-hero{position:relative;display:grid;grid-template-columns:1.25fr 1fr;height:84px;background:#f3f1ec}
+.cmh-dm-hero img{display:block;width:100%;height:84px;object-fit:cover}
+.cmh-dm-hero span{display:grid;align-content:center;justify-items:start;gap:7px;padding:0 12px}
+.cmh-dm-hero b{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:13px;font-weight:400;line-height:1.15;letter-spacing:-.01em}
+.cmh-dm-hero i{padding:3px 9px;border-radius:99px;background:#18181b;color:#fff;font-size:7.5px;font-style:normal;font-weight:600}
+.cmh-dm-shelf{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 12px 0}
+.cmh-dm-shelf>span{display:grid;gap:1px;min-width:0}
+.cmh-dm-shelf img,.cmh-dm-cover{display:block;width:100%;aspect-ratio:1;margin-bottom:4px;border-radius:5px;object-fit:cover}
+.cmh-dm-shelf b{font-size:8px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-dm-shelf small{font-size:7.5px;color:#8b8b94}
+.cmh-dm-pill{position:absolute;left:50%;top:50%;display:flex;align-items:center;gap:.5em;height:2.55em;padding:0 .8em 0 1.05em;border-radius:99px;background:#fff;color:#3f3f46;font-size:min(20px,5.9cqw);font-weight:500;letter-spacing:-.025em;white-space:nowrap;box-shadow:0 0 0 1px rgba(24,24,27,.04),0 2px 4px rgba(24,24,27,.05),0 16px 34px -12px rgba(24,24,27,.3);transform:translate(-50%,-50%)}
+.cmh-dm-addr b{font-weight:500;color:#7c3aed}
+.cmh-dm-ok{display:grid;place-items:center;width:1.1em;height:1.1em;flex:none;border-radius:50%;color:#16a34a;box-shadow:inset 0 0 0 2px #16a34a;animation-name:cmh-dok}
+@keyframes cmh-dok{0%,7%{opacity:0;transform:scale(.5)}12%,93%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.5)}}
+.cmh-dm-rows{flex:none;width:min(100%,336px);padding:3px 10px;border-radius:14px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.05),0 1px 2px rgba(24,24,27,.05);box-sizing:border-box}
+.cmh-dm-row{display:flex;align-items:center;gap:7px;height:31px;font-size:11px;letter-spacing:-.01em}
+.cmh-dm-row+.cmh-dm-row{border-top:1px solid #f0f0f2}
+.cmh-dm-mark{position:relative;display:grid;place-items:center;width:15px;height:15px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1.5px #d4d4d8}
+.cmh-dm-tick{display:grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#16a34a;color:#fff;animation-name:cmh-dt0}
+.cmh-dm-tick[data-k="1"]{animation-name:cmh-dt1}
+.cmh-dm-tick[data-k="2"]{animation-name:cmh-dt2}
+@keyframes cmh-dt0{0%,20%{opacity:0;transform:scale(.5)}25%,93%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.5)}}
+@keyframes cmh-dt1{0%,32%{opacity:0;transform:scale(.5)}37%,93%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.5)}}
+@keyframes cmh-dt2{0%,44%{opacity:0;transform:scale(.5)}49%,93%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.5)}}
+.cmh-dm-host{flex:0 1 auto;min-width:0;color:#8b8b94;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-dm-host b{font-weight:600;color:#18181b}
+.cmh-dm-what{flex:none;margin-left:auto;font-size:10.5px;color:#52525b;white-space:nowrap}
+
+@media (max-width:1179px){
   .cmh-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .cmh-tile,.cmh-tile[data-wide]{grid-column:span 1}
-  .cmh-tile[data-wide]{grid-column:1/-1}
+  .cmh-stage{height:400px}
 }
 @media (max-width:639px){
   .cmh-grid{grid-template-columns:1fr}
-  .cmh-tile[data-wide]{grid-column:auto}
   .cmh-stage{height:380px}
-  .cmh-pr{gap:10px;padding:14px}
-  .cmh-pc{width:calc(50% - 5px);padding:7px 7px 11px;border-radius:15px}
-  .cmh-pc-b{padding:10px 3px 0}
-  .cmh-pc-k{display:none}
-  .cmh-pc-row{display:grid;gap:1px}
-  .cmh-pc-name,.cmh-pc-price{font-size:13.5px}
-  .cmh-pc-st{font-size:11.5px}
-  .cmh-pc-step{white-space:normal;align-items:flex-start;line-height:1.3}
-  .cmh-pc-step i{margin-top:4px}
 }
 @media (prefers-reduced-motion:reduce){
   .cmh-a,.cmh-spin{animation:none!important}

@@ -87,7 +87,8 @@ console.log("\nCommerce: the sections render on the server")
   const how = renderToStaticMarkup(createElement(HowItWorks))
   /* Changed on purpose (landing round): the owner asked for less "fans" in the copy. */
   check("how it works: its heading", how.includes("Sell what people love. We handle the rest.") && HOW_HEADING === "Sell what people love. We handle the rest." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
-  check("how it works: five tiles", (how.match(/class="cmh-tile"/g) ?? []).length === 5)
+  /* Changed on purpose (landing round 3): a sixth tile, the creator's own domain, as the owner asked. */
+  check("how it works: six tiles", (how.match(/class="cmh-tile"/g) ?? []).length === 6)
   /* Changed on purpose (wave 13): the owner removed the profit picker, the "How it works" pill and the subheading. */
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
   /* Changed on purpose (landing round): the merch tile became one shop's physical and digital products (a tee printed when ordered, an e-book sent when paid), as the owner asked. */
@@ -106,7 +107,8 @@ console.log("\nCommerce: the sections render on the server")
   check("checkout: the phone draws the real checkout's words", ["Your details", "Email me news and offers", "Payment method", "Pay $19.00 with Apple Pay", "Payment complete", "We sent your receipt and your access to", "Open it now"].every((w) => co.includes(w)))
   /* Added (wave 13). */
   check("checkout: no subheading under the headline, no eyebrow", !/cmc-sub|story-eyebrow/.test(co))
-  check("checkout: the same checkout in a desktop browser, and Google Pay there", (co.match(/class="cmv-br"/g) ?? []).length === 2 && co.includes("Pay $19.00 with Google Pay"))
+  /* Changed on purpose (landing round 3): the owner wants the wallets tab to be a phone and nothing else, so the second browser (the one with Google Pay) is gone; the tab's words still name both wallets. */
+  check("checkout: the same checkout in a desktop browser, once, and both wallets named", (co.match(/class="cmv-br"/g) ?? []).length === 1 && co.includes("Apple Pay and Google Pay, built in"))
   check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$19.00", "€17.50", "£15.00", "¥2,900", "C$26.00"].every((p) => co.includes(p)))
   /* Changed on purpose (landing round): the product is Maya Ellis's e-book, Weeknight Pasta, not the Golden Hour presets the owner found AI looking. */
   check("checkout: the reminder and the sale note use the real emails' words", co.includes("You left Weeknight Pasta at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("You sold Weeknight Pasta for $19.00"))
