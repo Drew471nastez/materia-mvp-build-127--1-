@@ -146,7 +146,7 @@ check("the thread compacts wherever the card is narrow, so it always fits", /\.e
 console.log("\n── corners and small print ──")
 /* Changed on purpose (landing round 4): the support thread is the card of before, at 16px. */
 check("the section's cards and models are about a pixel tighter", /\.ev-vis\{[^}]*border-radius:17px/.test(css) && /\.ev-vis\{height:clamp\(320px,32vw,440px\);border-radius:19px\}/.test(css) && /\.ev-p-card\{[^}]*border-radius:17px/.test(css) && /\.ev-c-thread\{[^}]*border-radius:16px/.test(css))
-check("the showcase's pictures too", /margin:0;border-radius:7px;contain:paint/.test(showcase) && /aspect-ratio:auto;border-radius:5px[;}]/.test(showcase)) /* Changed on purpose (landing round 5): the phone card also snaps (scroll-snap-align after the radius). */
+check("the showcase's pictures too", /margin:0;border-radius:7px;contain:paint/.test(showcase) && /aspect-ratio:4\/3;border-radius:8px[;}]/.test(showcase)) /* Changed on purpose (landing round 6): the phone card is 4:3 with an 8px radius. */ /* Changed on purpose (landing round 5): the phone card also snaps (scroll-snap-align after the radius). */
 check("no small print under the section: the grid is the last thing in it", /<\/article><\/div><\/div><\/section>$/.test(html) && !/<small/.test(html))
 
 console.log("\n── words ──")

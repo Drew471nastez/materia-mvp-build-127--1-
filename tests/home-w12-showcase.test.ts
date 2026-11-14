@@ -110,15 +110,16 @@ for (const want of [/Notion template/, /strength|training program/i, /merch|tee|
 /* Changed on purpose (wave 13 perf): the caption's own layer (will-change) only where a mouse can show it; a touch screen never does. */
 assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(showcaseSrc) && /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-slide figcaption\{will-change:opacity\}/.test(showcaseSrc), "the caption starts hidden")
 assert.ok(/@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(showcaseSrc), "and shows only under a resting mouse, never while dragging")
-assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 1, "no other rule shows it")
+/* Changed on purpose (landing round 6): the caption is a line under the picture, so on a touch screen (no hover) it is simply shown; with a mouse only the hover shows it. */
+assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 2, "no other rule shows it")
+assert.ok(/@media\(hover:none\),\(pointer:coarse\)\{\.build-showcase-slide figcaption\{opacity:1;transition:none\}\}/.test(showcaseSrc), "a touch screen shows it, under its card")
 // On a phone: the row starts on the heading's gutter, the first card about three quarters wide, the next peeking, 8px apart.
-/* Changed on purpose (landing round 5): the owner wanted the cards "a little bit more big": 60% of the width tall on a phone. */
-assert.ok(/--showcase-height:clamp\(200px,60vw,440px\)/.test(showcaseSrc) && /--showcase-gap:8px;height:var\(--showcase-height\)/.test(showcaseSrc) && /padding-inline:var\(--showcase-gutter/.test(showcaseSrc))
+/* Changed on purpose (landing round 6): the owner's reference, every phone card a 4:3 card 78% of the screen wide, 10px apart. */
+assert.ok(/--showcase-card:min\(78vw,440px\)/.test(showcaseSrc) && /--showcase-gap:10px;gap:var\(--showcase-gap\)/.test(showcaseSrc) && /padding-inline:var\(--showcase-gutter/.test(showcaseSrc))
 {
-  const h = 0.515 * 390
-  const first = 1.4545 * h
-  const peek = 390 - 20 - first - 8
-  assert.ok(first / 390 > 0.7 && first / 390 < 0.8 && peek > 40 && peek < 1.4545 * h * 0.5114 / 1.4545, `at 390 the first card is ${Math.round(first)}px and the next shows ${Math.round(peek)}px`)
+  const first = 0.78 * 390
+  const peek = 390 - 20 - first - 10
+  assert.ok(first / 390 > 0.7 && first / 390 < 0.8 && peek > 40 && peek < first / 2, `at 390 the first card is ${Math.round(first)}px and the next shows ${Math.round(peek)}px`)
 }
 // The corner of image 29: the radius overlaps the hero, a 1px top highlight that follows the curve, no side hairline.
 assert.ok(/--showcase-radius:clamp\(24px,2\.78vw,48px\)/.test(showcaseSrc) && /margin:calc\(var\(--showcase-radius\)\*-1\)/.test(showcaseSrc) && /box-shadow:inset 0 1px 0 rgba\(255,255,255,\.065\)/.test(showcaseSrc) && !/inset 0 0 0 1px/.test(showcaseSrc))
