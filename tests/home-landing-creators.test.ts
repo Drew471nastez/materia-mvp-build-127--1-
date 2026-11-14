@@ -109,7 +109,8 @@ check("the scroll never steps through a payment, and no scroll listener, rAF or 
   const stage = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))
   assert.ok(!/data-step|cmc-band|Face ID|Payment complete/.test(stage))
   assert.ok(!/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offset(Top|Height)|useState\(0\)/.test(src))
-  assert.ok(/view-timeline-name:--cmc[;}]/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
+  /* Changed on purpose (landing round 5): no view timelines; the stage is held by the browser's own sticky scrolling and the cards come up over it. */
+  assert.ok(/\.cmc-stage\{position:sticky;top:0;height:100svh/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
 })
 check("no purple glow, no Golden Hour presets, less fans", () => {
   const src = read(CO)
@@ -118,7 +119,8 @@ check("no purple glow, no Golden Hour presets, less fans", () => {
   assert.ok(!/\bfans?\b/i.test(words(co)) && co.includes("Prices people read without a calculator"))
 })
 check("the product is a real looking e-book: a local photograph under its title", () => {
-  assert.ok(co.includes(`${EBOOK.title}</div>`) && co.includes("/home/commerce/ebook-night.webp"))
+  /* Changed on purpose (landing round 5, the owner did not like After Dark there): the checkout sells The Loop, its cover a picture file; How it works keeps the e-book below. */
+  assert.ok(co.includes("/home/commerce/guide-loop.webp") && !co.includes("ebook-night") && existsSync("public/home/commerce/guide-loop.webp") && statSync("public/home/commerce/guide-loop.webp").size < 60 * 1024)
   assert.ok(existsSync("public/home/commerce/ebook-night.webp") && statSync("public/home/commerce/ebook-night.webp").size < 60 * 1024)
   assert.ok(/container-type:inline-size/.test(EBOOK_COVER_CSS) && !/https?:/.test(EBOOK_COVER_CSS + read("components/marketing/home/ebook-cover.tsx")))
 })
