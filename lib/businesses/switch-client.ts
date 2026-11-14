@@ -104,7 +104,8 @@ function readJar(): Promise<string | null> {
   } catch {
     return Promise.resolve(null)
   }
-  return readSessionFromCookies(key, cookies)
+  /* After the cutoff an old name is never read on HTTPS (round AY, LEGACY_SESSION_CUTOFF_MS). */
+  return readSessionFromCookies(key, cookies, { retireLegacy: secure() && !/(^|\.)localhost$/.test(location.hostname) })
 }
 
 async function jarToken(): Promise<string | null> {

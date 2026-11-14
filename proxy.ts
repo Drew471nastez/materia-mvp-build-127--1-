@@ -2771,13 +2771,15 @@ async function routeRequest(request: NextRequest) {
   */
   const sessionKey = storedSessionKey()
   const arrived = cookiePairs(request.headers.get("cookie"))
-  const arrivedView = sessionView(arrived, sessionKey)
   const hostCookies = writesHostCookies({
     https: request.nextUrl.protocol === "https:" || (request.headers.get("x-forwarded-proto") || "").startsWith("https"),
     localhost: isLocalhost || /(^|\.)localhost$/.test(host.split(":")[0]),
     pairs: arrived,
     key: sessionKey,
   })
+  /* After LEGACY_SESSION_CUTOFF_MS a lone old name is expired, never read (round AY). */
+  const viewOptions = { retireLegacy: hostCookies }
+  const arrivedView = sessionView(arrived, sessionKey, [], viewOptions)
 
   /* Which renewal this request started, so the response can wait for it below (watchRenewals). */
   const renewalWatch = watchRenewals(deadlineFetch)
@@ -2791,7 +2793,7 @@ async function routeRequest(request: NextRequest) {
     global: { fetch: renewalWatch.fetch },
     cookies: {
       getAll() {
-        return sessionView(cookiePairs(request.headers.get("cookie")), sessionKey).cookies
+        return sessionView(cookiePairs(request.headers.get("cookie")), sessionKey, [], viewOptions).cookies
       },
       setAll(cookiesToSet) {
         renewalWatch.saved()

@@ -7,7 +7,7 @@
 */
 import { combineChunks, createChunks, isChunkLike } from "@supabase/ssr/dist/main/utils/chunker.js"
 import { stringFromBase64URL, stringToBase64URL } from "@supabase/ssr/dist/main/utils/base64url.js"
-import { cookiePairs, HOST_PREFIX, holdsHostSession, sessionView } from "./host-session"
+import { cookiePairs, HOST_PREFIX, holdsHostSession, sessionView, type SessionViewOptions } from "./host-session"
 
 /**
  * ===========================================================================
@@ -102,8 +102,8 @@ export function parseCookieHeader(cookieHeader: string): Map<string, string> {
  * sessionView (lib/supabase/host-session.ts, round AX): the `__Host-` copy when there is one, and never an
  * old name that arrived twice.
  */
-export async function readSessionFromCookies(key: string, cookieHeader: string): Promise<string | null> {
-  const jar = new Map(sessionView(cookiePairs(cookieHeader), key).cookies.map((c) => [c.name, c.value] as const))
+export async function readSessionFromCookies(key: string, cookieHeader: string, opts: SessionViewOptions = {}): Promise<string | null> {
+  const jar = new Map(sessionView(cookiePairs(cookieHeader), key, [], opts).cookies.map((c) => [c.name, c.value] as const))
   const raw = await combineChunks(key, (name) => jar.get(name) ?? null)
   if (!raw) return null
   if (raw.startsWith(BASE64_PREFIX)) {

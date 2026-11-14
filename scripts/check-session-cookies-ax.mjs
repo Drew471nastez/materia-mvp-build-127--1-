@@ -14,6 +14,8 @@
  *   own and a planted one)                 copy is expired, the host's stays
  *   a renewal of a `__Host-` session       written under `__Host-`
  *   plain http (local development)         the old name, as before
+ *   after 2026-12-29 (round AY): a lone    never read, expired; a __Host-
+ *   old name                               session is untouched
  *
  * Supabase's /auth/v1/user answers by the token it is shown, so which
  * session the proxy used is read from the account it asked about.
@@ -155,6 +157,43 @@ try {
     expect(!r.location, "not sent to /login", r.location)
     expect(r.hostSet.length === 0, "no __Host- cookie on http", r.hostSet.join(" | ").slice(0, 120))
     expect(r.legacyKept.some((c) => valueOf(c).length > 20), "the renewal goes under the old name, as before", r.setCookies.join(" | ").slice(0, 200))
+  }
+  /*
+    ROUND AY: THE MOVE ENDS ON 2026-12-29 (LEGACY_SESSION_CUTOFF_MS). The clock is moved past it for these
+    runs: a lone old name (what a published site can plant for a visitor with no __Host- session) is never
+    read and is expired; a __Host- session is untouched; plain http keeps the old name.
+  */
+  const realNow = Date.now
+  Date.now = () => Date.UTC(2026, 11, 29, 12)
+  try {
+    {
+      const r = await run("after the cutoff: a lone old-name session planted for another account", {
+        url: "https://storelib.com/app/products",
+        cookie: `${KEY}=${value(session("evil", 3000, "planter"))}`,
+      })
+      expect(!asked.includes("at-evil"), "the planted account is never asked about", asked.join(","))
+      expect(r.location?.startsWith("https://storelib.com/login"), "read as signed out, not as the planter", r.location)
+      expect(r.hostSet.length === 0, "never moved to __Host-", r.hostSet.join(" | ").slice(0, 120))
+      expect(r.legacyKept.length === 0 && r.legacyHostOnlyGone, "the old name is expired on the host", r.setCookies.join(" | ").slice(0, 300))
+      expect(r.legacyDomainGone.length > 0, "and at the domain, where a site could have set it", r.setCookies.join(" | ").slice(0, 300))
+    }
+    {
+      const r = await run("after the cutoff: a __Host- session with a planted old name beside it", {
+        url: "https://storelib.com/app/products",
+        cookie: `${KEY}=${value(session("evil", 3000, "planter"))}; ${HOST}=${value(session("rt0", 3000))}`,
+      })
+      expect(!r.location && asked.length > 0 && asked.every((t) => t === "at-rt0"), "the visitor stays signed in as themselves", `${r.location} ${asked.join(",")}`)
+    }
+    {
+      const r = await run("after the cutoff: a __Host- session alone", { url: "https://storelib.com/app/products", cookie: `${HOST}=${value(session("rt0", 3000))}` })
+      expect(!r.location && asked.every((t) => t === "at-rt0"), "signed in, nothing changed", `${r.location} ${asked.join(",")}`)
+    }
+    {
+      const r = await run("after the cutoff: plain http keeps the old name", { url: "http://storelib.com/app/products", cookie: `${KEY}=${value(session("rt0", 3000))}` })
+      expect(!r.location && asked.every((t) => t === "at-rt0"), "signed in on local development", `${r.location} ${asked.join(",")}`)
+    }
+  } finally {
+    Date.now = realNow
   }
   console.log(broken === 0 ? "\nall __Host- session checks passed\n" : `\n${broken} __Host- session checks failed\n`)
   process.exitCode = broken === 0 ? 0 : 1
