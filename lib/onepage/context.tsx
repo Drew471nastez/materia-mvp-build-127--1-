@@ -28,6 +28,7 @@ import {
   replaceCurrent,
   retryableSave,
   retryDelay,
+  saveRequestBody,
   serializeSaves,
   startHistory,
   stepBack,
@@ -137,6 +138,8 @@ interface OnePageContextType {
   answerDraftQuestion: (useDevice: boolean) => void
   /** When unsaved work kept on the device was put back on opening, for the editor to say so once. */
   draftRestoredAt: number | null
+  /** The creator chose Discard on the way out: the unsaved work is dropped from the device too, and leaving does not write it back. */
+  discardUnsaved: () => void
 
   loadTemplates: () => Promise<void>
 }
@@ -356,48 +359,68 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
       const message = describeSaveFailure(status, serverMessage)
       console.error("OnePage save failed:", status ?? "no response", serverMessage || "")
       setSaveState("error")
-      if (!quiet) setSaveError({ message, at: Date.now() })
+      /*
+        A retry is quiet only while it will be tried again. One that will not
+        (a conflict, a refusal) is said: a quiet retry that met "saved
+        somewhere else" used to arm the next Save to overwrite the other
+        device's page without the creator ever being told.
+      */
+      if (!quiet || !retryableSave(status)) setSaveError({ message, at: Date.now() })
       return { ok: false, error: message, serverMessage: serverMessage || undefined, status }
     }
 
     try {
-      // Step 1: Save draft to database (include archived_blocks)
+      /*
+        ONE REQUEST SAVES AND PUBLISHES (the OnePage production audit, S1 and
+        S2): app/api/onepage PUT with publish: true writes the draft and the
+        live copy in the same checked write. The blocks, archive, look and bio
+        go whole, checked against the copy this editor started from; the name,
+        address, settings, social links, video and share picture only where
+        this editor changed them since its last save (saveRequestBody), so an
+        editor left open never puts back what another screen changed since.
+        The crop of the profile video is in settings, never sent on its own.
+      */
+      const body = saveRequestBody(snapshot, archived, savedFieldsRef.current, overrideConflictRef.current ? null : baseVersionRef.current)
       const saveResponse = await fetch("/api/onepage", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...snapshot,
-          archived_blocks: archived,
-          /* Round AU: the copy this editor started from, so a save never lands over a newer one unasked (app/api/onepage PUT). */
-          base_version: overrideConflictRef.current ? undefined : baseVersionRef.current,
-        }),
+        body: JSON.stringify(body),
       })
       if (!saveResponse.ok) {
         if (saveResponse.status === 409) overrideConflictRef.current = true
         return fail(saveResponse.status, await serverError(saveResponse))
       }
-      const saved = (await saveResponse.json().catch(() => null)) as { edit_version?: unknown } | null
-      baseVersionRef.current = sentBaseVersion(saved?.edit_version)
+      const saved = (await saveResponse.json().catch(() => null)) as { edit_version?: unknown; published?: unknown; published_at?: unknown } | null
+      /* The version is in a header too, so an answer whose body was cut off does not leave the next save unchecked. */
+      baseVersionRef.current = sentBaseVersion(saveResponse.headers.get("X-OnePage-Edit-Version")) ?? sentBaseVersion(saved?.edit_version)
       overrideConflictRef.current = false
 
-      // Step 2: Publish with the SAME data we just saved
-      const publishResponse = await fetch("/api/onepage/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: snapshot.id,
-          draft_blocks: snapshot.draft_blocks,
-          theme: snapshot.theme,
-          title: snapshot.title,
-          bio: snapshot.bio,
-          avatar_url: snapshot.avatar_url,
-          avatar_video_url: snapshot.avatar_video_url,
-          avatar_video_crop: (snapshot.settings as any)?.avatar_video_crop || null,
-          social_links: snapshot.social_links,
-        }),
-      })
-      if (!publishResponse.ok) return fail(publishResponse.status, await serverError(publishResponse))
-      const data = await publishResponse.json().catch(() => ({}))
+      /*
+        A server from before one-request saves answers without publishing: published the way it was, with the same copy.
+        Its answer has no X-OnePage-Edit-Version, which a server that publishes in the same write always sends, so a
+        body cut off on the way back is not taken for an old server (and the page published twice, from this copy).
+      */
+      const publishedHere = saved?.published === true || saveResponse.headers.get("X-OnePage-Edit-Version") !== null
+      let publishedAt: unknown = saved?.published === true ? saved.published_at : null
+      if (!publishedHere) {
+        const publishResponse = await fetch("/api/onepage/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: snapshot.id,
+            draft_blocks: snapshot.draft_blocks,
+            theme: snapshot.theme,
+            title: snapshot.title,
+            bio: snapshot.bio,
+            avatar_video_url: snapshot.avatar_video_url,
+            avatar_video_crop: (snapshot.settings as any)?.avatar_video_crop || null,
+            social_links: snapshot.social_links,
+          }),
+        })
+        if (!publishResponse.ok) return fail(publishResponse.status, await serverError(publishResponse))
+        publishedAt = ((await publishResponse.json().catch(() => ({}))) as { published_at?: unknown })?.published_at
+      }
+      const data = { published_at: typeof publishedAt === "string" ? publishedAt : undefined }
 
       /* What went live is the copy that was sent, not the draft as it is
          now: anything typed during the request is still only a draft. */
@@ -765,6 +788,8 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
     const blocks = [...prev.draft_blocks]
     const index = blocks.findIndex((b) => b.id === blockId)
     if (index <= 0) return
+    /* Never above the profile header, and the header is never moved (the OnePage production audit, B9). */
+    if (blocks[index - 1].type === "header" || blocks[index].type === "header") return
     ;[blocks[index - 1], blocks[index]] = [blocks[index], blocks[index - 1]]
     commit({ ...prev, draft_blocks: renumber(blocks) }, null)
   }, [commit])
@@ -775,6 +800,8 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
     const blocks = [...prev.draft_blocks]
     const index = blocks.findIndex((b) => b.id === blockId)
     if (index === -1 || index >= blocks.length - 1) return
+    /* The header itself is not moved; a block above it (an older page) moving down goes below it, which is right. */
+    if (blocks[index].type === "header") return
     ;[blocks[index], blocks[index + 1]] = [blocks[index + 1], blocks[index]]
     commit({ ...prev, draft_blocks: renumber(blocks) }, null)
   }, [commit])
@@ -946,11 +973,27 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
     else clearDraft(deviceStore(), draft.pageId)
   }, [applyDraft])
 
+  /*
+    DISCARD MEANS DISCARD (the OnePage production audit, S5). Choosing
+    Discard on the way out left the device's copy of the unsaved work in
+    place, and pagehide wrote it again on the way out, so the next open said
+    "Unsaved changes restored" and the next Save published what was thrown
+    away. The copy is dropped, and the page counts as saved so nothing is
+    written back while leaving.
+  */
+  const discardUnsaved = useCallback(() => {
+    const page = latestOnepageRef.current
+    savedRevisionRef.current = editRevisionRef.current
+    looseEditRef.current = false
+    draftQuestionRef.current = null
+    if (page?.id) clearDraft(deviceStore(), page.id)
+  }, [])
+
   const writeDraftNow = useCallback(() => {
     const page = latestOnepageRef.current
     if (!page?.id || draftQuestionRef.current) return
     if (editRevisionRef.current === savedRevisionRef.current && !looseEditRef.current) return
-    writeDraft(deviceStore(), { v: 1, pageId: page.id, base: baseVersionRef.current, at: Date.now(), fields: draftFieldsOf(page, latestArchivedBlocksRef.current) })
+    writeDraft(deviceStore(), { v: 1, pageId: page.id, base: baseVersionRef.current, at: Date.now(), fields: draftFieldsOf(page, latestArchivedBlocksRef.current), saved: savedFieldsRef.current })
   }, [])
   writeDraftNowRef.current = writeDraftNow
 
@@ -1032,6 +1075,7 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
         draftQuestion,
         answerDraftQuestion,
         draftRestoredAt,
+        discardUnsaved,
         loadTemplates,
       }}
     >

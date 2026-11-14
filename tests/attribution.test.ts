@@ -506,7 +506,9 @@ async function main() {
       ["app/api/subscribers/route.ts", /recordSignupAttribution\(adminSupabase, \{ creatorId: creator\.id, email: address, source, sent: origin \}\)/],
       ["app/api/subscribe/route.ts", /recordSignupAttribution\(adminSupabase, \{ creatorId: resolvedCreatorId, email: normalizedEmail, source: origin, sent: body\.origin \}\)/],
       ["app/api/onepage/leads/route.ts", /recordSignupAttribution\(adminSupabase, \{ creatorId, email: subscriberEmail, source: leadSource, sent: body\.origin \}\)/],
-      ["app/api/onepage/email-capture/route.ts", /recordSignupAttribution\(adminSupabase, \{ creatorId: onepage\.seller_id, email: normalizedEmail, source: leadSource, sent: body\.origin \}\)/],
+      /* Changed on purpose (OnePage production audit, C1/F3): the download form joins the list through lib/onepage/signup-server addSubscriber, which records the source and the attribution (the entry below), as the lead magnet and RSVP routes do. */
+      ["app/api/onepage/email-capture/route.ts", /addSubscriber\(db, creatorId, \{ email: normalizedEmail, name, onepageId, consentText: "Subscribed via OnePage email capture form", source: leadSource, sent: body\.origin \}\)/],
+      ["lib/onepage/signup-server.ts", /recordSignupAttribution\(db, \{ creatorId, email: input\.email, source: input\.source as any, sent: input\.sent \}\)/],
     ]
     for (const [file, re] of routes) {
       const src = read(file)

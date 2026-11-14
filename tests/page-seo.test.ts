@@ -135,7 +135,7 @@ console.log("\nA OnePage says where it lives and who it is about")
       /published \? row\.published_blocks \|\| row\.draft_blocks : row\.draft_blocks/.test(shape) && /published \? row\.published_social_links \|\| row\.social_links : row\.social_links/.test(shape))
   /* Round 10: the filter moved into drawnBlocks (the same step for both sides, which also draws social rows from the links), unchanged. */
   check("and a block outside its schedule is left out before the page is sent",
-    /blocks: drawnBlocks\(blocks, /.test(shape) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(shape) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(shape))
+    /* Changed on purpose (OnePage production audit, P-F3): the blocks pass withoutHidden first, which also leaves out a switched off block and a group's hidden ones. */ /blocks: drawnBlocks\(withoutHidden\(blocks, now\), /.test(shape) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(shape) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(shape))
   check("the handle and the counts are asked once per request, for the metadata and the page",
     /* Changed on purpose (rel-public): still once per request (React's cache), around a copy held for every visitor (lib/onepage/public-cache). */
     /export const onePageOwner = cache\(\(/.test(loader) && /heldRead\(\(\) => readOnePageOwner\(/.test(loader) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)

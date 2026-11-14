@@ -44,6 +44,7 @@ import "server-only"
 import type Stripe from "stripe"
 import { checkTipAmount, tipModeOf, tipSource, tipText, type TipFields, type TipSource } from "./tips"
 import { liveAppBlockData, pageCreatorId, publishedBlocksOf } from "./page-block"
+import { withOwnerStore } from "./page-store"
 import type { PlatformFee } from "@/lib/communities/server/learn-checkout"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
@@ -83,7 +84,8 @@ type PageRow = { id: string; status?: string | null; slug?: string | null; title
 export async function readLivePage(db: Db, onepageId: unknown): Promise<PageRow | null> {
   if (typeof onepageId !== "string" || !UUID.test(onepageId)) return null
   const { data } = await db.from("onepages").select("id, status, slug, title, seller_id, creator_id, owner_id, published_blocks, draft_blocks").eq("id", onepageId).eq("status", "published").maybeSingle()
-  return (data as PageRow | null) ?? null
+  /* The store is the owner's, never the row's own seller_id, which the owner can write (lib/onepage/page-store). */
+  return withOwnerStore(db, data as PageRow | null)
 }
 
 /** Everything Stripe is asked for, from the server's own facts. Pure, so the tests read it. */

@@ -11,7 +11,7 @@ import "server-only"
  */
 import { createHash } from "node:crypto"
 import { pollOptions, type AppBlockData } from "./app-blocks"
-import { countRows, pollOptionOf, pollShowsResults, tallyVotes, type PollTally } from "./poll"
+import { pollOptionOf, pollShowsResults, tallyVotes, type PollTally } from "./poll"
 import { liveAppBlockData, publishedBlocksOf } from "./page-block"
 import { readLivePage } from "./tips-server"
 
@@ -19,17 +19,29 @@ import { readLivePage } from "./tips-server"
 type Db = any
 
 const MISSING = new Set(["42P01", "PGRST205", "42703", "PGRST204"])
-const COUNT_LIMIT = 50_000
 
 /** The key a vote is kept under: the cookie, for this poll only, hashed (the cookie itself is never stored). */
 export function voterKey(voterId: string, onepageId: string, blockId: string): string {
   return createHash("sha256").update(`${onepageId}:${blockId}:${voterId}`).digest("hex").slice(0, 40)
 }
 
+/*
+  COUNTED BY THE DATABASE, ONE NUMBER PER ANSWER. The votes used to be read
+  as rows and counted here, `.limit(50_000)`, but the API hands back at most
+  1,000 rows a read, so past a thousand votes every visitor and the editor saw
+  a total stuck at 1,000 and shares from whichever thousand came back. A poll
+  has a handful of answers: each is one exact count, asked together.
+*/
 export async function tallyFor(db: Db, onepageId: string, blockId: string, options: { id: string; label: string }[]): Promise<PollTally | null> {
-  const { data, error } = await db.from("onepage_poll_votes").select("option_id").eq("onepage_id", onepageId).eq("block_id", blockId).limit(COUNT_LIMIT)
-  if (error) return null
-  return tallyVotes(options, countRows(data as { option_id: string }[]))
+  if (options.length === 0) return tallyVotes(options, {})
+  const counted = await Promise.all(
+    options.slice(0, 20).map(async (o) => {
+      const { count, error } = await db.from("onepage_poll_votes").select("option_id", { count: "exact", head: true }).eq("onepage_id", onepageId).eq("block_id", blockId).eq("option_id", o.id)
+      return error ? null : ([o.id, Number(count) || 0] as const)
+    }),
+  )
+  if (counted.some((c) => c === null)) return null
+  return tallyVotes(options, Object.fromEntries(counted as (readonly [string, number])[]))
 }
 
 export type VoteAnswer =

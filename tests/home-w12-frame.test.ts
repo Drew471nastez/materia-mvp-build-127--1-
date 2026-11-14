@@ -75,10 +75,11 @@ async function main() {
     const { ProductMarquee, MARQUEE_ROWS } = await import("@/components/marketing/product-marquee")
     const html = renderToStaticMarkup(createElement(ProductMarquee))
     check("the heading is Unlimited possibilities", /aria-label="Unlimited possibilities"/.test(html))
-    check("three rows: left, right, left", MARQUEE_ROWS.map((r) => r.direction).join() === "left,right,left" && (html.match(/class="um-row"/g) ?? []).length === 3)
+    /* Changed on purpose (landing round, the owner: "keep only 2 rows, not 3"). */
+    check("two rows: left, right", MARQUEE_ROWS.map((r) => r.direction).join() === "left,right" && (html.match(/class="um-row"/g) ?? []).length === 2)
     const labels = MARQUEE_ROWS.flatMap((r) => r.items.map((i) => i.label))
     check("at least 36 different things, none twice", labels.length >= 36 && new Set(labels).size === labels.length, labels.length)
-    check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 9 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 6)
+    check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 6 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 4)
     /* Changed on purpose (wave 13): the owner wanted the emoji back, the way the chips looked before wave 12, in place of the drawn icons. */
     check("every chip has its emoji", (html.match(/class="um-chip"/g) ?? []).length === labels.length * 3 && (html.match(/<span class="um-emoji" aria-hidden="true">/g) ?? []).length === labels.length * 3 && !/<svg/.test(html))
     check("each emoji is one picture, different in every row", MARQUEE_ROWS.every((r) => r.items.every((i) => /^\p{Extended_Pictographic}/u.test(i.emoji)) && new Set(r.items.map((i) => i.emoji)).size === r.items.length))
@@ -163,7 +164,8 @@ async function main() {
     const lazy = read("components/marketing/home/lazy-sections.tsx")
     const listed = [...lazy.matchAll(/styles: \(\) => import\("\.\/([\w-]+)"\)\.then\(\(m\) => m\.(\w+)\)/g)]
     /* Changed on purpose (wave 13): section 3 (everything-in-one-place) now draws its own stylesheet too, so it is listed. */
-    check("the sections that draw their own stylesheets list them", listed.length === 8 && listed.some((m) => m[1] === "everything-in-one-place"), listed.map((m) => m[1]))
+    /* Changed on purpose (landing round): the new Your AI tools work here too section (ai-tools-section) draws its own stylesheet too, so nine are listed. */
+    check("the sections that draw their own stylesheets list them", listed.length === 9 && listed.some((m) => m[1] === "everything-in-one-place") && listed.some((m) => m[1] === "ai-tools-section"), listed.map((m) => m[1]))
     const modules: Record<string, Record<string, unknown>> = {
       "everything-in-one-place": await import("@/components/marketing/home/everything-in-one-place"),
       "ideas-come-to-life": await import("@/components/marketing/home/ideas-come-to-life"),
@@ -173,6 +175,7 @@ async function main() {
       "checkout-scene": await import("@/components/marketing/home/checkout-scene"),
       "sell-everywhere-map": await import("@/components/marketing/home/sell-everywhere-map"),
       "earnings-calculator": await import("@/components/marketing/home/earnings-calculator"),
+      "ai-tools-section": await import("@/components/marketing/home/ai-tools-section"),
     }
     for (const [, file, name] of listed) {
       const mod = modules[file] ?? {}
@@ -202,8 +205,8 @@ async function main() {
     check("the script keeps only headings inside a scrolling box; the showcase heading inks from the scroll too", !/hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading) && !/data-story-showcase\]\):not/.test(css) && !/"--story-progress": 1/.test(heading))
     const creators = code("components/marketing/home/creators-carousel.tsx")
     check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(goal\)/.test(creators))
-    /* Changed on purpose (wave 13): the sale dot and its looping ping are gone; the sale notification moves by transitions between states, with no loop left running off screen. */
-    check("the creators section runs no endless CSS loop of its own", !/infinite/.test(creators) && !/infinite/.test(code("components/marketing/home/motion/sale-pop.tsx")))
+    /* Changed on purpose (landing round): the sale notification is gone (the owner found it AI looking), so only the rail itself is checked. */
+    check("the creators section runs no endless CSS loop of its own", !/infinite/.test(creators) && !existsSync("components/marketing/home/motion/sale-pop.tsx"))
     for (const f of ["how-it-works", "earnings-calculator"]) {
       const own = read(`components/marketing/home/${f}.tsx`)
       check(`${f}: rules keyed on data-commerce-live end in a class, not a tag`, !/\[data-commerce-live\][^{},]*\s(span|li|div|b|i|img|svg|path)\s*[,{]/.test(own) && !/\[data-commerce-live\][^{},]*>\s*(span|li)\s*[,{]/.test(own))

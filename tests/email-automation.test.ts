@@ -154,7 +154,8 @@ async function main() {
     ["a section, footer or contact form on a built site", "app/api/website-builder/subscribe/route.ts"],
     ["the creator page's subscribe bar", "app/api/subscribers/route.ts"],
     ["the older public subscribe endpoint", "app/api/subscribe/route.ts"],
-    ["a OnePage capture block", "app/api/onepage/email-capture/route.ts"],
+    /* Changed on purpose (OnePage production audit, C1/F3): the capture block's download form joins through lib/onepage/signup-server addSubscriber. */
+    ["a OnePage capture block", "lib/onepage/signup-server.ts"],
     ["a OnePage lead magnet", "app/api/onepage/leads/route.ts"],
   ]
   for (const [what, file] of paths) {
@@ -166,7 +167,7 @@ async function main() {
     /* Either a second trigger call on the resubscribe branch, or one call
        reached by both branches through a flag. Both are the same behaviour. */
     const twice = (src.match(/triggerType: "new_subscriber"/g) ?? []).length >= 2
-    const viaFlag = /let welcome = true[\s\S]*if \(welcome\) \{[\s\S]{0,200}triggerType: "new_subscriber"/.test(src)
+    const viaFlag = /let welcome = true[\s\S]*if \(welcome\) \{[\s\S]{0,200}triggerType: "new_subscriber"/.test(src) || /let joined = false[\s\S]*if \(!joined\) return[\s\S]{0,800}triggerType: "new_subscriber"/.test(src)
     check(`${what}: joining again after leaving welcomes them again`,
       twice || viaFlag || !/unsubscribed/.test(src),
       "a resubscribe that skips the welcome is a person who joined and heard nothing")

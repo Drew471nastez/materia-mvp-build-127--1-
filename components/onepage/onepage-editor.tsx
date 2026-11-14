@@ -524,6 +524,7 @@ function EditorLayout() {
     draftQuestion,
     answerDraftQuestion,
     draftRestoredAt,
+    discardUnsaved,
   } = useOnePage()
 
   /*
@@ -915,6 +916,15 @@ function EditorLayout() {
   const [showOnboarding, setShowOnboarding] = useState(false) // Start with false, check DB
   const [connectedDomain, setConnectedDomain] = useState<string | null>(null)
   const [userPlan, setUserPlan] = useState<"free" | "growth" | "pro" | null>(null)
+  /*
+    WHETHER THE PLAN WAS READ, NOT GUESSED. A plan request that failed (or has
+    not come back yet) is shown as Free, as before, but it never stops a Save:
+    a paying creator with the Storelib badge hidden was asked to upgrade on
+    every Save while /api/billing/subscription was slow or down, and could not
+    save at all. The server is the one that refuses a paid setting on a free
+    plan (app/api/onepage PUT, which asks the plan itself).
+  */
+  const [planConfirmed, setPlanConfirmed] = useState(false)
 
   /* A team member: the store owner's plan and domain came with the page (lib/onepage/team-context); the two reads below are the member's own account's. */
   const team = useOnePageTeam()
@@ -924,6 +934,7 @@ function EditorLayout() {
     if (team) {
       setConnectedDomain(team.domain)
       setUserPlan(team.plan)
+      setPlanConfirmed(true)
       return
     }
     fetch("/api/domains")
@@ -937,7 +948,11 @@ function EditorLayout() {
 
     /* Shared with Settings and the billing tab (lib/billing/plan-client.ts). currentPlan first: it is the plan in force
        (an admin's override included), where a cancelled subscription's plan_id is the plan that ended. */
-    void fetchBillingSubscription().then((data) => setUserPlan((plan) => planIdOf(data) ?? plan ?? "free"))
+    void fetchBillingSubscription().then((data) => {
+      const id = planIdOf(data)
+      if (id) setPlanConfirmed(true)
+      setUserPlan((plan) => id ?? plan ?? "free")
+    })
   }, [team])
 
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
@@ -1037,7 +1052,7 @@ function EditorLayout() {
 
   // Handle save with Pro plan check
   const handleSaveWithProCheck = useCallback(async () => {
-    const userHasPro = userPlan === "growth" || userPlan === "pro"
+    const userHasPro = !planConfirmed || userPlan === "growth" || userPlan === "pro"
 
     if (hasProFeaturesEnabled() && !userHasPro) {
       setShowProUpgradeDialog(true)
@@ -1064,7 +1079,7 @@ function EditorLayout() {
     */
     const result = await save()
     if (result.ok) setSaveToastSequence((prev) => prev + 1)
-  }, [hasProFeaturesEnabled, save, activeTab, userPlan, showSaveFailure])
+  }, [hasProFeaturesEnabled, save, activeTab, userPlan, planConfirmed, showSaveFailure])
 
   // Handle upgrading to Pro — auto-saves non-pro changes, then sends user to pricing page
   const handleUpgradeToPro = useCallback(async () => {
@@ -1074,8 +1089,16 @@ function EditorLayout() {
     // If the save failed, stay: leaving now would throw the work away, and the
     // failure is already on screen.
     const result = await save()
-    if (!result.ok) return
+    /*
+      A refusal (400) is the paid setting itself on a free plan: the save can
+      only work after the upgrade, so it is no reason to stay. The work is
+      kept on this device (lib/onepage/local-draft, written as the page goes)
+      and put back when they come back. Any other failure stays, as before:
+      leaving would throw the work away, and the failure is on screen.
+    */
+    if (!result.ok && result.status !== 400) return
     const returnTo = encodeURIComponent(window.location.pathname)
+    leavingRef.current = true
     window.location.href = `/pricing?source=upgrade&returnTo=${returnTo}`
   }, [save])
 
@@ -1248,7 +1271,7 @@ function EditorLayout() {
   }, [router])
 
   const handleSaveAndNavigate = useCallback(async () => {
-    const userHasPro = userPlan === "growth" || userPlan === "pro"
+    const userHasPro = !planConfirmed || userPlan === "growth" || userPlan === "pro"
 
     if (hasProFeaturesEnabled() && !userHasPro) {
       setShowUnsavedDialog(false)
@@ -1284,17 +1307,19 @@ function EditorLayout() {
       leaveTo(pendingNavigation)
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure, leave, leaveTo])
+  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, planConfirmed, showSaveFailure, leave, leaveTo])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
+    /* The device's copy goes too, or the next open puts the discarded work back (lib/onepage/context discardUnsaved). */
+    discardUnsaved()
     if (pendingNavigation === "/app") {
       leave()
     } else if (pendingNavigation) {
       leaveTo(pendingNavigation)
     }
     setPendingNavigation(null)
-  }, [pendingNavigation, leave, leaveTo])
+  }, [pendingNavigation, leave, leaveTo, discardUnsaved])
 
   // Handle onboarding completion
   // Note: The onboarding modal already saves everything to the database and calls save()
@@ -1418,7 +1443,7 @@ function EditorLayout() {
       )
     }
     // Show lightning bolt when the user has pro features active but no paid plan
-    const userHasPro = userPlan === "growth" || userPlan === "pro"
+    const userHasPro = !planConfirmed || userPlan === "growth" || userPlan === "pro"
     const showZap = hasProFeaturesEnabled() && !userHasPro
     return (
       <>

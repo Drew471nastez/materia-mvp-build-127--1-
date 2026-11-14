@@ -4,12 +4,13 @@ import { readFileSync, readdirSync, existsSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToString } from "react-dom/server"
 import { BuildShowcase, SHOWCASE_EXAMPLES } from "../components/marketing/build-showcase"
-import { IdeasComeToLife, IDEAS_HEADING, IDEAS_TABS } from "../components/marketing/home/ideas-come-to-life"
+import { IdeasComeToLife, IDEAS_HEADING, IDEAS_SLIDES } from "../components/marketing/home/ideas-come-to-life"
 import { BusinessCarousel, BUSINESS_HEADING, BUSINESS_SLIDES } from "../components/marketing/home/business-carousel"
 import { u } from "../components/marketing/home/showcase-mocks/frame"
-/* Changed on purpose (wave 13): the storefront mocks (store, OnePage, community) are one file of five real-looking businesses, each a desktop and a phone page. */
+/* Changed on purpose (landing round): section 6 is one product page per kind of thing sold (business-mocks), and the builders gained the Design slide. */
 import * as Biz from "../components/marketing/home/showcase-mocks/business-mocks"
-import { CommunityBuilderMock, OnePageEditorMock, WebsiteBuilderMock } from "../components/marketing/home/showcase-mocks/builder-mocks"
+/* Changed on purpose (landing round, second pass): the OnePage in the editor is Nina Sato's on the Air theme (NinaPage), not Maya Okafor's. */
+import { CommunityBuilderMock, DesignMock, NinaPage, OnePageEditorMock, WebsiteBuilderMock } from "../components/marketing/home/showcase-mocks/builder-mocks"
 
 const read = (p: string) => readFileSync(p, "utf8")
 const MOCKS = "components/marketing/home/showcase-mocks"
@@ -39,23 +40,21 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    /* Changed on purpose (landing round 2): shops renamed (Low Season, Elena Ruiz's watercolor course, Wren & Ash), the community slide is Charla Circle (the real member frame, photographed), the OnePage is Lucía Ferrer's. */
-    ...(["LowSeason", "Watercolor", "Charla", "Lucia", "WrenAsh"] as const).flatMap((b) => [createElement(Biz[`${b}Desktop`]), createElement(Biz[`${b}Mobile`])]),
+    ...([Biz.EbookPage, Biz.CoursePage, Biz.CommunityPage, Biz.TeePage, Biz.BookingPage] as const).map((P) => createElement(P)),
+    createElement(NinaPage),
     createElement(WebsiteBuilderMock),
+    createElement(DesignMock),
     createElement(OnePageEditorMock),
     createElement(CommunityBuilderMock),
   ),
 )
 /* Changed on purpose (wave 13): Storelib's own logo in the editors' bars is drawn by its one component (components/brand/storelib-logo), not a showcase photo. */
-/* Changed on purpose (land round 2): the OnePages (Lucía Ferrer's slide, Rafa Ortega's editor preview) are captures of the live OnePage in shipped themes (components/marketing/home/onepage-sample, public/home/onepage); they are checked with the mocks' own photos. */
-const ownMock = everyMock.replace(/<img[^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
-assert.ok(/data-home-onepage="gazette"/.test(everyMock) && /data-home-onepage="grunge"/.test(everyMock) && /\/home\/onepage\/op-lucia-desktop\.webp/.test(everyMock) && /\/home\/onepage\/op-rafa-signup\.webp/.test(everyMock), "the OnePages are captures of the live page in shipped themes")
-const srcs = new Set([...ownMock.matchAll(/<img(?![^>]*data-storelib-logo)[^>]*src="([^"]+)"/g)].map((m) => m[1]))
-/* Changed on purpose (landing round 2): the community slide is two photographs of the real member frame, and the OnePage captures live in /home/onepage/. */
-assert.ok(srcs.size >= 30, `${srcs.size} pictures`)
-for (const src of srcs) assert.ok((src.startsWith("/home/showcase/") || src.startsWith("/home/onepage/")) && existsSync(`public${src}`), `${src} exists`)
+const srcs = new Set([...everyMock.matchAll(/<img(?![^>]*data-storelib-logo)[^>]*src="([^"]+)"/g)].map((m) => m[1]))
+/* Changed on purpose (landing round): fewer, calmer pictures (no storefront pairs, no florals). */
+assert.ok(srcs.size >= 15, `${srcs.size} pictures`)
+for (const src of srcs) assert.ok(src.startsWith("/home/showcase/") && existsSync(`public${src}`), `${src} exists`)
 /* The logo goes through next/image (lazy by default there; the test stub leaves the attribute out), so the photos are checked here. */
-const photos = ownMock.replace(/<img[^>]*data-storelib-logo[^>]*>/g, "")
+const photos = everyMock.replace(/<img[^>]*data-storelib-logo[^>]*>/g, "")
 assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(photos) && !/<img(?![^>]*height=)[^>]*>/.test(photos))
 assert.ok(!/\blorem\b/i.test(everyMock))
 
@@ -129,19 +128,16 @@ assert.ok(motion.includes("prefers-reduced-motion") && motion.includes("Intersec
 /* Added (wave 14): the pictures stay lazy in the markup, and all twelve are fetched and decoded once the section is on screen, so a card brought in by a swipe or autoplay is never empty (it was, for a few frames, at 4x CPU). */
 assert.ok(/if \(entry\.isIntersecting\) warm\(\)/.test(motion) && motion.includes('img.loading = "eager"') && motion.includes("img.decode?.()"))
 
-/* ---- section 4: builder previews */
+/* ---- section 4: builder previews. Changed on purpose (landing round, the owner): a carousel of four editors under a heading that flips with them, every slide drawn (the neighbours show at the sides), the same drawing on a phone. */
 assert.deepEqual(
-  IDEAS_TABS.map((t) => t.title),
-  ["Website builder", "OnePage editor", "Community builder"],
+  IDEAS_SLIDES.map((t) => t.title),
+  ["Website builder", "Design", "OnePage editor", "Community editor"],
 )
 const ideas = renderToString(createElement(IdeasComeToLife))
 assert.ok(ideas.includes(`aria-label="${IDEAS_HEADING}"`))
-assert.equal((ideas.match(/role="tab"/g) || []).length, 3)
-assert.equal((ideas.match(/<button[^>]*aria-selected="true"/g) || []).length, 1)
-// Only the active panel and the next one are mounted.
-assert.equal((ideas.match(/role="tabpanel"/g) || []).length, 1)
-assert.ok(/<div[^>]*data-pane="active"/.test(ideas) && !/<div[^>]*data-pane="next"/.test(ideas), "the next panel waits for an idle moment after first view")
-assert.ok(ideas.includes(IDEAS_TABS[0].alt.slice(11, 60)))
+assert.equal((ideas.match(/data-ideas-slide=""/g) || []).length, 4)
+assert.equal((ideas.match(/<div[^>]*data-active="true"/g) || []).length, 1)
+assert.ok(ideas.includes(IDEAS_SLIDES[0].alt.slice(11, 60)))
 assert.ok(!ideas.includes("data-mock-live=\""), "nothing animates before the section is seen")
 const builders = read(`${MOCKS}/builder-mocks.tsx`)
 // Animations attach only under [data-mock-live], only without reduced motion, and never via * or :has().
@@ -156,26 +152,22 @@ for (const block of builders.matchAll(/@keyframes [\w-]+\{(.*?)\}\}/g)) {
     assert.ok(["opacity", "transform", "box-shadow", "animation-timing-function"].includes(prop[1]), `keyframes use ${prop[1]}`)
 }
 
-/* ---- section 6: business carousel */
-/* Changed on purpose (wave 13, the owner): a different heading and no subheading. */
+/* ---- section 6. Changed on purpose (landing round, the owner: "every business one home at all, please look at something else"): what a store sells, a list beside one product page. */
 assert.notEqual(BUSINESS_HEADING, "Made for every kind of business.")
-assert.ok(!/Explore the different ways/.test(read("components/marketing/home/business-carousel.tsx")))
+assert.ok(!/Every business|Explore the different ways/.test(read("components/marketing/home/business-carousel.tsx")))
 assert.deepEqual(
   BUSINESS_SLIDES.map((s) => s.label),
-  ["Digital Products", "Courses", "Communities", "OnePage", "Physical Products"],
+  ["Digital products", "Courses", "Communities", "Physical products", "Bookings"],
 )
 const biz = renderToString(createElement(BusinessCarousel))
 assert.equal((biz.match(/role="tab"/g) || []).length, 5)
-assert.equal((biz.match(/role="tabpanel"/g) || []).length, 1, "only the active slide is server-rendered")
-/* Changed on purpose (wave 13, the owner): no phone frame, no backdrop, no captions, no pause or Next button. Each slide is a 4:3 desktop card and a 9:16 phone card, the same height (their columns are 64:27, the ratio of their widths at one height). */
-assert.equal((biz.match(/class="biz-card /g) || []).length, 2, "each mounted slide has a desktop and a phone card")
-assert.ok(biz.includes("aspect-ratio:4/3") && biz.includes("aspect-ratio:9/16"))
+assert.equal((biz.match(/role="tabpanel"/g) || []).length, 1, "only the active page is server-rendered")
+assert.ok(biz.includes("aspect-ratio:640/520"))
 assert.ok(!/<figcaption|>Next<|Pause the|Play the|biz-phone|biz-chrome/.test(biz))
 const bizSrc = read("components/marketing/home/business-carousel.tsx")
-assert.ok(bizSrc.includes("grid-template-columns:minmax(0,64fr) minmax(0,27fr)") && 4 / 3 / (9 / 16) === 64 / 27, "equal heights")
-assert.ok(!/\.biz-stage\{[^}]*background/.test(bizSrc) && !/tint/.test(bizSrc), "no backdrop behind the cards")
+assert.ok(!/\btint\b|className="[^"]*smk-pills/.test(bizSrc), "no backdrop tint and no pill row")
 const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/'/g, "&#x27;")
-assert.ok(biz.includes(esc(BUSINESS_SLIDES[0].desktopAlt)) && biz.includes(esc(BUSINESS_SLIDES[0].mobileAlt)))
+assert.ok(biz.includes(esc(BUSINESS_SLIDES[0].alt)))
 for (const html of [ideas, biz].map((h) => h.replace(/<img[^>]*data-storelib-logo[^>]*>/g, ""))) {
   assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(html), "every mock image is lazy")
   assert.ok(!/<img(?![^>]*width=)[^>]*>/.test(html), "every mock image is sized")
@@ -190,7 +182,8 @@ assert.ok(/const select = useCallback\(\s*\(to: number\) => \{\s*setPlaying\(fal
 const pills = read(`${MOCKS}/pills.ts`)
 assert.ok(/height:44px/.test(pills), "44px tap targets")
 assert.ok(/\.smk-clock\{[^}]*opacity:0/.test(pills) && /\.smk-clock\[data-on\]\{animation:smk-clock 1s linear both paused\}/.test(pills))
-for (const f of ["ideas-come-to-life.tsx", "business-carousel.tsx"]) {
+/* Changed on purpose (landing round): section 4 is a carousel moved by lib/ui/rail-motion (its own autoplay, paused off screen); section 6 keeps the invisible clock. */
+for (const f of ["business-carousel.tsx"]) {
   const s = read(`components/marketing/home/${f}`)
   assert.ok(s.includes("onAnimationEnd={t.advance}") && s.includes('className="smk-clock"') && s.includes("animation-play-state:running"))
   assert.ok(s.includes("prefers-reduced-motion:reduce"))
@@ -198,22 +191,26 @@ for (const f of ["ideas-come-to-life.tsx", "business-carousel.tsx"]) {
 }
 for (const html of [ideas, biz]) assert.ok(!/<button[^>]*role="tab"[^>]*>(?:(?!<\/button>).)*<span[^>]*(progress|clock)/.test(html), "nothing inside a pill but its words")
 
-/* ---- section 4 (wave 13, the owner): light, centred, no backdrop, no caption, nothing slides in */
+/* ---- section 4: light, centred, the picture with its own depth. Changed on purpose (landing round): the slides glide (rail-motion) and the heading flips; nothing else slides in. */
 const ideasSrc = read("components/marketing/home/ideas-come-to-life.tsx")
 assert.ok(/\.ideas\{position:relative;background:#fff/.test(ideasSrc), "a light section")
-assert.ok(/\.ideas-in\{[^}]*text-align:center/.test(ideasSrc) && /\.ideas-tabs\{margin:[^}]*auto/.test(ideasSrc) && /\.ideas-stage\{[^}]*margin:0 auto/.test(ideasSrc))
+assert.ok(/\.ideas-head\{[^}]*text-align:center/.test(ideasSrc))
 assert.ok(!/radial-gradient|ideas-caption/.test(ideasSrc), "no backdrop and no caption")
-assert.ok(/@keyframes ideas-in\{from\{opacity:0\}\}/.test(ideasSrc) && !/@keyframes ideas-in\{[^}]*translate/.test(ideasSrc), "a crossfade, not a slide")
-assert.ok(/\.ideas-panel\{[^}]*box-shadow:0 0 0 1px/.test(ideasSrc), "the picture has its own depth")
-// The editors as they are: the website builder's bar and tree, the OnePage editor's tabs, the app shell around the community builder.
+assert.ok(/\.ideas-slide\{[^}]*box-shadow:0 0 0 1px/.test(ideasSrc), "the picture has its own depth")
+assert.ok(ideasSrc.includes("prefers-reduced-motion:reduce") && /new RailMotion\(/.test(ideasSrc) && ideasSrc.includes("IntersectionObserver") && ideasSrc.includes("visibilitychange"))
+// The editors as they are: the website builder's bar and tree, the OnePage editor's tabs, the community page editor's own screen.
 for (const want of ["Sections", "Pages", "Theme", "Add section", "Publish", "Preview"]) assert.ok(ideas.includes(want), `website builder: ${want}`)
 const onepageHtml = renderToString(createElement(OnePageEditorMock))
 for (const want of ["Links", "Design", "Products", "Share your OnePage", "Add Group", "View archive"]) assert.ok(onepageHtml.includes(want), `OnePage editor: ${want}`)
 const communityHtml = renderToString(createElement(CommunityBuilderMock))
-for (const want of ["Overview", "Posts", "Spaces", "Members", "Save draft", "All posts", "Dashboard"]) assert.ok(communityHtml.includes(want), `community builder: ${want}`)
+for (const want of ["Edit page", "Name and introduction", "Cover and gallery", "Join button", "Visibility and search", "Computer", "Phone", "As a visitor", "Published", "Save", "Tagline"]) assert.ok(communityHtml.includes(want), `community editor: ${want}`)
 
 /* ---- fictional brands only; no real-brand marks in the mocks */
 assert.ok(!/react-icons/.test(source))
+/* Changed on purpose (landing round, second pass, the owner: "modern social icons", the official marks): the OnePage's social row draws
+   Instagram, TikTok, YouTube and Spotify through the marks the OnePage itself draws (components/icons/brand-icons.generated), and nothing else. */
+const brandImports = [...source.matchAll(/import \{([^}]*)\} from "@\/components\/icons\/brand-icons\.generated"/g)].map((m) => m[1].replace(/\s/g, ""))
+assert.deepEqual(brandImports, ["SiInstagram,SiSpotify,SiTiktok,SiYoutube"])
 assert.ok(!/\b(Shopify|Nike|Notion Labs|Figma Inc)\b/.test(source))
 
 /* A slide put away keeps the height it last drew (contain-intrinsic-block-size: auto, set on every slide since the browser only records the size while the rule is already there), so the business stage never shrinks when a shorter slide comes up (it scored a 0.02 layout shift on phones). */

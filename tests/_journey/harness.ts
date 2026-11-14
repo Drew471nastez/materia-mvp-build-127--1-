@@ -128,6 +128,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/store/translations/jobs": () => import("@/app/api/store/translations/jobs/route"),
   /* The OnePage's email signup and contact form (tests/e2e-onepage-signup.test.ts). */
   "/api/onepage/leads": () => import("@/app/api/onepage/leads/route"),
+  /* The lead magnet's download form (the OnePage production audit, C1). */
+  "/api/onepage/email-capture": () => import("@/app/api/onepage/email-capture/route"),
   /* The OnePage editor's Save and Publish (tests/e2e-onepage-blocks-r11.test.ts: a group through save, reload and publish). */
   "/api/onepage": () => import("@/app/api/onepage/route"),
   "/api/onepage/publish": () => import("@/app/api/onepage/publish/route"),

@@ -239,9 +239,10 @@ async function main() {
     check("a throw from Settings is caught", /await settingsTabRef\.current\?\.saveAllSettings\(\)\s*\n\s*\} catch/.test(editor))
     check(
       "both save handlers list userPlan among their dependencies",
-      (editor.match(/\[hasProFeaturesEnabled, save, activeTab, userPlan, showSaveFailure\]/g) ?? []).length === 1
+      /* Changed on purpose (OnePage production audit, ED-1): planConfirmed beside userPlan, so a plan that could not be read never blocks Save. */
+      (editor.match(/\[hasProFeaturesEnabled, save, activeTab, userPlan, planConfirmed, showSaveFailure\]/g) ?? []).length === 1
         /* leave is the phone's way out, leaveTo a link out or a held Back (tests/onepage-leave.test.ts). */
-        && /\[save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure(, leave)?(, leaveTo)?\]/.test(editor),
+        && /\[save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, planConfirmed, showSaveFailure(, leave)?(, leaveTo)?\]/.test(editor),
     )
     check("leaving waits for the save to work", /const result = await save\(\)\s*\n\s*if \(!result\.ok\) return/.test(editor))
     check("Products switches the editor's real tab", /<ProductsTab onGoToLinks=\{\(\) => handleTabChange\("links"\)\} \/>/.test(editor))

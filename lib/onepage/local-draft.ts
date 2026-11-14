@@ -38,6 +38,12 @@ export type LocalDraft = {
   /** When it was written, ms since the epoch. */
   at: number
   fields: Partial<Record<DraftField, unknown>>
+  /**
+   * The page as it was last saved when the draft was written, in the editor's
+   * savedFields order (lib/onepage/context). What tells an edit made on this
+   * device from a value that was simply older: see withDraft.
+   */
+  saved?: string | null
 }
 
 /** A draft older than this is not offered. */
@@ -117,10 +123,58 @@ export function draftDecision(draft: LocalDraft | null, page: OnePage, serverVer
   return draft.base !== null && draft.base === serverVersion ? "restore" : "ask"
 }
 
-/** The page with the draft's fields laid over it: the id, the published copy and the photo stay the server's. */
+/** savedFields' order (lib/onepage/context): where each field sits in a draft's `saved`. */
+const SAVED_ORDER: readonly DraftField[] = ["title", "bio", "avatar_video_url", "slug", "theme", "settings", "social_links", "draft_blocks", "archived_blocks", "share_image_mode"]
+/** The fields the save's version check covers: a draft restores them whole (draftDecision only restores on the same version). */
+const CHECKED_FIELDS: readonly DraftField[] = ["bio", "theme", "draft_blocks", "archived_blocks"]
+
+/**
+ * The page with the draft's fields laid over it: the id, the published copy and the photo stay the server's.
+ *
+ * ONLY WHAT WAS CHANGED ON THIS DEVICE (the OnePage production audit, S1).
+ * The blocks, archive, look and bio come back whole: the draft is restored
+ * without asking only when the server still holds the copy it was made on.
+ * The name, address, settings, social links, video and share picture are
+ * written by other screens too, and that copy says nothing about them, so a
+ * draft made before the creator page changed Instagram used to put the old
+ * one back. Where the draft knows what it was made against (`saved`), each
+ * of them comes back only if it was changed here, settings and social links
+ * key by key; the server's newer values stay. An older draft without it is
+ * laid over as before.
+ */
 export function withDraft(page: OnePage, draft: LocalDraft): OnePage {
   const next = { ...page } as unknown as Record<string, unknown>
-  for (const f of DRAFT_FIELDS) if (f in draft.fields) next[f] = draft.fields[f]
+  let saved: unknown[] | null = null
+  try {
+    const parsed = typeof draft.saved === "string" ? JSON.parse(draft.saved) : null
+    saved = Array.isArray(parsed) ? parsed : null
+  } catch {
+    saved = null
+  }
+  for (const f of DRAFT_FIELDS) {
+    if (!(f in draft.fields)) continue
+    const mine = draft.fields[f]
+    if (!saved || CHECKED_FIELDS.includes(f)) {
+      next[f] = mine
+      continue
+    }
+    const before = saved[SAVED_ORDER.indexOf(f)]
+    if (same(mine, before)) continue
+    if ((f === "settings" || f === "social_links") && mine && typeof mine === "object" && !Array.isArray(mine)) {
+      const then = (before && typeof before === "object" ? before : {}) as Record<string, unknown>
+      const now = mine as Record<string, unknown>
+      const merged = { ...((next[f] && typeof next[f] === "object" ? next[f] : {}) as Record<string, unknown>) }
+      for (const key of new Set([...Object.keys(now), ...Object.keys(then)])) {
+        if (!same(now[key], then[key])) {
+          if (now[key] === undefined) delete merged[key]
+          else merged[key] = now[key]
+        }
+      }
+      next[f] = merged
+      continue
+    }
+    next[f] = mine
+  }
   return next as unknown as OnePage
 }
 

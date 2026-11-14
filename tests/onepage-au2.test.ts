@@ -83,16 +83,20 @@ section("CONFLICT: the edit version")
   check("a 409 is said in words, not as a failure code", /saved somewhere else/i.test(describeSaveFailure(409, "This page was saved somewhere else since you opened it")))
 
   const route = read("app/api/onepage/route.ts")
-  check("PUT reads base_version from the body", /base_version,\s*\} = body/.test(route))
+  /* Changed on purpose (OnePage production audit, S1/S2): the body also carries social_links_patch and publish after base_version. */
+  check("PUT reads base_version from the body", /base_version,\s*(?:social_links_patch,\s*publish,\s*)?\} = body/.test(route))
   check("PUT compares it with the row found by id and owner, and answers 409 writing nothing", /const base = sentBaseVersion\(base_version\)[\s\S]{0,1600}\.eq\("id", id\)\s*\.eq\("owner_id", ownerId\)[\s\S]{0,600}onePageEditVersion\(current\) !== base\) return conflictAnswer\(\)/.test(route) && /status: 409/.test(route)) // Changed on purpose (round AV): the 409 is one answer, also given when the row moved between the check and the write
   check("the conflict check comes after the ownership read and before any write", route.indexOf("if (!existing)") < route.indexOf("sentBaseVersion(base_version)") && route.indexOf("sentBaseVersion(base_version)") < route.indexOf("const write = (row"))
-  check("PUT answers with the new edit version", /edit_version: onePageEditVersion\(updated/.test(route))
+  /* Changed on purpose (OnePage production audit, S7): worked out once, answered in the body and in a header. */
+  check("PUT answers with the new edit version", /const editVersion = onePageEditVersion\(updated/.test(route) && /edit_version: editVersion/.test(route) && /"X-OnePage-Edit-Version": editVersion/.test(route))
   const pageTsx = read("app/(storelib)/app/onepage/page.tsx")
   check("the editor opens with the server's edit version (owner and team member)", (pageTsx.match(/edit_version: onePageEditVersion\(onepage\)/g) ?? []).length === 2)
   const ctx = read("lib/onepage/context.tsx")
-  check("every save sends the base it holds, unless the creator chose to keep theirs", /base_version: overrideConflictRef\.current \? undefined : baseVersionRef\.current/.test(ctx))
+  /* Changed on purpose (OnePage production audit, S1/S2): the body is built by lib/onepage/editor-state saveRequestBody, which sends the base it is given. */
+  check("every save sends the base it holds, unless the creator chose to keep theirs", /saveRequestBody\(snapshot, archived, savedFieldsRef\.current, overrideConflictRef\.current \? null : baseVersionRef\.current\)/.test(ctx))
   check("a 409 arms the second Save to keep this copy", /saveResponse\.status === 409\) overrideConflictRef\.current = true/.test(ctx))
-  check("a save that lands takes the server's new version", /baseVersionRef\.current = sentBaseVersion\(saved\?\.edit_version\)/.test(ctx))
+  /* Changed on purpose (OnePage production audit, S7): the header first, so a cut off body does not leave the next save unchecked. */
+  check("a save that lands takes the server's new version", /baseVersionRef\.current = sentBaseVersion\(saveResponse\.headers\.get\("X-OnePage-Edit-Version"\)\) \?\? sentBaseVersion\(saved\?\.edit_version\)/.test(ctx))
   check("the version is read once from what the server opened, never from the page, so undo cannot bring an old one back", /const baseVersionRef = useRef<string \| null>\(sentBaseVersion\(givenOnePage\?\.edit_version\)\)/.test(ctx))
 }
 

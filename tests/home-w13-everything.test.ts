@@ -86,21 +86,20 @@ check("every order is in a currency checkout charges in", EVERYTHING_GLOBE_ORDER
 check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSync(join(root, "public/flags", `${o.cc}.svg`))))
 
 console.log("\n── card 2 and 4 ──")
-/* Changed on purpose (land round 2): three storefronts and three OnePages, each OnePage a capture of the live page in a theme the picker ships (components/marketing/home/onepage-sample). */
-check("three storefronts and three OnePages glide past, the strip seamless (last, the six, first two)", /const strip = \[STORES\[5\], \.\.\.STORES, STORES\[0\], STORES\[1\]\]/.test(src) && /100%\{transform:translate3d\(calc\(-600% \/ 9\),0,0\)\}/.test(css))
-check("  the OnePages are captures of the live page in three shipped themes", ["arcade", "dune", "classic98"].every((t) => html.includes(`data-home-onepage="${t}"`)) && ["op-kofi", "op-mariana", "op-arjun"].every((n) => html.includes(`/home/onepage/${n}.webp`)) && /storelib\.me\/kofiasante/.test(html))
-check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /From a buyer/.test(html) && /data-storelib-logo/.test(html)) /* Changed on purpose (wave 13 integration): Storelib's reply avatar is the logo through StorelibLogo, not the old /storelib-mark.svg file brand-logo.test.ts forbids. */
-/* Changed on purpose (land round 2): the OnePages are local pictures now and are checked with the rest; the filter below is left for any picture the theme picker would draw. */
-const ownPics = html.replace(/<img [^>]*data-(?:tp-photo|theme-thumb|theme-cover)[^>]*>/g, "")
-const pics = [...ownPics.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])
+/* Changed on purpose (landing round): the owner asked for a continuous carousel, like the creators rail; the stores drift without a stop, the set twice over moved by half its width in one linear loop. */
+check("the storefronts drift past without a stop, the strip seamless (the set twice, half its width a loop)", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && /@keyframes ev-stores\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(-50%,0,0\)\}\}/.test(css) && /animation:ev-stores \d+s linear infinite/.test(css))
+/* Changed on purpose (landing round 2): the support card is the Support page as it reads, its two inboxes (From buyers, Storelib) and threads with no avatars, so the Storelib logo avatar went with them. */
+check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /<span>From buyers<\/span>/.test(html) && /data-inbox="buyers"/.test(html) && /data-inbox="storelib"/.test(html))
+const pics = [...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])
 check("every picture is local and exists", pics.length > 20 && pics.every((u) => u.startsWith("/") && existsSync(join(root, "public", u))), pics.filter((u) => !existsSync(join(root, "public", u))))
 /* Changed on purpose (wave 13 integration): the logo goes through next/image (StorelibLogo), whose test stub leaves out `loading`; it is lazy in production. */
-check("every picture is lazy and sized", [...ownPics.matchAll(/<img [^>]*>/g)].filter((m) => !/data-storelib-logo/.test(m[0])).every((m) => /loading="lazy"/.test(m[0]) && /width="\d+"/.test(m[0]) && /height="\d+"/.test(m[0])))
+check("every picture is lazy and sized", [...html.matchAll(/<img [^>]*>/g)].filter((m) => !/data-storelib-logo/.test(m[0])).every((m) => /loading="lazy"/.test(m[0]) && /width="\d+"/.test(m[0]) && /height="\d+"/.test(m[0])))
 
 console.log("\n── motion and loading ──")
 check("the stylesheet is a React stylesheet, listed for idle preloading", /<style href="w13-everything" precedence="w13-home">/.test(src) && /styles: \(\) => import\("\.\/everything-in-one-place"\)\.then\(\(m\) => m\.EVERYTHING_STYLES\)/.test(read("components/marketing/home/lazy-sections.tsx")))
 /* Changed on purpose (wave 13 perf): the heights were measured again at 390 to 1920 wide with the home page's one section padding (--home-pad). */
-check("its box holds the section's height: one column below 768px, the grid above", /name: "everything",[\s\S]*?minHeight: "max\(calc\(clamp\(1852px, 172vw \+ 1376px, 2167px\) - clamp\(0px, \(100vw - 767px\) \* 100000, 100000px\)\), calc\(2 \* clamp\(320px, 32vw, 440px\) \+ 2 \* clamp\(48px, 5\.6vw, 80px\) \+ clamp\(340px, 6\.8vw \+ 280px, 380px\)\)\)"/.test(read("components/marketing/home/lazy-sections.tsx")))
+/* Changed on purpose (landing round): the formula is the fallback of var(--lz), which LAZY_SECTION_HEIGHTS_CSS sets to the measured height per width. */
+check("its box holds the section's height: one column below 768px, the grid above", /name: "everything",[\s\S]*?minHeight: "var\(--lz, max\(calc\(clamp\(1852px, 172vw \+ 1376px, 2167px\) - clamp\(0px, \(100vw - 767px\) \* 100000, 100000px\)\), calc\(2 \* clamp\(320px, 32vw, 440px\) \+ 2 \* clamp\(48px, 5\.6vw, 80px\) \+ clamp\(340px, 6\.8vw \+ 280px, 380px\)\)\)\)"/.test(read("components/marketing/home/lazy-sections.tsx")))
 check("every loop pauses while the section is not live", /\.ev\[data-platform-live="false"\] \.ev-loop/.test(css) && /usePlatformSection\(ref\)/.test(src))
 /* Added on purpose (wave 13 perf): the active tab's progress bar is an animation of its own whose rule outranked the pause, so it kept the page restyling 60 times a second from anywhere on the page. */
 check("the active tab's progress bar pauses with the rest", /\.ev\[data-platform-live="false"\] \.ev-tab\[data-on\] \.ev-tab-fill,\.ev:not\(\[data-platform-live\]\) \.ev-tab\[data-on\] \.ev-tab-fill\{animation-play-state:paused\}/.test(css))

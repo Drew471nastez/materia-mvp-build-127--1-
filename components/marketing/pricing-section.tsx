@@ -5,6 +5,7 @@ import { StoryHeading } from "./story-heading"
 import Link from "next/link"
 import { AnimateOnScroll } from "./animate-on-scroll"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { publicPlanLines } from "./pricing-lines"
 import { PLAN_FOOTNOTE, PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
 
 /** The paid plans a checkout can be started for: Pro (`growth`) and Scale (`pro`). */
@@ -21,6 +22,9 @@ export interface PricingOnboardingCallbacks {
   loadingPlan: string | null
   ctaLabels: Record<OfferedPlanId, string>
 }
+
+/** The public cards' lines, worked out once from the plan tables. */
+const PUBLIC_LINES = publicPlanLines()
 
 const DEFAULT_CTA: Record<OfferedPlanId, string> = {
   free: "Start free",
@@ -127,7 +131,14 @@ export function PricingSection({
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up" delay={120}>
-          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} pictureLoading={headingLevel === 1 ? "eager" : "lazy"} />
+          {/*
+            LANDING ROUND, THE OWNER: plain lines a seller understands, not
+            limits ("what is 1 GB of file storage?"), and a quiet tick in
+            place of the purple check. Written from the plan tables in
+            ./pricing-lines, so nothing on a card is more than the plan gives.
+            The onboarding (compact, above) keeps the app's own lines.
+          */}
+          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} pictureLoading={headingLevel === 1 ? "eager" : "lazy"} lines={PUBLIC_LINES} tick="ink" />
           {footnote}
         </AnimateOnScroll>
 

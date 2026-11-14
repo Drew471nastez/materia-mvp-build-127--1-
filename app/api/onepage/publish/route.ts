@@ -6,6 +6,9 @@ import { onePageChangedFor } from "@/lib/onepage/public-cache"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { changedLinks, onePageLinks, syncOnePageLinksToCreatorPage } from "@/lib/social/onepage-sync"
 import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
+import { stripResolved } from "@/lib/onepage/storelib-blocks"
+import { withSafeLinkValues, withSafeUrls } from "@/lib/onepage/safe-urls"
+import { sealLocked } from "@/lib/onepage/locked-seal"
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +27,9 @@ export async function POST(request: Request) {
     const db = actor.db
     const ownerId = actor.pageOwnerId
 
-    const body = await request.json()
+    /* A body that is not JSON is a request that cannot be published, said as one: not a 500. */
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== "object") return NextResponse.json({ error: "The page could not be read" }, { status: 400 })
     const {
       id,
       // Accept direct data to avoid race conditions
@@ -74,12 +79,17 @@ export async function POST(request: Request) {
       published_social_links: any
     }
 
-    if (draft_blocks && theme) {
+    if (Array.isArray(draft_blocks) && theme && typeof theme === "object") {
       // Use provided data directly
       publishData = {
         status: "published",
         published_at: now,
-        published_blocks: draft_blocks,
+        /*
+          THE COPY THAT GOES LIVE IS CLEANED AS THE DRAFT IS (app/api/onepage
+          PUT): no shelf or posts row frozen into it (stripResolved), and no
+          address that runs script (lib/onepage/safe-urls).
+        */
+        published_blocks: sealLocked(withSafeUrls(stripResolved(draft_blocks))),
         published_theme: theme,
         published_profile: {
           title: title || "",
@@ -88,7 +98,7 @@ export async function POST(request: Request) {
           avatar_video_url: avatar_video_url || null,
           avatar_video_crop: avatar_video_crop || null,
         },
-        published_social_links: social_links || {},
+        published_social_links: withSafeLinkValues(social_links && typeof social_links === "object" ? social_links : {}),
         avatar_url: photoNow,
       } as any
     } else {
@@ -107,7 +117,7 @@ export async function POST(request: Request) {
       publishData = {
         status: "published",
         published_at: now,
-        published_blocks: fullOnepage.draft_blocks,
+        published_blocks: sealLocked(withSafeUrls(stripResolved(fullOnepage.draft_blocks))),
         published_theme: fullOnepage.theme,
         published_profile: {
           title: fullOnepage.title,
@@ -116,7 +126,7 @@ export async function POST(request: Request) {
           avatar_video_url: fullOnepage.avatar_video_url,
           avatar_video_crop: fullOnepage.settings?.avatar_video_crop || null,
         },
-        published_social_links: fullOnepage.social_links,
+        published_social_links: withSafeLinkValues(fullOnepage.social_links),
         avatar_url: photoNow,
       } as any
     }

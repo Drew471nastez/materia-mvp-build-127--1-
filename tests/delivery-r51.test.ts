@@ -108,7 +108,8 @@ async function main() {
     check("  and started by a product forgotten (a sync purge)", /void onePageProductsChanged\(creatorId\)/.test(code("lib/products/forget-product.ts")))
     const wired: [string, RegExp][] = [
       ["app/api/onepage/publish/route.ts", /await onePageChangedFor\(ownerId/],
-      ["app/api/onepage/route.ts", /await onePageChangedFor\(ownerId, \[existing\.slug\]\)/],
+      /* Changed on purpose (OnePage production audit, S2): a save that publishes also names the address it wrote. */
+      ["app/api/onepage/route.ts", /await onePageChangedFor\(ownerId, \[existing\.slug, \(updated as \{ slug\?: string \| null \} \| null\)\?\.slug\]\)/],
       ["lib/account/identity-caches.ts", /onePageChangedFor\(userId\)/],
       ["lib/custom-domains/store.ts", /await onePageChangedFor\(userId\)/],
     ]

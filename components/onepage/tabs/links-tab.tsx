@@ -667,29 +667,51 @@ export function LinksTab() {
   const [reorderMessage, setReorderMessage] = useState("")
   const blocksInOrder = () => [...(onepage?.draft_blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   /* An edit to a block on the page or inside one of its groups (the image library and the thumbnail picker serve both). */
-  const updateBlockDeep = (id: string, updates: Partial<OnePageBlock>) => {
+  const updateBlockDeep = (id: string, given: Partial<OnePageBlock>) => {
+    /*
+      THE BLOCK AS IT IS NOW, AND ONLY THE FIELDS GIVEN (the OnePage production
+      audit, B1). An upload finishing after the sheet was closed wrote back the
+      block as it was when the upload began, title and description typed
+      meanwhile undone, and a block inside a group wrote back the whole group
+      from then: a link moved out of the group during the upload came back in
+      it and stayed on the page too, two blocks with one id. Both the page and
+      the block are read at the moment of the write, and `data` is a patch
+      laid over the block's data as it is now.
+    */
+    const blocks = getLatestOnePage()?.draft_blocks ?? []
+    const source = findBlockDeep(blocks, id)?.block
+    if (!source) return
+    let updates: Partial<OnePageBlock> = given.data ? { ...given, data: { ...(source.data as object), ...(given.data as object) } as OnePageBlock["data"] } : given
     // Thumbnail edits share one source with visual cards, including older cards
     // that stored their picture in presentation.image_url.
-    const source = findBlockDeep(onepage?.draft_blocks ?? [], id)?.block
-    if (source?.type === "link_button" && updates.data && Object.prototype.hasOwnProperty.call(updates.data, "thumbnail_url")) {
+    if (source?.type === "link_button" && updates.data && Object.prototype.hasOwnProperty.call(given.data ?? {}, "thumbnail_url")) {
       const before = source.data as LinkButtonBlockData
       const after = updates.data as LinkButtonBlockData
       if ((before.thumbnail_url !== after.thumbnail_url || source.style?.presentation?.image_url) && before.link_preview?.enabled === after.link_preview?.enabled) {
         updates = { ...updates, style: { ...source.style, ...updates.style, presentation: { ...source.style?.presentation, ...updates.style?.presentation, image_url: undefined } }, data: { ...after, link_preview: { ...after.link_preview, image_hidden: !after.thumbnail_url, image_edited: !!after.thumbnail_url && after.thumbnail_url !== after.link_preview?.image } } }
       }
     }
-    const plan = updatePlanDeep(onepage?.draft_blocks, id, updates)
+    const plan = updatePlanDeep(blocks, id, updates)
     if (plan) updateBlock(plan.id, plan.updates)
   }
   /* Under a Hero header the social icons stay below it, as they always had to. */
   const clampReorder = (id: string, to: number) => {
     const list = blocksInOrder()
     const moving = list.find((b) => b.id === id)
-    if ((onepage?.theme as any)?.header_layout !== "hero" || moving?.type !== "social_row") return to
     const headerIndex = list.findIndex((b) => b.type === "header")
-    if (headerIndex === -1) return to
+    if (headerIndex === -1 || moving?.type === "header") return to
     const from = list.findIndex((b) => b.id === id)
-    return Math.max(to, from < headerIndex ? headerIndex : headerIndex + 1)
+    /*
+      NOTHING GOES ABOVE THE PROFILE (the OnePage production audit, B9). The
+      header card cannot be dragged and new or restored blocks always go under
+      it, but Move up, a drag or the arrow keys put a block above the name and
+      photo, where a Hero header's page drops its top room and the block sat
+      flush under Share and Subscribe. A block already above it (an older page)
+      may stay or move down.
+    */
+    if (from > headerIndex) return Math.max(to, headerIndex + 1)
+    if ((onepage?.theme as any)?.header_layout === "hero" && moving?.type === "social_row") return Math.max(to, headerIndex)
+    return to
   }
   const writeReorder = (id: string, to: number) => {
     const list = blocksInOrder()
@@ -1202,12 +1224,11 @@ export function LinksTab() {
       /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
       const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `thumbnail_${thumbnailBlockId}`, want: "image" })
 
-      const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+      const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
       if (block?.type === 'product') {
         // For product blocks, use custom_thumbnail
         updateBlockDeep(thumbnailBlockId, {
           data: {
-            ...block.data,
             custom_thumbnail: publicUrl
           }
         })
@@ -1215,7 +1236,6 @@ export function LinksTab() {
         // For link_button blocks, use thumbnail_url
         updateBlockDeep(thumbnailBlockId, {
           data: {
-            ...block?.data,
             thumbnail_url: publicUrl,
             icon: null
           }
@@ -1237,7 +1257,7 @@ export function LinksTab() {
   // Get thumbnail block data
   const getThumbnailBlockData = () => {
     if (!thumbnailBlockId) return null
-    const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+    const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
     if (!block) return null
     if (block.type === 'link_button') return block.data as LinkButtonBlockData
     if (block.type === 'product') return block.data as ProductBlockData
@@ -1247,7 +1267,7 @@ export function LinksTab() {
   // Get the block type for thumbnail modal
   const getThumbnailBlockType = () => {
     if (!thumbnailBlockId) return null
-    const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+    const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
     return block?.type || null
   }
 
@@ -1314,9 +1334,9 @@ export function LinksTab() {
   /* An icon chosen in the library: on the link at once (the preview redraws with it), and the sheets go. */
   const chooseLinkIcon = (iconId: string) => {
     if (thumbnailBlockId) {
-      const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+      const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
       if (block?.type === 'link_button') {
-        updateBlockDeep(thumbnailBlockId, { data: { ...block.data, icon: iconId, thumbnail_url: null } })
+        updateBlockDeep(thumbnailBlockId, { data: { icon: iconId, thumbnail_url: null } })
       }
     }
     closeThumbnailSheet()
@@ -1796,7 +1816,7 @@ export function LinksTab() {
                 }}
                 onMoveDown={() => moveBlockDown(block.id)}
                 onToggle={() => toggleBlockEnabled(block.id)}
-                isFirst={index === 0 || (block.type === "social_row" && (onepage.theme as any)?.header_layout === "hero" && index === sortedBlocks.findIndex(b => b.type === "header") + 1)}
+                isFirst={index === 0 || index === sortedBlocks.findIndex(b => b.type === "header") + 1}
                 isLast={index === sortedBlocks.length - 1}
                 socialLinks={social_links}
                 onOpenImageLibrary={(blockId, fieldType) => { setImageBlockId(blockId); setImageFieldType(fieldType || null); setShowImageLibrary(true) }}
@@ -2555,18 +2575,16 @@ export function LinksTab() {
                       type="button"
                       onClick={() => {
                         if (thumbnailBlockId) {
-                          const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+                          const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
                           if (block?.type === 'product') {
                             updateBlockDeep(thumbnailBlockId, {
                               data: {
-                                ...block.data,
                                 custom_thumbnail: null
                               }
                             })
                           } else {
                             updateBlockDeep(thumbnailBlockId, {
                               data: {
-                                ...block?.data,
                                 thumbnail_url: null,
                                 icon: null
                               }
@@ -2951,12 +2969,11 @@ export function LinksTab() {
                       /* Never saved without an address a visitor can open (see A FILE ON THE PAGE above). */
                       if (!url) throw new Error(tt("Upload failed. Try again."))
 
-                      const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
+                      const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], imageBlockId)?.block
                       if (block) {
                         if (imageFieldType === 'digital_product_file') {
                           updateBlockDeep(imageBlockId, {
                             data: {
-                              ...block.data,
                               digital_product_file_url: url,
                               digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
                               enable_digital_product: true,
@@ -2965,14 +2982,12 @@ export function LinksTab() {
                         } else if (imageFieldType === 'product_image') {
                           updateBlockDeep(imageBlockId, {
                             data: {
-                              ...block.data,
                               product_image: url,
                             }
                           })
                         } else if (imageFieldType === 'pdf_file') {
                           updateBlockDeep(imageBlockId, {
                             data: {
-                              ...block.data,
                               pdf_file_url: url,
                               title: block.data.title || file.name.replace(/\.[^/.]+$/, ""),
                             }
@@ -2980,7 +2995,6 @@ export function LinksTab() {
                         } else if (imageFieldType === 'thumbnail_url') {
                           updateBlockDeep(imageBlockId, {
                             data: {
-                              ...block.data,
                               thumbnail_url: url,
                             }
                           })
@@ -3046,7 +3060,7 @@ export function LinksTab() {
 
                 {/* Show current file/image if exists */}
                 {imageBlockId && (() => {
-                  const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
+                  const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], imageBlockId)?.block
                   if (!block) return null
                   const data = block.data as any
                   const hasFile = imageFieldType === 'digital_product_file' ? data.digital_product_file_url
@@ -3083,7 +3097,6 @@ export function LinksTab() {
                           if (imageFieldType === 'digital_product_file') {
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 digital_product_file_url: null,
                                 digital_product_title: null,
                                 enable_digital_product: false, // Disable when file is removed
@@ -3092,21 +3105,18 @@ export function LinksTab() {
                           } else if (imageFieldType === 'pdf_file') {
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 pdf_file_url: null,
                               }
                             })
                           } else if (imageFieldType === 'thumbnail_url') {
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 thumbnail_url: null,
                               }
                             })
                           } else {
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 product_image: null,
                               }
                             })
@@ -3133,7 +3143,7 @@ export function LinksTab() {
                     key={img.id}
                     onClick={() => {
                       if (imageBlockId) {
-                        const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
+                        const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], imageBlockId)?.block
                         if (block) {
                           // Handle image_item_${id} field type for multi-image blocks
                           if (imageFieldType && imageFieldType.startsWith('image_item_')) {
@@ -3145,13 +3155,12 @@ export function LinksTab() {
                             )
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 images: newImages,
                                 image_url: newImages[0]?.image_url || ''
                               }
                             })
                           } else {
-                            updateBlockDeep(imageBlockId, { data: { ...block.data, image_url: img.url } })
+                            updateBlockDeep(imageBlockId, { data: { image_url: img.url } })
                           }
                         }
                       }
@@ -5379,15 +5388,15 @@ function BlockEditor({
             <HeaderCoverEditor />
             <div className="flex items-center justify-between">
               <Label className="text-xs">{tt("Show Avatar")}</Label>
-              <Toggle label={tt("Show Avatar")} checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
+              <Toggle label={tt("Show Avatar")} checked={data.show_avatar !== false} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">{tt("Show Name")}</Label>
-              <Toggle label={tt("Show Name")} checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
+              <Toggle label={tt("Show Name")} checked={data.show_name !== false} onCheckedChange={(checked) => updateData({ show_name: checked })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">{tt("Show Bio")}</Label>
-              <Toggle label={tt("Show Bio")} checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
+              <Toggle label={tt("Show Bio")} checked={data.show_bio !== false} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
             </div>
           </div>
         )
@@ -6664,13 +6673,17 @@ function BlockEditor({
                 {/* Round AO: move and Remove are the child row's more menu, so nothing sits over its editor. */}
                 {/* Render full BlockEditor for child with custom update function */}
                 {/* Note: onUrlChangeWithAutoFetch is NOT passed because it looks for blocks in main list, not group children */}
+                {/*
+                  Keyed by the child, so opening another child of the group is a fresh editor: the same
+                  image field reused for the next child showed the last one's picture and saved an upload
+                  that finished after the switch to the wrong block. And the field the sheet is for goes
+                  through: without it a PDF's, a menu's or a signup's file button opened the photo picker.
+                */}
                 <BlockEditor
                   block={selectedChild}
+                  key={selectedChild.id}
                   socialLinks={socialLinks}
-                  onOpenImageLibrary={(blockId) => {
-                    // For image library, we need to handle the child block
-                    onOpenImageLibrary(blockId)
-                  }}
+                  onOpenImageLibrary={onOpenImageLibrary}
                   onOpenSocialModal={onOpenSocialModal}
                   onOpenThumbnailModal={(blockId) => {
                     onOpenThumbnailModal?.(blockId)
