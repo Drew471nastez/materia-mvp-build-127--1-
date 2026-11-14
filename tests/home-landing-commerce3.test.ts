@@ -58,7 +58,7 @@ check("the first tile still sells a physical and a digital product, and there ar
   const w = words(how)
   /* Changed on purpose (landing round 4): no blue tee, no Weeknight Pasta. */
   // Changed on purpose (landing round 5): no cap either (the owner); the physical product is Nadia's signed print.
-  assert.ok(/Sell physical and digital products\./.test(w) && /LaSalle at dusk/.test(w) && !/Darkroom cap/.test(w) && /After Dark/.test(w))
+  assert.ok(/Sell physical and digital products\./.test(w) && /LaSalle at dusk/.test(w) && !/Darkroom cap/.test(w) && /The Loop/.test(w) && !/After Dark/.test(w)) // Changed on purpose (landing round 5): the owner did not like After Dark; the e-book is The Loop everywhere.
   for (const f of [HOW, CO, "components/marketing/home/ebook-cover.tsx", "components/marketing/home/commerce-kit.tsx"]) assert.ok(!/golden hour|preset/i.test(read(f)), f)
 })
 

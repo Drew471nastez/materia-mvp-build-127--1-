@@ -121,8 +121,10 @@ check("no purple glow, no Golden Hour presets, less fans", () => {
 check("the product is a real looking e-book: a local photograph under its title", () => {
   /* Changed on purpose (landing round 5, the owner did not like After Dark there): the checkout sells The Loop, its cover a picture file; How it works keeps the e-book below. */
   assert.ok(co.includes("/home/commerce/guide-loop.webp") && !co.includes("ebook-night") && existsSync("public/home/commerce/guide-loop.webp") && statSync("public/home/commerce/guide-loop.webp").size < 60 * 1024)
-  assert.ok(existsSync("public/home/commerce/ebook-night.webp") && statSync("public/home/commerce/ebook-night.webp").size < 60 * 1024)
-  assert.ok(/container-type:inline-size/.test(EBOOK_COVER_CSS) && !/https?:/.test(EBOOK_COVER_CSS + read("components/marketing/home/ebook-cover.tsx")))
+  /* Changed on purpose (landing round 5): After Dark is gone from How it works too; its picture is no longer used. */
+  assert.ok(!/ebook-night/.test(readFileSync("components/marketing/home/ebook-cover.tsx", "utf8")))
+  /* Changed on purpose (landing round 5): the cover is one picture file with its title printed on it, so it needs no container query. */
+  assert.ok(/guide-loop\.webp/.test(read("components/marketing/home/ebook-cover.tsx")) && !/https?:/.test(EBOOK_COVER_CSS + read("components/marketing/home/ebook-cover.tsx")))
 })
 check("reduced motion: nothing pinned, nothing moves", () => {
   const css = CHECKOUT_STYLES.map((s) => s.css).join("\n")

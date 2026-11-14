@@ -301,7 +301,7 @@ function SheetScene() {
               </span>
               <span className="cmh-op-buy">Buy now</span>
             </div>
-            <span className="cmh-op-link">After Dark, the night photo guide</span>
+            <span className="cmh-op-link">The Loop, a Chicago street photo guide</span>
             <span className="cmh-op-link">Street photography, in a week</span>
           </div>
           <span className="cmh-a cmh-tap" />
