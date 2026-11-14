@@ -41,10 +41,9 @@ const HEIGHT = 900
  * screen at 390 and 1440 on every run.
  */
 const TRACKS = {
-  /* The pinned scene (100svh) and its scroll, less the cards pulled up over it: 148vh in all, measured. */
-  checkout: [{ css: "100svh + 48vh", vh: 148 }],
-  /* Pinned while the scroll steps through five kinds: 100svh + 4 steps (56svh below 900px, 62svh from 900). */
-  business: [{ until: 899, css: "324svh", vh: 324 }, { css: "348svh", vh: 348 }],
+  /* Landing round 5: the held stage (100svh) and its 80svh, less the cards pulled up over it: 125svh, measured. */
+  checkout: [{ css: "125svh", vh: 125 }],
+  /* Landing round 5: business is no longer pinned (the owner: no section that stops the scroll), so its height no longer follows the screen's. */
 }
 const trackAt = (n, w) => TRACKS[n]?.find((t) => t.until == null || w <= t.until)
 /** A line that predicts a measured height within this many pixels is kept; past it a new rule starts. */

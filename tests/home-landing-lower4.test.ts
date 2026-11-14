@@ -63,11 +63,12 @@ console.log("\n── audience: smaller and lighter ──")
   const css = read(`${DIR}/audience-ownership.module.css`)
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
-  check("one card only: the composer; the rest are plain rows", (src.match(/\$\{s\.panel\}/g) ?? []).length === 1 && (src.match(/className=\{s\.item\}/g) ?? []).length === 3)
-  check("the rows are hairlines, not cards", /\.item \{[^}]*border-top: 1px solid #ececf0;/.test(css) && !/\.item \{[^}]*background/.test(css))
+  /* Changed on purpose (landing round 5): the owner asked for a simpler, shorter section with one compact picture: Contacts, beside three plain rows. */
+  check("one picture only: Contacts; the rest are plain rows", (src.match(/className=\{s\.mock\}/g) ?? []).length === 1 && (html.match(/<li><h3>/g) ?? []).length === 3)
+  check("the rows are hairlines, not cards", /\.points li \{[^}]*border-top: 1px solid #ececf0;/.test(css) && !/\.points li \{[^}]*background/.test(css))
   check("the old tree, list and pill row are gone", !/s\.tree|s\.list|s\.yours|StorelibLogo/.test(src) && !/\.tree|\.yours|\.list\[/.test(css))
-  check("the newest sign-up is faded in, nothing inserted", /\.newest > span \{[^}]*opacity: 0;/.test(css) && /data-on=\{k === head \|\| undefined\}/.test(src))
-  check("the words the owner kept", ["Write once, reach everyone", "Download every contact, any time", "No lock-in. If you ever leave, your list leaves with you.", "Delivered", "Opened", "Clicked"].every((w) => words.includes(w)))
+  check("nothing moves: no timers, loops or reveals", !/setInterval|setTimeout|useState|useEffect|m\.reveal|m\.loop/.test(src) && !/@keyframes|transition/.test(css))  /* Changed on purpose (landing round 5): the owner saw it glitch and flash while scrolling; it is drawn once and still. */
+  check("the words the owner kept", ["Download every contact, any time", "No lock-in: if you ever leave, your list leaves with you.", "Already on an email platform?", "One list from every sign-up"].every((w) => words.includes(w)))  /* Changed on purpose (landing round 5): the composer and its figures are gone. */
   check("in the page's container", /mx-auto max-w-\[1400px\] px-\[var\(--landing-gutter,22px\)\]/.test(src) && !/className=\{`\$\{m\.root\} bg-white px-/.test(src))
   check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
 }
@@ -80,18 +81,19 @@ console.log("\n── analytics ──")
   const words = text(html)
   check("no sourdough anywhere: a LUT pack search, its stills local", !/sourdough/i.test(src + css) && words.includes("cinematic LUT pack for Premiere Pro") && ["lut-fog", "lut-neon", "lut-autumn"].every((f) => existsSync(join(root, "public/home/analytics", `${f}.webp`)) && statSync(join(root, "public/home/analytics", `${f}.webp`)).size < 60_000))
   check("the sourdough stills are gone from the repo", ["sourdough-loaf", "sourdough-crumb", "sourdough-rustic"].every((f) => !existsSync(join(root, "public/home/analytics", `${f}.webp`))))
-  check("the SEO card stays a dark card, with a quiet dot grid drifting by transform", /function SearchCard[\s\S]*?\$\{s\.dark\}/.test(src) && /\.dots \{[^}]*radial-gradient\(rgba\(255, 255, 255, 0\.16\) 1px/.test(css) && /@keyframes dotsDrift \{\s*from \{\s*transform:[^}]*\}\s*to \{\s*transform: translate3d\(22px, 22px, 0\);/.test(css) && /\$\{s\.dots\} \$\{m\.loop\}/.test(src))
-  check("the switcher plays by itself and can be pressed: five named buttons, one pressed", (html.match(/class="[^"]*engineTab[^"]*"[^>]*aria-pressed="(true|false)"/g) ?? []).length === 5 && (html.match(/aria-pressed="true"/g) ?? []).length === 1 && /role="group" aria-label="Search engines and AI assistants"/.test(html) && /setInterval\(\(\) => setActive/.test(src) && /\}, \[live, reduced, picks\]\)/.test(src))
-  check("a press restarts the turn from the chosen engine", /const choose = \(i: number\) => \{\s*setActive\(i\)\s*setPicks/.test(src))
-  check("soft light in each engine's colours changes behind it (opacity), breathing by transform", (html.match(/class="[^"]*\bglow\b[^"]*"/g) ?? []).length === 5 && /\.glow \{[^}]*transition: opacity 1400ms/.test(css) && /\.glow\[data-on\] \{\s*opacity: 1;/.test(css))
-  check("the engine buttons answer the pointer; the rest of the card does not", /\.engineTabs \{[^}]*pointer-events: auto;/.test(css) && /\.dark > \* \{\s*pointer-events: none;/.test(css) && /\.engineTab:focus-visible/.test(css))
+  check("the SEO card stays a dark card, with a quieter dot grid drifting by transform", /function SearchCard[\s\S]*?\$\{s\.dark\}/.test(src) && /\.dots \{[^}]*radial-gradient\(rgba\(255, 255, 255, 0\.09\) 0\.9px/.test(css) && /@keyframes dotsDrift \{\s*from \{\s*transform:[^}]*\}\s*to \{\s*transform: translate3d\(22px, 22px, 0\);/.test(css) && /\$\{s\.dots\} \$\{m\.loop\}/.test(src))  /* Changed on purpose (landing round 5): the owner found the pattern too visible. */
+  /* Changed on purpose (landing round 5): the owner asked for the engine switcher as it was before round 4: it plays by itself, no buttons. */
+  check("the switcher plays by itself, as before round 4: five names in fixed slots, no buttons", (html.match(/data-rel="/g) ?? []).length === 5 && !/engineTab|aria-pressed/.test(html) && /setInterval\(\(\) => setActive/.test(src) && /\}, \[live, reduced\]\)/.test(src))
+  check("nothing to press", !/const choose =|setPicks/.test(src))
+  check("one very quiet light turns around it, by transform alone, while live", (html.match(/class="[^"]*orbit[^"]*"/g) ?? []).length === 1 && /\$\{s\.orbit\} \$\{m\.loop\}/.test(src) && /@keyframes orbit \{\s*to \{\s*transform: rotate\(360deg\);/.test(css) && !/\.glow/.test(css))  /* Changed on purpose (landing round 5): "the subtle clean gradients going around, very subtle". */
+  check("no part of the card answers the pointer", /\.dark > \* \{\s*pointer-events: none;/.test(css) && !/pointer-events: auto/.test(css))
   check("fewer words around the reports: six chips, one short line", (html.match(/class="[^"]*report[^"]*"/g) ?? []).length === 6 && words.includes("Every visit and sale on your page and store, live.") && !/No setup, no extra app/.test(words))
-  check("the chips have a little depth: a soft white gradient and a lit top edge", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.2\)/.test(css) && /\.report \{[^}]*inset 0 1px 0 rgba\(255, 255, 255, 0\.28\)/.test(css))
+  check("the chips are white with a little depth: a lit top edge and a soft violet shadow", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\)/.test(css) && /\.report \{[^}]*0 10px 22px -12px rgba\(30, 10, 80, 0\.5\)/.test(css))  /* Changed on purpose (landing round 5): white pills, as the owner asked. */
   check("top places show each one's share of the visitors, drawn by a static transform", (html.match(/class="[^"]*share[^"]*"/g) ?? []).length === 3 && /46%/.test(words) && /scaleX\(0\.458\)/.test(html))
   check("the creator is a colorist now, and her globe's arcs land in Oslo", words.includes("@noravik.grade") && /const HOME: \[number, number\] = \[59\.91, 10\.75\]/.test(read(`${DIR}/analytics-globe.tsx`)))
   check("on a phone the globe's cards stack full width", /@media \(max-width: 639px\) \{[\s\S]*?\.overlay \{[^}]*flex-direction: column;/.test(css))
   check("keyframes animate only transform and opacity", keyframeProps(css).every((p) => p === "transform" || p === "opacity"), keyframeProps(css))
-  check("reduced motion stops the dots and the lights", /prefers-reduced-motion: reduce\) \{[\s\S]*\.dots,\s*\.glows \{\s*animation: none;/.test(css))
+  check("reduced motion stops the dots and the light", /prefers-reduced-motion: reduce\) \{[\s\S]*\.dots,\s*\.orbit \{\s*animation: none;/.test(css))
   check("in the page's container", /mx-auto max-w-\[1400px\] px-\[var\(--landing-gutter,22px\)\]/.test(src))
   check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
 }
@@ -101,7 +103,7 @@ console.log("\n── the map ──")
   const src = read(`${DIR}/sell-everywhere-map.tsx`)
   const css = src.split("const MAP_CSS = `")[1] ?? ""
   const html = renderToStaticMarkup(createElement(SellEverywhereMap))
-  check("a product per country, every one a local photograph of a physical product", SELL_COUNTRIES.length === 6 && new Set(SELL_COUNTRIES.map((c) => c.product)).size === 6 && SELL_COUNTRIES.every((c) => existsSync(join(root, "public/home/sell-map", c.photo)) && statSync(join(root, "public/home/sell-map", c.photo)).size < 60_000 && html.includes(`src="/home/sell-map/${c.photo}"`)))
+  check("a product per country, every one a local picture", SELL_COUNTRIES.length === 6 && new Set(SELL_COUNTRIES.map((c) => c.product)).size === 6 && SELL_COUNTRIES.every((c) => existsSync(join(root, "public/home/sell-map", c.photo)) && statSync(join(root, "public/home/sell-map", c.photo)).size < 60_000 && html.includes(`src="/home/sell-map/${c.photo}"`)))  /* Changed on purpose (landing round 5): physical and digital, as the owner asked. */
   check("one photo shown at a time: the one in turn faded in", (html.match(/<img src="\/home\/sell-map\/[^"]+"[^>]*data-on="true"/g) ?? []).length === 1 && /\.cmm-photos img\{[^}]*opacity:0/.test(css) && /\.cmm-photos img\[data-on\]\{opacity:1/.test(css))
   check("the button speaks the country's language, marked with lang", SELL_COUNTRIES.every((c) => html.includes(`lang="${c.lang}"`) && html.includes(`>${c.buy}</span>`)) && ["Jetzt kaufen", "今すぐ購入", "Acheter", "Buy now"].every((w) => SELL_COUNTRIES.some((c) => c.buy === w)))
   check("the country's language and its money: Germany in German and euros, Japan in Japanese and yen", SELL_COUNTRIES.some((c) => c.code === "DE" && c.buy === "Jetzt kaufen" && c.total.endsWith("€")) && SELL_COUNTRIES.some((c) => c.code === "JP" && c.lang === "ja" && c.total.startsWith("¥")))
@@ -147,12 +149,13 @@ console.log("\n── your AI tools ──")
   const html = renderToStaticMarkup(createElement(AiToolsSection))
   const shown = AI_TOOLS_SCRIPT.filter((l) => l.at <= AI_TOOLS_START_S - 0.32).length / AI_TOOLS_SCRIPT.length
   check("the terminal starts about a fifth to a third written", shown >= 0.2 && shown <= 0.34, shown)
-  check("every part of the run shares the starting delay, set after the shorthands", new RegExp(`@keyframes ait-blink[^\\n]*\\n\\.ait-line,\\.ait-pv-a,\\.ait-cover\\{animation-delay:-${AI_TOOLS_START_S}s\\}`).test(css))
+  check("every part of the run shares the starting delay, set after the shorthands", new RegExp(`@keyframes ait-blink[^\\n]*\\n\\.ait-line,\\.ait-cover\\{animation-delay:-${AI_TOOLS_START_S}s\\}`).test(css))
   check("its words cannot be selected", /\.ait-term\{[^}]*user-select:none/.test(css))
-  check("a preview fills in beside the log: the page, the hero, the products, the theme, the checks, the draft ready", ["ait-pv-page", "ait-pv-hero", "ait-pv-patch", "ait-pv-cream", "ait-pv-tests", "ait-pv-ready"].every((n) => html.includes(n) && new RegExp(`@keyframes ${n}\\{`).test(css)))
-  check("the preview runs only while live and stands finished under reduced motion", /\.ait-term\[data-live\] \.ait-pv-a\{animation-play-state:running\}/.test(css) && /\.ait-pv-a\{animation:none!important;opacity:1;transform:none\}/.test(css))
-  check("the preview's pictures are local", [...html.matchAll(/<img src="([^"]+)"/g)].every((m) => m[1].startsWith("/home/") && existsSync(join(root, "public", m[1]))))
-  check("the card is wider: the words above, the terminal across the container", /\.ait-copy\{display:grid;/.test(css) && /\.ait-panes\{display:grid;grid-template-columns:minmax\(0,1fr\)\}/.test(css) && /@media \(max-width:639px\)\{\s*\.ait-card\{padding:22px 16px 16px/.test(css))
+  /* Changed on purpose (landing round 5): the owner asked for the terminal alone, as before round 4, with no page preview. */
+  check("just the terminal: no page preview", !/ait-pv|ait-site|ait-panes/.test(html + css))
+  check("the terminal runs only while live and stands finished under reduced motion", /\.ait-term\[data-live\] \.ait-line/.test(css) && /\.ait-line\{animation:none!important;opacity:1;transform:none\}/.test(css))
+  check("no pictures in the terminal", !/<img /.test(html))
+  check("the card as it was before round 4: the words beside the terminal from 1024px", /@media \(min-width:1024px\)\{\s*\.ait-card\{grid-template-columns:minmax\(0,\.92fr\) minmax\(0,1\.08fr\)\}/.test(css))
   check("keyframes move transform and opacity only", [...css.matchAll(/@keyframes ait-[\w-]+\{([\s\S]*?\})\}/g)].every((m) => !/(width|height|top|left|margin|padding|filter|clip|background)\s*:/.test(m[1])))
   check("no banned words", !BANNED.test(text(html)))
 }

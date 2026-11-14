@@ -105,7 +105,8 @@ async function main() {
     const html = renderToStaticMarkup(createElement(FinalCta))
     /* Changed on purpose (wave 13): the owner found it faded in and too tall. It is now a plain, short band: no card, no rise, no light, no receipts. */
     /* Changed on purpose (landing round 4): a new closing line on the dark close. */
-    check("a headline, a line and two ways in", /<h2[^>]*id="fcta-title"[^>]*>Start selling <em>what you make\.<\/em><\/h2>/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && /href="\/explore"/.test(html))
+    /* Changed on purpose (landing round 5): the owner asked to remove the "See creators on Storelib" button, so one way in is left. */
+    check("a headline, a line and one way in", /<h2[^>]*id="fcta-title"[^>]*>Start selling <em>what you make\.<\/em><\/h2>/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && !/fcta-secondary/.test(html))
     check("the old Your next chapter starts here is not used", !/Your next chapter/.test(code("components/marketing/home/final-cta.tsx")))
     /* Changed on purpose (landing round 4): the section itself still has no fade or rise; its only motion is the dot grid's light (dot-field.tsx), paused off screen. */
     check("no fade, no rise, no animation at all", !/@keyframes|animation|opacity|IntersectionObserver|data-armed/.test(src))

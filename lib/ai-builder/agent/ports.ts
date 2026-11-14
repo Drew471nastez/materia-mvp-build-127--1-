@@ -157,6 +157,11 @@ export interface TemplateLibrary {
   apply(store: ProjectStore, template: SiteTemplate, brief: CreativeBrief, meta: { jobId: string; choice: DirectionChoice | null }): Promise<{ ok: boolean; files: string[]; pages: string[]; next?: string; problems?: string[] }>
   /** What is still the template's own: copy (files and placed sections, named) and picture slots still empty. */
   untouched(project: { files: Record<string, string>; pages: StoredPage[] }, template: SiteTemplate): { copy: string[]; images: string[] }
+  /**
+   * Round AZ: worked examples from the AI source bank for the first brief (./bank-templates.ts), "" when none.
+   * `chosen` is the template poured in, or null.
+   */
+  patterns?(brief: CreativeBrief, chosen: SiteTemplate | null): Promise<string>
 }
 
 /**

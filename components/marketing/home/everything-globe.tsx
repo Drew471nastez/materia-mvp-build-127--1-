@@ -9,8 +9,18 @@
   scripts/build-everything-globe-land.mjs). The cities orders come from are
   lit up. Every couple of seconds an order shoots from the creator's studio
   (Brooklyn) to a buyer on the near side along the great circle between
-  them, lands with a pulse, and a pill with the city and what they paid (in
-  a currency Storelib's checkout charges in) rides on the city.
+  them and lands with a pulse, and a notification with the city and what
+  they paid (in a currency Storelib's checkout charges in) rises in the
+  card's lower left corner, stays two seconds and fades.
+
+  LANDING ROUND 5 (the owner: the notifications "glitch and stutter, move and
+  flash"; dragging must not lag on any low end phone): the notification no
+  longer chases the city, so nothing re-aims it; it comes and goes with
+  opacity and a short lift, on a layer it keeps. On a touch screen the globe
+  only takes a sideways swipe: the first 8px decide, a mostly vertical swipe
+  is the page's, and only then is the finger captured. The canvas is held
+  to 2x device pixels (1.5x on a phone with four cores or 4 GB or less) and
+  the engine steps down further by itself if drawing stays heavy.
 
   It is the visitor's to play with: drag it (mouse, pen or a sideways swipe;
   an up and down swipe still scrolls the page) and it turns under the finger,
@@ -102,6 +112,14 @@ export function everythingLandPoints(): Float32Array {
 }
 
 const handedOver = new WeakSet<HTMLCanvasElement>()
+
+/** Device pixels the canvas may use: 2x, or 1.5x on a phone with four cores or 4 GB of memory or less. */
+export function globeDprCap(): number {
+  const nav = typeof navigator === "undefined" ? null : (navigator as Navigator & { deviceMemory?: number })
+  const cores = nav?.hardwareConcurrency ?? 8
+  const memory = nav?.deviceMemory ?? 8
+  return cores <= 4 || memory <= 4 ? 1.5 : 2
+}
 
 /** What drives the globe: a worker holding the canvas, or the engine on this thread. */
 type Driver = {
@@ -200,50 +218,14 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       canvas.replaceWith(fresh)
       canvas = fresh
     }
-    const st = { w: 0, h: 0, pill: -1, pw: 0, shift: 0, visible: true, shown: true, live: false, reduced: false, dragging: -1 }
+    const st = { pill: -1, visible: true, shown: true, live: false, reduced: false, dragging: -1 }
 
-    /*
-      The pill: its anchor (the stem) sits exactly on the city, moved by transform only. The globe says where the city
-      is a few times a second, with where it will be a moment later, and the pill glides there in one compositor
-      animation (round 4: a style change here on every frame cost a commit of the whole page each frame, and the drag
-      lagged behind it). Its body is nudged sideways, also by transform, only when it would leave the card.
-    */
-    let glide: Animation | null = null
+    /* The notification: the order that landed comes in, the one before goes. Attributes only, no layout read or position. */
     const onPill = (p: GlobePill) => {
       const el = pills.children[p.i] as HTMLElement | undefined
       if (!el) return
-      if (p.i !== st.pill) {
-        const old = pills.children[st.pill] as HTMLElement | undefined
-        old?.removeAttribute("data-on")
-        glide?.cancel()
-        glide = null
-        st.pill = p.i
-        st.pw = 0
-        st.shift = 0
-        ;(el.firstElementChild as HTMLElement | null)?.style.removeProperty("transform")
-      }
-      const body = el.firstElementChild as HTMLElement | null
-      /* The body's width, read once per pill as it is first shown. */
-      if (!st.pw && p.on) st.pw = (body?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0
-      const half = st.pw / 2
-      const lo = 12 + half
-      const hi = st.w - 12 - half
-      const mid = (p.x + p.x2) / 2
-      const shift = Math.round((mid < lo ? lo - mid : mid > hi ? hi - mid : 0) * 2) / 2
-      if (shift !== st.shift && body) {
-        st.shift = shift
-        body.style.transform = shift ? `translate(${shift}px,0)` : ""
-      }
-      const from = `translate(${p.x.toFixed(2)}px,${p.y.toFixed(2)}px)`
-      const prev = glide
-      if (p.on && p.d > 0 && typeof el.animate === "function") {
-        el.style.transform = from
-        glide = el.animate([{ transform: from }, { transform: `translate(${p.x2.toFixed(2)}px,${p.y2.toFixed(2)}px)` }], { duration: p.d, easing: "linear", fill: "forwards" })
-      } else {
-        glide = null
-        el.style.transform = from
-      }
-      prev?.cancel()
+      if (p.on && st.pill !== p.i) (pills.children[st.pill] as HTMLElement | undefined)?.removeAttribute("data-on")
+      st.pill = p.i
       if (el.hasAttribute("data-on") !== p.on) el.toggleAttribute("data-on", p.on)
     }
     const driver = startDriver(canvas, onPill, () => {
@@ -259,15 +241,28 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
     document.addEventListener("visibilitychange", onVisibility)
     st.shown = document.visibilityState !== "hidden"
 
-    /* Pointer: drag to turn (with momentum), lean toward a hovering mouse. */
-    const onDown = (e: PointerEvent) => {
-      if (e.button !== 0) return
+    /*
+      Pointer: drag to turn (with momentum), lean toward a hovering mouse. A mouse or pen takes hold at once and turns
+      the globe both ways. A finger waits for 8px: mostly vertical, it is the page's scroll (touch-action: pan-y lets the
+      browser have it) and the globe never moves; mostly sideways, the finger is captured from where it is then and
+      turns the globe about its axis only, so a swipe that drifts down a little does not tip it.
+    */
+    let touch: { id: number; x0: number; y0: number } | null = null
+    const take = (e: PointerEvent, y: number) => {
       st.dragging = e.pointerId
       box.setAttribute("data-dragging", "")
       try {
         box.setPointerCapture(e.pointerId)
       } catch {}
-      driver.pointer({ kind: "down", x: e.clientX, y: e.clientY, t: e.timeStamp })
+      driver.pointer({ kind: "down", x: e.clientX, y, t: e.timeStamp })
+    }
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0 || !e.isPrimary) return
+      if (e.pointerType === "touch") {
+        touch = { id: e.pointerId, x0: e.clientX, y0: e.clientY }
+        return
+      }
+      take(e, e.clientY)
     }
     /*
       The move path reads no layout: a drag passes the pointer straight to the globe (Chromium already hands pointermove
@@ -276,8 +271,19 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
     */
     let rect: DOMRect | null = null
     const onMove = (e: PointerEvent) => {
+      if (touch && touch.id === e.pointerId && st.dragging !== e.pointerId) {
+        const dx = e.clientX - touch.x0
+        const dy = e.clientY - touch.y0
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+        if (Math.abs(dy) >= Math.abs(dx)) {
+          touch = null
+          return
+        }
+        take(e, touch.y0)
+        return
+      }
       if (st.dragging === e.pointerId) {
-        driver.pointer({ kind: "move", x: e.clientX, y: e.clientY, t: e.timeStamp })
+        driver.pointer({ kind: "move", x: e.clientX, y: touch && touch.id === e.pointerId ? touch.y0 : e.clientY, t: e.timeStamp })
         return
       }
       if (e.pointerType !== "mouse" || st.reduced) return
@@ -288,10 +294,12 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       driver.lean((e.clientX - rect.left) / rect.width - 0.5, (e.clientY - rect.top) / rect.height - 0.5)
     }
     const onUp = (e: PointerEvent) => {
+      const y = touch && touch.id === e.pointerId ? touch.y0 : e.clientY
+      if (touch?.id === e.pointerId) touch = null
       if (st.dragging !== e.pointerId) return
       st.dragging = -1
       box.removeAttribute("data-dragging")
-      driver.pointer({ kind: "up", x: e.clientX, y: e.clientY, t: e.timeStamp })
+      driver.pointer({ kind: "up", x: e.clientX, y, t: e.timeStamp })
     }
     const onLeave = (e: PointerEvent) => {
       forget()
@@ -316,10 +324,8 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
             const w = Math.round(entry.contentRect.width)
             const h = Math.round(entry.contentRect.height)
             if (!w || !h) return
-            st.w = w
-            st.h = h
             forget()
-            driver.size(w, h, Math.min(2, window.devicePixelRatio || 1))
+            driver.size(w, h, Math.min(globeDprCap(), window.devicePixelRatio || 1))
           })
         : null
     ro?.observe(box)
@@ -359,7 +365,6 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       box.removeEventListener("pointercancel", onUp)
       box.removeEventListener("pointerleave", onLeave)
       window.removeEventListener("scroll", forget)
-      glide?.cancel()
       ctl.current = null
     }
   }, [])
@@ -374,14 +379,10 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       <div ref={pillsRef} className="ev-globe-pills">
         {EVERYTHING_GLOBE_ORDERS.map((o) => (
           <div key={o.city} className="ev-globe-pill">
-            <span className="ev-globe-pill-shift">
-              <span className="ev-globe-pill-in">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="ev-globe-flag" src={`/flags/${o.cc}.svg`} alt="" width={16} height={12} loading="lazy" decoding="async" />
-              <span className="ev-globe-city">New order, {o.city}</span>
-                <span className="ev-globe-price">{o.price}</span>
-              </span>
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="ev-globe-flag" src={`/flags/${o.cc}.svg`} alt="" width={16} height={12} loading="lazy" decoding="async" />
+            <span className="ev-globe-city">New order, {o.city}</span>
+            <span className="ev-globe-price">{o.price}</span>
           </div>
         ))}
       </div>

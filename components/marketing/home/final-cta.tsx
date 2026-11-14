@@ -15,21 +15,23 @@ import { DotField } from "./dot-field"
   footer below continues the same near-black with no lit top edge, so the two
   read as one surface. Nothing rises or fades in; only the grid's light
   drifts, and only while it is on screen.
+
+  Round 5, the owner: "what you make" a little lighter (it read too grey),
+  and the dots smoother, scattered and following the mouse: DotField is a
+  canvas now (dot-field.tsx), its light gliding after the pointer.
 */
 const STYLES = `
 .fcta{position:relative;isolation:isolate;background:transparent;color:#fff;padding:clamp(88px,10vw,152px) var(--landing-gutter,clamp(22px,6vw,96px)) clamp(80px,9vw,136px)}
 .fcta-in{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;max-width:880px;margin:0 auto;text-align:center}
 .fcta-mark{display:block;margin-bottom:28px}
 .fcta-title{margin:0;max-width:15ch;font-size:clamp(38px,5.6vw,80px);font-weight:500;line-height:1.02;letter-spacing:-.05em;color:#fafafa;text-wrap:balance}
-.fcta-title em{font-style:normal;color:#8f8c99}
+.fcta-title em{font-style:normal;color:#b6b3c1}
 .fcta-note{margin:20px 0 0;font-size:clamp(15px,1.3vw,18px);line-height:1.5;color:#a3a0ac}
 .fcta-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:36px}
 .fcta-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:54px;padding:0 28px;border-radius:999px;font-size:16px;font-weight:600;text-decoration:none;white-space:nowrap;transition:background-color .2s ease,border-color .2s ease,color .2s ease}
 .fcta-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .fcta-primary{background:#fff;color:#18181b}
 .fcta-primary:hover{background:#e7e5ee}
-.fcta-secondary{color:#fff;border:1px solid rgba(255,255,255,.22);background:transparent}
-.fcta-secondary:hover{border-color:rgba(255,255,255,.6)}
 @media(max-width:639px){
   .fcta-actions{flex-direction:column;align-items:stretch;width:100%;max-width:360px}
   .fcta-btn{width:100%}
@@ -50,7 +52,7 @@ function Arrow() {
   )
 }
 
-/** The home page's closing call: Start free, or look around first. */
+/** The home page's closing call: Start free. (Landing round 5: the owner asked for "See creators on Storelib" to go.) */
 export function FinalCta() {
   return (
     <section className="fcta" data-final-cta="" aria-labelledby="fcta-title">
@@ -68,9 +70,6 @@ export function FinalCta() {
           <Link href="/signup?intent=sell" className="fcta-btn fcta-primary">
             Start free
             <Arrow />
-          </Link>
-          <Link href="/explore" className="fcta-btn fcta-secondary">
-            See creators on Storelib
           </Link>
         </div>
       </div>

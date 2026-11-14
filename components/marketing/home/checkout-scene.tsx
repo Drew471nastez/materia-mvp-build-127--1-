@@ -2,89 +2,65 @@
 
 /**
  * ===========================================================================
- *  CHECKOUT THAT TURNS A TAP INTO A SALE (home, section 9, landing round 4)
+ *  CHECKOUT THAT TURNS A TAP INTO A SALE (home, section 9, landing round 5)
  * ===========================================================================
- * Black, with a fine dot grid. The owner's order, as he asked for it:
+ * Black, with a fine dot grid. The owner's order, round 5:
  *
- *   1. the phone     an iPhone with Storelib's instant checkout on it rises
- *                    from the bottom of the screen as the section comes up,
- *                    and stays there (the stage is pinned)
- *   2. the orbit     six things creators sell (an e-book, a cap, a course, a
- *                    tee, a membership, a record) ride a ring around the
- *                    phone, turning in 3D, behind it
- *   3. the headline  once the phone has settled, its words come in one after
- *                    another
- *   4. the tabs      scrolling on, the four tabs (Built to convert, One-tap
- *                    payments, Local currencies, Checkout reminders) rise
- *                    over the phone like a sheet; the phone sinks back and
- *                    fades into them
+ *   1. the phone     an iPhone showing Storelib's real instant checkout, the
+ *                    window a buyer gets on a OnePage in Safari. It is there
+ *                    from the first pixel of the section and slides up into
+ *                    place as the section comes in (a one-shot transform,
+ *                    started once by an observer, never tied to scroll)
+ *   2. the headline  beside it (under it on a phone), its words in one after
+ *                    another on the same signal
+ *   3. the tabs      scrolling on, the stage holds and the four tab cards
+ *                    (Built to convert, One-tap payments, Local currencies,
+ *                    Checkout reminders) come up over the phone with the page
+ *                    and hide it. Plain scroll moves them: nothing is drawn per
+ *                    frame, there is no scroll timeline and no orbit
  *
- * The scroll never presses Pay or steps through a payment: the phone shows
- * the checkout, still. Each tab has its own small demo, which loops while it
- * is the open one and on screen: the website's checkout on a computer from
- * the empty form to Payment complete and the seller's sale notice, a phone
- * with Apple Pay, Google Pay and Stripe, one cap's price read in five
- * currencies, the reminder email an hour after a checkout left at Pay.
+ * The tabs are the cards they were before the pill row (Nov 13, 0724a74c1):
+ * a label, a short figure, a line that fills while the tab has its turn.
  *
- * MOTION, CHEAPLY.
- *   scroll   CSS scroll-driven animations on two view timelines (the track,
- *            and the tab cards, shared through timeline-scope), transform
- *            and opacity only, run by the compositor and reversible by
- *            construction. Where a browser has no view timelines, two
- *            IntersectionObservers set data-cmc-in and data-cmc-over once
- *            per crossing, and the same states play as CSS transitions. No
- *            scroll listener, no layout read, no React state per frame.
- *   orbit    every product rides one ellipse: one baked lap of keyframes
- *            (40 points, depth as scale and opacity, a slow 3D turn), each
- *            product at its own place on it by a negative delay, and a cross
- *            fade with a pre-blurred webp at the back (never a live filter).
- *            Paused off screen and in a background tab (data-commerce-live).
- *   reduced  no pinning, no rise, no orbit: the finished picture.
+ * THE PHONE IS THE REAL WINDOW. RealCheckout below is
+ * components/checkout/instant-checkout.tsx inside checkout-window.tsx, as a
+ * phone draws them (the window full screen, its grey head with the product's
+ * picture, title and seller, Your details, the order line, Have a code?, the
+ * payment method from components/community/public/compact-pay.tsx with the
+ * device's wallet chosen, Pay, the terms line and Powered by Stripe), with the
+ * same sizes, colours and words, laid out at the iPhone's own width (393px)
+ * and scaled to the drawn phone in one transform. Safari's status bar and its
+ * bottom address bar sit over it, as they do on the phone.
  *
  * TRUE FIGURES. The desktop window is the website checkout as
- * app/(storelib)/checkout/site/site-checkout.tsx lays it out (the order on
- * the grey half, paying on the white half, Apple Pay and Google Pay as
- * express buttons, Powered by Stripe, Payment complete); the seller's notice
- * is the in-app sale notification (lib/notify/templates/catalog.ts, "New
- * sale", "<buyer> bought <thing> for <total>."). The phone's window is
- * components/checkout/instant-checkout.tsx. The currencies are ones fees are
- * written for (lib/payments/fees/currency-rules). The reminder is
- * lib/physical/email-templates checkoutReminderEmail's words, sent an hour
- * after a checkout that did not finish, only to buyers who ticked the box
+ * app/(storelib)/checkout/site/site-checkout.tsx lays it out, drawn whole
+ * (both columns, every corner) and scaled to the box on any screen. The
+ * seller's notice is the in-app sale notification (lib/notify/templates/
+ * catalog.ts). The currencies are ones fees are written for
+ * (lib/payments/fees/currency-rules). The reminder is
+ * lib/physical/email-templates checkoutReminderEmail's words
  * (lib/automations/abandoned.ts). Prices are examples.
  */
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import type { SectionStyle } from "./lazy-section"
 import { Fragment, memo, useEffect, useRef, useState } from "react"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_KIT_STYLE, CommerceKitStyle, useCommerceLive, useCommerceReducedMotion } from "./commerce-kit"
-import { EBOOK, EBOOK_COVER_CSS, EbookCover, EbookCoverStyle } from "./ebook-cover"
 import { u } from "./showcase-mocks/frame"
 
 const IMG = "/home/commerce"
-const HOW = "/home/how"
-const PRODUCT = EBOOK.title
-const SELLER = EBOOK.author
-/** The physical product the demos sell beside the e-book: an embroidered cap, made when it is ordered. */
-const CAP = { title: "Darkroom cap", option: "Yellow", price: "$28.00", img: `${HOW}/cap-yellow.webp` } as const
+/**
+ * What the phone sells: Nadia Brooks's field guide to street photography in
+ * Chicago's Loop, an e-book. Its cover is a picture file, as a creator uploads
+ * one (rendered once from a real Unsplash photograph of LaSalle Street,
+ * photo-1519501025264-65ba15a82390, with the title set on paper stock).
+ */
+export const GUIDE = { title: "The Loop", author: "Nadia Brooks", price: "$19.00", cover: `${IMG}/guide-loop.webp` } as const
+const PRODUCT = GUIDE.title
+const SELLER = GUIDE.author
+/** The physical product the demos sell beside the e-book: a signed A3 print of LaSalle Street (the same photograph, public/home/commerce/print-lasalle.webp). The owner did not want the cap. */
+const PRINT = { title: "LaSalle at dusk", option: "Signed print, A3", price: "$45.00", img: `${IMG}/print-lasalle.webp` } as const
 
 export const CHECKOUT_HEADING = "Checkout that turns a tap into a sale"
-
-/**
- * The orbiting products: the size of the object inside its files (for lining
- * the sharp and the blurred file up), how wide it is drawn on a computer and
- * on a phone (phones show four), its place on the ring (phase 0 to 1, and a
- * second set for phones), how far out it rides (k), a small lift off the
- * ring, and how far it leans as it turns. Digital and physical take turns.
- */
-const FLOATS = [
-  { id: "ebook", obj: [165, 220], w: "clamp(96px,9.5vw,156px)", wm: "27vw", ph: 0, phm: 0, k: 1, oy: "-2svh", r: -8, m: true },
-  { id: "cap", obj: [220, 142], w: "clamp(130px,13vw,215px)", wm: "36vw", ph: 1 / 6, phm: 0.25, k: 0.95, oy: "1svh", r: 8, m: true },
-  { id: "course", obj: [220, 195], w: "clamp(120px,12vw,200px)", wm: "0px", ph: 2 / 6, phm: 0, k: 1.03, oy: "-1svh", r: -5, m: false },
-  { id: "tee", obj: [151, 220], w: "clamp(100px,10.5vw,170px)", wm: "29vw", ph: 3 / 6, phm: 0.5, k: 0.98, oy: "2svh", r: 7, m: true },
-  { id: "club", obj: [220, 143], w: "clamp(120px,12.5vw,205px)", wm: "0px", ph: 4 / 6, phm: 0, k: 0.96, oy: "1svh", r: 9, m: false },
-  { id: "vinyl", obj: [220, 159], w: "clamp(130px,14vw,230px)", wm: "37vw", ph: 5 / 6, phm: 0.75, k: 1.02, oy: "0svh", r: -6, m: true },
-] as const
-const BLUR_PAD = 24
 
 const TABS = [
   {
@@ -124,57 +100,54 @@ const AUTO_MS = LOOP_S * 1000
 const at = (sec: number) => `${Math.round((sec / LOOP_S) * 10000) / 100}%`
 
 /**
- * Where the browser has no view timelines: two observers, each setting one
- * attribute when its edge is crossed (never per frame). data-cmc-in once the
- * track's top is two thirds up the screen (the phone rises, the headline
- * comes in); data-cmc-over once the cards' top is past 70% of the screen
- * (the phone fades behind them). Both go back the other way.
+ * The entrance, without scroll work. One observer on the track: while the
+ * track is wholly below the screen the section is armed (data-cmc-armed: the
+ * phone a little low, the words out); once its top is 12% up the screen,
+ * data-cmc-in plays the rise and the words as CSS transitions, on the
+ * compositor. Mounted while already on screen, nothing is armed, so the
+ * phone is simply there. Scrolled back up past it, it re-arms.
  */
-function useFallbackStates(rootRef: React.RefObject<HTMLElement | null>) {
+function useEntrance(rootRef: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const root = rootRef.current
-    if (!root || typeof IntersectionObserver !== "function") return
-    if (typeof CSS !== "undefined" && CSS.supports?.("animation-timeline: view()")) return
+    const track = root?.querySelector<HTMLElement>(".cmc-track")
+    if (!root || !track || typeof IntersectionObserver !== "function") return
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const track = root.querySelector<HTMLElement>(".cmc-track")
-    const cards = root.querySelector<HTMLElement>(".cmc-cards")
-    if (!track || !cards) return
-    root.setAttribute("data-cmc-js", "")
-    const flag = (name: string) => (entries: IntersectionObserverEntry[]) => {
-      const e = entries[entries.length - 1]
-      /* Past the line (or still on screen above it): on. Below it: off. */
-      root.toggleAttribute(name, e.isIntersecting || e.boundingClientRect.top < 0)
-    }
-    const a = new IntersectionObserver(flag("data-cmc-in"), { rootMargin: "0px 0px -34% 0px" })
-    const b = new IntersectionObserver(flag("data-cmc-over"), { rootMargin: "0px 0px -30% 0px" })
-    a.observe(track)
-    b.observe(cards)
+    const io = new IntersectionObserver(
+      (entries) => {
+        const e = entries[entries.length - 1]
+        if (e.isIntersecting) {
+          if (root.hasAttribute("data-cmc-armed")) root.setAttribute("data-cmc-in", "")
+        } else if (e.boundingClientRect.top > 0) {
+          root.removeAttribute("data-cmc-in")
+          root.setAttribute("data-cmc-armed", "")
+        }
+      },
+      { rootMargin: "0px 0px -12% 0px" },
+    )
+    io.observe(track)
     return () => {
-      a.disconnect()
-      b.disconnect()
-      root.removeAttribute("data-cmc-js")
+      io.disconnect()
+      root.removeAttribute("data-cmc-armed")
       root.removeAttribute("data-cmc-in")
-      root.removeAttribute("data-cmc-over")
     }
   }, [rootRef])
 }
 
 export function CheckoutScene() {
   const rootRef = useRef<HTMLElement>(null)
-  const [trackRef] = useCommerceLive<HTMLDivElement>("120px 0px", false)
   const reduced = useCommerceReducedMotion()
-  useFallbackStates(rootRef)
+  useEntrance(rootRef)
   const words = CHECKOUT_HEADING.split(" ")
 
   return (
     <section ref={rootRef} className="cmc" data-story-section="checkout" aria-labelledby="cmc-title">
       <CommerceKitStyle />
-      <EbookCoverStyle />
       <style href="w12-commerce-checkout" precedence="default">
         {CHECKOUT_CSS}
       </style>
       <span className="cmc-dots" aria-hidden="true" />
-      <div ref={trackRef} className="cmc-track">
+      <div className="cmc-track">
         <div className="cmc-stage">
           <div className="cmc-copy">
             <h2 id="cmc-title" className="cmc-title">
@@ -190,43 +163,8 @@ export function CheckoutScene() {
           </div>
 
           <div className="cmc-phone-wrap">
-            <div className="cmc-floats" aria-hidden="true">
-              <div className="cmc-orbit">
-                {FLOATS.map((f) => (
-                  <div
-                    key={f.id}
-                    className="cmc-o"
-                    data-m={f.m || undefined}
-                    style={{ "--w": f.w, "--wm": f.wm, "--ph": f.ph, "--phm": f.phm, "--k": f.k, "--oy": f.oy, "--r": `${f.r}deg` } as React.CSSProperties}
-                  >
-                    <div className="cmc-lap">
-                      <div className="cmc-obj" style={{ aspectRatio: `${f.obj[0]} / ${f.obj[1]}` }}>
-                        <img
-                          className="cmc-soft"
-                          src={`${IMG}/float-${f.id}-blur.webp`}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          width={f.obj[0] + BLUR_PAD * 2}
-                          height={f.obj[1] + BLUR_PAD * 2}
-                          style={{
-                            left: `${(-BLUR_PAD / f.obj[0]) * 100}%`,
-                            top: `${(-BLUR_PAD / f.obj[1]) * 100}%`,
-                            width: `${((f.obj[0] + BLUR_PAD * 2) / f.obj[0]) * 100}%`,
-                            height: `${((f.obj[1] + BLUR_PAD * 2) / f.obj[1]) * 100}%`,
-                          }}
-                        />
-                        <img className="cmc-sharp" src={`${IMG}/float-${f.id}.webp`} alt="" loading="lazy" decoding="async" width={f.obj[0] * 2} height={f.obj[1] * 2} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
             <div className="cmc-rise">
-              <div className="cmc-sink">
-                <Phone label={`A Storelib checkout on a phone (an iPhone): ${PRODUCT}, an e-book by ${SELLER}, $19.00, with Apple Pay.`} />
-              </div>
+              <Phone label={`A Storelib checkout on a phone (an iPhone): ${PRODUCT}, an e-book by ${SELLER}, ${GUIDE.price}, with Apple Pay.`} />
             </div>
           </div>
         </div>
@@ -237,7 +175,7 @@ export function CheckoutScene() {
   )
 }
 
-/* ── The phone: a modern iPhone, drawn in em so it scales ─────────────── */
+/* ── The phone: a modern iPhone, its screen the real checkout ────────── */
 
 function StatusBar() {
   return (
@@ -265,7 +203,33 @@ function StatusBar() {
   )
 }
 
-/** The iPhone: titanium band, black border, Dynamic Island, the status bar, Storelib's checkout. */
+/** Safari's address bar on iOS, floating at the foot of the page. */
+function SafariBar() {
+  return (
+    <div className="rc-safari">
+      <span className="rc-sf-btn">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m15 5-7 7 7 7" />
+        </svg>
+      </span>
+      <span className="rc-sf-url">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+          <path d="M4 7h16M4 12h16M4 17h10" />
+        </svg>
+        <span>storelib.com</span>
+      </span>
+      <span className="rc-sf-btn">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <circle cx="5.5" cy="12" r="1.9" />
+          <circle cx="12" cy="12" r="1.9" />
+          <circle cx="18.5" cy="12" r="1.9" />
+        </svg>
+      </span>
+    </div>
+  )
+}
+
+/** The iPhone: titanium band, black border, Dynamic Island, and the checkout under Safari's bars. */
 function Phone({ label, wallets = false }: { label?: string; wallets?: boolean }) {
   return (
     <div className="cmc-phone" role={label ? "img" : undefined} aria-label={label}>
@@ -274,9 +238,10 @@ function Phone({ label, wallets = false }: { label?: string; wallets?: boolean }
       <span className="cmc-key cmc-key-dn" />
       <span className="cmc-key cmc-key-pw" />
       <div className="cmc-bezel">
-        <div className="cmc-screen" aria-hidden="true">
+        <div className="cmc-screen" aria-hidden="true" inert>
           <div className="cmc-ui">
-            <CheckoutUI wallets={wallets} />
+            <RealCheckout wallets={wallets} />
+            <SafariBar />
             <StatusBar />
           </div>
         </div>
@@ -286,89 +251,117 @@ function Phone({ label, wallets = false }: { label?: string; wallets?: boolean }
 }
 
 /**
- * Storelib's instant checkout, as components/checkout/instant-checkout.tsx
- * and checkout-window.tsx draw it, in em (1em = 16px of the real window). With
- * `wallets`, the wallet button and Pay take turns: Apple Pay, Google Pay,
- * then the card (the One-tap payments demo).
+ * The instant checkout a buyer sees on a phone, in the real window's own
+ * pixels (the rc- rules copy the Tailwind classes of checkout-window.tsx,
+ * instant-checkout.tsx and compact-pay.tsx one for one). With `wallets`, the
+ * One-tap payments demo: Apple Pay, then Google Pay on an Android phone, then
+ * the card field, each with its own Pay.
  */
-function CheckoutUI({ wallets }: { wallets: boolean }) {
+function RealCheckout({ wallets }: { wallets: boolean }) {
   return (
-    <div className="ck">
-      <div className="ck-head">
-        <div className="ck-top">
-          <span className="ck-x">
-            <svg viewBox="0 0 20 20" width="1.25em" height="1.25em" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-              <path d="M5 5l10 10M15 5 5 15" />
+    <div className="rc">
+      <div className="rc-head">
+        <div className="rc-row">
+          <span />
+          <span className="rc-x">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </span>
         </div>
-        <EbookCover className="ck-mark" />
-        <div className="ck-title">{PRODUCT}</div>
-        <div className="ck-sub">{SELLER}</div>
+        <div className="rc-who">
+          <img className="rc-mark" src={GUIDE.cover} alt="" width={57} height={76} loading="lazy" decoding="async" />
+          <div className="rc-title">{PRODUCT}</div>
+          <div className="rc-sub">{SELLER}</div>
+        </div>
       </div>
-      <div className="ck-body">
-        <div className="ck-form">
-          <div className="ck-sec">
-            <div className="ck-h3">Your details</div>
-            <div className="ck-field">
-              <span className="ck-val">sam.rivera@mail.com</span>
-            </div>
-            <div className="ck-field">
-              <span className="ck-val">Sam Rivera</span>
-            </div>
-            <div className="ck-opt">
-              <span className="ck-box">
-                <svg viewBox="0 0 12 12" width="0.62em" height="0.62em" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m2.5 6.3 2.3 2.3 4.7-5" />
-                </svg>
-              </span>
+      <div className="rc-body">
+        <div className="rc-body-in">
+          <div className="rc-sec">
+            <div className="rc-h3">Your details</div>
+            <div className="rc-in">sam.rivera@mail.com</div>
+            <div className="rc-in">Sam Rivera</div>
+            <div className="rc-opt">
+              <span className="rc-cb" />
               Email me news and offers
             </div>
           </div>
-          <div className="ck-sum">
-            <span className="ck-sum-t">{PRODUCT}</span>
-            <b>$19.00</b>
+          <div className="rc-sum">
+            <span className="rc-sum-t">{PRODUCT}</span>
+            <b>{GUIDE.price}</b>
           </div>
-          <div className="ck-sec">
-            <div className="ck-h3">Payment method</div>
-            <div className="ck-methods">
-              {wallets ? <span className="ck-ring" /> : null}
-              <span className="ck-m" data-on={wallets ? undefined : ""}>
-                <span className="ck-stack">
-                  <span className="ck-w ck-mw-a">
-                    <AppleMark />
-                    Pay
-                  </span>
-                  {wallets ? (
-                    <span className="ck-w ck-mw-g">
-                      <GoogleMark />
+          <div className="rc-code">
+            Have a code?
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+          <div className="rc-paysec">
+            <div className="rc-h3 rc-h3-pay">Payment method</div>
+            <div className="rc-mwrap">
+              <div className="rc-methods">
+                <span className="rc-m" data-on={wallets ? undefined : ""}>
+                  <span className="ck-stack">
+                    <span className="ck-w ck-mw-a">
+                      <AppleMark />
                       Pay
                     </span>
+                    {wallets ? (
+                      <span className="ck-w ck-mw-g">
+                        <GoogleMark />
+                        Pay
+                      </span>
+                    ) : null}
+                  </span>
+                </span>
+                <span className="rc-m">
+                  <CardGlyph />
+                  Card
+                </span>
+              </div>
+              {wallets ? (
+                <>
+                  <span className="ck-ring" />
+                  <span className="rc-cardf">
+                    <svg viewBox="0 0 24 16" width="24" height="16">
+                      <rect width="24" height="16" rx="2.5" fill="#1a1f71" />
+                      <path d="M9.6 10.9 10.6 5h1.6l-1 5.9H9.6Zm6.9-5.8a4 4 0 0 0-1.4-.2c-1.6 0-2.7.8-2.7 1.9 0 .9.8 1.3 1.4 1.6.6.3.8.5.8.7 0 .4-.5.6-1 .6a3.4 3.4 0 0 1-1.5-.3l-.2-.1-.2 1.3c.4.2 1 .3 1.7.3 1.7 0 2.8-.8 2.8-2 0-.7-.4-1.2-1.4-1.6-.6-.3-.9-.5-.9-.8 0-.2.3-.5.9-.5.5 0 .9.1 1.2.2l.1.1.4-1.2ZM20.6 5h-1.2c-.4 0-.7.1-.8.5l-2.4 5.4h1.7l.3-.9h2.1l.2.9h1.5L20.6 5Zm-2 3.8.6-1.6.2-.5.1.5.4 1.6h-1.3ZM8.3 5 6.7 9 6.5 8.2A4.7 4.7 0 0 0 4.3 5.6l1.5 5.3h1.7L10 5H8.3Z" fill="#fff" />
+                    </svg>
+                    <span className="rc-cardn">4242 4242 4242 4242</span>
+                    <span className="rc-cardx">08 / 29</span>
+                    <span className="rc-cardx">314</span>
+                  </span>
+                </>
+              ) : null}
+            </div>
+            <div className="rc-after">
+              <div className="rc-pay">
+                <span className="ck-stack">
+                  <span className="ck-w ck-w-a">{`Pay ${GUIDE.price} with Apple Pay`}</span>
+                  {wallets ? (
+                    <>
+                      <span className="ck-w ck-w-g">{`Pay ${GUIDE.price} with Google Pay`}</span>
+                      <span className="ck-w ck-w-c">{`Pay ${GUIDE.price}`}</span>
+                    </>
                   ) : null}
                 </span>
-              </span>
-              <span className="ck-m">
-                <svg viewBox="0 0 24 24" width="1.25em" height="1.25em" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <rect x="2.75" y="5.25" width="18.5" height="13.5" rx="2.25" />
-                  <path d="M2.75 9.5h18.5M6.5 15h3" strokeLinecap="round" />
-                </svg>
-                Card
-              </span>
+              </div>
+              <p className="rc-terms">
+                By paying you agree to the <u>Terms</u>. Your receipt and access come by email.
+              </p>
+              <p className="rc-pow">
+                <span className="rc-pow-s">
+                  Powered by
+                  <svg viewBox="0 120 640 272" width="33" height="14" fill="currentColor">
+                    <path d={STRIPE_WORDMARK} />
+                  </svg>
+                </span>
+                <i>·</i>
+                Terms
+                <i>·</i>
+                Privacy
+              </p>
             </div>
-            <div className="ck-pay">
-              <span className="ck-stack">
-                <span className="ck-w ck-w-a">Pay $19.00 with Apple Pay</span>
-                {wallets ? (
-                  <>
-                    <span className="ck-w ck-w-g">Pay $19.00 with Google Pay</span>
-                    <span className="ck-w ck-w-c">Pay $19.00</span>
-                  </>
-                ) : null}
-              </span>
-            </div>
-          </div>
-          <div className="ck-terms">
-            By paying you agree to the <u>Terms</u>. Your receipt and access come by email.
           </div>
         </div>
       </div>
@@ -376,9 +369,22 @@ function CheckoutUI({ wallets }: { wallets: boolean }) {
   )
 }
 
+/** Stripe's wordmark, as components/checkout/parts/ui.tsx draws it in Powered by Stripe. */
+const STRIPE_WORDMARK =
+  "M165 144.7l-43.3 9.2-.2 142.4c0 26.3 19.8 43.3 46.1 43.3 14.6 0 25.3-2.7 31.2-5.9v-33.8c-5.7 2.3-33.7 10.5-33.7-15.7V221h33.7v-37.8h-33.7zm89.1 51.6l-2.7-13.1H213v153.2h44.3V233.3c10.5-13.8 28.2-11.1 33.9-9.3v-40.8c-6-2.1-26.7-6-37.1 13.1zm92.3-72.3l-44.6 9.5v36.2l44.6-9.5zM44.9 228.3c0-6.9 5.8-9.6 15.1-9.7 13.5 0 30.7 4.1 44.2 11.4v-41.8c-14.7-5.8-29.4-8.1-44.1-8.1-36 0-60 18.8-60 50.2 0 49.2 67.5 41.2 67.5 62.4 0 8.2-7.1 10.9-17 10.9-14.7 0-33.7-6.1-48.6-14.2v40c16.5 7.1 33.2 10.1 48.5 10.1 36.9 0 62.3-15.8 62.3-47.8 0-52.9-67.9-43.4-67.9-63.4zM640 261.6c0-45.5-22-81.4-64.2-81.4s-67.9 35.9-67.9 81.1c0 53.5 30.3 78.2 73.5 78.2 21.2 0 37.1-4.8 49.2-11.5v-33.4c-12.1 6.1-26 9.8-43.6 9.8-17.3 0-32.5-6.1-34.5-26.9h86.9c.2-2.3.6-11.6.6-15.9zm-87.9-16.8c0-20 12.3-28.4 23.4-28.4 10.9 0 22.5 8.4 22.5 28.4zm-112.9-64.6c-17.4 0-28.6 8.2-34.8 13.9l-2.3-11H363v204.8l44.4-9.4.1-50.2c6.4 4.7 15.9 11.2 31.4 11.2 31.8 0 60.8-23.2 60.8-79.6.1-51.6-29.3-79.7-60.5-79.7zm-10.6 122.5c-10.4 0-16.6-3.8-20.9-8.4l-.3-66c4.6-5.1 11-8.8 21.2-8.8 16.2 0 27.4 18.2 27.4 41.4.1 23.9-10.9 41.8-27.4 41.8zm-126.7 33.7h44.6V183.2h-44.6z"
+
+function CardGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <rect x="2.75" y="5.25" width="18.5" height="13.5" rx="2.25" />
+      <path d="M2.75 9.5h18.5M6.5 15h3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function AppleMark() {
   return (
-    <svg viewBox="0 0 17 20" width="0.95em" height="1.12em" fill="currentColor">
+    <svg viewBox="0 0 17 20" width="15.3" height="18" fill="currentColor">
       <path d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.8 1.3 10.3.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.2zM11.6 3c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z" />
     </svg>
   )
@@ -386,7 +392,7 @@ function AppleMark() {
 
 function GoogleMark() {
   return (
-    <svg viewBox="0 0 24 24" width="1.1em" height="1.1em">
+    <svg viewBox="0 0 24 24" width="18" height="18">
       <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.8z" />
       <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1C3.3 21.3 7.3 24 12 24z" />
       <path fill="#FBBC05" d="M5.3 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.3C.5 8.2 0 10 0 12s.5 3.8 1.3 5.4l4-3.1z" />
@@ -410,7 +416,7 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-/* ── The dark tab cards ──────────────────────────────────────────────── */
+/* ── The tab cards: a label, a figure, a line that fills while it plays ── */
 
 function CheckoutTabs({ reduced }: { reduced: boolean }) {
   const [cardsRef, live] = useCommerceLive<HTMLDivElement>("0px 0px")
@@ -418,7 +424,6 @@ function CheckoutTabs({ reduced }: { reduced: boolean }) {
   const [held, setHeld] = useState(false)
   const [touched, setTouched] = useState(false)
   const refs = useRef<(HTMLButtonElement | null)[]>([])
-  const listRef = useRef<HTMLDivElement>(null)
   const auto = live && !reduced && !held && !touched
 
   useEffect(() => {
@@ -443,44 +448,42 @@ function CheckoutTabs({ reduced }: { reduced: boolean }) {
     refs.current[n]?.focus()
   }
 
-  /* On a phone the pills can be wider than the screen: the chosen one is brought to the middle of its own row (never the page). */
-  useEffect(() => {
-    const list = listRef.current
-    const tab = refs.current[TABS.findIndex((x) => x.id === active)]
-    if (!list || !tab || list.scrollWidth <= list.clientWidth) return
-    list.scrollTo({ left: tab.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2, behavior: reduced ? "auto" : "smooth" })
-  }, [active, reduced])
+  /* Hover holds the autoplay only for a mouse: a finger scrolling past fires pointerenter too, and must not stop it. */
+  const hold = (e: React.PointerEvent, on: boolean) => {
+    if (e.pointerType === "mouse") setHeld(on)
+  }
 
   return (
-    <div ref={cardsRef} className="cmc-cards" onPointerEnter={() => setHeld(true)} onPointerLeave={() => setHeld(false)} onFocusCapture={() => setHeld(true)} onBlurCapture={() => setHeld(false)}>
+    <div ref={cardsRef} className="cmc-cards" onPointerEnter={(e) => hold(e, true)} onPointerLeave={(e) => hold(e, false)} onFocusCapture={() => setHeld(true)} onBlurCapture={() => setHeld(false)}>
       <div className="cmc-cards-in">
-        <div className="cmc-tabs">
-          <div ref={listRef} role="tablist" aria-label="What checkout does" className="cmc-tablist">
-            {TABS.map((t, i) => {
-              const on = t.id === active
-              return (
-                <button
-                  key={t.id}
-                  ref={(n) => {
-                    refs.current[i] = n
-                  }}
-                  id={`cmc-tab-${t.id}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  aria-controls={`cmc-panel-${t.id}`}
-                  tabIndex={on ? 0 : -1}
-                  onClick={() => pick(t.id)}
-                  onKeyDown={(e) => onKey(e, i)}
-                  className="cmc-tab"
-                  data-on={on || undefined}
-                >
-                  {on ? <span key={`${t.id}-${auto}`} className="cmc-tab-fill" data-run={auto || undefined} style={{ animationDuration: `${AUTO_MS}ms` }} aria-hidden="true" /> : null}
-                  <span className="cmc-tab-l">{t.label}</span>
-                </button>
-              )
-            })}
-          </div>
+        <div role="tablist" aria-label="What checkout does" className="cmc-tablist">
+          {TABS.map((t, i) => {
+            const on = t.id === active
+            return (
+              <button
+                key={t.id}
+                ref={(n) => {
+                  refs.current[i] = n
+                }}
+                id={`cmc-tab-${t.id}`}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                aria-controls={`cmc-panel-${t.id}`}
+                tabIndex={on ? 0 : -1}
+                onClick={() => pick(t.id)}
+                onKeyDown={(e) => onKey(e, i)}
+                className="cmc-tab"
+                data-on={on || undefined}
+              >
+                <span className="cmc-tab-l">{t.label}</span>
+                <span className="cmc-tab-s">{t.stat}</span>
+                <span className="cmc-tab-bar" aria-hidden="true">
+                  {on ? <span key={`${t.id}-${auto}`} className="cmc-tab-fill" data-run={auto || undefined} style={{ animationDuration: `${AUTO_MS}ms` }} /> : null}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         <div className="cmc-panels">
@@ -503,7 +506,6 @@ const Panel = memo(function Panel({ id, on }: { id: TabId; on: boolean }) {
   return (
     <div id={`cmc-panel-${t.id}`} role="tabpanel" aria-labelledby={`cmc-tab-${t.id}`} className="cmc-panel" data-on={on || undefined} inert={!on}>
       <div className="cmc-panel-copy">
-        <span className="cmc-panel-stat">{t.stat}</span>
         <h3>{t.title}</h3>
         <p>{t.body}</p>
       </div>
@@ -518,12 +520,12 @@ const Panel = memo(function Panel({ id, on }: { id: TabId; on: boolean }) {
 
 type Line = { id: string; img: string; title: string; option?: string; price: string; physical: boolean }
 const CART: Line[] = [
-  { id: "cap", img: CAP.img, title: CAP.title, option: CAP.option, price: CAP.price, physical: true },
-  { id: "ebook", img: `${IMG}/ebook-night.webp`, title: PRODUCT, price: "$19.00", physical: false },
+  { id: "print", img: PRINT.img, title: PRINT.title, option: PRINT.option, price: PRINT.price, physical: true },
+  { id: "guide", img: GUIDE.cover, title: PRODUCT, price: GUIDE.price, physical: false },
 ]
-/* $28.00 + $19.00 = $47.00; + $6.00 shipping + $3.76 tax (8% of the goods, an example) = $56.76. */
-const SUB = "$47.00"
-const TOTAL = "$56.76"
+/* $45.00 + $19.00 = $64.00; + $6.00 shipping + $5.12 tax (8% of the goods, an example) = $75.12. */
+const SUB = "$64.00"
+const TOTAL = "$75.12"
 const SHOP_HOST = "nadiabrooks.storelib.com"
 
 /** A field as the checkout draws one: the label above, the box, the placeholder until it is filled. */
@@ -594,7 +596,7 @@ function VisConvert() {
                   <ul className="cdx-lines">
                     {CART.map((l) => (
                       <li key={l.id}>
-                        <span className="cdx-thumb" data-cut={l.id === "cap" || undefined}>
+                        <span className="cdx-thumb" data-cut={l.id === "print" || undefined}>
                           <img src={l.img} alt="" loading="eager" decoding="async" width={96} height={96} />
                         </span>
                         <span className="cdx-li">
@@ -632,7 +634,7 @@ function VisConvert() {
                       <span>Tax</span>
                       <span className="cdx-swap">
                         <span className="cdx-s0">Calculated next</span>
-                        <span className="cdx-s1">$3.76</span>
+                        <span className="cdx-s1">$5.12</span>
                       </span>
                     </div>
                     <div className="cdx-row cdx-due">
@@ -760,7 +762,7 @@ function VisConvert() {
             <small>now</small>
           </span>
           <span className="cmv-note-p">
-            Sam Rivera bought {CAP.title} and 1 more for {TOTAL}.
+            Sam Rivera bought {PRINT.title} and 1 more for {TOTAL}.
           </span>
         </span>
       </div>
@@ -814,15 +816,15 @@ function VisTap() {
   )
 }
 
-/* ── Local currencies: one cap, five readings ────────────────────────── */
+/* ── Local currencies: one print, five readings ────────────────────────── */
 
-/* Example prices for one $28 cap as each currency would show it. */
+/* Example prices for one $45 print as each currency would show it. */
 const PRICES = [
-  { code: "USD", flag: "US", where: "United States", price: "$28.00" },
-  { code: "EUR", flag: "EU", where: "Euro area", price: "€26.00" },
-  { code: "GBP", flag: "GB", where: "United Kingdom", price: "£22.00" },
-  { code: "JPY", flag: "JP", where: "Japan", price: "¥4,300" },
-  { code: "CAD", flag: "CA", where: "Canada", price: "C$38.00" },
+  { code: "USD", flag: "US", where: "United States", price: "$45.00" },
+  { code: "EUR", flag: "EU", where: "Euro area", price: "€42.00" },
+  { code: "GBP", flag: "GB", where: "United Kingdom", price: "£36.00" },
+  { code: "JPY", flag: "JP", where: "Japan", price: "¥6,900" },
+  { code: "CAD", flag: "CA", where: "Canada", price: "C$62.00" },
 ] as const
 
 function Flag({ code }: { code: string }) {
@@ -834,11 +836,11 @@ function VisCurrency() {
     <div className="cmv-cur">
       <div className="cmv-cc">
         <span className="cmv-cc-pic">
-          <img src={CAP.img} alt="" loading="eager" decoding="async" width={600} height={600} />
+          <img src={PRINT.img} alt="" loading="eager" decoding="async" width={600} height={600} />
         </span>
         <div className="cmv-cc-b">
-          <b className="cmv-cc-name">{CAP.title}</b>
-          <small className="cmv-cc-sub">Embroidered cap · {SELLER}</small>
+          <b className="cmv-cc-name">{PRINT.title}</b>
+          <small className="cmv-cc-sub">Signed print, A3 · {SELLER}</small>
           <span className="cmv-stack cmv-price">
             {PRICES.map((p, i) => (
               <span key={p.code} className="cmv-cyc" data-first={i === 0 || undefined} style={{ "--i": i } as React.CSSProperties}>
@@ -886,7 +888,7 @@ function VisRecover() {
         </span>
         <span className="cmv-st cmv-st3">
           <i />
-          <b>Paid {CAP.price}</b>
+          <b>Paid {PRINT.price}</b>
           <small>3:31 PM</small>
         </span>
       </div>
@@ -898,16 +900,16 @@ function VisRecover() {
             <small>to Sam · 3:14 PM</small>
           </span>
         </div>
-        <div className="cmv-mail-subj">You left {CAP.title} at checkout</div>
+        <div className="cmv-mail-subj">You left {PRINT.title} at checkout</div>
         <div className="cmv-mail-h">Still thinking it over?</div>
         <p>Hi Sam, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.</p>
         <span className="cmv-mail-btn">Finish checkout</span>
         <div className="cmv-mail-line">
           <span className="cmv-thumb">
-            <img src={CAP.img} alt="" loading="eager" decoding="async" width={96} height={96} />
+            <img src={PRINT.img} alt="" loading="eager" decoding="async" width={96} height={96} />
           </span>
-          <span>{CAP.title}</span>
-          <b>{CAP.price}</b>
+          <span>{PRINT.title}</span>
+          <b>{PRINT.price}</b>
         </div>
       </div>
     </div>
@@ -916,136 +918,68 @@ function VisRecover() {
 
 /* ── Styles ──────────────────────────────────────────────────────────── */
 
-/**
- * ONE LAP OF THE RING, BAKED. Each product rides the same keyframes, a
- * negative delay putting it at its own place on the lap: 40 points of an
- * ellipse (x = -cos, y = sin, so the front of the ring is its lower half),
- * the depth that goes with each point (smaller and dimmer at the back), and a
- * slow 3D turn, five to a lap, so the loop closes on itself with no seam. One
- * animated layer per product moves it, and two cross fade its sharp and its
- * pre-blurred file with the depth: compositor work only.
- */
-const LAP_POINTS = 40
-function orbitKeyframes(): string {
-  const f = (v: number) => String(+v.toFixed(3))
-  let lap = ""
-  let sharp = ""
-  let soft = ""
-  for (let i = 0; i <= LAP_POINTS; i++) {
-    const t = (i / LAP_POINTS) * Math.PI * 2
-    const x = -Math.cos(t)
-    const y = Math.sin(t)
-    const d = (1 + y) / 2
-    const turn = t * 5
-    const pt = `${f((i / LAP_POINTS) * 100)}%`
-    lap += `${pt}{transform:perspective(900px) translate3d(calc(var(--rk) * ${f(x)}),calc(var(--ry) * ${f(y)} + var(--oy)),0) scale(${f(0.6 + 0.46 * d)}) rotateX(${f(11 * Math.sin(turn + 1.3))}deg) rotateY(${f(24 * Math.sin(turn))}deg) rotateZ(calc(var(--r) * ${f(Math.cos(turn))}));opacity:${f(0.42 + 0.58 * d)}}`
-    sharp += `${pt}{opacity:${f(Math.min(1, d * 2))}}`
-    soft += `${pt}{opacity:${f(Math.min(1, Math.max(0, (0.62 - d) / 0.37)))}}`
-  }
-  return `@keyframes cmc-lap{${lap}}\n@keyframes cmc-focus-sharp{${sharp}}\n@keyframes cmc-focus-soft{${soft}}\n`
-}
-
 const WORDS = CHECKOUT_HEADING.split(" ").length
-/* The headline's words: each comes in over its own short stretch of scroll, a little after the one before. */
-const wordRanges = () =>
-  Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{animation-range:contain ${2 + i * 2.2}% contain ${12 + i * 2.2}%}`).join("\n")
-const wordDelays = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{transition-delay:${0.25 + i * 0.05}s}`).join("\n")
+/* The headline's words, one after another once the section is in. */
+const wordDelays = () => Array.from({ length: WORDS }, (_, i) => `.cmc[data-cmc-in] .cmc-w[data-w="${i}"]{transition-delay:${0.15 + i * 0.05}s}`).join("\n")
 
 /*
- * The scene. The track is a screen of stage plus 100vh of scroll, the stage
- * pinned in it (position: sticky). The tab cards come after it pulled 60vh
- * up, over the stage, so they rise over the pinned phone for the last
- * stretch of the pin. A view timeline on each (the cards' shared to the
- * stage through timeline-scope) drives the rise, the words and the fade.
+ * The scene. The track is a screen of stage plus DWELL of scroll, the stage
+ * held in it (position: sticky, the browser's own scrolling, nothing per
+ * frame). The tab cards follow, pulled up by OVERLAP, so after a short look
+ * at the phone they come up the screen with the page, over it, and hide it.
+ * DWELL - OVERLAP is all the page spends on the phone alone.
  */
+const DWELL = "80svh"
+const OVERLAP = "64svh"
 const SCENE_CSS = `
-.cmc{position:relative;background:#000;color:#fff;border-radius:clamp(28px,4vw,56px);overflow:clip;padding-block:0!important;isolation:isolate;timeline-scope:--cmc-cards}
+.cmc{position:relative;background:#000;color:#fff;border-radius:clamp(28px,4vw,56px);overflow:clip;padding-block:0!important;isolation:isolate}
 .cmc-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.13) 1px,transparent 1.4px);background-size:22px 22px;background-position:11px 11px;-webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 35%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse 70% 60% at 50% 35%,#000 20%,transparent 75%)}
-.cmc[data-story-section] > .cmc-track.cmc-track{position:relative;z-index:1;max-width:none;margin:0;padding:0;height:calc(100svh + 100vh);view-timeline-name:--cmc}
+.cmc[data-story-section] > .cmc-track.cmc-track{position:relative;z-index:1;max-width:none;margin:0;padding:0;height:calc(100svh + ${DWELL})}
 .cmc-stage{position:sticky;top:0;height:100svh;overflow:hidden;
-  --hd:60px;--pw:min(66vw,300px,calc((100svh - 270px) / 2.07));
-  --rx:47vw;--ry:30svh;--lap:64s}
+  --hd:60px;--pw:min(70vw,300px,calc((100svh - 250px) / 2.07))}
 .cmc-copy{position:absolute;z-index:4;left:20px;right:20px;top:calc(var(--hd) + clamp(14px,3svh,32px));text-align:center}
 .cmc-title{margin:0 auto;font-size:clamp(30px,8.6vw,46px);font-weight:300;line-height:1.04;letter-spacing:-.045em;text-wrap:balance;color:#fff}
 .cmc-w{display:inline-block}
 .cmc-phone-wrap{position:absolute;z-index:3;left:50%;bottom:20px;width:var(--pw);margin-left:calc(var(--pw) / -2)}
-.cmc-rise{position:relative;z-index:2}
-
-/* The orbit, centred on the phone, behind it. */
-.cmc-floats{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
-.cmc-orbit{position:absolute;left:0;top:0;width:0;height:0}
-.cmc-o{position:absolute;left:0;top:0;width:var(--w);transform:translate(-50%,-50%);--rk:calc(var(--rx) * var(--k))}
-.cmc-lap,.cmc-sharp,.cmc-soft{animation:cmc-lap var(--lap) linear infinite both;animation-delay:calc(var(--ph) * var(--lap) * -1);animation-play-state:paused}
-.cmc-obj{position:relative}
-.cmc-obj img{position:absolute;display:block;max-width:none}
-.cmc-sharp{inset:0;width:100%;height:100%;animation-name:cmc-focus-sharp}
-.cmc-soft{animation-name:cmc-focus-soft}
-.cmc-track[data-commerce-live] :is(.cmc-lap,.cmc-sharp,.cmc-soft){animation-play-state:running}
-${orbitKeyframes()}
+.cmc-rise{position:relative}
 
 @media (min-width:900px){
-  .cmc-stage{--hd:68px;--pw:min(340px,calc((100svh - 170px) / 2.07));--rx:min(19vw,280px);--ry:31svh}
+  .cmc-stage{--hd:68px;--pw:min(410px,calc((100svh - 104px) / 2.07))}
   .cmc-copy{left:max(var(--landing-gutter,48px),calc(50% - 600px));right:auto;width:min(44vw,560px);top:calc(50% + var(--hd) / 2);transform:translateY(-50%);text-align:left}
   .cmc-title{margin:0;font-size:clamp(42px,4.5vw,72px)}
-  .cmc-phone-wrap{left:auto;right:max(calc(var(--landing-gutter,48px) + 60px),calc(50% - 470px));bottom:auto;top:calc(50% + var(--hd) / 2);margin:0;transform:translateY(-50%)}
-}
-@media (max-width:899px){
-  .cmc-o{width:var(--wm)}
-  .cmc-o:not([data-m]){display:none}
-  .cmc-lap,.cmc-sharp,.cmc-soft{animation-delay:calc(var(--phm) * var(--lap) * -1)}
+  .cmc-phone-wrap{left:auto;right:max(calc(var(--landing-gutter,48px) + 40px),calc(50% - 500px));bottom:auto;top:calc(50% + var(--hd) / 2);margin:0;transform:translateY(-50%)}
 }
 
-/* The tab cards: a black ground that fades in from transparent at its top edge, so the phone sinks into it. */
-.cmc[data-story-section] > .cmc-cards.cmc-cards{position:relative;z-index:5;max-width:none;margin:-60vh 0 0;padding:0;view-timeline-name:--cmc-cards;background:linear-gradient(180deg,rgba(0,0,0,0),#000 clamp(90px,14vh,160px))}
-.cmc-cards-in{max-width:1320px;margin:0 auto;padding:clamp(56px,8vh,96px) var(--landing-gutter,clamp(20px,5vw,72px)) clamp(64px,8vw,120px)}
+/* The tab cards: a black ground that fades in from transparent at its top edge, so the phone goes under it softly. */
+.cmc[data-story-section] > .cmc-cards.cmc-cards{position:relative;z-index:5;max-width:none;margin:calc(${OVERLAP} * -1) 0 0;padding:0;background:linear-gradient(180deg,rgba(0,0,0,0),#000 clamp(90px,14vh,160px))}
+.cmc-cards-in{max-width:1320px;margin:0 auto;padding:clamp(72px,10vh,120px) var(--landing-gutter,clamp(20px,5vw,72px)) clamp(64px,8vw,120px)}
 
-/* Scroll driven, where the browser runs it on the compositor. */
+/*
+ * The entrance (useEntrance): armed while the section is below the screen,
+ * played once it comes in. Transform and opacity, as transitions, so the
+ * compositor runs them and a finger on the glass never waits for them.
+ */
 @media (prefers-reduced-motion:no-preference){
-  @supports (animation-timeline:view()){
-    .cmc-rise{animation:cmc-rise linear both;animation-timeline:--cmc;animation-range:entry 35% entry 100%}
-    .cmc-sink{animation:cmc-sink linear both;animation-timeline:--cmc-cards;animation-range:entry 14% entry 72%}
-    .cmc-floats{animation:cmc-orbit-in linear both;animation-timeline:--cmc;animation-range:entry 45% entry 100%}
-    .cmc-orbit{animation:cmc-orbit-out linear both;animation-timeline:--cmc-cards;animation-range:entry 14% entry 80%}
-    .cmc-w{animation:cmc-word linear both;animation-timeline:--cmc}
-    ${wordRanges()}
-    .cmc-title{animation:cmc-copy-out linear both;animation-timeline:--cmc-cards;animation-range:entry 10% entry 45%}
-    .cmc-cards-in{animation:cmc-lift linear both;animation-timeline:--cmc-cards;animation-range:entry 0% entry 60%}
-  }
+  .cmc-rise{transition:transform 1.15s cubic-bezier(.16,1,.3,1)}
+  .cmc-w{transition:opacity .6s ease,transform .8s cubic-bezier(.16,1,.3,1)}
+  .cmc[data-cmc-armed]:not([data-cmc-in]) .cmc-rise{transform:translate3d(0,22%,0);transition-duration:0s}
+  .cmc[data-cmc-armed]:not([data-cmc-in]) .cmc-w{opacity:0;transform:translate3d(0,.32em,0);transition-duration:0s}
+  ${wordDelays()}
 }
-@keyframes cmc-rise{from{transform:translate3d(0,62%,0) scale(.94)}to{transform:translate3d(0,0,0) scale(1)}}
-@keyframes cmc-sink{from{transform:translate3d(0,0,0) scale(1);opacity:1}to{transform:translate3d(0,8%,0) scale(.92);opacity:0}}
-@keyframes cmc-orbit-in{from{opacity:0;transform:translate3d(0,22svh,0) scale(.9)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
-@keyframes cmc-orbit-out{from{opacity:1}to{opacity:.3}}
-@keyframes cmc-word{from{opacity:0;transform:translate3d(0,.32em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmc-copy-out{from{opacity:1;transform:translate3d(0,0,0)}to{opacity:0;transform:translate3d(0,-3vh,0)}}
-@keyframes cmc-lift{from{transform:translate3d(0,6vh,0) scale(.97)}to{transform:translate3d(0,0,0) scale(1)}}
-
-/* The same states without view timelines: set by two observers, played as transitions. */
-.cmc[data-cmc-js] .cmc-rise{transform:translate3d(0,62%,0) scale(.94);transition:transform .9s cubic-bezier(.22,1,.36,1)}
-.cmc[data-cmc-js] .cmc-floats{opacity:0;transform:translate3d(0,22svh,0) scale(.9);transition:transform 1.1s cubic-bezier(.22,1,.36,1),opacity .8s ease}
-.cmc[data-cmc-js] .cmc-w{opacity:0;transform:translate3d(0,.32em,0);transition:transform .7s cubic-bezier(.22,1,.36,1),opacity .6s ease}
-${wordDelays()}
-.cmc[data-cmc-js] .cmc-title,.cmc[data-cmc-js] .cmc-orbit{transition:opacity .6s ease}
-.cmc[data-cmc-js] .cmc-sink{transition:transform .8s cubic-bezier(.22,1,.36,1),opacity .6s ease}
-.cmc[data-cmc-js][data-cmc-in] .cmc-rise{transform:translate3d(0,0,0) scale(1)}
-.cmc[data-cmc-js][data-cmc-in] .cmc-floats{opacity:1;transform:translate3d(0,0,0) scale(1)}
-.cmc[data-cmc-js][data-cmc-in] .cmc-w{opacity:1;transform:translate3d(0,0,0)}
-.cmc[data-cmc-js][data-cmc-over] .cmc-sink{opacity:0;transform:translate3d(0,8%,0) scale(.92)}
-.cmc[data-cmc-js][data-cmc-over] .cmc-orbit{opacity:.3}
-.cmc[data-cmc-js][data-cmc-over] .cmc-title{opacity:0}
 `
 
-/* The iPhone and the checkout window inside it. */
+/* The iPhone, and the real checkout inside it at the phone's own width (393px), scaled to the drawing by --k. */
 const PHONE_CSS = `
-.cmc-phone{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;width:var(--pw);aspect-ratio:100/207;border-radius:calc(var(--pw) * .178);padding:calc(var(--pw) * .0135);background:linear-gradient(140deg,#77777c 0%,#36363a 14%,#1d1d20 42%,#232326 62%,#3c3c40 86%,#808086 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 0 calc(var(--pw) * .01) rgba(255,255,255,.12),0 calc(var(--pw) * .08) calc(var(--pw) * .16) rgba(0,0,0,.6)}
+.cmc-phone{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;width:var(--pw);aspect-ratio:100/207;border-radius:calc(var(--pw) * .178);padding:calc(var(--pw) * .0135);background:linear-gradient(140deg,#77777c 0%,#36363a 14%,#1d1d20 42%,#232326 62%,#3c3c40 86%,#808086 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 0 calc(var(--pw) * .01) rgba(255,255,255,.12),0 calc(var(--pw) * .08) calc(var(--pw) * .16) rgba(0,0,0,.6);
+  --k:tan(atan2(calc(var(--pw) * .915),393px))}
 .cmc-key{position:absolute;width:calc(var(--pw) * .012);border-radius:2px;background:linear-gradient(90deg,#2a2a2d,#6a6a70 60%,#3a3a3e)}
 .cmc-key-act{left:calc(var(--pw) * -.0095);top:17.5%;height:5%}
 .cmc-key-up{left:calc(var(--pw) * -.0095);top:25.5%;height:9%}
 .cmc-key-dn{left:calc(var(--pw) * -.0095);top:36%;height:9%}
 .cmc-key-pw{right:calc(var(--pw) * -.0095);top:28%;height:14%;transform:scaleX(-1)}
 .cmc-bezel{height:100%;padding:calc(var(--pw) * .029);border-radius:calc(var(--pw) * .165);background:#030303;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
-.cmc-screen{position:relative;height:100%;border-radius:calc(var(--pw) * .137);overflow:hidden;background:#fff;container-type:inline-size;color:#1a1a2e;transform:translateZ(0)}
-.cmc-ui{position:absolute;inset:0;font-size:calc(100cqw * 16 / 393);font-family:inherit;line-height:1.35;-webkit-font-smoothing:antialiased}
+.cmc-screen{position:relative;height:100%;border-radius:calc(var(--pw) * .137);overflow:hidden;background:#fff;color:#1a1a2e}
+.cmc-ui{position:absolute;left:0;top:0;width:393px;height:852px;transform-origin:0 0;transform:scale(var(--k));font-size:16px;line-height:1.5;font-family:inherit;text-align:left;-webkit-font-smoothing:antialiased}
 .cmc-status{position:absolute;left:0;right:0;top:0;height:3.375em;display:flex;align-items:center;justify-content:space-between;padding:0 1.9em 0 2.35em;font-size:1em;font-weight:600;color:#000}
 .cmc-time{font-size:1.0625em;letter-spacing:-.01em;padding-top:.15em}
 .cmc-island{position:absolute;left:50%;top:.6875em;width:7.875em;height:2.3125em;margin-left:-3.9375em;border-radius:1.2em;background:#000}
@@ -1055,36 +989,59 @@ const PHONE_CSS = `
 .cmc-batt span{display:block;width:82%;height:100%;border-radius:.12em;background:#000}
 .cmc-home{position:absolute;left:50%;bottom:.5em;width:8.375em;height:.3125em;margin-left:-4.19em;border-radius:1em;background:#0b0b0d}
 
-.ck{position:relative;height:100%;background:#fff;color:#1a1a2e;line-height:1.4;text-align:left}
-.ck-head{display:flex;flex-direction:column;align-items:center;text-align:center;padding:3.6875em 1.25em 1.25em;background:#f8f9fa;border-bottom:1px solid #eef0f2}
-.ck-top{align-self:stretch;display:flex;justify-content:flex-end;align-items:center;height:2.75em;margin-right:-.5em;color:#4b5563}
-.ck-x{display:grid;place-items:center;width:2.75em;height:2.75em}
-.ck-mark{width:4.25em;margin-top:-.75em;border-radius:.5em;box-shadow:0 0 0 1px rgba(17,17,19,.06),0 .4em 1em -.4em rgba(17,17,19,.35)}
-.ck-title{margin-top:.6em;font-size:1.3125em;font-weight:600;letter-spacing:-.01em;line-height:1.3}
-.ck-sub{margin-top:.15em;font-size:.84375em;color:#6b7280}
-.ck-body{position:relative;padding:1.25em 1.25em 0}
-.ck-form{display:flex;flex-direction:column;gap:1.25em}
-.ck-sec{display:flex;flex-direction:column;gap:.625em}
-.ck-h3{font-size:.90625em;font-weight:600}
-.ck-field{display:grid;align-items:center;height:3em;padding:0 .875em;border:1px solid #e1e3e7;border-radius:.75em;white-space:nowrap}
-.ck-opt{display:flex;align-items:center;gap:.625em;padding:.2em 0;font-size:.84375em;color:#4b5563}
-.ck-box{display:grid;place-items:center;width:1.15em;height:1.15em;border-radius:.25em;background:#1a1a2e;color:#fff}
-.ck-sum{display:flex;align-items:center;gap:.5em;min-height:3.43em;padding:0 1.14em;border:1px solid #e5e7eb;border-radius:.857em;font-size:.875em}
-.ck-sum-t{flex:1;min-width:0;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ck-sum b{font-weight:600}
-.ck-methods{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:.625em}
-.ck-m{display:flex;align-items:center;justify-content:center;gap:.4em;height:3.2em;border:1px solid #e1e3e7;border-radius:.8em;font-size:.9375em;font-weight:500}
-.ck-m[data-on]{border-color:#1a1a2e;box-shadow:0 0 0 1px #1a1a2e}
-.ck-ring{position:absolute;left:0;top:0;z-index:1;width:calc(50% - .3125em);height:3em;border-radius:.75em;box-shadow:0 0 0 2px #1a1a2e;pointer-events:none}
+/* Safari's floating address bar (iOS 26). */
+.rc-safari{position:absolute;left:14px;right:14px;bottom:28px;display:flex;align-items:center;gap:10px;height:50px}
+.rc-sf-btn,.rc-sf-url{display:flex;align-items:center;justify-content:center;height:50px;border-radius:25px;background:rgba(255,255,255,.97);box-shadow:0 0 0 .5px rgba(0,0,0,.1),0 6px 20px rgba(0,0,0,.12);color:#111}
+.rc-sf-btn{flex:none;width:50px}
+.rc-sf-url{flex:1;gap:8px;font-size:16px;font-weight:500;letter-spacing:-.01em}
+
+/* checkout-window.tsx on a phone: the window full screen, its head, its scrolling body. */
+.rc{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#1a1a2e}
+.rc-head{flex:none;padding:66px 20px 20px;background:#f8f9fa;border-bottom:1px solid #eef0f2}
+.rc-row{display:flex;align-items:center;justify-content:space-between}
+.rc-x{display:grid;place-items:center;width:44px;height:44px;margin-right:-8px;border-radius:50%;color:#4b5563}
+.rc-who{display:flex;flex-direction:column;align-items:center;margin-top:-12px;text-align:center}
+.rc-mark{display:block;width:57px;height:76px;border-radius:12px;object-fit:cover;background:#eef0f2;box-shadow:0 0 0 1px rgba(17,17,19,.06)}
+.rc-title{margin-top:10px;font-size:21px;font-weight:600;letter-spacing:-.01em}
+.rc-sub{margin-top:2px;font-size:13.5px;color:#6b7280}
+.rc-body{position:relative;flex:1;min-height:0;overflow:hidden}
+.rc-body-in{display:flex;flex-direction:column;gap:20px;padding:20px 20px 0}
+/* instant-checkout.tsx */
+.rc-sec{display:flex;flex-direction:column;gap:10px}
+.rc-h3{font-size:14.5px;font-weight:600}
+.rc-h3-pay{margin-bottom:8px}
+.rc-in{display:flex;align-items:center;height:48px;padding:0 14px;border:1px solid #e1e3e7;border-radius:12px;background:#fff;font-size:16px;white-space:nowrap;box-sizing:border-box}
+.rc-opt{display:flex;align-items:center;gap:10px;padding:4px 0;font-size:13.5px;color:#4b5563}
+.rc-cb{flex:none;width:16px;height:16px;border:1px solid #8e8e93;border-radius:4px;background:#fff;box-sizing:border-box}
+.rc-sum{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;border:1px solid #e5e7eb;border-radius:12px;font-size:14px}
+.rc-sum-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6b7280}
+.rc-sum b{font-weight:600;font-variant-numeric:tabular-nums}
+.rc-code{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:500;color:#6b7280}
+/* compact-pay.tsx: the wallet and the card as two choices, the card field, Pay. */
+.rc-mwrap{position:relative}
+.rc-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rc-m{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;border:1px solid #e1e3e7;border-radius:12px;background:#fff;font-size:15px;font-weight:500;box-sizing:border-box}
+.rc-m[data-on]{border-color:#1a1a2e;box-shadow:0 0 0 1px #1a1a2e}
+.rc-after{position:relative}
+.rc-pay{display:flex;align-items:center;justify-content:center;height:52px;margin-top:16px;border-radius:12px;background:#1a1a2e;color:#fff;font-size:16px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 2px rgba(16,24,40,.2)}
+.rc-terms{margin:20px 0 0;text-align:center;font-size:11.5px;line-height:1.625;color:#8b919a}
+.rc-terms u{text-decoration-color:#d1d5db;text-underline-offset:2px}
+.rc-pow{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 4px;margin:14px 0 0;padding:6px 0;font-size:12.5px;color:#8b919a}
+.rc-pow-s{display:inline-flex;align-items:center;gap:4px;padding:0 4px}
+.rc-pow-s svg{margin-top:1px}
+.rc-pow i{font-style:normal;color:#c4c8ce;padding:0 4px}
+/* The One-tap demo's moving parts: a ring that moves to Card, the card field it opens. */
 .ck-stack{display:inline-grid;place-items:center}
 .ck-stack>*{grid-area:1/1}
-.ck-w{display:inline-flex;align-items:center;gap:.25em;white-space:nowrap}
+.ck-w{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.ck-mw-a{gap:2px}
+.ck-mw-g{gap:4px}
 .ck-w-g,.ck-w-c,.ck-mw-g{opacity:0}
-.ck-pay{position:relative;display:flex;align-items:center;justify-content:center;height:3.25em;margin-top:.375em;border-radius:.75em;background:#1a1a2e;color:#fff;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 2px rgba(16,24,40,.2)}
-.ck-terms{margin-top:-.4em;text-align:center;font-size:.71875em;line-height:1.6;color:#8b919a}
-.ck-terms u{text-decoration-color:#d1d5db;text-underline-offset:2px}
+.ck-ring{position:absolute;left:0;top:0;z-index:1;width:calc(50% - 5px);height:48px;border-radius:12px;box-shadow:0 0 0 2px #1a1a2e;pointer-events:none}
+.rc-cardf{position:absolute;left:0;right:0;top:calc(100% + 12px);display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border:1px solid #e1e3e7;border-radius:12px;background:#fff;font-size:16px;box-sizing:border-box;opacity:0}
+.rc-cardn{flex:1;white-space:nowrap}
+.rc-cardx{flex:none;color:#1a1a2e}
 `
-
 /*
  * Built to convert, the website checkout at a desktop width (880 design
  * units in u, showcase-mocks/frame.tsx): its resting picture is the form
@@ -1092,8 +1049,8 @@ const PHONE_CSS = `
  * draw.
  */
 const DESK_CSS = u(`
-.cdx{position:absolute;left:3%;right:3%;top:4.5%;container-type:inline-size;--pt:210;--s1:330;--s2:700}
-.cdx-win{--u:calc(100cqw / 880);position:relative;height:1100u;border-radius:12u 12u 0 0;overflow:hidden;background:#fff;color:#1a1a2e;font-size:14u;line-height:1.4;letter-spacing:0;box-shadow:0 0 0 1px rgba(255,255,255,.14),0 24u 60u rgba(0,0,0,.5)}
+.cdx{position:absolute;left:3%;right:3%;top:50%;aspect-ratio:var(--ar,880/700);transform:translateY(-50%);container-type:size}
+.cdx-win{--u:calc(100cqw / 880);--vh:calc(100cqh - 38u);--s1:min(330u,max(0px,1012u - var(--vh)));--s2:max(0px,1012u - var(--vh));position:relative;height:100%;border-radius:12u;overflow:hidden;background:#fff;color:#1a1a2e;font-size:14u;line-height:1.4;letter-spacing:0;box-shadow:0 0 0 1px rgba(255,255,255,.14),0 24u 60u rgba(0,0,0,.5)}
 .cdx-bar{position:relative;display:flex;align-items:center;justify-content:center;height:38u;background:#ececef;border-bottom:1px solid #dcdce0}
 .cdx-lights{position:absolute;left:16u;top:50%;display:flex;gap:8u;transform:translateY(-50%)}
 .cdx-lights i{display:block;width:12u;height:12u;border-radius:50%;background:#ff5f57}
@@ -1174,39 +1131,32 @@ const DESK_CSS = u(`
 .cdx-terms u{color:#1a1a2e;font-weight:500;text-decoration-color:#c9ccd2;text-underline-offset:2u}
 .cdx-pay{position:relative;display:flex;align-items:center;justify-content:center;height:48u;margin-top:20u;border-radius:8u;background:#1a1a2e;color:#fff;font-size:16u;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 1px rgba(0,0,0,.12),0 3u 8u -2u rgba(26,26,46,.35)}
 .cdx-pow{margin-top:14u;text-align:center;font-size:12.5u;color:#8b919a}
-.cdx-paid{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:calc(var(--pt) * 1u);text-align:center;background:rgba(255,255,255,.96);opacity:0}
+.cdx-paid{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:20u;text-align:center;background:rgba(255,255,255,.96);opacity:0}
 .cdx-ring{display:block;width:64u;height:64u}
 .cdx-ring svg{display:block;width:100%;height:100%}
 .cdx-paid b{margin-top:20u;font-size:20u;font-weight:600;letter-spacing:-.01em}
 .cdx-paid small{margin-top:4u;font-size:14u;color:#6b7280}
 .cdx-paid small+small{font-size:13u}
 .cdx .cmv-cursor{position:absolute;left:62%;top:58%;z-index:2;line-height:0;font-size:22u;opacity:0}
-@container (max-width:560px){
-  .cdx{left:auto;right:4%;width:150%;--pt:70;--s1:360;--s2:960}
-  .cdx-paid{padding-left:31%}
-}
 `)
 
 /* The tab cards and their mocks. Each mock is drawn in em of a 48 x 42 box (30 x 34 on a narrow screen), so it scales as one picture. */
 const TABS_CSS = `
 /* The tabs: "Make the work"'s pill tabs in their dark form (a dark track with a 1px light edge, the chosen pill white). */
-.cmc-tabs{display:flex;justify-content:center}
-.cmc-tablist{position:relative;display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#141416;border:1px solid rgba(255,255,255,.08);box-sizing:border-box;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
-.cmc-tablist::-webkit-scrollbar{display:none}
-.cmc-tab{position:relative;flex:none;overflow:hidden;height:40px;padding:0 17px;border:0;border-radius:999px;background:transparent;color:#a1a1aa;font-family:inherit;font-size:14px;font-weight:500;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
-.cmc-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s cubic-bezier(.22,1,.36,1)}
-.cmc-tab[data-on]{color:#18181b}
-.cmc-tab[data-on]::before{opacity:1;transform:none}
-@media (hover:hover){.cmc-tab:not([data-on]):hover{color:#fff}}
-.cmc-tab:focus-visible{outline:2px solid #fff;outline-offset:2px}
-.cmc-tab-l{position:relative}
-.cmc-tab-fill{position:absolute;inset:0;border-radius:inherit;background:rgba(24,24,27,.1);transform-origin:0 50%;transform:scaleX(0)}
+.cmc-tablist{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.cmc-tab{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:44px;padding:20px 20px 24px;border-radius:21px;background:rgba(24,24,27,.94);border:1px solid rgba(255,255,255,.08);color:#a1a1aa;font-family:inherit;text-align:left;cursor:pointer;overflow:hidden;transition:background-color .3s,border-color .3s,color .3s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+@media (hover:hover){.cmc-tab:hover{border-color:rgba(255,255,255,.18);color:#e4e4e7}}
+.cmc-tab[data-on]{background:#1d1d21;border-color:rgba(255,255,255,.26);color:#fff}
+.cmc-tab:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.cmc-tab-l{font-size:14px;font-weight:500}
+.cmc-tab-s{font-size:clamp(24px,2.3vw,34px);font-weight:300;letter-spacing:-.04em;line-height:1;color:#fff;white-space:nowrap}
+.cmc-tab-bar{position:absolute;left:20px;right:20px;bottom:12px;height:2px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
+.cmc-tab-fill{position:absolute;inset:0;background:#e4e4e7;transform-origin:0 50%;transform:scaleX(1)}
 .cmc-tab-fill[data-run]{animation:cmc-fill linear both}
 @keyframes cmc-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.cmc-panels{display:grid;margin-top:16px}
+.cmc-panels{display:grid;margin-top:12px}
 .cmc-panel{grid-area:1/1;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(24px,3.5vw,56px);align-items:center;padding:clamp(28px,3.6vw,52px);border-radius:31px;background:#111113;border:1px solid rgba(255,255,255,.08);opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s linear .35s}
 .cmc-panel[data-on]{opacity:1;visibility:visible;transition:opacity .45s ease .05s,visibility 0s}
-.cmc-panel-stat{display:block;margin-bottom:14px;font-size:14px;font-weight:500;color:#8b8b94}
 .cmc-panel h3{margin:0;font-size:clamp(26px,3vw,42px);font-weight:400;line-height:1.1;letter-spacing:-.035em;color:#fff;text-wrap:balance}
 .cmc-panel p{margin:16px 0 0;max-width:40ch;font-size:clamp(15.5px,1.25vw,18px);line-height:1.6;color:#a1a1aa}
 /* A demo is a picture: it takes no pointer and nothing in it can be selected. */
@@ -1230,7 +1180,8 @@ const TABS_CSS = `
 
 /* One-tap payments: the phone and the three it pays with. */
 .cmv-tap{position:absolute;inset:0}
-.cmv-phone{position:absolute;left:5.5em;top:2.4em;--pw:17em}
+/* --pw in the demo box's own units (not em): the screen reads it again inside, where 1em is 16px. */
+.cmv-phone{position:absolute;left:5.5em;top:2.4em;--pw:calc(100cqw * 17 / 48)}
 .cmv-phone .cmc-phone{box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 1.5em 3em rgba(0,0,0,.55)}
 .cmv-links{position:absolute;left:25.5em;right:2.4em;top:9.5em;display:grid;gap:1em}
 .cmv-link{position:relative;display:flex;align-items:center;gap:.9em;height:4.6em;padding:0 1em;font-size:1em}
@@ -1245,7 +1196,7 @@ const TABS_CSS = `
 .cmv-ok{position:relative;flex:none;width:1.5em;height:1.5em;border-radius:50%;background:rgba(74,222,128,.16)}
 .cmv-ok::after{content:"";position:absolute;left:.52em;top:.36em;width:.36em;height:.62em;border:solid #4ade80;border-width:0 .16em .16em 0;transform:rotate(45deg)}
 
-/* Currencies: one cap, five readings. */
+/* Currencies: one print, five readings. */
 .cmv-cur{position:absolute;inset:0;display:grid;place-items:center}
 .cmv-cc{width:34em;display:grid;grid-template-columns:12.5em 1fr;gap:0 1.6em;padding:1.6em;box-sizing:border-box}
 .cmv-cc-pic{display:block;aspect-ratio:1;border-radius:1em;overflow:hidden;background:#f3f3f1}
@@ -1256,7 +1207,7 @@ const TABS_CSS = `
 .cmv-stack{position:relative;display:grid}
 .cmv-cyc{grid-area:1/1;opacity:0}
 .cmv-cyc[data-first]{opacity:1}
-.cmv-price{margin-top:.5em;font-size:3.6em;font-weight:300;letter-spacing:-.045em;line-height:1.1;font-variant-numeric:tabular-nums}
+.cmv-price{margin-top:.5em;font-size:3.6em;font-weight:600;letter-spacing:-.035em;line-height:1.1;font-variant-numeric:tabular-nums}
 .cmv-where{font-size:.95em;color:#a1a1aa}
 .cmv-chips{grid-column:1/-1;position:relative;display:grid;grid-template-columns:repeat(5,1fr);margin-top:1.4em;padding:.3em;border-radius:1.2em;background:#111113;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
 .cmv-chip{position:relative;display:flex;align-items:center;justify-content:center;gap:.45em;height:2.8em;font-size:.95em;font-weight:600;letter-spacing:.02em;color:#e4e4e7}
@@ -1288,14 +1239,18 @@ const TABS_CSS = `
 .cmv-mail-line b{font-weight:600;color:#fff}
 
 @media (max-width:899px){
-  .cmc-tabs{margin-inline:calc(var(--landing-gutter,20px) * -1 + 12px)}
-  .cmc-tab{height:38px;padding:0 15px;font-size:13.5px}
+  .cmc-tablist{grid-template-columns:repeat(2,1fr);gap:10px}
+  .cmc-tab{padding:16px 16px 22px;border-radius:19px}
+  .cmc-tab-bar{left:16px;right:16px}
+  .cmc-tab-s{font-size:min(6.2vw,26px)}
+  .cmc-tab-l{font-size:13px}
   .cmc-panel{grid-template-columns:1fr;align-content:start;gap:20px;border-radius:23px;padding:24px 24px 20px}
-  .cmc-panel-stat{margin-bottom:10px}
   /* On a narrow screen each demo is drawn for a taller box and a larger em, so its words stay readable. */
   .cmc-vis{aspect-ratio:30/34;margin:0 -10px;border-radius:15px}
   .cmc-vis-in{font-size:calc(100cqw / 30)}
-  .cmv-phone{left:1.4em;top:1.6em;--pw:14.2em}
+  /* Built to convert: the same desktop window, whole, a little taller so the page shows more of itself. */
+  .cdx{--ar:880/1000}
+  .cmv-phone{left:1.4em;top:1.6em;--pw:calc(100cqw * 14.2 / 30)}
   .cmv-links{left:12.4em;right:.8em;top:6.5em;gap:.8em}
   .cmv-link{height:4.4em;padding:0 .7em;gap:.6em;font-size:.86em}
   .cmv-link-t small{display:none}
@@ -1339,7 +1294,7 @@ const FIELDS: [string, number][] = [
 /* Built to convert: the form fills, the page scrolls to the shipping, it is chosen and the totals settle, on down to the card, Pay, paid, the seller's notice, and back to the top under the paid screen. */
 const LOOP_CSS = u(`
 @media (prefers-reduced-motion:no-preference){
-  ${ON} :is(.cdx-v,.cdx-ph,.cdx-scroll,.cdx-sum-in,.cdx-radio i,.cdx-s0,.cdx-s1,.cdx-t0,.cdx-t1,.cdx-box-terms,.cmv-cursor,.cdx-pay,.cdx-paid,.cdx-ring,.cdx-paid b,.cdx-paid small,.cmv-sale,.ck-ring,.ck-w-a,.ck-w-g,.ck-w-c,.ck-mw-a,.ck-mw-g,.cmv-link,.cmv-ok,.cmv-cyc,.cmv-hl,.cmv-st,.cmv-mail){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1)}
+  ${ON} :is(.cdx-v,.cdx-ph,.cdx-scroll,.cdx-sum-in,.cdx-radio i,.cdx-s0,.cdx-s1,.cdx-t0,.cdx-t1,.cdx-box-terms,.cmv-cursor,.cdx-pay,.cdx-paid,.cdx-ring,.cdx-paid b,.cdx-paid small,.cmv-sale,.ck-ring,.ck-w-a,.ck-w-g,.ck-w-c,.ck-mw-a,.ck-mw-g,.rc-cardf,.rc-after,.rc-body-in,.cmv-link,.cmv-ok,.cmv-cyc,.cmv-hl,.cmv-st,.cmv-mail){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1)}
   ${ON} .cdx-v-country,${ON} .cdx-v-state{animation-name:none}
   ${FIELDS.map(([k, t]) => typed(k, t)).join("\n  ")}
   ${ON} .cdx-scroll{animation-name:cdx-scroll}
@@ -1361,6 +1316,9 @@ const LOOP_CSS = u(`
   ${ON} .ck-w-a{animation-name:cmv-wa}
   ${ON} .ck-w-g{animation-name:cmv-wg}
   ${ON} .ck-w-c{animation-name:cmv-wc}
+  ${ON} .rc-cardf{animation-name:cmv-cardf}
+  ${ON} .rc-after{animation-name:cmv-after}
+  ${ON} .rc-body-in{animation-name:cmv-lift}
   ${ON} .ck-mw-a{animation-name:cmv-mwa}
   ${ON} .ck-mw-g{animation-name:cmv-mwg}
   ${ON} .cmv-link-a{animation-name:cmv-la}
@@ -1378,8 +1336,8 @@ const LOOP_CSS = u(`
   ${ON} .cmv-st3{animation-name:cmv-st3}
   ${ON} .cmv-mail{animation-name:cmv-mail}
 }
-@keyframes cdx-scroll{0%,${at(2.1)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(2.8)},${at(3.4)}{transform:translate3d(0,calc(var(--s1) * -1u),0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(4.1)},${at(RESET)}{transform:translate3d(0,calc(var(--s2) * -1u),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
-@keyframes cdx-stick{0%,${at(2.1)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(2.8)},${at(3.4)}{transform:translate3d(0,calc((var(--s1) - 62) * 1u),0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(4.1)},${at(RESET)}{transform:translate3d(0,calc((var(--s2) - 62) * 1u),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
+@keyframes cdx-scroll{0%,${at(2.1)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(2.8)},${at(3.4)}{transform:translate3d(0,calc(var(--s1) * -1),0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(4.1)},${at(RESET)}{transform:translate3d(0,calc(var(--s2) * -1),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
+@keyframes cdx-stick{0%,${at(2.1)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(2.8)},${at(3.4)}{transform:translate3d(0,max(0px,calc(var(--s1) - 62u)),0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(4.1)},${at(RESET)}{transform:translate3d(0,max(0px,calc(var(--s2) - 62u)),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
 @keyframes cdx-sel{0%,${at(2.9)}{opacity:0;transform:scale(.4)}${at(3.15)},${at(RESET)}{opacity:1;transform:scale(1)}${at(RESET + 0.05)},100%{opacity:0;transform:scale(.4)}}
 @keyframes cdx-s0{0%,${at(3)}{opacity:1}${at(3.2)},${at(RESET)}{opacity:0}${at(RESET + 0.05)},100%{opacity:1}}
 @keyframes cdx-s1{0%,${at(3.05)}{opacity:0;transform:translate3d(0,8u,0)}${at(3.4)},${at(RESET)}{opacity:1;transform:translate3d(0,0,0)}${at(RESET + 0.05)},100%{opacity:0;transform:translate3d(0,8u,0)}}
@@ -1391,11 +1349,14 @@ const LOOP_CSS = u(`
 @keyframes cdx-paidt{0%,${at(6.35)}{opacity:0;transform:translate3d(0,8u,0)}${at(6.75)},100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmv-sale{0%,${at(6.9)}{opacity:0;transform:translate3d(0,-1em,0)}${at(7.4)},${at(9.2)}{opacity:1;transform:translate3d(0,0,0)}${at(9.6)},100%{opacity:0;transform:translate3d(0,-.4em,0)}}
 /* One-tap payments: Apple Pay, then Google Pay, then the card on Stripe, each lit on the phone and beside it, each ticked as connected. */
-@keyframes cmv-ring{0%,${at(3.2)}{transform:translate3d(0,0,0)}${at(3.6)},${at(6.4)}{transform:translate3d(0,0,0)}${at(6.8)},${at(9.6)}{transform:translate3d(calc(100% + .625em),0,0)}100%{transform:translate3d(0,0,0)}}
+@keyframes cmv-ring{0%,${at(3.2)}{transform:translate3d(0,0,0)}${at(3.6)},${at(6.4)}{transform:translate3d(0,0,0)}${at(6.8)},${at(9.6)}{transform:translate3d(calc(100% + 10px),0,0)}100%{transform:translate3d(0,0,0)}}
 @keyframes cmv-wa{0%,${at(3.2)}{opacity:1;transform:translate3d(0,0,0)}${at(3.5)},${at(9.6)}{opacity:0;transform:translate3d(0,-.4em,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmv-wg{0%,${at(3.25)}{opacity:0;transform:translate3d(0,.4em,0)}${at(3.55)},${at(6.4)}{opacity:1;transform:translate3d(0,0,0)}${at(6.7)},100%{opacity:0;transform:translate3d(0,-.4em,0)}}
 @keyframes cmv-mwa{0%,${at(3.2)}{opacity:1;transform:translate3d(0,0,0)}${at(3.5)},${at(6.4)}{opacity:0;transform:translate3d(0,-.4em,0)}${at(6.7)},100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmv-mwg{0%,${at(3.25)}{opacity:0;transform:translate3d(0,.4em,0)}${at(3.55)},${at(6.4)}{opacity:1;transform:translate3d(0,0,0)}${at(6.7)},100%{opacity:0;transform:translate3d(0,-.4em,0)}}
+@keyframes cmv-cardf{0%,${at(6.45)}{opacity:0}${at(6.75)},${at(9.6)}{opacity:1}${at(9.9)},100%{opacity:0}}
+@keyframes cmv-after{0%,${at(6.4)}{transform:translate3d(0,0,0)}${at(6.75)},${at(9.6)}{transform:translate3d(0,60px,0)}${at(9.95)},100%{transform:translate3d(0,0,0)}}
+@keyframes cmv-lift{0%,${at(6.4)}{transform:translate3d(0,0,0)}${at(6.75)},${at(9.6)}{transform:translate3d(0,-60px,0)}${at(9.95)},100%{transform:translate3d(0,0,0)}}
 @keyframes cmv-wc{0%,${at(6.45)}{opacity:0;transform:translate3d(0,.4em,0)}${at(6.75)},${at(9.6)}{opacity:1;transform:translate3d(0,0,0)}${at(9.9)},100%{opacity:0}}
 @keyframes cmv-la{0%,${at(3.2)}{opacity:1;transform:translate3d(0,0,0)}${at(3.5)},${at(9.6)}{opacity:.45;transform:translate3d(.5em,0,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmv-lg{0%,${at(3.2)}{opacity:.45;transform:translate3d(.5em,0,0)}${at(3.5)},${at(6.4)}{opacity:1;transform:translate3d(0,0,0)}${at(6.7)},100%{opacity:.45;transform:translate3d(.5em,0,0)}}
@@ -1426,8 +1387,7 @@ const STILL_CSS = `
   .cmc[data-story-section] > .cmc-cards.cmc-cards{margin-top:0}
   .cmc-stage{position:relative;height:max(100svh,calc(var(--pw) * 2.07 + 220px))}
   .cmc-stage *{transition:none!important;animation:none!important}
-  .cmc-floats{display:none}
-  .cmc-panel,.cmc-tab,.cmc-tab::before{transition:none!important}
+  .cmc-panel,.cmc-tab{transition:none!important}
 }
 `
 
@@ -1436,6 +1396,5 @@ const CHECKOUT_CSS = SCENE_CSS + PHONE_CSS + DESK_CSS + TABS_CSS + LOOP_CSS + RE
 /** This section's stylesheets, as it draws them: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
 export const CHECKOUT_STYLES: readonly SectionStyle[] = [
   COMMERCE_KIT_STYLE,
-  { href: "w13-ebook-cover", precedence: "default", css: EBOOK_COVER_CSS },
   { href: "w12-commerce-checkout", precedence: "default", css: CHECKOUT_CSS },
 ]

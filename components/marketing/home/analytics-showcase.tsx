@@ -9,6 +9,12 @@
   The section sits on the purple sheet, so every card in it is a dark
   surface.
 
+  LANDING ROUND 5, THE OWNER: the reports are white pills with a little
+  depth and a touch of glass; the dots behind the purple are fewer and
+  fainter (./dot-field); the SEO card's own grid is quieter; the engine
+  switcher is the one from before round 4, with a very quiet light turning
+  around it.
+
   LANDING ROUND 4, THE OWNER: the search example is a LUT pack now, not a
   bread recipe; the SEO card keeps the dark of the other cards with a very quiet
   dot grid drifting behind it; "Ready for Google and AI search" plays by
@@ -30,8 +36,7 @@
      with three results, hers first (example addresses; the stills are
      Unsplash photographs), and beside it the engines a store is read by,
      Google, ChatGPT, Claude, Perplexity and Gemini, in their own marks
-     (./engine-marks), taking turns in a pill. The five marks under it are
-     real buttons: pressing one chooses it and the turn carries on from it.
+     (./engine-marks), taking turns in a pill.
 
   Motion: the globe turns only while the section is live and in view. The
   switcher is one small render per turn; names, lights and dots move by
@@ -185,62 +190,53 @@ function SearchCard() {
 }
 
 /* ── The engines, taking turns ───────────────────────────────────────── */
-/** Each engine with the two colours of the light behind it while it is chosen. */
-const ENGINES: Array<{ name: string; Mark: ComponentType<{ className?: string }>; c1: string; c2: string }> = [
-  { name: "Google", Mark: GoogleG, c1: "rgba(66,133,244,.42)", c2: "rgba(52,168,83,.3)" },
-  { name: "ChatGPT", Mark: OpenAIMark, c1: "rgba(16,163,127,.38)", c2: "rgba(255,255,255,.12)" },
-  { name: "Claude", Mark: ClaudeMark, c1: "rgba(217,119,87,.42)", c2: "rgba(245,196,160,.2)" },
-  { name: "Perplexity", Mark: PerplexityMark, c1: "rgba(31,184,205,.38)", c2: "rgba(32,128,141,.3)" },
-  { name: "Gemini", Mark: GeminiMark, c1: "rgba(72,147,252,.38)", c2: "rgba(181,138,240,.36)" },
+/*
+  Landing round 5, the owner: "keep it how it was before" (971429ade),
+  "with the subtle clean gradients going around, very subtle". The card is
+  that version again (no row of buttons, no light per engine), with one
+  quiet light behind it: two soft tints that turn slowly around the card's
+  middle, one transform on one layer, paused off screen.
+*/
+const ENGINES: Array<{ name: string; Mark: ComponentType<{ className?: string }> }> = [
+  { name: "Google", Mark: GoogleG },
+  { name: "ChatGPT", Mark: OpenAIMark },
+  { name: "Claude", Mark: ClaudeMark },
+  { name: "Perplexity", Mark: PerplexityMark },
+  { name: "Gemini", Mark: GeminiMark },
 ]
 const EN = ENGINES.length
-const TURN_MS = 2800
+const TURN_MS = 2600
 
 function EnginesCard({ live, reduced }: { live: boolean; reduced: boolean }) {
   const [active, setActive] = useState(0)
-  /* Counts the engines pressed by hand: the turn starts again from the chosen one. */
-  const [picks, setPicks] = useState(0)
   useEffect(() => {
     if (!live || reduced) return
     const id = window.setInterval(() => setActive((a) => (a + 1) % EN), TURN_MS)
     return () => window.clearInterval(id)
-  }, [live, reduced, picks])
-  const choose = (i: number) => {
-    setActive(i)
-    setPicks((p) => p + 1)
-  }
+  }, [live, reduced])
   return (
-    <div className={`${s.dark} ${s.fixed} ${s.enginesCard} ${m.reveal} flex flex-col p-5 sm:p-7`} style={{ "--i": 3 } as CSSProperties}>
-      {/* The light behind: one soft layer per engine, the chosen one faded in. */}
-      <span className={`${s.glows} ${m.loop}`} aria-hidden="true">
-        {ENGINES.map((e, i) => (
-          <span key={e.name} className={s.glow} data-on={i === active || undefined} style={{ "--c1": e.c1, "--c2": e.c2 } as CSSProperties} />
-        ))}
-      </span>
-      <div className="relative flex min-h-[132px] flex-1 items-center">
+    <div className={`${s.dark} ${s.fixed} ${m.reveal} flex flex-col p-5 sm:p-7`} style={{ "--i": 3 } as CSSProperties}>
+      <span className={`${s.orbit} ${m.loop}`} aria-hidden="true" />
+      <div className="relative flex min-h-[150px] flex-1 items-center">
         <div className={`${s.engines} w-full`} aria-hidden="true">
           <span className={s.enginePill} />
           {ENGINES.map((e, i) => {
             const rel = ((i - active + EN + 2) % EN) - 2
             return (
-              <button key={e.name} type="button" tabIndex={-1} className={s.engine} data-rel={rel} onClick={() => choose(i)}>
+              <span key={e.name} className={s.engine} data-rel={rel}>
                 <e.Mark className={s.engineMark} />
                 {e.name}
-              </button>
+              </span>
             )
           })}
         </div>
       </div>
-      <div className={`${s.engineTabs} relative`} role="group" aria-label="Search engines and AI assistants">
-        {ENGINES.map((e, i) => (
-          <button key={e.name} type="button" className={s.engineTab} aria-pressed={i === active} aria-label={e.name} onClick={() => choose(i)}>
-            <e.Mark className="h-[18px] w-[18px]" />
-          </button>
-        ))}
-      </div>
-      <div className="relative mt-5">
+      <div className="relative">
         <h3 className="text-[20px] font-medium tracking-[-0.02em] text-white">Ready for Google and AI search</h3>
-        <p className="mt-1.5 max-w-[42ch] text-[14.5px] leading-[1.55] text-[#a3a1ad]">Every page gets its own title, description and structured data.</p>
+        <p className="mt-1.5 max-w-[42ch] text-[14.5px] leading-[1.55] text-[#a3a1ad]">
+          Every page gets its own title, description and structured data, read by search engines and AI assistants alike.
+        </p>
+        <p className="sr-only">Read by {ENGINES.map((e) => e.name).join(", ")}.</p>
       </div>
     </div>
   )

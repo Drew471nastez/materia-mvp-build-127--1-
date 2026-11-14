@@ -96,13 +96,15 @@ check("the press still waits 6px before it is a drag, so a finger going down the
 }
 
 console.log("\n── Make the work: the heading ──")
-check("a specific line in the two tones", EVERYTHING_HEADING.lead === "Sell anything, anywhere." && EVERYTHING_HEADING.rest === "Support included." && /<span class="ev-h-mute">Support included\.<\/span>/.test(everything))
+/* Changed on purpose (landing round 5): the owner called "Sell anything, anywhere. Support included." really bad; the new line is pinned in tests/home-landing-r5-top. */
+check("a specific line in the two tones", EVERYTHING_HEADING.lead === "Sell what you make." && EVERYTHING_HEADING.rest === "Get paid worldwide." && /<span class="ev-h-mute">Get paid worldwide\.<\/span>/.test(everything))
 
 console.log("\n── Make the work: the product card ──")
 check("merch, digital, course, community", EVERYTHING_SLIDES.map((s) => s.tab).join() === "Merch,Digital,Course,Community")
 check("the merch and the LUT pack are kept", EVERYTHING_SLIDES[0].name === "Midnight Studio Tee" && EVERYTHING_SLIDES[1].name === "Cine Tones, 12 LUTs")
-check("a new course and a new community", EVERYTHING_SLIDES[2].name === "Knit Your First Sweater" && EVERYTHING_SLIDES[3].name === "The Paperback Club")
-check("every product's numbers add up", [32 * 214 === 6848, 29 * 386 === 11194, 79 * 146 === 11534, 8 * 1240 === 9920].every(Boolean) && EVERYTHING_SLIDES[2].stats[2][1] === "$11,534.00" && EVERYTHING_SLIDES[3].stats[2][1] === "$9,920.00")
+/* Changed on purpose (landing round 5): the owner found the knitting course "really bad"; a home Pilates course in its place. */
+check("a new course and a new community", EVERYTHING_SLIDES[2].name === "28 Day Mat Pilates" && EVERYTHING_SLIDES[3].name === "The Paperback Club")
+check("every product's numbers add up", [32 * 214 === 6848, 29 * 386 === 11194, 39 * 412 === 16068, 8 * 1240 === 9920].every(Boolean) && EVERYTHING_SLIDES[2].stats[2][1] === "$16,068.00" && EVERYTHING_SLIDES[3].stats[2][1] === "$9,920.00")
 check("the community is a community card: cover, name, address, Members, Online, Admins and faces", ["ev-cm-cover", "ev-cm-name", "ev-cm-url", "ev-cm-stats", "ev-cm-faces"].every((c) => everything.includes(`class="${c}"`)) && /Members/.test(everything) && /Online/.test(everything) && /Admins/.test(everything))
 const grounds = [0, 1, 2, 3].map((i) => rule(evCss, `.ev-p-bg${i}`))
 check("four colourful gradient grounds, each its own", grounds.every((g) => /radial-gradient/.test(g) && /linear-gradient/.test(g)) && new Set(grounds).size === 4)
@@ -110,7 +112,8 @@ check("they cross fade (opacity) and drift slowly (a transform), nothing else", 
 check("only the ground on show drifts, and only while the section is live", /\.ev-p-bg\{animation-play-state:paused\}/.test(evCss) && /\.ev\[data-platform-live="true"\] \.ev-p-bg\[data-on\]\{animation-play-state:running\}/.test(evCss))
 check("reduced motion stops the drift", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-p-bg\{animation:none !important\}/.test(evCss))
 check("the card still leans under the mouse", /usePressTilt\(card\)/.test(evSrc) && /data-press-tilt=""/.test(everything))
-check("the course and community pictures exist and are small", ["course", "community"].every((k) => statSync(join(root, `public/home/everything/${k}.webp`)).size < 60_000))
+/* Changed on purpose (landing round 5): the course photo is pilates.webp (the knitting course is gone). */
+check("the course and community pictures exist and are small", ["pilates", "community"].every((k) => statSync(join(root, `public/home/everything/${k}.webp`)).size < 60_000))
 
 console.log("\n── Make the work: Build a store that looks like you ──")
 check("stores, OnePages and a community on a phone", EVERYTHING_STORES.length >= 4 && EVERYTHING_SHOTS.filter((s) => s.kind === "onepage").length >= 3 && EVERYTHING_SHOTS.some((s) => s.kind === "community"))

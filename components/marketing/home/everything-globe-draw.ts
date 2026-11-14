@@ -2,11 +2,11 @@
   THE "SELL ANYWHERE" GLOBE'S ENGINE.
 
   Everything the globe does per frame: the spin, the drag with its throw,
-  the lean toward the mouse, the order shots, the landing pulses and the
-  pill's place. It runs in a worker that owns the canvas
+  the lean toward the mouse, the order shots, the landing pulses and when the
+  order notification comes and goes. It runs in a worker that owns the canvas
   (everything-globe-worker.ts, shipped as a string built by
   scripts/build-globe-worker.mjs), so the page's own thread does nothing per
-  frame but move one pill; where a canvas cannot be handed to a worker,
+  frame but show or hide one notification; where a canvas cannot be handed to a worker,
   everything-globe.tsx runs this same engine on the page.
 
   Timing: every motion is advanced by the real time between two animation
@@ -41,25 +41,26 @@ const PULSE_MS = 1400
 const ARC_N = 96
 const TRAIL_CHUNKS = 14
 const DEPTH_BUCKETS = 6
-/** The pill only shows while its city faces the viewer this much (z of the unit vector). */
-const PILL_MIN_Z = 0.16
+/*
+  LANDING ROUND 5 (the owner: the new order notifications "glitch and stutter, move and flash"). The pill no longer
+  rides on the city: a pill chasing a turning globe was re-aimed several times a second and nudged sideways near the
+  edge, and every re-aim was a visible jump. Now it is a notification in one fixed place on the card. The engine only
+  says which order landed (on) and, PILL_SHOW_MS of the globe's own clock later, that it leaves (off); the page fades
+  and lifts it in and out with opacity and transform. The landing pulse on the globe shows where.
+*/
+const PILL_SHOW_MS = 2100
 /**
- * The pill is told where to go about four times a second (round 4: one message and one style change on the page's
- * thread per frame, each a commit of the whole page there, was what made dragging lag). Each glide is planned a little
- * longer than the gap, so the next one takes over mid-glide from where the pill really is.
+ * Cost on any phone (landing round 5, the owner: "works on any low end device without lag"). The globe draws at most
+ * about 60 times a second, whatever the display's rate (a 120Hz phone does not pay twice for a slow spin). The time a
+ * frame's drawing takes is watched: if it stays heavy, the canvas steps down to fewer device pixels (2x, 1.5x, 1x), and
+ * if it is still heavy at 1x the idle spin draws at 30 frames a second (a drag stays at 60).
  */
-const PILL_EVERY = 240
-const PILL_GLIDE = PILL_EVERY + 90
-/** Faster than this (a drag, or a throw still coasting) the pill steps aside, and comes back once the globe has settled. */
-const PILL_CALM_YAW = 0.0005
-const PILL_CALM_PITCH = 0.00025
+const FRAME_MIN_MS = 15
+const SLOW_FRAME_MS = 7
+const SLOW_FRAME_IDLE_MS = 30
 
-/**
- * Where the pill should be: the buyer's city in CSS pixels of the card, and whether it faces the viewer. While the
- * globe turns by itself, (x2, y2) is where the city will be `d` ms from now: the page glides the pill there with one
- * compositor animation, so it hears from the globe a few times a second instead of every frame. d = 0: set it there.
- */
-export type GlobePill = { i: number; x: number; y: number; on: boolean; x2: number; y2: number; d: number }
+/** The order pill: which order landed, and whether its notification is showing. */
+export type GlobePill = { i: number; on: boolean }
 
 export type GlobePointer = { kind: "down" | "move" | "up"; x: number; y: number; t: number }
 
@@ -153,8 +154,15 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     order: 0,
     pill: -1,
     pillOn: false,
-    pillX: -1e9,
-    pillY: -1e9,
+    pillOff: 0,
+    /** The display's last frame time that was drawn, a running average of a frame's drawing cost, and the frames it covers. */
+    drawnAt: 0,
+    cost: 0,
+    costN: 0,
+    /** The device pixel ratio asked for, and the one in use after any step down. */
+    askedDpr: 1,
+    dprCeil: 4,
+    slow: false,
     bg: null as AnyCanvas | null,
     glow: null as AnyCanvas | null,
     frame: 0,
@@ -249,53 +257,6 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
   }
   /** A point of a shot is hidden while it is behind the ball. */
   const behind = () => rz < 0 && rx * rx + ry * ry < 1
-
-  /*
-    The pill rides on the latest buyer's city. A few times a second (not every frame) the page is told where the city
-    is and where it will be a moment later, and glides it there on the compositor; it steps aside while the globe is
-    dragged or still coasting from a throw, and when the city turns away.
-  */
-  let pillNext = 0
-  const pillPlace = (yaw: number, pitch: number, c: V3) => {
-    const cy0 = Math.cos(yaw)
-    const sy0 = Math.sin(yaw)
-    const cp0 = Math.cos(pitch)
-    const sp0 = Math.sin(pitch)
-    const x1 = c[0] * cy0 + c[2] * sy0
-    const z1 = -c[0] * sy0 + c[2] * cy0
-    rx = x1
-    ry = c[1] * cp0 - z1 * sp0
-    rz = c[1] * sp0 + z1 * cp0
-  }
-  const sendPill = (force: boolean) => {
-    if (st.pill < 0) return
-    const c = cities[st.pill]
-    const calm = !st.dragging && Math.abs(st.vyaw - (st.reduced ? 0 : AUTO_SPIN)) < PILL_CALM_YAW && Math.abs(st.vpitch) < PILL_CALM_PITCH
-    pillPlace(st.yaw + st.leanX, st.pitch + st.leanY, c)
-    const on = calm && rz > PILL_MIN_Z
-    const x = st.cx + rx * st.R
-    const y = st.cy - ry * st.R
-    if (!force && on === st.pillOn && (!on || st.clock < pillNext)) return
-    let x2 = x
-    let y2 = y
-    let d = 0
-    if (on && st.running) {
-      /* Where the city will be PILL_GLIDE ms on: the spin carries on, the tilt and the lean keep easing home. */
-      d = PILL_GLIDE
-      const kp = 1 - Math.exp(-d / 1200)
-      const kl = 1 - Math.exp(-d / 240)
-      const leanX = st.leanX + (st.targetLeanX - st.leanX) * kl
-      const leanY = st.leanY + (st.targetLeanY - st.leanY) * kl
-      pillPlace(st.yaw + st.vyaw * d + leanX, st.pitch + (BASE_PITCH - st.pitch) * kp + leanY, c)
-      x2 = st.cx + rx * st.R
-      y2 = st.cy - ry * st.R
-    }
-    st.pillOn = on
-    st.pillX = x
-    st.pillY = y
-    pillNext = st.clock + PILL_EVERY
-    host.onPill({ i: st.pill, x, y, on, x2, y2, d })
-  }
 
   /* One point along a shot at fractional index f, rotated: sets rx, ry, rz. */
   const arcAt = (a: Float32Array, f: number) => {
@@ -476,7 +437,6 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     }
     ctx.globalAlpha = 1
 
-    sendPill(false)
     st.dirty = false
     if (!st.drawn) {
       st.drawn = true
@@ -485,11 +445,32 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
   }
 
   const showPill = (i: number) => {
-    if (st.pill === i) return
     st.pill = i
+    st.pillOn = true
+    st.pillOff = st.clock + PILL_SHOW_MS
+    host.onPill({ i, on: true })
+  }
+  const hidePill = () => {
+    if (!st.pillOn) return
     st.pillOn = false
-    setRot()
-    sendPill(true)
+    host.onPill({ i: st.pill, on: false })
+  }
+
+  /* Fewer device pixels when drawing stays heavy (see FRAME_MIN_MS). */
+  const resizeCanvas = () => {
+    canvas.width = Math.round(st.w * st.dpr)
+    canvas.height = Math.round(st.h * st.dpr)
+    paintStatic()
+  }
+  const watchCost = (ms: number) => {
+    st.cost = st.costN ? st.cost * 0.9 + ms * 0.1 : ms
+    st.costN++
+    if (st.costN < 24 || st.cost < SLOW_FRAME_MS) return
+    if (st.dpr > 1) {
+      st.dpr = st.dprCeil = Math.max(1, st.dpr - 0.5)
+      resizeCanvas()
+    } else st.slow = true
+    st.costN = 0
   }
 
   /* The next order: the next buyer in the list whose city will face the viewer when the shot lands. */
@@ -514,6 +495,12 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
 
   const tick = (t: number) => {
     st.frame = 0
+    /* At most about 60 drawn frames a second, 30 for the idle spin on a device that cannot keep up. */
+    if (t - st.drawnAt < (st.slow && !st.dragging ? SLOW_FRAME_IDLE_MS : FRAME_MIN_MS)) {
+      st.frame = host.raf(tick)
+      return
+    }
+    st.drawnAt = t
     /* Real time since the last frame, capped so a stall never jumps the globe. */
     const dt = Math.max(0, Math.min(50, t - st.last))
     st.last = t
@@ -542,8 +529,11 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
           showPill(shotCity[s])
         }
       }
+      if (st.pillOn && now >= st.pillOff) hidePill()
     }
+    const t0 = performance.now()
     draw()
+    watchCost(performance.now() - t0)
     sync()
   }
 
@@ -562,28 +552,23 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
       host.caf(st.frame)
       st.frame = 0
       if (st.dirty) draw()
-      /* Stopped: the pill's glide would carry on past the city, so it is set where the city is. */
-      setRot()
-      sendPill(true)
     }
   }
 
   return {
     /** The card's size in CSS pixels and the device pixel ratio (capped by the caller). */
     size(w: number, h: number, dpr: number) {
-      if (!w || !h || (w === st.w && h === st.h && dpr === st.dpr)) return
+      if (!w || !h || (w === st.w && h === st.h && dpr === st.askedDpr)) return
       st.w = w
       st.h = h
-      st.dpr = dpr
+      st.askedDpr = dpr
+      /* A step down already taken holds across a resize. */
+      st.dpr = Math.min(dpr, st.dprCeil)
       st.R = Math.min(w * 0.45, h * 0.57)
       st.cx = w / 2
       st.cy = h * 0.53
-      canvas.width = Math.round(w * dpr)
-      canvas.height = Math.round(h * dpr)
-      paintStatic()
+      resizeCanvas()
       draw()
-      setRot()
-      sendPill(true)
     },
     /** On screen, the tab visible, the globe in view, motion allowed. */
     run(want: boolean) {
@@ -664,8 +649,6 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
           st.vyaw = 0
           st.vpitch = 0
         }
-        setRot()
-        sendPill(true)
       }
       sync()
     },
