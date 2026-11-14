@@ -63,6 +63,7 @@ console.log("\n── The corners are never cut ──")
   check("the dark block before leaves that room at its foot", /\[data-sheet-backdrop\]:has\(\+\[data-sheet\]:not\(\[data-sheet-flat\]\)\)\{padding-bottom:var\(--srp-r\)\}/.test(SHEET_CSS))
   check("a dark block is its own stacking context under the sheet (0 against 1)", /\[data-sheet-backdrop\]\{position:relative;z-index:0\}/.test(SHEET_CSS) && /\[data-sheet\]\{position:relative;z-index:1;border-radius:var\(--srp-r\)/.test(SHEET_CSS))
   check("a sheet followed by a sheet squares its foot and leaves the room", /\[data-sheet\]:has\(\+\[data-sheet\]:not\(\[data-sheet-flat\]\)\)\{border-bottom-left-radius:0;border-bottom-right-radius:0;padding-bottom:calc\(var\(--srp-pad\) \+ var\(--srp-r\)\)\}/.test(SHEET_CSS))
+  check("a section on the dark ground draws no rounded box of its own (the checkout's corners under the sheet's)", /\[data-sheet-backdrop\] \.cmc\{border-radius:0\}/.test(SHEET_CSS))
   check("the radius is one variable, set on both kinds of block", /\[data-sheet\],\[data-sheet-backdrop\]\{--srp-r:clamp\(22px,4\.2vw,48px\)/.test(SHEET_CSS))
 }
 

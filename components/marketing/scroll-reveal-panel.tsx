@@ -32,6 +32,12 @@ import type { CSSProperties, ReactNode } from "react"
   that is followed by another sheet squares its bottom corners (the next
   one's rounded top laps over its colour, not over dark).
 
+  A SECTION ON THE DARK GROUND DRAWS NO ROUNDED BOX OF ITS OWN. The checkout
+  scene (.cmc) is a black box with its own large radius; on the dark ground
+  its corners showed as a second rounded edge right under the white sheet's,
+  the "black band with a rounded corner" in the owner's screenshot. On a
+  backdrop it sits flush: the sheets' corners are the only ones.
+
   A FLAT GROUND. With `arrive="flat"` the sheet does not lap over anything:
   its top is square and it continues straight under the dark block before
   it, whose bottom corners it rounds (two fillets in the sheet's own colour,
@@ -52,6 +58,7 @@ export const SHEET_CSS = `
 [data-sheet="white"]{--srp-bg:#fff;background:#fff;color:#18181b}
 [data-sheet="purple"]{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba(255,255,255,.16);background:radial-gradient(70% 45% at 85% 0%,rgba(124,58,237,.42) 0%,rgba(124,58,237,0) 70%),radial-gradient(60% 40% at 0% 100%,rgba(91,33,182,.35) 0%,rgba(91,33,182,0) 70%),#24104f;color:#fff}
 [data-sheet-backdrop]{position:relative;z-index:0}
+[data-sheet-backdrop] .cmc{border-radius:0}
 [data-sheet]:not([data-sheet-flat]){margin-top:calc(var(--srp-r) * -1)}
 [data-sheet-backdrop]:has(+[data-sheet]:not([data-sheet-flat])){padding-bottom:var(--srp-r)}
 [data-sheet]:has(+[data-sheet]:not([data-sheet-flat])){border-bottom-left-radius:0;border-bottom-right-radius:0;padding-bottom:calc(var(--srp-pad) + var(--srp-r))}
