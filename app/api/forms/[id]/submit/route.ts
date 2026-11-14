@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
+import { typedMailAllowed } from "@/lib/api/typed-mail"
 import { notifyUser } from "@/lib/notifications/user-inbox"
 import { UUID, actionHref, actionLabel, formVars, slotVars, type NativeAction } from "@/lib/forms/actions"
 import { validateDefinition, validateAnswers, pickResult, fillTemplate, validTimeZone, answerText, bookingDurations, type Answer, type BookingLocation, type FormDefinition } from "@/lib/forms/definition"
@@ -203,7 +204,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           .in("id", files.rows.map((r) => r.id))
           .is("submission_id", null)
       /* Round AR: the visitor's own email, retried until sent: confirmed at once, or their request received (a paid booking hears when the payment confirms it). */
-      const visitorJob = booked && valid.email && !definition.booking?.payment_product_id ? [{ provider: (booked.status === "confirmed" ? "booking_confirmed" : "visitor_email") as JobProvider, state: "ready" }] : []
+      /* Round AY: counted per recipient and per network across every store (lib/api/typed-mail.ts); over it, the booking is kept and only this mail is held back. */
+      const mailVisitor = booked && valid.email && !definition.booking?.payment_product_id ? await typedMailAllowed(request, valid.email) : false
+      const visitorJob = booked && mailVisitor ? [{ provider: (booked.status === "confirmed" ? "booking_confirmed" : "visitor_email") as JobProvider, state: "ready" }] : []
       const jobs = await queueJobs(db, { ownerId: form.owner_id, formId: id, submissionId: lead, jobs: [...jobsFor(form.integration_settings as IntegrationSettings), ...visitorJob] })
       const bookingId = booked?.id
       after(async () => {
