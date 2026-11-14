@@ -136,7 +136,8 @@ check("it pauses off screen and stands still under reduced motion", /drift\.paus
 
 console.log("\n── make the work: real support ──")
 /* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2, without the From buyers / Storelib switch and its status pills: one thread at a time, photos and Storelib's mark. tests/home-landing-topa4 pins it. */
-check("three requests: two to Storelib, one from a buyer", EVERYTHING_SUPPORT.length === 3 && EVERYTHING_SUPPORT.filter((x) => x.title === "Storelib support").length === 2 && EVERYTHING_SUPPORT.filter((x) => x.title === "From a buyer").length === 1)
+/* Changed on purpose (landing round 5): the owner asked to "get rid of the creators and Storelib" labels; a thread is headed by its subject alone. */
+check("three requests: two to support, one from a buyer", EVERYTHING_SUPPORT.length === 3 && EVERYTHING_SUPPORT.filter((x) => x.replyAv === null).length === 2 && EVERYTHING_SUPPORT.filter((x) => x.replyAv !== null).length === 1)
 check("no inbox switch", !/class="ev-c-tab/.test(html))
 check("Storelib answers with its mark, the creator in the dark bubble", /StorelibLogo size=\{96\} alt="" fluid className="ev-c-av ev-c-logo"/.test(src) && /\.ev-c-dark\{background:#111113;color:#fff\}/.test(css))
 check("the requests take turns by themselves on one CSS clock, paused off screen", /\.ev-c-thread\{[^}]*animation:ev-thread 30s/.test(css) && /\.ev\[data-platform-live="false"\] \.ev-loop/.test(css))
@@ -145,7 +146,7 @@ check("the thread compacts wherever the card is narrow, so it always fits", /\.e
 console.log("\n── corners and small print ──")
 /* Changed on purpose (landing round 4): the support thread is the card of before, at 16px. */
 check("the section's cards and models are about a pixel tighter", /\.ev-vis\{[^}]*border-radius:17px/.test(css) && /\.ev-vis\{height:clamp\(320px,32vw,440px\);border-radius:19px\}/.test(css) && /\.ev-p-card\{[^}]*border-radius:17px/.test(css) && /\.ev-c-thread\{[^}]*border-radius:16px/.test(css))
-check("the showcase's pictures too", /margin:0;border-radius:7px;contain:paint/.test(showcase) && /aspect-ratio:auto;border-radius:5px\}/.test(showcase))
+check("the showcase's pictures too", /margin:0;border-radius:7px;contain:paint/.test(showcase) && /aspect-ratio:auto;border-radius:5px[;}]/.test(showcase)) /* Changed on purpose (landing round 5): the phone card also snaps (scroll-snap-align after the radius). */
 check("no small print under the section: the grid is the last thing in it", /<\/article><\/div><\/div><\/section>$/.test(html) && !/<small/.test(html))
 
 console.log("\n── words ──")

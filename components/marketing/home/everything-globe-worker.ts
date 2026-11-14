@@ -9,8 +9,8 @@
   Messages in: init (the canvas, the land points, the cities, the studio),
   size (CSS pixels and device pixel ratio), run (on screen and allowed to
   move), reduced, pointer (a drag's down, move and up), lean (toward the
-  mouse). Out: pill (where the order pill goes, each frame it moves) and drawn (after the first
-  frame).
+  mouse). Out: pill (which order landed, and when its notification leaves) and drawn (after the
+  first frame).
 */
 
 import { createGlobeEngine, type GlobeEngine, type GlobePointer, type V3 } from "./everything-globe-draw"

@@ -41,8 +41,12 @@ import { usePlatformSection } from "./platform-motion"
 import { EverythingGlobe } from "./everything-globe"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
-/* Landing round 4 (the owner: the old line was "too broad and vague"): what the four cards below say, in the same two tones. */
-export const EVERYTHING_HEADING = { lead: "Sell anything, anywhere.", rest: "Support included." } as const
+/*
+  Landing round 4 (the owner: the old line was "too broad and vague"): what the four cards below say, in the same two tones.
+  Landing round 5 (the owner: "Sell anything, anywhere. Support included." was "really bad"): what a seller does and
+  what comes back, in plain words.
+*/
+export const EVERYTHING_HEADING = { lead: "Sell what you make.", rest: "Get paid worldwide." } as const
 
 const IMG = "/home/everything"
 const ST = `${IMG}/stores`
@@ -69,10 +73,11 @@ type Slide = {
 
   Landing round 3 (the owner: no "cover with a landscape", an actual digital
   product, named like one, "LUTs or whatever"): the digital product is a LUT
-  pack for video, shown the way such a pack is sold. One frame split down
-  the middle, the flat log footage on the left and the graded picture on
-  the right, the looks in the pack as small frames under it, and the file
-  that is selected. The photo is there only to show what the product does.
+  pack for video. Landing round 5 (the owner: its panel was "too complex and
+  non realistic"): it is the cover such a pack is uploaded with, one photo
+  split down the middle, flat on the left and graded on the right, with the
+  pack's name (LutCover). The course is a 28 day mat Pilates program in
+  place of the knitting course the owner did not want.
 */
 export const EVERYTHING_SLIDES: Slide[] = [
   {
@@ -93,9 +98,9 @@ export const EVERYTHING_SLIDES: Slide[] = [
     tab: "Digital",
     name: "Cine Tones, 12 LUTs",
     kind: "luts",
-    img: `${IMG}/lut-frame.webp`,
+    img: `${IMG}/lut-cover.webp`,
     w: 480,
-    h: 270,
+    h: 480,
     stats: [
       ["Price", "$29.00"],
       ["Downloads", "386"],
@@ -105,15 +110,15 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
   {
     tab: "Course",
-    name: "Knit Your First Sweater",
+    name: "28 Day Mat Pilates",
     kind: "course",
-    img: `${IMG}/course.webp`,
+    img: `${IMG}/pilates.webp`,
     w: 480,
     h: 480,
     stats: [
-      ["Price", "$79.00"],
-      ["Students", "146"],
-      ["Revenue", "$11,534.00"],
+      ["Price", "$39.00"],
+      ["Students", "412"],
+      ["Revenue", "$16,068.00"],
     ],
     status: "Enrolling",
   },
@@ -182,33 +187,21 @@ function CommunityCard({ s }: { s: Slide }) {
   )
 }
 
-/** The looks in the pack, as the small frames under the split one; each is the same frame under another grade. */
-const LUT_LOOKS = ["dusk", "kodak", "teal", "fade", "mono"] as const
-
-/** The LUT pack: one frame, flat on the left and graded on the right, the pack's looks and the chosen file. */
-function LutPack({ s }: { s: Slide }) {
+/*
+  Landing round 5 (the owner: the LUT pack's panel was "too complex and non realistic"): the cover a seller uploads for
+  a pack like this. One graded photo, its left half as the flat footage it started from, a hairline between them, and
+  the pack's name on it. Nothing else.
+*/
+function LutCover({ s }: { s: Slide }) {
   return (
     <span className="ev-lut">
-      <span className="ev-lut-frame">
-        <Img className="ev-lut-graded" src={s.img} w={s.w} h={s.h} />
-        <span className="ev-lut-flat">
-          <Img src={s.img} w={s.w} h={s.h} />
-        </span>
-        <span className="ev-lut-split" />
-        <span className="ev-lut-tag ev-lut-tag-a">Log</span>
-        <span className="ev-lut-tag ev-lut-tag-b">CT 04</span>
+      <Img src={s.img} w={s.w} h={s.h} />
+      <span className="ev-lut-flat">
+        <Img src={s.img} w={s.w} h={s.h} />
       </span>
-      <span className="ev-lut-looks">
-        {LUT_LOOKS.map((look, i) => (
-          <span key={look} className={`ev-lut-look ev-lut-${look}`} data-on={i === 0 || undefined}>
-            <Img src={s.img} w={s.w} h={s.h} />
-          </span>
-        ))}
-      </span>
-      <span className="ev-lut-file">
-        <b>CT_04_Dusk.cube</b>
-        <i>4 of 12</i>
-      </span>
+      <span className="ev-lut-split" />
+      <span className="ev-lut-name">Cine Tones</span>
+      <span className="ev-lut-count">12 LUTs</span>
     </span>
   )
 }
@@ -216,14 +209,14 @@ function LutPack({ s }: { s: Slide }) {
 /** The product's picture: the photo, or for the LUT pack its looks, standing on the tile. */
 function ProductPicture({ s }: { s: Slide }) {
   const photo = <Img src={s.img} w={s.w} h={s.h} />
-  if (s.kind === "luts") return <LutPack s={s} />
+  if (s.kind === "luts") return <LutCover s={s} />
   if (s.kind === "course")
     return (
       <>
         {photo}
         <span className="ev-p-lesson">
           <span className="ev-p-play" />
-          <span className="ev-p-lesson-t">Lesson 3 · Casting on</span>
+          <span className="ev-p-lesson-t">Day 3 · Core</span>
         </span>
         <span className="ev-p-progress" />
       </>
@@ -756,22 +749,24 @@ function Storefronts({ live }: { live: boolean }) {
   question with the asker's photo, the other side typing, then the answer
   with Storelib's mark or the creator's photo. Three true requests take
   turns, ten seconds each: a creator bringing subscribers over, a buyer who
-  cannot open a download, a creator's own domain. One CSS clock drives it,
+  cannot open a download, a creator's own domain.
+  Landing round 5 (the owner: "get rid of the creators and Storelib" here):
+  each thread is headed by its subject alone. The "Storelib support" and
+  "From a buyer" labels over it, and "to Storelib" in the first question and
+  "at Storelib" in the caption, read as filler and are gone. One CSS clock drives it,
   paused off screen; under reduced motion the first thread simply stands.
 */
-type Request = { title: string; sub: string; ask: string; askAv: string; reply: string; replyAv: string | null }
+type Request = { sub: string; ask: string; askAv: string; reply: string; replyAv: string | null }
 const ME = `${IMG}/av-creator.webp`
 export const EVERYTHING_SUPPORT: readonly Request[] = [
   {
-    title: "Storelib support",
     sub: "Moving my subscribers over",
-    ask: "I have 3,200 subscribers on another newsletter tool. Can I bring them to Storelib?",
+    ask: "I have 3,200 subscribers on another newsletter tool. Can I bring them over?",
     askAv: ME,
     reply: "Yes. Export them as a CSV with an Email column and import it under Contacts. Names and tags come with them.",
     replyAv: null,
   },
   {
-    title: "From a buyer",
     sub: "Order #4821 · Fell Sweater pattern",
     ask: "The download link in my email won't open on my iPad. Could you send it again?",
     askAv: `${IMG}/av-buyer.webp`,
@@ -779,7 +774,6 @@ export const EVERYTHING_SUPPORT: readonly Request[] = [
     replyAv: ME,
   },
   {
-    title: "Storelib support",
     sub: "My own domain",
     ask: "I connected shop.junokada.com an hour ago and the browser still says Not secure.",
     askAv: ME,
@@ -791,10 +785,7 @@ export const EVERYTHING_SUPPORT: readonly Request[] = [
 function Thread({ r, i }: { r: Request; i: number }) {
   return (
     <div className="ev-c-thread ev-loop" style={{ "--k": i } as CSSProperties}>
-      <div className="ev-c-head">
-        <span>{r.title}</span>
-        <span className="ev-c-sub">{r.sub}</span>
-      </div>
+      <div className="ev-c-head">{r.sub}</div>
       <div className="ev-c-msg ev-c-q ev-loop">
         <p className="ev-c-bubble ev-c-light">{r.ask}</p>
         <Img className="ev-c-av" src={r.askAv} w={96} h={96} />
@@ -830,7 +821,7 @@ export const EVERYTHING_CARDS = [
   { key: "sell", wide: true, lead: "Sell anything you make.", rest: "Merch, downloads, courses and communities live in one catalog, with one checkout for all of them." },
   { key: "store", wide: false, lead: "Build a store that looks like you.", rest: "Start from a template and make every part yours, or skip the website and share a OnePage link." },
   { key: "world", wide: false, lead: "Sell anywhere in the world.", rest: "Buyers see your prices in their currency and your pages in their language, wherever they find you." },
-  { key: "support", wide: true, lead: "Real support for you and your buyers.", rest: "A person at Storelib reads and answers every request, and buyers reach you right from their order page." },
+  { key: "support", wide: true, lead: "Real support for you and your buyers.", rest: "A person reads and answers every request, and buyers reach you right from their order page." },
 ] as const
 
 export function EverythingInOnePlace() {
@@ -936,25 +927,14 @@ const CSS = `
 .ev-p-img[data-pos="on"]{opacity:1;transform:none;transition:opacity .6s ease .1s,transform 1s ${EASE} .06s}
 /* The LUT pack: a dark panel like a grading tool's browser. The frame is graded; its left half lies under the flat, log look. Sizes in the tile's own width (cqw). */
 .ev-p-luts{display:grid;place-items:center;background:#ededed}
-.ev-lut{display:flex;flex-direction:column;gap:3.6cqw;width:90cqw;padding:4.6cqw;box-sizing:border-box;border-radius:5cqw;background:#17171a;color:#fff;box-shadow:0 14px 22px -14px rgba(20,20,24,.6)}
+.ev-lut{position:absolute;inset:0;display:block;overflow:hidden;color:#fff}
 .ev-lut img{display:block;width:100%;height:100%;object-fit:cover}
-.ev-lut-frame{position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:2.4cqw}
 .ev-lut-flat{position:absolute;inset:0;clip-path:inset(0 50% 0 0)}
-.ev-lut-flat img{filter:saturate(.3) contrast(.72) brightness(1.16)}
-.ev-lut-split{position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,255,255,.9)}
-.ev-lut-tag{position:absolute;bottom:2.4cqw;padding:.9cqw 2cqw;border-radius:99px;background:rgba(0,0,0,.5);font-size:max(3.4cqw,6.5px);font-weight:600;line-height:1.2;letter-spacing:.04em;text-transform:uppercase}
-.ev-lut-tag-a{left:2.4cqw}
-.ev-lut-tag-b{right:2.4cqw}
-.ev-lut-looks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2cqw}
-.ev-lut-look{display:block;aspect-ratio:1;overflow:hidden;border-radius:1.8cqw}
-.ev-lut-look[data-on]{box-shadow:0 0 0 1.5px #17171a,0 0 0 3px #fff}
-.ev-lut-kodak img{filter:sepia(.45) saturate(1.25) contrast(1.05)}
-.ev-lut-teal img{filter:hue-rotate(-18deg) saturate(1.2) contrast(1.1) brightness(.95)}
-.ev-lut-fade img{filter:saturate(.7) contrast(.82) brightness(1.12)}
-.ev-lut-mono img{filter:grayscale(1) contrast(1.15)}
-.ev-lut-file{display:flex;align-items:baseline;justify-content:space-between;gap:2cqw;font-size:max(4.6cqw,7.5px);line-height:1.2;white-space:nowrap}
-.ev-lut-file b{min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:500;color:#e4e4e7}
-.ev-lut-file i{flex:none;font-style:normal;color:#8b8b93}
+.ev-lut-flat img{filter:saturate(.25) contrast(.7) brightness(1.12)}
+.ev-lut::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,0) 38%,rgba(0,0,0,0) 70%,rgba(0,0,0,.32))}
+.ev-lut-split{position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,255,255,.85)}
+.ev-lut-name{z-index:1;position:absolute;left:7cqw;right:7cqw;top:7cqw;font-size:max(9cqw,11px);font-weight:700;line-height:1;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 8px rgba(0,0,0,.25)}
+.ev-lut-count{z-index:1;position:absolute;left:7cqw;bottom:7cqw;font-size:max(5.6cqw,8px);font-weight:500;line-height:1;letter-spacing:.04em;text-transform:uppercase;opacity:.92}
 .ev-p-lesson{position:absolute;left:8px;bottom:12px;display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;border-radius:999px;background:rgba(20,20,20,.55);color:#fff;font-size:10.5px;line-height:1;white-space:nowrap}
 .ev-p-play{position:relative;width:16px;height:16px;border-radius:99px;background:#fff}
 .ev-p-play::after{content:"";position:absolute;left:6px;top:4.5px;border-left:6px solid #18181b;border-top:3.5px solid transparent;border-bottom:3.5px solid transparent}
@@ -1070,8 +1050,7 @@ ${GLOBE_CSS()}
 .ev-c{background:#eef0f2;container-type:inline-size}
 .ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,430px);padding:18px 18px 20px;box-sizing:border-box;border-radius:16px;background:#fff;box-shadow:0 24px 48px -30px rgba(20,24,40,.4),0 1px 3px rgba(20,24,40,.07);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
 .ev-c-thread .ev-c-q,.ev-c-thread .ev-c-r,.ev-c-thread .ev-c-typing{animation-delay:calc(var(--k,0) * ${TURN}s)}
-.ev-c-head{display:flex;flex-direction:column;gap:2px;margin:0 0 14px;font-size:14px;font-weight:600;color:#18181b}
-.ev-c-sub{font-size:12.5px;font-weight:400;color:#7c7a84}
+.ev-c-head{margin:0 0 14px;font-size:14px;font-weight:600;color:#18181b}
 .ev-c-msg{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
 .ev-c-bubble{flex:1 1 auto;margin:0;padding:11px 13px;border-radius:12px;font-size:13.5px;line-height:1.42}
 .ev-c-light{background:#f0eff2;color:#18181b}
@@ -1093,11 +1072,10 @@ ${GLOBE_CSS()}
   .ev-c-thread{width:90%;padding:14px 14px 16px}
   .ev-c-bubble{font-size:12.5px;padding:9px 11px}
   .ev-c-head{font-size:13px;margin-bottom:10px}
-  .ev-c-sub{font-size:11.5px}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill-in{transition:none !important}
+  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill{transition:none !important}
   .ev-card{opacity:1;transform:none}
   .ev-loop,.ev-tab[data-on] .ev-tab-fill,.ev-p-bg{animation:none !important}
   .ev-tab-fill{display:none}
@@ -1116,13 +1094,13 @@ function GLOBE_CSS() {
 .ev-globe[data-dragging]{cursor:grabbing}
 .ev-globe-canvas{display:block;width:100%;height:100%}
 .ev-globe-pills{position:absolute;inset:0;pointer-events:none}
-.ev-globe-pill{position:absolute;left:0;top:0}
-.ev-globe-pill[data-on]{will-change:transform}
-.ev-globe-pill::before{content:"";position:absolute;left:-.5px;bottom:2px;width:1px;height:10px;background:linear-gradient(rgba(255,255,255,.9),rgba(255,255,255,0));opacity:0;transition:opacity .3s ease}
-.ev-globe-pill[data-on]::before{opacity:1}
-.ev-globe-pill-shift{position:absolute;left:0;bottom:0}
-.ev-globe-pill-in{position:absolute;left:0;bottom:12px;display:flex;width:max-content;align-items:center;gap:7px;padding:7px 12px 7px 9px;border-radius:999px;background:#fff;color:#18181b;font-size:13px;line-height:1.2;white-space:nowrap;box-shadow:0 10px 30px -10px rgba(0,0,0,.6);opacity:0;transform:translate(-50%,6px) scale(.92);transform-origin:50% 100%;transition:opacity .3s ease,transform .45s ${EASE}}
-.ev-globe-pill[data-on] .ev-globe-pill-in{opacity:1;transform:translate(-50%,0)}
+/*
+  The order notification (landing round 5): one fixed place in the lower left corner, never moved. It rises 10px and
+  fades in, stays, and fades out where it stands; every pill keeps its own layer for good, so nothing is promoted or
+  dropped (a flash of re-rasterised text) as it comes and goes.
+*/
+.ev-globe-pill{position:absolute;left:16px;bottom:16px;display:flex;width:max-content;max-width:calc(100% - 32px);align-items:center;gap:7px;padding:7px 12px 7px 9px;border-radius:999px;background:#fff;color:#18181b;font-size:13px;line-height:1.2;white-space:nowrap;box-shadow:0 10px 30px -12px rgba(0,0,0,.6);opacity:0;transform:translate3d(0,10px,0);will-change:opacity,transform;backface-visibility:hidden;transition:opacity .28s ease,transform .28s ease}
+.ev-globe-pill[data-on]{opacity:1;transform:translate3d(0,0,0);transition:opacity .4s ease,transform .55s ${EASE}}
 .ev-globe-flag{display:block;width:16px;height:12px;border-radius:2px;object-fit:cover}
 .ev-globe-city{color:#55535c}
 .ev-globe-price{font-weight:600;font-variant-numeric:tabular-nums}`
