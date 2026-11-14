@@ -182,7 +182,7 @@ const row = { id: "p", slug: "s", title: "T", theme: { background_color: "#fff",
 const fromDraft = publicOnePageFromDraft(row as never).theme
 const fromLive = publicOnePage({ ...row, published_theme: row.theme } as never, { source: "published" }).theme
 check("the draft and the published copy hand the page the same theme, every setting with it", JSON.stringify(fromDraft) === JSON.stringify(fromLive))
-check("the theme cards draw the colours the page draws", /const c = readableTheme\(given\)/.test(read("components/onepage/themes/theme-preview.tsx")))
+check("the theme cards draw the colours the page draws", /const c = readableTheme\(given\)/.test(read("components/onepage/themes/theme-swatch.tsx")))
 for (const k of ["wallpaper_effect", "wallpaper_blur", "wallpaper_tint", "wallpaper_tint_strength"]) check(`picking a theme resets ${k}`, k in LOOK_RESET)
 
 console.log("\nEvery block's buttons are the page's buttons")

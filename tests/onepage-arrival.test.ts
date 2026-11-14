@@ -191,7 +191,7 @@ async function main() {
       /const HIDDEN_GRID: React\.CSSProperties = \{ position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" \}/.test(design) &&
       /target\.style\.contentVisibility = "visible"/.test(design) &&
       /* Changed on purpose (round AP): the card's photo is drawn by the page preview the card now is (components/onepage/themes/theme-preview), still decoded before it is shown. */
-      /decoding="sync" data-theme-thumb=""/.test(readFileSync(join(process.cwd(), "components/onepage/themes/theme-preview.tsx"), "utf8")) &&
+      /decoding="sync" data-theme-thumb=""/.test(readFileSync(join(process.cwd(), "components/onepage/themes/theme-swatch.tsx"), "utf8")) &&
       /* Round 12: the effect now returns preloadThemeThumbs' release, so the kept pictures are let go when the Design tab goes (tests/memory-r12.test.ts). */
       /useEffect\(\(\) => preloadThemeThumbs\(\), \[\]\)/.test(design))
   }

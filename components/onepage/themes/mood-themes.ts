@@ -416,9 +416,9 @@ export const MOOD_THEMES = [
     theme_config: {
       ...FRAME,
       background_type: "gradient" as const,
-      background_color: "#96301f",
+      background_color: "#7a2618",
       background_gradient:
-        "repeating-radial-gradient(circle at 112% -8%, #96301f 0px, #96301f 30px, #7d420f 30px, #7d420f 60px, #214594 60px, #214594 90px, #84375c 90px, #84375c 120px)",
+        "repeating-radial-gradient(circle at 112% -8%, #7a2618 0px, #7a2618 30px, #66350b 30px, #66350b 60px, #1a3778 60px, #1a3778 90px, #6b2c4a 90px, #6b2c4a 120px)",
       gradient_noise: true,
       noise_strength: 20,
       text_color: "#ffffff",
@@ -574,8 +574,8 @@ export const MOOD_THEMES = [
     theme_config: {
       ...FRAME,
       background_type: "gradient" as const,
-      background_color: "#4a5a2c",
-      background_gradient: "radial-gradient(62% 40% at 96% 0%, #96500f 0%, #96500f00 100%), radial-gradient(70% 40% at 0% 100%, #3d4c22 0%, #3d4c2200 100%), linear-gradient(180deg, #52632f 0%, #46552a 100%)",
+      background_color: "#3c4a22",
+      background_gradient: "radial-gradient(62% 40% at 96% 0%, #7a400b 0%, #7a400b00 100%), radial-gradient(70% 40% at 0% 100%, #2f3a1a 0%, #2f3a1a00 100%), linear-gradient(180deg, #414f25 0%, #37441f 100%)",
       gradient_noise: true,
       noise_strength: 14,
       text_color: "#ffffff",
@@ -613,8 +613,8 @@ export const MOOD_THEMES = [
     theme_config: {
       ...FRAME,
       background_type: "gradient" as const,
-      background_color: "#2c7a67",
-      background_gradient: "radial-gradient(78% 52% at 50% 46%, #a3621a 0%, #ad442e 46%, #ad442e00 100%), linear-gradient(180deg, #2c7a67 0%, #2a7263 100%)",
+      background_color: "#174a3d",
+      background_gradient: "radial-gradient(78% 52% at 50% 46%, #6e4010 0%, #742b1b 46%, #742b1b00 100%), linear-gradient(180deg, #174a3d 0%, #154438 100%)",
       gradient_noise: true,
       noise_strength: 18,
       text_color: "#ffffff",

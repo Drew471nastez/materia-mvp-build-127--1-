@@ -154,7 +154,7 @@ check("no skin, no variables and no attribute: a page as it always was", Object.
 const page = read("components/onepage/public-onepage.tsx")
 check("both of the live page's roots carry the skin and its colours", (page.match(/\{\.\.\.skinRootProps\(safeTheme\)\}/g) ?? []).length === 2 && (page.match(/\.\.\.skinVars\(safeTheme\),/g) ?? []).length === 2)
 check("the scene sits where the pattern sits: around the desktop card, in it, and on the phone", (page.match(/<ThemeSkinScene theme=\{safeTheme\} label=\{sellerName\}/g) ?? []).length === 3)
-const card = read("components/onepage/themes/theme-preview.tsx")
+const card = read("components/onepage/themes/theme-swatch.tsx")
 check("a theme card carries the skin and draws its scene, still and without words that would leave the card", /\{\.\.\.skinRootProps\(c\)\}/.test(card) && /\.\.\.skinVars\(c\),/.test(card) && /<ThemeSkinScene theme=\{c\} \/>/.test(card) && !/useState|useEffect/.test(read("components/onepage/themes/theme-skin-scene.tsx")))
 
 console.log("\nThe stylesheet")

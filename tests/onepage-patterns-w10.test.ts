@@ -111,7 +111,7 @@ console.log("\nDrawn over a skin's scene, everywhere the page draws it")
   const scene = [...live.matchAll(/<ThemeSkinScene[^\n]*\n\s*(?:\{\/\*[^\n]*\*\/\}\n\s*)?<WallpaperPattern/g)].length
   check("the page draws the pattern after the scene in all three places", scene === 3, String(scene))
   check("no pattern is drawn before a scene any more", !/<WallpaperPattern[^\n]*\n\s*<ThemeSkinScene/.test(live))
-  check("the theme cards do the same", /<ThemeSkinScene theme=\{c\} \/>\n\s*<WallpaperPattern theme=\{c\}/.test(read("components/onepage/themes/theme-preview.tsx")))
+  check("the theme cards do the same", /<ThemeSkinScene theme=\{c\} \/>\n\s*<WallpaperPattern theme=\{c\}/.test(read("components/onepage/themes/theme-swatch.tsx")))
   const layers = read("components/onepage/wallpaper-layers.tsx")
   check("the page's pattern reads its own wallpaper for the colour", /patternStyle\(theme\.background_pattern, theme\.pattern_color, theme\.pattern_opacity \?\? "medium", theme\)/.test(layers))
   const design = designSrc

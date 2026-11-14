@@ -30,12 +30,11 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 const onboarding = read("components/onepage/onboarding-modal.tsx")
 const scale = read("components/onepage/themes/preview-scale.ts")
-const preview = read("components/onepage/themes/theme-preview.tsx")
-check("the onboarding's cards are the theme preview, in the Design tab's 4:5 frame", /<ThemePreview c=\{look\} who=\{who\} thumb=\{themeThumbSrc\} \/>/ /* Changed on purpose (round AT): the person's own page so far. */ /* Changed on purpose (round AS): the card names its theme, whose creator it draws around the person's own name and photo. */.test(onboarding) && /data-template-frame="" className="op-demo relative block aspect-\[4\/5\]/.test(onboarding))
+const preview = read("components/onepage/themes/theme-swatch.tsx")
+/* Changed on purpose (the theme swatch round): the checks here described the page-sized theme card (the creator's page at a card's scale, components/onepage/themes/theme-preview). The owner asked for that card to go; a card is a swatch now (components/onepage/themes/theme-swatch) and tests/onepage-swatch-themes.test.ts checks it. Removed: "the onboarding's cards are the theme preview..."; "the creator's photo is drawn in the preview...". */
 check("one scale for the grid, measured by a ref callback (the grid arrives in the dialog's portal)", /useCallback\(\(grid: HTMLDivElement \| null\) => \(grid \? scaleThemePreviews\(grid, "\[data-template-frame\]"\) : undefined\), \[\]\)/.test(onboarding) && /ref=\{templateGridRef\}/.test(onboarding))
 check("the scale helper lives beside the preview, which keeps no hooks", /export function scaleThemePreviews/.test(scale) && /export function useThemePreviewScale/.test(scale) && !/use(State|Effect|LayoutEffect|Ref)\(/.test(preview))
 /* Changed on purpose (round AS): the person's photo, or the theme's creator's portrait, in the avatar and the Hero (data-tp-photo now marks every drawn picture). */
-check("the creator's photo is drawn in the preview's avatar and Hero", (preview.match(/\{face \? <img src=\{onePageImageSrc\(face, /g) ?? []).length === 2 && /const face = who\.avatar/.test(preview) /* Changed on purpose (round AT): the account's photo, at the optimizer's size. */)
 check("a pick redraws the marks, not the picture (memoised)", /const TemplatePicture = memo\(/.test(onboarding))
 check("no webfonts and no hand made card in the onboarding", !/themeNameFontsHref|TEMPLATE_THUMBS|<WallpaperPattern/.test(onboarding))
 check("the templates' pictures are the Design tab's own preloaded copies", /release = preloadThemeThumbs\(\)/.test(onboarding))

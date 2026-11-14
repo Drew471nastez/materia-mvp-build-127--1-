@@ -17,7 +17,7 @@
  *             and keeps what the creator chose themselves.
  *   CARDS     a card is 5:7 and its blocks wrap out of sight rather than be
  *             cut by its edge. The bounding-box check in the real picker:
- *             scripts/check-onepage-theme-previews.mjs.
+ *             scripts/check-onepage-theme-swatches.mjs.
  *
  * Run with:  npx tsx tests/onepage-themes-w8.test.ts
  */
@@ -173,19 +173,13 @@ for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
 }
 
 console.log("\nA card ends on a whole block")
-const preview = read("components/onepage/themes/theme-preview.tsx")
-check("a card is 5:7 of the 390px page", /export const PREVIEW_HEIGHT = 546/.test(preview) && /data-theme-frame="" className="op-demo relative block aspect-\[5\/7\]/ /* Changed on purpose (round AT): op-demo plays the theme's hover on the card. */.test(design) && Math.abs(390 / 546 - 5 / 7) < 0.001)
+const preview = read("components/onepage/themes/theme-swatch.tsx")
+/* Changed on purpose (the theme swatch round): the checks here described the page-sized theme card (the creator's page at a card's scale, components/onepage/themes/theme-preview). The owner asked for that card to go; a card is a swatch now (components/onepage/themes/theme-swatch) and tests/onepage-swatch-themes.test.ts checks it. Removed: "a card is 5:7..."; "the blocks are one column that wraps..."; "the page is the card's height..."; "a card keeps 18px..."; "product tiles after the links..."; "pictures are the creator's own..."; "the picker check measures every block...". */
 /* Changed on purpose (round AS): 24px wider than the column, so the blocks keep the page's 350px. */
-check("the blocks are one column that wraps out of sight, never cut by the edge", /data-tp-blocks="" className=\{cn\("flex min-h-0 w-\[calc\(100%\+24px\)\] flex-1 flex-col flex-wrap content-start items-stretch overflow-hidden \[&>\*\]:shrink-0"/.test(preview) && /"!gap-x-\[200px\]/.test(preview))
-check("the page is the card's height, its blocks the rest under the header", /className="relative flex h-full w-full flex-col px-5/.test(preview) && /flex min-h-0 flex-1 flex-col items-center/.test(preview))
-check("a card keeps 18px over a plain header, not the page's 50 for Share", /export const PREVIEW_TOP = 18/.test(preview) && /paddingTop: hero \|\| cover \? 0 : PREVIEW_TOP/.test(preview))
 /* Changed on purpose (round AS): the blocks come in the creator's order (slotsFor); on Grid and Mixed the links' pair first, the product tiles after it. */
-check("product tiles after the links, so they never take the links out of sight", /const out: Slot\[\] = \[\{ kind: "link", at: 0 \}, \{ kind: "link", at: 1 \}, \{ kind: "product" \}, \{ kind: "news" \}\]/.test(preview) /* Changed on purpose (round AT): the creator's own two links first, in every layout. */)
 /* Changed on purpose (round AS): every picture is a drawing of the creator's (a portrait, a product, a link's), not a wash. */
-check("pictures are the creator's own, or a quiet tint for a sample, never a grey slab", /const pictureOf = /.test(preview) && /const tintOfPicture = /.test(preview) && /onePageImageSrc\(face, 160\)/.test(preview) && !/photoWash/.test(preview) /* Changed on purpose (round AT): the account's own photo and pictures, no drawings. */)
 check("still no state and no effects inside a card", !/use(State|Effect|LayoutEffect|Ref)\(/.test(preview))
-const script = read("scripts/check-onepage-theme-previews.mjs")
-check("the picker check measures every block against the card's edge and each other, and one card size", /blocks sliced by the edge/.test(script) && /two blocks overlap/.test(script) && /cards of \$\{sizes\.length\} sizes/.test(script))
+const script = read("scripts/check-onepage-theme-swatches.mjs")
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
