@@ -71,7 +71,7 @@ section("The product sheet's gallery")
   check("a square", SHEET_GALLERY_RATIO === 1 && /const ratio = SHEET_GALLERY_RATIO/.test(sheet))
   check("every picture fills it (object-cover), as the thumbnails do", /function SlidePicture[\s\S]{0,400}fit="cover"/.test(sheet) && /<FramedPicture src=\{still\} frame=\{1\}[^>]*imgClassName="object-cover"/.test(sheet))
   /* Changed on purpose (wave 10, legible): the words end with pb-8, room to clear the soft fade over the Buy bar (the owner's phone: the bar cut the Size row). */
-  check("the full width of the sheet's content, with the title's padding", /"px-5 pt-2 sm:px-6 sm:pt-5"/.test(sheet) && /space-y-3 px-5 pb-8 pt-4 sm:px-6/.test(sheet) && /width:`min\(100%, calc\(60dvh \* \$\{ratio\}\)\)`/.test(sheet))
+  check("the full width of the sheet's content, with the title's padding", /"px-5 pt-2 sm:px-6 sm:pt-5"/.test(sheet) && /* Changed on purpose (wave 16): 20px steps in the details, and the gallery always the full width (the owner: "the main product image must display full width"); it was capped at 60dvh and centred, narrower than the words on a short screen. */ /space-y-5 px-5 pb-8 pt-5 sm:px-6/.test(sheet) && /relative isolate w-full overflow-hidden rounded-2xl/.test(sheet) && !/60dvh/.test(sheet))
 }
 
 section("The settings matrix probe")

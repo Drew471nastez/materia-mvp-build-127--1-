@@ -124,8 +124,8 @@ console.log("\n3. The product sheet")
   const sheet = code("components/onepage/product-sheet.tsx")
   check("the gallery stays square", /const ratio = SHEET_GALLERY_RATIO/.test(sheet) && /aspectRatio:String\(ratio\)/.test(sheet))
   check("no hard line across the words over the Buy bar: a soft fade of the sheet's own surface", !/shrink-0 border-t border-\[#f0f0f3\] bg-white/.test(sheet) && /before:bg-gradient-to-t before:from-\[color-mix\(in_srgb,var\(--opk-surface,#ffffff\)_88%,transparent\)\]/.test(sheet))
-  check("the words end with room to clear that fade, and the bar keeps the home indicator clear", /space-y-3 px-5 pb-8 pt-4 sm:px-6/.test(sheet) && /pb-\[max\(1rem,env\(safe-area-inset-bottom\)\)\]/.test(sheet))
-  check("thumbnails: square, a fifth of the gallery (72px at most), centred while they fit, a strip that scrolls beyond", /aspect-square w-\[calc\(\(100%-32px\)\/5\)\] max-w-\[72px\] shrink-0/.test(sheet) && /first:ml-auto last:mr-auto/.test(sheet) && /overflow-x-auto/.test(sheet))
+  check("the words end with room to clear that fade, and the bar keeps the home indicator clear", /* Changed on purpose (wave 16): the owner asked for cleaner type and spacing; the details step 20px (space-y-5) from a 20px top. */ /space-y-5 px-5 pb-8 pt-5 sm:px-6/.test(sheet) && /pb-\[max\(1rem,env\(safe-area-inset-bottom\)\)\]/.test(sheet))
+  check("thumbnails: square, a fifth of the gallery (72px at most), left aligned, a strip that scrolls beyond", /aspect-square w-\[calc\(\(100%-32px\)\/5\)\] max-w-\[72px\] shrink-0/.test(sheet) && /* Changed on purpose (wave 16): the owner asked for the thumbnails left aligned, not centred. */ !/first:ml-auto|last:mr-auto/.test(sheet) && /overflow-x-auto/.test(sheet))
   check("a video's thumbnail: its still with a small play mark in the corner, or the sheet's tone with it in the middle", /still \? "bottom-1 left-1" : "inset-0"/.test(sheet) && /data-product-sheet-thumb-video/.test(sheet))
 }
 
