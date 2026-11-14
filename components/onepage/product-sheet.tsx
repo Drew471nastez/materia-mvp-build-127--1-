@@ -62,7 +62,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Minus, Pause, Pla
 import { cn } from "@/lib/utils"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
-import { loadProductFacts, type ProductFacts } from "@/components/checkout/instant-checkout"
+import { loadProductFacts, type ProductFacts } from "@/components/checkout/product-facts"
 import { productCheckoutUrl, sheetBuyBlocker, sheetButtonLabel, sheetMaxQuantity } from "@/lib/onepage/product-block"
 import { onePageShippedCheckoutHref } from "@/lib/onepage/shipped-checkout"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
