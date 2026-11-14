@@ -22,8 +22,11 @@
   (everything-globe-worker.ts, shipped as a string built by
   scripts/build-globe-worker.mjs), timed by the display's own frames, so it
   is as smooth at 144Hz as at 60. The page's own thread only passes the
-  pointer on and moves the order pill (a transform, set as the worker
-  reports the city's place each frame, so it sits exactly on the city).
+  pointer on and moves the order pill: a few times a second the worker says
+  where the city is and where it will be a moment later, and the pill glides
+  there in one compositor animation (round 4: told every frame, the page
+  restyled and committed itself every frame, and dragging lagged). The pill
+  steps aside while the globe is dragged or coasting from a throw.
   Elsewhere the same engine runs here. It draws only while the section is on
   screen, the tab is visible and the globe itself is in view. Under reduced
   motion it stands still (one frame), and redraws only while dragged.
@@ -199,12 +202,21 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
     }
     const st = { w: 0, h: 0, pill: -1, pw: 0, shift: 0, visible: true, shown: true, live: false, reduced: false, dragging: -1 }
 
-    /* The pill: its anchor (the stem) sits exactly on the city, moved by transform only; its body is nudged sideways, also by transform, only when it would leave the card. */
+    /*
+      The pill: its anchor (the stem) sits exactly on the city, moved by transform only. The globe says where the city
+      is a few times a second, with where it will be a moment later, and the pill glides there in one compositor
+      animation (round 4: a style change here on every frame cost a commit of the whole page each frame, and the drag
+      lagged behind it). Its body is nudged sideways, also by transform, only when it would leave the card.
+    */
+    let glide: Animation | null = null
     const onPill = (p: GlobePill) => {
       const el = pills.children[p.i] as HTMLElement | undefined
       if (!el) return
       if (p.i !== st.pill) {
-        ;(pills.children[st.pill] as HTMLElement | undefined)?.removeAttribute("data-on")
+        const old = pills.children[st.pill] as HTMLElement | undefined
+        old?.removeAttribute("data-on")
+        glide?.cancel()
+        glide = null
         st.pill = p.i
         st.pw = 0
         st.shift = 0
@@ -212,17 +224,27 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       }
       const body = el.firstElementChild as HTMLElement | null
       /* The body's width, read once per pill as it is first shown. */
-      if (!st.pw) st.pw = (body?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0
+      if (!st.pw && p.on) st.pw = (body?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0
       const half = st.pw / 2
       const lo = 12 + half
       const hi = st.w - 12 - half
-      const shift = Math.round((p.x < lo ? lo - p.x : p.x > hi ? hi - p.x : 0) * 2) / 2
+      const mid = (p.x + p.x2) / 2
+      const shift = Math.round((mid < lo ? lo - mid : mid > hi ? hi - mid : 0) * 2) / 2
       if (shift !== st.shift && body) {
         st.shift = shift
         body.style.transform = shift ? `translate(${shift}px,0)` : ""
       }
-      el.style.transform = `translate(${p.x.toFixed(2)}px,${p.y.toFixed(2)}px)`
-      el.toggleAttribute("data-on", p.on)
+      const from = `translate(${p.x.toFixed(2)}px,${p.y.toFixed(2)}px)`
+      const prev = glide
+      if (p.on && p.d > 0 && typeof el.animate === "function") {
+        el.style.transform = from
+        glide = el.animate([{ transform: from }, { transform: `translate(${p.x2.toFixed(2)}px,${p.y2.toFixed(2)}px)` }], { duration: p.d, easing: "linear", fill: "forwards" })
+      } else {
+        glide = null
+        el.style.transform = from
+      }
+      prev?.cancel()
+      if (el.hasAttribute("data-on") !== p.on) el.toggleAttribute("data-on", p.on)
     }
     const driver = startDriver(canvas, onPill, () => {
       if (!canvas.hasAttribute("data-drawn")) canvas.setAttribute("data-drawn", "")
@@ -247,13 +269,22 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       } catch {}
       driver.pointer({ kind: "down", x: e.clientX, y: e.clientY, t: e.timeStamp })
     }
+    /*
+      The move path reads no layout: a drag passes the pointer straight to the globe (Chromium already hands pointermove
+      over once per frame), and the lean uses the card's box as read once when the mouse comes in, dropped again when
+      the page scrolls or the card is resized.
+    */
+    let rect: DOMRect | null = null
     const onMove = (e: PointerEvent) => {
       if (st.dragging === e.pointerId) {
         driver.pointer({ kind: "move", x: e.clientX, y: e.clientY, t: e.timeStamp })
         return
       }
       if (e.pointerType !== "mouse" || st.reduced) return
-      const rect = box.getBoundingClientRect()
+      if (!rect) {
+        rect = box.getBoundingClientRect()
+        window.addEventListener("scroll", forget, { passive: true, once: true })
+      }
       driver.lean((e.clientX - rect.left) / rect.width - 0.5, (e.clientY - rect.top) / rect.height - 0.5)
     }
     const onUp = (e: PointerEvent) => {
@@ -263,8 +294,13 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       driver.pointer({ kind: "up", x: e.clientX, y: e.clientY, t: e.timeStamp })
     }
     const onLeave = (e: PointerEvent) => {
+      forget()
       if (e.pointerType !== "mouse") return
       driver.lean(0, 0)
+    }
+    function forget() {
+      rect = null
+      window.removeEventListener("scroll", forget)
     }
 
     box.addEventListener("pointerdown", onDown)
@@ -282,6 +318,7 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
             if (!w || !h) return
             st.w = w
             st.h = h
+            forget()
             driver.size(w, h, Math.min(2, window.devicePixelRatio || 1))
           })
         : null
@@ -321,6 +358,8 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       box.removeEventListener("pointerup", onUp)
       box.removeEventListener("pointercancel", onUp)
       box.removeEventListener("pointerleave", onLeave)
+      window.removeEventListener("scroll", forget)
+      glide?.cancel()
       ctl.current = null
     }
   }, [])

@@ -104,7 +104,8 @@ for (const e of SHOWCASE_EXAMPLES.filter((x) => x.format === "portrait")) assert
 /* Added (wave 14, the owner): every caption is three words at most, and the cards are real kinds of creators (a Notion template seller, a strength coach, a music producer and more), each card its own picture. */
 for (const e of SHOWCASE_EXAMPLES) assert.ok(e.label.split(/\s+/).length <= 3, `"${e.label}" is three words at most`)
 assert.equal(new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size, 12, "twelve different pictures")
-for (const want of [/Notion template/, /strength|training program/i, /sample pack/i]) assert.ok(SHOWCASE_EXAMPLES.some((e) => want.test(e.alt)), `a creator for ${want}`)
+/* Changed on purpose (landing round 4): the owner asked for Lowtide (the sample pack store) to go; the set keeps a digital seller, a coach and a merch store. */
+for (const want of [/Notion template/, /strength|training program/i, /merch|tee|hoodie|cap/i]) assert.ok(SHOWCASE_EXAMPLES.some((e) => want.test(e.alt) || want.test(e.label)), `a creator for ${want}`)
 // The caption and its fade are hidden by default and come in only while a mouse rests on the picture, as one opacity on its own layer.
 /* Changed on purpose (wave 13 perf): the caption's own layer (will-change) only where a mouse can show it; a touch screen never does. */
 assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(showcaseSrc) && /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-slide figcaption\{will-change:opacity\}/.test(showcaseSrc), "the caption starts hidden")

@@ -43,9 +43,23 @@ const TRAIL_CHUNKS = 14
 const DEPTH_BUCKETS = 6
 /** The pill only shows while its city faces the viewer this much (z of the unit vector). */
 const PILL_MIN_Z = 0.16
+/**
+ * The pill is told where to go about four times a second (round 4: one message and one style change on the page's
+ * thread per frame, each a commit of the whole page there, was what made dragging lag). Each glide is planned a little
+ * longer than the gap, so the next one takes over mid-glide from where the pill really is.
+ */
+const PILL_EVERY = 240
+const PILL_GLIDE = PILL_EVERY + 90
+/** Faster than this (a drag, or a throw still coasting) the pill steps aside, and comes back once the globe has settled. */
+const PILL_CALM_YAW = 0.0005
+const PILL_CALM_PITCH = 0.00025
 
-/** Where the pill should be: the buyer's city in CSS pixels of the card, and whether it faces the viewer. */
-export type GlobePill = { i: number; x: number; y: number; on: boolean }
+/**
+ * Where the pill should be: the buyer's city in CSS pixels of the card, and whether it faces the viewer. While the
+ * globe turns by itself, (x2, y2) is where the city will be `d` ms from now: the page glides the pill there with one
+ * compositor animation, so it hears from the globe a few times a second instead of every frame. d = 0: set it there.
+ */
+export type GlobePill = { i: number; x: number; y: number; on: boolean; x2: number; y2: number; d: number }
 
 export type GlobePointer = { kind: "down" | "move" | "up"; x: number; y: number; t: number }
 
@@ -236,19 +250,51 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
   /** A point of a shot is hidden while it is behind the ball. */
   const behind = () => rz < 0 && rx * rx + ry * ry < 1
 
-  /* The pill rides on the latest buyer's city every frame (only a transform on the page), and steps aside when the city turns away. */
+  /*
+    The pill rides on the latest buyer's city. A few times a second (not every frame) the page is told where the city
+    is and where it will be a moment later, and glides it there on the compositor; it steps aside while the globe is
+    dragged or still coasting from a throw, and when the city turns away.
+  */
+  let pillNext = 0
+  const pillPlace = (yaw: number, pitch: number, c: V3) => {
+    const cy0 = Math.cos(yaw)
+    const sy0 = Math.sin(yaw)
+    const cp0 = Math.cos(pitch)
+    const sp0 = Math.sin(pitch)
+    const x1 = c[0] * cy0 + c[2] * sy0
+    const z1 = -c[0] * sy0 + c[2] * cy0
+    rx = x1
+    ry = c[1] * cp0 - z1 * sp0
+    rz = c[1] * sp0 + z1 * cp0
+  }
   const sendPill = (force: boolean) => {
     if (st.pill < 0) return
     const c = cities[st.pill]
-    rot(c[0], c[1], c[2])
-    const on = rz > PILL_MIN_Z
+    const calm = !st.dragging && Math.abs(st.vyaw - (st.reduced ? 0 : AUTO_SPIN)) < PILL_CALM_YAW && Math.abs(st.vpitch) < PILL_CALM_PITCH
+    pillPlace(st.yaw + st.leanX, st.pitch + st.leanY, c)
+    const on = calm && rz > PILL_MIN_Z
     const x = st.cx + rx * st.R
     const y = st.cy - ry * st.R
-    if (!force && on === st.pillOn && (!on || (Math.abs(x - st.pillX) < 0.04 && Math.abs(y - st.pillY) < 0.04))) return
+    if (!force && on === st.pillOn && (!on || st.clock < pillNext)) return
+    let x2 = x
+    let y2 = y
+    let d = 0
+    if (on && st.running) {
+      /* Where the city will be PILL_GLIDE ms on: the spin carries on, the tilt and the lean keep easing home. */
+      d = PILL_GLIDE
+      const kp = 1 - Math.exp(-d / 1200)
+      const kl = 1 - Math.exp(-d / 240)
+      const leanX = st.leanX + (st.targetLeanX - st.leanX) * kl
+      const leanY = st.leanY + (st.targetLeanY - st.leanY) * kl
+      pillPlace(st.yaw + st.vyaw * d + leanX, st.pitch + (BASE_PITCH - st.pitch) * kp + leanY, c)
+      x2 = st.cx + rx * st.R
+      y2 = st.cy - ry * st.R
+    }
     st.pillOn = on
     st.pillX = x
     st.pillY = y
-    host.onPill({ i: st.pill, x, y, on })
+    pillNext = st.clock + PILL_EVERY
+    host.onPill({ i: st.pill, x, y, on, x2, y2, d })
   }
 
   /* One point along a shot at fractional index f, rotated: sets rx, ry, rz. */
@@ -516,6 +562,9 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
       host.caf(st.frame)
       st.frame = 0
       if (st.dirty) draw()
+      /* Stopped: the pill's glide would carry on past the city, so it is set where the city is. */
+      setRot()
+      sendPill(true)
     }
   }
 

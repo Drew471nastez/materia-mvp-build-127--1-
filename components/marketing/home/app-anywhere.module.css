@@ -1,29 +1,39 @@
-/* Section 15, the app: three plain points, the store badges and the owner's photograph. */
+/* Section 15, the app (round 4: on the page's dark close, no purple): three plain points, the store badges and the owner's photograph. */
 
-/* The three points: titles only, divided by hairlines, no marks. */
+.section {
+  background: transparent;
+  color: #fafafa;
+}
+.lede {
+  font-size: clamp(16px, 1.4vw, 19px);
+  line-height: 1.6;
+  color: #a3a0ac;
+}
+
+/* The three points: titles only, divided by faint hairlines, no marks. */
 .points {
   max-width: 460px;
-  border-top: 1px solid var(--band-line, #ececf0);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 .point {
   padding: 16px 0;
-  border-bottom: 1px solid var(--band-line, #ececf0);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   font-size: clamp(17px, 1.5vw, 20px);
   font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.35;
-  color: var(--band-ink, #18181b);
+  color: #ececf1;
 }
 
-/* The photograph, at its own 4:3 shape so the box is there before the file. */
+/* The photograph, at its own 4:3 shape so the box is there before the file, with a thin light edge on the dark. */
 .photo {
   position: relative;
   overflow: hidden;
   width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: clamp(19px, 2.4vw, 31px);
-  background: #3a5a80;
-  box-shadow: 0 30px 60px -36px rgba(24, 16, 48, 0.45);
+  background: #1b2433;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 .img {
   position: absolute;
