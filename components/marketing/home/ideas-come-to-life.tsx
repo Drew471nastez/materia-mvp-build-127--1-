@@ -11,6 +11,8 @@ export const IDEAS_HEADING = "See your ideas come to life."
 type IdeasSlide = {
   id: string
   title: string
+  /** The slide's name in the tabs under the carousel. */
+  tab: string
   /** The heading this slide flips the section's heading to; its last word is the accent. */
   heading: string
   line: string
@@ -27,6 +29,7 @@ export const IDEAS_SLIDES: readonly IdeasSlide[] = [
   {
     id: "website",
     title: "Website builder",
+    tab: "Website",
     heading: IDEAS_HEADING,
     line: "Pick a section, change it, publish. The page you edit is the page people see.",
     alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the Hearth & Hand home page in the sidebar, and the page itself, a sourdough course. The Curriculum section is selected, then Publish changes puts it live.",
@@ -35,6 +38,7 @@ export const IDEAS_SLIDES: readonly IdeasSlide[] = [
   {
     id: "design",
     title: "Design",
+    tab: "Design",
     heading: "Full control over design.",
     line: "Colors, type and motion for every section, from the theme or your own.",
     alt: "The Hero section open in Storelib's website builder: its color scheme changes from Light to Dark and the page's hero turns dark as it is picked.",
@@ -43,6 +47,7 @@ export const IDEAS_SLIDES: readonly IdeasSlide[] = [
   {
     id: "onepage",
     title: "OnePage editor",
+    tab: "OnePage",
     heading: "One page for every link.",
     line: "Links, products and an email signup, with the live page beside you as you edit.",
     alt: "Storelib's OnePage editor: Nina Sato's links, her EP, a vinyl record and guitar lessons on the Links tab beside her live page on the Air theme, as her email signup block is switched on and saved.",
@@ -51,6 +56,7 @@ export const IDEAS_SLIDES: readonly IdeasSlide[] = [
   {
     id: "community",
     title: "Community editor",
+    tab: "Community",
     heading: "A home for your community.",
     line: "Edit the page people see before they join, right on the page itself.",
     alt: "Storelib's community page editor for Kiln & Clay Collective: the community's About page beside the Edit page panel, as its tagline is rewritten, outlined on the page, and saved.",
@@ -225,12 +231,15 @@ export function IdeasComeToLife() {
           </div>
         ))}
       </div>
-      <div className="ideas-dots">
-        {IDEAS_SLIDES.map((s, i) => (
-          <button key={s.id} type="button" className="ideas-dot" aria-label={s.title} aria-current={i === index || undefined} onClick={() => goTo(i)}>
-            <i />
-          </button>
-        ))}
+      {/* Landing round 3: the tabs of "Make the work" (the owner likes those) in place of four dots: a grey track, the slide in front white. */}
+      <div className="ideas-tabs-row">
+        <div className="ideas-tabs" role="group" aria-label="Storelib's editors">
+          {IDEAS_SLIDES.map((s, i) => (
+            <button key={s.id} type="button" className="ideas-tab" aria-label={s.title} aria-current={i === index || undefined} onClick={() => goTo(i)}>
+              <span>{s.tab}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </section>
   )
@@ -263,11 +272,16 @@ const CSS = `
 .ideas-rail[data-rail-ready] .ideas-slide{will-change:transform;backface-visibility:hidden}
 .ideas-slide[data-active]{opacity:1}
 .ideas-mock{aspect-ratio:1280/752;background:#fff;pointer-events:none}
-.ideas-dots{display:flex;justify-content:center;gap:4px;margin-top:clamp(18px,2vw,26px)}
-.ideas-dot{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.ideas-dot i{display:block;width:8px;height:8px;border-radius:50%;background:#d4d4d8;transition:background-color .3s ease,transform .3s ease}
-.ideas-dot[aria-current] i{background:#18181b;transform:scale(1.15)}
-.ideas-dot:focus-visible{outline:2px solid #7c3aed;outline-offset:-4px;border-radius:50%}
+.ideas-tabs-row{display:flex;justify-content:center;margin-top:clamp(16px,2vw,24px)}
+.ideas-tabs{display:flex;gap:2px;padding:4px;border-radius:999px;background:#f1f1f2}
+.ideas-tab{position:relative;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
+.ideas-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s cubic-bezier(.22,1,.36,1)}
+.ideas-tab span{position:relative}
+.ideas-tab[aria-current]{color:#18181b}
+.ideas-tab[aria-current]::before{opacity:1;transform:none}
+@media(hover:hover){.ideas-tab:not([aria-current]):hover{color:#18181b}}
+.ideas-tab:focus-visible{outline:2px solid #18181b;outline-offset:2px}
+@media(max-width:479px){.ideas-tab{padding:0 10px;font-size:12.5px}}
 @media(max-width:767px){
   .ideas .ideas-h{font-size:clamp(30px,8.4vw,40px)}
   .ideas-rail{--iw:calc(100% - 44px);--ig:10px}
@@ -276,7 +290,7 @@ const CSS = `
 }
 @media(prefers-reduced-motion:reduce){
   .ideas-line,.ideas-subline{transition:none!important;transform:none!important}
-  .ideas-slide{transition:none}
+  .ideas-slide,.ideas-tab,.ideas-tab::before{transition:none}
 }
 `
 

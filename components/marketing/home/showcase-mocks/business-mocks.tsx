@@ -1,4 +1,4 @@
-import { Calendar, Check, Clock, Download, FileText, Lock, MapPin, Play, Truck, Users, Video } from "lucide-react"
+import { Calendar, Check, Clock, Download, FileAudio, Lock, MapPin, Play, Truck, Users, Video } from "lucide-react"
 import { Pic, u } from "./frame"
 
 /*
@@ -7,10 +7,15 @@ import { Pic, u } from "./frame"
   mockups. In their place: one calm product page for each kind of thing a
   Storelib store sells, the way a buyer sees it before paying, on a light
   grey stage. Real photographs, a product drawn in HTML where a photo would
-  be a stock render (the ebook), and only what the page would really say:
-  the price, the format, how it arrives.
+  be a stock render, and only what the page would really say: the price,
+  the format, how it arrives.
 
-    Digital product   Weeknight Green, Priya Raman's PDF cookbook
+  Landing round 3 (the owner: a digital product must be "an actual digital
+  product", not a cover with a photograph): the digital product is a drum
+  sample pack, drawn whole in HTML. Its cover is type and a waveform, the
+  way such packs are sold, with three of its files under it.
+
+    Digital product   Dust & Tape Drums, Ray Okoye's pack of 140 drum samples
     Course            Wheel throwing, from first centering, by Mei Lin
     Community         Saturday Run Club, Dani Brooks's free run club
     Physical product  The Pines Tour Tee, printed and shipped for Hollow Pines
@@ -28,35 +33,72 @@ function Kicker({ children }: { children: string }) {
 }
 
 /* ================================================================ Digital product */
-export function EbookPage() {
+/* A sound's outline, as bar heights in percent: a hit that rings out, a short tick, a loop of four beats. */
+const WAVES = {
+  cover: [18, 34, 62, 96, 80, 58, 70, 44, 52, 30, 38, 22, 26, 16, 20, 12, 14, 9, 11, 7, 8, 6, 22, 48, 88, 72, 50, 60, 36, 42, 26, 30, 18, 20, 13, 15, 10, 11, 8, 7],
+  kick: [30, 96, 84, 66, 54, 42, 34, 26, 20, 15, 12, 9, 7, 6, 5, 4],
+  hat: [90, 60, 34, 20, 12, 8, 5, 4, 3, 3, 2, 2, 2, 2, 2, 2],
+  loop: [80, 30, 14, 46, 90, 34, 16, 40, 76, 28, 12, 52, 94, 36, 18, 44],
+} as const
+
+function Wave({ of, className = "" }: { of: keyof typeof WAVES; className?: string }) {
+  return (
+    <span className={`bp-wave ${className}`}>
+      {WAVES[of].map((h, i) => (
+        <i key={i} style={{ height: `${h}%` }} />
+      ))}
+    </span>
+  )
+}
+
+const SAMPLES = [
+  ["Kick_Dusty_03.wav", "kick", "0:01"],
+  ["Hat_Tape_11.wav", "hat", "0:01"],
+  ["Loop_92bpm_A.wav", "loop", "0:10"],
+] as const
+
+export function SamplePackPage() {
   return (
     <div className="bp bp-digital">
       <div className="bp-card bp-split">
-        <div className="bp-media bp-shelf">
-          <span className="bp-sheet" />
-          <span className="bp-book">
-            <Pic n="ss-bowl" w={480} h={480} className="bp-book-pic" />
-            <span className="bp-book-foot">
-              <b>Weeknight Green</b>
-              <i>60 plant-based dinners</i>
-              <em>Priya Raman</em>
-            </span>
+        <div className="bp-media bp-gray bp-pack">
+          <span className="bp-cover-art">
+            <em>Sample pack · Vol. 2</em>
+            <b>
+              Dust &amp;
+              <br />
+              Tape
+            </b>
+            <Wave of="cover" />
+            <i>140 drum one-shots and loops</i>
           </span>
+          <ul className="bp-samples">
+            {SAMPLES.map(([name, wave, len]) => (
+              <li key={name}>
+                <span className="bp-sample-play">
+                  <Play fill="currentColor" strokeWidth={0} />
+                </span>
+                <b>{name}</b>
+                <Wave of={wave} />
+                <em>{len}</em>
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="bp-info">
           <Kicker>Digital product</Kicker>
-          <h4>Weeknight Green</h4>
-          <p className="bp-by">by Priya Raman</p>
-          <p className="bp-price">$18</p>
+          <h4>Dust &amp; Tape Drums</h4>
+          <p className="bp-by">by Ray Okoye</p>
+          <p className="bp-price">$24</p>
           <ul className="bp-facts">
             <li>
-              <FileText /> PDF, 84 pages
+              <FileAudio /> 140 WAV files, 24-bit
             </li>
             <li>
               <Download /> Download right after paying
             </li>
             <li>
-              <Check /> Free updates when recipes are added
+              <Check /> Royalty free in your own tracks
             </li>
           </ul>
           <span className="bp-btn">Buy now</span>
@@ -262,7 +304,7 @@ export function BookingPage() {
 
 /* ================================================================ styles */
 export const BUSINESS_MOCK_CSS = u(`
-.bp{position:absolute;inset:0;padding:30u;background:#f2f2f3;color:#18181b;font-family:var(--font-inter,Inter),Inter,system-ui,sans-serif;font-size:14u;line-height:1.4}
+.bp{position:absolute;inset:0;padding:30u;background:#eef0f2;color:#18181b;font-family:var(--font-inter,Inter),Inter,system-ui,sans-serif;font-size:14u;line-height:1.4}
 .bp svg{width:15u;height:15u;flex:none}
 .bp-card{position:relative;height:100%;border-radius:17u;background:#fff;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 1u 2u rgba(16,24,40,.04),0 18u 40u -24u rgba(16,24,40,.25)}
 .bp-split{display:grid;grid-template-columns:262u 1fr}
@@ -279,15 +321,22 @@ export const BUSINESS_MOCK_CSS = u(`
 .bp-btn{display:grid;place-items:center;height:44u;margin-top:auto;padding:0 20u;border-radius:12u;background:#18181b;color:#fff;font-size:14.5u;font-weight:600;white-space:nowrap}
 .bp-label{margin-top:14u!important;font-size:12.5u;font-weight:500;color:#52525b}
 
-/* digital: the ebook on a shelf of its own */
-.bp-shelf{background:#efe9df}
-.bp-sheet{position:absolute;left:50%;top:50%;width:150u;height:206u;margin:-96u 0 0 -58u;border-radius:3u;background:#fbfaf7;box-shadow:0 1u 2u rgba(60,40,20,.12),0 14u 26u -14u rgba(60,40,20,.35)}
-.bp-book{position:relative;display:flex;flex-direction:column;width:156u;height:214u;margin:-10u 30u 0 0;border-radius:3u 6u 6u 3u;background:#f6f3ec;overflow:hidden;box-shadow:inset 5u 0 0 rgba(0,0,0,.08),0 2u 3u rgba(60,40,20,.15),0 22u 34u -16u rgba(60,40,20,.45)}
-.bp-book-pic{height:118u!important}
-.bp-book-foot{display:flex;flex-direction:column;padding:11u 12u 10u 16u;flex:1}
-.bp-book-foot b{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:400;font-size:19u;line-height:1.05;color:#2f3d2a}
-.bp-book-foot i{margin-top:4u;font-size:8.5u;font-style:normal;color:#6b6a5e}
-.bp-book-foot em{margin-top:auto;font-size:8u;font-style:normal;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#6b6a5e}
+/* digital: the sample pack's cover, drawn in type and a waveform, and three of its files */
+.bp-pack{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:12u;padding:0 16u}
+.bp-cover-art{display:flex;flex-direction:column;aspect-ratio:1;padding:16u 16u 14u;border-radius:6u;background:#1b1a18;color:#f1e9d8;box-shadow:0 1u 2u rgba(20,16,10,.2),0 18u 28u -16u rgba(20,16,10,.55)}
+.bp-cover-art > em{font-size:8.5u;font-style:normal;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#a79f8f}
+.bp-cover-art b{margin-top:8u;font-size:40u;font-weight:700;line-height:.92;letter-spacing:-.045em}
+.bp-cover-art > i{font-size:9.5u;font-style:normal;color:#a79f8f}
+.bp-wave{display:flex;align-items:center;gap:1.5u}
+.bp-wave i{flex:1;min-height:1.5u;border-radius:1u;background:currentColor}
+.bp-cover-art .bp-wave{height:38u;margin:auto 0 9u;color:#e2703a}
+.bp-samples{display:grid;grid-template-columns:minmax(0,1fr);gap:5u;margin:0;padding:0;list-style:none}
+.bp-samples li{display:flex;align-items:center;gap:7u;height:30u;padding:0 9u 0 5u;border-radius:9u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05)}
+.bp-sample-play{display:grid;place-items:center;flex:none;width:20u;height:20u;border-radius:50%;background:#18181b;color:#fff}
+.bp-sample-play svg{width:8u!important;height:8u!important;margin-left:1u}
+.bp-samples b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10u;font-weight:500;color:#3f3f46}
+.bp-samples .bp-wave{flex:none;width:34u;height:16u;color:#a1a1aa}
+.bp-samples em{flex:none;font-size:9.5u;font-style:normal;color:#71717a;font-variant-numeric:tabular-nums}
 
 /* course */
 .bp-course .bp-card{display:flex;flex-direction:column}

@@ -87,7 +87,7 @@ check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSy
 
 console.log("\n── card 2 and 4 ──")
 /* Changed on purpose (landing round): the owner asked for a continuous carousel, like the creators rail; the stores drift without a stop, the set twice over moved by half its width in one linear loop. */
-check("the storefronts drift past without a stop, the strip seamless (the set twice, half its width a loop)", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && /@keyframes ev-stores\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(-50%,0,0\)\}\}/.test(css) && /animation:ev-stores \d+s linear infinite/.test(css))
+check("the storefronts drift past without a stop, the strip seamless (the set twice, half its width a loop)", /* Changed on purpose (landing round 3): the strip is the stores with real OnePages between them, still the set twice. */ /const strip = \[\.\.\.EVERYTHING_STRIP, \.\.\.EVERYTHING_STRIP\]/.test(src) && /@keyframes ev-stores\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(-50%,0,0\)\}\}/.test(css) && /animation:ev-stores \d+s linear infinite/.test(css))
 /* Changed on purpose (landing round 2): the support card is the Support page as it reads, its two inboxes (From buyers, Storelib) and threads with no avatars, so the Storelib logo avatar went with them. */
 check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /<span>From buyers<\/span>/.test(html) && /data-inbox="buyers"/.test(html) && /data-inbox="storelib"/.test(html))
 const pics = [...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])

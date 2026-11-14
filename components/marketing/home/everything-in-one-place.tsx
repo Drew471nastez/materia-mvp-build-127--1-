@@ -10,7 +10,7 @@
   products and numbers:
 
     1. Sell anything you make: a product card that slides through merch, a
-       PDF guide, a course and a community page, the calm colour behind it
+       LUT pack, a course and a community page, the calm colour behind it
        changing with each; the tabs pick one, and it plays by itself while
        on screen. Under a mouse the white card leans away from the pointer,
        as if pressed, and springs back when the pointer leaves.
@@ -19,7 +19,9 @@
        round photo, name, handle, bio and social icons, Home / Products /
        Communities, Featured and the product cards), each in one of the
        store's real colour schemes (lib/store-builder/defaults themePresets),
-       drifting past without a stop.
+       and between them real OnePages as a phone shows them (captures of live
+       pages, no address bar), drifting past without a stop. Pictures only:
+       nothing in the strip can be hovered, clicked or selected.
     3. Sell anywhere in the world: a globe the visitor can spin, with orders
        arcing to buyers in currencies checkout charges in.
     4. Real support: the Support page of /app (app/(storelib)/app/support),
@@ -51,7 +53,7 @@ type Slide = {
   tab: string
   name: string
   /** How the product's picture is drawn in the card: a photo on its own, or a cover or page built around one. */
-  kind: "tee" | "guide" | "course" | "community"
+  kind: "tee" | "luts" | "course" | "community"
   img: string
   w: number
   h: number
@@ -64,6 +66,13 @@ type Slide = {
   product's numbers add up: sold times price is the revenue. The community
   is its page as a member sees it (components/community/member): the top
   bar with the community's mark, the places, "Share something..." and a post.
+
+  Landing round 3 (the owner: no "cover with a landscape", an actual digital
+  product, named like one, "LUTs or whatever"): the digital product is a LUT
+  pack for video, shown the way such a pack is sold. One frame split down
+  the middle, the flat log footage on the left and the graded picture on
+  the right, the looks in the pack as small frames under it, and the file
+  that is selected. The photo is there only to show what the product does.
 */
 export const EVERYTHING_SLIDES: Slide[] = [
   {
@@ -82,15 +91,15 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
   {
     tab: "Digital",
-    name: "Sourdough at Home",
-    kind: "guide",
-    img: `${IMG}/guide-bread.webp`,
-    w: 400,
-    h: 361,
+    name: "Cine Tones, 12 LUTs",
+    kind: "luts",
+    img: `${IMG}/lut-frame.webp`,
+    w: 480,
+    h: 270,
     stats: [
-      ["Price", "$19.00"],
-      ["Downloads", "612"],
-      ["Revenue", "$11,628.00"],
+      ["Price", "$29.00"],
+      ["Downloads", "386"],
+      ["Revenue", "$11,194.00"],
     ],
     status: "Live",
   },
@@ -179,17 +188,41 @@ function CommunityPage({ s }: { s: Slide }) {
   )
 }
 
-/** The product's picture: the photo, or for the PDF guide its cover, standing on the tile. */
+/** The looks in the pack, as the small frames under the split one; each is the same frame under another grade. */
+const LUT_LOOKS = ["dusk", "kodak", "teal", "fade", "mono"] as const
+
+/** The LUT pack: one frame, flat on the left and graded on the right, the pack's looks and the chosen file. */
+function LutPack({ s }: { s: Slide }) {
+  return (
+    <span className="ev-lut">
+      <span className="ev-lut-frame">
+        <Img className="ev-lut-graded" src={s.img} w={s.w} h={s.h} />
+        <span className="ev-lut-flat">
+          <Img src={s.img} w={s.w} h={s.h} />
+        </span>
+        <span className="ev-lut-split" />
+        <span className="ev-lut-tag ev-lut-tag-a">Log</span>
+        <span className="ev-lut-tag ev-lut-tag-b">CT 04</span>
+      </span>
+      <span className="ev-lut-looks">
+        {LUT_LOOKS.map((look, i) => (
+          <span key={look} className={`ev-lut-look ev-lut-${look}`} data-on={i === 0 || undefined}>
+            <Img src={s.img} w={s.w} h={s.h} />
+          </span>
+        ))}
+      </span>
+      <span className="ev-lut-file">
+        <b>CT_04_Dusk.cube</b>
+        <i>4 of 12</i>
+      </span>
+    </span>
+  )
+}
+
+/** The product's picture: the photo, or for the LUT pack its looks, standing on the tile. */
 function ProductPicture({ s }: { s: Slide }) {
   const photo = <Img src={s.img} w={s.w} h={s.h} />
-  if (s.kind === "guide")
-    return (
-      <span className="ev-p-book">
-        <span className="ev-p-book-photo">{photo}</span>
-        <span className="ev-p-book-title">Sourdough at Home</span>
-        <span className="ev-p-book-sub">A 52 page guide</span>
-      </span>
-    )
+  if (s.kind === "luts") return <LutPack s={s} />
   if (s.kind === "course")
     return (
       <>
@@ -537,15 +570,44 @@ function StoreCard({ store }: { store: Storefront }) {
   )
 }
 
+/*
+  Landing round 3 (the owner: "make the OnePage just a OnePage there, real,
+  no header with the URL"; "I should not be able to hover over the OnePage
+  blocks"). Between the stores, OnePages: captures of live Storelib OnePages
+  at a phone's width (public/home/onepage), shown whole in the same rounded
+  frame as the stores, with no address and no bar over them. The whole strip
+  is a picture: it takes no pointer, no focus and no selection.
+*/
+/** bg: the page's own ground, which fills the frame under a capture shorter than it. */
+type OnePageShot = { key: string; onepage: string; w: number; h: number; bg: string }
+const OP = "/home/onepage"
+export const EVERYTHING_ONEPAGES: readonly OnePageShot[] = [
+  { key: "op-kofi", onepage: `${OP}/op-kofi.webp`, w: 560, h: 1091, bg: "#07071c" },
+  { key: "op-mariana", onepage: `${OP}/op-mariana.webp`, w: 560, h: 1091, bg: "#f1e9de" },
+  { key: "op-lucia", onepage: `${OP}/op-lucia-phone.webp`, w: 720, h: 1280, bg: "#efeae0" },
+  { key: "op-arjun", onepage: `${OP}/op-arjun.webp`, w: 560, h: 1091, bg: "#008080" },
+]
+
+/** The strip in the order it drifts: a store, a OnePage, a store, and on. */
+export const EVERYTHING_STRIP: ReadonlyArray<Storefront | OnePageShot> = EVERYTHING_STORES.flatMap((store, i) =>
+  i < EVERYTHING_ONEPAGES.length ? [store, EVERYTHING_ONEPAGES[i]] : [store],
+)
+
 function Storefronts() {
-  /* The stores twice over: the strip drifts by one set's width and starts again where it looks the same. */
-  const strip = [...EVERYTHING_STORES, ...EVERYTHING_STORES]
+  /* The strip twice over: it drifts by one set's width and starts again where it looks the same. */
+  const strip = [...EVERYTHING_STRIP, ...EVERYTHING_STRIP]
   return (
-    <div className="ev-vis ev-s" aria-hidden="true">
+    <div className="ev-vis ev-s" aria-hidden="true" data-mock-still="">
       <div className="ev-s-track ev-loop">
-        {strip.map((store, i) => (
+        {strip.map((item, i) => (
           <div key={i} className="ev-s-slot">
-            <StoreCard store={store} />
+            {"onepage" in item ? (
+              <div className="ev-st ev-op" style={{ background: item.bg }}>
+                <Img className="ev-op-img" src={item.onepage} w={item.w} h={item.h} />
+              </div>
+            ) : (
+              <StoreCard store={item} />
+            )}
           </div>
         ))}
       </div>
@@ -566,6 +628,11 @@ function Storefronts() {
   request after another, each held about eight seconds; the clock is a CSS
   animation, so it stops with the section off screen, and under reduced
   motion it never runs and the inbox tabs switch by hand.
+
+  Landing round 3 (the owner: no request about a payout that has not reached
+  the bank, "we never have issues with the bank"): none of the three is
+  about money. A creator bringing subscribers over from another tool, a
+  buyer who cannot open a download, a creator's own domain.
 */
 type Request = {
   inbox: "buyers" | "storelib"
@@ -580,14 +647,14 @@ type Request = {
 export const EVERYTHING_SUPPORT: readonly Request[] = [
   {
     inbox: "storelib",
-    title: "Payout hasn't arrived",
-    sub: "Payouts · Opened Nov 6",
+    title: "Moving my subscribers over",
+    sub: "My account · Opened Nov 6",
     pill: [
       { label: "With Storelib", tone: "blue" },
       { label: "Your reply", tone: "amber" },
     ],
-    ask: { who: "You", at: "9:41 AM", body: "My October payout says sent, but it isn't in my bank yet. Can you check?", mine: true },
-    answer: { who: "Storelib support", at: "9:58 AM", body: "It left on Nov 4, and banks take 2 to 3 business days, so your $2,184.60 lands by Friday. We'll keep this open until it does.", mine: false },
+    ask: { who: "You", at: "9:41 AM", body: "I have 3,200 subscribers on another newsletter tool. Can I bring them to Storelib?", mine: true },
+    answer: { who: "Storelib support", at: "9:58 AM", body: "Yes. Export them as a CSV with an Email column and import it under Contacts. Names and tags come with them, ready for your next email.", mine: false },
   },
   {
     inbox: "buyers",
@@ -777,12 +844,27 @@ const CSS = `
 .ev-p-img > img{display:block;width:100%;height:100%;object-fit:cover}
 .ev-p-img[data-pos="prev"]{transform:translate(-32%,0) scale(.9)}
 .ev-p-img[data-pos="on"]{opacity:1;transform:none;transition:opacity .6s ease .1s,transform 1s ${EASE} .06s}
-.ev-p-guide{display:grid;place-items:center;background:#ecebe7}
-.ev-p-book{position:relative;display:flex;flex-direction:column;width:60%;aspect-ratio:3/4;padding:6% 6% 0;box-sizing:border-box;border-radius:3px 5px 5px 3px;background:#fbf8f2;box-shadow:inset 3px 0 0 rgba(0,0,0,.05),2px 0 0 #f1ede5,3px 0 0 #e2ddd2,0 14px 22px -12px rgba(40,30,15,.45)}
-.ev-p-book-photo{display:block;overflow:hidden;aspect-ratio:400/361;border-radius:2px}
-.ev-p-book-photo img{display:block;width:100%;height:100%;object-fit:cover}
-.ev-p-book-title{margin-top:9%;font-family:Georgia,"Times New Roman",serif;font-size:clamp(10px,1.05vw,13px);line-height:1.1;color:#2b2419}
-.ev-p-book-sub{margin-top:5%;font-size:clamp(6.5px,.62vw,8px);letter-spacing:.06em;text-transform:uppercase;color:#8a8070}
+/* The LUT pack: a dark panel like a grading tool's browser. The frame is graded; its left half lies under the flat, log look. Sizes in the tile's own width (cqw). */
+.ev-p-luts{display:grid;place-items:center;background:#ededed}
+.ev-lut{display:flex;flex-direction:column;gap:3.6cqw;width:90cqw;padding:4.6cqw;box-sizing:border-box;border-radius:5cqw;background:#17171a;color:#fff;box-shadow:0 14px 22px -14px rgba(20,20,24,.6)}
+.ev-lut img{display:block;width:100%;height:100%;object-fit:cover}
+.ev-lut-frame{position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:2.4cqw}
+.ev-lut-flat{position:absolute;inset:0;clip-path:inset(0 50% 0 0)}
+.ev-lut-flat img{filter:saturate(.3) contrast(.72) brightness(1.16)}
+.ev-lut-split{position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,255,255,.9)}
+.ev-lut-tag{position:absolute;bottom:2.4cqw;padding:.9cqw 2cqw;border-radius:99px;background:rgba(0,0,0,.5);font-size:max(3.4cqw,6.5px);font-weight:600;line-height:1.2;letter-spacing:.04em;text-transform:uppercase}
+.ev-lut-tag-a{left:2.4cqw}
+.ev-lut-tag-b{right:2.4cqw}
+.ev-lut-looks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2cqw}
+.ev-lut-look{display:block;aspect-ratio:1;overflow:hidden;border-radius:1.8cqw}
+.ev-lut-look[data-on]{box-shadow:0 0 0 1.5px #17171a,0 0 0 3px #fff}
+.ev-lut-kodak img{filter:sepia(.45) saturate(1.25) contrast(1.05)}
+.ev-lut-teal img{filter:hue-rotate(-18deg) saturate(1.2) contrast(1.1) brightness(.95)}
+.ev-lut-fade img{filter:saturate(.7) contrast(.82) brightness(1.12)}
+.ev-lut-mono img{filter:grayscale(1) contrast(1.15)}
+.ev-lut-file{display:flex;align-items:baseline;justify-content:space-between;gap:2cqw;font-size:max(4.6cqw,7.5px);line-height:1.2;white-space:nowrap}
+.ev-lut-file b{min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:500;color:#e4e4e7}
+.ev-lut-file i{flex:none;font-style:normal;color:#8b8b93}
 .ev-p-lesson{position:absolute;left:8px;bottom:12px;display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;border-radius:999px;background:rgba(20,20,20,.55);color:#fff;font-size:10.5px;line-height:1;white-space:nowrap}
 .ev-p-play{position:relative;width:16px;height:16px;border-radius:99px;background:#fff}
 .ev-p-play::after{content:"";position:absolute;left:6px;top:4.5px;border-left:6px solid #18181b;border-top:3.5px solid transparent;border-bottom:3.5px solid transparent}
@@ -844,6 +926,9 @@ const CSS = `
   .ev-p-stats{gap:8px 8px}
   .ev-p-k{font-size:10.5px}
   .ev-p-v{font-size:12px}
+  /* The lesson's name fits the smaller tile whole. */
+  .ev-p-lesson{left:6px;bottom:10px;gap:4px;padding:3px 7px 3px 3px;font-size:8.5px}
+  .ev-p-play{transform:scale(.8);margin:-1px}
 }
 
 /*
@@ -852,8 +937,8 @@ const CSS = `
   steps and the compositor plays it alone. Paused off screen like every loop.
   Each store is a creator page at a phone's 390px: --r is one of its pixels.
 */
-.ev-s{background:#edece8;container-type:inline-size}
-.ev-s-track{--slot:37cqw;position:absolute;top:24px;bottom:0;left:0;display:flex;width:max-content;animation:ev-stores 60s linear infinite}
+.ev-s{background:#edece8;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
+.ev-s-track{--slot:37cqw;position:absolute;top:24px;bottom:0;left:0;display:flex;width:max-content;animation:ev-stores 100s linear infinite}
 @container (max-width:400px){.ev-s-track{--slot:46cqw;top:18px}}
 .ev-s-slot{flex:none;width:var(--slot);height:100%;padding:0 6px;box-sizing:border-box}
 @keyframes ev-stores{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
@@ -864,6 +949,8 @@ const CSS = `
 .ev-st-sage{--bg:#eef1ea;--ink:#1b2620;--mute:#5b6a60;--line:#d9e0d2;--field:#cbd4c3;--card-ink:#1b2620;--card-line:#d9e0d2;--badge:#eef1ea;--badge-ink:#2f5d46;--btn:#2f5d46}
 .ev-st-cream{--bg:#faf4e8;--ink:#1d1a14;--mute:#7c6a4c;--line:#e8dfc9;--field:#ddd1b6;--card-ink:#1d1a14;--card-line:#e8dfc9;--badge:#f6efe0;--badge-ink:#896d34;--btn:#896d34}
 .ev-st img{display:block;flex:none}
+/* A OnePage between the stores: the capture of a live page, whole, in the same frame. Nothing over it. */
+.ev-op-img{width:100%;height:auto}
 .ev-st-bar{display:flex;align-items:center;gap:${r(8)};align-self:stretch;height:${r(60)};padding:0 ${r(12)};box-sizing:border-box}
 .ev-st-bar-av{width:${r(32)};height:${r(32)};border-radius:50%;object-fit:cover}
 .ev-st-email{flex:1;min-width:0;display:flex;align-items:center;height:${r(40)};padding:0 ${r(12)};box-sizing:border-box;border:1px solid var(--field);border-radius:${r(8)};font-size:${r(16)};color:var(--mute);text-align:left}

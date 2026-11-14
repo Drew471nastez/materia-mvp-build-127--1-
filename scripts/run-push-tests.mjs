@@ -1391,6 +1391,8 @@ const SUITES = [
   "tests/home-landing-lower3.test.ts",
   /* Landing round: the showcase drags and settles on a glide (autoplay kept), and "Make the work" shows real products (no Golden Hour preset), a calm community, the tee on a grey tile and a continuous storefront rail. */
   "tests/home-landing-top.test.ts",
+  /* Landing round 3, the top sections: the store strip has real OnePages and no address, and takes no pointer; no support request about a payout; the digital product is a LUT pack (and a sample pack in the business section); the ideas and business tabs are of Make the work's family; the business section reads on white; half of the examples ship. */
+  "tests/home-landing-top3.test.ts",
   /* Landing round (rest): See what you could earn gets one flash photograph and loses its small print; the app's line is short; the public plan cards say plain things, each from the plan tables, with a quiet tick; Your AI tools work here too: the marks, a line true to a connection, the real MCP tools in a terminal on the compositor, paused off screen, still under reduced motion, after the integrations. */
   "tests/home-landing-rest.test.ts",
   /* Landing round 3, commerce: a sixth How it works tile for a creator's own domain (the three things a domain can serve, Pro, the DNS check and HTTPS, each held to the code), six even tiles, checkout demos that start over, a phone alone for one-tap payments, the pill tabs in their dark form, dark cards on black, and mocks that take no pointer. */
