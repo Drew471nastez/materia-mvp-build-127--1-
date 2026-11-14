@@ -19,6 +19,7 @@ import { soldOutMessage } from "@/lib/products/sales-limit"
 import { timed } from "@/lib/perf/server-timing"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { claimedOrder, freeClaimToken, isClaimRace, type ClaimedOrder } from "@/lib/checkout/free-claim"
 
 export const runtime = "nodejs"
 
@@ -51,6 +52,16 @@ async function handlePOST(request: Request) {
     const who = await routeUser({ fresh: true })
     if (who.kind === "unavailable") return authUnavailableResponse()
     const user = who.kind === "user" ? who.user : null
+
+    /*
+      THE SAME PRESS SENT AGAIN (round AW, lib/checkout/free-claim): its answer was lost after the order and its
+      emails, and the page said to try again. The order that press wrote is the answer, so the buyer is not sent a
+      second receipt or entered in the creator's automations twice, and no copy is counted twice. A page that sends no
+      attempt id claims as before.
+    */
+    const claimToken = freeClaimToken(body.attempt_id, { productId: product_id, email: String(email) })
+    const claimed = await claimedOrder(admin, claimToken, product_id)
+    if (claimed) return claimedAnswer(admin, cookieStore, claimed)
 
     console.log("[quick-free] User authenticated:", user ? user.id : "guest")
 
@@ -146,13 +157,17 @@ async function handlePOST(request: Request) {
     /* LIMIT SALES: a free copy is one of the limited run too, held in one locked step until its order counts it (lib/checkout/sales-limit). */
     const saleHolder = limitOf(product) !== null ? saleHolderForEmail(String(email)) : null
     if (saleHolder && !(await holdSale(admin, product.id, saleHolder, 1, CLAIM_HOLD_SECONDS))) {
+      /* The copy this same press already took: its order is the answer, not "sold out". */
+      const late = await claimedOrder(admin, claimToken, product_id)
+      if (late) return claimedAnswer(admin, cookieStore, late)
       return NextResponse.json({ error: soldOutMessage(product.title), code: "sold_out" }, { status: 409 })
     }
 
     // Generate tokens
     const accessToken = nanoid(32)
     const sessionFingerprint = nanoid(32)
-    const receiptToken = generateReceiptToken()
+    /* This press's own token when the page named it (lib/checkout/free-claim), so a second send of it meets the first at the unique receipt token. */
+    const receiptToken = claimToken ?? generateReceiptToken()
 
 
     // Get domain for cross-subdomain cookie support
@@ -195,6 +210,15 @@ async function handlePOST(request: Request) {
     const result1 = await admin.from("orders").insert(fullOrderData).select().single()
     order = result1.data
     orderError = result1.error
+
+    /* Two sends of the same press at once: the other wrote this order a moment ago. Its order is the answer, and this send's copy goes back. */
+    if (orderError && claimToken && isClaimRace(orderError)) {
+      const raced = await claimedOrder(admin, claimToken, product.id)
+      if (raced) {
+        if (saleHolder) await releaseSale(admin, product.id, saleHolder)
+        return claimedAnswer(admin, cookieStore, raced)
+      }
+    }
 
     // If full insert fails, try with minimal fields only (including required receipt_token)
     if (orderError) {
@@ -371,6 +395,24 @@ async function handlePOST(request: Request) {
       { status: 500 },
     )
   }
+}
+
+/** The order this same press already wrote (lib/checkout/free-claim), answered as its first send was: its receipt, its files, and this browser's way back to them. */
+async function claimedAnswer(admin: ReturnType<typeof createAdminClient>, cookieStore: Awaited<ReturnType<typeof cookies>>, order: ClaimedOrder) {
+  if (order.session_fingerprint) {
+    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+    const isLocalhost = mainDomain.includes("localhost")
+    cookieStore.set("materia_session", order.session_fingerprint, {
+      httpOnly: true,
+      secure: !isLocalhost,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/",
+      domain: isLocalhost ? undefined : `.${mainDomain}`,
+    })
+  }
+  const { data: assets } = await admin.from("digital_assets").select("id, file_name").eq("product_id", order.product_id).order("created_at", { ascending: true })
+  return NextResponse.json({ success: true, order_id: order.id, receipt_token: order.receipt_token, assets: assets || [], email_sent: true })
 }
 
 /* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */

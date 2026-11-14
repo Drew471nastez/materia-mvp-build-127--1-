@@ -42,6 +42,8 @@ const SUITES = [
   "tests/public-cache-aw.test.ts",
   /* Round AW (heavy load): every Google Calendar call ends (8 s), a signed campaign link redirects without waiting on the database, poll totals and review ratings are counted by the database instead of from a 1,000 row read, and /api/products/prices is limited per address, memory first. */
   "tests/heavy-load-aw.test.ts",
+  /* Round AW (double actions): a partial refund pressed again after its answer was lost is refused, not sent twice (Orders and a community's payments); a free claim sent again is the same order (process, quick-free); a paid order's losing writer lets its limited copy go. */
+  "tests/double-actions-aw.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
@@ -1574,6 +1576,8 @@ const STRICT_SUITES = [
   "tests/ai-builder-start-live-n1.test.ts",
   /* Round O (O6): the design intelligence on every AI surface (docs/ai-builder/design-intelligence.md). The website agent, the Ask for a change agent and its creative planner, the section writer, the classic planner and copy filler and the Storelib Sites agent each carry designRulesFor(surface); the agent's system prefix is byte identical across two jobs while the briefs (creative brief, art direction, references as text, motion) differ; every edit surface gets the install's DESIGN.md and the keep-the-brand rule (spec I.5) and a new site does not; no surface carries round N's "editorial serif" type steering, and a personal trainer is not handed the italic serif bundle. */
   "tests/ai-surfaces-o6.test.ts",
+  /* Round AW (double actions), through the real routes: Orders > Refund pressed again after its answer was lost is refused (409) and Stripe makes one refund; Get it free and a OnePage's free product sent again with the same attempt id are one order, one receipt email, a one use code used once. Strict: tests/_journey. */
+  "tests/double-actions-aw-journey.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

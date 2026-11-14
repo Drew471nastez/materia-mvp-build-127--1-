@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, FIELD } from "@/components/community/member/ui"
 import { REFUND_REASON_MAX, centsFromAmount, formatDay, formatMoney } from "@/lib/communities/membership-policy"
+import { REFUND_CHANGED } from "@/lib/orders/refund-state"
 import { MembershipSheet } from "./sheet"
 import { tt } from "@/lib/i18n/text"
 
@@ -48,7 +49,7 @@ export interface RefundResult {
   endedMembership: boolean
 }
 
-async function call<T>(url: string, body?: unknown): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+async function call<T>(url: string, body?: unknown): Promise<{ ok: true; data: T } | { ok: false; error: string; answer?: Record<string, unknown> }> {
   try {
     const res = await fetch(url, {
       method: body === undefined ? "GET" : "POST",
@@ -60,7 +61,7 @@ async function call<T>(url: string, body?: unknown): Promise<{ ok: true; data: T
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
     if (!res.ok) {
       const raw = typeof json.error === "string" ? json.error : ""
-      return { ok: false, error: raw && !/^[a-z_]+$/.test(raw) ? raw : tt("That did not go through. Try again.") }
+      return { ok: false, error: raw && !/^[a-z_]+$/.test(raw) ? raw : tt("That did not go through. Try again."), answer: json }
     }
     return { ok: true, data: json as T }
   } catch {
@@ -223,11 +224,21 @@ export function RefundDialog({
     const r = await call<{ refund: RefundResult }>(`/api/app/community/${communityId}/refunds`, {
       orderId: p.orderId,
       amountCents: part ? cents : undefined,
+      /* What this dialog shows as left (lib/orders/refund-state): pressed again after a refund that went through, nothing is refunded twice. */
+      refundableCents: max,
       reason: reason.trim() || undefined,
       endMembership: end,
     })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) {
+      /* The payment moved on: the dialog shows what it holds now, so the next press is on the real figure. */
+      const a = r.answer
+      if (a?.code === REFUND_CHANGED && typeof a.refundableCents === "number" && typeof a.refundedCents === "number") {
+        const refundedCents = a.refundedCents
+        setShown({ ...p, refundableCents: a.refundableCents, refundedCents, status: refundedCents > 0 ? "refunded" : p.status })
+      }
+      return setError(r.error)
+    }
     onDone(p, r.data.refund)
   }
 

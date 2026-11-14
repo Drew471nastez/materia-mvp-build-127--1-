@@ -66,6 +66,7 @@ import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+import { attemptIdOf } from "@/lib/checkout/attempt-id"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/onepage/block-activity"
 import { canvasRule, heroHeaderShown, pageCanvasColour } from "@/lib/onepage/page-frame"
@@ -927,6 +928,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const [quickCheckoutAssets, setQuickCheckoutAssets] = useState<DigitalAsset[]>([])
   const [quickCheckoutReceiptToken, setQuickCheckoutReceiptToken] = useState<string | null>(null)
   const [quickCheckoutError, setQuickCheckoutError] = useState<string | null>(null)
+  /* One attempt id per opening of the sheet (lib/checkout/free-claim): a press sent again after its answer was lost gets the same order, not a second one. */
+  const quickClaimAttempt = useRef<string | null>(null)
 
   // Purchased products tracking - persisted in localStorage
   const [purchasedProducts, setPurchasedProducts] = useState<Record<string, { receiptToken: string; assets: DigitalAsset[] }>>({})
@@ -959,6 +962,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     setQuickCheckoutAssets([])
     setQuickCheckoutReceiptToken(null)
     setQuickCheckoutError(null)
+    quickClaimAttempt.current = null
     setQuickCheckoutModalOpen(true)
   }, [])
 
@@ -983,6 +987,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           email: formData.email,
           /* This page and where its visit came from, for the order's Source. */
           origin: pageOrigin(),
+          attempt_id: attemptIdOf(quickClaimAttempt),
         }),
       })
 

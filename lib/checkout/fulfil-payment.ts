@@ -274,7 +274,16 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   if (error || !order) {
     /* Somebody else made it a moment ago: theirs is the order. */
     const raced = await existingOrder(admin, paid.paymentId, m.receipt_token)
-    if (raced) return { ok: true, created: false, orderId: raced.id, receiptToken: raced.receipt_token, sessionFingerprint: raced.session_fingerprint ?? null, amountCents: raced.amount_cents ?? total }
+    if (raced) {
+      /*
+        THEIR ORDER COUNTS THE COPY (round AW). The claim above refreshed this payment's place under the limit; the
+        writer let its own go once its order existed, and when that happened before this claim, the place this claim
+        made back stayed for CLAIM_HOLD_SECONDS: the last copies of a limited product read as sold out for ten minutes
+        to everyone else. Let go here too, as a basket's line and a physical order's line already do.
+      */
+      await releaseSale(admin, productId, saleHolder)
+      return { ok: true, created: false, orderId: raced.id, receiptToken: raced.receipt_token, sessionFingerprint: raced.session_fingerprint ?? null, amountCents: raced.amount_cents ?? total }
+    }
     console.error("[fulfil] order insert failed", paid.paymentId, error?.code, error?.message)
     return { ok: false, status: 500, error: "The order could not be saved. The payment is safe; refresh this page in a moment." }
   }

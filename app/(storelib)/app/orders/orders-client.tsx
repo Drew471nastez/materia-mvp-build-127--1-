@@ -49,12 +49,14 @@ import {
   groupOrders,
   paramsFromQuery,
   queryFromParams,
+  refundableCents,
   VIEWS,
   type ColumnKey,
   type ListQuery,
   type Order,
   type OrderRow,
 } from "@/lib/orders/order-view"
+import { REFUND_CHANGED } from "@/lib/orders/refund-state"
 import type { OrdersListing } from "@/lib/orders/paged"
 import { listingKey, listingParams } from "@/lib/orders/listing-params"
 import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
@@ -701,8 +703,16 @@ export function OrdersClient(props: OrdersClientProps) {
           orderId: action.line.id,
           reason: action.reason,
           amount: action.amountCents / 100,
+          /* What the dialog showed as left to refund (lib/orders/refund-state): a press sent again after a refund that went through is refused, never made twice. */
+          refundable: refundableCents(action.line),
         })
-        if (!res.ok) throw new Error(data?.error || tt("The refund did not go through."))
+        if (!res.ok) {
+          /* The order moved on (that refund went through, or another one did): the row shows what it holds now, so the dialog's figure is the real one. */
+          if (data?.code === REFUND_CHANGED && typeof data?.refundedCents === "number" && data.refundedCents > 0) {
+            patchRows([action.line.id], { status: "refunded", refund_amount_cents: data.refundedCents })
+          }
+          throw new Error(data?.error || tt("The refund did not go through."))
+        }
         const cents = typeof data?.amount === "number" ? data.amount : action.amountCents
         if (data?.pending) return tt("Refund of {amount} is processing. The order updates once it goes through.", { amount: formatMoney(cents, order.currency) })
         patchRows([action.line.id], {
