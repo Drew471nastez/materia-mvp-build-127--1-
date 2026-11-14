@@ -54,6 +54,8 @@ const SUITES = [
   "tests/lead-fixes-aw.test.ts",
   /* Round AX (drafts private): a published website's preview token, draft settings and draft sections, and a OnePage's draft blocks, are not readable with the public key (parts 463, 464); no anon or browser reader needs them, and a signed in session reads only its own website. */
   "tests/drafts-private-ax.test.ts",
+  /* Round AX (address names): a username and a store address move only through the server (lib/profile/move-handle.ts, PATCH /api/profile/username store: true) with every rule on a name; Settings and the seller onboarding no longer write them from the browser; part 462 refuses a browser key write that changes either one. */
+  "tests/address-names-ax.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */

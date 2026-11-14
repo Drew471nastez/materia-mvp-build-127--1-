@@ -129,10 +129,10 @@ async function main() {
     check("nothing is written without signing in", part.includes("REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.username_history FROM PUBLIC, anon;"))
     check("a signed in person changes and deletes nothing", part.includes("REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.username_history FROM authenticated;"))
     check("and adds only their own row, for their own current username", part.includes("FOR INSERT TO authenticated WITH CHECK (user_id = (SELECT auth.uid()) AND lower(old_username) = lower((SELECT p.username FROM public.profiles p WHERE p.id = (SELECT auth.uid()))));"))
+    /* Changed on purpose (round AX): the history row is written by the server now, with the rename it records (lib/profile/move-handle.ts), and Settings no longer writes it from the browser; the policy above still keeps a browser write to the person's own current name. */
     const settings = read("components/app/settings-form-new.tsx")
-    const history = settings.indexOf('supabase.from("username_history").insert({')
-    const profileSave = settings.indexOf('.from("profiles")\n        .update({', history)
-    check("  which is the row Settings writes from the browser, before the profile's username changes", history > 0 && profileSave > history && /user_id: profile\.id,\s*old_username: oldUsername,/.test(settings))
+    const moveHandle = read("lib/profile/move-handle.ts")
+    check("  which is the row the server writes for a rename, and Settings no longer writes from the browser", !settings.includes('supabase.from("username_history").insert({') && /from\("username_history"\)\.insert\(\{ user_id: userId, old_username: now\.username, new_username: target \}\)/.test(moveHandle))
     check("no select is granted that was not there", !/GRANT SELECT ON public\.username_history/.test(part))
     check("flow_execution_log gets row level security and nothing for the public roles", part.includes("ALTER TABLE public.flow_execution_log ENABLE ROW LEVEL SECURITY; REVOKE ALL ON public.flow_execution_log FROM PUBLIC, anon, authenticated;"))
     check("either table missing is skipped, not an error", (part.match(/IF to_regclass\('public\.(username_history|flow_execution_log)'\) IS NULL THEN RAISE NOTICE/g) ?? []).length === 2)

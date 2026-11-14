@@ -235,13 +235,15 @@ console.log("\nA handle is three addresses and they move together\n")
  * run and the error was dropped either way.
  */
 const settings = code("components/app/settings-form-new.tsx")
-check("the rename moves the creator page", /\.from\("profiles"\)[\s\S]{0,400}username: cleanUsername/.test(settings))
-check("and the website", /\.from\("creators"\)[\s\S]{0,200}slug: cleanUsername/.test(settings))
-check("and the OnePage", /\.from\("onepages"\)[\s\S]{0,200}slug: cleanUsername/.test(settings))
-check("and records the old handle for the redirect", /from\("username_history"\)/.test(settings))
+/* Changed on purpose (round AX): the three addresses move on the server now (lib/profile/move-handle.ts, through PATCH /api/profile/username with store: true); the browser may no longer write them (SQL part 462). Same three moves, same history row, same reported OnePage failure. */
+const moveHandle = code("lib/profile/move-handle.ts")
+check("the rename moves the creator page", /fetchWithDeadline\("\/api\/profile\/username"[\s\S]{0,200}username: cleanUsername, store: true/.test(settings) && /\.from\("profiles"\)\.update\(\{ username: target \}\)/.test(moveHandle))
+check("and the website", /\.from\("creators"\)\.update\(\{ slug: target \}\)/.test(moveHandle))
+check("and the OnePage", /\.from\("onepages"\)\.update\(\{ slug: target \}\)\.eq\("owner_id", userId\)/.test(moveHandle))
+check("and records the old handle for the redirect", /from\("username_history"\)\.insert\(\{ user_id: userId, old_username: now\.username/.test(moveHandle))
 check(
   "a failed OnePage move is reported rather than swallowed",
-  /if \(onepageError\) \{/.test(settings) && /setError\(onepageWarning\)/.test(settings),
+  /onepageMoved = false/.test(moveHandle) && /if \(moved\.onepageMoved === false\) \{/.test(settings) && /setError\(onepageWarning\)/.test(settings),
   "the error has to be BRANCHED ON and shown; naming the variable is not reading it",
 )
 check(
