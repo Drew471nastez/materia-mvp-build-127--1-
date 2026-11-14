@@ -13415,7 +13415,10 @@ const words: Record<string, string> = {
  "You made changes here on {when} that were never saved. The page has been saved somewhere else since.": "Você fez alterações aqui em {when} que nunca foram salvas. Desde então, a página foi salva em outro lugar.",
  "Use the changes from this device": "Usar as alterações deste dispositivo",
  "Keep the saved page": "Manter a página salva",
- "This page was saved somewhere else. Save again to keep this version": "Esta página foi salva em outro lugar. Salve de novo para manter esta versão"
+ "This page was saved somewhere else. Save again to keep this version": "Esta página foi salva em outro lugar. Salve de novo para manter esta versão",
+ "Exported {name} as a Shopify theme": "{name} exportado como tema da Shopify",
+ "Upload it in Shopify: Online Store › Themes › Add theme › Upload zip file.": "Envie na Shopify: Loja virtual › Temas › Adicionar tema › Enviar arquivo zip.",
+ "{count, plural, one {# picture} other {# pictures}} could not be fetched in time and are not in the file. Export again to include them.": "{count, plural, one {# imagem não pôde ser baixada} other {# imagens não puderam ser baixadas}} a tempo e não estão no arquivo. Exporte de novo para incluí-las."
 }
 
 export default words

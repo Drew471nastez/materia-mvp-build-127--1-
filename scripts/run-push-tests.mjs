@@ -276,6 +276,8 @@ const SUITES = [
   "tests/ai-memory.test.ts",
   "tests/product-binding.test.ts",
   "tests/shopify-import.test.ts",
+  /* Round aw: an imported theme exported again uploads to Shopify clean (Theme Check: 0 errors on Dawn and Horizon) and is the theme the creator left. */
+  "tests/shopify-export-aw.test.ts",
   "tests/editor-groups-saves.test.ts",
   "tests/site-resilience.test.ts",
   "tests/compat-engine.test.ts",

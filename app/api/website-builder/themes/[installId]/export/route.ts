@@ -166,7 +166,10 @@ export async function GET(_req: Request, { params }: Params) {
   */
   if (compatOf(settings)) {
     const rows = await installFiles(createAdminClient(), installId, true)
-    const out = exportShopifyTheme(rows, settings, Object.fromEntries(exportPages.map((p) => [p.page_key, p.sections as StoredSection[]])))
+    /* A product picked in the builder is Storelib's id; Shopify reads a product setting by its handle, which is the product's slug. */
+    const { data: products } = await createAdminClient().from("products").select("id, slug").eq("creator_id", creator.id).limit(5000)
+    const productHandles = Object.fromEntries(((products ?? []) as { id: string; slug: string | null }[]).filter((p) => p.slug).map((p) => [p.id, String(p.slug)]))
+    const out = exportShopifyTheme(rows, settings, Object.fromEntries(exportPages.map((p) => [p.page_key, p.sections as StoredSection[]])), { productHandles })
     const zip = new JSZip()
     for (const [path, body] of Object.entries(out.files)) zip.file(path, body)
     let missing = 0
@@ -184,8 +187,11 @@ export async function GET(_req: Request, { params }: Params) {
     return new NextResponse(Buffer.from(body) as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${safeFilename(install.name)}.zip"`,
+        "Content-Disposition": `attachment; filename="${safeFilename(install.name)}-shopify-theme.zip"`,
         "Cache-Control": "no-store",
+        /* A Shopify theme, to upload in Shopify: the page names the file so, and says what to know first. */
+        "X-Storelib-Export-Kind": "shopify",
+        ...(out.notes.length ? { "X-Storelib-Export-Notes": encodeURIComponent(JSON.stringify(out.notes.slice(0, 6))) } : {}),
         ...(missing ? { "X-Storelib-Media-Skipped": String(missing) } : {}),
       },
     })

@@ -711,7 +711,14 @@ function themeFile(text: string, job: FileJob): string {
     else job.note(`Its {% schema %} is not a JSON object; it draws with no settings`)
   }
   checkSyntax(text, job.note)
-  const editor = editorSchema(raw, job)
+  /*
+    THE THEME'S OWN SCHEMA IS KEPT AS IT CAME. The panel's schema is built from
+    a copy: building it renames preset values to the builder's ids and drops
+    what the panel can't show, and it did that inside the theme's schema too,
+    which is what an export to Shopify writes back. A theme built on presets
+    (Horizon) came back with hundreds of settings Shopify refuses.
+  */
+  const editor = editorSchema(structuredClone(raw), job)
   const schema = { ...editor, shopify: raw }
   const markup = found ? text.replace(SCHEMA_TAG, "") : text
   return `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify(schema, null, 2)}\n</schema>\n`
