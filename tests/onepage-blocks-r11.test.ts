@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import * as React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { EMAIL_SIGNUP_LAYOUT_IDS, boldColors, emailSignupImage, emailSignupLayout, emailSignupStacked, tintOf } from "@/lib/onepage/email-signup"
+import { EMAIL_SIGNUP_LAYOUT_IDS, boldColors, emailSignupButtonText, emailSignupImage, emailSignupLayout, emailSignupStacked, tintOf } from "@/lib/onepage/email-signup"
 import { EmailLayoutThumb, EmailSignupView } from "@/components/onepage/email-signup"
 import { GROUP_CHILD_TYPES, canGoInGroup, findBlockDeep, moveIntoGroup, moveOutOfGroup, updatePlanDeep } from "@/lib/onepage/group"
 import { PRODUCTS_PREVIEW, productIdsOnPage, productsTabView } from "@/lib/onepage/products-tab"
@@ -88,15 +88,41 @@ async function main() {
 
     for (const layout of EMAIL_SIGNUP_LAYOUT_IDS) {
       const t = renderToStaticMarkup(React.createElement(EmailLayoutThumb, { layout, image: null, theme }))
-      check(`${layout}: a small picture of it, 60px tall`, t.includes(`data-email-thumb="${layout}"`) && /h-\[60px\]/.test(t))
+      /* Changed on purpose (wave 16): the picture fills the picker's 4:3 frame (its height is the frame's, not 60px) and is the block's own view, made small. */
+      check(`${layout}: a small picture of it, the block's own view filling its frame`, t.includes(`data-email-thumb="${layout}"`) && /h-full w-full/.test(t) && t.includes(`data-email-layout="${layout}"`))
+    }
+
+    /* Wave 16, the owner: the pictures must be accurate, with nothing cut off and nothing that shifts. */
+    {
+      const words = { headline: "Join my newsletter", description: "One short email a week", buttonText: "Join Now", placeholder: "Your best email", avatar: "https://cdn.test/me.jpg", name: "Satori Studio" }
+      const thumb = (layout: string, image: string | null = null, th: Record<string, unknown> = theme) => renderToStaticMarkup(React.createElement(EmailLayoutThumb, { layout: layout as never, image, theme: th as never, ...words }))
+      check("the button's words as the page writes them", emailSignupButtonText({}) === "Subscribe" && emailSignupButtonText({ button_preset: "join" }) === "Join Now" && emailSignupButtonText({ button_preset: "custom", custom_button_text: "Say hi" }) === "Say hi" && emailSignupButtonText({ button_preset: "custom", custom_button_text: "" }) === "Subscribe")
+      for (const layout of EMAIL_SIGNUP_LAYOUT_IDS) {
+        const t = thumb(layout)
+        check(`${layout}: the picture carries the block's whole headline (never cut short) and description`, t.includes(">Join my newsletter<") && t.includes("One short email a week") && !/truncate[^>]*>Join my newsletter/.test(t.replace(/data-email-layout="bar"[\s\S]*/, "")))
+        const inputs = t.match(/<input[^>]*>/g) ?? []
+        const buttons = t.match(/<button[^>]*>/g) ?? []
+        check(`${layout}: and it cannot be pressed, reached or read out`, /<span aria-hidden="true" inert=""[^>]*data-email-thumb=/.test(t) && !/<form/.test(t) && inputs.length > 0 && inputs.every((i) => /readOnly=""|readonly=""/i.test(i) && /tabindex="-1"/i.test(i)) && buttons.every((b) => /tabindex="-1"/i.test(b) || /aria-expanded/.test(b)))
+      }
+      check("its form draws the block's own button words and placeholder", thumb("default").includes("Join Now") && thumb("default").includes('placeholder="Your best email"'))
+      check("Letter signs with the page's name and Connect's and Bar's rows carry the creator's picture", thumb("letter").includes("Satori Studio") && thumb("connect").includes("https://cdn.test/me.jpg") && thumb("bar").includes("https://cdn.test/me.jpg"))
+      check("the block's image where its layout shows one", ["pro", "cover", "bold", "minimal", "bar"].every((l) => thumb(l, "https://cdn.test/cover.jpg").includes("https://cdn.test/cover.jpg")))
+      check("a skinned theme's picture carries its skin, so it looks as the page does", /data-op-skin="renaissance"/.test(thumb("default", null, { ...theme, theme_skin: "renaissance", background_type: "solid" })) && !/data-op-skin/.test(thumb("default")))
+      const src = read("components/onepage/email-signup.tsx")
+      check("made small by one transform at the block's real width (no words that reflow), scaled to fit its frame", /transform: "translate\(-50%, -50%\) scale\(var\(--email-thumb-scale/.test(src) && /width: STAGE_W/.test(src) && /Math\.min\(w \/ STAGE_W, h \/ sh\)/.test(src) && /new ResizeObserver\(fit\)/.test(src))
+      const tab = read("components/onepage/tabs/links-tab.tsx")
+      const picker = tab.slice(tab.indexOf("data-email-layouts"), tab.indexOf("Add an image in Settings to show it in"))
+      check("the picture lies over the card, outside its button, in the frame the card keeps for it (so it never sizes the card)", /<\/button>\s*<span className="pointer-events-none absolute inset-x-1\.5 top-1\.5 block aspect-\[4\/3\][^"]*"[^>]*>\s*<EmailLayoutThumb/.test(picker) && /<span aria-hidden className="block aspect-\[4\/3\] rounded-xl" \/>/.test(picker))
+      check("the picked card is marked by its ring alone", /<ChoiceMark on=\{on\} \/>/.test(picker) && !/on \?[^:]*(border-2|scale-|p-2)/.test(picker))
     }
 
     const live = read("components/onepage/public-onepage.tsx")
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
     check("the live page draws every layout through the one view, no image needed", /<EmailSignupView/.test(email) && /layout=\{layout\}/.test(email) && !/isPro && showThumbnail/.test(email) && /const layout = emailSignupLayout\(data\.layout_type\)/.test(email))
     const tab = read("components/onepage/tabs/links-tab.tsx")
+    /* Changed on purpose (wave 16): four across by the panel's own width (a container query), not the window's. */
     /* Changed on purpose (round AN): the layouts in the shared pickers' look (a link's, an app's): two across on a phone, four on a computer, each picture in a 4:3 frame with the editor's ChoiceMark. */
-    check("the editor's picker: two across on a phone and four wider, a radio for each, drawn small, and the choice is saved", /role="radiogroup"[^\n]*grid grid-cols-2 gap-2\.5 sm:grid-cols-4[^\n]*data-email-layouts/.test(tab) && /role="radio"/.test(tab) && /<EmailLayoutThumb layout=\{option\.id\}/.test(tab) && /updateData\(\{ layout_type: option\.id as EmailCaptureLayoutType[ ,}]/.test(tab)) /* round 43: Connect's words ride along */
+    check("the editor's picker: two across on a phone and four wider, a radio for each, drawn small, and the choice is saved", /role="radiogroup"[^\n]*grid grid-cols-2 gap-2\.5 @min-\[480px\]:grid-cols-4[^\n]*data-email-layouts/.test(tab) && /role="radio"/.test(tab) && /<EmailLayoutThumb\s+layout=\{option\.id\}/.test(tab) && /updateData\(\{ layout_type: option\.id as EmailCaptureLayoutType[ ,}]/.test(tab)) /* round 43: Connect's words ride along */
     check("its old big 4:3 cards are gone", !/aspect-\[4\/3\][\s\S]{0,400}Classic centered form/.test(tab))
     check("a finger gets a light tap on a change, and no hover fires on touch", /hapticTap\("soft"\)\s*updateData\(\{ layout_type/.test(tab) && /* Changed on purpose (round AN): Tailwind 4's hover: is already behind (hover: hover), as the shared pickers use it. */ /data-email-layout-option=\{option\.id\}[\s\S]{0,1200}hover:border-\[#c9cbd1\]/.test(tab))
   }

@@ -49,7 +49,8 @@ check("a group's pictures carry its blocks' titles", /items=\{\(groupData\.child
 check("a link's layouts draw its icon and description; Classic and Compact draw no picture without one", /const icon = resolveLinkIcon\(data\.icon, data\.url\)/.test(settings) && /\) : small \? null : \(/.test(settings) && /\{sub\("70%"\)\}/.test(settings))
 check("over a picture the icon keeps to the top corner, clear of the words", /cls\.includes\("inset-0"\) \? "items-start justify-start p-1"/.test(settings))
 check("Featured draws the block's own button words", /cta\?\.trim\(\) \?/.test(settings) && (read("components/onepage/tabs/links-tab.tsx").match(/cta=\{data\.button_text\}/g) ?? []).length === 3)
-check("a signup's layouts draw its headline", /headline=\{data\.headline\}/.test(read("components/onepage/tabs/links-tab.tsx")) && /const head = \(w: string, color = ink\) =>/.test(read("components/onepage/email-signup.tsx")))
+/* Changed on purpose (wave 16): each layout's picture is the block's own view (EmailSignupView) made small, so the headline is drawn by the view itself, with the description and the button's words. */
+check("a signup's layouts draw its headline", /headline=\{data\.headline\}/.test(read("components/onepage/tabs/links-tab.tsx")) && /<EmailSignupView[\s\S]{0,200}headline=\{headline\?\.trim\(\) \|\| ""\}/.test(read("components/onepage/email-signup.tsx")))
 
 const links = read("components/onepage/tabs/links-tab.tsx")
 check("a form's row is named Form with its glyph, never its type", /function formRow\(block: OnePageBlock\)/.test(links) && (links.match(/case "form_quiz":\n\s+return formRow\(block\)/g) ?? []).length === 2 && /icon: GlyphForm, incomplete: !data\.form_id/.test(links))
