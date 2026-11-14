@@ -1,39 +1,45 @@
 "use client"
 
 import Link from "next/link"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { DotField } from "./dot-field"
 
 /*
   THE LAST WORD ABOVE THE FOOTER.
 
-  Wave 13, the owner: it faded in and was too tall. Now it is plain and
-  short: no card, no rise or fade, no turning light, no floating receipts.
-  The headline and one line on the left, Start free and a second way in on
-  the right (stacked under it on a phone). Nothing animates but a button's own hover colour.
-
-  Round 3: on the home page it closes the last purple sheet, under the app
-  section; the sheet recolours it (landing-story.tsx BAND_CSS, [data-band]
-  .fcta). Anywhere else it is drawn on white, as written here.
+  Wave 13, the owner: it faded in and was too tall. Round 4, the owner: he did
+  not like it either, nor how it met the footer (a purple sheet ending in the
+  footer's lit edge). Now it is the end of the page's dark close, centred and
+  quiet: the Storelib mark, one line, two ways in, on a fine dot grid whose
+  light drifts slowly (dot-field.tsx) and fades out before the edges. The
+  footer below continues the same near-black with no lit top edge, so the two
+  read as one surface. Nothing rises or fades in; only the grid's light
+  drifts, and only while it is on screen.
 */
 const STYLES = `
-.fcta{background:#fff;padding:clamp(48px,6vw,96px) var(--landing-gutter,clamp(22px,6vw,96px))}
-.fcta-in{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:28px 48px;max-width:1400px;margin:0 auto}
-.fcta-title{margin:0;max-width:16ch;font-size:clamp(36px,5vw,72px);font-weight:500;line-height:1.04;letter-spacing:-.05em;color:#18181b;text-wrap:balance}
-.fcta-title em{font-style:normal;color:#7c3aed}
-.fcta-note{margin:16px 0 0;font-size:clamp(15px,1.3vw,17px);line-height:1.5;color:#6b6874}
-.fcta-actions{display:flex;flex-wrap:wrap;gap:12px}
-.fcta-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:54px;padding:0 28px;border-radius:999px;font-size:16px;font-weight:600;text-decoration:none;white-space:nowrap;transition:background-color .2s ease,border-color .2s ease}
-.fcta-btn:focus-visible{outline:2px solid #7c3aed;outline-offset:3px}
-.fcta-primary{background:#18181b;color:#fff}
-.fcta-primary:hover{background:#7c3aed}
-.fcta-secondary{color:#18181b;border:1px solid #dcdce2;background:#fff}
-.fcta-secondary:hover{border-color:#18181b}
+.fcta{position:relative;isolation:isolate;background:transparent;color:#fff;padding:clamp(88px,10vw,152px) var(--landing-gutter,clamp(22px,6vw,96px)) clamp(80px,9vw,136px)}
+.fcta-in{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;max-width:880px;margin:0 auto;text-align:center}
+.fcta-mark{display:block;margin-bottom:28px}
+.fcta-title{margin:0;max-width:15ch;font-size:clamp(38px,5.6vw,80px);font-weight:500;line-height:1.02;letter-spacing:-.05em;color:#fafafa;text-wrap:balance}
+.fcta-title em{font-style:normal;color:#8f8c99}
+.fcta-note{margin:20px 0 0;font-size:clamp(15px,1.3vw,18px);line-height:1.5;color:#a3a0ac}
+.fcta-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:36px}
+.fcta-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:54px;padding:0 28px;border-radius:999px;font-size:16px;font-weight:600;text-decoration:none;white-space:nowrap;transition:background-color .2s ease,border-color .2s ease,color .2s ease}
+.fcta-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.fcta-primary{background:#fff;color:#18181b}
+.fcta-primary:hover{background:#e7e5ee}
+.fcta-secondary{color:#fff;border:1px solid rgba(255,255,255,.22);background:transparent}
+.fcta-secondary:hover{border-color:rgba(255,255,255,.6)}
 @media(max-width:639px){
-  .fcta-actions{flex-direction:column;align-items:stretch;width:100%}
+  .fcta-actions{flex-direction:column;align-items:stretch;width:100%;max-width:360px}
   .fcta-btn{width:100%}
 }
 @media(prefers-reduced-motion:reduce){
   .fcta-btn{transition:none}
 }
+/* The footer under it, on the home page only (this sheet of rules is only drawn there): the same near-black, no lit top edge or glow, so there is no seam. */
+footer.storelib-footer{background-color:#050506;background-image:linear-gradient(180deg,#050506 0%,#030304 100%);box-shadow:none}
+footer.storelib-footer::before{content:none}
 `
 
 function Arrow() {
@@ -49,13 +55,15 @@ export function FinalCta() {
   return (
     <section className="fcta" data-final-cta="" aria-labelledby="fcta-title">
       <style>{STYLES}</style>
+      <DotField fade="edges" />
       <div className="fcta-in">
-        <div>
-          <h2 id="fcta-title" className="fcta-title">
-            Turn what you make into a <em>business.</em>
-          </h2>
-          <p className="fcta-note">Free to start. No card needed.</p>
-        </div>
+        <span className="fcta-mark" aria-hidden="true">
+          <StorelibLogo size={44} />
+        </span>
+        <h2 id="fcta-title" className="fcta-title">
+          Start selling <em>what you make.</em>
+        </h2>
+        <p className="fcta-note">Free to start. No card needed.</p>
         <div className="fcta-actions">
           <Link href="/signup?intent=sell" className="fcta-btn fcta-primary">
             Start free

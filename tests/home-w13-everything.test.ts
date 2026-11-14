@@ -77,7 +77,8 @@ check("it is drawn off the page's thread where the browser can hand a worker the
 check("its size comes from the ResizeObserver's entry, never measured as it mounts", /entry\.contentRect\.width/.test(globe) && !/box\.getBoundingClientRect\(\)[\s\S]{0,80}\bfit\(\)/.test(globe))
 check("device pixels capped, the sphere painted once per size", /Math\.min\(2, window\.devicePixelRatio/.test(globe) && /const paintStatic = \(\) =>/.test(engine))
 /* Changed on purpose (land-globe): the pill is placed every frame the city moves (no 100ms glide that trailed the city), so it sits exactly on it. */
-check("the order pill moves by transform only, placed on the city every frame it moves", /el\.style\.transform = `translate\(/.test(globe) && !/style\.(left|top) =/.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i: st\.pill, x, y, on \}\)/.test(engine))
+/* Changed on purpose (landing round 4): the pill is told where the city is and where it will be a moment later a few times a second, and glides there in one compositor animation (a style change every frame made dragging lag); still transform only. */
+check("the order pill moves by transform only, gliding to the city on the compositor", /el\.style\.transform = from/.test(globe) && /el\.animate\(\[\{ transform: from \}/.test(globe) && !/style\.(left|top) =/.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i: st\.pill, x, y, on, x2, y2, d \}\)/.test(engine))
 check("the globe survives a second mount (a canvas handed to a worker is swapped for a fresh one)", /handedOver\.has\(canvas\)/.test(globe) && /canvas\.replaceWith\(fresh\)/.test(globe))
 check("its motion runs on the display's frames by real elapsed time, on a clock that stops while paused", /const dt = Math\.max\(0, Math\.min\(50, t - st\.last\)\)/.test(engine) && /st\.clock \+= dt/.test(engine))
 const symbols: Record<string, string> = { "€": "EUR", "£": "GBP", "CA$": "CAD", "A$": "AUD", "¥": "JPY", RON: "RON", $: "USD" }
