@@ -178,7 +178,9 @@ const KINDS: Record<string, string> = {
   "any other block in the button's look": ':where([style*="background-clip: padding-box"]',
 }
 for (const skin of THEME_SKINS) {
-  const missing = Object.entries(KINDS).filter(([, sel]) => !css.includes(`[data-op-skin="${skin}"] ${sel}`) && !new RegExp(`\\[data-op-skin="${skin}"\\] :is\\([^{]*${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(css)).map(([k]) => k)
+/* Changed on purpose (wave 16): Renaissance boxes only the row and stacked forms' fields; Connect's pill and Personal note's line keep their own shape (the owner: the layout pictures must be accurate). */
+const KIND_ALT: Record<string, string> = { fields: ":is([data-email-form=row],[data-email-form=stacked], [data-onepage-contact] form) :is(input" }
+  const missing = Object.entries(KINDS).filter(([k, sel]) => !(KIND_ALT[k] && css.includes(`[data-op-skin="${skin}"] ${KIND_ALT[k]}`)) && !css.includes(`[data-op-skin="${skin}"] ${sel}`) && !new RegExp(`\\[data-op-skin="${skin}"\\] :is\\([^{]*${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(css)).map(([k]) => k)
   check(`${skin}: styles ${Object.keys(KINDS).length} kinds of block`, missing.length === 0, missing.join(", "))
 }
 const scene = read("components/onepage/themes/theme-skin-scene.tsx")

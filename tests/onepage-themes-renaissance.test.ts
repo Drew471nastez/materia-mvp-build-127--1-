@@ -167,7 +167,9 @@ const KINDS: Record<string, string> = {
   "any other block in the button's look": ':where([style*="background-clip: padding-box"]',
 }
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-const unstyled = Object.entries(KINDS).filter(([, sel]) => !css.includes(`[data-op-skin="renaissance"] ${sel}`) && !new RegExp(`\\[data-op-skin="renaissance"\\] :is\\([^{]*${esc(sel)}`).test(css)).map(([k]) => k)
+/* Changed on purpose (wave 16): its fields are boxed only in the row and stacked forms; Connect's pill and Personal note's line keep their own shape (the owner: the newsletter layout pictures must be accurate). */
+const KIND_ALT: Record<string, string> = { fields: ":is([data-email-form=row],[data-email-form=stacked], [data-onepage-contact] form) :is(input" }
+const unstyled = Object.entries(KINDS).filter(([k, sel]) => !(KIND_ALT[k] && css.includes(`[data-op-skin="renaissance"] ${KIND_ALT[k]}`)) && !css.includes(`[data-op-skin="renaissance"] ${sel}`) && !new RegExp(`\\[data-op-skin="renaissance"\\] :is\\([^{]*${esc(sel)}`).test(css)).map(([k]) => k)
 check(`styles ${Object.keys(KINDS).length} kinds of block`, unstyled.length === 0, unstyled.join(", "))
 const scene = read("components/onepage/themes/theme-skin-scene.tsx")
 const pieces = [...(scene.match(/\n  renaissance: \[(.*)\],/)?.[1] ?? "").matchAll(/\["([a-z-]+)", (\d+)\]/g)].map((m) => m[1])

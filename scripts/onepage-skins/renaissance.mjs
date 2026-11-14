@@ -37,6 +37,10 @@
  * hairline, never a fill; nothing is ornamented twice.
  */
 import { svg, css, S, SCENE, LINK, CTA, CARD, FAQ, CELL, BOX, SURF, INPUT, TITLE, BIO, TEXT, AVATAR, SOCIAL, HEADING, BLOCK_TITLE, DIVIDER, PICTURE, STRIP, FILL_LAYER, rule, comment, banner, onSurface, promise, legal } from "./shared.mjs"
+/* Wave 16: the boxed field and the ivory plaque are for the row and stacked forms; Connect's pill and Personal note's line keep their own shape. */
+const BOXED = "[data-email-form=row],[data-email-form=stacked]"
+const R_CTA = CTA.replace("[data-email-form] button", `:is(${BOXED}) button`)
+const R_INPUT = INPUT.replace("[data-email-form]", BOXED)
 
 export const RENAISSANCE_PALETTE = {
   /* The painting's night (its deepest ultramarine): the ground and the scrim under words. */
@@ -157,7 +161,7 @@ export function renaissance() {
   rule(`${A} :is(.op-btn, [data-tp-link]):is([data-hover="fill"], [data-hover="pop"])::after`, `box-shadow: inset 0 0 0 1px ${P.gilt}, inset 0 0 0 4px var(--op-fill, ${P.ivory}), inset 0 0 0 5px ${P.giltSoft};`)
   promise("renaissance", "a lapis plaque", P.ivory, [P.lapis])
   promise("renaissance", "a plaque under the pointer", P.lapis, [P.ivory])
-  rule(`${A} ${CTA}`, `
+  rule(`${A} ${R_CTA}`, `
     background-color: ${P.ivory} !important; background-image: none;
     color: ${P.lapis} !important; border: 1px solid ${P.gilt} !important; border-radius: 2px !important;
     box-shadow: ${slip(P.ivory, P.giltSoft)} !important;
@@ -177,10 +181,10 @@ export function renaissance() {
     border: 1px solid ${P.giltSoft}; border-radius: 2px !important;
     box-shadow: inset 0 0 0 5px ${P.lapis}, inset 0 0 0 6px ${P.giltFaint}, 0 14px 28px -20px rgba(4,6,14,.9);`)
   onSurface("renaissance", "the subscribe and contact forms' panel", BOX, P.ivory, [P.lapis])
-  rule(`${A} ${INPUT}`, `background: ${P.field} !important; border: 1px solid ${P.giltSoft} !important; border-radius: 2px !important; color: ${P.ivory} !important; box-shadow: none !important;`)
-  rule(`${A} ${INPUT}::placeholder`, `color: rgba(244,236,218,.7) !important;`)
+  rule(`${A} ${R_INPUT}`, `background: ${P.field} !important; border: 1px solid ${P.giltSoft} !important; border-radius: 2px !important; color: ${P.ivory} !important; box-shadow: none !important;`)
+  rule(`${A} ${R_INPUT}::placeholder`, `color: rgba(244,236,218,.7) !important;`)
   promise("renaissance", "a field", P.ivory, [P.field])
-  rule(`${A} ${INPUT}:focus`, `border-color: ${P.gilt} !important; box-shadow: 0 0 0 1px ${P.gilt} !important;`)
+  rule(`${A} ${R_INPUT}:focus`, `border-color: ${P.gilt} !important; box-shadow: 0 0 0 1px ${P.gilt} !important;`)
 
   comment("renaissance: the classical header, the headings, the ornament.")
   rule(`${A} ${TITLE}`, `letter-spacing: .005em; text-shadow: 0 1px 2px rgba(6,9,20,.5), 0 2px 24px rgba(6,9,20,.45);`)
