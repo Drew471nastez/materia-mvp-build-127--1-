@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic"
 import { LandingStory } from "@/components/marketing/landing-story"
 import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/scroll-reveal-panel"
+import { SheetCoverWatch } from "@/components/marketing/sheet-cover-watch"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
@@ -77,6 +78,8 @@ export default function StorelibLanding() {
 
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
+      {/* Held blocks stop animating once the next sheet covers them (components/marketing/sheet-cover-watch.tsx). */}
+      <SheetCoverWatch />
       <LandingStory>
         {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). Round 4: not held; the page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). */}
         <ScrollRevealBackdrop hold={false}>

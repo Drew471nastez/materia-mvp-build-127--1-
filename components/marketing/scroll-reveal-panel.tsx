@@ -15,9 +15,10 @@ import type { CSSProperties, ReactNode } from "react"
   screen to the top, the sheet is a little narrower than the page (a small
   side inset, scaled about its top edge) and settles to full width as it
   takes the screen. The block behind it, held still for that screen (below),
-  recedes: it shrinks a little about the middle of the screen and dims into
-  the dark page. Both are CSS scroll-driven animations (a view timeline) of
-  transform and opacity only, so the compositor runs them off the page's
+  dims under it (a dark layer over it fades in; once covered it stops
+  animating altogether, sheet-cover-watch.tsx). Both are CSS scroll-driven
+  animations (a view timeline) of transform and opacity of small layers
+  only, so the compositor runs them off the page's
   thread, they follow the scroll exactly (back up as well as down) and no
   script runs per frame. A browser without view timelines, or a visitor who
   asked for less motion, gets the plain version: the sheet simply laps over
@@ -56,7 +57,7 @@ import type { CSSProperties, ReactNode } from "react"
 export type SheetTone = "white" | "purple"
 
 export const SHEET_CSS = `
-[data-sheet],[data-sheet-hold]{--srp-r:clamp(22px,4.2vw,48px);--srp-pad:clamp(10px,1.8vw,28px);--srp-cover:100vh;--srp-rise:.955;--srp-back:.95;--srp-dim:.62}
+[data-sheet],[data-sheet-hold]{--srp-r:clamp(22px,4.2vw,48px);--srp-pad:clamp(10px,1.8vw,28px);--srp-cover:100vh;--srp-rise:.955;--srp-dim:.62}
 @supports (height:1svh){[data-sheet],[data-sheet-hold]{--srp-cover:100svh}}
 [data-sheet]{position:relative;z-index:1;border-radius:var(--srp-r);padding-block:var(--srp-pad)}
 [data-sheet="white"]{--srp-bg:#fff;background:#fff;color:#18181b}
@@ -81,8 +82,12 @@ export const SHEET_CSS = `
   [data-sheet-hold="wide"]>*{position:relative;bottom:auto}
   [data-sheet-hold="wide"]+[data-sheet],[data-sheet-hold="wide"]+[data-sheet-hold]{margin-top:calc(var(--srp-r) * -1)}
 }
+/* Covered by the sheet after it (sheet-cover-watch.tsx): nothing inside animates or paints until it shows again. */
+[data-sheet-hold][data-sheet-covered]>*{visibility:hidden}
+[data-sheet-hold][data-sheet-covered]>* *,[data-sheet-hold][data-sheet-covered]>* *::before,[data-sheet-hold][data-sheet-covered]>* *::after{animation-play-state:paused!important}
 @keyframes srp-rise{from{transform:scale(var(--srp-rise))}to{transform:none}}
-@keyframes srp-recede{from{transform:none;opacity:1}to{transform:translateY(calc((1 - var(--srp-back)) * (100% - var(--srp-cover) / 2))) scale(var(--srp-back));opacity:var(--srp-dim)}}
+/* The block behind dims under the sheet coming over it: a dark layer over it fades in. Not its own opacity and no shrink: scaling or fading a block as tall as a section made the browser composite all of it again every frame (measured on a production build, it was most of the slow frames under the sheets). */
+@keyframes srp-dim{from{opacity:0}to{opacity:calc(1 - var(--srp-dim))}}
 @supports (animation-timeline:view()){
   @media (prefers-reduced-motion:no-preference){
     [data-sheet]:not([data-sheet-flat]){transform-origin:50% 0;animation:srp-rise linear both;animation-timeline:view();animation-range:entry 0% entry 100%}
@@ -90,11 +95,10 @@ export const SHEET_CSS = `
     [data-sheet-hold]>[data-sheet]:not([data-sheet-flat]){animation-timeline:--srp-box}
   }
   @media (max-height:1400px) and (prefers-reduced-motion:no-preference){
-    [data-sheet-hold]>[data-sheet-backdrop]{transform-origin:50% 0;animation:srp-recede linear forwards;animation-timeline:--srp-box;animation-range:contain calc(100% - var(--srp-cover)) contain 100%}
-    [data-sheet-hold]>[data-sheet]:not([data-sheet-flat]){animation:srp-rise linear both,srp-recede linear forwards;animation-timeline:--srp-box,--srp-box;animation-range:entry 0% entry 100%,contain calc(100% - var(--srp-cover)) contain 100%}
+    [data-sheet-hold]>[data-sheet-backdrop]::after,[data-sheet-hold]>[data-sheet]::after{content:"";position:absolute;inset:0;z-index:60;border-radius:inherit;background:#050506;opacity:0;pointer-events:none;animation:srp-dim linear forwards;animation-timeline:--srp-box;animation-range:contain calc(100% - var(--srp-cover)) contain 100%}
   }
   @media (max-width:767px){
-    [data-sheet-hold="wide"]>*{animation:none}
+    [data-sheet-hold="wide"]>*,[data-sheet-hold="wide"]>*::after{animation:none}
   }
 }
 `
