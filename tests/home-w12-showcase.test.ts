@@ -112,7 +112,8 @@ assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:op
 assert.ok(/@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(showcaseSrc), "and shows only under a resting mouse, never while dragging")
 assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 1, "no other rule shows it")
 // On a phone: the row starts on the heading's gutter, the first card about three quarters wide, the next peeking, 8px apart.
-assert.ok(/--showcase-gap:8px;--showcase-height:clamp\(170px,51\.5vw,380px\)/.test(showcaseSrc) && /padding-left:var\(--showcase-gutter/.test(showcaseSrc))
+/* Changed on purpose (landing round 5): the owner wanted the cards "a little bit more big": 60% of the width tall on a phone. */
+assert.ok(/--showcase-height:clamp\(200px,60vw,440px\)/.test(showcaseSrc) && /--showcase-gap:8px;height:var\(--showcase-height\)/.test(showcaseSrc) && /padding-inline:var\(--showcase-gutter/.test(showcaseSrc))
 {
   const h = 0.515 * 390
   const first = 1.4545 * h

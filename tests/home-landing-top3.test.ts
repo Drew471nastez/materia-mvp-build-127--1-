@@ -94,19 +94,21 @@ check("the strip still drifts in one loop, by one set's width", /el\.animate\(\[
 
 console.log("\n── Support: three requests, none about missing money ──")
 /* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2 (one thread at a time, photos and Storelib's mark), without the From buyers / Storelib switch. Three true requests still take turns, none about money. */
-const supportWords = EVERYTHING_SUPPORT.map((r) => [r.title, r.sub, r.ask, r.reply].join(" ")).join(" ")
+const supportWords = EVERYTHING_SUPPORT.map((r) => [r.sub, r.ask, r.reply].join(" ")).join(" ")
 check("three requests taking turns", EVERYTHING_SUPPORT.length === 3 && (everything.match(/class="ev-c-thread ev-loop"/g) ?? []).length === 3)
 check("no request about a payout or a bank", !/payout|bank|hasn't arrived|\$\d/i.test(supportWords), supportWords.match(/payout|bank|\$\d[\d,.]*/gi))
-check("the first request is Storelib's, about bringing subscribers over", EVERYTHING_SUPPORT[0].title === "Storelib support" && /subscribers/i.test(EVERYTHING_SUPPORT[0].sub) && /CSV/.test(EVERYTHING_SUPPORT[0].reply))
-check("a buyer's request is there too", EVERYTHING_SUPPORT.some((r) => r.title === "From a buyer"))
+/* Changed on purpose (landing round 5): no "Storelib support" / "From a buyer" labels over the threads (the owner); Storelib answers with its mark (replyAv null), the creator answers a buyer with their photo. */
+check("the first request is to support, about bringing subscribers over", EVERYTHING_SUPPORT[0].replyAv === null && /subscribers/i.test(EVERYTHING_SUPPORT[0].sub) && /CSV/.test(EVERYTHING_SUPPORT[0].reply))
+check("a buyer's request is there too", EVERYTHING_SUPPORT.some((r) => r.replyAv !== null))
 
 console.log("\n── The digital product is a real one ──")
 const digital = EVERYTHING_SLIDES.find((s) => s.tab === "Digital")
 check("it is a LUT pack, named like one", digital?.name === "Cine Tones, 12 LUTs" && digital.kind === "luts")
 check("its numbers add up", digital?.stats.map(([, v]) => v).join() === "$29.00,386,$11,194.00" && 29 * 386 === 11194)
-check("drawn as the pack: a frame split flat and graded, the looks, the file", /class="ev-lut-flat"/.test(everything) && (everything.match(/class="ev-lut-look ev-lut-/g) ?? []).length === 5 && everything.includes("CT_04_Dusk.cube"))
+/* Changed on purpose (landing round 5): the owner found the pack's panel "too complex and non realistic"; it is the cover a seller uploads, one photo split flat and graded with the pack's name (tests/home-landing-r5-top). */
+check("drawn as the pack's cover: one photo split flat and graded, its name", /class="ev-lut-flat"/.test(everything) && !/ev-lut-look/.test(everything) && !everything.includes("CT_04_Dusk.cube"))
 check("no book cover and no guide left in the product card", !/ev-p-book|ev-p-guide|Sourdough at Home<\/p>|page guide/i.test(everything) && !existsSync(join(root, "public/home/everything/guide-bread.webp")))
-check("its one photo exists and is small", existsSync(join(root, "public/home/everything/lut-frame.webp")) && statSync(join(root, "public/home/everything/lut-frame.webp")).size < 40_000)
+check("its one photo exists and is small", existsSync(join(root, "public/home/everything/lut-cover.webp")) && statSync(join(root, "public/home/everything/lut-cover.webp")).size < 40_000)
 const pack = renderToStaticMarkup(createElement(TemplatePage))
 /* Changed on purpose (landing round 4, the owner did not like Dust & Tape Drums): a Notion template, drawn in HTML. */
 check("the business section's digital product is a template drawn in HTML, with no photograph", BUSINESS_SLIDES[0].id === "digital" && pack.includes("Studio OS for Notion") && !/<img/.test(pack))
@@ -147,7 +149,7 @@ const storeProducts = EVERYTHING_STORES.flatMap((s) => s.products)
 check("the stores sell both kinds", storeProducts.some((p) => p.badge === "Physical") && storeProducts.some((p) => p.badge === "Digital") && storeProducts.some((p) => p.badge === "Course") && storeProducts.some((p) => p.badge === "Community"))
 
 console.log("\n── The words ──")
-const words = [EVERYTHING_SUPPORT.map((r) => `${r.title} ${r.ask} ${r.reply}`).join(" "), BUSINESS_SLIDES.map((s) => `${s.label} ${s.line} ${s.alt}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
+const words = [EVERYTHING_SUPPORT.map((r) => `${r.sub} ${r.ask} ${r.reply}`).join(" "), BUSINESS_SLIDES.map((s) => `${s.label} ${s.line} ${s.alt}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
 check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|passive income|fans?)\b/i.test(words))
 
 console.log(`\n${passed} passed, ${failed} failed`)
