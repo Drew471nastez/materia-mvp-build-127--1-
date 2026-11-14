@@ -2,13 +2,13 @@
 
 import { StoryHeading } from "./story-heading"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState } from "react"
 import { AnimateOnScroll } from "./animate-on-scroll"
 
 const FAQS = [
   {
     q: "What is Storelib?",
-    a: "Storelib is an all-in-one e-commerce platform for creators & entrepreneurs. It allows you to sell digital products, build your link-in-bio page, set up an online store, create product pages, get featured on the marketplace for increased exposure to other buyers and creators &  grow an audience and boost your brand, without having to worry about technical stuff or using 6 different tools.",
+    a: "Storelib is one place for creators to sell what they make: digital products, merch, courses and memberships, with a link-in-bio page, an online store and product pages, and a marketplace that brings more buyers to you. No technical setup, and no stack of six tools.",
   },
   {
     q: "What can I sell on Storelib?",
@@ -32,66 +32,50 @@ const FAQS = [
   },
   {
     q: "Do I need any coding skills to set up my store?",
-    a: "No coding skills needed at all. Storelib uses drag-and-drop builders that make it super easy to set up your store, product pages, and OnePage. It's designed to be beginner-friendly — just pick a layout, add your content, and you're live in minutes.",
+    a: "No. You set up your store, product pages and OnePage by dragging and dropping. Pick a layout, add your content, and you're live in minutes.",
   },
 ]
 
-function FaqItem({ faq, isOpen, onToggle }: { faq: typeof FAQS[number]; isOpen: boolean; onToggle: () => void }) {
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState(0)
+/*
+  ONE QUESTION (landing round 4, the owner: the purple × on an open question
+  looked bad). A plain row between hairlines: the question, and a thin plus in
+  the text's own colour whose upright bar turns flat as the answer opens, so
+  the plus becomes a minus. The answer opens by its grid row going from 0fr to
+  1fr (the browser animates the height; nothing is measured, no state but
+  which question is open), and fades in as it does. Under reduced motion it
+  simply opens.
+*/
+const FAQ_CSS = `
+.faq-list{border-top:1px solid #e9e9ee}
+.faq-item{border-bottom:1px solid #e9e9ee}
+.faq-q{display:flex;width:100%;align-items:center;justify-content:space-between;gap:24px;padding:22px 2px;text-align:left;color:#18181b;font-size:clamp(16px,1.25vw,18px);font-weight:500;letter-spacing:-.01em;line-height:1.4;background:none;border:0;cursor:pointer;transition:color .2s ease}
+.faq-q:hover{color:#55535c}
+.faq-q:focus-visible{outline:2px solid #18181b;outline-offset:4px;border-radius:6px}
+.faq-mark{position:relative;flex:none;width:14px;height:14px;color:currentColor}
+.faq-mark::before,.faq-mark::after{content:"";position:absolute;left:0;top:6.25px;width:14px;height:1.5px;border-radius:2px;background:currentColor;transition:transform .35s cubic-bezier(.22,1,.36,1)}
+.faq-mark::after{transform:rotate(90deg)}
+.faq-q[aria-expanded="true"] .faq-mark::after{transform:rotate(0deg)}
+.faq-a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s cubic-bezier(.22,1,.36,1)}
+.faq-item[data-open] .faq-a{grid-template-rows:1fr}
+.faq-a-in{min-height:0;overflow:hidden}
+.faq-a p{margin:0;padding:0 48px 24px 2px;max-width:64ch;color:#6b6874;font-size:clamp(15px,1.1vw,16px);line-height:1.65;opacity:0;transform:translate3d(0,-4px,0);transition:opacity .3s ease,transform .4s cubic-bezier(.22,1,.36,1)}
+.faq-item[data-open] .faq-a p{opacity:1;transform:none;transition-delay:.06s}
+@media (prefers-reduced-motion:reduce){.faq-q,.faq-mark::before,.faq-mark::after,.faq-a,.faq-a p{transition:none}}
+`
 
-  const measure = useCallback(() => {
-    if (contentRef.current) {
-      setHeight(contentRef.current.scrollHeight)
-    }
-  }, [])
-
-  /* Wave 13 perf: the answer's height comes from a ResizeObserver, reported after the browser lays the page out (and again whenever it changes), not by measuring as the list mounts, a forced layout of the whole page. */
-  useEffect(() => {
-    const el = contentRef.current
-    if (!el || typeof ResizeObserver !== "function") {
-      measure()
-      window.addEventListener("resize", measure)
-      return () => window.removeEventListener("resize", measure)
-    }
-    const ro = new ResizeObserver(([entry]) => setHeight(Math.ceil(entry.contentRect.height)))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [measure])
-
+function FaqItem({ faq, index, isOpen, onToggle }: { faq: typeof FAQS[number]; index: number; isOpen: boolean; onToggle: () => void }) {
+  const id = `faq-a-${index}`
   return (
-    <div className="mb-3">
-      <button
-        onClick={onToggle}
-        className={`w-full flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 text-left rounded-2xl transition-all duration-300 group ${
-          isOpen
-            ? "bg-white shadow-[0_1px_8px_rgba(0,0,0,0.06)] border border-neutral-200/60"
-            : "bg-white/70 border border-neutral-100 hover:bg-white hover:shadow-[0_1px_6px_rgba(0,0,0,0.04)] hover:border-neutral-200/60"
-        }`}
-      >
-        <span className={`text-[15px] sm:text-base font-medium pr-4 transition-colors duration-200 ${isOpen ? "text-neutral-900" : "text-neutral-900 group-hover:text-neutral-900"}`}>
-          {faq.q}
-        </span>
-        <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${isOpen ? "bg-violet-100 border-violet-200" : "border border-neutral-200 group-hover:border-violet-200 group-hover:bg-violet-50"}`}>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            className={`transition-transform duration-300 ${isOpen ? "rotate-45 text-violet-600" : ""}`}
-          >
-            <path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </span>
-      </button>
-      <div
-        className="overflow-hidden transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)]"
-        style={{ maxHeight: isOpen ? `${height}px` : "0px", opacity: isOpen ? 1 : 0 }}
-      >
-        <div ref={contentRef}>
-          <p className="px-5 sm:px-6 pt-4 pb-3 text-sm sm:text-[15px] text-neutral-500 leading-relaxed pr-10">
-            {faq.a}
-          </p>
+    <div className="faq-item" data-open={isOpen ? "" : undefined}>
+      <h3 className="m-0">
+        <button type="button" className="faq-q" aria-expanded={isOpen} aria-controls={id} onClick={onToggle}>
+          <span>{faq.q}</span>
+          <span className="faq-mark" aria-hidden="true" />
+        </button>
+      </h3>
+      <div className="faq-a" id={id} role="region" aria-label={faq.q}>
+        <div className="faq-a-in">
+          <p>{faq.a}</p>
         </div>
       </div>
     </div>
@@ -102,7 +86,7 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
-    <section data-story-section={editorial ? "faq" : undefined} className="py-20 sm:py-28 bg-[#fafafa]" id="faq">
+    <section data-story-section={editorial ? "faq" : undefined} className={`py-20 sm:py-28 ${editorial ? "bg-transparent" : "bg-[#fafafa]"}`} id="faq">
       <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll variant="slide-right">
           {/*
@@ -122,11 +106,13 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
             </div>
 
             {/* Right: accordion */}
-            <div className="flex-1 min-w-0">
+            <div className="faq-list flex-1 min-w-0">
+              <style href="faq-section" precedence="default">{FAQ_CSS}</style>
               {FAQS.map((faq, i) => (
                 <FaqItem
                   key={i}
                   faq={faq}
+                  index={i}
                   isOpen={openIndex === i}
                   onToggle={() => setOpenIndex(openIndex === i ? null : i)}
                 />

@@ -25,7 +25,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { HowItWorks, HOW_PRODUCTS, HOW_HEADING } from "@/components/marketing/home/how-it-works"
 import { CheckoutScene, CHECKOUT_STYLES } from "@/components/marketing/home/checkout-scene"
-import { SellEverywhereMap, SELL_MAP, SELL_COUNTRIES, SELL_BUY_LABEL, sellMapPath } from "@/components/marketing/home/sell-everywhere-map"
+import { SellEverywhereMap, SELL_MAP, SELL_COUNTRIES, sellMapPath } from "@/components/marketing/home/sell-everywhere-map"
 import { EarningsCalculator, commerceMonth } from "@/components/marketing/home/earnings-calculator"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_PRO_MONTHLY_CENTS, COMMERCE_PRODUCTS, commerceSale, commerceUsd } from "@/components/marketing/home/commerce-kit"
 import { PRO_PRICE_CENTS } from "@/lib/billing/plans"
@@ -92,55 +92,67 @@ console.log("\nCommerce: the sections render on the server")
   /* Changed on purpose (wave 13): the owner removed the profit picker, the "How it works" pill and the subheading. */
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
   /* Changed on purpose (landing round): the merch tile became one shop's physical and digital products (a tee printed when ordered, an e-book sent when paid), as the owner asked. */
-  check("how it works: a $30 tee leaving $15.75 and a $19 e-book, physical and digital", how.includes("$15.75") && how.includes("$30.00") && how.includes("$19.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/tee-heather.webp"))
+/* Changed on purpose (landing round 4): the owner wanted the blue tee and Weeknight Pasta gone: an embroidered cap and a night photography e-book. */
+  check("how it works: a $28 cap and a $19 e-book, physical and digital", how.includes("$28.00") && how.includes("$19.00") && how.includes("$15.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/cap-yellow.webp"))
   check("how it works: what each product leaves is Storelib's fee and the example cost off the price", HOW_PRODUCTS.every((m) => m.keepCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.keepCents > 0))
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
-  check("how it works: the tiles use the product's real words", ["Buy now · $19", "Payment complete", "Thanks for your purchase", "Get your files", "Lessons", "2 of 6 done"].every((w) => how.includes(w)))
+/* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
+  check("how it works: the tiles use the product's real words", ["Thanks for your purchase", "Get your files", "Lessons", "2 of 7 done"].every((w) => how.includes(w)) && how.includes("/home/how/op-nadia.webp") && how.includes("/home/how/op-nadia-sheet.webp"))
   /* Added (landing round): the owner never wants the Golden Hour presets mockups again, nor the camera picture on the course. */
   check("how it works: no Golden Hour presets, no camera course picture, no purple gradient grounds", !/Golden Hour|golden-cover|course-camera|lt-field/i.test(how + src.how) && !/linear-gradient\(160deg,#4c1d95/.test(src.how))
 
   const co = renderToStaticMarkup(createElement(CheckoutScene))
-  check("checkout: its own headline, not the reference's", co.includes("Checkout that turns a tap into a sale") && !/almost cheating/i.test(co))
+  /* Changed on purpose (landing round 4): the headline's words come in one by one, each in its own span. */
+  check("checkout: its own headline, not the reference's", co.replace(/<[^>]*>/g, "").includes("Checkout that turns a tap into a sale") && !/almost cheating/i.test(co))
   /* Changed on purpose (wave 13): a fifth tab, Order paid, as the owner asked; the closed panels are inert and hidden by visibility, not display:none, so all five share one box and switching tabs moves nothing below. */
-  check("checkout: five tabs and one visible panel", (co.match(/role="tab"/g) ?? []).length === 5 && (co.match(/role="tabpanel"/g) ?? []).length === 5 && (co.match(/role="tabpanel"[^>]*inert/g) ?? []).length === 4 && !/role="tabpanel"[^>]*hidden/.test(co) && /\.cmc-panel\{grid-area:1\/1;[^}]*visibility:hidden/.test(src.checkout))
+/* Changed on purpose (landing round 4): four tabs, as the owner asked; Order paid is the end of Built to convert. */
+  check("checkout: four tabs and one visible panel", (co.match(/role="tab"/g) ?? []).length === 4 && (co.match(/role="tabpanel"/g) ?? []).length === 4 && (co.match(/role="tabpanel"[^>]*inert/g) ?? []).length === 3 && !/role="tabpanel"[^>]*hidden/.test(co) && /\.cmc-panel\{grid-area:1\/1;[^}]*visibility:hidden/.test(src.checkout))
   /* Changed on purpose (wave 13): the real instant checkout heads its fields "Your details" (components/checkout/instant-checkout.tsx), not "Contact". */
-  check("checkout: the phone draws the real checkout's words", ["Your details", "Email me news and offers", "Payment method", "Pay $19.00 with Apple Pay", "Payment complete", "We sent your receipt and your access to", "Open it now"].every((w) => co.includes(w)))
+/* Changed on purpose (landing round 4): the phone no longer completes a payment as the page scrolls; Payment complete is the desktop checkout's. */
+  check("checkout: the phone draws the real checkout's words", ["Your details", "Email me news and offers", "Payment method", "Pay $19.00 with Apple Pay", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
   /* Added (wave 13). */
   check("checkout: no subheading under the headline, no eyebrow", !/cmc-sub|story-eyebrow/.test(co))
   /* Changed on purpose (landing round 3): the owner wants the wallets tab to be a phone and nothing else, so the second browser (the one with Google Pay) is gone; the tab's words still name both wallets. */
-  check("checkout: the same checkout in a desktop browser, once, and both wallets named", (co.match(/class="cmv-br"/g) ?? []).length === 1 && co.includes("Apple Pay and Google Pay, built in"))
-  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$19.00", "€17.50", "£15.00", "¥2,900", "C$26.00"].every((p) => co.includes(p)))
+/* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again, as the owner asked. */
+  check("checkout: the website checkout in a desktop browser, once, and both wallets named", (co.match(/class="cdx-win"/g) ?? []).length === 1 && co.includes("Apple Pay and Google Pay, built in"))
+  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$28.00", "€26.00", "£22.00", "¥4,300", "C$38.00"].every((p) => co.includes(p)))
   /* Changed on purpose (landing round): the product is Maya Ellis's e-book, Weeknight Pasta, not the Golden Hour presets the owner found AI looking. */
-  check("checkout: the reminder and the sale note use the real emails' words", co.includes("You left Weeknight Pasta at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("You sold Weeknight Pasta for $19.00"))
+/* Changed on purpose (landing round 4): new products; the seller's note is the in-app sale notification ("New sale: <total>", "<buyer> bought <thing> for <total>."). */
+  check("checkout: the reminder and the sale note use the real words", co.includes("You left Darkroom cap at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $56.76") && co.includes("Sam Rivera bought Darkroom cap and 1 more for $56.76."))
   check("checkout: no Golden Hour presets anywhere, and less fans in the words", !/Golden Hour|golden-cover|Presets/.test(co + src.checkout) && !/\bfans?\b/i.test(co.replace(/<style[\s\S]*?<\/style>/g, "")))
   check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="A Storelib checkout on a phone/.test(co))
   /* Changed on purpose (landing round): the orbiting products (the Golden preset box, the camera course, a purple membership card) are gone with the orbit. */
-  check("checkout: no orbiting products around the phone", !/float-|cmc-orbit|cmc-lap/.test(co + src.checkout))
+/* Changed on purpose (landing round 4): the owner asked for the products orbiting the phone back, none of them the Golden Hour box or the purple membership card, each crossfading to a pre-blurred file (never a live filter). */
+  check("checkout: products orbit the phone again, new ones, pre-blurred files", /cmc-orbit/.test(co) && ["ebook", "cap", "course", "tee", "club", "vinyl"].every((id) => co.includes(`/home/commerce/float-${id}.webp`) && co.includes(`/home/commerce/float-${id}-blur.webp`)) && !/float-(box|member)/.test(co + src.checkout))
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
   check("map: its heading and a labelled map", map.includes("Your store never closes.") && !/\bfans?\b/i.test(map.replace(/<style[\s\S]*?<\/style>/g, "")) && /role="img" aria-label="A world map/.test(map))
   check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
   /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
-  check("map: orders in the buyers' money, as checkout charges it", ["$64.00", "£52.00", "¥9,800", "C$88.00", "59,00 €", "A$98.00"].every((p) => map.includes(p)) && ["USD", "GBP", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))
+  /* Changed on purpose (landing round 4): the owner asked for the product to change with the country, so each country has its own product and price (USD, EUR, JPY, CAD, AUD). */
+  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "22,00 €", "¥4,800", "C$38.00", "24,00 €", "A$45.00"].every((p) => map.includes(p)) && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))
   {
-    /* Changed on purpose (landing round): the owner did not want the button translated, so it says the storefront's "Buy now" in every country. */
-    check("map: the button is Buy now, in English, whatever the country", SELL_BUY_LABEL === "Buy now" && (map.match(/class="cmm-buy">([^<]*)</g) ?? []).every((b) => b.endsWith(">Buy now<")) && !/Jetzt kaufen|Acheter|Comprar|Acquista/.test(map))
+    /* Changed on purpose (landing round 4): the owner reversed the first round's ask; the button speaks the country's language (Jetzt kaufen, 今すぐ購入, Acheter). */
+    check("map: the button in the buyer's language", ["Buy now", "Jetzt kaufen", "今すぐ購入", "Acheter"].every((w) => map.includes(`>${w}</span>`)))
     check("map: real flags for each country, from the site's own flag files", SELL_COUNTRIES.every((c) => map.includes(`/flags/${c.code}.svg`) && existsSync(join(ROOT, "public/flags", `${c.code}.svg`))))
     /* Changed on purpose (landing round): the owner asked for a little less rounding (32px to 31px). */
     check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:31px/.test(src.map) && /\.cmm-wrap\{max-width:1400px/.test(src.map))
     check("map: the country changes only while the section is on screen, and never under reduced motion", /if \(!live\) return/.test(src.map) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(src.map) && /window\.clearInterval/.test(src.map))
-    check("map: the product photo exists", /const PHOTO = "\/home\/sell-map\/ridge-hoodie\.webp"/.test(src.map) && existsSync(join(ROOT, "public/home/sell-map/ridge-hoodie.webp")))
+    /* Changed on purpose (landing round 4): one product photograph per country. */
+    check("map: each product photo exists", SELL_COUNTRIES.every((c) => existsSync(join(ROOT, "public/home/sell-map", c.photo)) && map.includes(`/home/sell-map/${c.photo}`)))
   }
 
   const earn = renderToStaticMarkup(createElement(EarningsCalculator))
   check("calculator: its heading", earn.includes("See what your work could earn."))
   check("calculator: Start earning goes to /signup", /<a[^>]*href="\/signup"[^>]*>Start earning/.test(earn))
-  check("calculator: price and sales sliders, typed fields, a plan choice", (earn.match(/type="range"/g) ?? []).length === 2 && earn.includes('aria-label="Selling price in dollars"') && earn.includes('aria-label="Sales a day"') && earn.includes(">Pro<"))
+  /* Changed on purpose (landing round 4): the owner removed the Free and Pro plan choice. */
+  check("calculator: price and sales sliders, typed fields, no plan choice", (earn.match(/type="range"/g) ?? []).length === 2 && earn.includes('aria-label="Selling price in dollars"') && earn.includes('aria-label="Sales a day"') && !/cme-plan|>Pro</.test(earn))
   check("calculator: the default month is $2,850", earn.includes("$2,850"))
   /* Added (wave 13): the owner asked for the pill and the subheading gone, and a smoother result than the bar chart. */
   check("calculator: no eyebrow pill and no subheading", !/story-eyebrow|Earnings calculator|The math uses/.test(earn))
-  check("calculator: one smooth line of the year, drawn in by a transform, not bars", /cme-line/.test(earn) && !/cme-bar/.test(earn) && /@keyframes cme-draw\{from\{transform:scaleX\(1\)\}to\{transform:scaleX\(0\)\}\}/.test(src.earn))
+  /* Changed on purpose (landing round 4): the owner asked for the black result card to go; the total and three figures sit on the white panel, no chart. */
+  check("calculator: no chart and no bars, the total and three figures", !/cme-line|cme-bar/.test(earn) && (earn.match(/<dt>/g) ?? []).length === 3)
   check("/signup exists", existsSync(join(ROOT, "app/(storelib)/(auth)/signup")) || readdirSync(join(ROOT, "app/(storelib)"), { recursive: true }).some((f) => String(f).replace(/\\/g, "/").endsWith("signup/page.tsx")))
 }
 
@@ -166,8 +178,9 @@ console.log("\nCommerce: motion and performance rules")
     check(`${k}: no scroll listener of its own`, !s.includes('"scroll"'))
   }
   /* Changed on purpose (landing round): the owner found scrolling through the scene "very bad". The scroll no longer scrubs anything frame by frame: an IntersectionObserver sets data-step as bands cross the middle of the screen, and each step plays as a CSS transition of transform and opacity. Stricter than before: no scroll listener at all, no per-frame custom property, no 3D orbit. */
-  check("checkout: the scroll moves the purchase in steps set by an IntersectionObserver, no scroll listener, no layout read", /new IntersectionObserver/.test(src.checkout) && /track\.dataset\.step = String\(step\)/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame|--cmc-p|animation-timeline/.test(src.checkout))
-  check("checkout: four bands end to end down a pinned track, steps play as transform and opacity transitions", (renderToStaticMarkup(createElement(CheckoutScene)).match(/<span class="cmc-band" data-cmc-band="\d"/g) ?? []).length === 4 && /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && [...src.checkout.matchAll(/\.cmc-stage[^{]*\{[^}]*transition:([^;}]+)/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((part) => /^\s*(transform|opacity|none)\b/.test(part))))
+/* Changed on purpose (landing round 4): the phone rises and stays, the words come in, the tab cards rise over the phone: CSS view timelines (transform and opacity, on the compositor, reversible), and where a browser has none, two IntersectionObservers set two attributes and the same states play as transitions. Still no scroll listener and no layout read. */
+  check("checkout: scroll-driven by view timelines, with an observer fallback, no scroll listener, no layout read", /view-timeline-name:--cmc[;}]/.test(src.checkout) && /view-timeline-name:--cmc-cards/.test(src.checkout) && /timeline-scope:--cmc-cards/.test(src.checkout) && /animation-timeline:--cmc[;,]/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
+  check("checkout: a pinned stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:-60vh 0 0/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
   check("checkout: keyframes animate transform and opacity only", [...src.checkout.matchAll(/@keyframes [\w-]+\{([^@]*?)\}\}/g)].every((m) => !/(width|height|top|left|margin|background|box-shadow|filter)\s*:/.test(m[1])))
@@ -187,7 +200,7 @@ console.log("\nCommerce: images")
   const named = new Set<string>()
   for (const m of all.matchAll(/\$\{IMG\}\/([\w-]+\.webp)/g)) named.add(m[1])
   for (const m of all.matchAll(/img: "([\w-]+\.webp)"/g)) named.add(m[1])
-  for (const m of all.matchAll(/\$\{IMG\}\/float-\$\{f\.id\}(-blur)?\.webp/g)) for (const id of ["cap", "vinyl", "tee", "box", "course", "member"]) named.add(`float-${id}${m[1] ?? ""}.webp`)
+  for (const m of all.matchAll(/\$\{IMG\}\/float-\$\{f\.id\}(-blur)?\.webp/g)) for (const id of ["ebook", "cap", "course", "tee", "club", "vinyl"]) named.add(`float-${id}${m[1] ?? ""}.webp`)
   const missing = [...named].filter((f) => !files.includes(f))
   /* Changed on purpose (landing round): the orbiting products and the Golden Hour pictures are gone, so the sections name fewer files. */
   check("every image the code names exists", named.size >= 1 && missing.length === 0, missing)
@@ -196,8 +209,10 @@ console.log("\nCommerce: images")
   const howDir = join(ROOT, "public/home/how")
   const howFiles = existsSync(howDir) ? readdirSync(howDir) : []
   /* Changed on purpose (landing round): the tee photo and the course's video still, webp, each under 30 KB, and nothing unused. */
-  check("public/home/how holds the tee and the course pictures, webp, each under 30 KB", howFiles.sort().join() === "course-pasta.webp,tee-heather.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
-  check("images are lazy and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="lazy"/g) ?? []).length && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
+/* Changed on purpose (landing round 4): the cap, the course's street still, and the captured OnePage and its sheet. */
+  check("public/home/how holds the cap, the course and the OnePage pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,course-street.webp,op-nadia-sheet.webp,op-nadia.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
+  check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }
 
 /* Added (wave 13): one branch deleted public/home/showcase/lt-field.webp while how-it-works still drew it, and the live page asked for it and got a 404. Every picture or video a marketing component names by a root path is a file under public. */

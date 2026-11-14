@@ -29,7 +29,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { AudienceOwnership } from "@/components/marketing/home/audience-ownership"
 import { AnalyticsShowcase } from "@/components/marketing/home/analytics-showcase"
-import { SellEverywhereMap, SELL_COUNTRIES, SELL_BUY_LABEL } from "@/components/marketing/home/sell-everywhere-map"
+import { SellEverywhereMap, SELL_COUNTRIES } from "@/components/marketing/home/sell-everywhere-map"
 import { EarningsCalculator, EARN_KINDS, EARNINGS_STYLES, commerceMonth } from "@/components/marketing/home/earnings-calculator"
 import { AppAnywhere } from "@/components/marketing/home/app-anywhere"
 import { PricingSection } from "@/components/marketing/pricing-section"
@@ -62,9 +62,12 @@ console.log("\n── analytics, on the purple sheet ──")
   check("the search card is dark, and so is the search inside it", /function SearchCard[\s\S]*?\$\{s\.dark\}/.test(src) && dark(css.match(/\.serp \{\s*border-radius[^}]*background: (#[0-9a-f]{6})/)?.[1] ?? "") && dark(css.match(/\.serpBar \{[^}]*background: (#[0-9a-f]{6})/)?.[1] ?? ""))
   check("the profile and top places are solid dark chips", dark(css.match(/\.profile,\s*\.places \{[^}]*background: (#[0-9a-f]{6})/)?.[1] ?? "") && !/backdrop-filter/.test(css))
   check("no white or light grey slab in the cards' markup", !/bg-white(?![\/\w])|bg-\[#f[0-9a-f]{5}\]|bg-\[#fff\]/.test(html.replace(/<section[^>]*>/, "")))
-  check("the reports are outlined in the ground's ink, not white pills", /\.report \{[^}]*color: var\(--band-ink, #1f1d26\);[^}]*box-shadow: inset 0 0 0 1px var\(--band-line,/.test(css) && (html.match(new RegExp(`class="[^"]*report[^"]*"`, "g")) ?? []).length === 7 && !/text-\[#7c3aed\]/.test(src))
-  check("nothing in a card answers the pointer", /\.dark > \* \{\s*pointer-events: none;/.test(css) && !/:hover/.test(css))
-  check("the sample is a course (digital), still about sourdough", html.includes("Sourdough for beginners: a 7 day starter course"))
+  /* Changed on purpose (landing round 4): fewer reports (six), lit from above with a soft white gradient for depth, as the owner asked; still the ground's ink and a hairline. */
+  check("the reports are in the ground's ink with a hairline, not white pills", /\.report \{[^}]*color: var\(--band-ink, #1f1d26\);[^}]*inset 0 0 0 1px var\(--band-line,/.test(css) && (html.match(new RegExp(`class="[^"]*report[^"]*"`, "g")) ?? []).length === 6 && !/text-\[#7c3aed\]/.test(src))
+  /* Changed on purpose (landing round 4): the owner asked for the engine switcher to be pressable; its buttons are the one real control, and only they have a hover. */
+  check("nothing in a card answers the pointer but the engine buttons", /\.dark > \* \{\s*pointer-events: none;/.test(css) && (css.match(/:hover/g) ?? []).length === 1 && /\.engineTab:hover/.test(css))
+  /* Changed on purpose (landing round 4): sourdough is banned; the sample is a LUT pack (digital). */
+  check("the sample is a LUT pack (digital), not sourdough", html.includes("Fjord LUTs: 24 cinematic looks for Premiere Pro") && !/sourdough/i.test(html))
 }
 
 console.log("\n── the map, on the purple sheet ──")
@@ -74,10 +77,11 @@ console.log("\n── the map, on the purple sheet ──")
   const prod = rule(src, ".cmm-prod")
   check("the card is a dark surface with a hairline", dark(rule(src, ".cmm-card").match(/background:(#[0-9a-f]{6})/)?.[1] ?? "") && /inset 0 0 0 1px rgba\(255,255,255,\.08\)/.test(rule(src, ".cmm-card")))
   check("the product card is dark, not a white slab", dark(prod.match(/background:(#[0-9a-f]{6})/)?.[1] ?? "") && !/background:#fff/.test(prod))
-  check("the button still says Buy now, once, in English", SELL_BUY_LABEL === "Buy now" && (html.match(/class="cmm-buy">Buy now</g) ?? []).length === 1)
+  /* Changed on purpose (landing round 4): the owner asked for the button in each country's language. */
+  check("one light buy button, its words in each country's language", (html.match(/class="cmm-buy">/g) ?? []).length === 1 && html.includes('lang="de">Jetzt kaufen<'))
   check("the flags are a real switch: one pressed button per country, named", (html.match(/<button type="button" class="cmm-flag"/g) ?? []).length === SELL_COUNTRIES.length && (html.match(/aria-pressed="true"/g) ?? []).length === 1 && html.includes('aria-label="United States"') && /role="group" aria-label="Buyer&#x27;s country"/.test(html))
   check("choosing a country restarts the turn from it", /const choose = \(i: number\)/.test(src) && /\}, \[live, picks\]\)/.test(src))
-  check("the map, the product, the tag and the words are inert", /\.cmm-world,\.cmm-prod,\.cmm-tag,\.cmm-copy\{pointer-events:none\}/.test(src))
+  check("the map, the product, the tag and the words are inert", /\.cmm-grid,\.cmm-world,\.cmm-prod,\.cmm-tag,\.cmm-copy\{pointer-events:none\}/.test(src)) /* Changed on purpose (landing round 4): the dot grid behind the card is inert too. */
   check("on a phone the Example tag has its own line above the map", /@media \(max-width:1023px\)\{[\s\S]*?\.cmm-tag\{position:static;order:0;align-self:flex-end/.test(src))
   check("the switch keeps a reduced motion path and a focus ring", /\.cmm-flag:focus-visible\{outline:2px solid/.test(src) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-flag,/.test(src))
 }
@@ -88,9 +92,11 @@ console.log("\n── audience, on the white sheet ──")
   const css = read(`${DIR}/audience-ownership.module.css`)
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   check("one neutral grey for every card: no violet light, no lilac card", /\.panel \{[^}]*background: #f4f4f5;/.test(css) && !/radial-gradient|\.violet|\.stage/.test(css) && !/s\.violet|s\.stage/.test(src))
-  check("what stays yours is a plain list, not pills", /<ul class="[^"]*yours[^"]*"[^>]*>(<li>[^<]+<\/li>){4}<\/ul>/.test(html) && !/rounded-full bg-white px-3 py-1\.5/.test(src))
-  check("the composer, the list, the file and the tree are inert", /\.mock \{\s*pointer-events: none;/.test(css) && (src.match(/\$\{s\.mock\}/g) ?? []).length >= 5)
-  check("still as the owner left it: Download every contact, real faces, the header's logo", html.includes("Download every contact, any time") && /people\/sofia\.webp/.test(html) && /StorelibLogo size=\{44\}/.test(src))
+  /* Changed on purpose (landing round 4): the owner asked for a lighter structure; what stays yours is one plain line under three plain rows, no pills. */
+  check("what stays yours is a plain line, not pills", html.includes("No lock-in. If you ever leave, your list leaves with you.") && !/rounded-full bg-white px-3 py-1\.5/.test(src))
+  check("the composer, the list, the file and the tree are inert", /\.mock \{\s*pointer-events: none;/.test(css) && (src.match(/\$\{s\.mock\}/g) ?? []).length >= 5) /* Changed on purpose (landing round 4): the same rule, over the composer and the three rows' small pictures. */
+  /* Changed on purpose (landing round 4): the Storelib logo above the platforms went with the tree. */
+  check("still as the owner left it: Download every contact, real faces", html.includes("Download every contact, any time") && /people\/sofia\.webp/.test(html))
   check("no tabs in the section", !/role="tab"/.test(html))
 }
 
@@ -104,13 +110,15 @@ console.log("\n── earnings, on the white sheet ──")
   check("a community costs nothing to make: the fee only", commerceMonth("download", 15, 5, "free").production === 0)
   const pill = rule(PILLS_CSS, ".smk-pill")
   const chosen = rule(PILLS_CSS, '.smk-pill[aria-selected="true"]')
-  const kind = css.match(/\.cme-kind,\.cme-plan\{([^}]*)\}/)?.[1] ?? ""
-  const on = css.match(/\.cme-kind\[aria-checked="true"\],\.cme-plan\[aria-checked="true"\]\{([^}]*)\}/)?.[1] ?? ""
+  /* Changed on purpose (landing round 4): the owner removed the Free and Pro switch, so the kinds alone carry the tab style. */
+  const kind = css.match(/\.cme-kind\{([^}]*)\}/)?.[1] ?? ""
+  const on = css.match(/\.cme-kind\[aria-checked="true"\]\{([^}]*)\}/)?.[1] ?? ""
   check("the tab family of Make the work: the same pill, height, grey and type", ["height:44px", "border-radius:999px", "color:#616161", "font:500 15px/1"].every((d) => pill.includes(d) && kind.includes(d)))
   check("the same chosen state: a white pill with a hairline", chosen.length > 0 && on === chosen)
-  check("the same grey track", /\.cme-kinds\{[^}]*background:#f1f1f1;box-shadow:inset 0 0 0 1px #e6e6e6\}/.test(css) && /\.cme-plans\{[^}]*border-radius:999px;background:#f1f1f1;box-shadow:inset 0 0 0 1px #e6e6e6\}/.test(css))
-  check("the plan's terms are one line under the switch", html.includes("$0 a month · 5% + $0.25 a sale") && (html.match(/class="cme-plan"/g) ?? []).length === 2)
-  check("hover only where a pointer hovers; a focus ring; a reduced motion path", /@media \(hover:hover\) and \(pointer:fine\)\{\.cme-kind:hover/.test(css) && /\.cme-kind:focus-visible,\.cme-plan:focus-visible\{outline:2px solid/.test(css) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cme-kind,\.cme-plan/.test(css))
+  check("the same grey track", /\.cme-kinds\{[^}]*background:#f1f1f1;box-shadow:inset 0 0 0 1px #e6e6e6\}/.test(css))
+  /* Changed on purpose (landing round 4): no plan switch; the fee the figures use is said once under them. */
+  check("no plan switch; the fee is one line under the figures", !/cme-plan/.test(html) && html.includes("5% + $0.25 a sale"))
+  check("hover only where a pointer hovers; a focus ring; a reduced motion path", /@media \(hover:hover\) and \(pointer:fine\)\{\.cme-kind:hover/.test(css) && /\.cme-kind:focus-visible\{outline:2px solid/.test(css) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cme-kind,/.test(css)) /* Changed on purpose (landing round 4): the plan switch is gone. */
 }
 
 console.log("\n── pricing and the app ──")

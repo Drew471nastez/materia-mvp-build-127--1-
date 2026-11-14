@@ -103,6 +103,22 @@ way the large commerce sites do it, with a purple one for variety. This replaced
   signed in person's photo (`data-home-phone-actions` in `platform-header-client.tsx`).
 - Pinned by `tests/home-landing-frame3.test.ts`.
 
+## Round 4 (the owner's long list of 14 November)
+
+What changed, so a later round builds on it instead of undoing it:
+
+- Sheets rise like a phone's sheet: a small side inset that settles to full width while the block behind shrinks a little and dims (scroll-driven CSS, `components/marketing/scroll-reveal-panel.tsx`). "Make the work" does not arrive as a sheet. The close (Run your business from anywhere, the final call) is dark, not purple, with a dot grid (`components/marketing/home/dot-field.tsx`). FAQ: plain rows, a plus that turns into a minus.
+- The globe in "Make the work": the order pill glides on the compositor instead of being moved every frame, so dragging no longer floods the page with style work.
+- Showcase under the hero: new captures of real OnePages (Gia Romano, Nails by Bea, Kai Moreno, Northline Coffee); a short flick moves a card.
+- Make the work: heading "Sell anything, anywhere. Support included.", bright crossfading gradients behind the product card, a knitting course and a book club community, wider draggable store cards (stores, OnePages, a community), the wave 13 support card without a selector and without a payout request.
+- Ideas: thin pill tabs again, a heading that changes by itself, desktop editors on phones, a merch store (Field Day), a LUT seller's OnePage (Ember theme), one community (Crema Club).
+- One store for everything you sell: pins while the scroll steps through five kinds, then releases.
+- How it works and the checkout: one shop (Nadia Brooks), colourful changing grounds; the checkout phone rises with products orbiting in 3D, the four tab cards rise over it, the desktop checkout is back in Built to convert.
+- Lower: lighter audience, LUT pack search in the SEO card, clickable engine switcher, the map changes product and button language per country, softer apps fade with no hover lift, earnings without the plan switch or the black card, the AI terminal starts part written next to a page preview.
+- Banned sample content (the owner): Weeknight Pasta, the blue heavyweight tee, sourdough, Golden Hour presets, wheel throwing, Drawing Basics, Saturday Run Club, Dust & Tape Drums, Elena Ruiz's Spanish course, a payout or bank support request, anything about "fans".
+
+Two lazy sections now grow with the screen's height (pinned tracks): checkout and business. `scripts/measure-home-lazy-heights.mjs` lists them in `TRACKS`, per range of widths, and stops with a message if one changes.
+
 ## The boxes that hold each section's place
 
 A lazy section is an empty box until its code arrives. `LAZY_SECTION_HEIGHTS_CSS`

@@ -104,11 +104,14 @@ async function main() {
     const { FinalCta } = await import("@/components/marketing/home/final-cta")
     const html = renderToStaticMarkup(createElement(FinalCta))
     /* Changed on purpose (wave 13): the owner found it faded in and too tall. It is now a plain, short band: no card, no rise, no light, no receipts. */
-    check("a headline, a line and two ways in", /<h2[^>]*id="fcta-title"[^>]*>Turn what you make into a <em>business\.<\/em><\/h2>/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && /href="\/explore"/.test(html))
+    /* Changed on purpose (landing round 4): a new closing line on the dark close. */
+    check("a headline, a line and two ways in", /<h2[^>]*id="fcta-title"[^>]*>Start selling <em>what you make\.<\/em><\/h2>/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && /href="\/explore"/.test(html))
     check("the old Your next chapter starts here is not used", !/Your next chapter/.test(code("components/marketing/home/final-cta.tsx")))
+    /* Changed on purpose (landing round 4): the section itself still has no fade or rise; its only motion is the dot grid's light (dot-field.tsx), paused off screen. */
     check("no fade, no rise, no animation at all", !/@keyframes|animation|opacity|IntersectionObserver|data-armed/.test(src))
     check("no card, no light, no floating receipts", !/fcta-card|fcta-light|fcta-chip|border-radius:clamp/.test(src) && /<section class="fcta" data-final-cta=""/.test(html))
-    check("shorter than it was: at most 96px of padding top and bottom", /\.fcta\{background:#fff;padding:clamp\(48px,6vw,96px\)/.test(src))
+    /* Changed on purpose (landing round 4): the closing call ends the page's dark close, with room for its mark and dot grid (at most 152px). */
+    check("its padding is bounded: at most 152px top and bottom", /\.fcta\{[^}]*background:transparent;[^}]*padding:clamp\(88px,10vw,152px\)[^}]*clamp\(80px,9vw,136px\)/.test(src))
     check("the buttons are 44px or more on a phone", /\.fcta-btn\{[^}]*height:54px/.test(src))
   }
 
