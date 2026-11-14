@@ -47,6 +47,7 @@ import { ORIGIN_METADATA_KEY, decodeOrigin, orderOriginFrom } from "@/lib/orders
 import { attributionFromMetadata } from "@/lib/attribution/server"
 import { paymentFacts, recordSale, sameSecret } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
+import { isFreeBasketSession } from "./free-claim"
 import { businessFromMetadata, businessFromStripe, type BusinessDetails } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf, type OrderRow } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
@@ -338,7 +339,7 @@ async function writeBasket(
     /** The language the checkout was in, for the buyer's receipt email. */
     buyerLang?: string | null
   },
-): Promise<{ created: boolean; receiptToken: string | null; complete: boolean }> {
+): Promise<{ created: boolean; receiptToken: string | null; complete: boolean; wroteFirst?: boolean }> {
   /* The fee, apportioned once for the whole basket over what each line was
      charged, so the parts provably sum to what Stripe took, whichever caller
      writes which line. */
@@ -411,7 +412,7 @@ async function writeBasket(
       failed++
     }
   }
-  return { created: created.length > 0, receiptToken, complete: failed === 0 }
+  return { created: created.length > 0, receiptToken, complete: failed === 0, wroteFirst: created.some((l) => l.index === 0) }
 }
 
 /** The lines over the limit this call wrote, and any an earlier call wrote whose refund is still owed. */
@@ -464,9 +465,14 @@ export async function fulfilFreeCart(
     currency?: string | null
     /** What the buyer wrote for the shop at the website's checkout. */
     buyerNote?: string | null
+    /**
+     * The basket's session id for this press of the page (./free-claim freeBasketSession), so the same
+     * press sent again writes no line twice; absent, a random one, as before.
+     */
+    sessionId?: string | null
   },
-): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean } | { ok: false }> {
-  const sessionId = `free_${randomBytes(18).toString("base64url")}`
+): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean; wroteFirst: boolean } | { ok: false }> {
+  const sessionId = isFreeBasketSession(b.sessionId) ? b.sessionId : `free_${randomBytes(18).toString("base64url")}`
   let device: FulfilContext["device"] = { country: null, countryCode: null, deviceType: null, os: null, browser: null }
   if (b.request) {
     const { collectOrderDeviceInfo } = await import("@/lib/device-info")
@@ -512,7 +518,8 @@ export async function fulfilFreeCart(
     buyerNote: b.buyerNote ?? null,
   })
   if (!written.receiptToken) return { ok: false }
-  return { ok: true, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete }
+  /* wroteFirst: this send wrote the basket's first line, so its code's place became the use; a send that did not leaves its place to the route to give back. */
+  return { ok: true, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete, wroteFirst: written.wroteFirst === true }
 }
 
 type FollowedLine = FulfilledLine & { index: number; f: Followups }
