@@ -44,7 +44,8 @@ check("the name is checked as the page checks it, then checked free", /handlePro
 check("the name it had keeps answering, and the live site is refreshed", /website_address_history"\)\.upsert/.test(route) && /revalidatePublishedSite\(me\.creatorId\)/.test(route))
 const sql = read("supabase/migrations/20260926_website_addresses.sql")
 check("the table is readable only by its owner and written only by the server", /enable row level security/.test(sql) && /to authenticated/.test(sql) && /revoke insert, update, delete on public\.website_addresses from anon, authenticated/.test(sql))
-check("and a new username cannot take a website's name", /website_handle_taken/.test(sql) && /rpc\("website_handle_taken", \{ p_handle: cleanUsername \}\)/.test(read("components/app/settings-form-new.tsx")))
+/* Changed on purpose (round AX): Settings renames through the server (lib/profile/move-handle.ts), whose taken check (handleAvailable) asks website_handle_taken. */
+check("and a new username cannot take a website's name", /website_handle_taken/.test(sql) && /rpc\("website_handle_taken", \{ p_handle: handle \}\)/.test(read("lib/profile/ensure-username.ts")) && /handleAvailable\(db, handle, userId\)/.test(read("lib/profile/move-handle.ts")) && /store: true/.test(read("components/app/settings-form-new.tsx")))
 const domains = read("components/website-builder/website-settings/domains.tsx")
 check("Website Settings changes it in Domains, where the address is", /function StorelibAddress/.test(domains) && /fetch\("\/api\/website-address"/.test(domains) && /ctx\.onAddressChanged\(d\.handle\)/.test(domains))
 
