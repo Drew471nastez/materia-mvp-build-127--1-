@@ -32,8 +32,21 @@ const FILE = "components/marketing/home/lazy-sections.tsx"
 /** Both sides of 640, 768, 900, 1024, 1180, 1280 and 1536 (where the sections' layouts change), and the usual phones and laptops. */
 const WIDTHS = [360, 390, 430, 639, 640, 767, 768, 899, 900, 1023, 1024, 1179, 1180, 1279, 1280, 1440, 1535, 1536, 1920, 2560]
 const HEIGHT = 900
-/** A section whose height follows the screen's height too: that part, as the section's own CSS writes it, and its sum in vh. */
-const TRACKS = { checkout: { css: "100svh + 150vh", vh: 250 } }
+/**
+ * A section whose height follows the screen's height too (a pinned scroll
+ * track): that part, as the section's own CSS writes it, and its sum in vh,
+ * per range of widths (`until` is the widest width a range covers; the last
+ * range has none). Use the section's own unit: svh where its track is in svh,
+ * so a phone's toolbar does not put the box off. Checked against a shorter
+ * screen at 390 and 1440 on every run.
+ */
+const TRACKS = {
+  /* The pinned scene (100svh) and its scroll, less the cards pulled up over it: 148vh in all, measured. */
+  checkout: [{ css: "100svh + 48vh", vh: 148 }],
+  /* Pinned while the scroll steps through five kinds: 100svh + 4 steps (56svh below 900px, 62svh from 900). */
+  business: [{ until: 899, css: "324svh", vh: 324 }, { css: "348svh", vh: 348 }],
+}
+const trackAt = (n, w) => TRACKS[n]?.find((t) => t.until == null || w <= t.until)
 /** A line that predicts a measured height within this many pixels is kept; past it a new rule starts. */
 const TOLERANCE = 2
 
@@ -89,7 +102,7 @@ try {
     const short = await measure(browser, w, HEIGHT - 200)
     for (const n of NAMES) {
       const vh = ((at[w].real[n] - short.real[n]) / 200) * 100
-      const said = TRACKS[n]?.vh ?? 0
+      const said = trackAt(n, w)?.vh ?? 0
       if (Math.abs(vh - said) > 2) throw new Error(`${n} at ${w}px grows ${vh.toFixed(1)}vh with the screen's height, TRACKS says ${said}: update TRACKS in this script`)
     }
   }
@@ -98,21 +111,22 @@ try {
 }
 
 /** A section's height at one width without the part that follows the screen's height. */
-const fixed = (n, w) => at[w].real[n] - ((TRACKS[n]?.vh ?? 0) * HEIGHT) / 100
+const fixed = (n, w) => at[w].real[n] - ((trackAt(n, w)?.vh ?? 0) * HEIGHT) / 100
 const lineThrough = (n, a, b) => {
   const slope = (fixed(n, b) - fixed(n, a)) / (b - a)
   return { slope, px: fixed(n, a) - slope * a }
 }
 const valueOf = (line, w) => line.px + line.slope * w
-function write1(n, line) {
+function write1(n, line, w) {
+  const track = trackAt(n, w)
   const terms = []
-  if (TRACKS[n]) terms.push(TRACKS[n].css)
+  if (track) terms.push(track.css)
   const px = Number(line.px.toFixed(1))
   const vw = Number((line.slope * 100).toFixed(3))
   if (px || !vw) terms.push(`${px}px`)
   if (vw) terms.push(`${vw}vw`)
   const sum = terms.join(" + ").replace(/\+ -/g, "- ")
-  return terms.length === 1 && !TRACKS[n] ? sum : `calc(${sum})`
+  return terms.length === 1 && !track ? sum : `calc(${sum})`
 }
 
 /* The stretches: a line between two neighbouring widths, in force from `from` up (a wider one overrides it). Two widths one pixel apart are the two sides of a layout change, with no line between them. */
@@ -132,16 +146,18 @@ for (const n of NAMES) {
   rules[n] = []
   for (const s of stretches) {
     const line = lineThrough(n, s.a, s.b)
-    if (current && Math.abs(valueOf(current, s.a) - fixed(n, s.a)) <= TOLERANCE && Math.abs(valueOf(current, s.b) - fixed(n, s.b)) <= TOLERANCE) continue
+    /* A new rule where the line stops fitting, or where the pinned track's own CSS changes. */
+    if (current && current.track === trackAt(n, s.a) && Math.abs(valueOf(current, s.a) - fixed(n, s.a)) <= TOLERANCE && Math.abs(valueOf(current, s.b) - fixed(n, s.b)) <= TOLERANCE) continue
     current = line
     rules[n].push({ from: s.from, line })
-    put(s.from, n, write1(n, line))
+    current.track = trackAt(n, s.a)
+    put(s.from, n, write1(n, line, s.a))
   }
   /* Past the widest measured screen the height is held, so a line with any slope does not run on. */
   if (Math.abs(current.slope * last) > TOLERANCE) {
     const flat = { slope: 0, px: fixed(n, last) }
     rules[n].push({ from: last + 1, line: flat })
-    put(last + 1, n, write1(n, flat))
+    put(last + 1, n, write1(n, flat, last))
   }
 }
 const css = [...blocks.keys()].sort((x, y) => x - y).map((from) => (from ? `@media (min-width:${from}px){${blocks.get(from).join("")}}` : blocks.get(from).join(""))).join("")
