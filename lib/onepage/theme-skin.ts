@@ -40,7 +40,7 @@ export const THEME_SKINS = [
   "aero", "aqua", "messenger", "y2k", "playful", "grunge",
   "aero2", "aqua2", "messenger2", "y2k2", "playful2", "grunge2",
   "classic98", "vaporwave", "arcade",
-  /* Renaissance: an old master's canvas, ivory panels in gilt frames (scripts/onepage-skins/renaissance.mjs). */
+  /* Renaissance (wave 15): Titian whole and still behind the page, lapis plaques in gilt hairlines (scripts/onepage-skins/renaissance.mjs). */
   "renaissance",
   /* Stoicism (round AT, was Plaster): dark stone with pale veins and a faint construction, ivory tablets with an inner rule (scripts/onepage-skins/stoicism.mjs). */
   "stoicism",

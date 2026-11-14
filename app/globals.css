@@ -10191,9 +10191,16 @@ html[data-op-press] [data-op-letgo] {
 
   A browser page with neither keeps the old 16px (24px from 640px).
 */
-[data-onepage-corner] {
+:root, [data-onepage-corner] {
   --onepage-corner-edge: max(16px, calc(var(--onepage-screen-radius, 0px) - 20px));
+}
+[data-onepage-corner] {
   top: max(var(--onepage-corner-edge), calc(var(--op-safe-top, 0px) + 8px));
+}
+/* Wave 15: where a classic header starts on a phone (components/onepage/public-onepage clearOfShare): 20px below the
+   buttons' foot, read from the same edge, so the picture never crowds Share or the bell, centred or flush left. */
+:root {
+  --onepage-classic-top: calc(max(var(--onepage-corner-edge), calc(var(--op-safe-top, 0px) + 8px)) + 40px + 20px);
 }
 [data-onepage-corner="left"] {
   left: max(var(--onepage-corner-edge), calc(env(safe-area-inset-left, 0px) + 8px));
@@ -10202,8 +10209,11 @@ html[data-op-press] [data-op-letgo] {
   right: max(var(--onepage-corner-edge), calc(env(safe-area-inset-right, 0px) + 8px));
 }
 @media (min-width: 640px) {
-  [data-onepage-corner] {
+  :root, [data-onepage-corner] {
     --onepage-corner-edge: max(24px, calc(var(--onepage-screen-radius, 0px) - 22px));
+  }
+  :root {
+    --onepage-classic-top: calc(max(var(--onepage-corner-edge), calc(var(--op-safe-top, 0px) + 8px)) + 44px + 20px);
   }
 }
 @media (min-width: 768px) {
