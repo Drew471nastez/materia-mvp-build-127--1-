@@ -882,6 +882,7 @@ export const MOOD_THEMES = [
       title_color: "#2a1006",
       title_weight: 800,
       title_case: "upper",
+      title_size: "small",
       social_icon_color: "#2a1006",
       background_pattern: "none",
       block_layout: "list",

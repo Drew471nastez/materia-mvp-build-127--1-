@@ -92,7 +92,7 @@ import { Rich } from "@/lib/i18n/rich"
 import { withR40Themes } from "@/components/onepage/themes/r40-themes"
 import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-theme"
 import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepage/themes/theme-order"
-import { SWATCH_LETTERS, ThemeSwatch } from "@/components/onepage/themes/theme-swatch"
+import { SWATCH_LETTERS, ThemeSwatch, themeIsHero } from "@/components/onepage/themes/theme-swatch"
 import { MOOD_THEMES } from "@/components/onepage/themes/mood-themes"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
@@ -2522,6 +2522,7 @@ const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0
 const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const name = themeLabel(template)
+  const hero = themeIsHero(template as never)
   return (
     <button
       type="button"
@@ -2548,7 +2549,9 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
       */}
       <span className="relative block rounded-[18px] group-focus-visible/theme:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]">
         <span data-theme-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-[18px] [contain:layout_paint]" style={{ background: c.background_color }}>
-          <ThemeSwatch c={c} thumb={themeThumbSrc} />
+          <ThemeSwatch c={c} thumb={themeThumbSrc} hero={hero} />
+          {/* Round 17: a Hero theme says so, in the corner, so Classic and Hero read at a glance. Outside the scaled page, so it is crisp. */}
+          {hero ? <span data-theme-hero="" className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-black/45 px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white backdrop-blur-[6px]">{tt("Hero")}</span> : null}
           <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" />
           <span aria-hidden data-theme-hover="" className="pointer-events-none absolute inset-0 rounded-[18px] opacity-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.22)] transition-opacity duration-150 group-hover/theme:opacity-100" />
         </span>

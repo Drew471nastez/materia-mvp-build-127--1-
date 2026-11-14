@@ -1,35 +1,33 @@
 /**
  * ===========================================================================
- *  A THEME CARD IS A SWATCH OF THE THEME: ITS WALLPAPER, ITS NAME'S FACE, ITS BUTTON
+ *  A THEME CARD IS THE THEME'S PAGE, DRAWN PLAINLY, IN ITS OWN LAYOUT
  * ===========================================================================
- * The owner: "get rid of our current ones that fetch buttons randomly or
- * actual profile avatar", "make the theme preview cards more smooth and
- * clean", "when I hover over a theme, make sure it doesn't bump".
+ * Round 17, the owner: the cards were "too much like Linktree", make them
+ * "better, more modern, more clean, smooth", and "make clear the difference
+ * in themes, which one is profile image layout Classic and which is Hero fade".
  *
- * The card used to be the creator's whole page at a card's scale: a photo,
- * a bio, socials, links, a product and a newsletter, sixty times over. At
- * 150px wide that is noise, every card moved under the pointer (the theme's
- * own hover played on its buttons), and two themes with the same links
- * looked alike. A card now shows the three things a theme is:
+ * The round before drew a swatch: the wallpaper, "Aa" and one button running
+ * off the card's edge, which is how another product draws its picker. A card
+ * is now a small page, drawn plainly, in the layout the theme gives a page:
  *
- *   the wallpaper   the page's own layers (the colour, gradient or photo,
- *                   its noise, its pattern, a skin's scene), laid out at a
- *                   phone's width so a pattern's cells and a scene's pieces
- *                   are the size the page draws them
- *   the name        "Aa" in the theme's title face, weight, case, spacing
- *                   and colour (lib/onepage/header-style titleTypeStyle)
- *   the button      one button, drawn by the page's own button style
- *                   (lib/onepage/button-style themeButtonStyle): its fill,
- *                   outline or glass, its corners, border and shadow, hard
- *                   ones included, with the theme's skin on it. It is shown
- *                   close up and runs off the card's edge, so the corner and
- *                   the border are large enough to read
+ *   Classic   a profile disc (a tint, no face; the theme's own avatar shape
+ *             and ring, lib/onepage/header-style avatarLook), "Aa" under it
+ *             in the theme's title face, weight, case and colour, then two of
+ *             the theme's buttons (lib/onepage/button-style). Set left or
+ *             centred, as the theme sets its header. A theme with a cover
+ *             draws the cover as a band, the disc on its edge, as the page does.
+ *   Hero      the top half is a picture that fades into the wallpaper
+ *             (the page's own HERO_FADE_MASK), "Aa" on the fade, then the
+ *             buttons: the shape a Hero page has. The card also says Hero in
+ *             its corner (the Design tab's ThemeCard), so the two read at a
+ *             glance.
  *
- * A theme with a cover picture keeps the cover as a band across the top.
- * Nothing on a card answers the pointer (pointer-events: none on the whole
- * swatch), so no hover of the theme's can play and nothing moves. The same
- * card is drawn for every creator: it asks for no account and no picture of
- * theirs.
+ * The wallpaper is the page's own layers (its colour, gradient or photo,
+ * noise, pattern, a skin's scene) at a phone's width, so a pattern's cells
+ * and a scene's pieces are the size the page draws them. The buttons are the
+ * page's .op-btn, so a skin's material is on them. Nothing answers the
+ * pointer (no hover plays, nothing moves); it asks for no account and no
+ * picture of the creator's, so every creator sees the same card.
  *
  * scripts/check-onepage-theme-swatches.mjs draws every card in a browser
  * and measures them.
@@ -39,25 +37,33 @@ import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper
 import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
 import { skinRootProps, skinSceneOf, skinVars } from "@/lib/onepage/theme-skin"
 import { PILL_FROM, buttonFill, buttonShadow, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
-import { titleTypeStyle } from "@/lib/onepage/header-style"
-import { coverImageOf } from "@/lib/onepage/theme-layout"
+import { avatarLook, titleTypeStyle } from "@/lib/onepage/header-style"
+import { coverImageOf, headerAlignOf } from "@/lib/onepage/theme-layout"
 import { fontStack } from "@/lib/onepage/fonts"
 import { readableTheme } from "@/lib/onepage/contrast"
+import { HERO_FADE_MASK } from "@/lib/onepage/poster-video"
 
 type Look = Record<string, any>
 
-/** The phone page's width, which the swatch's wallpaper is laid out at. */
+/** The phone page's width, which the card is laid out at. */
 export const SWATCH_WIDTH = 390
 /** A card is 4:5. */
 export const SWATCH_HEIGHT = 488
 /** A skin's scene is made for a phone's screen (390 by 844); the card shows its top. */
 const SCREEN_HEIGHT = 844
-/** How much larger than on the page the button is drawn: the card is about 0.4 of the page, so the button reads at about its real size. */
-export const SWATCH_ZOOM = 2.2
+/** The buttons are drawn a little larger than the page's, so a corner and a border read at a card's size. */
+export const SWATCH_ZOOM = 1.35
 /** The letters every card sets in its theme's title face. */
 export const SWATCH_LETTERS = "Aa"
+/** The card's side margin. */
+const SIDE = 34
 
-/** The button's shadow at the swatch's zoom: the page's four (lib/onepage/button-style buttonShadowCss), each length times the zoom. */
+/** Does this theme give a page the Hero (the picture full bleed, fading into the page)? */
+export function themeIsHero(template: { profile_layout?: unknown; theme_config?: { header_layout?: unknown } } | null | undefined): boolean {
+  return template?.profile_layout === "hero" || template?.theme_config?.header_layout === "hero"
+}
+
+/** The button's shadow at the card's zoom: the page's four (lib/onepage/button-style buttonShadowCss), each length times the zoom. */
 function zoomedShadow(theme: ButtonThemeLike): string {
   const color = (theme.button_shadow_color as string) || "#000000"
   const z = SWATCH_ZOOM
@@ -74,7 +80,7 @@ function zoomedShadow(theme: ButtonThemeLike): string {
   }
 }
 
-/** The page's button style with every length at the swatch's zoom. A pill stays a pill. */
+/** The page's button style with every length at the card's zoom. A pill stays a pill. */
 export function swatchButtonStyle(theme: ButtonThemeLike): React.CSSProperties {
   const radius = Number(theme.button_border_radius ?? 8)
   const style = themeButtonStyle(theme)
@@ -88,22 +94,39 @@ export function swatchButtonStyle(theme: ButtonThemeLike): React.CSSProperties {
   }
 }
 
-/** `thumb` is the address of a theme's own picture (its wallpaper photo or cover) at a card's size. */
-export function ThemeSwatch({ c: given, thumb }: { c: Look; thumb: (url: string) => string }) {
+/** `thumb` is the address of a theme's own picture (its wallpaper photo or cover) at a card's size. `hero` draws the Hero layout. */
+export function ThemeSwatch({ c: given, thumb, hero = false }: { c: Look; thumb: (url: string) => string; hero?: boolean }) {
   /* The colours the page will really draw (lib/onepage/contrast readableTheme). */
   const c = readableTheme(given)
   const bg: string = c.background_color || "#ffffff"
   const text: string = c.text_color || "#111111"
   const image = c.background_type === "image" && c.background_image_url ? (c.background_image_url as string) : null
   const paint = c.background_type === "gradient" && c.background_gradient ? c.background_gradient : bg
-  const cover = c.header_layout === "hero" ? null : coverImageOf(c)
+  const cover = hero ? null : coverImageOf(c)
+  const left = !hero && headerAlignOf(c) === "left"
   const theme = c as ButtonThemeLike
+  const look = avatarLook(c as never, false)
   /* A skin's scene keeps the screen's height it was made for; a plain wallpaper is spread over the card, so a gradient shows whole. */
   const wallHeight = skinSceneOf(c) ? SCREEN_HEIGHT : SWATCH_HEIGHT
-  const coverHeight = cover ? 112 : 0
+
+  /* Where things sit, at the page's 390px. */
+  const DISC = 104
+  const coverH = cover ? 118 : 0
+  const discTop = cover ? coverH - DISC / 2 : 40
+  const nameTop = hero ? 214 : discTop + DISC + 18
+  const BUTTON_H = hero ? 60 : 62
+  const firstButton = hero ? 312 : nameTop + 86
+  const button = swatchButtonStyle(theme)
+  const name: React.CSSProperties = {
+    color: c.title_color || text,
+    fontFamily: fontStack(c.title_font || c.font_family),
+    ...titleTypeStyle(c as never),
+  }
+
   return (
     <span
       data-ts-page=""
+      data-ts-layout={hero ? "hero" : "classic"}
       aria-hidden
       {...skinRootProps(c)}
       className="pointer-events-none absolute left-0 top-0 block origin-top-left select-none overflow-hidden text-left [-webkit-touch-callout:none]"
@@ -125,34 +148,62 @@ export function ThemeSwatch({ c: given, thumb }: { c: Look; thumb: (url: string)
         <ThemeSkinScene theme={c} />
         <WallpaperPattern theme={c} />
       </span>
+
+      {hero ? (
+        /* The Hero: a picture full bleed, fading into the page (a light from the top, a figure's soft shape in the middle). */
+        <span
+          data-ts-hero=""
+          className="absolute left-0 top-0 block w-full"
+          style={{
+            height: 310,
+            /* A portrait, out of focus: a head and shoulders in the theme's own tones over a lit backdrop. */
+            background: `radial-gradient(17% 21% at 50% 44%, color-mix(in srgb, ${text} 52%, ${bg}) 0%, color-mix(in srgb, ${text} 52%, ${bg}) 55%, transparent 100%), radial-gradient(40% 24% at 50% 92%, color-mix(in srgb, ${text} 46%, ${bg}) 0%, color-mix(in srgb, ${text} 46%, ${bg}) 50%, transparent 100%), linear-gradient(168deg, color-mix(in srgb, ${text} 30%, ${bg}) 0%, color-mix(in srgb, ${text} 14%, ${bg}) 75%)`,
+            filter: "blur(6px)",
+            maskImage: HERO_FADE_MASK,
+            WebkitMaskImage: HERO_FADE_MASK,
+          }}
+        />
+      ) : null}
+
       {cover ? (
-        <span data-ts-cover="" className="absolute left-0 top-0 block w-full overflow-hidden" style={{ height: coverHeight, backgroundColor: `color-mix(in srgb, ${text} 8%, ${bg})` }}>
+        <span data-ts-cover="" className="absolute left-0 top-0 block w-full overflow-hidden" style={{ height: coverH, backgroundColor: `color-mix(in srgb, ${text} 8%, ${bg})` }}>
           <img src={thumb(cover)} alt="" draggable={false} loading="eager" decoding="sync" data-theme-cover="" className="absolute inset-0 h-full w-full object-cover" />
         </span>
       ) : null}
+
+      {hero ? null : (
+        /* The profile disc: a tint in the theme's avatar shape and ring, no face. */
+        <span
+          data-ts-disc=""
+          className="absolute block"
+          style={{
+            top: discTop,
+            left: left ? SIDE : (SWATCH_WIDTH - DISC) / 2,
+            width: DISC,
+            height: DISC,
+            borderRadius: look.radius,
+            borderStyle: "solid",
+            borderWidth: Math.max(look.borderWidth, cover ? 4 : 0),
+            borderColor: cover ? bg : look.borderColor,
+            background: `linear-gradient(160deg, color-mix(in srgb, ${text} 24%, ${bg}) 0%, color-mix(in srgb, ${text} 12%, ${bg}) 100%)`,
+          }}
+        />
+      )}
+
       <span
         data-ts-name=""
         className="absolute block whitespace-nowrap font-bold"
-        style={{
-          top: cover ? coverHeight + 22 : 34,
-          left: 40,
-          fontSize: 104,
-          lineHeight: 1,
-          color: c.title_color || text,
-          fontFamily: fontStack(c.title_font || c.font_family),
-          ...titleTypeStyle(c as never),
-        }}
+        style={{ top: nameTop, left: left ? SIDE : 0, right: left ? undefined : 0, textAlign: left ? "left" : "center", fontSize: 66, lineHeight: 1, ...name }}
       >
         {SWATCH_LETTERS}
       </span>
-      {/*
-        The button: the page's .op-btn, so a skin's material is on it, close
-        up and running off the card's right edge. .op-btn is position:
-        relative (app/globals.css), so the place is its holder's.
-      */}
-      <span data-ts-button-place="" className="absolute block" style={{ left: 40, bottom: 52, width: SWATCH_WIDTH, height: 132 }}>
-        <span data-ts-button="" data-shadow={buttonShadow(theme)} className="op-btn block h-full w-full" style={swatchButtonStyle(theme)} />
-      </span>
+
+      {/* Two of the theme's buttons: the page's .op-btn, so a skin's material is on them. Each in a holder, since .op-btn is position: relative. */}
+      {[0, 1].map((i) => (
+        <span key={i} data-ts-button-place="" className="absolute block" style={{ left: SIDE, right: SIDE, top: firstButton + i * (BUTTON_H + 16), height: BUTTON_H }}>
+          <span data-ts-button="" data-shadow={buttonShadow(theme)} className="op-btn block h-full w-full" style={button} />
+        </span>
+      ))}
     </span>
   )
 }

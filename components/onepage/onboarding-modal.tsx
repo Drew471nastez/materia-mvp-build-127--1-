@@ -23,7 +23,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { isNativeApp } from "@/lib/native-bridge"
 import { THEME_TEMPLATES, preloadThemeThumbs, themeSwatchFontsHref, themeThumbSrc } from "./tabs/design-tab"
-import { ThemeSwatch } from "./themes/theme-swatch"
+import { ThemeSwatch, themeIsHero } from "./themes/theme-swatch"
 import { scaleThemePreviews } from "./themes/preview-scale"
 import { themeLabel } from "./themes/theme-names"
 import { getOnePageDomain } from "@/lib/onepage/address"
@@ -122,7 +122,7 @@ const GoalCard = memo(function GoalCard({ goal, selected, onPick }: { goal: (typ
   onboarding shows the same cards.
 */
 const TemplatePicture = memo(function TemplatePicture({ template }: { template: (typeof THEME_TEMPLATES)[number] }) {
-  return <ThemeSwatch c={template.theme_config as Record<string, any>} thumb={themeThumbSrc} />
+  return <ThemeSwatch c={template.theme_config as Record<string, any>} thumb={themeThumbSrc} hero={themeIsHero(template as never)} />
 })
 
 const TemplateCard = memo(function TemplateCard({
@@ -148,6 +148,8 @@ const TemplateCard = memo(function TemplateCard({
       <span className="relative block rounded-[18px] group-focus-visible/theme:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]">
         <span data-template-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-[18px] [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
           <TemplatePicture template={template} />
+          {/* Round 17: a Hero theme says so, in the corner, so Classic and Hero read at a glance. Outside the scaled page, so it is crisp. */}
+          {themeIsHero(template as never) ? <span data-theme-hero="" className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-black/45 px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white backdrop-blur-[6px]">{tt("Hero")}</span> : null}
           <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" />
           <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] opacity-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.22)] transition-opacity duration-150 group-hover/theme:opacity-100" />
         </span>
