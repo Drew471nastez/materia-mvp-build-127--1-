@@ -145,12 +145,13 @@ const TemplateCard = memo(function TemplateCard({
       aria-label={tt("{name} template", { name })}
       data-template-card={template.id}
       className={cn(
-        "relative flex cursor-pointer select-none flex-col rounded-2xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
+        "relative flex cursor-pointer select-none flex-col rounded-2xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color,translate] duration-200 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:-translate-y-0.5 hover:border-[#c9cbd1] motion-reduce:transition-[border-color] motion-reduce:hover:translate-y-0 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
         focusRing,
       )}
     >
       <ChoiceMark on={selected} />
-      <span data-template-frame="" className="op-demo relative block aspect-[4/5] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
+      {/* Wave 15: no op-demo, the card lifts and nothing inside it hovers (theme-preview takes no pointer). */}
+      <span data-template-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
         <TemplatePicture template={template} who={who} />
         <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />

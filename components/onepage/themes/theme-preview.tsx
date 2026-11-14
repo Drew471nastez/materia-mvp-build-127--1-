@@ -27,9 +27,14 @@
  * own products with prices and pictures, and their newsletter, filled with
  * plain samples where the page has none yet. Each block is drawn the way
  * the live page draws it, with the page's own classes where the look lives
- * in them: a link is an .op-btn with the theme's hover (data-hover and its
- * variables), so pointing at a card plays the theme's real hover on its
- * buttons (.op-demo, app/globals.css). Nothing on a card can be selected.
+ * in them: a link is an .op-btn with the theme's look (its data-hover and
+ * variables carry its layers). Nothing on a card can be selected.
+ *
+ * WAVE 15, the owner: "when I hover over the theme cards, they must not
+ * hover the buttons inside them". The page takes no pointer
+ * (pointer-events-none on its root) and the frames no longer carry op-demo,
+ * so no button, product or card on it plays a hover; the card it sits in
+ * lifts instead (design-tab ThemeCard, onboarding TemplateCard).
  *
  * scripts/check-onepage-theme-previews-as1.mjs draws the live page with the
  * same creator beside its card and compares them.
@@ -40,7 +45,7 @@ import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper
 /* Round W9: a theme with a skin draws its material and scene here too (lib/onepage/theme-skin). */
 import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
 import type { PreviewAccount } from "@/components/onepage/themes/preview-account"
-import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
+import { skinRootProps, skinVars, themeSkinOf } from "@/lib/onepage/theme-skin"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonFill, buttonHover, buttonHoverVars, buttonShadow, buttonIconSide, buttonSize, buttonAlign, buttonThemeOn, cardButtonTheme, cardRadius, buttonShape, themeButtonStripFill, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
 import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, headerAlignOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
@@ -50,6 +55,7 @@ import { readableInk, readableTheme, signupCard } from "@/lib/onepage/contrast"
 import { tintOf } from "@/lib/onepage/email-signup"
 import { pageGroundIsLight, socialMarkColorOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { HERO_FADE_MASK } from "@/lib/onepage/poster-video"
+import { pageCanvasColour } from "@/lib/onepage/page-frame"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
 import { cn } from "@/lib/utils"
 
@@ -69,13 +75,27 @@ export const PREVIEW_HEIGHT = 546
  */
 export const PREVIEW_TOP = 18
 /**
+ * Wave 15: the live Hero is 8:9 on a phone (round R3, public-onepage), not
+ * 4:5, so the card draws it 8:9, at the page's proportions. 72px of its top
+ * is scrolled off, the least that brings the first link whole onto the card
+ * under the name, the bio and the socials; the face, which sits in the
+ * picture's upper middle, stays on it. (Was:)
+ *
  * A Hero card shows the page scrolled this far (round AT). The live Hero is
  * 4:5 on a phone since round AS (487px of a 546px card), so its card was the
  * picture and the name and nothing else: no socials, no buttons. The card
  * now starts 170px into the picture, where the fade has begun, so the name,
  * the socials and the first links are on it, all at the page's own sizes.
  */
-export const HERO_CARD_SHIFT = 170
+export const HERO_CARD_SHIFT = 72
+/** Under Grid or Mixed the first links are a pair of tall tiles, which need this much to show whole. */
+export const HERO_TILE_CARD_SHIFT = 116
+/** Wave 15: a picture that cannot be fetched leaves the theme's own colour under it, never the browser's broken-image mark. */
+const hideBroken = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = "hidden" }
+/** Renaissance's header scrim fades out at its sides and its foot (scripts/onepage-skins/renaissance.mjs). */
+const RN_SCRIM_MASK = "linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent), linear-gradient(180deg, #000 calc(100% - 84px), transparent)"
+/** The live Hero's shape on a phone (public-onepage, round R3). */
+const HERO_ASPECT = "8/9"
 /** The phone's screen, which the page's wallpaper fills (390 by 844). */
 const SCREEN_HEIGHT = 844
 
@@ -89,14 +109,21 @@ const phone = (cls: string) => cls.split(/\s+/).filter((c) => c && !/^(sm|md|lg|
 /** A photo where the page puts one, at the size the card needs. */
 const pictureOf = (src: string, width: number): React.CSSProperties => ({ backgroundImage: `url("${onePageImageSrc(src, width)}")`, backgroundSize: "cover", backgroundPosition: "center" })
 /**
- * A sample block's picture (round AT): no drawing, a quiet tint of the
- * colours it sits on, lit from one corner, so it reads as "a picture goes
- * here" in the theme's own palette.
+ * A sample block's picture. Wave 15, the owner: previews that "look very
+ * nice, great, smooth, clean", with nothing vague. Round AT drew a quiet
+ * tint of the colours under it, which on a plain or dark theme was a grey
+ * box. Now each sample has its own small, clean picture in warm, natural
+ * colours, drawn with gradients alone (no file, no drawing of a person):
+ * the guide a cream booklet on apricot, the session a pale sun on sage,
+ * a featured link a horizon on sky. The same on every card, so what
+ * differs between cards is the theme, never the picture.
  */
-const tintOfPicture = (ink: string, ground: string): React.CSSProperties => ({
-  backgroundColor: `color-mix(in srgb, ${ink} 14%, ${ground})`,
-  backgroundImage: `radial-gradient(120% 90% at 18% 12%, color-mix(in srgb, ${ground} 70%, transparent) 0%, transparent 60%), linear-gradient(150deg, color-mix(in srgb, ${ink} 6%, transparent) 0%, color-mix(in srgb, ${ink} 26%, transparent) 100%)`,
-})
+const SAMPLE_PICTURES: readonly React.CSSProperties[] = [
+  { backgroundImage: "linear-gradient(#fbf4e8, #f3e6d2), radial-gradient(70% 60% at 28% 22%, rgba(255,255,255,0.5), transparent 70%), linear-gradient(145deg, #f7c98f 0%, #ea8a62 58%, #c95c43 100%)", backgroundSize: "40% 56%, 100% 100%, 100% 100%", backgroundPosition: "54% 56%, 0 0, 0 0", backgroundRepeat: "no-repeat" },
+  { backgroundImage: "radial-gradient(circle at 50% 44%, #f5efe3 0 21%, transparent 22%), radial-gradient(150% 60% at 50% 118%, #2f6a5e 0 56%, transparent 57%), radial-gradient(70% 60% at 28% 22%, rgba(255,255,255,0.45), transparent 70%), linear-gradient(160deg, #b9dccd 0%, #6fae98 60%, #3f8573 100%)" },
+  { backgroundImage: "radial-gradient(circle at 70% 46%, #fff3dc 0 9%, transparent 9.5%), radial-gradient(160% 70% at 20% 120%, #3c6187 0 52%, transparent 53%), radial-gradient(160% 70% at 95% 128%, #2b4868 0 54%, transparent 55%), linear-gradient(180deg, #cfe2f2 0%, #8db6da 70%, #f2c9a5 100%)" },
+]
+const samplePicture = (i: number): React.CSSProperties => SAMPLE_PICTURES[i % SAMPLE_PICTURES.length]
 
 /** A plain link under Cards is a taller row with bolder words (app/globals.css [data-block-layout="cards"] .op-btn). */
 const CARDS_ROW: Record<string, string> = { compact: "min-h-[66px] py-4", regular: "min-h-[80px] py-5", large: "min-h-[96px] py-6" }
@@ -142,12 +169,16 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
   const titleFace = fontStack(c.title_font || c.font_family)
   const pagePaint = c.background_type === "gradient" && c.background_gradient ? c.background_gradient : bg
   const face = who.avatar
+  const renaissance = themeSkinOf(c as never) === "renaissance"
+  const heroShift = hero ? (layout === "grid" || layout === "masonry" ? HERO_TILE_CARD_SHIFT : HERO_CARD_SHIFT) : 0
+  /* Wave 15: a Hero's words carry a halo of the page's own colour, as the live page's do (public-onepage), not a black shadow. */
+  const halo = `color-mix(in srgb, ${pageCanvasColour(c as never)} 72%, transparent)`
   /*
     Where the header ends, for the pattern to keep out from behind it, as
     the page's useHeaderClearance measures it: worked out here from the
     same numbers, since every card draws the same header.
   */
-  const headerEnd = hero ? PREVIEW_WIDTH * 5 / 4 - HERO_CARD_SHIFT + 20 : (cover ? (PREVIEW_WIDTH / coverAspect(c, false)) + look.size / 2 + 4 : PREVIEW_TOP + look.size) + 12 + 44 + 12 + (who.bio ? 23 + 16 : 0) + 49
+  const headerEnd = hero ? PREVIEW_WIDTH * 9 / 8 - heroShift + 20 : (cover ? (PREVIEW_WIDTH / coverAspect(c, false)) + look.size / 2 + 4 : PREVIEW_TOP + look.size) + 12 + 44 + 12 + (who.bio ? 23 + 16 : 0) + 49
 
   /* A link's thumbnail: the creator's picture, or none (the page draws none). */
   const linkPicture = (l: PreviewAccount["links"][number]) => (l.picture ? pictureOf(l.picture, 48) : null)
@@ -194,14 +225,14 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
     const ctaTheme = cardButtonTheme(theme, { surface, cardText })
     const cta: React.CSSProperties = { ...themeButtonStyle(ctaTheme), ...buttonHoverVars(ctaTheme) }
     const ctaAttrs = { "data-hover": buttonHover(ctaTheme), "data-shadow": buttonShadow(ctaTheme) }
-    /* A product's picture: its own, a sample's tint, or none (the page draws none without one). */
-    const shot = (p: PreviewAccount["products"][number], width: number) => (p.picture ? pictureOf(p.picture, width) : p.sample ? tintOfPicture(cardText, surface) : null)
+    /* A product's picture: its own, a sample's own clean picture, or none (the page draws none without one). */
+    const shot = (p: PreviewAccount["products"][number], width: number, at: number) => (p.picture ? pictureOf(p.picture, width) : p.sample ? samplePicture(at) : null)
     const [one, two] = who.products
     if (products === "grid") {
       return (
         <span key={key} className="grid w-full grid-cols-2 gap-3">
           {[one, two].map((p, i) => {
-            const pic = shot(p, 175)
+            const pic = shot(p, 175, i)
             return (
               <span key={i} data-tp-product="tile" className="op-host flex h-full flex-col overflow-hidden" style={card}>
                 {pic ? <span data-tp-photo="" className="block aspect-square w-full" style={pic} /> : null}
@@ -220,7 +251,7 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
     }
     if (products === "rows") {
       return [one, two].map((p, i) => {
-        const pic = shot(p, 48)
+        const pic = shot(p, 48, i)
         return (
           <span key={`${key}${i}`} data-tp-product="row" className="op-host block w-full overflow-hidden" style={card}>
             <span className="flex items-center gap-3 p-2.5">
@@ -235,7 +266,7 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
         )
       })
     }
-    const pic = shot(one, 56)
+    const pic = shot(one, 56, 0)
     return (
       <span key={key} data-tp-product="callout" className="op-host block w-full overflow-hidden" style={card}>
         <span className="flex gap-3 p-3">
@@ -291,7 +322,7 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
     } else {
       const l = who.links[s.at]
       /* Cards: a link with a picture is a featured card, its picture large and its words on a strip under it. A sample's first link shows the card with a tint. */
-      const cardPicture = layout === "cards" ? (l.picture ? pictureOf(l.picture, 350) : l.sample && s.at === 0 ? tintOfPicture(ink, surface) : null) : null
+      const cardPicture = layout === "cards" ? (l.picture ? pictureOf(l.picture, 350) : l.sample && s.at === 0 ? samplePicture(2) : null) : null
       if (cardPicture) {
         const radius = buttonShape(theme.button_border_radius) === "pill" ? 28 : Number(theme.button_border_radius ?? 8)
         blocks.push(
@@ -310,27 +341,35 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
     <span
       data-tp-title=""
       className={cn("block max-w-full font-bold leading-[1.5]", phone(titleSizeClass(c as never, hero, false)))}
-      style={{ color: c.title_color || text, fontFamily: titleFace, textShadow: hero ? "0 2px 8px rgba(0,0,0,0.4)" : undefined, ...titleTypeStyle(c as never) }}
+      style={{ color: c.title_color || text, fontFamily: titleFace, textShadow: hero ? `0 1px 14px ${halo}, 0 0 2px ${halo}` : undefined, ...titleTypeStyle(c as never), ...(renaissance && !hero ? { lineHeight: 1.05 } : null) }}
     >
       {who.name}
     </span>
   )
+  /*
+    Wave 15: Renaissance draws a small gilt quatrefoil rule between the name and the bio (its skin's
+    [data-op-header] > p::before, scripts/onepage-skins/renaissance.mjs): 132 by 14, -2px over it and 12px under it,
+    in the skin's own --rn-q. The card's bio is a clamped span, so the rule is its own span here, at the same place.
+  */
+  const quatrefoil = !hero && !!who.bio && renaissance ? (
+    <span aria-hidden data-tp-rule="" className="block h-[14px] w-[132px] shrink-0" style={{ marginTop: -2, background: "var(--rn-q) center / 26px 14px no-repeat, linear-gradient(90deg, rgba(198,161,91,.5) calc(50% - 16px), transparent 0 calc(50% + 16px), rgba(198,161,91,.5) 0) center / 132px 1px no-repeat" }} />
+  ) : null
   const bio = who.bio ? (
-    <span data-tp-bio="" className={cn("line-clamp-2 block max-w-sm leading-relaxed", left ? "text-left" : "text-center", phone(bioSizeClass(c as never, hero, false)))} style={{ color: hero ? c.secondary_text_color || text : secondary, ...bioTypeStyle(c as never) }}>
+    <span data-tp-bio="" className={cn("line-clamp-2 block max-w-sm leading-relaxed", left ? "text-left" : "text-center", phone(bioSizeClass(c as never, hero, false)))} style={{ color: hero ? c.secondary_text_color || text : secondary, textShadow: hero ? `0 1px 10px ${halo}` : undefined, ...bioTypeStyle(c as never) }}>
       {who.bio}
     </span>
   ) : null
   /* No photo: the page's monogram, the name's first letter on the theme's button colour (public-onepage ProfileImage fallback). */
   const monogram: React.CSSProperties = c.button_style === "glass" || c.button_style === "outline"
     ? { backgroundColor: `color-mix(in srgb, ${text} 16%, ${bg})`, color: text }
-    : { backgroundColor: c.button_color || text, color: c.button_text_color || bg }
+    : { backgroundColor: c.button_color || text, color: readableOn(c.button_color || text, c.button_text_color || bg) } /* Wave 15: the letter reads on its disc, as the live page draws it (Cobalt's cream on cream was blank). */
 
   return (
     <span
       data-tp-page=""
       aria-hidden
       {...skinRootProps(c)}
-      className="absolute left-0 top-0 block origin-top-left select-none overflow-hidden text-left [-webkit-touch-callout:none]"
+      className="pointer-events-none absolute left-0 top-0 block origin-top-left select-none overflow-hidden text-left [-webkit-touch-callout:none]"
       style={{
         ...skinVars(c),
         width: PREVIEW_WIDTH,
@@ -350,7 +389,7 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
       */}
       <span className="absolute left-0 top-0 block w-full" style={{ height: SCREEN_HEIGHT, background: image ? bg : pagePaint }}>
         {image ? (
-          <img src={thumb(image)} alt="" draggable={false} loading="eager" decoding="sync" data-theme-thumb="" className="absolute inset-0 h-full w-full object-cover" style={c.image_brightness && c.image_brightness !== 100 ? { filter: `brightness(${c.image_brightness}%)` } : undefined} />
+          <img src={thumb(image)} alt="" draggable={false} loading="eager" decoding="sync" data-theme-thumb="" onError={hideBroken} className="absolute inset-0 h-full w-full object-cover" style={c.image_brightness && c.image_brightness !== 100 ? { filter: `brightness(${c.image_brightness}%)` } : undefined} />
         ) : null}
         {(image && c.image_noise) || (c.background_type === "gradient" && c.gradient_noise) ? <WallpaperNoise strength={c.noise_strength} /> : null}
         <ThemeSkinScene theme={c} />
@@ -366,9 +405,9 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
       <span className="relative flex h-full w-full flex-col px-5 pb-0.5" style={{ paddingTop: hero || cover ? 0 : PREVIEW_TOP }}>
         <span className={cn("flex min-h-0 flex-1 flex-col items-center", phone(blockGapClass(c)))}>
           {hero ? (
-            <span className="relative -mx-5 mb-2 block w-[calc(100%+40px)] shrink-0" style={{ marginTop: -HERO_CARD_SHIFT }} data-tp-header="hero">
-              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "4/5", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: `color-mix(in srgb, ${text} 18%, ${bg})` }}>
-                {face ? <img src={onePageImageSrc(face, PREVIEW_WIDTH)} alt="" draggable={false} decoding="async" data-tp-photo="" className="absolute inset-0 h-full w-full object-cover" /> : null}
+            <span className="relative -mx-5 mb-2 block w-[calc(100%+40px)] shrink-0" style={{ marginTop: -heroShift }} data-tp-header="hero" data-tp-shift={heroShift}>
+              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: HERO_ASPECT, maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, backgroundColor: `color-mix(in srgb, ${text} 6%, transparent)` }}>
+                {face ? <img src={onePageImageSrc(face, PREVIEW_WIDTH)} alt="" draggable={false} decoding="async" data-tp-photo="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `50% ${c.hero_position_y ?? 50}%` }} /> : null}
               </span>
               <span className="absolute inset-x-0 bottom-4 z-[1] flex flex-col items-center gap-2 px-6 text-center">
                 {title}
@@ -376,11 +415,13 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
               </span>
             </span>
           ) : (
-            <span className={cn("flex w-full shrink-0 flex-col gap-3", left ? "items-start text-left" : "items-center text-center")} data-tp-header="">
+            <span className={cn("flex w-full shrink-0 flex-col gap-3", left ? "items-start text-left" : "items-center text-center", renaissance && "relative isolate")} data-tp-header="">
+              {/* Wave 15: Renaissance's soft navy scrim under the header's words, as its skin lays it under the live page's ([data-op-header]::before). */}
+              {renaissance && !cover ? <span aria-hidden data-tp-scrim="" className="absolute z-[-1]" style={{ left: -76, right: -76, top: -200, bottom: -64, background: "rgba(12,17,36,0.66)", WebkitMaskImage: RN_SCRIM_MASK, maskImage: RN_SCRIM_MASK, WebkitMaskComposite: "source-in", maskComposite: "intersect" }} /> : null}
               {cover ? (
                 <span className="relative -mx-5 block w-[calc(100%+40px)]" style={{ marginBottom: `calc(${-(look.size / 2)}px - 0.75rem)` }}>
                   <span className="relative block w-full overflow-hidden" style={{ aspectRatio: String(coverAspect(c, false)), backgroundColor: `color-mix(in srgb, ${text} 8%, transparent)` }}>
-                    <img src={thumb(cover)} alt="" draggable={false} loading="eager" decoding="sync" data-theme-cover="" className="absolute inset-0 h-full w-full object-cover" />
+                    <img src={thumb(cover)} alt="" draggable={false} loading="eager" decoding="sync" data-theme-cover="" className="absolute inset-0 h-full w-full object-cover" onError={hideBroken} />
                   </span>
                 </span>
               ) : null}
@@ -403,6 +444,7 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
                 {face ? <img src={onePageImageSrc(face, 160)} alt="" draggable={false} decoding="async" data-tp-photo="" className="block h-full w-full rounded-[inherit] object-cover" /> : <span data-tp-monogram="">{who.name.charAt(0).toUpperCase()}</span>}
               </span>
               {title}
+              {quatrefoil}
               {bio}
             </span>
           )}

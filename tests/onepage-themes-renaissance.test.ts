@@ -10,10 +10,12 @@
  *                 still holds it is drawn as Paper (the live page and the
  *                 editor), every setting the creator changed kept
  *                 (lib/onepage/retired-themes).
- *   RENAISSANCE   (round 3, after Shopify Editions Winter '26) every
- *                 setting a value the editor offers, a modern grotesk the
- *                 page loads, its words at 4.5:1 on its night, its sky and
- *                 its scrimmed clouds, on its buttons at rest and on hover;
+ *   RENAISSANCE   (wave 15, "make Renaissance more Renaissance", no white
+ *                 frame) every setting a value the editor offers, Garamond
+ *                 serifs the page loads, centred, its words at 4.5:1 on its
+ *                 plaques and on the painting's white under its scrim, on its
+ *                 buttons at rest and on hover; the painting shown whole and
+ *                 still, no frame, a soft scrim only under words;
  *                 its skin styles every kind of block and draws its scene,
  *                 a public domain painting served from the site itself in
  *                 AVIF and WebP within a size budget, credited; every pair
@@ -126,17 +128,24 @@ check("every colour is a hex colour", Object.entries(c).filter(([k]) => /_color$
 const known = new Set([...REQUIRED, ...Object.keys(LOOK_RESET), ...THEME_TYPE_KEYS])
 check("sets only what the next theme takes back", Object.keys(c).every((k) => known.has(k)), Object.keys(c).filter((k) => !known.has(k)).join())
 check("a border, so the skin finds every surface drawn in the button's look", c.button_border_width >= 1 && buttonFill(c as never) === "filled")
-check("a modern grotesk for the name and for reading (Geist), loaded, with a sans fallback; no serif", familyOf(c.title_font) === "Geist" && familyOf(c.font_family) === "Geist" && [c.font_family, c.title_font].every((f) => Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, familyOf(f)!) && /sans-serif$/.test(fontStack(familyOf(f)))))
-check("offered in the Text settings too", /name: "Geist", category: "sans"/.test(design))
-check("the name confident: bold, large, set left like an editorial page", c.title_weight === 700 && c.title_size === "large" && c.header_align === "left")
+/* Changed on purpose (wave 15): the owner wants it "more Renaissance", over round 3's modern grotesk and "no serif". */
+check("a classical serif for the name (Cormorant Garamond) and a Garamond for reading (EB Garamond), both loaded, with a serif fallback", familyOf(c.title_font) === "Cormorant Garamond" && familyOf(c.font_family) === "EB Garamond" && [c.font_family, c.title_font].every((f) => Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, familyOf(f)!) && /serif$/.test(fontStack(familyOf(f))) && !/sans-serif$/.test(fontStack(familyOf(f)))))
+check("offered in the Text settings too", /name: "EB Garamond", category: "serif"/.test(design) && /name: "Cormorant Garamond"/.test(design))
+/* Changed on purpose (wave 15): a classical composition, the header centred (it was set left, under the Share button). */
+check("the name in a classical composition: semibold, large, centred", c.title_weight === 600 && c.title_size === "large" && c.header_align === "center")
 const ground = c.background_color
-/* Where words sit: the night, the painting's own sky continued above it (#3a507f), and its brightest cloud (#ece6d8) under the scrim's lightest (.24 of #090c18). */
-const cloud = over("#090c18", 0.24, "#ece6d8")
-for (const k of ["title_color", "text_color", "secondary_text_color"]) check(`${k} reads at 4.5:1 on the night, on the sky, and on a cloud with a panel over it`, ratio(ground, c[k]) >= 4.5 && ratio("#3a507f", c[k]) >= 4.5 && ratio(over("#0b0e1a", 0.6, cloud), c[k]) >= 4.5, `${ratio(ground, c[k]).toFixed(2)} ${ratio("#3a507f", c[k]).toFixed(2)}`)
-check("the social icons read at 3:1", ratio(ground, c.social_icon_color) >= 3 && ratio("#3a507f", c.social_icon_color) >= 3)
+/*
+  Changed on purpose (wave 15): words that sit on the painting sit on its scrim (the night at .66), so the worst case
+  is the painting's own white under it; everything else is on a lapis plaque.
+*/
+const scrimmed = over("#0c1124", 0.66, "#ffffff")
+for (const k of ["title_color", "text_color", "secondary_text_color"]) check(`${k} reads at 4.5:1 on the night, on the painting's white under the scrim, and on a plaque`, ratio(ground, c[k]) >= 4.5 && ratio(scrimmed, c[k]) >= 4.5 && ratio(c.button_color, c[k]) >= 4.5, `${ratio(ground, c[k]).toFixed(2)} ${ratio(scrimmed, c[k]).toFixed(2)}`)
+check("the social icons read at 4.5:1 on their plaques", ratio(c.button_color, c.social_icon_color) >= 4.5 && ratio(ground, c.social_icon_color) >= 4.5)
+check("the scrim the stylesheet draws is the one measured here", /background: rgba\(12,17,36,0\.66\)/.test(css))
 check("button words at rest, 4.5:1", ratio(c.button_color, c.button_text_color) >= 4.5, ratio(c.button_color, c.button_text_color).toFixed(2))
-check("and on hover (white, ink words), in its own colours", buttonHover(c as never) === "fill" && ratio(c.button_hover_fill, c.button_hover_text) >= 4.5, ratio(c.button_hover_fill, c.button_hover_text).toFixed(2))
-check("no gradient buttons, no violet, no gold", !/gradient/.test(String(c.button_color)) && !Object.values(c).some((v) => /^#(8b5cf6|7c3aed|a855f7|a8843f)$/i.test(String(v))))
+check("and on hover (ivory, lapis words), in its own colours", buttonHover(c as never) === "fill" && ratio(c.button_hover_fill, c.button_hover_text) >= 4.5, ratio(c.button_hover_fill, c.button_hover_text).toFixed(2))
+/* Changed on purpose (wave 15): gilt is back, but only ever as a hairline: the button's border, never a fill. */
+check("no gradient buttons, no violet; gilt only as the border", !/gradient/.test(String(c.button_color)) && !Object.values(c).some((v) => /^#(8b5cf6|7c3aed|a855f7)$/i.test(String(v))) && c.button_border_color === "#c6a15b" && ![c.button_color, c.background_color, c.button_hover_fill].includes("#c6a15b"))
 
 console.log("\nRenaissance's skin: every block, its scene, its words")
 const KINDS: Record<string, string> = {
@@ -162,7 +171,12 @@ const unstyled = Object.entries(KINDS).filter(([, sel]) => !css.includes(`[data-
 check(`styles ${Object.keys(KINDS).length} kinds of block`, unstyled.length === 0, unstyled.join(", "))
 const scene = read("components/onepage/themes/theme-skin-scene.tsx")
 const pieces = [...(scene.match(/\n  renaissance: \[(.*)\],/)?.[1] ?? "").matchAll(/\["([a-z-]+)", (\d+)\]/g)].map((m) => m[1])
-check(`a scene of ${pieces.length} pieces (sky, painting, scrim, frame), each drawn`, pieces.join() === "sky,painting,scrim,frame" && pieces.every((p) => css.includes(`[data-skin-scene="renaissance"] [data-sk="${p}"]`)))
+/* Changed on purpose (wave 15): the owner, "I don't like the white rectangle (the thin white frame around the page)": no frame, no sky band, no scrim over the whole painting. */
+check(`a scene of ${pieces.length} piece (the painting), drawn`, pieces.join() === "painting" && css.includes('[data-skin-scene="renaissance"] [data-sk="painting"]'))
+check("no frame anywhere: no frame piece, no white line round the page", !/\[data-skin-scene="renaissance"\][^{]*\[data-sk="(frame|sky|scrim)"\]/.test(css) && !/rgba\(255,255,255/.test(css.slice(css.indexOf("RENAISSANCE: Titian"), css.indexOf("ALL SKINS"))))
+const paintingRule = css.match(/\[data-skin-scene="renaissance"\] \[data-sk="painting"\] \{([^}]*)\}/)?.[1] ?? ""
+check("the painting held still behind the page, the screen's height, never past the page, covering it", /position: sticky; top: 0/.test(paintingRule) && /height: min\(100lvh, 100%\)/.test(paintingRule) && /\/ cover no-repeat/.test(paintingRule) && /\[data-skin-scene="renaissance"\] \{[^}]*overflow: clip/.test(css))
+check("its foot eases into the night (no edge where a page cannot hold it still)", /mask-image: linear-gradient\(180deg, #000 0%, #000 86%/.test(paintingRule))
 check("the scene stands still: nothing in it animates", !/\[data-skin-scene="renaissance"\][^{]*\{[^}]*animation/.test(css))
 const urls = [...css.matchAll(/url\("([^"]+)"\)/g)].map((m) => m[1]).filter((u) => /renaissance/.test(u))
 const skinCss = css.slice(css.indexOf("RENAISSANCE: Titian"), css.indexOf("ALL SKINS"))
@@ -173,13 +187,14 @@ const kb = (f: string) => (existsSync(f) ? statSync(f).size / 1024 : Infinity)
 check("each file there, the phone's under 120 KB and the wide one under 220 KB", files.every((f) => existsSync(f)) && kb(files[0]) < 120 && kb(files[1]) < 120 && kb(files[2]) < 220 && kb(files[3]) < 220, files.map((f) => `${f.split("/").pop()} ${Math.round(kb(f))}KB`).join(", "))
 const credit = read("scripts/build-renaissance-paintings.mjs")
 check("credited: the painting, the painter, the museum, public domain, and where the photograph is from", /Titian, "Bacchus and Ariadne"/.test(credit) && /The National Gallery, London/.test(credit) && /Public domain/.test(credit) && /commons\.wikimedia\.org\/wiki\/File:Titian_Bacchus_and_Ariadne\.jpg/.test(credit))
-check("words never sit on the bare painting: a scrim over it, panels under the buttons", css.includes('[data-skin-scene="renaissance"] [data-sk="scrim"]') && /\[data-op-skin="renaissance"\] :is\(a\.op-btn, \[data-tp-link\]\) \{[^}]*background-color: rgba\(11,14,26,\.6\) !important/.test(css))
-check("no gold anywhere in it, and thin white lines for frames", !/#a8843f|168,132,63/i.test(skinCss) && /border: 1px solid rgba\(255,255,255,\.72\) !important/.test(skinCss))
+/* Changed on purpose (wave 15): a soft scrim only where words sit on the painting; plaques under everything else. */
+check("words never sit on the bare painting: a soft scrim under the header, headings and paragraphs, plaques under the buttons", ["[data-op-header]:not([data-op-cover])::before", "[data-onepage-heading]", "[data-op-block]:has(> p.whitespace-pre-line)::before", "[data-hero-title]::before"].every((s) => skinCss.includes(s)) && /mask-composite: intersect/.test(skinCss) && /\[data-op-skin="renaissance"\] :is\(a\.op-btn, \[data-tp-link\]\) \{[^}]*background-color: var\(--sk-surface\) !important/.test(css))
+check("gilt only as hairlines and the small ornament, never a fill", /border: 1px solid #c6a15b !important/.test(skinCss) && !/background(-color)?: #c6a15b/.test(skinCss) && /--rn-q: url\("data:image\/svg\+xml/.test(skinCss))
 let current = true
 try { execFileSync(process.execPath, ["scripts/build-onepage-skins.mjs", "--check"], { stdio: "pipe" }) } catch { current = false }
 check("the stylesheet is what scripts/build-onepage-skins.mjs writes", current)
 const pairs = (JSON.parse(execFileSync(process.execPath, ["scripts/build-onepage-skins.mjs", "--pairs"], { encoding: "utf8", maxBuffer: 1 << 24 })) as Array<{ skin: string; what: string; ink: string; under: string[]; faded?: boolean }>).filter((p) => p.skin === "renaissance")
-check(`promises ${pairs.length} pairs of words and paint (panels, forms, fields, the white button at rest and under the pointer, legal links)`, pairs.length >= 7 && ["a panel", "the subscribe and contact forms' panel", "the white button", "the white button under the pointer", "the legal links"].every((w) => pairs.some((p) => p.what === w)))
+check(`promises ${pairs.length} pairs of words and paint (plaques at rest and under the pointer, the ivory button both ways, panels, forms, fields, the badge, legal links)`, pairs.length >= 10 && ["a lapis plaque", "a plaque under the pointer", "a panel", "the subscribe and contact forms' panel", "the ivory plaque", "the ivory plaque under the pointer", "the badge under the page", "the legal links"].every((w) => pairs.some((p) => p.what === w)))
 for (const p of pairs) {
   const full = Math.min(...p.under.map((u) => ratio(u, p.ink)))
   const faded = p.faded ? Math.min(...p.under.map((u) => ratio(u, over(p.ink, 0.7, u)))) : full
@@ -194,9 +209,9 @@ const start = { id: "p", theme: { template_id: "air", ...plain.theme_config }, s
 const picked = lookFromTemplate(start, ren as unknown as ThemeTemplateLike, "classic", plain)
 const pt = picked.theme as unknown as C
 check("every setting laid on, the skin with it", Object.entries(c).filter(([k]) => !(THEME_TYPE_KEYS as readonly string[]).includes(k)).every(([k, v]) => k === "header_layout" || pt[k] === v) && pt.template_id === "renaissance")
-check("its name's weight and size, as a theme's type", pt.title_weight === 700 && pt.title_size === "large")
+check("its name's weight and size, as a theme's type", pt.title_weight === 600 && pt.title_size === "large")
 const after = lookFromTemplate(picked, plain, "classic", ren as unknown as ThemeTemplateLike).theme as unknown as C
-check("the next theme takes the skin, the grotesk and the type back", after.theme_skin === null && after.title_font === null && after.title_weight == null && after.title_size == null)
+check("the next theme takes the skin, the serifs and the type back", after.theme_skin === null && after.title_font === null && after.title_weight == null && after.title_size == null)
 
 console.log("\nRenaissance's name in six languages")
 check("a name line", /\n  renaissance: \(\) => ttx\("theme", "Renaissance"\),/.test(names))
