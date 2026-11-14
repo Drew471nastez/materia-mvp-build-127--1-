@@ -127,8 +127,11 @@ async function main() {
     const door = code("app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx")
     check("the door decides by the handle, once per request for the metadata and the page",
       /const addressOf = cache\(async \(handle: string, slug: string\)/.test(door) && (door.match(/await addressOf\(at\.handle, at\.slug\)/g) ?? []).length === 2)
+    const addressing = code("lib/commerce/product-address.ts")
+    // Changed on purpose (round AW): the creator page's own STRICT loaders (a read that got no answer throws, never "nobody has this handle"), read through resolveProductAddress.
     check("  the owner is the profile the handle names and its creator row, the creator page's own loaders",
-      /await loadProfileByUsername\(handle\)/.test(door) && /await loadCreatorForUser\(profile\.id\)/.test(door) && /await loadProductBySlug\(slug, owner\.creatorId\)/.test(door))
+      /resolveProductAddress\(handle, slug, \{/.test(door) && /profile: \(name\) => loadProfileByUsernameStrict\(name\)/.test(door) && /creator: \(userId\) => loadCreatorForUserStrict\(userId\)/.test(door) && /await loadProductBySlug\(wanted, creatorId\)/.test(door) &&
+        /const profile = await reads\.profile\(handle\)/.test(addressing) && /const creator = profile\?\.id \? await reads\.creator\(profile\.id\) : null/.test(addressing) && /const found = owner \? await reads\.product\(slug, owner\.creatorId\) : null/.test(addressing))
     check("  the page, its metadata and its frame read the owner's product",
       /productMetadata\(\{ params: Promise\.resolve\(\{ slug: at\.slug, owner: step\.owner \}\)/.test(door) &&
         /ProductPageFrame\(\{ slug, children: await ProductPage\(\{ params: Promise\.resolve\(\{ slug, owner \}\), searchParams \} as never\), owner \}\)/.test(door))
@@ -138,7 +141,8 @@ async function main() {
       /if \(step\.kind !== "page"\) return \{ title: "Product Not Found", robots: \{ index: false, follow: false \} \}/.test(door))
     check("  where it lives elsewhere is the product's own canonical, its creator page's domain included",
       /getProductShareUrl\(profile\?\.username \|\| "", product\.slug, await primaryHostFor\(product\.creator_id, "creator_page"\)\)/.test(door))
-    check("  and is asked only when no creator has the handle", /if \(owner\) return productAddressStep\(\{ slug, owner, found, renamedTo: null, elsewhere: null \}\)/.test(door))
+    // Changed on purpose (round AW): the reads' order moved into lib/commerce/product-address.ts (resolveProductAddress), which the door calls.
+    check("  and is asked only when no creator has the handle", /if \(owner\) return productAddressStep\(\{ slug, owner, found, renamedTo: null, elsewhere: null \}\)/.test(addressing) && /elsewhere: canonicalElsewhere,/.test(door))
 
     const loader = code("lib/commerce/product-page-data.ts")
     const cacheFile = code("lib/commerce/product-page-cache.ts")

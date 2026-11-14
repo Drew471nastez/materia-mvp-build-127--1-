@@ -224,7 +224,8 @@ async function main() {
 
   /* ═════════════════════════════════════════════════════════════════════ */
   section("Pictures, sized for the inbox")
-  const STORE = "https://abc.supabase.co/storage/v1/object/public"
+  // Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
+  const STORE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public"
   {
     const thumb = emailImageSrc(`${STORE}/products/p1/cover.webp`, 64) ?? ""
     check("a stored WebP thumbnail drawn at 64 is made by the inbox route at 192 (3x), absolute https", thumb === `https://storelib.com/api/email/img?u=${encodeURIComponent(`${STORE}/products/p1/cover.webp`)}&w=192`, thumb)
