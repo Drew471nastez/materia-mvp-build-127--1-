@@ -85,8 +85,12 @@ const KIT = () => {
       const step = spans.length > 1 ? spans[1].getBoundingClientRect().left - first.left : 1
       dot = (c.left + c.width / 2 - (first.left + first.width / 2)) / step
     } else if (spans.length) {
+      /* Wave 16: the dot shown is a pill whose extra width is shared between two dots mid-swipe: where it stands is the extra width's centre. */
       const ws = spans.map((s) => s.getBoundingClientRect().width)
-      dot = ws.indexOf(Math.max(...ws))
+      const base = Math.min(...ws)
+      const extra = ws.map((x) => x - base)
+      const total = extra.reduce((a, b) => a + b, 0)
+      dot = total > 0.01 ? extra.reduce((a, x, i) => a + x * i, 0) / total : ws.indexOf(Math.max(...ws))
     }
     const w = strip ? Math.max(1, strip.clientWidth) : 1
     const pos = strip ? strip.scrollLeft / w : null

@@ -246,12 +246,21 @@ function Price({ s, ctx }: { s: S; ctx: ProductCtx }) {
   if (facts.payWhatYouWant) main = facts.minCents > 0 ? `${str(s.pwyw_prefix, "From")} ${ctx.money(facts.minCents)}`.trim() : "Pay what you want"
   else main = facts.priceCents === 0 ? str(s.free_label, "Free") : ctx.money(facts.priceCents)
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1" style={{ justifyContent: JUSTIFY[alignOf(s.align)] }} data-product-price="">
-      <span className="font-semibold tabular-nums" style={{ fontSize: size, color }}>{main}</span>
+    /*
+      Wave 16, the owner: the price, the compare at price and the Save of "the sheet and the product page" at the best
+      size. The same proportions as the OnePage's product sheet (components/onepage/product-sheet): the price semibold
+      with a slight negative tracking, the compare at price about three quarters of it with a thin strike, and Save a
+      soft pill of the sale colour (its own colour at 12% under it), not loose coloured words.
+    */
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5" style={{ justifyContent: JUSTIFY[alignOf(s.align)] }} data-product-price="">
+      <span className="font-semibold leading-tight tracking-[-0.01em] tabular-nums" style={{ fontSize: size, color }}>{main}</span>
       {sale ? (
         <>
-          <s className="tabular-nums" style={{ fontSize: Math.max(12, Math.round(size * 0.66)), color: ctx.palette.text_muted ?? ctx.palette.paragraph }}>{ctx.money(facts.compareAtCents!)}</s>
-          {on(s.show_saving, true) && pct > 0 ? <span className="text-[13px] font-semibold" style={{ color: colorOf(s.sale_color, ctx.palette, "accent") }}>Save {pct}%</span> : null}
+          <s className="leading-tight tabular-nums decoration-1" style={{ fontSize: Math.max(13, Math.round(size * 0.75)), color: ctx.palette.text_muted ?? ctx.palette.paragraph }}>{ctx.money(facts.compareAtCents!)}</s>
+          {on(s.show_saving, true) && pct > 0 ? (() => {
+            const tone = colorOf(s.sale_color, ctx.palette, "accent")
+            return <span className="inline-flex h-[22px] items-center rounded-full px-2 text-[12px] font-semibold leading-none tabular-nums" style={{ color: tone, background: `color-mix(in srgb, ${tone} 12%, transparent)` }} data-product-price-saving="">Save {pct}%</span>
+          })() : null}
         </>
       ) : null}
     </div>
