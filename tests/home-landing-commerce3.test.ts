@@ -56,13 +56,14 @@ check("six tiles, none wider than another, three across on a desktop, two, then 
 })
 check("the first tile still sells a physical and a digital product, and there are no Golden Hour presets", () => {
   const w = words(how)
-  assert.ok(/Sell physical and digital products\./.test(w) && /Heavyweight tee/.test(w) && /Weeknight Pasta/.test(w))
+  assert.ok(/Sell physical and digital products\./.test(w) && /Darkroom cap/.test(w) && /After Dark/.test(w)) /* Changed on purpose (landing round 4): no blue tee, no Weeknight Pasta. */
   for (const f of [HOW, CO, "components/marketing/home/ebook-cover.tsx", "components/marketing/home/commerce-kit.tsx"]) assert.ok(!/golden hour|preset/i.test(read(f)), f)
 })
 
 console.log("\nYour own domain")
-check("the tile: an address pill with the TLD apart and a tick, over the shop's website", () => {
-  assert.ok(how.includes('class="cmh-dm-pill"') && how.includes('class="cmh-dm-site"'))
+check("the tile: an address pill with the TLD apart and a tick, over the domain's settings card", () => {
+  /* Changed on purpose (landing round 4): a cleaner design: the pill over the domain's own card (Pro, the three addresses, DNS checked, HTTPS on), no drawn website. */
+  assert.ok(how.includes('class="cmh-dm-pill"') && how.includes('class="cmh-dm-card"') && /DNS checked/.test(words(how)) && /HTTPS on/.test(words(how)))
   assert.ok(new RegExp(`${HOW_DOMAIN.name.replace(/\./g, "\\.")}<b>\\${HOW_DOMAIN.tld}</b>`).test(how.replace(/<!-- -->/g, "")))
   assert.ok(/\.cmh-dm-addr b\{[^}]*color:#7c3aed/.test(howCss), "the TLD is purple")
   assert.ok(/\.cmh-dm-ok\{[^}]*color:#16a34a/.test(howCss), "the tick is green")
@@ -122,14 +123,15 @@ check("its motion: the ticks come one after another, transform and opacity only,
   assert.ok(/class="cmh-a cmh-dm-tick"/.test(how) && /class="cmh-a cmh-dm-ok"/.test(how))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss))
   assert.ok(/\[data-commerce-live\] \.cmh-a\{animation-play-state:running!important\}/.test(howCss))
-  assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a,\.cmh-spin\{animation:none!important\}/.test(howCss))
+  assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss)) /* Changed on purpose (landing round 4): no spinner any more. */
 })
 
 console.log("\nCheckout tabs")
 const loopS = Number(read(CO).match(/const LOOP_S = (\d+)/)![1])
 check("every demo loops: one cycle that repeats for as long as its panel is open and on screen", () => {
   assert.ok(new RegExp(`animation-duration:${loopS}s;animation-iteration-count:infinite`).test(coCss))
-  const live = coCss.match(/@media \(prefers-reduced-motion:no-preference\)\{([\s\S]*?)\n\}/)![1]
+  /* Changed on purpose (landing round 4): the scene's own scroll-driven block comes first now; the demos' loops are the block keyed on the open panel. */
+  const live = [...coCss.matchAll(/@media \(prefers-reduced-motion:no-preference\)\{([\s\S]*?)\n\}/g)].map((m) => m[1]).find((b) => b.includes(".cmc-panel[data-on]"))!
   const names = [...live.matchAll(/animation-name:([a-z0-9-]+)/g)].map((m) => m[1])
   assert.ok(names.length >= 30, String(names.length))
   for (const line of live.split("\n").filter((l) => /animation-name/.test(l))) assert.ok(/^\s*\[data-commerce-live\] \.cmc-panel\[data-on\] /.test(line), line)
@@ -137,20 +139,19 @@ check("every demo loops: one cycle that repeats for as long as its panel is open
   assert.ok(!/\.cmc-panel\[data-on\] [^{]*\{animation:[^}]* both [\d.]+s\}/.test(coCss))
   assert.ok(!/\.cmv-[a-z0-9-]+[^{}]*\{[^}]*animation:[^}]*forwards/.test(coCss))
 })
-check("Built to convert starts over: the paid window leaves and the page is there again before the loop ends", () => {
+/* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again (the owner's ask); its loop fills the form, pays, and goes back to the top under the paid screen before it fades. */
+check("Built to convert starts over: the paid screen and the seller's note leave before the loop ends", () => {
   const kf = (name: string) => {
     const m = coCss.match(new RegExp(`@keyframes ${name}\\{([\\s\\S]*?\\})\\}`))
     assert.ok(m, name)
     return m![1]
   }
-  for (const name of ["cmv-dlg-done", "cmv-dim"]) {
+  for (const name of ["cdx-paid", "cmv-sale"]) {
     const k = kf(name)
     assert.ok(/^0%,[\d.]+%\{opacity:0/.test(k), `${name} starts hidden`)
     assert.ok(/,100%\{opacity:0/.test(k), `${name} ends hidden`)
-    assert.ok(/\{opacity:1/.test(k), `${name} shows in between`)
   }
-  assert.ok(/,100%\{opacity:0/.test(kf("cmv-dlg-form")))
-  /* A tab's turn is one whole demo, so it never moves on mid purchase. */
+  assert.ok(/100%\{transform:translate3d\(0,0,0\)\}/.test(kf("cdx-scroll")), "the page is back at its top")
   assert.ok(/const AUTO_MS = LOOP_S \* 1000/.test(read(CO)))
 })
 check("the demos move by transform and opacity only", () => {
@@ -165,22 +166,23 @@ check("One-tap payments is a phone and nothing else", () => {
   assert.ok(!/cmv-br|cmv-bar|cmv-url|cmv-page/.test(panel), "no browser")
   assert.ok(/Pay \$19\.00 with Apple Pay/.test(words(panel)))
   const convert = co.slice(co.indexOf('id="cmc-panel-convert"'), co.indexOf('id="cmc-panel-tap"'))
-  assert.ok(/cmv-br-convert/.test(convert) && !/class="cmc-phone"/.test(convert), "the browser is Built to convert's")
+  assert.ok(/cdx-win/.test(convert) && !/class="cmc-phone"/.test(convert), "the browser is Built to convert's") /* Changed on purpose (landing round 4): the website checkout's window. */
 })
 check("the tabs are the pill tabs in their dark form: a dark track with a light edge, the chosen pill white, no coloured chips", () => {
   const list = rule(coCss, ".cmc-tablist")
   assert.ok(/border-radius:999px/.test(list) && /background:#141416/.test(list) && /border:1px solid rgba\(255,255,255,\.08\)/.test(list))
   assert.ok(/\.cmc-tab\{[^}]*border-radius:999px[^}]*background:transparent/.test(coCss))
   assert.ok(/\.cmc-tab::before\{[^}]*background:#fff/.test(coCss) && /\.cmc-tab\[data-on\]\{color:#18181b\}/.test(coCss))
-  assert.equal((co.match(/role="tab"/g) ?? []).length, 5)
+  assert.equal((co.match(/role="tab"/g) ?? []).length, 4) /* Changed on purpose (landing round 4): four tabs. */
   const tabs = co.slice(co.indexOf('role="tablist"'), co.indexOf('class="cmc-panels"'))
   assert.ok(!/<svg|<img/.test(tabs))
 })
 check("on black the cards are dark surfaces: the panel, the price card, the email, the receipt, the seller's note", () => {
   assert.ok(/\.cmc-panel\{[^}]*background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
-  assert.ok(/\.cmv-cc,\.cmv-mail,\.cmv-rcpt\{[^}]*background:#1a1a1e/.test(coCss))
+  /* Changed on purpose (landing round 4): the receipt card went with the fifth tab; the wallet rows of One-tap payments are dark cards too. */
+  assert.ok(/\.cmv-cc,\.cmv-mail,\.cmv-link\{[^}]*background:#1a1a1e/.test(coCss))
   assert.ok(/\.cmv-sale\{[^}]*background:#26262b/.test(coCss))
-  for (const sel of [".cmv-cc", ".cmv-mail", ".cmv-rcpt", ".cmv-sale", ".cmv-chips", ".cmc-vis"]) assert.ok(!/background:(#fff|#f[0-9a-f]{5}|rgba\(24[0-9],)/.test(rule(coCss, sel)), sel)
+  for (const sel of [".cmv-cc", ".cmv-mail", ".cmv-link", ".cmv-sale", ".cmv-chips", ".cmc-vis"]) assert.ok(!/background:(#fff|#f[0-9a-f]{5}|rgba\(24[0-9],)/.test(rule(coCss, sel)), sel)
 })
 check("the words in the reminder are the email's own, and the currencies are ones checkout charges in", () => {
   const tpl = read("lib/physical/email-templates.ts")
@@ -203,7 +205,7 @@ check("a mock takes no pointer and has no hover state; only the tabs are control
   assert.ok(hovers.length > 0 && hovers.every((h) => /^\.cmc-tab/.test(h.trim())), hovers.join(" | "))
   assert.ok(!/<(a|button|input|select)\b/.test(how), "no control in How it works")
   const buttons = co.match(/<button\b[^>]*>/g) ?? []
-  assert.ok(buttons.length === 5 && buttons.every((b) => /role="tab"/.test(b)))
+  assert.ok(buttons.length === 4 && buttons.every((b) => /role="tab"/.test(b))) /* Changed on purpose (landing round 4): four tabs. */
   assert.ok(!/<(a|input|select)\b/.test(co))
 })
 
