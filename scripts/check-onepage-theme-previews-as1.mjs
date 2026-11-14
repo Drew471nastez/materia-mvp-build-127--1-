@@ -177,7 +177,9 @@ if (PARTS.has("side")) {
     await sleep(900)
     await settle(live)
     await sleep(400)
-    const liveShot = await live.screenshot({ clip: { x: 0, y: 0, width: 390, height: 546 } })
+    /* Wave 15: a Hero card shows the page scrolled by its data-tp-shift (theme-preview HERO_CARD_SHIFT); the live picture is taken from the same place. */
+    const shift = Number(await ed.evaluate((id) => document.querySelector(`[data-theme-card="${id}"] [data-tp-header="hero"]`)?.getAttribute("data-tp-shift") || 0, t.id))
+    const liveShot = await live.screenshot({ clip: { x: 0, y: shift, width: 390, height: 546 }, captureBeyondViewport: true })
     const liveLook = await live.evaluate(`(${readLook})(document.querySelector("[data-op-header], [data-hero-header]")?.closest(".relative.min-h-screen") || document.body)`)
 
     const card = await ed.$(`[data-theme-card="${t.id}"] [data-theme-frame]`)
@@ -187,8 +189,8 @@ if (PARTS.has("side")) {
     await sleep(150)
     const cardShot = await card.screenshot()
     const cardLook = await ed.evaluate(`(${readLook})(document.querySelector('[data-theme-card="${t.id}"] [data-tp-page]'))`)
-    /* Round AT: a Hero card shows the page scrolled 170px into its picture (theme-preview HERO_CARD_SHIFT), so its places are read as the page's. */
-    if (await ed.$(`[data-theme-card="${t.id}"] [data-tp-header="hero"]`)) cardLook.tops = cardLook.tops.map((y) => (y === null ? null : y + 170))
+    /* Round AT: a Hero card shows the page scrolled into its picture (theme-preview HERO_CARD_SHIFT, read from the card), so its places are read as the page's. */
+    if (shift) cardLook.tops = cardLook.tops.map((y) => (y === null ? null : y + shift))
     const W = 780, H = 1092
     const a = await sharp(liveShot).resize(W, H, { fit: "cover", position: "top" }).png().toBuffer()
     const b = await sharp(cardShot).resize(W, H, { fit: "cover", position: "top" }).png().toBuffer()
@@ -225,10 +227,12 @@ if (PARTS.has("side")) {
       if (liveLook.sendText !== cardLook.sendText) diffs.push(`newsletter button words ${liveLook.sendText} / ${cardLook.sendText}`)
     }
     /*
-      The card leaves out the page's Share and Subscribe row (round W8): the name sits up to 34px higher on a
-      centred header, and up to 56px on a header set flush left, which the page starts under that row.
+      The card leaves out the page's Share and Subscribe row (round W8) and keeps 18px over a plain header
+      (theme-preview PREVIEW_TOP). Wave 15: the page now starts a Classic header 20px under that row (avatar top
+      76px on a phone, --onepage-classic-top), so its name sits up to 60px lower than the card's, centred or flush
+      left; the places under the name are still compared from the name.
     */
-    if (liveLook.tops[0] !== null && cardLook.tops[0] !== null && (liveLook.tops[0] - cardLook.tops[0] < -6 || liveLook.tops[0] - cardLook.tops[0] > (cardLook.titleLeft !== null && cardLook.titleLeft < 20 ? 56 : 34))) diffs.push(`name at ${liveLook.tops[0]} / ${cardLook.tops[0]}`)
+    if (liveLook.tops[0] !== null && cardLook.tops[0] !== null && (liveLook.tops[0] - cardLook.tops[0] < -6 || liveLook.tops[0] - cardLook.tops[0] > 60)) diffs.push(`name at ${liveLook.tops[0]} / ${cardLook.tops[0]}`)
     liveLook.tops.forEach((y, i) => { if (i && y !== null && cardLook.tops[i] !== null && Math.abs((y - liveLook.tops[0]) - (cardLook.tops[i] - cardLook.tops[0])) > 6) diffs.push(`${["name", "icons", "first link"][i]} at ${y} / ${cardLook.tops[i]} (from the name)`) })
     console.log(`  ${diffs.length ? "DIFF" : "ok  "}  ${t.id.padEnd(12)} ${diffs.join("; ") || `${cardLook.titleWords}, ${cardLook.font}, ${cardLook.layout}, products ${cardLook.products}`}`)
     if (diffs.length) problems.push(`${t.id}: ${diffs.join("; ")}`)

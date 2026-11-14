@@ -2560,7 +2560,8 @@ const ThemeCard = memo(function ThemeCard({ template, who, selected, shown, copy
       data-theme-shown={shown ? "" : undefined}
       className={cn(
         /* Round AT: nothing on a card is selected by a long press or a double click (the owner's blue Blocks card). */
-        "group/theme relative flex cursor-pointer select-none flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
+        /* Wave 15: pointing at a card lifts the card itself, 2px (translate only, pointer screens only); nothing inside it moves. */
+        "group/theme relative flex cursor-pointer select-none flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color,translate] duration-200 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:-translate-y-0.5 motion-reduce:transition-[border-color] motion-reduce:hover:translate-y-0 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
         choiceOff,
       )}
     >
@@ -2571,8 +2572,12 @@ const ThemeCard = memo(function ThemeCard({ template, who, selected, shown, copy
         (components/onepage/themes/theme-preview). Its own layer of layout and
         paint, so nothing inside it is worked out again for the rest of the grid.
       */}
-      {/* op-demo: pointing at the card plays the theme's own hover on its buttons (app/globals.css). */}
-      <span data-theme-frame="" className="op-demo relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
+      {/*
+        Wave 15, the owner: "when I hover over the theme cards, they must not hover the buttons inside them". The frame
+        no longer carries op-demo, and the page drawn in it takes no pointer (theme-preview, pointer-events-none), so no
+        button, product or card inside it ever plays its hover: only the card lifts.
+      */}
+      <span data-theme-frame="" className="relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
         <ThemePreview c={look} who={who} thumb={themeThumbSrc} />
         <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />

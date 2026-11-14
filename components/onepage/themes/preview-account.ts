@@ -17,6 +17,9 @@
  * in the page the editor loaded (a product block keeps its product's title,
  * price and picture, lib/onepage/types ProductBlockData).
  *
+ * Links that carry only the editor's default words ("My Link") are not
+ * the creator's and are left out (wave 15, isDefaultLabel).
+ *
  * What the page does not have yet is filled with plain sample blocks (two
  * links, two products, a newsletter) in the reader's language, so a new
  * account still sees every theme's buttons, products and signup. A sample
@@ -57,6 +60,38 @@ export type PreviewSource = {
 const SOCIAL_ORDER = ["instagram", "tiktok", "youtube", "twitter", "threads", "spotify", "twitch", "linkedin", "facebook", "pinterest", "soundcloud", "discord", "github", "patreon", "snapchat", "telegram", "whatsapp", "kick", "website", "email"]
 const SAMPLE_SOCIALS = ["instagram", "tiktok", "youtube"] as const
 
+/*
+  WAVE 15: NO VAGUE WORDS ON A CARD. The owner: "in the theme previews get rid of the vague things like 'My link'".
+  A new page starts with two "My Link" buttons (lib/onepage/ensure-onepage), and the cards drew them. A link whose
+  words are only an editor default, in any of the app's languages, is not the creator's: the card leaves it out and
+  draws a specific sample in its place. The creator's own words always stay.
+*/
+const DEFAULT_WORDS = [
+  "My Link", "Link", "New link", "Link title", "Untitled", "Button", "Your link", "Click here", "Title", "Label",
+  /* The same words in the app's other languages (lib/i18n/catalog). */
+  "Mein Link", "Mi enlace", "Il mio link", "Mój link", "Mon lien", "Meu link",
+  "Enlace", "Lien",
+  "Neuer Link", "Nuevo enlace", "Nuovo link", "Nowy link", "Nouveau lien", "Novo link",
+  "Linktitel", "Título del enlace", "Titolo del link", "Tytuł linku", "Titre du lien", "Título do link",
+  "Ohne Titel", "Sin título", "Senza titolo", "Bez tytułu", "Sans titre", "Sem título",
+  "Botón", "Pulsante", "Przycisk", "Bouton", "Botão",
+  /* A product's: */
+  "Product", "My Product", "New product", "Untitled product",
+  "Prodotto", "Producto", "Produit", "Produkt", "Produto",
+  "Neues Produkt", "Nouveau produit", "Novo produto", "Nowy produkt", "Nuevo producto", "Nuovo prodotto",
+  "Unbenanntes Produkt", "Producto sin título", "Prodotto senza titolo", "Produkt bez nazwy", "Produit sans titre", "Produto sem título",
+] as const
+const wordKey = (v: string) => v.toLocaleLowerCase().normalize("NFKC").replace(/[\s\d#.:_-]+$/u, "").replace(/\s+/g, " ").trim()
+let defaultKeys: Set<string> | null = null
+/** True when a link's or product's words are only an editor default ("My Link", "Link 2", "Mein Link"...), or nothing. */
+export function isDefaultLabel(label: string): boolean {
+  if (!label.trim()) return true
+  const key = wordKey(label)
+  if (!key) return false
+  if (!defaultKeys) defaultKeys = new Set(DEFAULT_WORDS.map(wordKey))
+  return defaultKeys.has(key) || DEFAULT_WORDS.some((w) => wordKey(tt(w)) === key)
+}
+
 const clean = (v: unknown): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "")
 const picture = (...urls: unknown[]): string | null => {
   for (const u of urls) if (typeof u === "string" && u.trim()) return u.trim()
@@ -84,8 +119,8 @@ export function previewAccountOf(page: PreviewSource | null | undefined, money: 
   const fromRow: string[] = []
   for (const b of blocks) {
     const d = (b.data ?? {}) as Record<string, any>
-    if (b.type === "link_button" && clean(d.label) && links.length < 3) links.push({ label: clean(d.label), picture: linkPicture(d), sample: false })
-    else if (b.type === "product" && clean(d.product_title) && products.length < 2) {
+    if (b.type === "link_button" && clean(d.label) && !isDefaultLabel(clean(d.label)) && links.length < 3) links.push({ label: clean(d.label), picture: linkPicture(d), sample: false })
+    else if (b.type === "product" && clean(d.product_title) && !isDefaultLabel(clean(d.product_title)) && products.length < 2) {
       const parts = productPriceParts(d, money)
       products.push({ title: clean(d.product_title), price: parts.free ? "Free" : `${parts.prefix === "from" ? "From " : ""}${parts.now}`, picture: picture(d.custom_thumbnail, d.product_cover, d.product_thumbnail), cta: clean(d.cta_text) || "Get My Guide", sample: false })
     } else if (b.type === "email_capture" && !news) news = { headline: clean(d.headline) || tt("Join my newsletter"), desc: clean(d.description), button: newsButton(d) }
