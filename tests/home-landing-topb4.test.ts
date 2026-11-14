@@ -24,7 +24,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { IdeasComeToLife, IDEAS_HEADING, IDEAS_HEADINGS, IDEAS_STYLES, IDEAS_SUB, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, DesmondPage, SaltmoorSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, DesmondPage, PlainWeatherSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 import { BusinessCarousel, BUSINESS_SLIDES, BUSINESS_STYLES } from "@/components/marketing/home/business-carousel"
 import { BUSINESS_MOCK_CSS } from "@/components/marketing/home/showcase-mocks/business-mocks"
 import { CreatorsCarousel, CREATORS, CREATORS_CSS } from "@/components/marketing/home/creators-carousel"
@@ -60,13 +60,13 @@ const ideasCss = IDEAS_STYLES.find((s) => s.href === "w12-ideas")?.css ?? ""
 const bizCss = BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? ""
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 
-console.log("\n── See your ideas come to life: tabs (round 5: not pills) ──")
+console.log("\n── See your ideas come to life: tabs (round 6: pills again) ──")
 check("three tabs: the website builder, the OnePage editor, the community", IDEAS_TABS.map((t) => t.title).join() === "Website builder,OnePage editor,Community")
 check("real tabs with their names written out", (ideas.match(/role="tab"/g) ?? []).length === 3 && IDEAS_TABS.every((t) => ideas.includes(`<span>${t.title}</span>`)))
 check("the tabs sit above the picture", ideas.indexOf('class="ideas-tabs"') > 0 && ideas.indexOf('class="ideas-tabs"') < ideas.indexOf('class="ideas-stage"'))
 const tab = rule(ideasCss, ".ideas-tab")
-// Changed on purpose (landing round 5): the owner wants tabs "not as pill shapes"; tests/home-landing-r5-middle.test.ts pins the new ones.
-check("tabs, not pills: square words with no pill behind them", /border-radius:0/.test(tab) && !/border-radius:999px/.test(tab))
+// Changed on purpose (landing round 6): the owner wants the tabs "with pill shapes like how it was before"; tests/home-landing-r6-ideas.test.ts pins them.
+check("thin pill tabs, as in round 4", /border-radius:999px/.test(tab) && /height:30px/.test(tab))
 check("a picture changes by a crossfade, no carousel to drag", /@keyframes ideas-in\{from\{opacity:0\}\}/.test(ideasCss) && !/RailMotion|rail-motion/.test(code(src.ideas)))
 check("autoplay pauses off screen, in a hidden tab and under the pointer (use-auto-tabs)", /useAutoTabs\(/.test(src.ideas) && /\{\.\.\.t\.hoverProps\}/.test(src.ideas) && /data-mock-live=\{\(state === "active" && t\.live\) \|\| undefined\}/.test(src.ideas))
 check("nothing animates before the section is seen", !/data-mock-live="/.test(ideas))
@@ -85,15 +85,15 @@ check("one design width for every screen, no phone layout in the editors", /\.bm
 check("the picture keeps the computer's shape on a phone", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss) && !/aspect-ratio:640\/836/.test(ideasCss))
 
 console.log("\n── The website builder: a real small store, no sourdough ──")
-const site = renderToStaticMarkup(createElement(SaltmoorSite))
+const site = renderToStaticMarkup(createElement(PlainWeatherSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-// Changed on purpose (landing round 5): "come up with another store, more realistic": Saltmoor, a candle studio, replaces Field Day.
-check("Saltmoor, a candle studio's store", site.includes("Candles poured by hand in Leeds.") && wb.includes("Saltmoor"))
-check("its products are photographs that exist and are small", ["sm-hero", "sm-bergamot", "sm-glass", "sm-votive", "sm-pillar"].every((n) => {
+// Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
+check("Plain Weather, a small apparel label's store", site.includes("Everyday cotton, cut and sewn in Porto.") && wb.includes("Plain Weather"))
+check("its products are photographs that exist and are small", ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => {
   const f = join(root, `public/home/showcase/${n}.webp`)
   return existsSync(f) && statSync(f).size < 120_000 && site.includes(`/home/showcase/${n}.webp`)
 }))
-check("Publish puts saltmoorcandles.co.uk live, the selected sections outlined", wb.includes("saltmoorcandles.co.uk") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
+check("Publish puts plainweather.co live, the selected sections outlined", wb.includes("plainweather.co") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
 
 console.log("\n── The OnePage editor: a LUT pack on a real theme ──")
 const page = renderToStaticMarkup(createElement(DesmondPage))
