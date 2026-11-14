@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr"
 import { mediaFetch, withMediaAddresses } from "@/lib/storage/media-url"
 import { cookies, headers } from "next/headers"
+import { cookiePairs, outgoingName, sessionView, writesHostCookies } from "./host-session"
+import { storedSessionKey } from "./session-jar"
 
 /**
  * Get the main domain for cross-subdomain cookies
@@ -45,6 +47,19 @@ export async function createClient({ fetch: underFetch }: { fetch?: typeof fetch
   const requestHost = headerStore.get("host") || ""
   const cookieDomain = getCookieDomain(requestHost, mainDomain)
   const isLocalhost = mainDomain.includes("localhost") || requestHost.includes("localhost")
+  /*
+    THE SESSION UNDER `__Host-` (round AX, lib/supabase/host-session.ts): a published site on a subdomain can
+    plant a cookie under the old name, never under this one. Read: the `__Host-` copy wins, and an old name that
+    arrived twice (counted in the raw header, since cookies() keeps one of each) is not read at all. Write: the
+    `__Host-` name on HTTPS, the old name on http://localhost, as before.
+  */
+  const key = storedSessionKey()
+  const raw = cookiePairs(headerStore.get("cookie"))
+  const counts = new Map<string, number>()
+  for (const c of raw) counts.set(c.name, (counts.get(c.name) ?? 0) + 1)
+  const duplicated = [...counts].filter(([, n]) => n > 1).map(([name]) => name)
+  const proto = (headerStore.get("x-forwarded-proto") || "").split(",")[0].trim()
+  const hostCookies = writesHostCookies({ https: proto !== "http", localhost: isLocalhost, pairs: [...raw, ...cookieStore.getAll()], key })
 
   return withMediaAddresses(createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     /* Every row read carries Storelib's own file addresses (lib/storage/media-url.ts). */
@@ -52,18 +67,23 @@ export async function createClient({ fetch: underFetch }: { fetch?: typeof fetch
     ...(underFetch ? { global: { fetch: underFetch } } : {}),
     cookies: {
       getAll() {
-        return cookieStore.getAll()
+        return sessionView(cookieStore.getAll().map((c) => ({ name: c.name, value: c.value })), key, duplicated).cookies
       },
       setAll(cookiesToSet) {
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
+            const out = outgoingName(name, key, hostCookies)
+            const host = out !== name
             const enhancedOptions = {
               ...options,
               domain: cookieDomain,
-              secure: isLocalhost ? options?.secure : true,
+              secure: host ? true : isLocalhost ? options?.secure : true,
               sameSite: options?.sameSite || ("lax" as const),
+              ...(host ? { path: "/" } : {}),
             }
-            cookieStore.set(name, value, enhancedOptions)
+            cookieStore.set(out, value, enhancedOptions)
+            /* The old name goes with it, on this host: it is never read again beside the `__Host-` copy. */
+            if (host) cookieStore.set(name, "", { path: "/", maxAge: 0, secure: !isLocalhost, sameSite: "lax" })
           })
         } catch {
           // The "setAll" method was called from a Server Component.

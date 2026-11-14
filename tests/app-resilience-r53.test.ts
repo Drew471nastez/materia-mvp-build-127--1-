@@ -164,9 +164,11 @@ async function main() {
   check("everywhere that Auth did is ended", everywhereOk.ended && everywhereOk.everywhere)
 
   const route = readCode("app/api/auth/logout/route.ts")
-  check("the route expires every session cookie whatever Auth said", /for \(const c of jar\.getAll\(\)\) \{\s*if \(SESSION_COOKIE\.test\(c\.name\)\) jar\.set\(c\.name, "", \{ path: "\/", maxAge: 0 \}\)/.test(route))
+  // Changed on purpose (round AX): the __Host- names too, expired with Secure (a browser ignores a __Host- expiry without it); the old names as before.
+  check("the route expires every session cookie whatever Auth said", /for \(const c of jar\.getAll\(\)\) \{\s*if \(!SESSION_COOKIE\.test\(c\.name\)\) continue\s*if \(c\.name\.startsWith\(HOST_PREFIX\)\) jar\.set\(c\.name, "", \{ path: "\/", maxAge: 0, secure: true \}\)\s*else \{\s*jar\.set\(c\.name, "", \{ path: "\/", maxAge: 0 \}\)/.test(route) && /\^\(\?:__Host-\)\?sb-/.test(route))
   check("  same origin only; everywhere that failed is a 503 with nothing ended", /if \(!sameOrigin\(request\)\) return NextResponse\.json\(\{ error: "Forbidden" \}, \{ status: 403 \}\)/.test(route) && /if \(scope === "global" && !auth\) \{\s*return NextResponse\.json/.test(route))
-  check("  a form post (a press before the script ran) goes on to the front page", /if \(form\) return NextResponse\.redirect\(new URL\("\/", request\.url\), \{ status: 303/.test(route))
+  // Changed on purpose (round AX): the answer is built first so a planted old-name copy can be expired on it too.
+  check("  a form post (a press before the script ran) goes on to the front page", /const res = form \? NextResponse\.redirect\(new URL\("\/", request\.url\), \{ status: 303/.test(route) && /return res/.test(route))
   const settings = readCode("components/account/account-settings.tsx")
   check("Settings' Log out is a form posting there, handled in place once the script runs", /<form\s+method="post"\s+action="\/api\/auth\/logout"/.test(settings) && /e\.preventDefault\(\)\s*void logOut\("local"\)/.test(settings) && /type="submit"\s+disabled=\{!!leaving\}\s+data-account-logout=""/.test(settings))
   check("  and loads the front page whole after", /else window\.location\.assign\("\/"\)/.test(settings) && /endDeviceSession\(scope, createClient\(\)\.auth\)/.test(settings))
