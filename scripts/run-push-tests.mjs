@@ -1391,6 +1391,8 @@ const SUITES = [
   "tests/home-landing-top.test.ts",
   /* Landing round (rest): See what you could earn gets one flash photograph and loses its small print; the app's line is short; the public plan cards say plain things, each from the plan tables, with a quiet tick; Your AI tools work here too: the marks, a line true to a connection, the real MCP tools in a terminal on the compositor, paused off screen, still under reduced motion, after the integrations. */
   "tests/home-landing-rest.test.ts",
+  /* Landing round 3 (frame): the page's base is dark and the light sections ride on rounded white and purple sheets that rise by the page's own scroll (no script, no animation, held by position: sticky alone, off for reduced motion); the grounds in the owner's order with One store on white; the footer without the newsletter box, in four columns with the app badges under the logo; a Start now pill, or the person's photo, beside the menu on the home page's phone bar. */
+  "tests/home-landing-frame3.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

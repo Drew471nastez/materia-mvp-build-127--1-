@@ -40,9 +40,9 @@ check("the affiliate link asks by email instead of opening a page that is not th
 check("cookie choices can be changed from here", /openCookiePreferences\(\)/.test(footer))
 
 console.log("\nThe sign-up")
-check("the box posts to the real route", /fetch\("\/api\/newsletter"/.test(footer))
-check("and no longer waits and says thanks", !/setTimeout\(resolve/.test(footer) && !/Simulate/.test(footer))
-check("a refusal is shown, not swallowed", /setError\(/.test(footer) && /role="alert"/.test(footer))
+/* Changed on purpose (landing round 3): the owner asked for the "Join our community" box to be removed from the footer. The route stays (checked below) for any other form that posts to it. */
+check("the footer has no sign-up box any more", !/api\/newsletter/.test(footer) && !/<form|<input/.test(footer) && !/Join Our Community/i.test(footer))
+check("and nothing in it pretends to send", !/setTimeout\(resolve/.test(footer) && !/Simulate/.test(footer))
 check("the route is rate limited by address and by email", /rateLimit\(\{[\s\S]*addressSubject\(req\), emailSubject\(email\)/.test(route))
 check("it validates and lowercases", /EMAIL\.test\(email\)/.test(route) && /toLowerCase\(\)/.test(route))
 check("signing up twice gives the same answer", /onConflict: "email"/.test(route) && /23505/.test(route))

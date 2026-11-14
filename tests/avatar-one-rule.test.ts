@@ -115,7 +115,8 @@ console.log("\nNo face is a question mark")
     ["components/marketing/user-nav-client.tsx", 1],
     /* 4: the computer's photo became a link to /account, so the menu that drew it a second time is gone.
        5 (round 12, 69.webp): the menu a community's "..." opens shows the real picture beside the name again, as the phone's sheet does. */
-    ["components/platform/platform-header-client.tsx", 5],
+    /* Changed on purpose (landing round 3): six, the home page's phone row now draws the signed in person's photo beside the menu (the owner). */
+    ["components/platform/platform-header-client.tsx", 6],
     ["components/store-builder/sticky-desktop-creator-bar.tsx", 1],
     ["app/(storelib)/(marketing)/p/[slug]/page.tsx", 2],
     ["app/(storelib)/(marketing)/u/[username]/page.tsx", 1],

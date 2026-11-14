@@ -38,7 +38,7 @@ How they were put together, so the next merge does not undo the owner's list:
 
 - **From wave 14, kept:** the bands (`components/marketing/landing-story.tsx`
   `StoryBand` and `BAND_CSS`) around the business section, analytics with the map, and
-  the app section; the globe in "Make the work" (`everything-globe*.ts`), with its pill
+  the app section (round 3 turned these into sheets, see below); the globe in "Make the work" (`everything-globe*.ts`), with its pill
   styles in `everything-in-one-place.tsx`; all of `lazy-section.tsx` (mounting further
   ahead, drawing ahead, layout in slices); the picture warm-up in
   `use-showcase-motion.ts`.
@@ -74,6 +74,34 @@ If you change one of these sections from another branch: build on the version he
 check the table above still holds (no Golden Hour presets, no Inner Circle card, no sale
 notices, two rows of possibilities and of apps, plain pricing lines, the AI tools
 section, the SEO card).
+
+## Round 3: the frame (dark base, sheets)
+
+The owner asked for the light sections to rise over a dark page as rounded sheets, the
+way the large commerce sites do it, with a purple one for variety. This replaced wave
+14's bands (`StoryBand` is gone; `BAND_CSS` only recolours sections on purple now).
+
+- `components/marketing/scroll-reveal-panel.tsx`: `ScrollRevealPanel` (tone `white` or
+  `purple`, `radius`, `padding`, `hold`, `className`) and `ScrollRevealBackdrop` for a
+  dark stretch. No script and no animation: a sheet is an ordinary block, so it moves
+  with the page's own scroll. `hold` keeps a block still for its last screen while the
+  next one slides over it, with `position: sticky` alone (the block sits in a box one
+  screen taller, and the next block starts one screen higher, so the page is no
+  longer). Not held for reduced motion, on a window taller than 1400px, or (the hero
+  and showcase) on a phone, where the showcase is dragged.
+- The grounds, in `app/(storelib)/(marketing)/page.tsx`: dark hero and showcase; white
+  (Make the work to How it works, with One store on white); the dark checkout; white
+  (audience, apps, AI tools); purple (analytics, the map); white (earnings, pricing,
+  questions; not held, so `#faq` lands on the questions); purple (the app and the
+  closing call); the black footer.
+- On dark or purple, cards are dark surfaces; on white, the soft greys of Make the
+  work. A section that sits on purple reads `var(--band-ink)`, `var(--band-muted)` and
+  `var(--band-line)`, and can be recoloured from `BAND_CSS` under `[data-band]`.
+- The footer has no newsletter box: the logo with the app badges, four link columns, a
+  hairline, then the language and the legal links.
+- On a phone the home page's bar has a white Start now pill beside the menu, or the
+  signed in person's photo (`data-home-phone-actions` in `platform-header-client.tsx`).
+- Pinned by `tests/home-landing-frame3.test.ts`.
 
 ## The boxes that hold each section's place
 
