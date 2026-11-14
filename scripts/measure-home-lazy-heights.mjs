@@ -41,8 +41,8 @@ const HEIGHT = 900
  * screen at 390 and 1440 on every run.
  */
 const TRACKS = {
-  /* Landing round 5: the held stage (100svh) and its 80svh, less the 64svh the cards are pulled up over it: 116svh. */
-  checkout: [{ css: "116svh", vh: 116 }],
+  /* Landing round 5: the held stage (100svh) and its 80svh, less the cards pulled up over it: 125svh, measured. */
+  checkout: [{ css: "125svh", vh: 125 }],
   /* Landing round 5: business is no longer pinned (the owner: no section that stops the scroll), so its height no longer follows the screen's. */
 }
 const trackAt = (n, w) => TRACKS[n]?.find((t) => t.until == null || w <= t.until)

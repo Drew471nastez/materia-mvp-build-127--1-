@@ -32,8 +32,6 @@ const STYLES = `
 .fcta-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .fcta-primary{background:#fff;color:#18181b}
 .fcta-primary:hover{background:#e7e5ee}
-.fcta-secondary{color:#fff;border:1px solid rgba(255,255,255,.22);background:transparent}
-.fcta-secondary:hover{border-color:rgba(255,255,255,.6)}
 @media(max-width:639px){
   .fcta-actions{flex-direction:column;align-items:stretch;width:100%;max-width:360px}
   .fcta-btn{width:100%}
@@ -54,7 +52,7 @@ function Arrow() {
   )
 }
 
-/** The home page's closing call: Start free, or look around first. */
+/** The home page's closing call: Start free. (Landing round 5: the owner asked for "See creators on Storelib" to go.) */
 export function FinalCta() {
   return (
     <section className="fcta" data-final-cta="" aria-labelledby="fcta-title">
@@ -72,9 +70,6 @@ export function FinalCta() {
           <Link href="/signup?intent=sell" className="fcta-btn fcta-primary">
             Start free
             <Arrow />
-          </Link>
-          <Link href="/explore" className="fcta-btn fcta-secondary">
-            See creators on Storelib
           </Link>
         </div>
       </div>
