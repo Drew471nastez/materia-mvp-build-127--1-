@@ -12,9 +12,14 @@
  * scroll moves the purchase on, one step at a time: Pay is pressed and the
  * Apple Pay sheet comes up, Face ID confirms, the sheet goes and the window
  * turns to "Payment complete". Scroll back and it steps back. Under the
- * scene, five tabs, each a true thing checkout does, each with its own small
- * mock: the same checkout in a desktop browser, both wallets, five
- * currencies with their flags, the reminder email, the paid confirmation.
+ * scene, five tabs (the pill tabs "Make the work" uses, in their dark form),
+ * each a true thing checkout does, each with its own small demo that plays
+ * through and starts over for as long as it is on screen: the same checkout
+ * in a desktop browser, the wallet on a phone alone, one price read in five
+ * currencies, the reminder email with its three moments, the paid receipt.
+ * On this black ground the cards are dark surfaces; only the product's own
+ * screens (the browser, the phone) are drawn light, as they are. Nothing a
+ * demo draws takes the pointer: the tabs are the only controls here.
  *
  * SMOOTH BY CONSTRUCTION (the owner: the scroll "feels very bad").
  *   Nothing is tied to the scroll position frame by frame. Three invisible
@@ -91,7 +96,11 @@ const TABS = [
   },
 ] as const
 type TabId = (typeof TABS)[number]["id"]
-const AUTO_MS = 7000
+/** One demo, start to finish, in seconds. Every tab's loop is this long, and so is a tab's turn when they play by themselves. */
+const LOOP_S = 9
+const AUTO_MS = LOOP_S * 1000
+/** A moment of the loop (seconds) as a keyframe offset. */
+const at = (sec: number) => `${Math.round((sec / LOOP_S) * 10000) / 100}%`
 
 /**
  * The steps. Four bands lie end to end down the track (0 the checkout, 1 Pay
@@ -419,6 +428,7 @@ function CheckoutTabs({ reduced }: { reduced: boolean }) {
   const [held, setHeld] = useState(false)
   const [touched, setTouched] = useState(false)
   const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const listRef = useRef<HTMLDivElement>(null)
   const auto = live && !reduced && !held && !touched
 
   useEffect(() => {
@@ -443,42 +453,50 @@ function CheckoutTabs({ reduced }: { reduced: boolean }) {
     refs.current[n]?.focus()
   }
 
+  /* On a phone the five pills are wider than the screen: the chosen one is brought to the middle of its own row (never the page). */
+  useEffect(() => {
+    const list = listRef.current
+    const tab = refs.current[TABS.findIndex((x) => x.id === active)]
+    if (!list || !tab || list.scrollWidth <= list.clientWidth) return
+    list.scrollTo({ left: tab.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2, behavior: reduced ? "auto" : "smooth" })
+  }, [active, reduced])
+
   return (
     <div ref={cardsRef} className="cmc-cards" onPointerEnter={() => setHeld(true)} onPointerLeave={() => setHeld(false)} onFocusCapture={() => setHeld(true)} onBlurCapture={() => setHeld(false)}>
-      <div role="tablist" aria-label="What checkout does" className="cmc-tablist">
-        {TABS.map((t, i) => {
-          const on = t.id === active
-          return (
-            <button
-              key={t.id}
-              ref={(n) => {
-                refs.current[i] = n
-              }}
-              id={`cmc-tab-${t.id}`}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              aria-controls={`cmc-panel-${t.id}`}
-              tabIndex={on ? 0 : -1}
-              onClick={() => pick(t.id)}
-              onKeyDown={(e) => onKey(e, i)}
-              className="cmc-tab"
-              data-on={on || undefined}
-            >
-              <span className="cmc-tab-l">{t.label}</span>
-              <span className="cmc-tab-s">{t.stat}</span>
-              <span className="cmc-tab-bar" aria-hidden="true">
-                {on ? <span key={`${t.id}-${auto}`} className="cmc-tab-fill" data-run={auto || undefined} style={{ animationDuration: `${AUTO_MS}ms` }} /> : null}
-              </span>
-            </button>
-          )
-        })}
+      <div className="cmc-tabs">
+        <div ref={listRef} role="tablist" aria-label="What checkout does" className="cmc-tablist">
+          {TABS.map((t, i) => {
+            const on = t.id === active
+            return (
+              <button
+                key={t.id}
+                ref={(n) => {
+                  refs.current[i] = n
+                }}
+                id={`cmc-tab-${t.id}`}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                aria-controls={`cmc-panel-${t.id}`}
+                tabIndex={on ? 0 : -1}
+                onClick={() => pick(t.id)}
+                onKeyDown={(e) => onKey(e, i)}
+                className="cmc-tab"
+                data-on={on || undefined}
+              >
+                {on ? <span key={`${t.id}-${auto}`} className="cmc-tab-fill" data-run={auto || undefined} style={{ animationDuration: `${AUTO_MS}ms` }} aria-hidden="true" /> : null}
+                <span className="cmc-tab-l">{t.label}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="cmc-panels">
         {TABS.map((t) => (
           <div key={t.id} id={`cmc-panel-${t.id}`} role="tabpanel" aria-labelledby={`cmc-tab-${t.id}`} className="cmc-panel" data-on={t.id === active || undefined} inert={t.id !== active}>
             <div className="cmc-panel-copy">
+              <span className="cmc-panel-stat">{t.stat}</span>
               <h3>{t.title}</h3>
               <p>{t.body}</p>
             </div>
@@ -496,6 +514,7 @@ function CheckoutTabs({ reduced }: { reduced: boolean }) {
 
 /** A desktop browser with Maya's product page and, over it, the same checkout window. */
 function Browser({ wallet, cursor = false, className }: { wallet: "apple" | "google"; cursor?: boolean; className: string }) {
+  /* (The wallet is whichever the buyer's device has: compact-pay offers Apple Pay or Google Pay.) */
   return (
     <div className={`cmv-brw ${className}`}>
       <div className="cmv-br">
@@ -559,13 +578,11 @@ function VisConvert() {
   )
 }
 
+/** One-tap payments: a phone and nothing else. Pay, the wallet's sheet, a glance, paid, and again. */
 function VisTap() {
   return (
-    <div className="cmv-tap">
-      <Browser wallet="google" cursor className="cmv-br-tap" />
-      <div className="cmv-mini">
-        <Phone />
-      </div>
+    <div className="cmv-phone">
+      <Phone />
     </div>
   )
 }
@@ -583,58 +600,69 @@ function Flag({ code }: { code: string }) {
   return <img className="cmv-flag" src={`/flags/${code}.svg`} alt="" loading="lazy" decoding="async" width={21} height={14} />
 }
 
+/** One product, one price, read in five currencies in turn. */
 function VisCurrency() {
   return (
     <div className="cmv-cur">
-      <div className="cmv-pcard">
-        <span className="cmv-pcard-img">
-          <EbookCover className="cmv-pcard-cover" />
-        </span>
-        <div className="cmv-pcard-b">
-          <b>{PRODUCT}</b>
-          <small>{SELLER}</small>
-          <div className="cmv-pcard-row">
-            <span className="cmv-stack cmv-price">
-              {PRICES.map((p, i) => (
-                <span key={p.code} className="cmv-cyc" data-first={i === 0 || undefined} style={{ "--i": i } as React.CSSProperties}>
-                  {p.price}
-                </span>
-              ))}
-            </span>
-            <span className="cmv-pill">
-              <span className="cmv-stack cmv-pill-in">
-                {PRICES.map((p, i) => (
-                  <span key={p.code} className="cmv-cyc" data-first={i === 0 || undefined} style={{ "--i": i } as React.CSSProperties}>
-                    <Flag code={p.flag} />
-                    {p.code}
-                  </span>
-                ))}
-              </span>
-            </span>
-          </div>
-          <span className="cmv-pcard-buy">Buy now</span>
+      <div className="cmv-cc">
+        <div className="cmv-cc-top">
+          <EbookCover className="cmv-cc-cover" />
+          <span>
+            <b>{PRODUCT}</b>
+            <small>
+              {EBOOK.kind} by {SELLER}
+            </small>
+          </span>
         </div>
-      </div>
-      <div className="cmv-list">
-        <span className="cmv-hl" />
-        {PRICES.map((p) => (
-          <div key={p.code} className="cmv-row">
-            <Flag code={p.flag} />
-            <span className="cmv-row-t">
-              <b>{p.code}</b>
-              <small>{p.where}</small>
+        <span className="cmv-stack cmv-price">
+          {PRICES.map((p, i) => (
+            <span key={p.code} className="cmv-cyc" data-first={i === 0 || undefined} style={{ "--i": i } as React.CSSProperties}>
+              {p.price}
             </span>
-            <span className="cmv-row-p">{p.price}</span>
-          </div>
-        ))}
+          ))}
+        </span>
+        <span className="cmv-stack cmv-where">
+          {PRICES.map((p, i) => (
+            <span key={p.code} className="cmv-cyc" data-first={i === 0 || undefined} style={{ "--i": i } as React.CSSProperties}>
+              {p.where}
+            </span>
+          ))}
+        </span>
+        <div className="cmv-chips">
+          <span className="cmv-hl" />
+          {PRICES.map((p) => (
+            <span key={p.code} className="cmv-chip">
+              <Flag code={p.flag} />
+              {p.code}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   )
 }
 
+/** The reminder: left at Pay, the email an hour later, paid. */
 function VisRecover() {
   return (
     <div className="cmv-rec">
+      <div className="cmv-tl">
+        <span className="cmv-st cmv-st1">
+          <i />
+          <b>Left at Pay</b>
+          <small>2:14 PM</small>
+        </span>
+        <span className="cmv-st cmv-st2">
+          <i />
+          <b>Reminder sent</b>
+          <small>3:14 PM</small>
+        </span>
+        <span className="cmv-st cmv-st3">
+          <i />
+          <b>Paid $19.00</b>
+          <small>3:31 PM</small>
+        </span>
+      </div>
       <div className="cmv-mail">
         <div className="cmv-mail-from">
           <img src={`${IMG}/creator-maya.webp`} alt="" loading="lazy" decoding="async" width={64} height={64} />
@@ -652,39 +680,6 @@ function VisRecover() {
           <span>{PRODUCT}</span>
           <b>$19.00</b>
         </div>
-      </div>
-      <div className="cmv-note">
-        <span className="cmv-note-icon">
-          <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round">
-            <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
-            <path d="m3.8 7 8.2 6 8.2-6" strokeLinecap="round" />
-          </svg>
-        </span>
-        <span className="cmv-note-t">
-          <span className="cmv-note-top">
-            <b>{SELLER}</b>
-            <small>now</small>
-          </span>
-          <span className="cmv-note-s">You left {PRODUCT} at checkout</span>
-          <span className="cmv-note-p">Hi Sam, you got as far as checkout and stopped there.</span>
-        </span>
-      </div>
-      <div className="cmv-steps">
-        <span className="cmv-st cmv-st1">
-          <i />
-          <small>2:14 PM</small>
-          Left at Pay
-        </span>
-        <span className="cmv-st cmv-st2">
-          <i />
-          <small>3:14 PM</small>
-          Reminder sent
-        </span>
-        <span className="cmv-st cmv-st3">
-          <i />
-          <small>3:31 PM</small>
-          Paid $19.00
-        </span>
       </div>
     </div>
   )
@@ -788,7 +783,7 @@ const SCENE_CSS = `
 
 /* The iPhone and the checkout window inside it (and inside the browser mocks). */
 const PHONE_CSS = `
-.cmc-phone{position:relative;width:var(--pw);aspect-ratio:100/207;border-radius:calc(var(--pw) * .178);padding:calc(var(--pw) * .0135);background:linear-gradient(140deg,#77777c 0%,#36363a 14%,#1d1d20 42%,#232326 62%,#3c3c40 86%,#808086 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 0 calc(var(--pw) * .01) rgba(255,255,255,.12),0 calc(var(--pw) * .08) calc(var(--pw) * .16) rgba(0,0,0,.6)}
+.cmc-phone{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;width:var(--pw);aspect-ratio:100/207;border-radius:calc(var(--pw) * .178);padding:calc(var(--pw) * .0135);background:linear-gradient(140deg,#77777c 0%,#36363a 14%,#1d1d20 42%,#232326 62%,#3c3c40 86%,#808086 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 0 calc(var(--pw) * .01) rgba(255,255,255,.12),0 calc(var(--pw) * .08) calc(var(--pw) * .16) rgba(0,0,0,.6)}
 .cmc-key{position:absolute;width:calc(var(--pw) * .012);border-radius:2px;background:linear-gradient(90deg,#2a2a2d,#6a6a70 60%,#3a3a3e)}
 .cmc-key-act{left:calc(var(--pw) * -.0095);top:17.5%;height:5%}
 .cmc-key-up{left:calc(var(--pw) * -.0095);top:25.5%;height:9%}
@@ -864,26 +859,31 @@ const PHONE_CSS = `
 .ck[data-desk] .ck-open{width:max-content;margin-inline:auto;padding:0 1.15em}
 `
 
-/* The tab cards and their mocks. Each mock is drawn in em of a 48 x 36 box, so it scales as one picture. */
+/* The tab cards and their mocks. Each mock is drawn in em of a 48 x 42 box (30 x 34 on a narrow screen), so it scales as one picture. */
 const TABS_CSS = `
 .cmc[data-story-section] > .cmc-cards.cmc-cards{position:relative;z-index:4;max-width:1320px;margin:0 auto;padding:clamp(28px,4vw,56px) var(--landing-gutter,clamp(20px,5vw,72px)) clamp(64px,8vw,120px)}
-.cmc-tablist{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-.cmc-tab{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:44px;padding:20px 20px 24px;border-radius:21px;background:rgba(24,24,27,.94);border:1px solid rgba(255,255,255,.08);color:#a1a1aa;text-align:left;cursor:pointer;overflow:hidden;transition:background-color .3s,border-color .3s,color .3s;-webkit-tap-highlight-color:transparent}
-.cmc-tab:hover{border-color:rgba(255,255,255,.18);color:#e4e4e7}
-.cmc-tab[data-on]{background:#1d1d21;border-color:rgba(255,255,255,.26);color:#fff}
-.cmc-tab:focus-visible{outline:2px solid #fff;outline-offset:3px}
-.cmc-tab-l{font-size:14px;font-weight:500}
-.cmc-tab-s{font-size:clamp(24px,2.3vw,34px);font-weight:300;letter-spacing:-.04em;line-height:1;color:#fff;white-space:nowrap}
-.cmc-tab-bar{position:absolute;left:20px;right:20px;bottom:12px;height:2px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
-.cmc-tab-fill{position:absolute;inset:0;background:#e4e4e7;transform-origin:0 50%;transform:scaleX(1)}
+/* The tabs: "Make the work"'s pill tabs in their dark form (a dark track with a 1px light edge, the chosen pill white). */
+.cmc-tabs{display:flex;justify-content:center}
+.cmc-tablist{position:relative;display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#141416;border:1px solid rgba(255,255,255,.08);box-sizing:border-box;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.cmc-tablist::-webkit-scrollbar{display:none}
+.cmc-tab{position:relative;flex:none;overflow:hidden;height:40px;padding:0 17px;border:0;border-radius:999px;background:transparent;color:#a1a1aa;font-family:inherit;font-size:14px;font-weight:500;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
+.cmc-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s cubic-bezier(.22,1,.36,1)}
+.cmc-tab[data-on]{color:#18181b}
+.cmc-tab[data-on]::before{opacity:1;transform:none}
+@media (hover:hover){.cmc-tab:not([data-on]):hover{color:#fff}}
+.cmc-tab:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.cmc-tab-l{position:relative}
+.cmc-tab-fill{position:absolute;inset:0;border-radius:inherit;background:rgba(24,24,27,.1);transform-origin:0 50%;transform:scaleX(0)}
 .cmc-tab-fill[data-run]{animation:cmc-fill linear both}
 @keyframes cmc-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.cmc-panels{display:grid;margin-top:12px}
-.cmc-panel{grid-area:1/1;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(24px,3.5vw,56px);align-items:center;padding:clamp(28px,3.6vw,52px);border-radius:31px;background:#141416;border:1px solid rgba(255,255,255,.07);opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s linear .35s}
+.cmc-panels{display:grid;margin-top:16px}
+.cmc-panel{grid-area:1/1;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(24px,3.5vw,56px);align-items:center;padding:clamp(28px,3.6vw,52px);border-radius:31px;background:#111113;border:1px solid rgba(255,255,255,.08);opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s linear .35s}
 .cmc-panel[data-on]{opacity:1;visibility:visible;transition:opacity .45s ease .05s,visibility 0s}
+.cmc-panel-stat{display:block;margin-bottom:14px;font-size:14px;font-weight:500;color:#8b8b94}
 .cmc-panel h3{margin:0;font-size:clamp(26px,3vw,42px);font-weight:400;line-height:1.1;letter-spacing:-.035em;color:#fff;text-wrap:balance}
 .cmc-panel p{margin:16px 0 0;max-width:44ch;font-size:clamp(15.5px,1.25vw,18px);line-height:1.6;color:#a1a1aa}
-.cmc-vis{position:relative;aspect-ratio:4/3;border-radius:23px;background:#101012;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);overflow:hidden;container-type:inline-size}
+/* A demo is a picture: it takes no pointer and nothing in it can be selected. */
+.cmc-vis{position:relative;aspect-ratio:48/42;overflow:hidden;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
 .cmc-vis-in{position:absolute;inset:0;font-size:calc(100cqw / 48);color:#fff;line-height:1.35}
 /* Wave 13 perf: a panel's mock is drawn only while its panel shows (and through its fade out): the four hidden mocks cost the page their style, layout and 80 font sizes the moment the section was laid out, 300ms at 4x CPU. The box keeps its size (aspect-ratio), so nothing moves. */
 .cmc-panel:not([data-on]) .cmc-vis-in{content-visibility:hidden;transition:content-visibility 0s linear .35s allow-discrete}
@@ -917,169 +917,184 @@ const TABS_CSS = `
 .cmv-dlg .ck{height:auto;border-radius:1.25em}
 .cmv-cursor{position:absolute;left:58%;top:56%;z-index:2;line-height:0;opacity:0;pointer-events:none}
 .cmv-br .cmv-cursor{font-size:1.5em}
-.cmv-br-convert{left:2em;right:2em;top:2.4em}
-.cmv-br-tap{left:1.4em;width:36em;top:2.2em}
-.cmv-mini{position:absolute;right:1.6em;top:4.6em;--pw:12.2em}
-.cmv-mini .cmc-phone{box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 1.5em 3em rgba(0,0,0,.6)}
+.cmv-br-convert{left:.75em;right:.75em;top:4.6em}
+.cmv-br-convert .cmv-br{box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+.cmv-phone{position:absolute;left:50%;top:1em;margin-left:-9.65em;--pw:19.3em}
+.cmv-phone .cmc-phone{box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
 
-/* Currencies */
-.cmv-cur{position:absolute;inset:0;display:grid;grid-template-columns:19em 1fr;gap:2.2em;align-items:center;padding:0 2.6em}
-.cmv-pcard{border-radius:1.2em;background:#fff;color:#1a1a2e;overflow:hidden;box-shadow:0 1.5em 3em rgba(0,0,0,.45)}
-.cmv-pcard-img{display:grid;place-items:center;height:12em;background:#f1f1f3}
-.cmv-pcard-cover{width:9em;border-radius:.2em;box-shadow:0 .05em .1em rgba(24,24,27,.12),0 .8em 1.4em -.7em rgba(24,24,27,.45)}
-.cmv-pcard-b{display:flex;flex-direction:column;padding:1.1em 1.2em 1.25em}
-.cmv-pcard-b b{font-size:1.2em;font-weight:600;letter-spacing:-.01em}
-.cmv-pcard-b small{font-size:.9em;color:#6b7280}
-.cmv-pcard-row{display:flex;align-items:center;justify-content:space-between;margin-top:.8em}
+/* The dark cards the other three demos are drawn on. */
+.cmv-cc,.cmv-mail,.cmv-rcpt{border-radius:1.4em;background:#1a1a1e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:#f4f4f5}
+.cmv-flag{display:block;flex:none;width:1.5em;height:1em;border-radius:.2em;object-fit:cover}
+.cmv-thumb{flex:none}
+
+/* Currencies: one price, five readings */
+.cmv-cur{position:absolute;inset:0;display:grid;place-items:center}
+.cmv-cc{width:30em;font-size:1.3em;padding:1.8em 1.8em 1.6em;box-sizing:border-box}
+.cmv-cc-top{display:flex;align-items:center;gap:1em}
+.cmv-cc-cover{width:3.6em;flex:none;border-radius:.5em}
+.cmv-cc-top b{display:block;font-size:1.15em;font-weight:600;letter-spacing:-.01em}
+.cmv-cc-top small{display:block;font-size:.9em;color:#a1a1aa}
 .cmv-stack{position:relative;display:grid}
-.cmv-cyc{grid-area:1/1;display:flex;align-items:center;gap:.4em;opacity:0;animation:cmv-cyc 12.5s ease both infinite;animation-delay:calc(var(--i) * 2.5s);animation-play-state:paused}
+.cmv-cyc{grid-area:1/1;opacity:0}
 .cmv-cyc[data-first]{opacity:1}
-.cmv-price{font-size:1.9em;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;min-width:4.6em}
-.cmv-pill{display:flex;align-items:center;height:2em;padding:0 .7em;border-radius:1em;background:#f2f2f5;font-size:.9em;font-weight:600;overflow:hidden}
-.cmv-pill-in{min-width:3.6em}
-.cmv-pcard-buy{display:flex;align-items:center;justify-content:center;height:2.6em;margin-top:1em;border-radius:.7em;background:#1a1a2e;color:#fff;font-size:.95em;font-weight:600}
-.cmv-flag{display:block;flex:none;width:1.5em;height:1em;border-radius:.2em;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
-.cmv-list{position:relative;display:flex;flex-direction:column}
-.cmv-hl{position:absolute;left:0;right:0;top:0;height:20%;border-radius:.9em;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);animation:cmv-hl 12.5s ease infinite both;animation-play-state:paused}
-.cmv-row{position:relative;display:flex;align-items:center;gap:.9em;height:4.2em;padding:0 1.1em}
-.cmv-row .cmv-flag{width:2.1em;height:1.4em;border-radius:.25em}
-.cmv-row-t{flex:1;min-width:0}
-.cmv-row-t b{display:block;font-size:1.05em;font-weight:600;letter-spacing:.03em}
-.cmv-row-t small{display:block;font-size:.85em;color:#8b8b94}
-.cmv-row-p{font-size:1.15em;font-weight:500;font-variant-numeric:tabular-nums}
-.cmc-cards[data-commerce-live] .cmv-cyc,.cmc-cards[data-commerce-live] .cmv-hl{animation-play-state:running}
-@keyframes cmv-cyc{0%{opacity:0;transform:translate3d(0,.45em,0)}3.2%,18%{opacity:1;transform:translate3d(0,0,0)}21.2%,100%{opacity:0;transform:translate3d(0,-.45em,0)}}
-@keyframes cmv-hl{0%,17%{transform:translate3d(0,0,0)}20%,37%{transform:translate3d(0,100%,0)}40%,57%{transform:translate3d(0,200%,0)}60%,77%{transform:translate3d(0,300%,0)}80%,96%{transform:translate3d(0,400%,0)}100%{transform:translate3d(0,0,0)}}
+.cmv-price{margin-top:.45em;font-size:4em;font-weight:300;letter-spacing:-.045em;line-height:1.15;font-variant-numeric:tabular-nums}
+.cmv-where{font-size:.95em;color:#a1a1aa}
+.cmv-chips{position:relative;display:grid;grid-template-columns:repeat(5,1fr);margin-top:1.5em;padding:.3em;border-radius:1.2em;background:#111113;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.cmv-chip{position:relative;display:flex;align-items:center;justify-content:center;gap:.45em;height:2.6em;font-size:.88em;font-weight:600;letter-spacing:.02em;color:#e4e4e7}
+.cmv-hl{position:absolute;left:.3em;top:.3em;bottom:.3em;width:calc((100% - .6em) / 5);border-radius:.9em;background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
 
-/* Reminder email and the notification it arrives as */
-.cmv-rec{position:absolute;inset:0}
-.cmv-mail{position:absolute;left:8em;right:8em;top:7.2em;padding:1.3em 1.5em 1.4em;border-radius:1.1em;background:#fff;color:#1a1a2e;box-shadow:0 1.5em 3em rgba(0,0,0,.45)}
-.cmv-mail-from{display:flex;align-items:center;gap:.6em}
-.cmv-mail-from img{width:2.1em;height:2.1em;border-radius:50%;object-fit:cover}
-.cmv-mail-from b{display:block;font-size:.9em;font-weight:600}
-.cmv-mail-from small{display:block;font-size:.75em;color:#8b8b94}
-.cmv-mail-subj{margin-top:.8em;padding-bottom:.8em;border-bottom:1px solid #f0f0f2;font-size:.85em;font-weight:600;color:#4b5563}
-.cmv-mail-h{margin-top:.75em;font-size:1.45em;font-weight:600;letter-spacing:-.02em}
-.cmv-mail p{margin:.4em 0 0;font-size:.82em;line-height:1.55;color:#6b7280}
-.cmv-mail-btn{display:flex;align-items:center;justify-content:center;width:10em;height:2.5em;margin-top:.9em;border-radius:.6em;background:#1a1a2e;color:#fff;font-size:.88em;font-weight:600}
-.cmv-mail-line{display:flex;align-items:center;gap:.7em;margin-top:1em;padding-top:.9em;border-top:1px solid #f0f0f2;font-size:.85em}
-.cmv-mail-line .cmv-thumb{width:2.4em;flex:none;border-radius:.4em}
+/* The reminder: three moments and the email */
+.cmv-rec{position:absolute;inset:0;font-size:1.15em}
+.cmv-tl{position:absolute;left:3.6em;right:2.4em;top:2.6em;display:grid;grid-template-columns:repeat(3,1fr)}
+.cmv-st{position:relative;display:grid;gap:.1em;padding-top:1.5em;font-size:.85em}
+.cmv-st i{position:absolute;left:0;top:0;width:.7em;height:.7em;border-radius:50%;background:#e4e4e7}
+.cmv-st3 i{background:#4ade80}
+.cmv-st::after{content:"";position:absolute;left:1.3em;right:.6em;top:.32em;height:1px;background:rgba(255,255,255,.16)}
+.cmv-st3::after{display:none}
+.cmv-st b{font-weight:500;color:#f4f4f5;white-space:nowrap}
+.cmv-st small{font-size:.9em;color:#8b8b94}
+.cmv-mail{position:absolute;left:3.6em;right:3.6em;top:8.6em;padding:1.5em 1.7em 1.5em}
+.cmv-mail-from{display:flex;align-items:center;gap:.7em}
+.cmv-mail-from img{width:2.3em;height:2.3em;border-radius:50%;object-fit:cover}
+.cmv-mail-from b{display:block;font-size:.95em;font-weight:600}
+.cmv-mail-from small{display:block;font-size:.8em;color:#8b8b94}
+.cmv-mail-subj{margin-top:.9em;padding-bottom:.9em;border-bottom:1px solid rgba(255,255,255,.08);font-size:.9em;font-weight:500;color:#d4d4d8}
+.cmv-mail-h{margin-top:.75em;font-size:1.6em;font-weight:500;letter-spacing:-.025em}
+.cmv-mail p{margin:.45em 0 0;font-size:.9em;line-height:1.55;color:#a1a1aa}
+.cmv-mail-btn{display:flex;align-items:center;justify-content:center;width:10.5em;height:2.6em;margin-top:1.1em;border-radius:1.3em;background:#fff;color:#18181b;font-size:.9em;font-weight:600}
+.cmv-mail-line{display:flex;align-items:center;gap:.7em;margin-top:1.2em;padding-top:1em;border-top:1px solid rgba(255,255,255,.08);font-size:.9em;color:#d4d4d8}
+.cmv-mail-line .cmv-thumb{width:2.4em;border-radius:.4em}
 .cmv-mail-line>span:not(.ebc){flex:1}
-.cmv-note,.cmv-sale{position:absolute;display:flex;gap:.75em;align-items:flex-start;padding:.85em 1em;border-radius:1.25em;background:rgba(246,246,248,.97);color:#111;box-shadow:0 1em 2.5em rgba(0,0,0,.45)}
-.cmv-note{left:6em;right:6em;top:1.4em}
-.cmv-note-icon{display:grid;place-items:center;flex:none;width:2.4em;height:2.4em;border-radius:.6em;background:linear-gradient(180deg,#1e9bff,#0a6cff)}
+.cmv-mail-line b{font-weight:600;color:#fff}
+
+/* Paid: the buyer's receipt and the seller's note */
+.cmv-paid{position:absolute;inset:0;font-size:1.2em}
+.cmv-rcpt{position:absolute;left:7em;right:7em;top:10em;display:flex;flex-direction:column;align-items:center;padding:1.7em 1.7em 1.6em;text-align:center}
+.cmv-rcpt-check{display:grid;place-items:center;width:2.9em;height:2.9em;border-radius:50%;background:rgba(74,222,128,.14);color:#4ade80}
+.cmv-rcpt-t{margin-top:.6em;font-size:1.3em;font-weight:500;letter-spacing:-.015em}
+.cmv-rcpt-s{margin-top:.3em;font-size:.85em;color:#a1a1aa}
+.cmv-rcpt-rows{align-self:stretch;margin-top:1.1em;border-radius:.9em;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);text-align:left}
+.cmv-rcpt-rows div{display:flex;align-items:center;gap:.6em;height:3em;padding:0 .9em;font-size:.88em}
+.cmv-rcpt-rows div+div{border-top:1px solid rgba(255,255,255,.08)}
+.cmv-rcpt-rows .cmv-thumb{width:1.9em;border-radius:.35em}
+.cmv-rcpt-rows div>span:not(.ebc){flex:1;color:#a1a1aa}
+.cmv-rcpt-rows b{font-weight:600}
+.cmv-rcpt-ap{display:inline-flex;align-items:center;gap:.1em}
+.cmv-rcpt-btn{display:flex;align-items:center;justify-content:center;height:2.6em;padding:0 1.3em;margin-top:1.1em;border-radius:1.3em;background:#fff;color:#18181b;font-size:.88em;font-weight:600}
+.cmv-sale{position:absolute;left:50%;top:3em;width:26em;margin-left:-13em;display:flex;gap:.75em;align-items:flex-start;padding:.85em 1em;border-radius:1.25em;background:#26262b;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 1em 2.5em rgba(0,0,0,.5);color:#f4f4f5;box-sizing:border-box}
+.cmv-sale img{flex:none;width:2.4em;height:2.4em;border-radius:.6em}
 .cmv-note-t{flex:1;min-width:0;display:flex;flex-direction:column;font-size:.86em;line-height:1.3}
 .cmv-note-top{display:flex;justify-content:space-between}
 .cmv-note-top b{font-weight:600}
-.cmv-note-top small{color:#8a8a8e}
+.cmv-note-top small{color:#8b8b94}
 .cmv-note-s{font-weight:500}
-.cmv-note-p{color:#55555a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmv-steps{position:absolute;left:2em;right:2em;bottom:1.5em;display:flex;justify-content:center;gap:.6em}
-.cmv-st{display:flex;align-items:center;gap:.45em;height:2.2em;padding:0 .85em;border-radius:1.1em;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);font-size:.8em;white-space:nowrap;color:#e4e4e7}
-.cmv-st small{color:#8b8b94}
-.cmv-st i{display:block;width:.55em;height:.55em;border-radius:50%;background:#a78bfa}
-.cmv-st3 i{background:#22c55e}
+.cmv-note-p{color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* Paid */
-.cmv-paid{position:absolute;inset:0}
-.cmv-rcpt{position:absolute;left:10.5em;right:10.5em;top:8.4em;display:flex;flex-direction:column;align-items:center;padding:1.6em 1.6em 1.5em;border-radius:1.2em;background:#fff;color:#1a1a2e;text-align:center;box-shadow:0 1.5em 3em rgba(0,0,0,.45)}
-.cmv-rcpt-check{display:grid;place-items:center;width:2.9em;height:2.9em;border-radius:50%;background:#ecfdf3;color:#15803d}
-.cmv-rcpt-t{margin-top:.6em;font-size:1.25em;font-weight:600}
-.cmv-rcpt-s{margin-top:.3em;font-size:.8em;color:#6b7280}
-.cmv-rcpt-rows{align-self:stretch;margin-top:1em;border:1px solid #eceef1;border-radius:.8em;text-align:left}
-.cmv-rcpt-rows div{display:flex;align-items:center;gap:.6em;height:2.9em;padding:0 .9em;font-size:.85em}
-.cmv-rcpt-rows div+div{border-top:1px solid #f1f2f4}
-.cmv-rcpt-rows .cmv-thumb{width:1.9em;flex:none;border-radius:.35em}
-.cmv-rcpt-rows div>span:not(.ebc){flex:1;color:#6b7280}
-.cmv-rcpt-rows b{font-weight:600}
-.cmv-rcpt-ap{display:inline-flex;align-items:center;gap:.1em}
-.cmv-rcpt-btn{display:flex;align-items:center;justify-content:center;height:2.6em;padding:0 1.2em;margin-top:1em;border-radius:.65em;background:#1a1a2e;color:#fff;font-size:.85em;font-weight:600}
-.cmv-sale{right:1.6em;top:1.6em;width:22em}
-.cmv-sale img{flex:none;width:2.4em;height:2.4em;border-radius:.6em}
-
-/* One-shot sequences, played each time a tab opens (the finished frame is the resting state). */
+/*
+ * THE DEMOS LOOP. Each tab's demo is one ${LOOP_S}s cycle of transform and opacity
+ * keyframes that ends where it began and starts over, for as long as its
+ * panel is the open one and the cards are on screen in a visible tab
+ * (data-commerce-live). Off screen the rules below do not match, so nothing
+ * runs, and each mock rests on its finished frame; a tab opened again
+ * starts from the top.
+ */
 @media (prefers-reduced-motion:no-preference){
-  .cmc-panel[data-on] .cmv-cur1{animation:cmv-cur1 1.5s cubic-bezier(.3,.7,.2,1) both .25s}
-  .cmc-panel[data-on] .cmv-br-convert .cmv-buy{animation:cmv-press .3s ease both 1.15s}
-  .cmc-panel[data-on] .cmv-br-convert .cmv-dim{animation:cmv-in .3s ease-out both 1.4s}
-  .cmc-panel[data-on] .cmv-br-convert .cmv-dlg-form{animation:cmv-dlg-seq 4.25s linear both}
-  .cmc-panel[data-on] .cmv-br-convert .ck-ph{animation:cmv-ph 2s linear both 1.6s}
-  .cmc-panel[data-on] .cmv-br-convert .ck-v1{animation:cmv-in .3s ease both 2.05s}
-  .cmc-panel[data-on] .cmv-br-convert .ck-v2{animation:cmv-in .3s ease both 2.45s}
-  .cmc-panel[data-on] .cmv-br-convert .cmv-cur2{animation:cmv-cur2 1s cubic-bezier(.3,.7,.2,1) both 2.75s}
-  .cmc-panel[data-on] .cmv-br-convert .ck-pay{animation:cmv-press .3s ease both 3.55s}
-  .cmc-panel[data-on] .cmv-br-convert .cmv-dlg-done{animation:cmv-dlg .4s cubic-bezier(.2,.8,.2,1) both 3.95s}
-  .cmc-panel[data-on] .cmv-br-convert .ck-check{animation:cmv-check .45s cubic-bezier(.3,1.5,.5,1) both 4.3s}
+  [data-commerce-live] .cmc-panel[data-on] :is(.cmv-cursor,.cmv-buy,.cmv-dim,.cmv-dlg,.ck-ph,.ck-val,.ck-pay,.ck-check,.ck-form,.ck-done,.cmc-scrim,.cmc-sheet-in,.cmc-dbl,.cmc-fid,.cmc-sheet-ok,.cmv-cyc,.cmv-hl,.cmv-st,.cmv-mail,.cmv-mail-btn,.cmv-rcpt,.cmv-rcpt-check,.cmv-rcpt-rows,.cmv-sale){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both}
 
-  .cmc-panel[data-on] .cmv-br-tap .cmv-cur2{animation:cmv-cur2 1s cubic-bezier(.3,.7,.2,1) both .5s}
-  .cmc-panel[data-on] .cmv-br-tap .ck-pay{animation:cmv-press .3s ease both 1.3s}
-  .cmc-panel[data-on] .cmv-br-tap .cmv-dlg-form{animation:cmv-dlg-out .35s ease both 1.65s}
-  .cmc-panel[data-on] .cmv-br-tap .cmv-dlg-done{animation:cmv-dlg .4s cubic-bezier(.2,.8,.2,1) both 1.7s}
-  .cmc-panel[data-on] .cmv-br-tap .ck-check{animation:cmv-check .45s cubic-bezier(.3,1.5,.5,1) both 2.05s}
-  .cmc-panel[data-on] .cmv-mini .cmc-scrim{animation:cmv-scrim 3.5s ease both .3s}
-  .cmc-panel[data-on] .cmv-mini .cmc-sheet-in{animation:cmv-sheet 3.5s cubic-bezier(.2,.8,.2,1) both .3s}
-  .cmc-panel[data-on] .cmv-mini .cmc-dbl{animation:cmv-dbl 2.4s ease both .7s}
-  .cmc-panel[data-on] .cmv-mini .cmc-fid{animation:cmv-fid 2.2s ease both .8s}
-  .cmc-panel[data-on] .cmv-mini .cmc-sheet-ok{animation:cmv-check .45s cubic-bezier(.3,1.5,.5,1) both 2.55s}
-  .cmc-panel[data-on] .cmv-mini .ck-form{animation:cmv-out .3s ease both 3.6s}
-  .cmc-panel[data-on] .cmv-mini .ck-done{animation:cmv-done .45s cubic-bezier(.2,.8,.2,1) both 3.75s}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-cur1{animation-name:cmv-cur1}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .cmv-buy{animation-name:cmv-buy}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .cmv-dim{animation-name:cmv-dim}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .cmv-dlg-form{animation-name:cmv-dlg-form}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .ck-ph{animation-name:cmv-ph}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .ck-v1{animation-name:cmv-v1}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .ck-v2{animation-name:cmv-v2}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .cmv-cur2{animation-name:cmv-cur2}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .ck-pay{animation-name:cmv-pay}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .cmv-dlg-done{animation-name:cmv-dlg-done}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-br-convert .ck-check{animation-name:cmv-check}
 
-  .cmc-panel[data-on] .cmv-pcard{animation:cmv-rise .55s cubic-bezier(.2,.8,.2,1) both}
-  .cmc-panel[data-on] .cmv-row{animation:cmv-rise .5s cubic-bezier(.2,.8,.2,1) both .1s}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-phone .ck-pay{animation-name:cmv-ppay}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-phone .cmc-scrim{animation-name:cmv-scrim}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-phone .cmc-sheet-in{animation-name:cmv-sheet}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-phone .cmc-dbl{animation-name:cmv-dbl}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-phone .cmc-fid{animation-name:cmv-fid}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-phone .cmc-sheet-ok{animation-name:cmv-sok}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-phone .ck-form{animation-name:cmv-pform}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-phone .ck-done{animation-name:cmv-pdone}
 
-  .cmc-panel[data-on] .cmv-st1{animation:cmv-in .4s ease both .1s}
-  .cmc-panel[data-on] .cmv-note{animation:cmv-drop .6s cubic-bezier(.2,.9,.25,1.05) both .6s}
-  .cmc-panel[data-on] .cmv-st2{animation:cmv-in .4s ease both .75s}
-  .cmc-panel[data-on] .cmv-mail{animation:cmv-rise .6s cubic-bezier(.2,.8,.2,1) both 1.3s}
-  .cmc-panel[data-on] .cmv-mail-btn{animation:cmv-press .3s ease both 3s}
-  .cmc-panel[data-on] .cmv-st3{animation:cmv-in .4s ease both 3.35s}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-cyc{animation-name:cmv-cyc;animation-delay:calc(var(--i) * ${LOOP_S / 5}s)}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-hl{animation-name:cmv-hl}
 
-  .cmc-panel[data-on] .cmv-rcpt{animation:cmv-rise .6s cubic-bezier(.2,.8,.2,1) both .15s}
-  .cmc-panel[data-on] .cmv-rcpt-check{animation:cmv-check .5s cubic-bezier(.3,1.5,.5,1) both .55s}
-  .cmc-panel[data-on] .cmv-rcpt-rows{animation:cmv-in .4s ease both .9s}
-  .cmc-panel[data-on] .cmv-sale{animation:cmv-slide .6s cubic-bezier(.2,.9,.25,1.05) both 1.6s}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-st1{animation-name:cmv-st1}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-st2{animation-name:cmv-st2}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-st3{animation-name:cmv-st3}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-mail{animation-name:cmv-mail}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-mail-btn{animation-name:cmv-mbtn}
+
+  [data-commerce-live] .cmc-panel[data-on] .cmv-rcpt{animation-name:cmv-rcpt}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-rcpt-check{animation-name:cmv-rcheck}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-rcpt-rows{animation-name:cmv-rrows}
+  [data-commerce-live] .cmc-panel[data-on] .cmv-sale{animation-name:cmv-sale}
 }
-@keyframes cmv-in{from{opacity:0}to{opacity:1}}
-@keyframes cmv-out{from{opacity:1}to{opacity:0}}
-@keyframes cmv-ph{0%{opacity:1}22%{opacity:1}30%{opacity:0}100%{opacity:0}}
-@keyframes cmv-press{0%,100%{transform:scale(1)}45%{transform:scale(.96)}}
-@keyframes cmv-dlg{from{opacity:0;transform:translateY(calc(-50% + .5em))}to{opacity:1;transform:translateY(-50%)}}
-@keyframes cmv-dlg-out{from{opacity:1}to{opacity:0}}
-@keyframes cmv-dlg-seq{0%,34%{opacity:0;transform:translateY(calc(-50% + .5em));animation-timing-function:ease-out}42%,91.5%{opacity:1;transform:translateY(-50%)}100%{opacity:0;transform:translateY(-50%)}}
-@keyframes cmv-cur1{0%{opacity:0;transform:translate3d(6em,4em,0)}15%{opacity:1}62%{transform:translate3d(0,0,0) scale(1)}70%{transform:translate3d(0,0,0) scale(.85)}78%{opacity:1;transform:translate3d(0,0,0) scale(1)}100%{opacity:0;transform:translate3d(0,0,0)}}
-@keyframes cmv-cur2{0%{opacity:0;transform:translate3d(5em,3.5em,0)}20%{opacity:1}75%{transform:translate3d(0,0,0) scale(1)}85%{transform:translate3d(0,0,0) scale(.85)}100%{opacity:1;transform:translate3d(0,0,0) scale(1)}}
-@keyframes cmv-done{from{opacity:0;transform:translate3d(0,.8em,0) scale(.98)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
-@keyframes cmv-check{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
-@keyframes cmv-scrim{0%{opacity:0}12%,80%{opacity:1}100%{opacity:0}}
-@keyframes cmv-sheet{0%{transform:translate3d(0,108%,0)}14%,80%{transform:translate3d(0,0,0)}100%{transform:translate3d(0,108%,0)}}
-@keyframes cmv-dbl{0%{opacity:0;transform:translate3d(.6em,0,0)}15%,70%{opacity:1;transform:translate3d(0,0,0)}100%{opacity:0;transform:translate3d(0,0,0)}}
-@keyframes cmv-fid{0%{opacity:1}25%{opacity:.45}50%{opacity:1}70%{opacity:.45}82%{opacity:1}100%{opacity:0}}
-@keyframes cmv-rise{from{opacity:0;transform:translate3d(0,1.2em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmv-drop{from{opacity:0;transform:translate3d(0,-1.6em,0) scale(.97)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
-@keyframes cmv-slide{from{opacity:0;transform:translate3d(1.6em,0,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+/* Built to convert: the pointer, Buy now, the window, the two fields, Pay, Payment complete, and back to the page. */
+@keyframes cmv-cur1{0%,${at(0.25)}{opacity:0;transform:translate3d(6em,4em,0)}${at(0.5)}{opacity:1}${at(1.15)}{opacity:1;transform:translate3d(0,0,0) scale(1)}${at(1.3)}{opacity:1;transform:translate3d(0,0,0) scale(.85)}${at(1.45)}{opacity:1;transform:translate3d(0,0,0) scale(1)}${at(1.8)},100%{opacity:0;transform:translate3d(0,0,0) scale(1)}}
+@keyframes cmv-buy{0%,${at(1.15)}{transform:scale(1)}${at(1.3)}{transform:scale(.96)}${at(1.45)},100%{transform:scale(1)}}
+@keyframes cmv-dim{0%,${at(1.4)}{opacity:0}${at(1.7)},${at(8.1)}{opacity:1}${at(8.5)},100%{opacity:0}}
+@keyframes cmv-dlg-form{0%,${at(1.45)}{opacity:0;transform:translateY(calc(-50% + .5em))}${at(1.8)},${at(3.9)}{opacity:1;transform:translateY(-50%)}${at(4.2)},100%{opacity:0;transform:translateY(-50%)}}
+@keyframes cmv-ph{0%,${at(2)}{opacity:1}${at(2.15)},100%{opacity:0}}
+@keyframes cmv-v1{0%,${at(2.05)}{opacity:0}${at(2.35)},100%{opacity:1}}
+@keyframes cmv-v2{0%,${at(2.45)}{opacity:0}${at(2.75)},100%{opacity:1}}
+@keyframes cmv-cur2{0%,${at(2.75)}{opacity:0;transform:translate3d(5em,3.5em,0)}${at(3)}{opacity:1}${at(3.5)}{opacity:1;transform:translate3d(0,0,0) scale(1)}${at(3.62)}{opacity:1;transform:translate3d(0,0,0) scale(.85)}${at(3.75)}{opacity:1;transform:translate3d(0,0,0) scale(1)}${at(4.2)},100%{opacity:0;transform:translate3d(0,0,0) scale(1)}}
+@keyframes cmv-pay{0%,${at(3.5)}{transform:scale(1)}${at(3.65)}{transform:scale(.96)}${at(3.8)},100%{transform:scale(1)}}
+@keyframes cmv-dlg-done{0%,${at(3.95)}{opacity:0;transform:translateY(calc(-50% + .5em))}${at(4.35)},${at(8.1)}{opacity:1;transform:translateY(-50%)}${at(8.5)},100%{opacity:0;transform:translateY(-50%)}}
+@keyframes cmv-check{0%,${at(4.3)}{opacity:0;transform:scale(.5)}${at(4.75)},100%{opacity:1;transform:scale(1)}}
+/* One-tap payments: Pay, the wallet's sheet, a glance, Done, Payment complete, and back to the checkout. */
+@keyframes cmv-ppay{0%,${at(0.5)}{transform:scale(1)}${at(0.65)}{transform:scale(.96)}${at(0.8)},100%{transform:scale(1)}}
+@keyframes cmv-scrim{0%,${at(0.8)}{opacity:0}${at(1.2)},${at(3.9)}{opacity:1}${at(4.4)},100%{opacity:0}}
+@keyframes cmv-sheet{0%,${at(0.8)}{transform:translate3d(0,108%,0)}${at(1.45)},${at(3.9)}{transform:translate3d(0,0,0)}${at(4.5)},100%{transform:translate3d(0,108%,0)}}
+@keyframes cmv-dbl{0%,${at(1.3)}{opacity:0;transform:translate3d(.6em,0,0)}${at(1.6)},${at(2.6)}{opacity:1;transform:translate3d(0,0,0)}${at(2.9)},100%{opacity:0;transform:translate3d(0,0,0)}}
+@keyframes cmv-fid{0%,${at(2)}{opacity:1}${at(2.3)}{opacity:.45}${at(2.6)}{opacity:1}${at(2.9)}{opacity:1}${at(3.1)},${at(4.6)}{opacity:0}${at(4.7)},100%{opacity:1}}
+@keyframes cmv-sok{0%,${at(3.05)}{opacity:0;transform:scale(.5)}${at(3.45)},${at(4.6)}{opacity:1;transform:scale(1)}${at(4.7)},100%{opacity:0;transform:scale(.5)}}
+@keyframes cmv-pform{0%,${at(4.1)}{opacity:1}${at(4.4)},${at(8.2)}{opacity:0}${at(8.6)},100%{opacity:1}}
+@keyframes cmv-pdone{0%,${at(4.3)}{opacity:0;transform:translate3d(0,.8em,0) scale(.98)}${at(4.75)},${at(8.1)}{opacity:1;transform:translate3d(0,0,0) scale(1)}${at(8.4)},100%{opacity:0;transform:translate3d(0,0,0) scale(1)}}
+/* Local currencies: each reading in turn, the marker stepping along under it. */
+@keyframes cmv-cyc{0%{opacity:0;transform:translate3d(0,.25em,0)}4%,17%{opacity:1;transform:translate3d(0,0,0)}21%,100%{opacity:0;transform:translate3d(0,-.25em,0)}}
+@keyframes cmv-hl{0%,17%{transform:translate3d(0,0,0)}21%,37%{transform:translate3d(100%,0,0)}41%,57%{transform:translate3d(200%,0,0)}61%,77%{transform:translate3d(300%,0,0)}81%,96%{transform:translate3d(400%,0,0)}100%{transform:translate3d(0,0,0)}}
+/* Checkout reminders: left, reminded (the email arrives), Finish checkout, paid. */
+@keyframes cmv-st1{0%,${at(0.3)}{opacity:.3}${at(0.7)},${at(8.2)}{opacity:1}${at(8.6)},100%{opacity:.3}}
+@keyframes cmv-st2{0%,${at(1.5)}{opacity:.3}${at(1.9)},${at(8.2)}{opacity:1}${at(8.6)},100%{opacity:.3}}
+@keyframes cmv-st3{0%,${at(4.9)}{opacity:.3}${at(5.3)},${at(8.2)}{opacity:1}${at(8.6)},100%{opacity:.3}}
+@keyframes cmv-mail{0%,${at(1.6)}{opacity:0;transform:translate3d(0,1.2em,0)}${at(2.3)},${at(8.2)}{opacity:1;transform:translate3d(0,0,0)}${at(8.6)},100%{opacity:0;transform:translate3d(0,0,0)}}
+@keyframes cmv-mbtn{0%,${at(4.4)}{transform:scale(1)}${at(4.55)}{transform:scale(.95)}${at(4.7)},100%{transform:scale(1)}}
+/* Order paid: the receipt, its tick, its lines, then the seller's note. */
+@keyframes cmv-rcpt{0%,${at(0.2)}{opacity:0;transform:translate3d(0,1.2em,0)}${at(0.85)},${at(8.2)}{opacity:1;transform:translate3d(0,0,0)}${at(8.6)},100%{opacity:0;transform:translate3d(0,0,0)}}
+@keyframes cmv-rcheck{0%,${at(0.7)}{opacity:0;transform:scale(.5)}${at(1.15)},100%{opacity:1;transform:scale(1)}}
+@keyframes cmv-rrows{0%,${at(1)}{opacity:0}${at(1.4)},100%{opacity:1}}
+@keyframes cmv-sale{0%,${at(2)}{opacity:0;transform:translate3d(0,-1.2em,0)}${at(2.6)},${at(8.2)}{opacity:1;transform:translate3d(0,0,0)}${at(8.6)},100%{opacity:0;transform:translate3d(0,0,0)}}
 
-/* The mocks' resting states, where the sequence above does not run: the dialog open, the sale made. */
+/* The mocks' resting states, where no loop runs: the window paid, the phone paid. */
 .cmv-dlg-form{opacity:0}
-.cmv-mini .ck-done{opacity:1}
-.cmv-mini .ck-form{opacity:0}
-.cmv-br-tap .cmv-cur2{opacity:1}
+.cmv-phone .ck-done{opacity:1}
+.cmv-phone .ck-form{opacity:0}
 
-@media (max-width:1099px) and (min-width:900px){
-  .cmc-tab{padding:16px 14px 22px}
-  .cmc-tab-l{font-size:12.5px}
-  .cmc-tab-bar{left:14px;right:14px}
-}
 @media (max-width:899px){
-  .cmc-tablist{grid-template-columns:repeat(2,1fr);gap:10px}
-  .cmc-tab:last-child{grid-column:1/-1}
-  .cmc-tab{padding:16px 16px 22px;border-radius:19px}
-  .cmc-tab-bar{left:16px;right:16px}
-  .cmc-panel{grid-template-columns:1fr;align-content:start;gap:24px;border-radius:23px;padding:24px}
-  .cmc-vis{margin:0 -10px;border-radius:17px}
-}
-@media (max-width:639px){
-  .cmc-tab-s{font-size:min(6.2vw,26px)}
-  .cmc-tab-l{font-size:13px}
+  .cmc-tabs{margin-inline:calc(var(--landing-gutter,20px) * -1 + 12px)}
+  .cmc-tab{height:38px;padding:0 15px;font-size:13.5px}
+  .cmc-panel{grid-template-columns:1fr;align-content:start;gap:20px;border-radius:23px;padding:24px 24px 20px}
+  .cmc-panel-stat{margin-bottom:10px}
+  /* On a narrow screen each demo is drawn for a taller box and a larger em, so its words stay readable. */
+  .cmc-vis{aspect-ratio:30/34;margin:0 -10px;border-radius:15px}
+  .cmc-vis-in{font-size:calc(100cqw / 30)}
+  .cmv-br-convert{left:-12em;right:auto;width:54em;top:-3em}
+  .cmv-phone{top:1.4em;margin-left:-7.5em;--pw:15em}
+  .cmv-br-convert .cmv-br{box-shadow:none}
+  .cmv-cc{width:28em;font-size:1em}
+  .cmv-rec,.cmv-paid{font-size:1em}
+  .cmv-chip{flex-direction:column;gap:.35em;height:4em}
+  .cmv-tl{left:1.6em;right:.4em;top:1.2em}
+  .cmv-mail{left:1em;right:1em;top:7.4em}
+  .cmv-rcpt{left:2.5em;right:2.5em;top:9em}
+  .cmv-sale{top:1.4em;width:26em;margin-left:-13em}
 }
 `
 
@@ -1091,7 +1106,7 @@ const STILL_CSS = `
   .cmc-stage{position:relative;height:max(100svh,calc(var(--pw) * 2.07 + 200px))}
   .cmc-stage *{transition:none!important;animation:none!important}
   .cmc-step{opacity:.7}
-  .cmv-cyc,.cmv-hl,.cmc-panel{animation:none!important;transition:none!important}
+  .cmc-panel,.cmc-tab,.cmc-tab::before{transition:none!important}
 }
 `
 
