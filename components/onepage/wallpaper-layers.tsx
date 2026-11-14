@@ -230,6 +230,104 @@ export function WallpaperDrift({ gradient, className = "absolute inset-0" }: { g
   )
 }
 
+/*
+  ROUND 17: A WALLPAPER THAT MOVES, FOR GRADIENTS THAT ARE NOT ONE LINE.
+  The owner: Nova "can have the gradient moving in the background, smooth,
+  clean, very cool, natural, subtle"; Backstage "with animation inspiring in
+  the background subtly"; Dusk "with some extremely subtle moving gradient
+  orbs". Drift above only moves a plain linear gradient. These two read the
+  page's own gradient, whatever it is made of:
+
+    orbs   three soft lights in the gradient's own colours, each wandering a
+           slow loop of its own (31s, 37s, 43s, so they never line up)
+    lamp   one light, the gradient's first colour, breathing and swaying
+           like a lamp in a room (9s)
+
+  Only colours the gradient already has, at the strength it already has
+  them, so nothing under the words is a colour the words were not measured
+  against (lib/onepage/contrast pageGrounds reads the same stops). Moved by
+  transform and opacity alone, on the compositor; still for anyone who asked
+  for less motion; stopped while the tab is hidden. The page's gradient stays
+  under it, so a first frame and a reduced motion visitor see the page as it
+  is drawn still.
+*/
+export type GradientMotion = "drift" | "orbs" | "lamp"
+export const GRADIENT_MOTIONS: readonly GradientMotion[] = ["drift", "orbs", "lamp"]
+export function gradientMotionOf(theme: { gradient_motion?: unknown } | null | undefined): GradientMotion {
+  const m = theme?.gradient_motion
+  return m === "orbs" || m === "lamp" ? m : "drift"
+}
+
+/** The colours a gradient is painted in, as written (alpha kept), its fully clear stops and its base left out. */
+export function motionColours(gradient: unknown, base: unknown): string[] {
+  if (typeof gradient !== "string") return []
+  const all = gradient.match(/#[0-9a-f]{8}\b|#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/gi) ?? []
+  const own = String(base || "").toLowerCase()
+  const out: string[] = []
+  for (const c of all) {
+    const v = c.toLowerCase()
+    if (v.length === 9 && v.endsWith("00")) continue
+    if (v === own || out.includes(v)) continue
+    out.push(v)
+  }
+  return out
+}
+
+const ORB_PATHS = [
+  { at: [22, 18], size: 78, ms: 31000, path: [[0, 0], [14, 9], [4, 22], [-10, 8]] },
+  { at: [78, 46], size: 70, ms: 37000, path: [[0, 0], [-16, 6], [-6, -14], [8, -6]] },
+  { at: [36, 82], size: 84, ms: 43000, path: [[0, 0], [12, -12], [24, 4], [6, 10]] },
+]
+
+export function WallpaperMotion({ theme, className = "absolute inset-0" }: { theme: { gradient_motion?: unknown; background_gradient?: unknown; background_color?: unknown }; className?: string }) {
+  const box = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const sync = () => el.style.setProperty("--wm-state", document.hidden ? "paused" : "running")
+    sync()
+    document.addEventListener("visibilitychange", sync)
+    return () => document.removeEventListener("visibilitychange", sync)
+  }, [])
+  const kind = gradientMotionOf(theme)
+  const colours = motionColours(theme.background_gradient, theme.background_color)
+  if (kind === "drift" || colours.length === 0) return null
+  const glow = (c: string) => `radial-gradient(circle at 50% 50%, ${c} 0%, ${c.length === 9 ? c.slice(0, 7) : c}00 70%)`
+  const css =
+    "@keyframes wmLamp{0%{transform:translate3d(-4%,0,0) scale(1);opacity:.78}50%{transform:translate3d(3%,2%,0) scale(1.1);opacity:1}100%{transform:translate3d(-2%,-1%,0) scale(1.04);opacity:.86}}" +
+    ORB_PATHS.map((o, i) => `@keyframes wmOrb${i}{${o.path.map((p, k) => `${Math.round((k / o.path.length) * 100)}%{transform:translate3d(${p[0]}%,${p[1]}%,0)}`).join("")}100%{transform:translate3d(0,0,0)}}`).join("") +
+    "@media (prefers-reduced-motion:reduce){[data-wallpaper-motion] *{animation:none!important}}"
+  return (
+    <div ref={box} aria-hidden data-wallpaper-motion={kind} className={`pointer-events-none overflow-hidden ${className}`}>
+      {kind === "lamp" ? (
+        <div
+          data-keep-transform=""
+          style={{ position: "absolute", left: "-30%", top: "-30%", width: "160%", height: "120%", backgroundImage: glow(colours[0]), animation: "wmLamp 9s cubic-bezier(0.45,0,0.55,1) infinite alternate both", animationPlayState: "var(--wm-state, running)" as never, willChange: "transform, opacity" }}
+        />
+      ) : (
+        ORB_PATHS.slice(0, Math.max(1, Math.min(3, colours.length))).map((o, i) => (
+          <div
+            key={i}
+            data-keep-transform=""
+            style={{
+              position: "absolute",
+              left: `${o.at[0] - o.size / 2}%`,
+              top: `${o.at[1] - o.size / 2}%`,
+              width: `${o.size}%`,
+              aspectRatio: "1",
+              backgroundImage: glow(colours[i % colours.length]),
+              animation: `wmOrb${i} ${o.ms}ms cubic-bezier(0.45,0,0.55,1) infinite both`,
+              animationPlayState: "var(--wm-state, running)" as never,
+              willChange: "transform",
+            }}
+          />
+        ))
+      )}
+      <style>{css}</style>
+    </div>
+  )
+}
+
 /**
  * The layers a photo or video wallpaper's effect lays over it (round AR,
  * lib/onepage/wallpaper wallpaperMediaLook): the duotone's two colours, the

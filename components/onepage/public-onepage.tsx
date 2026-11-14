@@ -52,7 +52,7 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperDrift, WallpaperEffectLayers, WallpaperNoise, WallpaperPattern, useHeaderClearance, usePictureEnds } from "@/components/onepage/wallpaper-layers"
+import { WallpaperDrift, WallpaperEffectLayers, WallpaperMotion, WallpaperNoise, WallpaperPattern, gradientMotionOf, useHeaderClearance, usePictureEnds } from "@/components/onepage/wallpaper-layers"
 import { pixelThroughLook, wallpaperMediaLook, withVeil } from "@/lib/onepage/wallpaper"
 import { wallpaperPhotoSrc } from "@/components/onepage/themes/wallpaper-photo"
 /* Round W9: a theme's skin, its material and the scene behind it (lib/onepage/theme-skin, app/onepage-skins.css). */
@@ -1676,7 +1676,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={surroundLook} box={{ position: "fixed", inset: 0, zIndex: 0 }} />}
 
         {/* Round AL: the gradient drifting, one layer moved by the compositor (components/onepage/wallpaper-layers WallpaperDrift). */}
-        {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
+        {isAnimatedGradient && (gradientMotionOf(safeTheme as never) === "drift" ? <WallpaperDrift gradient={safeTheme.background_gradient} /> : <WallpaperMotion theme={safeTheme as never} />)}
         {/* Noise overlay for gradient backgrounds */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Noise overlay for image backgrounds */}
@@ -1744,7 +1744,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               />
             )}
             {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
-            {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} className="absolute inset-0 rounded-[40px]" />}
+            {isAnimatedGradient && (gradientMotionOf(safeTheme as never) === "drift" ? <WallpaperDrift gradient={safeTheme.background_gradient} className="absolute inset-0 rounded-[40px]" /> : <WallpaperMotion theme={safeTheme as never} className="absolute inset-0 rounded-[40px]" />)}
             {/* Noise overlay inside card */}
             {((safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise) || (safeTheme.background_type === "image" && (safeTheme as any).image_noise)) && (
               <WallpaperNoise strength={(safeTheme as any).noise_strength} className="absolute inset-0 rounded-[40px]" />
@@ -1837,7 +1837,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           )}
           {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
 
-          {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
+          {isAnimatedGradient && (gradientMotionOf(safeTheme as never) === "drift" ? <WallpaperDrift gradient={safeTheme.background_gradient} /> : <WallpaperMotion theme={safeTheme as never} />)}
           {/* Noise overlays for mobile */}
           {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}

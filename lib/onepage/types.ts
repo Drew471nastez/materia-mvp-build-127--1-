@@ -125,6 +125,8 @@ export interface OnePageTheme {
   social_icon_tone?: "brand" | "mono"
   // Animated gradient
   animated_gradient?: boolean
+  /** Round 17: how an animated gradient moves: drift (missing), orbs or lamp. */
+  gradient_motion?: "drift" | "orbs" | "lamp" | null
   /* Round W9 (lib/onepage/theme-skin): the material a theme draws its blocks in and the scene behind them. Missing is none. */
   theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | "aero2" | "aqua2" | "messenger2" | "y2k2" | "playful2" | "grunge2" | "classic98" | "vaporwave" | "arcade" | "renaissance" | "stoicism" | null
   /** Wave 10: the Design groups the creator changed after picking a skinned theme, shown over the skin (lib/onepage/skin-own). */

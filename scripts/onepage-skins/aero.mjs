@@ -170,33 +170,43 @@ export function aero() {
 }
 
 export function aeroAquarium() {
-  banner("AERO AQUARIUM: the same glass under water at night, goldfish and rising bubbles")
+  banner("AERO AQUARIUM: the same glass under water at night, a lit surface, light shafts, goldfish at three depths, plants and rising bubbles (round 17)")
   const sc = SCENE("aero2")
+  /* Round 17, the owner: "make the Aero Aquarium much better, smooth, clean, great". The water is lit from above now: a bright surface band that ripples, shafts that sway from it, four plants in three greens, five goldfish at three depths and speeds, ten bubbles. */
+  rule(`${sc} [data-sk="surface"]`, `
+    position: absolute; left: -10%; right: -10%; top: 0; height: 120px;
+    background: radial-gradient(60% 100% at 50% 0%, rgba(190,245,255,.30) 0%, rgba(190,245,255,0) 72%),
+      repeating-radial-gradient(ellipse 46px 10px at 50% 0%, rgba(210,250,255,.10) 0 6px, rgba(210,250,255,0) 6px 14px);
+    animation: sk-shimmer 5s ease-in-out infinite alternate, sk-sway 14s ease-in-out infinite alternate;`)
   rule(`${sc} [data-sk="rays"]`, `
-    position: absolute; left: 50%; top: -60px; width: 900px; height: 820px; margin-left: -450px; transform-origin: 50% 0;
-    background: repeating-conic-gradient(from 168deg at 50% 0%, rgba(170,240,255,.08) 0deg 3deg, rgba(170,240,255,0) 3deg 11deg, rgba(170,240,255,.05) 11deg 13deg, rgba(170,240,255,0) 13deg 22deg);
-    -webkit-mask-image: radial-gradient(70% 90% at 50% 0%, #000 0%, transparent 78%); mask-image: radial-gradient(70% 90% at 50% 0%, #000 0%, transparent 78%);
-    animation: sk-sway 30s ease-in-out infinite alternate;`)
+    position: absolute; left: 50%; top: -60px; width: 900px; height: 860px; margin-left: -450px; transform-origin: 50% 0;
+    background: repeating-conic-gradient(from 168deg at 50% 0%, rgba(170,240,255,.10) 0deg 3deg, rgba(170,240,255,0) 3deg 10deg, rgba(170,240,255,.06) 10deg 12deg, rgba(170,240,255,0) 12deg 21deg);
+    -webkit-mask-image: radial-gradient(70% 90% at 50% 0%, #000 0%, transparent 80%); mask-image: radial-gradient(70% 90% at 50% 0%, #000 0%, transparent 80%);
+    animation: sk-sway 26s ease-in-out infinite alternate;`)
   rule(`${sc} [data-sk="caustics"]`, `
-    position: absolute; left: 0; right: 0; top: 0; height: 240px; opacity: .4;
-    background: radial-gradient(60px 18px at 20% 30%, rgba(190,245,255,.35), transparent 70%), radial-gradient(80px 20px at 62% 18%, rgba(190,245,255,.3), transparent 70%), radial-gradient(70px 16px at 84% 44%, rgba(190,245,255,.25), transparent 70%), radial-gradient(90px 22px at 38% 58%, rgba(190,245,255,.2), transparent 70%);
+    position: absolute; left: 0; right: 0; top: 0; height: 260px; opacity: .45;
+    background: radial-gradient(60px 18px at 20% 30%, rgba(190,245,255,.35), transparent 70%), radial-gradient(80px 20px at 62% 18%, rgba(190,245,255,.3), transparent 70%), radial-gradient(70px 16px at 84% 44%, rgba(190,245,255,.25), transparent 70%), radial-gradient(50px 14px at 40% 60%, rgba(190,245,255,.22), transparent 70%);
     animation: sk-shimmer 6s ease-in-out infinite alternate;`)
-  rule(`${sc} [data-sk="sand"]`, `position: absolute; left: 0; right: 0; bottom: 0; height: 90px; background: ${SAND} center bottom / 100% 100% no-repeat; opacity: .55;`)
-  rule(`${sc} [data-sk="weed"]`, `position: absolute; bottom: 30px; width: 70px; height: 220px; background: center bottom / contain no-repeat; transform-origin: 50% 100%; opacity: .55; animation: sk-weed 9s ease-in-out infinite alternate;`)
-  rule(`${sc} [data-sk="weed"]:nth-child(4)`, `left: -6px; background-image: ${WEED("#1f7a63")};`)
-  rule(`${sc} [data-sk="weed"]:nth-child(5)`, `right: -2px; height: 260px; background-image: ${WEED("#26876b")}; animation-delay: -3s; animation-duration: 8.5s;`)
+  rule(`${sc} [data-sk="sand"]`, `position: absolute; left: 0; right: 0; bottom: 0; height: 96px; background: ${SAND} center bottom / 100% 100% no-repeat; opacity: .6;`)
+  rule(`${sc} [data-sk="weed"]`, `position: absolute; bottom: 34px; width: 70px; height: 220px; background: center bottom / contain no-repeat; transform-origin: 50% 100%; opacity: .55; animation: sk-weed 9s ease-in-out infinite alternate;`)
+  rule(`${sc} [data-sk="weed"]:nth-child(5)`, `left: -6px; background-image: ${WEED("#1f7a63")};`)
+  rule(`${sc} [data-sk="weed"]:nth-child(6)`, `left: 34px; height: 150px; width: 52px; background-image: ${WEED("#2f9a72")}; opacity: .4; animation-delay: -4s; animation-duration: 10s;`)
+  rule(`${sc} [data-sk="weed"]:nth-child(7)`, `right: -2px; height: 260px; background-image: ${WEED("#26876b")}; animation-delay: -3s; animation-duration: 8.5s;`)
+  rule(`${sc} [data-sk="weed"]:nth-child(8)`, `right: 40px; height: 170px; width: 56px; background-image: ${WEED("#3aa07a")}; opacity: .38; animation-delay: -6s; animation-duration: 11s;`)
   rule(`${sc} [data-sk="fish"]`, `position: absolute; width: 46px; height: 24px; background: ${GOLDFISH} center / contain no-repeat; opacity: .9; animation: sk-swim 18s ease-in-out infinite alternate; filter: drop-shadow(0 3px 4px rgba(0,10,25,.3));`)
-  rule(`${sc} [data-sk="fish"]:nth-child(6)`, `top: 128px; left: 5%;`)
-  rule(`${sc} [data-sk="fish"]:nth-child(7)`, `top: 64px; right: 16%; width: 34px; height: 18px; scale: -1 1; animation-duration: 21s; animation-delay: -6s; opacity: .75;`)
-  rule(`${sc} [data-sk="fish"]:nth-child(8)`, `top: 46%; left: -4px; width: 28px; height: 15px; animation-duration: 16s; animation-delay: -9s; opacity: .6;`)
+  rule(`${sc} [data-sk="fish"]:nth-child(9)`, `top: 128px; left: 5%;`)
+  rule(`${sc} [data-sk="fish"]:nth-child(10)`, `top: 64px; right: 16%; width: 34px; height: 18px; scale: -1 1; animation-duration: 21s; animation-delay: -6s; opacity: .75;`)
+  rule(`${sc} [data-sk="fish"]:nth-child(11)`, `top: 46%; left: -4px; width: 28px; height: 15px; animation-duration: 16s; animation-delay: -9s; opacity: .55;`)
+  rule(`${sc} [data-sk="fish"]:nth-child(12)`, `top: 62%; right: 4%; width: 38px; height: 20px; scale: -1 1; animation-duration: 24s; animation-delay: -12s; opacity: .7;`)
+  rule(`${sc} [data-sk="fish"]:nth-child(13)`, `top: 30%; left: 70%; width: 22px; height: 12px; animation-duration: 27s; animation-delay: -3s; opacity: .45;`)
   rule(`${sc} [data-sk="bubble"]`, `
     position: absolute; bottom: 60px; width: 18px; aspect-ratio: 1; border-radius: 50%; background: ${BUBBLE}; opacity: 0;
     animation: sk-rise 9s linear infinite;`)
-  const rising = [["6%", 14, 0], ["11%", 9, -2.5], ["15%", 20, -5], ["86%", 12, -1], ["90%", 18, -4], ["94%", 8, -6.5], ["9%", 11, -7.5], ["88%", 10, -3.2]]
-  rising.forEach(([left, size, delay], i) => rule(`${sc} [data-sk="bubble"]:nth-child(${9 + i})`, `left: ${left}; width: ${size}px; animation-delay: ${delay}s; animation-duration: ${8 + (i % 3) * 2}s;`))
+  const rising = [["6%", 14, 0], ["11%", 9, -2.5], ["15%", 20, -5], ["86%", 12, -1], ["90%", 18, -4], ["94%", 8, -6.5], ["9%", 11, -7.5], ["88%", 10, -3.2], ["13%", 7, -8.4], ["92%", 15, -5.6]]
+  rising.forEach(([left, size, delay], i) => rule(`${sc} [data-sk="bubble"]:nth-child(${14 + i})`, `left: ${left}; width: ${size}px; animation-delay: ${delay}s; animation-duration: ${8 + (i % 3) * 2}s;`))
   rule(`${sc} [data-sk="glint"]`, `position: absolute; width: 12px; aspect-ratio: 1; background: ${SPARK("#bff4ff")} center / contain no-repeat; opacity: .6; animation: sk-twinkle 6s ease-in-out infinite;`)
-  rule(`${sc} [data-sk="glint"]:nth-child(17)`, `top: 64px; right: 18%;`)
-  rule(`${sc} [data-sk="glint"]:nth-child(18)`, `top: 38%; left: 10%; width: 12px; animation-delay: -2s;`)
+  rule(`${sc} [data-sk="glint"]:nth-child(24)`, `top: 64px; right: 18%;`)
+  rule(`${sc} [data-sk="glint"]:nth-child(25)`, `top: 38%; left: 10%; width: 12px; animation-delay: -2s;`)
   material("aero2", NIGHT)
   legal("aero2", "rgba(4,30,50,.82)", "#eafaff", ["#041e32", "#0d2a35"])
 }

@@ -23,13 +23,13 @@
  */
 
 export const THEME_GROUPS = [
-  { id: "clean", ids: ["default", "air", "gallery", "studio", "linen", "clay", "mono", "atrium", "graph", "paper", "swiss", "folio", "cream", "notebook"] },
-  { id: "dark", ids: ["graphite", "night", "nova", "fjord", "backstage", "umber", "onair", "pop", "midnight", "ember", "ledger", "olive", "astrid", "space", "blueprint"] },
-  { id: "colour", ids: ["malachite", "petal", "sorbet", "dawn", "dusk", "pulse", "citrus", "swirl", "sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "dune", "terrazzo", "riso", "blocks", "neon", "acid"] },
-  { id: "photo", ids: ["nature", "atlas", "haze", "darkroom", "fusion"] },
+  { id: "clean", ids: ["default", "air", "gallery", "studio", "linen", "clay", "mono", "atrium", "graph", "paper", "swiss", "cream", "notebook"] },
+  { id: "dark", ids: ["graphite", "night", "nova", "fjord", "backstage", "umber", "onair", "pop", "doric", "ember", "ledger", "olive", "astrid", "space", "blueprint"] },
+  { id: "colour", ids: ["malachite", "petal", "sorbet", "dawn", "dusk", "pulse", "citrus", "swirl", "ripple", "solstice", "ribbon", "sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "dune", "terrazzo", "riso", "blocks", "neon", "acid"] },
+  { id: "photo", ids: ["mesa", "cosmos", "shore", "nature", "atlas", "haze", "darkroom", "fusion"] },
   {
     id: "styled",
-    ids: ["renaissance", "stoicism", "gazette", "aero", "aero2", "aqua", "aqua2", "vaporwave", "y2k", "y2k2", "messenger", "messenger2", "classic98", "arcade", "playful", "playful2", "grunge", "grunge2"],
+    ids: ["renaissance", "stoicism", "gazette", "aero", "aero2", "aqua", "aqua2", "vaporwave", "y2k", "y2k2", "messenger", "messenger2", "classic98", "arcade", "playful", "playful2", "xerox", "grunge2"],
   },
 ] as const
 

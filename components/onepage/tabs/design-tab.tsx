@@ -60,7 +60,7 @@ import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, butt
 import { normalizeHex } from "@/lib/onepage/color"
 import { NAME_STYLES, nameColours, nameStyleCss, nameStyleOf, type NameStyle } from "@/lib/onepage/name-style"
 import { WALLPAPER_PATTERNS, canonicalPatternId, isAutoInk, isPatternId, patternStyle, resolvedPatternInk, wallpaperIsDark, wallpaperMediaLook, type PatternOpacity } from "@/lib/onepage/wallpaper"
-import { WallpaperEffectLayers, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WallpaperEffectLayers, WallpaperPattern, gradientMotionOf } from "@/components/onepage/wallpaper-layers"
 import { WallpaperEffects } from "@/components/onepage/themes/wallpaper-effects"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
@@ -363,24 +363,31 @@ const BASE_THEME_TEMPLATES = [
     id: "paper",
     name: "Paper",
     category: "light",
+    /* Round 17, the owner: "make the Paper theme more good, clean, rich, cool". A sheet lit from the top left, its far corner a shade deeper, grain in the paper, an editorial serif name, cards that lift. */
     theme_config: {
-      background_type: "solid" as const,
-      background_color: "#f3eee4",
-      background_gradient: "",
+      background_type: "gradient" as const,
+      background_color: "#f2ecdf",
+      background_gradient: "radial-gradient(110% 55% at 0% 0%, #fffdf7 0%, #fffdf700 62%), radial-gradient(90% 50% at 100% 100%, #e3d8c4 0%, #e3d8c400 72%), linear-gradient(180deg, #f5f0e5 0%, #eee6d6 100%)",
       background_image_url: "",
-      text_color: "#23201b",
-      secondary_text_color: "#5e574c",
-      button_color: "#fbf8f2",
-      button_text_color: "#23201b",
+      gradient_noise: true,
+      noise_strength: 14,
+      text_color: "#221e18",
+      secondary_text_color: "#5a5246",
+      button_color: "#fdfaf3",
+      button_text_color: "#221e18",
       button_style: "filled" as const,
       button_border_radius: 6,
       button_border_width: 1,
-      button_border_color: "#ddd5c6",
-      button_shadow: "none",
+      button_border_color: "#d9cfbd",
+      button_shadow: "subtle",
+      button_shadow_color: "#6b5236",
+      button_hover_animation: "lift",
       font_family: "'DM Sans', sans-serif",
-      title_font: "'Source Serif Pro', serif",
-      title_color: "#23201b",
-      social_icon_color: "#23201b",
+      title_font: "'Newsreader', serif",
+      title_color: "#221e18",
+      title_weight: 500,
+      title_tracking: "tight",
+      social_icon_color: "#8c3f24",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
@@ -393,10 +400,10 @@ const BASE_THEME_TEMPLATES = [
       product_layout: "rows",
     },
     profile_layout: "classic" as const,
-    light_button_text_color: "#23201b",
-    solid_button_text_color: "#23201b",
-    outline_button_text_color: "#23201b",
-    glass_button_text_color: "#23201b",
+    light_button_text_color: "#221e18",
+    solid_button_text_color: "#221e18",
+    outline_button_text_color: "#221e18",
+    glass_button_text_color: "#221e18",
     share_style: "white",
     subscribe_style: "white",
   },
@@ -747,30 +754,37 @@ const BASE_THEME_TEMPLATES = [
     id: "olive",
     name: "Olive",
     category: "dark",
+    /* Round 17, the owner: "make the Olive one more cool, rich, more differentiating". A brass light in the top corner, a contour map in brass, a display serif in pale gold, cream buttons that fill with brass. */
     theme_config: {
-      background_type: "solid" as const,
-      background_color: "#2e3526",
-      background_gradient: "",
+      background_type: "gradient" as const,
+      background_color: "#2c3324",
+      background_gradient: "radial-gradient(80% 46% at 100% 0%, #4d4f2a 0%, #4d4f2a00 72%), radial-gradient(70% 40% at 0% 100%, #1f2518 0%, #1f251800 72%), linear-gradient(170deg, #343d29 0%, #2a3121 55%, #22281b 100%)",
       background_image_url: "",
-      text_color: "#efe9d8",
-      secondary_text_color: "#b9b39f",
-      button_color: "#efe9d8",
-      button_text_color: "#2e3526",
+      gradient_noise: true,
+      noise_strength: 12,
+      text_color: "#efe9d6",
+      secondary_text_color: "#c7c1a8",
+      button_color: "#ece4c8",
+      button_text_color: "#262d1d",
       button_style: "filled" as const,
       button_border_radius: 24,
       button_border_width: 0,
-      button_border_color: "#efe9d8",
+      button_border_color: "#ece4c8",
       button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#d9c98a",
+      button_hover_text: "#1f2416",
       font_family: "'DM Sans', sans-serif",
-      title_font: "'Crimson Text', serif",
-      title_color: "#efe9d8",
-      social_icon_color: "#efe9d8",
+      title_font: "'DM Serif Display', serif",
+      title_color: "#ebe0b6",
+      title_weight: 400,
+      social_icon_color: "#ebe0b6",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
       laser_glow_enabled: false,
-      background_pattern: "linen",
-      pattern_color: "#efe9d830",
+      background_pattern: "topographic",
+      pattern_color: "#d9c98a2e",
       pattern_opacity: "low",
       header_align: "left",
       button_text_align: "left",
@@ -778,9 +792,9 @@ const BASE_THEME_TEMPLATES = [
       product_layout: "rows",
     },
     profile_layout: "classic" as const,
-    solid_button_text_color: "#2e3526",
-    outline_button_text_color: "#efe9d8",
-    glass_button_text_color: "#efe9d8",
+    solid_button_text_color: "#262d1d",
+    outline_button_text_color: "#efe9d6",
+    glass_button_text_color: "#efe9d6",
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
   },
@@ -884,45 +898,6 @@ const BASE_THEME_TEMPLATES = [
       header_align: "left",
     },
     profile_layout: "classic" as const,
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
-  },
-  {
-    id: "midnight",
-    name: "Midnight",
-    category: "dark",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#020617",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#f8fafc",
-      secondary_text_color: "#94a3b8",
-      button_color: "rgba(255, 255, 255, 0.1)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
-      button_border_radius: 10,
-      button_border_width: 1,
-      button_border_color: "#182b49",
-      button_shadow: "subtle",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Oswald', sans-serif",
-      title_color: "#f8fafc",
-      social_icon_color: "#3b82f6",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      // Midnight theme: hero layout, laser glow off, zoom button animation
-      header_layout: "hero",
-      laser_glow_enabled: false,
-      button_hover_animation: "zoom",
-      // Midnight only allows stars pattern - stars enabled by default with white color
-      allowed_patterns: ["none", "stars"],
-      background_pattern: "stars",
-      pattern_color: "#ffffff",
-      pattern_opacity: "medium",
-    },
-    profile_layout: "hero" as const,
-    // Midnight theme uses glassmorphism for share/subscribe buttons
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
   },
@@ -3251,6 +3226,18 @@ function WallpaperSection() {
           </PanelSection>
           <PanelSection>
             <SwitchRow label={tt("Animate")} description={tt("The colours drift slowly across the page")} checked={theme.animated_gradient || false} onChange={(checked) => updateTheme({ animated_gradient: checked })} />
+            {/* Round 17: how it moves. Drift moves a straight gradient; Orbs and Glow move any gradient, in its own colours (components/onepage/wallpaper-layers WallpaperMotion). */}
+            {theme.animated_gradient ? (
+              <SettingRow label={tt("Motion")} className="mt-4" stackOnPhone>
+                <Segmented
+                  className="w-full sm:w-[260px]"
+                  label={tt("Motion")}
+                  value={gradientMotionOf(theme as never)}
+                  options={[{ id: "drift", label: tt("Drift") }, { id: "orbs", label: tt("Orbs") }, { id: "lamp", label: tt("Glow") }] as const}
+                  onChange={(id) => updateTheme({ gradient_motion: id === "drift" ? null : id } as never)}
+                />
+              </SettingRow>
+            ) : null}
             <div className="mt-5">{noiseRows("gradient_noise")}</div>
           </PanelSection>
           {patternSection}
