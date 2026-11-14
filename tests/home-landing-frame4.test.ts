@@ -97,7 +97,8 @@ console.log("\n── Run your business from anywhere ──")
 console.log("\n── The closing call ──")
 {
   const src = code("components/marketing/home/final-cta.tsx")
-  check("a new line, two ways in, on a dot grid", /Start selling <em>what you make\.<\/em>/.test(src) && /href="\/signup\?intent=sell"/.test(src) && /href="\/explore"/.test(src) && /<DotField fade="edges" \/>/.test(src))
+  /* Changed on purpose (landing round 5): the owner asked to remove the "See creators on Storelib" button, so the close keeps one way in. */
+  check("a new line, one way in, on a dot grid", /Start selling <em>what you make\.<\/em>/.test(src) && /href="\/signup\?intent=sell"/.test(src) && !/href="\/explore"/.test(src) && /<DotField fade="edges" \/>/.test(src))
   check("light on dark, a white button", /\.fcta-title\{[^}]*color:#fafafa/.test(src) && /\.fcta-primary\{background:#fff;color:#18181b\}/.test(src))
   check("no seam into the footer: no lit top edge or glow under it on the home page", /footer\.storelib-footer\{background-color:#050506;background-image:linear-gradient\(180deg,#050506 0%,#030304 100%\);box-shadow:none\}/.test(src) && /footer\.storelib-footer::before\{content:none\}/.test(src))
   check("no purple glow, no em dash, no banned word", !/124,\s*58,\s*237|#7c3aed|violet/i.test(src) && !/—/.test(read("components/marketing/home/final-cta.tsx")) && !BANNED.test(src.replace(/transform/g, "")))
