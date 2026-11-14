@@ -153,5 +153,18 @@ rows for parts 62 and 334.
 
 ## Verification
 
-See the end of `STORELIB_PHYSICAL_COMMERCE_AUDIT.md` for the figures of the
-final run, the build and the deployment.
+Run on the merged tree, 14 November 2026.
+
+| | Result |
+|---|---|
+| Full test suite | 1,101 suites. One failed, a source-text assertion on a variable I had renamed; fixed, and every suite that reads that file was run again (44 suites, all pass). The four suites failing at the baseline pass now on current `main`. |
+| New suites | `labels-safe-aw` 69 checks, `commerce-aw` 44 checks, all pass. |
+| Translations | Dashboard 100% in six languages; email sentences regenerated. |
+| Lint | Clean on the changed scripts. |
+| Type errors | 373, the same as `main` before this round (the baseline file says 313; 44 files had already regressed on `main`). This round adds none. |
+| Production build | Succeeds. Peak memory 8,252 MB RSS, 7,600 MB PSS, against a 7,600 MB gate. Before this round, same machine: 7,884 MB RSS, 7,588 MB PSS. The gate was already failing; the proportional figure moved by 12 MB. |
+| Bundle sizes | Within 0.1 KB of the baseline on every route. Already over budget on 8 routes before this round. |
+| Not verified | Nothing was run against live Stripe, Shippo, EasyPost or Mailgun. No real browser pass on storelib.com/app behind sign in: there is no account session here. |
+
+The container restarted once during verification (two heavy jobs at once).
+Nothing was lost; the suite and the build were then run one at a time.
