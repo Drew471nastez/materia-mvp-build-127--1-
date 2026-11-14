@@ -620,8 +620,9 @@ const HOW_CSS = `
 @keyframes cmh-sheet{0%,28%{transform:translate3d(0,105%,0)}38%,82%{transform:translate3d(0,0,0)}92%,100%{transform:translate3d(0,105%,0)}}
 .cmh-sh-grab{align-self:center;width:calc(40 * var(--p));height:calc(5 * var(--p));margin:calc(10 * var(--p)) 0 calc(14 * var(--p));border-radius:9px;background:#5a5a5e}
 .cmh-sh-pic{display:grid;place-items:center;height:calc(300 * var(--p));border-radius:calc(16 * var(--p));background:#e9e9ec}
-.cmh-sh-pic .cmh-print{width:auto;height:84%;padding:4.5%;box-sizing:border-box}
-.cmh-sh-pic .cmh-print img{width:auto;height:100%}
+.cmh-sh-pic{overflow:hidden}
+.cmh-sh-pic .cmh-print{width:auto;height:calc(250 * var(--p));aspect-ratio:4/5;padding:calc(10 * var(--p));box-sizing:border-box}
+.cmh-sh-pic .cmh-print img{width:100%;height:100%;aspect-ratio:auto}
 .cmh-sh-title{margin-top:calc(20 * var(--p));font-size:calc(32 * var(--p));font-weight:800;letter-spacing:-.035em;line-height:1.05}
 .cmh-sh-price{margin-top:calc(6 * var(--p));font-size:calc(26 * var(--p));font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .cmh-sh-line{margin-top:calc(6 * var(--p));font-size:calc(14 * var(--p));color:#a1a1aa}
