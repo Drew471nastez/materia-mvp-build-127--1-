@@ -148,7 +148,8 @@ async function guest() {
 
   section("GUEST: every product page reads it, and the checkouts write it")
   const site = read("app/api/checkout/site/route.ts")
-  check("a website's paid and free checkouts write the grant on the website's host", (site.match(/await withGuestGrant\(afterPaidHeaders\(/g) ?? []).length === 2)
+  // Changed on purpose (round AX): a free basket pressed again is answered with the grant too (app/api/checkout/site free, answerClaimed), so three writes.
+  check("a website's paid and free checkouts write the grant on the website's host", (site.match(/await withGuestGrant\(afterPaidHeaders\(/g) ?? []).length === 3)
   const complete = read("app/api/checkout/cart/complete/route.ts")
   check("paying on storelib.com for a website's basket goes back through the handoff for a guest", /user \? paidReturnUrl\(back\) : rememberOnSiteUrl\(paidReturnUrl\(back\), result\.receiptToken\)/.test(complete))
   const ownedRoute = read("app/api/site-account/owned/route.ts")

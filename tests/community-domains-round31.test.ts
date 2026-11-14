@@ -126,7 +126,8 @@ console.log("\nproxy.ts serves a community domain")
   check("the page goes through respond, so the headers after it still apply, and is never shared-cached",
     /if \(communityPath\) \{[\s\S]{0,400}respond = \(\) => \{[\s\S]{0,200}NextResponse\.rewrite\(communityUrl, \{ request \}\)[\s\S]{0,120}"private, no-cache, must-revalidate"/.test(proxy) && /supabaseResponse = respond\(\)/.test(proxy))
   check("a community domain is never a website or creator page domain", /if \(connected\?\.purpose === "community"\) \{[\s\S]*\} else if \(connected\) \{/.test(proxy))
-  check("the session cookie stays host only", /domain: undefined,\s*secure: !isLocalhost,\s*sameSite: "lax"/.test(proxy))
+  // Changed on purpose (round AX): a __Host- cookie is always Secure, so secure is true for it as well as off localhost; still no Domain.
+  check("the session cookie stays host only", /domain: undefined,\s*secure: out !== name \|\| !isLocalhost,\s*sameSite: "lax"/.test(proxy))
 }
 
 console.log("\napp/api/domains: the session's creator, a community they own, one domain each")

@@ -13415,7 +13415,10 @@ const words: Record<string, string> = {
  "You made changes here on {when} that were never saved. The page has been saved somewhere else since.": "Hai fatto qui il {when} modifiche mai salvate. Da allora la pagina è stata salvata altrove.",
  "Use the changes from this device": "Usa le modifiche di questo dispositivo",
  "Keep the saved page": "Mantieni la pagina salvata",
- "This page was saved somewhere else. Save again to keep this version": "Questa pagina è stata salvata altrove. Salva di nuovo per mantenere questa versione"
+ "This page was saved somewhere else. Save again to keep this version": "Questa pagina è stata salvata altrove. Salva di nuovo per mantenere questa versione",
+ "Messages go to {email} only if it is your sign in email or a team member's. Otherwise they go to your sign in email.": "I messaggi vanno a {email} solo se è la tua email di accesso o quella di una persona del team. Altrimenti vanno alla tua email di accesso.",
+ "Messages go to your sign in email.": "I messaggi vanno alla tua email di accesso.",
+ "Every message is also kept in Contacts › Forms.": "Ogni messaggio resta anche in Contatti › Moduli."
 }
 
 export default words

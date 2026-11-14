@@ -5,6 +5,8 @@ import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
 import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { onePageChangedFor } from "@/lib/onepage/public-cache"
+import { claimStoreHandle } from "@/lib/profile/move-handle"
+import { isValidUsername } from "@/lib/reserved-words"
 
 /**
  * POST /api/onboarding/finalize
@@ -103,11 +105,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
       }
     } else {
-      // INSERT — no creator record yet; build a safe, unique slug
-      const baseSlug = (creatorSlug || "creator")
+      /*
+        INSERT: no creator record yet. The store's address is the account's
+        handle, claimed through the same rules as every other name
+        (lib/profile/move-handle.ts claimStoreHandle: format, reserved words,
+        a fake sign in page's name, taken anywhere a handle lives). It used to
+        be whatever creatorSlug the request sent, so a name like paypal-login
+        became paypal-login.storelib.com.
+      */
+      const claimed = await claimStoreHandle(admin, userId, typeof creatorSlug === "string" ? creatorSlug : "")
+      const sent = String(creatorSlug || "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "") || "creator"
+        .replace(/^-|-$/g, "")
+      const baseSlug = claimed.ok ? claimed.username : isValidUsername(sent).valid ? sent : "creator"
 
       // Resolve slug conflicts by appending a short random suffix
       let slug = baseSlug

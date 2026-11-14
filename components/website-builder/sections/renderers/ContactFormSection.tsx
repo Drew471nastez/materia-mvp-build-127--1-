@@ -45,7 +45,9 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
    * It posts to the website's contact route now (lib/site-contact): the
    * message is kept for the creator in Emails and emailed to them, to the
    * Recipient Email when they set one (read on the server from the published
-   * section, never from this page) and otherwise to their support email.
+   * section, never from this page) and otherwise to their support email,
+   * either only when it is the account's or a team member's sign in email,
+   * else to the account's own (round AX, lib/seller-inbox provenInbox).
    * Company and Phone ride in the message; the Subject Prefix goes in front
    * of the subject, as it always did. `hp_company` is the field no person
    * sees, which a script fills in.
@@ -124,9 +126,10 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
           {/* For the creator in the builder only: where these messages go. */}
           {(isEditing || inEditor) && (
             <p className="text-xs opacity-60">
+              {/* Round AX: the address is used only when the store has proven it owns it (lib/seller-inbox provenInbox). */}
               {str(s.recipient_email).trim()
-                ? `Messages are emailed to ${str(s.recipient_email).trim()} and kept in Emails.`
-                : "Messages are emailed to your support email and kept in Emails."}
+                ? `Messages go to ${str(s.recipient_email).trim()} if it is your sign in email or a team member's, otherwise to your sign in email. All are kept in Contacts › Forms.`
+                : "Messages are emailed to your sign in email and kept in Contacts › Forms."}
             </p>
           )}
           <button

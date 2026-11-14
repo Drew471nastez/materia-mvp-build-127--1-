@@ -66,7 +66,8 @@ console.log("\n4. A handle rename clears the old address and the new one")
   check("  and clears it only when this account gave it up (username_history), so nobody purges another store", /\.from\("username_history"\)[\s\S]{0,80}\.eq\("user_id", user\.id\)[\s\S]{0,120}\.ilike\("old_username", exactIlike\(/.test(route) && /if \(old\) \{\s*await creatorPagesChanged\(\{ userId: user\.id, handles: \[old\] \}\)\s*await onePageChangedFor\(user\.id, \[old\]\)/.test(route))
   check("  the new handle's addresses are cleared by identityChanged as before", /identityChanged\(\{ userId: user\.id, creatorId: followed\.creatorId \}\)/.test(route))
   const form = readCode("components/app/settings-form-new.tsx")
-  check("Settings calls it on a rename too, not only on a new display name", /if \(nameChanged \|\| renamed\)/.test(form) && /\.\.\.\(renamed \? \{ previousHandle: oldUsername \} : \{\}\)/.test(form))
+  /* Changed on purpose (round AX): the rename runs on the server, which answers the old handle (previous); Settings sends that. */
+  check("Settings calls it on a rename too, not only on a new display name", /if \(nameChanged \|\| previousHandle\)/.test(form) && /\.\.\.\(previousHandle \? \{ previousHandle \} : \{\}\)/.test(form) && /previousHandle = moved\.previous \|\| null/.test(form))
   check("  and still sends the old display name only when it changed", /\.\.\.\(nameChanged \? \{ previousName \} : \{\}\)/.test(form))
 }
 

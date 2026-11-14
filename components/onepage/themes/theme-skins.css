@@ -2345,124 +2345,173 @@
 }
 
 /* ===========================================================================
-   RENAISSANCE: Titian's sky behind ink panels, white hairlines and a modern grotesk (lib/onepage/theme-skin)
+   RENAISSANCE: Titian's painting, whole and still behind the page; lapis plaques in gilt hairlines; Garamond (lib/onepage/theme-skin)
    =========================================================================== */
 [data-skin-scene="renaissance"] {
-  container-type: inline-size; background-color: #0e1220;
-}
-[data-skin-scene="renaissance"] [data-sk="sky"] {
-  position: absolute; inset: 0; background: linear-gradient(180deg, #2b3d6b 0, #3a507f calc(min(72cqw, 300px) + 40px), #3a507f calc(min(72cqw, 300px) + 120px), #0e1220 calc(min(72cqw, 300px) + min(250cqw, 1120px)));
+  container-type: inline-size; background-color: #121a33; overflow: clip;
 }
 [data-skin-scene="renaissance"] [data-sk="painting"] {
-  position: absolute; left: 0; right: 0; top: min(72cqw, 300px); height: min(250cqw, 1120px);
-  background: image-set(url("/images/onepage-themes/renaissance/portrait.avif") type("image/avif"), url("/images/onepage-themes/renaissance/portrait.webp") type("image/webp")) center top / cover no-repeat;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 72px, #000 62%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0, #000 72px, #000 62%, transparent 100%);
-}
-[data-skin-scene="renaissance"] [data-sk="scrim"] {
-  position: absolute; left: 0; right: 0; top: 0; height: calc(min(72cqw, 300px) + min(250cqw, 1120px));
-  background: linear-gradient(180deg, rgba(9,12,24,.28) 0, rgba(9,12,24,.2) calc(min(72cqw, 300px) - 60px), rgba(9,12,24,.36) calc(min(72cqw, 300px) + 40px), rgba(9,12,24,.32) calc(min(72cqw, 300px) + 12%), rgba(9,12,24,.24) calc(min(72cqw, 300px) + 45%), rgba(9,12,24,.24) calc(min(72cqw, 300px) + 60%), rgba(14,18,32,.86) 94%, #0e1220 100%);
-}
-[data-skin-scene="renaissance"] [data-sk="frame"] {
-  position: absolute; left: 14px; right: 14px; top: 14px; height: calc((min(72cqw, 300px) + min(250cqw, 1120px)) * .72);
-  border: 1px solid rgba(255,255,255,.42); border-bottom: 0;
-  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%); mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
-}
-[data-skin-scene="renaissance"][class*="rounded-[40px]"] [data-sk="frame"] {
-  display: none;
+  position: sticky; top: 0; display: block; width: 100%;
+  height: min(100vh, 100%); height: min(100lvh, 100%);
+  background: image-set(url("/images/onepage-themes/renaissance/portrait.avif") type("image/avif"), url("/images/onepage-themes/renaissance/portrait.webp") type("image/webp")) center 22% / cover no-repeat;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 86%, rgba(0,0,0,.55) 95%, transparent 100%); mask-image: linear-gradient(180deg, #000 0%, #000 86%, rgba(0,0,0,.55) 95%, transparent 100%);
 }
 @container (min-width: 720px) {
-  [data-skin-scene="renaissance"] [data-sk="sky"] { display: none; }
-  [data-skin-scene="renaissance"] [data-sk="painting"] { top: 0; height: min(100%, 110cqw, 1400px); background-image: image-set(url("/images/onepage-themes/renaissance/wide.avif") type("image/avif"), url("/images/onepage-themes/renaissance/wide.webp") type("image/webp")); background-position: center 30%; -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%); mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%); }
-  [data-skin-scene="renaissance"] [data-sk="scrim"] { height: min(100%, 110cqw, 1400px); background: radial-gradient(60% 80% at 50% 45%, rgba(9,12,24,.5) 0%, rgba(9,12,24,.16) 70%), linear-gradient(180deg, rgba(9,12,24,.2) 0%, rgba(9,12,24,.1) 50%, rgba(14,18,32,.8) 90%, #0e1220 100%); }
-  [data-skin-scene="renaissance"] [data-sk="frame"] { left: 28px; right: 28px; top: 28px; height: calc(min(100%, 110cqw, 1400px) * .78); }
+  [data-skin-scene="renaissance"] [data-sk="painting"] { background-image: image-set(url("/images/onepage-themes/renaissance/wide.avif") type("image/avif"), url("/images/onepage-themes/renaissance/wide.webp") type("image/webp")); background-position: center 30%; }
+  [data-skin-scene="renaissance"] [data-sk="painting"]::after { content: ""; position: absolute; inset: 0; background: radial-gradient(34% 60% at 50% 50%, rgba(12,17,36,.38) 0%, rgba(12,17,36,0) 100%); }
 }
 
-/* renaissance: panels of the night in a white hairline; the product's button the one white thing; a link's words stay the theme's, so its white Fill hover wins. */
+/* renaissance: soft scrims under the words that sit on the painting, and nowhere else. */
+[data-op-skin="renaissance"] [data-op-header]:not([data-op-cover]) {
+  position: relative;
+}
+[data-op-skin="renaissance"] [data-op-header]:not([data-op-cover])::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  left: -76px; right: -76px; top: -200px; bottom: -64px;
+  background: rgba(12,17,36,0.66);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent), linear-gradient(180deg, #000 calc(100% - 84px), transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent), linear-gradient(180deg, #000 calc(100% - 84px), transparent); mask-composite: intersect;
+}
+[data-op-skin="renaissance"] {
+  --rn-q: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 14'%3E%3Cg fill='%23c6a15b'%3E%3Ccircle cx='9.8' cy='7' r='2.4'/%3E%3Ccircle cx='16.2' cy='7' r='2.4'/%3E%3Ccircle cx='13' cy='3.8' r='2.4'/%3E%3Ccircle cx='13' cy='10.2' r='2.4'/%3E%3Ccircle cx='4' cy='7' r='.9'/%3E%3Ccircle cx='22' cy='7' r='.9'/%3E%3C/g%3E%3Ccircle cx='13' cy='7' r='1.1' fill='%23121a33'/%3E%3C/svg%3E"); --rn-soft: linear-gradient(90deg, transparent, #000 34px, #000 calc(100% - 34px), transparent), linear-gradient(180deg, transparent, #000 34px, #000 calc(100% - 34px), transparent);
+}
+[data-op-skin="renaissance"] [data-op-header][data-op-cover] > :is(h1, p) {
+  position: relative;
+}
+[data-op-skin="renaissance"] [data-op-header][data-op-cover] > :is(h1, p)::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: -34px -34px; background: rgba(12,17,36,0.66); -webkit-mask-image: var(--rn-soft); -webkit-mask-composite: source-in; mask-image: var(--rn-soft); mask-composite: intersect;
+}
+[data-op-skin="renaissance"] [data-hero-title] {
+  position: relative;
+}
+[data-op-skin="renaissance"] [data-hero-title]::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: -34px -34px; background: rgba(12,17,36,0.66); -webkit-mask-image: var(--rn-soft); -webkit-mask-composite: source-in; mask-image: var(--rn-soft); mask-composite: intersect;
+}
+[data-op-skin="renaissance"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
+  position: relative;
+}
+[data-op-skin="renaissance"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title])::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: -38px -26px; background: rgba(12,17,36,0.66); -webkit-mask-image: var(--rn-soft); -webkit-mask-composite: source-in; mask-image: var(--rn-soft); mask-composite: intersect;
+}
+[data-op-skin="renaissance"] [data-op-block]:has(> p.whitespace-pre-line) {
+  position: relative;
+}
+[data-op-skin="renaissance"] [data-op-block]:has(> p.whitespace-pre-line)::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: -38px -26px; background: rgba(12,17,36,0.66); -webkit-mask-image: var(--rn-soft); -webkit-mask-composite: source-in; mask-image: var(--rn-soft); mask-composite: intersect;
+}
+
+/* renaissance: lapis plaques framed in gilt; a link fills ivory under the pointer, the product's button is the ivory plaque. */
 [data-op-skin="renaissance"] :is(a.op-btn, [data-tp-link]) {
-  background-color: rgba(11,14,26,.6) !important; background-image: none;
-  border: 1px solid rgba(255,255,255,.72) !important; border-radius: 2px !important;
-  box-shadow: none !important;
-  font-weight: 500; letter-spacing: -.005em;
+  background-color: var(--sk-surface) !important; background-image: none;
+  border: 1px solid #c6a15b !important; border-radius: 2px !important;
+  box-shadow: inset 0 0 0 3px var(--sk-surface), inset 0 0 0 4px rgba(198,161,91,.32), 0 14px 28px -20px rgba(4,6,14,.9) !important;
+  font-weight: 500; letter-spacing: .015em; font-size: 1.04em;
 }
 [data-op-skin="renaissance"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
   background-image: none;
 }
+[data-op-skin="renaissance"] :is(.op-btn, [data-tp-link]):is([data-hover="fill"], [data-hover="pop"])::after {
+  box-shadow: inset 0 0 0 1px #c6a15b, inset 0 0 0 4px var(--op-fill, #f4ecda), inset 0 0 0 5px rgba(198,161,91,.5);
+}
 [data-op-skin="renaissance"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
-  background-color: #ffffff !important; background-image: none;
-  color: #0e1220 !important; border: 1px solid #ffffff !important; border-radius: 999px !important;
-  font-weight: 600; letter-spacing: -.005em; box-shadow: none !important;
-  --op-fill: #0e1220 !important; --op-fill-text: #ffffff !important;
+  background-color: #f4ecda !important; background-image: none;
+  color: #17224a !important; border: 1px solid #c6a15b !important; border-radius: 2px !important;
+  box-shadow: inset 0 0 0 3px #f4ecda, inset 0 0 0 4px rgba(198,161,91,.5) !important;
+  font-weight: 600; letter-spacing: .03em;
+  --op-fill: #17224a !important; --op-fill-text: #f4ecda !important;
 }
 [data-op-skin="renaissance"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div, :where([style*="background-clip: padding-box"]:not(.op-btn, button, [data-product-block], [data-tp-product], .op-card, [data-tp-card], [data-tp-link], [data-onepage-code], figure, [data-onepage-countdown] .grid > div))) {
-  background-color: rgba(11,14,26,.6) !important; background-image: none;
-  border-color: rgba(255,255,255,.42) !important; border-radius: 2px !important;
-  box-shadow: none !important;
+  background-color: #17224a !important; background-image: none;
+  border: 1px solid rgba(198,161,91,.5) !important; border-radius: 2px !important;
+  box-shadow: inset 0 0 0 3px #17224a, inset 0 0 0 4px rgba(198,161,91,.32), 0 14px 28px -20px rgba(4,6,14,.9) !important;
 }
 [data-op-skin="renaissance"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card):not([data-product-block="overlay"]) {
-  color: #ffffff !important;
+  color: #f4ecda !important;
 }
 [data-op-skin="renaissance"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card):not([data-product-block="overlay"]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
-  color: #ffffff !important;
+  color: #f4ecda !important;
 }
 [data-op-skin="renaissance"] [data-onepage-countdown] .grid > div:not([data-product-block="overlay"]) {
-  color: #ffffff !important;
+  color: #f4ecda !important;
 }
 [data-op-skin="renaissance"] [data-onepage-countdown] .grid > div:not([data-product-block="overlay"]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
-  color: #ffffff !important;
+  color: #f4ecda !important;
 }
 [data-op-skin="renaissance"] .op-card > div:last-child {
-  background-color: transparent !important; border-top: 1px solid rgba(255,255,255,.42);
+  background-color: transparent !important; border-top: 1px solid rgba(198,161,91,.32);
 }
 [data-op-skin="renaissance"] :is([data-email-layout], [data-onepage-contact]) {
-  background-color: rgba(11,14,26,.6) !important; background-image: none;
-  border: 1px solid rgba(255,255,255,.72); border-radius: 2px !important; box-shadow: none;
+  background-color: #17224a !important; background-image: none;
+  border: 1px solid rgba(198,161,91,.5); border-radius: 2px !important;
+  box-shadow: inset 0 0 0 5px #17224a, inset 0 0 0 6px rgba(198,161,91,.32), 0 14px 28px -20px rgba(4,6,14,.9);
 }
 [data-op-skin="renaissance"] :is([data-email-layout], [data-onepage-contact]):not([data-product-block="overlay"]) {
-  color: #ffffff !important;
+  color: #f4ecda !important;
 }
 [data-op-skin="renaissance"] :is([data-email-layout], [data-onepage-contact]):not([data-product-block="overlay"]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
-  color: #ffffff !important;
+  color: #f4ecda !important;
 }
 [data-op-skin="renaissance"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
-  background: #151b2e !important; border: 1px solid rgba(255,255,255,.42) !important; border-radius: 2px !important; color: #ffffff !important; box-shadow: none !important;
+  background: #0f1631 !important; border: 1px solid rgba(198,161,91,.5) !important; border-radius: 2px !important; color: #f4ecda !important; box-shadow: none !important;
+}
+[data-op-skin="renaissance"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea)::placeholder {
+  color: rgba(244,236,218,.7) !important;
 }
 [data-op-skin="renaissance"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea):focus {
-  border-color: #ffffff !important; box-shadow: 0 0 0 1px #ffffff !important;
+  border-color: #c6a15b !important; box-shadow: 0 0 0 1px #c6a15b !important;
 }
+
+/* renaissance: the classical header, the headings, the ornament. */
 [data-op-skin="renaissance"] :is([data-op-header] h1, [data-tp-title]) {
-  letter-spacing: -.035em; text-shadow: 0 2px 28px rgba(6,9,20,.45);
+  letter-spacing: .005em; text-shadow: 0 1px 2px rgba(6,9,20,.5), 0 2px 24px rgba(6,9,20,.45);
 }
 [data-op-skin="renaissance"] [data-op-header] h1 {
-  line-height: 1.04;
+  line-height: 1.05;
 }
-[data-op-skin="renaissance"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) {
-  text-shadow: 0 1px 14px rgba(6,9,20,.55);
+[data-op-skin="renaissance"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line, [data-hero-title] p) {
+  text-shadow: 0 1px 12px rgba(6,9,20,.5);
+}
+[data-op-skin="renaissance"] [data-op-block] > p.whitespace-pre-line {
+  font-size: 1rem; line-height: 1.6;
+}
+[data-op-skin="renaissance"] [data-op-header] > p::before {
+  content: ""; display: block; width: 132px; height: 14px; margin: -2px auto 12px; background: var(--rn-q) center / 26px 14px no-repeat, linear-gradient(90deg, rgba(198,161,91,.5) calc(50% - 16px), transparent 0 calc(50% + 16px), rgba(198,161,91,.5) 0) center / 132px 1px no-repeat;
+}
+[data-op-skin="renaissance"] [data-op-align="left"] [data-op-header] > p::before {
+  margin-left: 0;
 }
 [data-op-skin="renaissance"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
-  font-size: .8rem !important; font-weight: 600 !important; letter-spacing: .14em; text-transform: uppercase;
-  border-top: 1px solid rgba(255,255,255,.72); padding-top: 12px; text-shadow: 0 1px 2px rgba(6,9,20,.7), 0 0 14px rgba(6,9,20,.55);
+  font-size: .95rem !important; font-weight: 600 !important; letter-spacing: .2em; text-transform: uppercase;
+  padding-top: 6px; padding-bottom: 22px; background: var(--rn-q) center bottom / 26px 14px no-repeat, linear-gradient(90deg, rgba(198,161,91,.5) calc(50% - 16px), transparent 0 calc(50% + 16px), rgba(198,161,91,.5) 0) center bottom 6.5px / 96px 1px no-repeat;
+  text-shadow: 0 1px 2px rgba(6,9,20,.6);
 }
 [data-op-skin="renaissance"] :is([data-page-avatar] [data-slot=avatar], [data-tp-avatar]) {
-  box-shadow: 0 0 0 4px rgba(11,14,26,.35), 0 0 0 5px rgba(255,255,255,.72) !important;
+  box-shadow: 0 0 0 4px rgba(12,17,36,.55), 0 0 0 5px #c6a15b, 0 16px 36px -14px rgba(4,6,14,.85) !important;
 }
 [data-op-skin="renaissance"] :is([data-op-social-icon], [data-tp-socials] > span) {
   width: 42px; height: 42px; padding: 0; border-radius: 50% !important;
-  background-color: rgba(11,14,26,.6) !important; border: 1px solid rgba(255,255,255,.72) !important; box-shadow: none;
+  background-color: #17224a !important; border: 1px solid rgba(198,161,91,.5) !important; box-shadow: none;
 }
 [data-op-skin="renaissance"] [data-op-block] > .flex.items-center > .h-px:only-child {
-  height: 1px; background: rgba(255,255,255,.72) !important;
+  height: 14px; background: var(--rn-q) center / 26px 14px no-repeat, linear-gradient(90deg, rgba(198,161,91,.5) calc(50% - 16px), transparent 0 calc(50% + 16px), rgba(198,161,91,.5) 0) center / 220px 1px no-repeat !important;
 }
 [data-op-skin="renaissance"] [data-op-block] div[class*='aspect-']:has(> img):not(.op-card div) {
-  border-radius: 2px !important; box-shadow: 0 0 0 1px rgba(255,255,255,.72);
+  border-radius: 2px !important; box-shadow: 0 0 0 1px rgba(198,161,91,.5), 0 16px 30px -20px rgba(4,6,14,.9);
 }
 [data-op-skin="renaissance"] [data-framed-picture] {
-  border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.42);
+  border-radius: 2px; box-shadow: 0 0 0 1px rgba(198,161,91,.5);
 }
 [data-op-skin="renaissance"] [data-code-copy] {
-  background-color: #ffffff !important; background-image: none; color: #0e1220 !important; border: 1px solid #ffffff !important; border-radius: 999px !important; box-shadow: none !important;
+  background-color: #f4ecda !important; background-image: none; color: #17224a !important; border: 1px solid #c6a15b !important; border-radius: 2px !important; box-shadow: none !important;
+}
+[data-op-skin="renaissance"] a[href="https://storelib.com"] {
+  background-color: #17224a !important; color: #f4ecda !important; border: 1px solid rgba(198,161,91,.5); border-radius: 2px !important; box-shadow: inset 0 0 0 3px #17224a, inset 0 0 0 4px rgba(198,161,91,.32), 0 12px 24px -16px rgba(4,6,14,.9) !important; letter-spacing: .02em;
 }
 [data-op-skin="renaissance"] [data-onepage-legal] {
-  background: rgba(11,14,26,.6); color: #ffffff !important; width: fit-content; margin-inline: auto; padding: 4px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.42);
+  background: #17224a; color: #f4ecda !important; width: fit-content; margin-inline: auto; padding: 4px 14px; border-radius: 999px; border: 1px solid rgba(198,161,91,.32); border-radius: 2px;
 }
 
 /* ===========================================================================

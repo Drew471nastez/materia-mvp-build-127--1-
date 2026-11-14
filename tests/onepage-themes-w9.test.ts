@@ -185,7 +185,8 @@ const scene = read("components/onepage/themes/theme-skin-scene.tsx")
 for (const skin of THEME_SKINS) {
   const pieces = [...(scene.match(new RegExp(`\\n  ${skin}: \\[(.*)\\],`))?.[1] ?? "").matchAll(/\["([a-z-]+)", (\d+)\]/g)].map((m) => m[1])
   const drawn = pieces.every((p) => css.includes(`[data-skin-scene="${skin}"] [data-sk="${p}"]`))
-  check(`${skin}: a scene of ${pieces.length} kinds of piece, each drawn`, pieces.length >= 3 && drawn, pieces.join())
+  /* Changed on purpose (wave 15): Renaissance's scene is the painting alone, whole and still; its frame, sky band and full scrim are gone at the owner's word. */
+  check(`${skin}: a scene of ${pieces.length} kinds of piece, each drawn`, pieces.length >= (skin === "renaissance" ? 1 : 3) && drawn, pieces.join())
 }
 const keyframes = [...css.matchAll(/@keyframes [\w-]+ \{([^@]*?)\}\n/g)].map((m) => m[1]).join(" ")
 const props = [...keyframes.matchAll(/([a-z-]+):/g)].map((m) => m[1])
