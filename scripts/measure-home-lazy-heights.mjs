@@ -29,8 +29,8 @@ const require = createRequire(import.meta.url)
 const { chromium } = require("playwright")
 
 const FILE = "components/marketing/home/lazy-sections.tsx"
-/** Both sides of 640, 768, 900, 1024, 1280 and 1536 (where the sections' layouts change), and the usual phones and laptops. */
-const WIDTHS = [360, 390, 430, 639, 640, 767, 768, 899, 900, 1023, 1024, 1279, 1280, 1440, 1535, 1536, 1920, 2560]
+/** Both sides of 640, 768, 900, 1024, 1180, 1280 and 1536 (where the sections' layouts change), and the usual phones and laptops. */
+const WIDTHS = [360, 390, 430, 639, 640, 767, 768, 899, 900, 1023, 1024, 1179, 1180, 1279, 1280, 1440, 1535, 1536, 1920, 2560]
 const HEIGHT = 900
 /** A section whose height follows the screen's height too: that part, as the section's own CSS writes it, and its sum in vh. */
 const TRACKS = { checkout: { css: "100svh + 150vh", vh: 250 } }
