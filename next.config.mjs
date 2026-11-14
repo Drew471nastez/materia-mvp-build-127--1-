@@ -76,6 +76,27 @@ const edgeRule = (source, tag) => ({
   ],
 })
 
+/*
+  THE IMAGE OPTIMIZER FETCHES FROM STORELIB'S OWN STORAGE, NOT ANYBODY'S (round AW). /_next/image fetches whatever
+  address it is handed on a listed host, re-encodes it and keeps it for a year, and every new picture is a billed
+  transformation. The list had `*.supabase.co`: every Supabase project in the world. Anybody could make a free
+  project, fill it with pictures and have storelib.com/_next/image transform and serve them, at Storelib's cost
+  and under Storelib's name. Now the production project, and the project this deployment reads
+  (NEXT_PUBLIC_SUPABASE_URL: a preview's own), each for its storage files only. lib/images/optimized-url.ts
+  (isOptimizableImage) is the other half: a picture on any other project is drawn as it is, never sent here.
+*/
+export const PRODUCTION_STORAGE_HOST = "skgtqglupjcnfhfscink.supabase.co"
+export const OWN_STORAGE_HOSTS = (() => {
+  const hosts = new Set([PRODUCTION_STORAGE_HOST])
+  try {
+    const configured = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname.toLowerCase()
+    if (configured) hosts.add(configured)
+  } catch {
+    /* No project configured (a script, a test): the production one alone. */
+  }
+  return [...hosts]
+})()
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /**
@@ -170,20 +191,17 @@ const nextConfig = {
         any Supabase project could be pushed through Storelib's optimizer, and
         each one is a billed image transformation; Storelib's own pictures are
         all under /storage/v1/ (object/public, object/sign, render).
+        And only Storelib's own projects (OWN_STORAGE_HOSTS above): a pattern
+        for *.supabase.co let anybody's project through.
       */
-      {
+      ...OWN_STORAGE_HOSTS.map((hostname) => ({
         protocol: 'https',
-        hostname: 'skgtqglupjcnfhfscink.supabase.co',
+        hostname,
         pathname: '/storage/v1/**',
-      },
+      })),
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-        pathname: '/storage/v1/**',
       },
       {
         protocol: 'https',

@@ -38,6 +38,20 @@ const SUITES = [
   "tests/platform-reliability-aw.test.ts",
   /* Round AV: a seller Stripe has not approved transfers-only accounts for is told why (not "try again"); a store's address answers from the last good lookup when the database is slow, not with a 500 */
   "tests/platform-issues-av.test.ts",
+  /* Round AW (track B, paid calls): an email change's and an account deletion's codes counted where the route's own delete cannot erase them; the OnePage music and video lookups signed in, counted and on the service's own address only; Start with AI counted as a new website by the in-request build (only without the jobs table) and by Start over; the meta description model sent the start of a description; the decide route's model counted, the rules answering over the limit. */
+  "tests/paid-calls-aw.test.ts",
+  /* Round AW (abuse): a banned store sends no campaign mail and its AI-built site answers as no site; new AI site and community addresses are refused phishing names; storelib.com/media/ answers are sandboxed, so a stored SVG never runs as storelib.com. */
+  "tests/abuse-aw.test.ts",
+  /* Round AW (database security): the public key no longer deletes a product, a store or a used AI site (part 452), a OnePage names only its owner's store and storelib.me/{username} serves only that account's own page (part 453, lib/onepage/address-lookup), a product's sales, rating and views are Storelib's (part 454), and the AI job cancel route names the creator on both writes. */
+  "tests/db-security-aw.test.ts",
+  /* Round AW (public pages and caching): a product page whose owner got no answer is the shop's error screen, never a redirect or a 404 the CDN keeps; a creator page whose products read got no answer is the error screen, never an empty shop the CDN keeps; the image optimizer fetches from Storelib's own storage only, never any Supabase project. */
+  "tests/public-cache-aw.test.ts",
+  /* Round AW (heavy load): every Google Calendar call ends (8 s), a signed campaign link redirects without waiting on the database, poll totals and review ratings are counted by the database instead of from a 1,000 row read, and /api/products/prices is limited per address, memory first. */
+  "tests/heavy-load-aw.test.ts",
+  /* Round AW (double actions): a partial refund pressed again after its answer was lost is refused, not sent twice (Orders and a community's payments); a free claim sent again is the same order (process, quick-free); a paid order's losing writer lets its limited copy go. */
+  "tests/double-actions-aw.test.ts",
+  /* Round AW (lead): a OnePage address never another account's name (part 460), a banned store takes no new payments, an unread products count never says noindex, a handle rename clears both addresses, a course not deleted with the public key (part 461) */
+  "tests/lead-fixes-aw.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
@@ -1586,6 +1600,8 @@ const STRICT_SUITES = [
   "tests/ai-builder-start-live-n1.test.ts",
   /* Round O (O6): the design intelligence on every AI surface (docs/ai-builder/design-intelligence.md). The website agent, the Ask for a change agent and its creative planner, the section writer, the classic planner and copy filler and the Storelib Sites agent each carry designRulesFor(surface); the agent's system prefix is byte identical across two jobs while the briefs (creative brief, art direction, references as text, motion) differ; every edit surface gets the install's DESIGN.md and the keep-the-brand rule (spec I.5) and a new site does not; no surface carries round N's "editorial serif" type steering, and a personal trainer is not handed the italic serif bundle. */
   "tests/ai-surfaces-o6.test.ts",
+  /* Round AW (double actions), through the real routes: Orders > Refund pressed again after its answer was lost is refused (409) and Stripe makes one refund; Get it free and a OnePage's free product sent again with the same attempt id are one order, one receipt email, a one use code used once. Strict: tests/_journey. */
+  "tests/double-actions-aw-journey.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -133,6 +133,61 @@ export function summarize(ratings: readonly number[]): { count: number; average:
   return { count, average: count ? Math.round((sum / count) * 10) / 10 : 0, stars }
 }
 
+/**
+ * The same figures from how many reviews gave each number of stars, as the
+ * database counts them (lib/reviews/store publishedStars), so a product with
+ * any number of reviews is summed without reading every one: exactly what
+ * `summarize` gives for that many ratings of each.
+ */
+export function summarizeStars(counts: Readonly<Partial<Record<1 | 2 | 3 | 4 | 5, number>>>): { count: number; average: number; stars: StarCounts } {
+  const stars: StarCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  let sum = 0
+  let count = 0
+  for (const n of [1, 2, 3, 4, 5] as const) {
+    const c = Math.max(0, Math.floor(Number(counts[n]) || 0))
+    stars[n] = c
+    sum += n * c
+    count += c
+  }
+  return { count, average: count ? Math.round((sum / count) * 10) / 10 : 0, stars }
+}
+
+/** What one count of a database answers: its number, or why there is none. */
+export type StarCountAnswer = { count?: number | null; error?: { code?: string | null; message?: string | null } | null }
+
+/* Internal reasons a count was not had, for the logs and the caller's ladder; never shown to anybody. */
+const NO_ANSWER = "no-answer"
+const COUNT_FAILED = "count-failed"
+const NO_COUNT = "no-count"
+
+/**
+ * How many reviews gave each number of stars, asked as five counts side by
+ * side (`count` builds one for a number of stars). Never throws: a count that
+ * fails, or answers no number, is the answer's error, the first one met, so a
+ * caller that steps down a ladder of columns sees a missing one.
+ */
+export async function countStars(count: (stars: 1 | 2 | 3 | 4 | 5) => PromiseLike<StarCountAnswer>): Promise<{ data: StarCounts | null; error: { code?: string | null; message?: string | null } | null }> {
+  const stars = [1, 2, 3, 4, 5] as const
+  const answers = await Promise.all(
+    stars.map((n) => {
+      try {
+        return Promise.resolve(count(n)).then(
+          (r): StarCountAnswer => r ?? { error: { message: NO_ANSWER } },
+          (e: unknown): StarCountAnswer => ({ error: { message: e instanceof Error ? e.message : COUNT_FAILED } }),
+        )
+      } catch (e) {
+        return Promise.resolve<StarCountAnswer>({ error: { message: e instanceof Error ? e.message : COUNT_FAILED } })
+      }
+    }),
+  )
+  const failed = answers.find((a) => a.error)
+  if (failed) return { data: null, error: failed.error ?? null }
+  if (answers.some((a) => typeof a.count !== "number")) return { data: null, error: { message: NO_COUNT } }
+  const out: StarCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  stars.forEach((n, i) => (out[n] = Math.max(0, answers[i].count as number)))
+  return { data: out, error: null }
+}
+
 /** Whole percentages for the bars, from counts. */
 export function percentOf(count: number, total: number): number {
   return total > 0 ? Math.round((count / total) * 100) : 0

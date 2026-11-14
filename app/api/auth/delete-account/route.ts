@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
-import { VERIFICATION_CODE_EXPIRY_MINUTES, verificationLimitPaused } from "@/lib/security"
+import { VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { rateLimit } from "@/lib/api/rate-limit"
+import { SEND_LIMITS } from "@/lib/auth/email-code"
 import { MAX_CODE_ATTEMPTS, codeMatches, newCode, wrongCodeMessage } from "@/lib/account/codes"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { deleteAccount, deletionBlockers } from "@/lib/account/delete-account"
@@ -38,20 +40,20 @@ export async function POST(request: Request) {
     }
 
     if (action === "send-code") {
-      // Rate limit: Check recent verification attempts (max 3 per 15 minutes)
-      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
-      const { data: recentCodes } = await adminSupabase
-        .from("account_delete_codes")
-        .select("id")
-        .eq("user_id", user.id)
-        .gte("created_at", fifteenMinutesAgo)
-
-      if (!verificationLimitPaused() && recentCodes && recentCodes.length >= 3) {
-        return NextResponse.json(
-          { error: "Too many attempts. Please try again in 15 minutes." },
-          { status: 429 }
-        )
-      }
+      /*
+        Counted in the shared limiter (round AW). The count of this account's
+        rows in account_delete_codes never passed one: each send deletes the
+        pending code below before it writes the next, so the limit never
+        answered and every press mailed another code. The sign up code's
+        numbers (lib/auth/email-code SEND_LIMITS), per account.
+      */
+      const limited = await rateLimit({
+        bucket: "delete-account-code",
+        subjects: [`user:${user.id}`],
+        windows: SEND_LIMITS.email,
+        message: "Too many codes in a short time. Wait a few minutes and try again.",
+      })
+      if (limited) return limited
 
       // Generate verification code
       const verificationCode = newCode()

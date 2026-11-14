@@ -41,9 +41,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     actorUserId: gate.ctx.userId,
     orderId,
     amountCents: body.amountCents,
+    /* What the dialog showed as left: a press sent again after its refund went through is refused, never made twice (lib/orders/refund-state). */
+    refundableCents: body.refundableCents,
     reason: body.reason,
     endMembership: body.endMembership === true,
   })
-  if (!done.ok) return NextResponse.json({ error: done.message, code: done.error }, { status: done.status, headers: NO_STORE })
+  if (!done.ok) return NextResponse.json({ error: done.message, code: done.error, ...(done.detail ?? {}) }, { status: done.status, headers: NO_STORE })
   return NextResponse.json({ refund: done.value }, { headers: NO_STORE })
 }

@@ -281,7 +281,8 @@ async function main() {
       */
       const lines = readFileSync(f, "utf8").split("\n")
       lines.forEach((line, i) => {
-        if (!/\{ read: true\b|fresh: false|readUserForRoute\(\)/.test(line)) return
+        /* Changed on purpose (round AW): `fresh: false` counts only inside a sign in read (routeUser, readerForRequest...), not a lead's `{ ok: true, fresh: false }` (app/api/onepage/email-capture). */
+        if (!/\{ read: true\b|\(\{[^)]*fresh: false|readUserForRoute\(\)/.test(line)) return
         let j = i
         while (j >= 0 && !/^(export |async function|function|const |type |let )/.test(lines[j])) j--
         const head = lines[j] ?? ""

@@ -15,6 +15,7 @@
  */
 
 import { isReservedWord } from "@/lib/reserved-words"
+import { isPhishingName } from "@/lib/security/phishing-names"
 
 const HOSTNAME_LABEL = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/
 const PAGE_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,62})$/
@@ -43,6 +44,23 @@ export function siteSlugError(slug: string): string | null {
   if (slug.startsWith("xn--")) return "That address is not available."
   if (isReservedWord(slug)) return "That address is reserved."
   return null
+}
+
+/**
+ * AN ADDRESS BEING CHOSEN NOW (round AW). The site's own name becomes
+ * <slug>.storelib.com, and an AI-built site runs whatever script it was
+ * written with, so "PayPal Login" made paypal-login.storelib.com: a phishing
+ * page on Storelib's domain before anything was on it. Usernames, OnePage
+ * names and a website's own name were already refused for that
+ * (lib/security/phishing-names.ts); AI site addresses were the one way round.
+ *
+ * Only for a NEW address (creating a site, a first publish). An address a
+ * site already has is checked with siteSlugError alone, so a published site
+ * never moves (the rule phishing-names.ts keeps: names already taken keep
+ * working).
+ */
+export function newSiteSlugError(slug: string): string | null {
+  return siteSlugError(slug) ?? (isPhishingName(slug) ? "That address is not available." : null)
 }
 
 export function toPageSlug(input: string): string {
@@ -106,19 +124,21 @@ export async function allocateSiteSlug(
 ): Promise<string> {
   // A name of pure punctuation, or one so short it fails the length rule,
   // still has to produce an address — it just does not get to keep the name.
+  // A name that reads as a sign in page or a bank's desk (newSiteSlugError)
+  // gets the same plain fallback.
   let base = toSiteSlug(name)
-  if (siteSlugError(base)) base = SLUG_FALLBACK
+  if (newSiteSlugError(base)) base = SLUG_FALLBACK
 
-  if (!siteSlugError(base) && !(await isTaken(base))) return base
+  if (!newSiteSlugError(base) && !(await isTaken(base))) return base
 
   for (let n = 2; n <= 9; n++) {
     const candidate = withSuffix(base, String(n))
-    if (!siteSlugError(candidate) && !(await isTaken(candidate))) return candidate
+    if (!newSiteSlugError(candidate) && !(await isTaken(candidate))) return candidate
   }
 
   for (let attempt = 0; attempt < 12; attempt++) {
     const candidate = withSuffix(base, randomSuffix())
-    if (!siteSlugError(candidate) && !(await isTaken(candidate))) return candidate
+    if (!newSiteSlugError(candidate) && !(await isTaken(candidate))) return candidate
   }
 
   /**

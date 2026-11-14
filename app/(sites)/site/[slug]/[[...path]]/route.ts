@@ -25,6 +25,8 @@ import { robotsTxt, urlsetXml } from "@/lib/seo/indexing"
 import { isSiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { within } from "@/lib/onepage/bounded-read"
 import { oneMomentHtml } from "@/lib/net/one-moment"
+import { deploymentOwnerBanned, type OwnerBanReads } from "@/lib/sites/owner-ban"
+import { creatorIsBanned } from "@/lib/seo/bans"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -166,6 +168,38 @@ function rememberPrefix(slug: string, prefix: string | null) {
 }
 
 /**
+ * WHOSE SITE THIS IS, for the ban check (lib/sites/owner-ban.ts). A site never
+ * changes owner, so the answer is kept once read, bounded like the prefixes
+ * above; the ban itself is held a minute and expired by the ban
+ * (lib/seo/bans.ts creatorIsBanned). A read that fails or is slow is "not
+ * known", and the site is served as it was.
+ */
+const SITE_CREATOR = new Map<string, string>()
+
+function ownerReads(admin: ReturnType<typeof createAdminClient>): OwnerBanReads {
+  return {
+    creatorOfSite: async (siteId) => {
+      const held = SITE_CREATOR.get(siteId)
+      if (held) return held
+      const { data } = await within<{ creator_id?: string | null }>(
+        (signal) => admin.from("sites").select("creator_id").eq("id", siteId).abortSignal(signal).maybeSingle(),
+        3000,
+      )
+      const creatorId = typeof data?.creator_id === "string" ? data.creator_id : null
+      if (creatorId) {
+        SITE_CREATOR.set(siteId, creatorId)
+        if (SITE_CREATOR.size > LAST_GOOD_MAX) {
+          const oldest = SITE_CREATOR.keys().next().value
+          if (oldest !== undefined) SITE_CREATOR.delete(oldest)
+        }
+      }
+      return creatorId
+    },
+    isBanned: creatorIsBanned,
+  }
+}
+
+/**
  * A Storage answer that says the object is not there (a 4xx), as opposed to
  * Storage failing or not answering. A download's HTTP error comes back as a
  * StorageUnknownError holding the Response in `originalError` (storage-js
@@ -254,6 +288,12 @@ export async function GET(
       return unavailable(request)
     }
   }
+  /*
+    A BANNED CREATOR'S SITE ANSWERS AS NO SITE (round AW, lib/sites/owner-ban.ts):
+    the same 404 an unknown address gets, never cached, so lifting the ban
+    brings it back within the minute the ban answer is held for.
+  */
+  if (live?.prefix && (await deploymentOwnerBanned(live.prefix, ownerReads(admin)))) return notFound()
   const objectPath = wantsVendor
     ? slug === "_vendor"
       ? `_vendor/${requested}`

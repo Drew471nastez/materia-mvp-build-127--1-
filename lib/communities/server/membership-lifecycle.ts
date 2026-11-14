@@ -51,12 +51,14 @@ import {
   cleanContactEmail,
   cleanRefundPolicy,
   cleanRefundReason,
+  formatMoney,
   parseRefundAmount,
   refundableCents,
   type CancelReason,
   type CommunityMembershipView,
   type MembershipStateWord,
 } from "../membership-policy"
+import { REFUND_CHANGED, refundChangedMessage, refundEchoStale } from "@/lib/orders/refund-state"
 import { audit } from "./audit"
 import { isUniqueViolation, missing, nowIso, reasonOf, type Db } from "./db"
 
@@ -273,7 +275,7 @@ export function defaultSubscriptionDeps(db: Db): SubscriptionDeps {
   }
 }
 
-export type LifecycleAnswer<T> = { ok: true; value: T } | { ok: false; status: number; error: string; message: string }
+export type LifecycleAnswer<T> = { ok: true; value: T } | { ok: false; status: number; error: string; message: string; detail?: Record<string, number> }
 
 /**
  * Cancel (at the end of the paid period) or resume the person's own
@@ -650,6 +652,8 @@ export interface RefundInput {
   actorUserId: string
   orderId: string
   amountCents?: unknown
+  /** What the dialog showed as left to refund (lib/orders/refund-state refundEchoStale). Absent: refunded as before. */
+  refundableCents?: unknown
   reason?: unknown
   endMembership?: boolean
 }
@@ -681,7 +685,17 @@ export async function refundCommunityPayment(db: Db, input: RefundInput, deps: R
   if (order.status !== "completed" && order.status !== "refunded") return fail(409, "not_refundable", order.status === "disputed" ? "This payment is disputed. Stripe settles it with the bank." : "Only a paid payment can be refunded.")
   if (!order.stripe_payment_intent_id) return fail(409, "not_stripe", "This payment was not made by card through Stripe. Refund it from Orders.")
   const already = order.status === "refunded" ? Math.max(0, Number(order.refund_amount_cents) || 0) : 0
-  const amount = parseRefundAmount(input.amountCents, refundableCents(order))
+  /*
+    THE FIGURE THE OWNER READ (round AW, lib/orders/refund-state): the key below moves on once a refund has gone
+    through, so the same press sent again after its answer was lost ("No connection. Check it and try again.")
+    would refund the same part twice. When the dialog's figure is not what is left now, nothing is refunded and
+    the answer says what the payment holds.
+  */
+  const left = refundableCents(order)
+  if (refundEchoStale(input.refundableCents, left)) {
+    return { ok: false, status: 409, error: REFUND_CHANGED, message: refundChangedMessage(already, (cents) => formatMoney(cents, order.currency || "usd")), detail: { refundableCents: left, refundedCents: already } }
+  }
+  const amount = parseRefundAmount(input.amountCents, left)
   if (amount.ok === false) return fail(400, "bad_amount", amount.error)
   const reason = cleanRefundReason(input.reason)
   const total = Math.max(0, Number(order.amount_cents) || 0)

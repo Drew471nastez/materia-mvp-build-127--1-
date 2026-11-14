@@ -13,6 +13,9 @@ import { CODED_PATH, withCoded, type CodedSection } from "@/lib/website-builder/
 import { createAdminClient } from "@/lib/supabase/admin"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
+import { JOBS_TABLE } from "@/lib/website-builder/ai-site/server"
+import { inlineBuildGate } from "@/lib/website-builder/ai-site/start"
+import { AI_LIMIT_UNREADABLE } from "@/lib/sites/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -49,6 +52,15 @@ export async function POST(req: Request, { params }: Params) {
   const site = await websiteInstallCaller(installId)
   if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
   if (!site.isOwner) return NextResponse.json({ error: "Only the store owner can start a website with AI." }, { status: 403 })
+  /*
+    ONLY WITHOUT THE JOBS TABLE (round AW, lib/website-builder/ai-site/start.ts
+    inlineBuildGate). With the table there every Start with AI is a job: one at
+    a time, counted once a build, carried on by its id. A build here is asked
+    for by nothing else, and it was counted as none of that.
+  */
+  const gate = inlineBuildGate(await site.supabase.from(JOBS_TABLE).select("id").limit(1))
+  if (gate === "jobs") return NextResponse.json({ error: "Start this website with AI from the Website page.", code: "use_job" }, { status: 409 })
+  if (gate === "unknown") return NextResponse.json({ error: AI_LIMIT_UNREADABLE }, { status: 503 })
   const body = await req.json().catch(() => ({}))
   const prompt = typeof body?.prompt === "string" ? body.prompt.trim().slice(0, START_PROMPT_MAX) : ""
   if (!prompt) return NextResponse.json({ error: "Describe the website first." }, { status: 400 })
