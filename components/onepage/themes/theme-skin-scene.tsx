@@ -17,7 +17,7 @@
  *
  * It sits where the page's pattern sits (components/onepage/wallpaper-layers
  * WallpaperPattern): in the phone page, in the desktop card and around it,
- * and in the theme card (components/onepage/themes/theme-preview).
+ * and in the theme card (components/onepage/themes/theme-swatch).
  */
 import type * as React from "react"
 /* The skins' stylesheet (scripts/build-onepage-skins.mjs writes it): only a page that can draw a skin loads it. */

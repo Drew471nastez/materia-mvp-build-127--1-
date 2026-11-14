@@ -170,6 +170,28 @@ export function onePageFontSampleHref(names: string[], text?: string): string | 
   return `https://fonts.googleapis.com/css2?${q}&text=${encodeURIComponent(letters)}&display=swap`
 }
 
+/**
+ * THE THEME CARDS' FACES: each theme's title face AT THE WEIGHT ITS NAME IS
+ * SET IN, cut to the letters a card shows ("Aa"). onePageFontSampleHref asks
+ * for each family's regular weight only, so a card whose theme sets its name
+ * at 800 drew the regular face smeared thicker by the browser. One request
+ * for all of them; a family that is not on the list is left out, and a family
+ * with one weight is asked for as it is.
+ */
+export function onePageFontCutHref(faces: readonly { family: string | null; weight: number }[], text: string): string | null {
+  const byFamily = new Map<string, Set<number>>()
+  for (const f of faces) {
+    if (!f.family || !Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, f.family)) continue
+    const set = byFamily.get(f.family) ?? new Set<number>()
+    if (ONEPAGE_FONTS[f.family]) set.add(realWeight(f.family, f.weight))
+    byFamily.set(f.family, set)
+  }
+  if (byFamily.size === 0) return null
+  const q = [...byFamily].map(([family, weights]) => `family=${encode(family)}${weights.size ? `:wght@${[...weights].sort((a, b) => a - b).join(";")}` : ""}`).join("&")
+  const letters = Array.from(new Set(text.split(""))).sort().join("")
+  return `https://fonts.googleapis.com/css2?${q}&text=${encodeURIComponent(letters)}&display=swap`
+}
+
 /*
  * THE FALLBACK A FONT NAME NEEDS. The default theme says `Inter`, bare, and
  * so did every theme made before the Design tab wrote values like

@@ -25,8 +25,6 @@ import { readFileSync, statSync } from "node:fs"
 import { execFileSync } from "node:child_process"
 import { join } from "node:path"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
-import { previewAccountOf } from "@/components/onepage/themes/preview-account"
-import { slotsFor } from "@/components/onepage/themes/theme-preview"
 import { THEME_GROUPS, themeGroupOf } from "@/components/onepage/themes/theme-order"
 import { LARGE_MIN, TEXT_MIN, buttonGrounds, pageGrounds, parseColor, readableTheme, worstContrast } from "@/lib/onepage/contrast"
 import { coverImageOf } from "@/lib/onepage/theme-layout"
@@ -46,55 +44,16 @@ const read = (p: string) => readFileSync(join(root, p), "utf8")
 type T = Record<string, any>
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
 
-console.log("\nA brand new account")
-const empty = previewAccountOf({ title: "", bio: "", avatar_url: null, social_links: {}, draft_blocks: [] }, money)
-check("the name is the editor's fallback, and there is no photo (the monogram)", empty.name === "Your name" && empty.avatar === null && empty.bio === "")
-check("two sample links, two sample products, a sample newsletter, three socials", empty.links.length === 2 && empty.links.every((l) => l.sample && !l.picture) && empty.products.length === 2 && empty.products.every((p) => p.sample && !p.picture && /^\$\d+\.\d\d$/.test(p.price)) && !!empty.news.headline && !!empty.news.button && empty.socials.length === 3)
-check("no account at all is the same", previewAccountOf(null, money).name === "Your name")
-
-console.log("\nAn account with a page")
-const page = {
-  title: "  Mara  Okafor ",
-  bio: "Ceramics and slow glazes.",
-  avatar_url: "https://cdn.example.com/me.jpg",
-  social_links: { instagram: "https://instagram.com/mara", youtube: "", website: "https://mara.studio" },
-  draft_blocks: [
-    { type: "link_button", enabled: true, data: { label: "Studio visits", url: "https://x", thumbnail_url: "https://cdn.example.com/visit.jpg" } },
-    { type: "link_button", enabled: false, data: { label: "Hidden one", url: "https://x" } },
-    { type: "product", enabled: true, data: { product_title: "Moon jar", product_price_cents: 12000, product_thumbnail: "https://cdn.example.com/jar.jpg", cta_text: "Order" } },
-    { type: "link_button", enabled: true, data: { label: "Map", url: "https://x", link_preview: { enabled: true, image: "https://cdn.example.com/map.png" } } },
-    { type: "email_capture", enabled: true, data: { headline: "Kiln notes", description: "When the kiln opens.", button_preset: "join" } },
-  ],
-}
-const who = previewAccountOf(page, money)
-check("the page's own name (tidied), bio and photo", who.name === "Mara Okafor" && who.bio === "Ceramics and slow glazes." && who.avatar === "https://cdn.example.com/me.jpg")
-check("its own links first, in order, with their thumbnails (an address's preview picture too); a hidden one left out", who.links[0].label === "Studio visits" && who.links[0].picture === "https://cdn.example.com/visit.jpg" && who.links[1].label === "Map" && who.links[1].picture === "https://cdn.example.com/map.png" && !who.links.some((l) => l.label === "Hidden one") && who.links.every((l) => !l.sample))
-check("its own product with its price, picture and button words, then a sample", who.products[0].title === "Moon jar" && who.products[0].price === "$120.00" && who.products[0].picture === "https://cdn.example.com/jar.jpg" && who.products[0].cta === "Order" && !who.products[0].sample && who.products[1].sample)
-check("its newsletter's words, the button as the page picks it", who.news.headline === "Kiln notes" && who.news.desc === "When the kiln opens." && who.news.button === "Join Now")
-check("only the socials it filled in", who.socials.join(",") === "instagram,website")
-check("a free product reads Free", previewAccountOf({ draft_blocks: [{ type: "product", data: { product_title: "Zine", product_price_cents: 0 } }] }, money).products[0].price === "Free")
-check("every card shows two links before anything else, in every layout", (() => { const s = slotsFor(empty); return s[0].kind === "link" && s[1].kind === "link" && s[2].kind === "product" && s[3].kind === "news" })())
-
-console.log("\nThe card")
-const preview = read("components/onepage/themes/theme-preview.tsx")
-check("the card draws the account it is given, no made-up creator", /export function ThemePreview\(\{ c: given, who, thumb \}/.test(preview) && !/usePreviewContent|faceUri|artUri|creatorFor/.test(preview))
-check("the photo is the optimizer's copy, clipped to the avatar's shape; no photo is the page's monogram", /onePageImageSrc\(face, 160\)/.test(preview) && /overflow-hidden text-2xl font-semibold shadow-lg/.test(preview) && /data-tp-monogram=""/.test(preview) && /c\.button_style === "glass" \|\| c\.button_style === "outline"/.test(preview))
-check("a Hero only with a photo, as the page does", /const hero = c\.header_layout === "hero" && !!who\.avatar/.test(preview))
-check("links are the page's .op-btn with the theme's hover and its variables", /"op-btn relative flex w-full items-center justify-center font-medium"/.test(preview) && /\{ \.\.\.themeButtonStyle\(theme\), \.\.\.buttonHoverVars\(theme\) \}/.test(preview) && /"data-hover": buttonHover\(theme\)/.test(preview))
-check("a plain link under Cards is the page's taller row", /compact: "min-h-\[66px\] py-4", regular: "min-h-\[80px\] py-5", large: "min-h-\[96px\] py-6"/.test(preview))
-check("a sample picture is a tint of the theme's colours, never a drawing", /const tintOfPicture = /.test(preview) && !/data:image\/svg/.test(preview))
-check("nothing on a card can be selected or called out", /select-none overflow-hidden text-left \[-webkit-touch-callout:none\]/.test(preview))
-check("the header never shrinks under the blocks", /w-\[calc\(100%\+40px\)\] shrink-0" style=\{\{ marginTop: -HERO_CARD_SHIFT \}\} data-tp-header="hero"/.test(preview) && /"flex w-full shrink-0 flex-col gap-3"/.test(preview))
-check("a Hero card is the live 4:5 Hero, scrolled so its name, socials and first links show", /export const HERO_CARD_SHIFT = 170/.test(preview) && /aspectRatio: "4\/5", maskImage: HERO_FADE_MASK/.test(preview))
-check("the newsletter's button is drawn at full strength", !/opacity-(50|60)/.test(preview.slice(preview.indexOf("const newsletter"), preview.indexOf("/* The blocks, in their order"))))
-const design = read("components/onepage/tabs/design-tab.tsx")
-check("the Design tab builds the account once from what the editor holds (no new query)", /const avatar = useShellAvatar\(onepage\?\.avatar_url, onepage\?\.owner_id\)/.test(design) && /previewAccountOf\(onepage \? \{ \.\.\.onepage, avatar_url: avatar \} : null/.test(design) && /<ThemeCard template=\{template\} who=\{who\}/.test(design) && !/loadPreviewContent/.test(design))
-check("a Design tab card cannot be selected, and pointing at it plays the theme's hover", /cursor-pointer select-none flex-col rounded-2xl/.test(design) && /data-theme-frame="" className="op-demo relative block aspect-\[5\/7\]/.test(design))
-const onboarding = read("components/onepage/onboarding-modal.tsx")
-check("the onboarding draws the person's own name, photo and socials", /previewAccountOf\(\{ title: displayName, bio, avatar_url: avatarUrl, social_links: socials, draft_blocks: onepage\?\.draft_blocks \}/.test(onboarding) && /who=\{templateWho\}/.test(onboarding) && /cursor-pointer select-none flex-col/.test(onboarding))
-const account = read("components/onepage/themes/preview-account.ts")
-check("the account module fetches nothing", !/fetch\(|createClient|supabase|import\(/.test(account))
-
+/*
+  Changed on purpose (the theme swatch round): the sections "A brand new
+  account", "An account with a page" and "The card" checked that every theme
+  card drew the creator's own page (components/onepage/themes/preview-account
+  and theme-preview). The owner asked for that to go ("get rid of our current
+  ones that fetch buttons randomly or actual profile avatar"): a card is a
+  swatch of the theme now and draws no account
+  (components/onepage/themes/theme-swatch, tests/onepage-swatch-themes.test.ts).
+  Those two modules are deleted, so their checks went with them.
+*/
 console.log("\nStoicism")
 const st = THEME_TEMPLATES.find((t) => t.id === "stoicism") as T | undefined
 const sc = (st?.theme_config ?? {}) as T

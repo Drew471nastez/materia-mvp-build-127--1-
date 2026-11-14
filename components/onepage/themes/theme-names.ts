@@ -66,6 +66,26 @@ const NAMES: Record<string, () => string> = {
   /* Round AT: Plaster is Stoicism now (a page saved on "plaster" is moved to it, lib/onepage/retired-themes), and Dune. */
   stoicism: () => ttx("theme", "Stoicism"),
   dune: () => ttx("theme", "Dune"),
+  /* The painted wallpapers (components/onepage/themes/mood-themes). */
+  malachite: () => ttx("theme", "Malachite"),
+  linen: () => ttx("theme", "Linen"),
+  nova: () => ttx("theme", "Nova"),
+  mono: () => ttx("theme", "Mono"),
+  pop: () => ttx("theme", "Pop"),
+  petal: () => ttx("theme", "Petal"),
+  sorbet: () => ttx("theme", "Sorbet"),
+  backstage: () => ttx("theme", "Backstage"),
+  graph: () => ttx("theme", "Graph"),
+  swirl: () => ttx("theme", "Swirl"),
+  atrium: () => ttx("theme", "Atrium"),
+  fjord: () => ttx("theme", "Fjord"),
+  clay: () => ttx("theme", "Clay"),
+  citrus: () => ttx("theme", "Citrus"),
+  dawn: () => ttx("theme", "Dawn"),
+  pulse: () => ttx("theme", "Pulse"),
+  umber: () => ttx("theme", "Umber"),
+  dusk: () => ttx("theme", "Dusk"),
+  onair: () => ttx("theme", "On Air"),
 }
 
 /** A theme's name in the reader's language. */

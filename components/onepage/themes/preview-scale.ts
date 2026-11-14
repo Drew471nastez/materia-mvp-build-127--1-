@@ -2,7 +2,7 @@
 
 import type * as React from "react"
 import { useLayoutEffect } from "react"
-import { PREVIEW_WIDTH } from "./theme-preview"
+import { SWATCH_WIDTH } from "./theme-swatch"
 
 /**
  * ONE SCALE FOR A WHOLE GRID OF CARDS (round AQ: the Design tab's theme grid
@@ -17,7 +17,7 @@ export function scaleThemePreviews(grid: HTMLElement, frame: string): () => void
     const w = grid.querySelector<HTMLElement>(frame)?.clientWidth ?? 0
     if (!w || w === last) return
     last = w
-    grid.style.setProperty("--tp-scale", String(w / PREVIEW_WIDTH))
+    grid.style.setProperty("--tp-scale", String(w / SWATCH_WIDTH))
   }
   measure()
   if (typeof ResizeObserver !== "function") return () => {}

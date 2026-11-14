@@ -54,8 +54,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
-import { familyOf, fontStack, onePageFontHref, onePageFontSampleHref, realWeight } from "@/lib/onepage/fonts"
-import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioFamilyOf, bioWeightOf, caseOf, textSizeOf, titleFamilyOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
+import { familyOf, fontStack, onePageFontCutHref, onePageFontHref, onePageFontSampleHref, realWeight } from "@/lib/onepage/fonts"
+import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioFamilyOf, bioWeightOf, caseOf, drawnTitleWeight, textSizeOf, titleFamilyOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { NAME_STYLES, nameColours, nameStyleCss, nameStyleOf, type NameStyle } from "@/lib/onepage/name-style"
@@ -92,11 +92,8 @@ import { Rich } from "@/lib/i18n/rich"
 import { withR40Themes } from "@/components/onepage/themes/r40-themes"
 import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-theme"
 import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepage/themes/theme-order"
-import { ThemePreview } from "@/components/onepage/themes/theme-preview"
+import { SWATCH_LETTERS, ThemeSwatch } from "@/components/onepage/themes/theme-swatch"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
-import { previewAccountKey, previewAccountOf, type PreviewAccount } from "@/components/onepage/themes/preview-account"
-import { usePageMoney } from "@/components/platform/price-currency"
-import { useShellAvatar } from "@/lib/account/avatar-store"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
@@ -2455,14 +2452,16 @@ function HeaderSection() {
   )
 }
 
-/* The theme names, each drawn in its theme's title face: one request cut to the letters of the names, as the language spells them (round AP). */
-/* Round AS: and the body faces, since each card sets the creator's line, links and prices in them (./themes/preview-account). */
-const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.flatMap((t) => [familyOf(t.theme_config.title_font || t.theme_config.font_family), familyOf(t.theme_config.font_family)]).filter((f): f is string => !!f))]
-/* The letters the cards' words use: the alphabet both ways, the accents the creators' names carry, figures and the price signs. */
-const PREVIEW_LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i, 97 + i)).join("") + "áéêíóú0123456789$€£&.,:'/ "
-/* In capitals too (round W8): Gazette, Halo and Acid set their names in capitals, and a letter missing from the cut is drawn in another face. */
-/* Round AT: and the creator's own words, which the cards draw now (a name with a letter outside the alphabet above). */
-export const themeNameFontsHref = (own = "") => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); const extra = [...new Set(own.replace(/[A-Za-z0-9\s]/g, ""))].join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase() + PREVIEW_LETTERS + extra + extra.toUpperCase()) }
+/*
+  THE CARDS' FACES. Each card sets "Aa" in its theme's title face, at the
+  weight the theme sets its name in (components/onepage/themes/theme-swatch).
+  One request for every face, cut to those two letters in both cases (a theme
+  that sets its name in capitals draws "AA"), so sixty faces cost a few
+  kilobytes. It no longer carries the creator's own words or the body faces:
+  a card draws neither now.
+*/
+const THEME_SWATCH_FACES = THEME_TEMPLATES.map((t) => ({ family: familyOf(t.theme_config.title_font || t.theme_config.font_family), weight: drawnTitleWeight(t.theme_config as never) }))
+export const themeSwatchFontsHref = () => onePageFontCutHref(THEME_SWATCH_FACES, SWATCH_LETTERS + SWATCH_LETTERS.toUpperCase())
 
 /**
  * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
@@ -2543,11 +2542,9 @@ export const keptThemeThumbCount = () => keptThemeThumbs.length
 */
 const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" }
 
-const ThemeCard = memo(function ThemeCard({ template, who, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; who: PreviewAccount; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
+const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const name = themeLabel(template)
-  /* A Hero theme's card is drawn with its Hero, as picking it lays the page out (handleApplyTemplate). */
-  const look = (template as any).profile_layout === "hero" ? { ...c, header_layout: "hero" } : c
   return (
     <button
       type="button"
@@ -2558,26 +2555,30 @@ const ThemeCard = memo(function ThemeCard({ template, who, selected, shown, copy
       data-theme-card={copy ? undefined : template.id}
       data-theme-copy={copy ? template.id : undefined}
       data-theme-shown={shown ? "" : undefined}
-      className={cn(
-        /* Round AT: nothing on a card is selected by a long press or a double click (the owner's blue Blocks card). */
-        "group/theme relative flex cursor-pointer select-none flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
-        choiceOff,
-      )}
+      /*
+        The card is the swatch and its name, with no box round them. Nothing
+        here has a hover of its own that moves or resizes anything: the
+        pointer only darkens the swatch's hairline (an opacity), so a card
+        under the pointer holds still.
+      */
+      className="group/theme relative flex cursor-pointer select-none flex-col text-left outline-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
     >
-      <ChoiceMark on={selected} />
       {/*
-        Round AP: the page itself, laid out at a phone's width with the live
-        page's own numbers and scaled to the card as one picture
-        (components/onepage/themes/theme-preview). Its own layer of layout and
-        paint, so nothing inside it is worked out again for the rest of the grid.
+        The swatch (components/onepage/themes/theme-swatch): the theme's
+        wallpaper, "Aa" in its title face and its button, drawn at a phone's
+        width and scaled to the card as one picture. Its own layer of layout
+        and paint, so nothing inside it is worked out again for the rest of the grid.
       */}
-      {/* op-demo: pointing at the card plays the theme's own hover on its buttons (app/globals.css). */}
-      <span data-theme-frame="" className="op-demo relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
-        <ThemePreview c={look} who={who} thumb={themeThumbSrc} />
-        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
-        <CheckMark on={selected} className="right-1.5 top-1.5" />
+      <span className="relative block rounded-[18px] group-focus-visible/theme:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]">
+        <span data-theme-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-[18px] [contain:layout_paint]" style={{ background: c.background_color }}>
+          <ThemeSwatch c={c} thumb={themeThumbSrc} />
+          <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" />
+          <span aria-hidden data-theme-hover="" className="pointer-events-none absolute inset-0 rounded-[18px] opacity-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.22)] transition-opacity duration-150 group-hover/theme:opacity-100" />
+        </span>
+        {/* Picked: the dark ring round the swatch, outside it, faded in (components/onepage/choice-marks). */}
+        <SwatchMark on={selected} className="rounded-[21.5px]" />
       </span>
-      <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium transition-colors duration-[180ms]", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{name}</span>
+      <span data-theme-name="" className={cn("block truncate px-0.5 pt-2 text-[13px] leading-5 transition-colors duration-[180ms]", selected ? "font-semibold text-[#1a1a2e]" : "font-medium text-[#4b5563]")}>{name}</span>
     </button>
   )
 })
@@ -2755,23 +2756,11 @@ function ThemeSection() {
   const { onepage, updateBlock, applyThemeLook } = useOnePage()
   const [filter, setFilter] = useState<ThemeFilter>("all")
   const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
+  /* The cards' faces: one small request (themeSwatchFontsHref). */
+  const nameFontsHref = themeSwatchFontsHref()
   /*
-    Round AT: every card draws this creator's own page (./themes/preview-account): the name, the photo the
-    editor shows (useShellAvatar, a new upload included), the socials, links, products and newsletter the page
-    already holds. One object for the grid, the same one until something a card draws changes, so a card is
-    drawn again only then (ThemeCard is memo).
-  */
-  const money = usePageMoney()
-  const avatar = useShellAvatar(onepage?.avatar_url, onepage?.owner_id)
-  const fresh = previewAccountOf(onepage ? { ...onepage, avatar_url: avatar } : null, (cents) => money(cents))
-  const freshKey = previewAccountKey(fresh)
-  const whoRef = useRef<{ key: string; who: PreviewAccount } | null>(null)
-  if (!whoRef.current || whoRef.current.key !== freshKey) whoRef.current = { key: freshKey, who: fresh }
-  const who = whoRef.current.who
-  const nameFontsHref = themeNameFontsHref([who.name, who.bio, ...who.links.map((l) => l.label), ...who.products.flatMap((p) => [p.title, p.price, p.cta]), who.news.headline, who.news.desc, who.news.button].join(""))
-  /*
-    Round AP: every card draws the page at a phone's width, scaled to the
-    card (components/onepage/themes/theme-preview). The cards of every kind
+    Round AP: every card is drawn at a phone's width and scaled to the
+    card (components/onepage/themes/theme-swatch). The cards of every kind
     are the same width, so one is measured, once and when the panel's width
     changes, and the scale is one number on the grid that every card reads.
   */
@@ -2871,7 +2860,7 @@ function ThemeSection() {
           <div
             key={kind.id}
             data-theme-kind-grid={kind.id}
-            className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3"
+            className="grid grid-cols-3 content-start gap-x-3 gap-y-4 sm:grid-cols-4"
             style={kind.id === filter ? undefined : HIDDEN_GRID}
             data-theme-kind-shown={kind.id === filter ? "" : undefined}
             aria-hidden={kind.id !== filter ? true : undefined}
@@ -2883,7 +2872,7 @@ function ThemeSection() {
               return (
                 <ReactModule.Fragment key={template.id}>
                   {starts ? <h3 data-theme-group={group} className="col-span-full pt-4 text-[13px] font-semibold text-[#1a1a2e] first:pt-0">{THEME_GROUP_LABELS[group]()}</h3> : null}
-                  <ThemeCard template={template} who={who} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
+                  <ThemeCard template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
                 </ReactModule.Fragment>
               )
             })}
