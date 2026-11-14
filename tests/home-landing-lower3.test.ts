@@ -63,9 +63,11 @@ console.log("\n── analytics, on the purple sheet ──")
   check("the profile and top places are solid dark chips", dark(css.match(/\.profile,\s*\.places \{[^}]*background: (#[0-9a-f]{6})/)?.[1] ?? "") && !/backdrop-filter/.test(css))
   check("no white or light grey slab in the cards' markup", !/bg-white(?![\/\w])|bg-\[#f[0-9a-f]{5}\]|bg-\[#fff\]/.test(html.replace(/<section[^>]*>/, "")))
   /* Changed on purpose (landing round 4): fewer reports (six), lit from above with a soft white gradient for depth, as the owner asked; still the ground's ink and a hairline. */
-  check("the reports are in the ground's ink with a hairline, not white pills", /\.report \{[^}]*color: var\(--band-ink, #1f1d26\);[^}]*inset 0 0 0 1px var\(--band-line,/.test(css) && (html.match(new RegExp(`class="[^"]*report[^"]*"`, "g")) ?? []).length === 6 && !/text-\[#7c3aed\]/.test(src))
+  /* Changed on purpose (landing round 5): the owner asked for the report pills white, with some depth and a bit of glass. */
+  check("the reports are white pills with depth: a lit top edge and a soft shadow, no backdrop blur", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\)/.test(css) && /\.report \{[^}]*inset 0 1px 0 #fff/.test(css) && !/backdrop-filter/.test(css) && (html.match(new RegExp(`class="[^"]*report[^"]*"`, "g")) ?? []).length === 6)
   /* Changed on purpose (landing round 4): the owner asked for the engine switcher to be pressable; its buttons are the one real control, and only they have a hover. */
-  check("nothing in a card answers the pointer but the engine buttons", /\.dark > \* \{\s*pointer-events: none;/.test(css) && (css.match(/:hover/g) ?? []).length === 1 && /\.engineTab:hover/.test(css))
+  /* Changed on purpose (landing round 5): the engine switcher is the earlier one again, with no buttons, so nothing in a card answers the pointer. */
+  check("nothing in a card answers the pointer", /\.dark > \* \{\s*pointer-events: none;/.test(css) && !/:hover/.test(css))
   /* Changed on purpose (landing round 4): sourdough is banned; the sample is a LUT pack (digital). */
   check("the sample is a LUT pack (digital), not sourdough", html.includes("Fjord LUTs: 24 cinematic looks for Premiere Pro") && !/sourdough/i.test(html))
 }
@@ -81,8 +83,9 @@ console.log("\n── the map, on the purple sheet ──")
   check("one light buy button, its words in each country's language", (html.match(/class="cmm-buy">/g) ?? []).length === 1 && html.includes('lang="de">Jetzt kaufen<'))
   check("the flags are a real switch: one pressed button per country, named", (html.match(/<button type="button" class="cmm-flag"/g) ?? []).length === SELL_COUNTRIES.length && (html.match(/aria-pressed="true"/g) ?? []).length === 1 && html.includes('aria-label="United States"') && /role="group" aria-label="Buyer&#x27;s country"/.test(html))
   check("choosing a country restarts the turn from it", /const choose = \(i: number\)/.test(src) && /\}, \[live, picks\]\)/.test(src))
-  check("the map, the product, the tag and the words are inert", /\.cmm-grid,\.cmm-world,\.cmm-prod,\.cmm-tag,\.cmm-copy\{pointer-events:none\}/.test(src)) /* Changed on purpose (landing round 4): the dot grid behind the card is inert too. */
-  check("on a phone the Example tag has its own line above the map", /@media \(max-width:1023px\)\{[\s\S]*?\.cmm-tag\{position:static;order:0;align-self:flex-end/.test(src))
+  /* Changed on purpose (landing round 5): the Example tag is gone, as the owner asked. */
+  check("the map, the product and the words are inert", /\.cmm-grid,\.cmm-world,\.cmm-prod,\.cmm-copy\{pointer-events:none\}/.test(src))
+  check("no Example tag on the card at any width", !/cmm-tag|>Example</.test(src))
   check("the switch keeps a reduced motion path and a focus ring", /\.cmm-flag:focus-visible\{outline:2px solid/.test(src) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-flag,/.test(src))
 }
 
@@ -91,10 +94,11 @@ console.log("\n── audience, on the white sheet ──")
   const src = read(`${DIR}/audience-ownership.tsx`)
   const css = read(`${DIR}/audience-ownership.module.css`)
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
-  check("one neutral grey for every card: no violet light, no lilac card", /\.panel \{[^}]*background: #f4f4f5;/.test(css) && !/radial-gradient|\.violet|\.stage/.test(css) && !/s\.violet|s\.stage/.test(src))
+  /* Changed on purpose (landing round 5): one white Contacts card on the white sheet, no grey panel and no light. */
+  check("one white card with a hairline: no violet light, no lilac card", /\.mock \{[^}]*background: #fff;/.test(css) && !/radial-gradient|\.violet|\.stage/.test(css) && !/s\.violet|s\.stage/.test(src))
   /* Changed on purpose (landing round 4): the owner asked for a lighter structure; what stays yours is one plain line under three plain rows, no pills. */
-  check("what stays yours is a plain line, not pills", html.includes("No lock-in. If you ever leave, your list leaves with you.") && !/rounded-full bg-white px-3 py-1\.5/.test(src))
-  check("the composer, the list, the file and the tree are inert", /\.mock \{\s*pointer-events: none;/.test(css) && (src.match(/\$\{s\.mock\}/g) ?? []).length >= 5) /* Changed on purpose (landing round 4): the same rule, over the composer and the three rows' small pictures. */
+  check("what stays yours is a plain line, not pills", html.includes("No lock-in: if you ever leave, your list leaves with you.") && !/rounded-full bg-white px-3 py-1\.5/.test(src))  /* Changed on purpose (landing round 5): the line closes the Download row. */
+  check("the picture is inert", /\.mock \{[^}]*pointer-events: none;/.test(css) && /className=\{s\.mock\}/.test(src))  /* Changed on purpose (landing round 5): one picture now. */
   /* Changed on purpose (landing round 4): the Storelib logo above the platforms went with the tree. */
   check("still as the owner left it: Download every contact, real faces", html.includes("Download every contact, any time") && /people\/sofia\.webp/.test(html))
   check("no tabs in the section", !/role="tab"/.test(html))
@@ -113,9 +117,10 @@ console.log("\n── earnings, on the white sheet ──")
   /* Changed on purpose (landing round 4): the owner removed the Free and Pro switch, so the kinds alone carry the tab style. */
   const kind = css.match(/\.cme-kind\{([^}]*)\}/)?.[1] ?? ""
   const on = css.match(/\.cme-kind\[aria-checked="true"\]\{([^}]*)\}/)?.[1] ?? ""
-  check("the tab family of Make the work: the same pill, height, grey and type", ["height:44px", "border-radius:999px", "color:#616161", "font:500 15px/1"].every((d) => pill.includes(d) && kind.includes(d)))
-  check("the same chosen state: a white pill with a hairline", chosen.length > 0 && on === chosen)
-  check("the same grey track", /\.cme-kinds\{[^}]*background:#f1f1f1;box-shadow:inset 0 0 0 1px #e6e6e6\}/.test(css))
+  /* Changed on purpose (landing round 5): the owner disliked the pill tabs here (cut, uneven between desktop and phone); the kinds are even tiles with a 12px corner. */
+  check("the kinds are even tiles, not pills: a 12px corner, 48px tall, never cut", ["border-radius:12px", "height:48px", "background:#f6f6f8"].every((d) => kind.includes(d)) && !/border-radius:999px/.test(kind) && /\.cme-kind>span\{min-width:0;overflow:hidden;text-overflow:ellipsis\}/.test(css))
+  check("the chosen kind: white with an ink outline", /background:#fff/.test(on) && /inset 0 0 0 1\.5px #18181b/.test(on))
+  check("no grey track around them; two across on a narrow phone", !/\.cme-kinds\{[^}]*background/.test(css) && /@media \(max-width:479px\)\{\.cme-kinds\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/.test(css))
   /* Changed on purpose (landing round 4): no plan switch; the fee the figures use is said once under them. */
   check("no plan switch; the fee is one line under the figures", !/cme-plan/.test(html) && html.includes("5% + $0.25 a sale"))
   check("hover only where a pointer hovers; a focus ring; a reduced motion path", /@media \(hover:hover\) and \(pointer:fine\)\{\.cme-kind:hover/.test(css) && /\.cme-kind:focus-visible\{outline:2px solid/.test(css) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cme-kind,/.test(css)) /* Changed on purpose (landing round 4): the plan switch is gone. */

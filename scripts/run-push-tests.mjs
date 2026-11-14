@@ -1437,6 +1437,8 @@ const SUITES = [
   "tests/home-landing-r5-middle.test.ts",
   /* Landing round 5, checkout: the phone shows the real instant checkout (393px wide, scaled whole), there from the start and sliding up once, held by sticky while the tab cards come up over it, no orbit or scroll timelines; tab cards again, not pills; Built to convert's desktop window whole on any screen; The Loop in place of After Dark. */
   "tests/home-landing-r5-checkout.test.ts",
+  /* Landing round 5, lower: a short audience section with one Contacts picture and nothing moving; the AI terminal alone again; white report pills, a quieter SEO grid and the earlier engine switcher with one quiet turning light; physical and digital products on the map, no Example pill; earnings kinds as even tiles; a canvas dot field whose light follows the mouse, paused off screen. */
+  "tests/home-landing-r5-lower.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

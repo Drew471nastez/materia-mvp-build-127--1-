@@ -1,285 +1,200 @@
-/* Section 10, "Your audience belongs to you" (wave 13: light). Only transform and opacity animate. */
+/*
+  Section 10, "Your audience belongs to you" (landing round 5: one picture,
+  nothing moves). Two columns from 1024px, the words then the picture under
+  that. Nothing in it moves, and it makes no layers of its own.
+*/
 
-.panel {
-  position: relative;
-  overflow: hidden;
-  border-radius: 27px;
-  background: #f4f4f5;
-  color: #0f0e13;
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 48px);
+  align-items: center;
 }
-/* Mocks are pictures: nothing drawn in a card answers the pointer (landing round 3). */
-.mock {
-  pointer-events: none;
-  user-select: none;
-}
-@media (max-width: 639px) {
-  .panel {
-    border-radius: 21px;
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: clamp(48px, 6vw, 96px);
   }
 }
-/*
-  Landing round 4: beside the composer, three plain rows with a hairline
-  between them, no cards, in the page's own type sizes.
-*/
-.items {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+
+.points {
+  margin: clamp(24px, 3vw, 36px) 0 0;
+  padding: 0;
+  list-style: none;
 }
-.item {
-  padding: 22px 0;
+.points li {
+  padding: 16px 0;
   border-top: 1px solid #ececf0;
 }
-.item:first-child {
-  padding-top: 4px;
-  border-top: 0;
+.points li:last-child {
+  padding-bottom: 0;
 }
-.itemTitle {
-  font-size: 19px;
+.points h3 {
+  margin: 0;
+  font-size: 17px;
   font-weight: 500;
-  letter-spacing: -0.02em;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
   color: #0f0e13;
 }
-.itemText {
-  margin-top: 6px;
+.points p {
+  margin: 4px 0 0;
   max-width: 46ch;
   font-size: 14.5px;
   line-height: 1.55;
   color: #55525e;
 }
-.faces {
-  display: flex;
+
+/* The picture: Contacts, a white card with a hairline. Nothing in it answers the pointer. */
+.mock {
+  width: 100%;
+  max-width: 620px;
+  justify-self: center;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px #e9e9ee,
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 24px 48px -32px rgba(24, 24, 27, 0.22);
+  pointer-events: none;
+  user-select: none;
+  color: #0f0e13;
 }
-.faces img {
-  width: 34px;
+@media (min-width: 1024px) {
+  .mock {
+    justify-self: end;
+  }
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #f0f0f3;
+}
+.barTitle {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.barCount {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.up {
+  color: #15803d;
+}
+.export {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
   height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a2e;
+  box-shadow: inset 0 0 0 1px #e2e4e8;
+}
+
+.rows {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+.row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  padding: 10px 18px;
+}
+.row + .row {
+  border-top: 1px solid #f4f4f6;
+}
+.face {
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
   object-fit: cover;
   background: #eceaf0;
-  box-shadow: 0 0 0 2.5px #fff;
 }
-.faces img + img {
-  margin-left: -9px;
-}
-/* The newest sign-up: every name in the page, the newest faded in. */
-.newest {
-  display: grid;
-}
-.newest > span {
-  grid-area: 1 / 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0;
-  transform: translate3d(0, 6px, 0);
-  transition:
-    opacity 400ms ease-out,
-    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.newest > span[data-on] {
-  opacity: 1;
-  transform: none;
-}
-.platforms {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  max-width: 380px;
-  padding: 0;
-  list-style: none;
-  text-align: center;
-}
-.platformIcon {
+.name,
+.email {
   display: block;
-  width: 40px;
-  height: 40px;
-  margin: 0 auto;
   overflow: hidden;
-  border-radius: 11px;
-  box-shadow:
-    0 0 0 1px rgba(16, 24, 40, 0.08),
-    0 2px 6px -2px rgba(16, 24, 40, 0.12);
-}
-.lockIn {
-  padding-top: 20px;
-  border-top: 1px solid #ececf0;
-  font-size: clamp(17px, 1.35vw, 19px);
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: -0.02em;
-  color: #0f0e13;
-}
-
-/* The composer runs off the card's bottom edge, a fixed height so nothing moves (landing round: smaller, the owner found it took too much of the card). */
-.bleed {
-  height: 430px;
-  margin-bottom: -1px;
-  overflow: hidden;
-}
-@media (min-width: 640px) {
-  .bleed {
-    height: 460px;
-  }
-}
-@media (min-width: 1024px) {
-  .bleed {
-    flex: 1 1 0;
-    height: auto;
-    min-height: 380px;
-  }
-}
-
-/* The composer window rises a little as the section arrives. */
-.window {
-  transform: translate3d(0, 32px, 0);
-  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1) 150ms;
-}
-[data-platform-in] .window {
-  transform: none;
-}
-
-/* The subject typing itself: a white cover leaves it a character at a time. */
-.typed {
-  position: relative;
-  display: inline-block;
-  max-width: 100%;
-  vertical-align: top;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: clip;
-}
-.typeCover,
-.typeCaret {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  visibility: hidden;
-}
-.typeCover {
-  background: #fff;
-  transform-origin: 100% 50%;
-}
-.typing .typeCover,
-.typing .typeCaret {
-  visibility: visible;
-}
-.typing .typeCover {
-  animation: uncover var(--type-ms, 1500ms) steps(var(--steps, 33), end) 500ms both;
-}
-.typing .typeCaret {
-  animation: carry var(--type-ms, 1500ms) steps(var(--steps, 33), end) 500ms both;
-}
-@keyframes uncover {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0);
-  }
-}
-@keyframes carry {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(100%, 0, 0);
-  }
-}
-.caret {
-  display: inline-block;
-  width: 1.5px;
-  height: 1.05em;
-  margin-left: 1px;
-  vertical-align: -0.15em;
-  background: #7c3aed;
-}
-.typing .caret {
-  animation: blink 1s steps(1) infinite;
-}
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
-}
-
-/* Send: a press. */
-.sendBtn {
-  transition: transform 160ms ease-out;
-}
-.sendBtn[data-pressed] {
-  transform: scale(0.94);
-}
-
-/* Words that take turns in one place. */
-.swap {
-  display: grid;
-  justify-items: start;
-}
-.swap > span {
-  grid-area: 1 / 1;
-  transition:
-    opacity 300ms ease-out,
-    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.line > span {
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.swap > [data-on="false"] {
-  opacity: 0;
-  transform: translate3d(0, 5px, 0);
+.name {
+  font-size: 13.5px;
+  font-weight: 500;
 }
-
-/* The sending bar: fills while it sends, fades once sent. */
-.progress {
-  transform-origin: 0 50%;
-  transform: scaleX(0);
-  opacity: 0;
+.email {
+  font-size: 12.5px;
+  color: #6b7280;
 }
-.progress[data-on="true"] {
-  opacity: 1;
-  transform: scaleX(1);
-  transition: transform 1700ms cubic-bezier(0.45, 0, 0.25, 1);
+.source {
+  display: none;
+  min-width: 0;
+  text-align: left;
 }
-.progress[data-done] {
-  opacity: 0;
-  transition:
-    transform 1700ms cubic-bezier(0.45, 0, 0.25, 1),
-    opacity 500ms ease-out 200ms;
+.via {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #3f3d48;
 }
-
-/* The envelope and the figures share one place and cross-fade. */
-.face {
-  transition:
-    opacity 400ms ease-out,
-    transform 550ms cubic-bezier(0.22, 1, 0.36, 1);
+.from {
+  display: block;
+  font-size: 12px;
+  color: #8a8794;
+  white-space: nowrap;
 }
-.face[data-on="false"] {
-  opacity: 0;
-  transform: translate3d(0, 8px, 0) scale(0.985);
-  pointer-events: none;
+.when {
+  font-size: 12px;
+  color: #8a8794;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
-
-.fill {
-  transform-origin: 0 50%;
-  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1) 200ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .window,
-  .fill,
-  .face,
-  .progress,
-  .swap > span,
-  .newest > span {
-    transition: none !important;
+/* Wide enough for the door each came in by: its own column. */
+@media (min-width: 480px) {
+  .row {
+    grid-template-columns: 36px minmax(0, 1fr) minmax(0, 0.8fr) 28px;
   }
-  .caret,
-  .typeCover,
-  .typeCaret {
-    animation: none;
+  .source {
+    display: block;
   }
+}
+
+.sync {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px 14px;
+  border-top: 1px solid #f0f0f3;
+  background: #fafafb;
+}
+.syncLabel {
+  font-size: 12.5px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.marks {
+  display: flex;
+  gap: 6px;
+}
+.mark {
+  display: block;
+  width: 26px;
+  height: 26px;
+  overflow: hidden;
+  border-radius: 7px;
+  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.08);
 }

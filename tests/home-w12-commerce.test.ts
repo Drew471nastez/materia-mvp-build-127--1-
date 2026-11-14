@@ -133,7 +133,7 @@ console.log("\nCommerce: the sections render on the server")
   check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
   /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
   /* Changed on purpose (landing round 4): the owner asked for the product to change with the country, so each country has its own product and price (USD, EUR, JPY, CAD, AUD). */
-  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "22,00 €", "¥4,800", "C$38.00", "24,00 €", "A$45.00"].every((p) => map.includes(p)) && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))
+  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "19,00 €", "¥4,800", "C$89.00", "24,00 €", "A$22.00"].every((p) => map.includes(p)) && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))  /* Changed on purpose (landing round 5): three digital products, priced as they are. */
   {
     /* Changed on purpose (landing round 4): the owner reversed the first round's ask; the button speaks the country's language (Jetzt kaufen, 今すぐ購入, Acheter). */
     check("map: the button in the buyer's language", ["Buy now", "Jetzt kaufen", "今すぐ購入", "Acheter"].every((w) => map.includes(`>${w}</span>`)))
