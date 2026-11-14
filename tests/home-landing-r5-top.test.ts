@@ -88,9 +88,11 @@ check("the course is a home Pilates course, and its numbers add up", course?.nam
 check("no knitting course, no casting on", !/Knit Your First Sweater|Casting on/i.test(everything))
 check("the course photo exists and is small", existsSync(join(root, "public/home/everything/pilates.webp")) && statSync(join(root, "public/home/everything/pilates.webp")).size < 120_000)
 const luts = EVERYTHING_SLIDES.find((s) => s.kind === "luts")
-check("the LUT pack is a cover: one photo split flat and graded, its name and count", luts?.img.endsWith("/lut-cover.webp") === true && /<span class="ev-lut-name">Cine Tones<\/span>/.test(everything) && /<span class="ev-lut-count">12 LUTs<\/span>/.test(everything) && /class="ev-lut-flat"/.test(everything))
+/* Changed on purpose (landing round 6): the owner wanted the pack "without the 12, just LUT pack" on a bold black cover; tests/home-landing-r6-everything pins it. */
+check("the LUT pack is a cover: one graded still and its name, no count", luts?.img.endsWith("/lut-still.webp") === true && /<span class="ev-lut-name"><span>Cine<\/span><span>Tones<\/span><\/span>/.test(everything) && !/ev-lut-count|12 LUTs/.test(everything))
 check("none of the panel: no looks, no file name", !/ev-lut-look|ev-lut-file|\.cube/.test(everything) && !/function LutPack/.test(evSrc))
-check("the cover photo exists and is small", existsSync(join(root, "public/home/everything/lut-cover.webp")) && statSync(join(root, "public/home/everything/lut-cover.webp")).size < 120_000)
+/* Changed on purpose (landing round 6): the cover's photo is the graded film still. */
+check("the cover photo exists and is small", existsSync(join(root, "public/home/everything/lut-still.webp")) && statSync(join(root, "public/home/everything/lut-still.webp")).size < 120_000)
 check("the old pictures are gone", !existsSync(join(root, "public/home/everything/course.webp")) && !existsSync(join(root, "public/home/everything/lut-frame.webp")))
 const words = [EVERYTHING_HEADING.lead, EVERYTHING_HEADING.rest, ...EVERYTHING_SLIDES.map((s) => s.name), JSON.stringify(EVERYTHING_SUPPORT)].join(" ")
 check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|fans?)\b/i.test(words))
