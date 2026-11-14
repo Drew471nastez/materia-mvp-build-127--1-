@@ -116,7 +116,8 @@ async function main() {
       ["lib/automations/abandoned-reminder.ts", /store: s\.creator_id/],
       ["lib/courses/emails.ts", /store: product\.creator_id/],
       ["lib/physical/jobs-server.ts", /from: buildFromHeader\(shopName\),\s*store: co\.creator_id,\s*to: co\.buyer_email/],
-      ["lib/forms/delivery-server.ts", /store: identity\?\.fromName \? job\.owner_id : null/],
+      // Changed on purpose (round AY): job.owner_id is a user id; the store's creator id is what its own domain is found by.
+      ["lib/forms/delivery-server.ts", /store: identity\?\.fromName \? identity\.creatorId : null/],
       ["lib/communities/server/membership-lifecycle.ts", /store: r\.product\.creator_id/],
       ["app/api/cron/process-scheduled-emails/route.ts", /store: email\.creator_id/],
       ["app/api/email/messages/[id]/reply/route.ts", /store: gate\.creatorId/],

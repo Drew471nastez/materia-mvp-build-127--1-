@@ -224,6 +224,34 @@ async function personalizedLines(db: Db, lines: PricedLine[]): Promise<{ ok: tru
   return { ok: true, answers }
 }
 
+const FREE_IN_PROGRESS_MS = 2 * 60_000
+export const FREE_IN_PROGRESS = "Your order is still being placed. Wait a moment and press again."
+
+/**
+ * The free order an earlier send of this same key placed (round AY), or null when the key wrote none. A free
+ * checkout still being written (its first send has not finished) is waited for briefly; one still unfinished
+ * after that answers with no receipt, which the caller says as "still being placed", never a second order.
+ * Never throws: an unread row is "none", as before.
+ */
+export async function freeOrderOfKey(db: Db, shopId: string, clientKey: string, waits = 3, waitMs = 400): Promise<{ id: string; receiptToken: string | null } | null> {
+  try {
+    for (let i = 0; ; i++) {
+      const { data, error } = await db.from("commerce_checkouts").select("id, status, provider, receipt_token, expires_at").eq("creator_id", shopId).eq("client_key", clientKey).maybeSingle()
+      const row = data as { id?: string; status?: string; provider?: string; receipt_token?: string | null; expires_at?: string | null } | null
+      if (error || !row?.id || row.provider !== "free") return null
+      if (row.status === "paid" && row.receipt_token) return { id: row.id, receiptToken: row.receipt_token }
+      if (row.status !== "pending") return null
+      /* Started more than a couple of minutes ago and never placed: not in progress, the caller's own answer stands. */
+      const startedAt = new Date(String(row.expires_at ?? "")).getTime() - HOLD_MINUTES * 60_000
+      if (!Number.isFinite(startedAt) || Date.now() - startedAt > FREE_IN_PROGRESS_MS) return null
+      if (i >= waits) return { id: row.id, receiptToken: null }
+      await new Promise((r) => setTimeout(r, waitMs))
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function startCheckout(db: Db, input: StartInput): Promise<StartResult> {
   const config = input.config ?? DEFAULT_CHECKOUT
   /* Settings › Checkout, checked here as well as on the page: an account first, and a confirmed one. */
@@ -244,6 +272,17 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     if (placed?.status === "paid" && placed.receipt_token) {
       return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receipt_token as string)}?paid=1`, checkoutId: placed.id as string, free: false, cod: true, receiptToken: placed.receipt_token as string }
     }
+  }
+
+  /*
+    GET IT FREE AGAIN, after an answer that never arrived (round AY): a free order that ships is placed in the
+    first press (completeCheckout below), under the page's key for that press. The same key again is that
+    order, found before the cart is priced, so a retry never writes a second order, a second use of its code
+    or a second stock hold. The key is the page's own (random, per store): nobody else's press can name it.
+  */
+  if (input.cashOnDelivery !== true && input.shopId) {
+    const placed = await freeOrderOfKey(db, input.shopId, clientKey)
+    if (placed) return placed.receiptToken ? { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receiptToken)}?paid=1`, checkoutId: placed.id, free: true, receiptToken: placed.receiptToken } : { ok: false, status: 409, error: FREE_IN_PROGRESS, code: "in_progress" }
   }
 
   /* THE BUYER'S PICTURES ON THE LINES (lib/cart-uploads): each must be this browser's own upload to this store. One copied from another cart or store stops here. */
@@ -492,6 +531,11 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
           if (won && won.status !== "pending") break
           await new Promise((r) => setTimeout(r, 400))
         }
+      }
+      /* A free order the other send is placing (round AY): its order, or "still being placed", never a refusal that makes the next press a second order. */
+      if (free) {
+        const placed = await freeOrderOfKey(db, priced.creatorId, rowKey)
+        if (placed) return placed.receiptToken ? { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receiptToken)}?paid=1`, checkoutId: placed.id, free: true, receiptToken: placed.receiptToken } : { ok: false, status: 409, error: FREE_IN_PROGRESS, code: "in_progress" }
       }
       return { ok: false, status: 409, error: "Refresh the page and try again." }
     }

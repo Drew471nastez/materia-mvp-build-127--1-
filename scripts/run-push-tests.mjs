@@ -68,6 +68,8 @@ const SUITES = [
   "tests/onepage-drafts-ay.test.ts",
   /* Round AX (AY-5 money and integrations): a refunded community program or module never opens again from its own paid session. */
   "tests/money-integrations-ay.test.ts",
+  /* Round AX (AY-2): a free cart that ships, pressed again after a lost answer, is the order it placed (same key, lib/physical/checkout-server freeOrderOfKey); booking and form emails find the store by its owner's user id (lib/email resolveCreatorIdentityForUser). */
+  "tests/leftovers-commerce-ay.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
@@ -1628,6 +1630,8 @@ const STRICT_SUITES = [
   "tests/double-actions-aw-journey.test.ts",
   /* Round AX (free basket retry), through the real routes: a built site's cart and the website's checkout a code makes free, pressed again and sent twice at once, are one basket, one receipt email, one sale notice, a one use code used once, a limited copy taken once, nothing held; a page without an attempt id writes as before. Strict: tests/_journey. */
   "tests/free-basket-retry-ax-journey.test.ts",
+  /* Round AY (AY-2): a free shipped cart through /api/physical/checkout and the website checkout, pressed again: one order, one email, the code once, one stock hold. Strict: tests/_journey. */
+  "tests/free-shipped-retry-ay-journey.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
