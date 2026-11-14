@@ -24,6 +24,11 @@
   The composer plays one short loop while the section is on screen: the
   subject types itself, Send is pressed, a bar fills while it sends, and the
   envelope turns into the figures. Off screen, nothing runs.
+
+  Landing round 3: the section sits on the white sheet, so its cards are one
+  neutral soft grey (no violet light in a corner, no lilac card); what stays
+  yours is four plain words in a row, not pills; and the composer, the list,
+  the file and the tree are pictures, so nothing in them answers the pointer.
 */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react"
@@ -99,7 +104,7 @@ function Composer({ live, reduced }: { live: boolean; reduced: boolean }) {
   const sent = phase === "sent"
   const sending = phase === "sending"
   return (
-    <div className={`${s.window} mx-auto w-full max-w-[520px] overflow-hidden rounded-[15px] bg-[#f7f7f8] text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),0_24px_48px_-24px_rgba(30,20,60,0.28),0_0_0_1px_rgba(16,24,40,0.06)]`}>
+    <div className={`${s.window} ${s.mock} mx-auto w-full max-w-[520px] overflow-hidden rounded-[15px] bg-[#f7f7f8] text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),0_24px_48px_-24px_rgba(24,24,27,0.22),0_0_0_1px_rgba(16,24,40,0.06)]`}>
       {/* The bar */}
       <div className="relative flex items-center gap-2 border-b border-[#eceef1] bg-white px-3 py-2.5 sm:px-4">
         <span className="flex h-8 w-6 items-center justify-center text-[#6b7280]" aria-hidden="true">
@@ -252,7 +257,7 @@ function Subscribers({ live, seen }: { live: boolean; seen: boolean }) {
         </div>
         <span className="mb-0.5 inline-flex items-center rounded-full bg-[#e9f7ef] px-2.5 py-1 text-[12px] font-medium text-[#15803d]">+{n(312 + added)} this week</span>
       </div>
-      <ul className={`${s.list} ${m.loop} mt-5 grid gap-2`} data-shift={added ? added % 2 : undefined} aria-hidden="true">
+      <ul className={`${s.list} ${s.mock} ${m.loop} mt-5 grid gap-2`} data-shift={added ? added % 2 : undefined} aria-hidden="true">
         {rows.map((r, k) => (
           <li key={k} className={`${s.row} flex items-center gap-3 rounded-[13px] bg-white px-3 py-2.5`} data-fresh={k === 0 && added > 0 ? "" : undefined}>
             {/* A real face, as Contacts shows a person's picture. */}
@@ -284,7 +289,7 @@ function Sync() {
     <div className={`${s.panel} ${m.reveal} flex h-full flex-col p-5 sm:p-7`} style={{ "--i": 2 } as CSSProperties}>
       <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#0f0e13]">Already on an email platform?</h3>
       <p className="mt-1.5 text-[14.5px] leading-[1.55] text-[#55525e]">Subscribers, buyers and every order go out. Unsubscribes come back.</p>
-      <div className="mt-auto pt-6" aria-hidden="true">
+      <div className={`${s.mock} mt-auto pt-6`} aria-hidden="true">
         <div className="flex justify-center">
           <span className="relative z-[1] block h-11 w-11">
             <StorelibLogo size={44} alt="" />
@@ -326,7 +331,7 @@ function Export() {
       <div className="min-w-0 md:w-[46%] md:shrink-0">
         <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#0f0e13]">Download every contact, any time</h3>
         <p className="mt-1.5 text-[14.5px] leading-[1.55] text-[#55525e]">Names, emails, tags and where each person came from, as a CSV. Bring a list in the same way.</p>
-        <span className="mt-5 inline-flex h-9 items-center gap-2 rounded-lg border border-[#e2e4e8] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e]" aria-hidden="true">
+        <span className={`${s.mock} mt-5 inline-flex h-9 items-center gap-2 rounded-lg border border-[#e2e4e8] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e]`} aria-hidden="true">
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" />
           </svg>
@@ -334,7 +339,7 @@ function Export() {
         </span>
       </div>
       {/* contacts.csv, opened: the columns the export writes. */}
-      <div className="min-w-0 flex-1 overflow-hidden rounded-xl bg-white shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_12px_28px_-18px_rgba(30,20,60,0.25)]" aria-hidden="true">
+      <div className={`${s.mock} min-w-0 flex-1 overflow-hidden rounded-xl bg-white shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_12px_28px_-18px_rgba(24,24,27,0.2)]`} aria-hidden="true">
         <div className="flex items-center gap-2 border-b border-[#eef0f2] px-3.5 py-2.5">
           <span className="flex h-6 w-5 items-center justify-center rounded-[4px] bg-[#15803d] text-[7px] font-bold text-white">CSV</span>
           <span className="text-[12.5px] font-medium text-[#1a1a2e]">contacts.csv</span>
@@ -363,13 +368,11 @@ function Export() {
 
 function NoLockIn() {
   return (
-    <div className={`${s.panel} ${s.violet} ${m.reveal} flex h-full flex-col justify-between gap-6 p-5 sm:p-7 lg:flex-row lg:items-center`} style={{ "--i": 4 } as CSSProperties}>
-      <div className="text-[clamp(22px,2.2vw,28px)] font-medium leading-[1.18] tracking-[-0.03em] text-[#1e1236]">No lock-in. If you ever leave, your list leaves with you.</div>
-      <ul className="flex flex-wrap gap-2 text-[12.5px] font-medium lg:max-w-[340px] lg:shrink-0 lg:justify-end">
-        {["Your contacts", "Your order history", "Your sign-up forms", "Your sending domain"].map((t) => (
-          <li key={t} className="rounded-full bg-white px-3 py-1.5 text-[#3b2a63] shadow-[0_0_0_1px_rgba(91,33,182,0.1)]">
-            {t}
-          </li>
+    <div className={`${s.panel} ${m.reveal} flex h-full flex-col justify-between gap-5 p-5 sm:p-7 lg:flex-row lg:items-center`} style={{ "--i": 4 } as CSSProperties}>
+      <div className="text-[clamp(22px,2.2vw,28px)] font-medium leading-[1.18] tracking-[-0.03em] text-[#0f0e13]">No lock-in. If you ever leave, your list leaves with you.</div>
+      <ul className={`${s.yours} lg:shrink-0`} aria-label="What leaves with you">
+        {["Contacts", "Order history", "Sign-up forms", "Sending domain"].map((t) => (
+          <li key={t}>{t}</li>
         ))}
       </ul>
     </div>
@@ -392,7 +395,7 @@ export function AudienceOwnership() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-12">
-          <div className={`${s.panel} ${s.stage} ${m.reveal} flex flex-col px-3 pt-6 sm:px-8 sm:pt-9 lg:col-span-7`} style={{ "--i": 0 } as CSSProperties}>
+          <div className={`${s.panel} ${m.reveal} flex flex-col px-3 pt-6 sm:px-8 sm:pt-9 lg:col-span-7`} style={{ "--i": 0 } as CSSProperties}>
             <div className="mb-6 px-2 sm:px-0">
               <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#0f0e13]">Write once, reach everyone</h3>
               <p className="mt-1.5 max-w-[48ch] text-[14.5px] leading-[1.55] text-[#55525e]">Campaigns and automations from the same place as your products, with opens and clicks counted for you.</p>

@@ -1387,6 +1387,8 @@ const SUITES = [
   "tests/home-w13-everything.test.ts",
   /* Landing round, the lower sections: audience with real faces and the header's logo, analytics smaller with a dark globe card and SEO · GEO · AEO, the map without "fans" and with an English Buy now everywhere, integrations in two rows that never show a tile twice, crisp marks, no light under the pointer. */
   "tests/home-landing-lower.test.ts",
+  /* Landing round 3: the lower sections on their new grounds (dark cards on purple, the tab family, inert mocks). */
+  "tests/home-landing-lower3.test.ts",
   /* Landing round: the showcase drags and settles on a glide (autoplay kept), and "Make the work" shows real products (no Golden Hour preset), a calm community, the tee on a grey tile and a continuous storefront rail. */
   "tests/home-landing-top.test.ts",
   /* Landing round (rest): See what you could earn gets one flash photograph and loses its small print; the app's line is short; the public plan cards say plain things, each from the plan tables, with a quiet tick; Your AI tools work here too: the marks, a line true to a connection, the real MCP tools in a terminal on the compositor, paused off screen, still under reduced motion, after the integrations. */

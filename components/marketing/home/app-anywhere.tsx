@@ -73,7 +73,7 @@ function GooglePlayBadge() {
           <span className="mt-[3px] text-[17px] font-semibold tracking-[-0.02em] sm:text-[20px]">Google Play</span>
         </span>
       </span>
-      <span className="absolute -right-2.5 -top-2.5 rounded-full bg-[#7c3aed] px-2 py-[3px] text-[10.5px] font-semibold leading-none text-white ring-2 ring-white">Coming soon</span>
+      <span className="absolute -right-2.5 -top-2.5 rounded-full bg-[#7c3aed] px-2 py-[3px] text-[10.5px] font-semibold leading-none text-white">Coming soon</span>
     </span>
   )
 }

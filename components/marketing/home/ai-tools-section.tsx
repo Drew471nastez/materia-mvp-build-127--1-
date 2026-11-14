@@ -103,7 +103,7 @@ const AI_CSS = `
 .ait-cta:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}
 .ait-cta svg{transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .ait-cta:hover svg{transform:translateX(3px)}
-.ait-term{--term-bg:#09080c;min-width:0;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
+.ait-term{--term-bg:#09080c;min-width:0;pointer-events:none;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
 .ait-bar{display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.06)}
 .ait-bar i{width:10px;height:10px;border-radius:50%;background:#2e2c35}
 .ait-bar span{margin-left:8px;font:500 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#6f6c79}

@@ -5,6 +5,12 @@
 
   LANDING ROUND, THE OWNER: smaller, smooth and clean. Two rows.
 
+  LANDING ROUND 3, THE OWNER: "white modals on black background looks ugly".
+  The section sits on the purple sheet now, so every card in it is a dark
+  surface: the search card is dark with a night search inside it, the profile
+  and top places over the globe are solid dark chips, and the reports are
+  outlined in the ground's own ink. Nothing drawn here can be pressed.
+
   1. See where your visitors are. On the left a title, one line and the
      reports Storelib Analytics really has (app/(storelib)/app/analytics:
      views and clicks, traffic sources, countries, top links, devices, sales,
@@ -73,34 +79,34 @@ function GlobeCard({ live, reduced }: { live: boolean; reduced: boolean }) {
       <div className={s.overlay} aria-hidden="true">
         <div className={s.profile}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`${IMG}/nora.webp`} alt="" width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 rounded-full object-cover shadow-[0_0_0_3px_#fff,0_0_0_4px_rgba(16,24,40,0.08)]" />
-          <div className="mt-2.5 text-[15px] font-semibold text-[#14131a]">Nora Vik</div>
-          <div className="text-[12.5px] text-[#6b7280]">@noravikbakes</div>
-          <div className="mt-3 grid w-full grid-cols-2 border-t border-[#eef0f2] pt-2.5 text-left">
+          <img src={`${IMG}/nora.webp`} alt="" width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 rounded-full object-cover shadow-[0_0_0_1px_rgba(255,255,255,0.14)]" />
+          <div className="mt-2.5 text-[15px] font-semibold text-white">Nora Vik</div>
+          <div className="text-[12.5px] text-[#a3a1ad]">@noravikbakes</div>
+          <div className="mt-3 grid w-full grid-cols-2 border-t border-white/[0.08] pt-2.5 text-left">
             <div>
-              <div className="text-[11px] text-[#6b7280]">Visitors</div>
-              <div className="text-[15px] font-semibold tabular-nums text-[#14131a]">21,480</div>
+              <div className="text-[11px] text-[#a3a1ad]">Visitors</div>
+              <div className="text-[15px] font-semibold tabular-nums text-white">21,480</div>
             </div>
-            <div className="border-l border-[#eef0f2] pl-3">
-              <div className="text-[11px] text-[#6b7280]">Countries</div>
-              <div className="text-[15px] font-semibold tabular-nums text-[#14131a]">31</div>
+            <div className="border-l border-white/[0.08] pl-3">
+              <div className="text-[11px] text-[#a3a1ad]">Countries</div>
+              <div className="text-[15px] font-semibold tabular-nums text-white">31</div>
             </div>
           </div>
         </div>
         <div className={s.places}>
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-[13.5px] font-semibold text-[#14131a]">Top places</span>
-            <span className="shrink-0 rounded-md bg-[#f1f2f4] px-1.5 py-px text-[11px] font-medium text-[#6b7280] max-sm:hidden">Last 30 days</span>
+            <span className="truncate text-[13.5px] font-semibold text-white">Top places</span>
+            <span className="shrink-0 text-[11.5px] text-[#8f8d99] max-sm:hidden">Last 30 days</span>
           </div>
           <ol className="mt-2.5 grid grid-cols-1 gap-2">
             {PLACES.map((p, i) => (
               <li key={p.code} className="flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/flags/${p.code}.svg`} alt="" width={18} height={13} loading="lazy" decoding="async" className="h-[13px] w-[18px] shrink-0 rounded-[2px] object-cover shadow-[0_0_0_1px_rgba(0,0,0,0.08)]" />
-                <span className="min-w-0 flex-1 truncate text-[13px] text-[#14131a]">
+                <img src={`/flags/${p.code}.svg`} alt="" width={18} height={13} loading="lazy" decoding="async" className="h-[13px] w-[18px] shrink-0 rounded-[2px] object-cover" />
+                <span className="min-w-0 flex-1 truncate text-[13px] text-[#ececf1]">
                   {i + 1}. {p.name}
                 </span>
-                <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280] max-sm:hidden">{p.visitors}</span>
+                <span className="shrink-0 text-[12.5px] tabular-nums text-[#a3a1ad] max-sm:hidden">{p.visitors}</span>
               </li>
             ))}
           </ol>
@@ -119,20 +125,21 @@ const RESULTS = [
 
 function SearchCard() {
   return (
-    <div className={`${s.light} ${s.fixed} ${m.reveal} flex flex-col px-5 pt-5 sm:px-7 sm:pt-7`} style={{ "--i": 2 } as CSSProperties}>
-      <h3 className="text-[clamp(24px,2.2vw,30px)] font-medium leading-none tracking-[-0.03em] text-[#0f0e13]">SEO · GEO · AEO</h3>
-      <p className="mt-2.5 max-w-[46ch] text-[15px] leading-[1.55] text-[#55525e]">Improve how your store appears in Google, ChatGPT and answer engines.</p>
+    <div className={`${s.dark} ${s.fixed} ${m.reveal} flex flex-col px-5 pt-5 sm:px-7 sm:pt-7`} style={{ "--i": 2 } as CSSProperties}>
+      <h3 className="text-[clamp(24px,2.2vw,30px)] font-medium leading-none tracking-[-0.03em] text-white">SEO · GEO · AEO</h3>
+      <p className="mt-2.5 max-w-[46ch] text-[15px] leading-[1.55] text-[#a3a1ad]">Improve how your store appears in Google, ChatGPT and answer engines.</p>
+      {/* A search, as it reads at night: the whole card stays dark, nothing in it can be pressed. */}
       <div className={`${s.serp} mt-5`} aria-hidden="true">
-        <div className="flex h-11 items-center gap-3 rounded-full border border-[#dfe1e5] bg-white px-4 shadow-[0_1px_4px_rgba(32,33,36,0.08)]">
+        <div className={s.serpBar}>
           <GoogleG className="h-[18px] w-[18px] shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-[14.5px] text-[#202124]">sourdough starter for beginners</span>
-          <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0 text-[#5f6368]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <span className="min-w-0 flex-1 truncate text-[14.5px] text-[#ececf1]">sourdough starter for beginners</span>
+          <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0 text-[#8f8d99]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="11" cy="11" r="6.5" />
             <path d="m16 16 4 4" />
           </svg>
         </div>
-        <div className="mt-3 flex gap-5 border-b border-[#ebebeb] px-1 text-[13px] text-[#5f6368]">
-          <span className="border-b-2 border-[#202124] pb-2 font-medium text-[#202124]">All</span>
+        <div className="mt-3 flex gap-5 border-b border-white/[0.08] px-1 text-[13px] text-[#8f8d99]">
+          <span className="border-b-2 border-white pb-2 font-medium text-white">All</span>
           <span className="pb-2">Images</span>
           <span className="pb-2">Videos</span>
           <span className="pb-2 max-sm:hidden">Shopping</span>
@@ -142,14 +149,14 @@ function SearchCard() {
             <li key={r.site} className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[#f1f3f4] font-serif text-[13px] font-semibold text-[#3c4043]">{r.initial}</span>
+                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-white/[0.08] font-serif text-[13px] font-semibold text-[#ececf1]">{r.initial}</span>
                   <span className="min-w-0 leading-[1.2]">
-                    <span className="block truncate text-[12.5px] text-[#202124]">{r.site}</span>
-                    <span className="block truncate text-[11.5px] text-[#4d5156]">https://{r.url}</span>
+                    <span className="block truncate text-[12.5px] text-[#ececf1]">{r.site}</span>
+                    <span className="block truncate text-[11.5px] text-[#8f8d99]">https://{r.url}</span>
                   </span>
                 </div>
-                <div className="mt-1 truncate text-[15.5px] leading-[1.3] text-[#1a0dab]">{r.title}</div>
-                <div className="truncate text-[12.5px] leading-[1.45] text-[#4d5156]">{r.body}</div>
+                <div className="mt-1 truncate text-[15.5px] leading-[1.3] text-[#a9c1ff]">{r.title}</div>
+                <div className="truncate text-[12.5px] leading-[1.45] text-[#a3a1ad]">{r.body}</div>
               </div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`${IMG}/${r.img}`} alt="" width={88} height={88} loading="lazy" decoding="async" className="mt-1 h-[60px] w-[60px] shrink-0 rounded-[8px] object-cover sm:h-[68px] sm:w-[68px]" />
@@ -227,8 +234,8 @@ export function AnalyticsShowcase() {
             <p className="mt-3 max-w-[44ch] text-[15.5px] leading-[1.6] text-[var(--band-muted,#55525e)]">Every visit, tap and sale on your page and store, counted live. No setup, no extra app.</p>
             <ul className="mt-6 flex flex-wrap gap-2">
               {REPORTS.map(({ label, Icon }) => (
-                <li key={label} className="inline-flex h-9 items-center gap-2 rounded-full bg-[#f4f4f6] px-3.5 text-[13.5px] font-medium text-[#1f1d26]">
-                  <Icon className="h-[15px] w-[15px] text-[#7c3aed]" strokeWidth={2} aria-hidden="true" />
+                <li key={label} className={s.report}>
+                  <Icon className="h-[15px] w-[15px] opacity-70" strokeWidth={1.8} aria-hidden="true" />
                   {label}
                 </li>
               ))}

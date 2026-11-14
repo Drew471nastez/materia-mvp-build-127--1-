@@ -114,8 +114,9 @@ export function PricingSection({
     page (editorial) it uses the page's heading type and its 1400px column;
     /pricing keeps its own h1 and the same words.
   */
+  /* Landing round 3: on the home page the section sits on the white sheet with the calculator and the questions, so it is white there, with no rules above and below. */
   return (
-    <section data-story-section={editorial ? "pricing" : undefined} className="py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]" id="pricing">
+    <section data-story-section={editorial ? "pricing" : undefined} className={editorial ? "bg-white py-20 sm:py-24" : "py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]"} id="pricing">
       <div className={editorial ? "mx-auto max-w-[1400px]" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
         <AnimateOnScroll variant="blur-in">
           <div className={editorial ? "story-section-heading !mx-auto !mb-10 !text-center [&>p]:!mx-auto" : "text-center max-w-[640px] mx-auto mb-10 sm:mb-12"}>

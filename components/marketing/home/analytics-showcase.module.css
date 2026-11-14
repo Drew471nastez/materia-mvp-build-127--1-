@@ -1,24 +1,35 @@
 /* Section 11, analytics (landing round: smaller). Only transform and opacity animate; the globe is one canvas. */
 
-.dark,
-.light {
+/* Every card is a dark surface with a hairline: the section sits on the purple sheet (landing round 3). */
+.dark {
   position: relative;
   overflow: hidden;
   height: 100%;
   border-radius: 27px;
-}
-.dark {
   background: #0d0d10;
   color: #fff;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
-.light {
-  background: #f5f4f7;
-  color: #0f0e13;
+/* Mocks are pictures: nothing in a card answers the pointer. */
+.dark > * {
+  pointer-events: none;
+}
+/* The reports: outlined in the ground's own ink, light on the purple sheet and dark on a white one. */
+.report {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--band-ink, #1f1d26);
+  background: color-mix(in srgb, var(--band-ink, #1f1d26) 6%, transparent);
+  box-shadow: inset 0 0 0 1px var(--band-line, rgba(15, 14, 19, 0.08));
 }
 @media (max-width: 639px) {
-  .dark,
-  .light {
+  .dark {
     border-radius: 21px;
   }
   .serp {
@@ -109,11 +120,14 @@
   align-items: flex-end;
   gap: 10px;
 }
+/* Solid dark chips, a shade above the card, so nothing white floats on black. */
 .profile,
 .places {
   border-radius: 17px;
-  background: #fff;
-  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.7);
+  background: #17171c;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+    0 24px 48px -24px rgba(0, 0, 0, 0.8);
 }
 .profile {
   display: flex;
@@ -148,15 +162,25 @@
   }
 }
 
-/* The search results sit on white, like the page they are drawn from. */
+/* The search results: a night search, one shade above the card, running off its foot. */
 .serp {
   border-radius: 15px 15px 0 0;
-  background: #fff;
+  background: #15151a;
   padding: 16px 16px 0;
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.05), 0 18px 36px -26px rgba(16, 24, 40, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+.serpBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #1f1f25;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 /* The engines take turns in one pill: the one in turn in the middle, its neighbours faint at the sides. */

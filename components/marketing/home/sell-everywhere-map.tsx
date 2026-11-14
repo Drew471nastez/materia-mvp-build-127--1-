@@ -32,6 +32,13 @@
  * Every marker sits on the centre of a land dot, and no two markers or
  * labels are close enough to touch (tests/home-landing-lower.test.ts).
  *
+ * LANDING ROUND 3, THE OWNER: "white modals on black background looks ugly".
+ * The product card is a dark surface now, a shade above the card it sits in,
+ * with a light button. The flags are the one real control: pressing one
+ * chooses that country and the turn carries on from there. Nothing else in
+ * the card answers the pointer. On a phone the Example tag has its own line
+ * above the map, so it never sits on the dots.
+ *
  * MOTION. One small render per country (a few attributes), every 3.6s while
  * the section is on screen and the tab is visible. The highlight, the price,
  * the labels and the ring all move by transform and opacity, on the
@@ -124,8 +131,12 @@ const flagSrc = (code: string) => `/flags/${code}.svg`
 export function SellEverywhereMap() {
   const [ref, live] = useCommerceLive<HTMLElement>("300px 0px")
   const [dots, setDots] = useState<{ d: string; block: 1 | 2 } | null>(null)
-  const [active, setActive] = useState(0)
+  /* The country in turn and the one before it (which says Shipped as it fades), whether the turn or a press chose the next. */
+  const [turn, setTurn] = useState({ active: 0, prev: N - 1 })
+  const { active, prev } = turn
   const [moved, setMoved] = useState(false)
+  /* Counts the flags pressed by hand: the turn starts again from the chosen country. */
+  const [picks, setPicks] = useState(0)
 
   /* The dots, once the section is near: fine on a wide screen, one per 2 x 2 block on a phone. */
   useEffect(() => {
@@ -145,12 +156,17 @@ export function SellEverywhereMap() {
     if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     const id = window.setInterval(() => {
       setMoved(true)
-      setActive((a) => (a + 1) % N)
+      setTurn((t) => ({ active: (t.active + 1) % N, prev: t.active }))
     }, STEP_MS)
     return () => window.clearInterval(id)
-  }, [live])
+  }, [live, picks])
 
-  const prev = (active + N - 1) % N
+  const choose = (i: number) => {
+    if (i === active) return
+    setMoved(true)
+    setTurn({ active: i, prev: active })
+    setPicks((p) => p + 1)
+  }
 
   return (
     <section ref={ref} className="cmm" data-story-section="sell-everywhere" aria-labelledby="cmm-title">
@@ -188,17 +204,17 @@ export function SellEverywhereMap() {
             </div>
           </div>
 
-          <div className="cmm-side" aria-hidden="true">
-            <ul className="cmm-flags">
-              <li className="cmm-flag-lit" />
+          <div className="cmm-side">
+            <div className="cmm-flags" role="group" aria-label="Buyer's country">
+              <span className="cmm-flag-lit" aria-hidden="true" />
               {SELL_COUNTRIES.map((c, i) => (
-                <li key={c.code} data-on={i === active || undefined}>
+                <button key={c.code} type="button" className="cmm-flag" aria-pressed={i === active} aria-label={c.country.replace(/^the /, "")} data-on={i === active || undefined} onClick={() => choose(i)}>
                   <img src={flagSrc(c.code)} alt="" width={24} height={17} loading="lazy" decoding="async" />
-                </li>
+                </button>
               ))}
-            </ul>
+            </div>
 
-            <div className="cmm-prod">
+            <div className="cmm-prod" aria-hidden="true">
               <img src={PHOTO} alt="" width={480} height={600} loading="lazy" decoding="async" />
               <div className="cmm-prod-row">
                 <span className="cmm-prod-name">Ridge hoodie</span>
@@ -231,13 +247,14 @@ const MAP_CSS = `
 .cmm{position:relative;background:#fff;color:#0f0e13;padding:clamp(72px,9vw,128px) 0}
 .cmm-wrap{max-width:1400px;margin:0 auto;padding:0 var(--landing-gutter,22px)}
 .cmm-head{max-width:920px;margin-bottom:clamp(32px,4vw,52px)}
-.cmm-card{position:relative;isolation:isolate;overflow:hidden;border-radius:31px;color:#fff;background:#111114;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);height:500px}
+.cmm-card{position:relative;isolation:isolate;overflow:hidden;border-radius:31px;color:#fff;background:#0f0f12;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);height:500px}
+.cmm-world,.cmm-prod,.cmm-tag,.cmm-copy{pointer-events:none}
 .cmm-world{position:absolute;z-index:0;right:clamp(28px,3vw,48px);top:50%;width:calc(100% - clamp(330px,32vw,440px) - clamp(28px,3vw,48px));transform:translate3d(0,-50%,0)}
 .cmm-map{position:relative;aspect-ratio:240/90}
 .cmm-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .cmm-dot,.cmm-pin{position:absolute;width:0;height:0}
 .cmm-dot::before{content:"";position:absolute;left:-2.5px;top:-2.5px;width:5px;height:5px;border-radius:50%;background:#a78bfa;opacity:.55}
-.cmm-core{position:absolute;left:-3.5px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:#c4b5fd;box-shadow:0 0 0 2px #111114;opacity:.7;transform:scale(.8);transition:transform .7s ${EASE},opacity .5s ease-out}
+.cmm-core{position:absolute;left:-3.5px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:#c4b5fd;box-shadow:0 0 0 2px #0f0f12;opacity:.7;transform:scale(.8);transition:transform .7s ${EASE},opacity .5s ease-out}
 .cmm-pin[data-on] .cmm-core{opacity:1;transform:scale(1.15)}
 .cmm-ring{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(196,181,253,.8);opacity:0;transform:scale(.4)}
 .cmm-pin[data-on] .cmm-ring{animation:cmm-ring 2.4s ease-out infinite;animation-play-state:paused}
@@ -253,28 +270,30 @@ const MAP_CSS = `
 @keyframes cmm-shipped{0%{opacity:0;transform:translate3d(-50%,0,0)}12%,62%{opacity:.8;transform:translate3d(-50%,0,0)}100%{opacity:0;transform:translate3d(-50%,0,0)}}
 .cmm-side{position:absolute;z-index:1;left:clamp(28px,3vw,40px);top:36px;display:flex;align-items:flex-start;gap:20px}
 .cmm-flags{position:relative;display:grid;grid-auto-rows:40px;gap:8px;margin:0;padding:0;list-style:none}
-.cmm-flags li{position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:12px;opacity:.45;transition:opacity .5s ease-out}
-.cmm-flags li[data-on]{opacity:1}
+.cmm-flag{position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:12px;background:transparent;opacity:.45;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .5s ease-out}
+.cmm-flag[data-on]{opacity:1}
+@media (hover:hover) and (pointer:fine){.cmm-flag:hover{opacity:1}}
+.cmm-flag:focus-visible{outline:2px solid #c4b5fd;outline-offset:2px;opacity:1}
 .cmm-flags img{width:24px;height:17px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
-.cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;opacity:1;background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);transform:translate3d(0,calc(var(--a) * 48px),0);transition:transform .7s ${EASE}}
-.cmm-prod{width:200px;padding:12px;border-radius:13px;background:#fff;color:#141217;box-shadow:0 24px 48px -24px rgba(0,0,0,.8)}
-.cmm-prod img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;object-position:50% 20%;border-radius:8px;background:#f2f2f0}
+.cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:40px;height:40px;border-radius:12px;pointer-events:none;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--a) * 48px),0);transition:transform .7s ${EASE}}
+.cmm-prod{width:200px;padding:12px;border-radius:15px;background:#18181d;color:#f4f3f7;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 24px 48px -24px rgba(0,0,0,.8)}
+.cmm-prod img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;object-position:50% 20%;border-radius:9px;background:#26262c}
 .cmm-prod-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:11px;font-size:14px;line-height:20px}
 .cmm-prod-name{font-weight:500}
-.cmm-prices{display:grid;justify-items:end;font-variant-numeric:tabular-nums;color:#3f3d47}
+.cmm-prices{display:grid;justify-items:end;font-variant-numeric:tabular-nums;color:#c9c7d1}
 .cmm-prices span{grid-area:1/1;opacity:0;transform:translate3d(0,6px,0);transition:opacity .35s ease-out,transform .6s ${EASE}}
 .cmm-prices span[data-on]{opacity:1;transform:none;transition-delay:.1s}
-.cmm-buy{display:flex;align-items:center;justify-content:center;height:40px;margin-top:11px;border-radius:8px;background:#141217;color:#fff;font-size:14px;font-weight:500}
+.cmm-buy{display:flex;align-items:center;justify-content:center;height:40px;margin-top:11px;border-radius:9px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:600}
 .cmm-tag{position:absolute;z-index:3;top:22px;right:24px;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.07);font-size:12px;color:#c9c7d1}
 .cmm-copy{position:absolute;z-index:2;left:clamp(28px,3vw,40px);bottom:36px;max-width:clamp(270px,calc(32vw - 64px),380px)}
 .cmm-copy h3{margin:0;font-size:clamp(20px,1.7vw,24px);font-weight:500;letter-spacing:-.02em;line-height:1.2}
 .cmm-copy p{margin:8px 0 0;font-size:15px;line-height:1.55;color:#a3a1ad}
 @media (max-width:1023px){
-  .cmm-card{height:auto;display:flex;flex-direction:column;padding:24px 0 26px;border-radius:25px}
+  .cmm-card{height:auto;display:flex;flex-direction:column;padding:16px 0 26px;border-radius:25px}
+  .cmm-tag{position:static;order:0;align-self:flex-end;margin:0 16px 10px}
   .cmm-world{position:relative;right:auto;top:auto;width:auto;margin:0 16px;transform:none;order:1}
   .cmm-side{position:relative;left:auto;top:auto;order:2;flex-direction:column;align-items:center;gap:16px;margin-top:22px}
   .cmm-flags{grid-auto-flow:column;grid-auto-rows:auto;grid-auto-columns:40px;gap:8px}
-  .cmm-flags li{width:40px;height:40px;border-radius:11px}
   .cmm-flags img{width:24px;height:17px}
   .cmm-flags .cmm-flag-lit{transform:translate3d(calc(var(--a) * 48px),0,0)}
   .cmm-prod{width:min(210px,64%)}
@@ -287,14 +306,14 @@ const MAP_CSS = `
   .cmm-say em,.cmm-say-shipped{display:none}
 }
 @media (max-width:639px){
-  .cmm-card{border-radius:21px;padding:20px 0 22px}
+  .cmm-card{border-radius:21px;padding:14px 0 22px}
   .cmm-world{margin:0 10px}
   .cmm-copy{margin:22px 20px 0}
   .cmm-copy p{font-size:14.5px}
 }
 @media (prefers-reduced-motion:reduce){
   .cmm-ring,.cmm-say-shipped{animation:none!important;opacity:0}
-  .cmm-core,.cmm-say,.cmm-flags li,.cmm-flags .cmm-flag-lit,.cmm-prices span{transition:none}
+  .cmm-core,.cmm-say,.cmm-flag,.cmm-flags .cmm-flag-lit,.cmm-prices span{transition:none}
 }
 `
 

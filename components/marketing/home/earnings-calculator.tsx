@@ -32,12 +32,19 @@
  * which just occupy space"); every figure is still labelled an example, and
  * the one fact a seller needs, that Stripe's card fee is not in the figure,
  * is a short line under the fee it qualifies.
+ *
+ * Landing round 3. The kinds are half digital and community, half merch:
+ * an e-book, a course and a community, then a tee, a hoodie and a cap (a
+ * community's membership costs nothing to make and pays the same fee, so it
+ * is worked out as a download is). The product chips and the plan switch are
+ * the tabs "Make the work" uses: a soft grey track, the chosen one a white
+ * pill, plain line icons in the text colour.
  */
 import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
-import { useId, useState } from "react"
+import { useId, useRef, useState } from "react"
 import { StoryHeading } from "../story-heading"
-import { COMMERCE_PRO_MONTHLY_CENTS, CommerceKindPicker, COMMERCE_KIT_STYLE, CommerceKitStyle, CommerceNumber, CommerceSlider, commerceProduct, commerceSale, commerceUsd, useCommerceLive, type CommerceKind, type CommercePlan } from "./commerce-kit"
+import { COMMERCE_PRO_MONTHLY_CENTS, CommerceKindIcon, COMMERCE_KIT_STYLE, CommerceKitStyle, CommerceNumber, CommerceSlider, commerceSale, commerceUsd, useCommerceLive, type CommerceKind, type CommercePlan } from "./commerce-kit"
 
 const DAYS = 30
 const SALES_MAX = 100
@@ -53,16 +60,91 @@ export function commerceMonth(kind: CommerceKind, priceDollars: number, perDay: 
   return { orders, revenue, fees, production, planCost, keep: revenue - fees - production - planCost }
 }
 
+/**
+ * What the calculator offers: three things made of files and people, then
+ * three that are printed. `as` is the kind whose fee and production cost it
+ * is worked out with (./commerce-kit).
+ */
+export const EARN_KINDS = [
+  { id: "ebook", label: "E-book", as: "download", price: 19, min: 2, max: 99, unit: "orders" },
+  { id: "course", label: "Course", as: "course", price: 129, min: 9, max: 499, unit: "orders" },
+  { id: "community", label: "Community", as: "download", price: 15, min: 3, max: 99, unit: "new members" },
+  { id: "tee", label: "T-shirt", as: "tee", price: 30, min: 15, max: 60, unit: "orders" },
+  { id: "hoodie", label: "Hoodie", as: "hoodie", price: 55, min: 35, max: 110, unit: "orders" },
+  { id: "cap", label: "Cap", as: "cap", price: 28, min: 18, max: 55, unit: "orders" },
+] as const satisfies ReadonlyArray<{ id: string; label: string; as: CommerceKind; price: number; min: number; max: number; unit: string }>
+type EarnKind = (typeof EARN_KINDS)[number]["id"]
+
+const PLAN_TERMS: Record<CommercePlan, string> = {
+  free: "$0 a month · 5% + $0.25 a sale",
+  pro: "$29 a month · 3% + $0.25 a sale",
+}
+
+function KindIcon({ id, as }: { id: EarnKind; as: CommerceKind }) {
+  if (id !== "community") return <CommerceKindIcon kind={as} className="cme-kind-i" />
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="cme-kind-i" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8.5" r="3.2" />
+      <path d="M3 19.5c.4-3.2 2.8-5.2 6-5.2s5.6 2 6 5.2M15.5 5.6a3.2 3.2 0 0 1 0 5.8M17.8 14.8c1.8.7 2.9 2.3 3.2 4.7" />
+    </svg>
+  )
+}
+
+/** The kinds: a radio group in one grey track, arrow keys move between them. */
+function KindTabs({ value, onChange, label }: { value: EarnKind; onChange: (k: EarnKind) => void; label: string }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const n = EARN_KINDS.length
+  const move = (i: number) => {
+    const j = (i + n) % n
+    onChange(EARN_KINDS[j].id)
+    refs.current[j]?.focus()
+  }
+  return (
+    <div role="radiogroup" aria-label={label} className="cme-kinds">
+      {EARN_KINDS.map((k, i) => {
+        const on = k.id === value
+        return (
+          <button
+            key={k.id}
+            ref={(node) => {
+              refs.current[i] = node
+            }}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(k.id)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                e.preventDefault()
+                move(i + 1)
+              } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                e.preventDefault()
+                move(i - 1)
+              }
+            }}
+            className="cme-kind"
+            data-kind={k.id}
+          >
+            <KindIcon id={k.id} as={k.as} />
+            <span>{k.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function EarningsCalculator() {
   const [ref] = useCommerceLive<HTMLElement>(undefined, false)
   const uid = useId()
-  const [kind, setKind] = useState<CommerceKind>("download")
-  const [prices, setPrices] = useState<Partial<Record<CommerceKind, number>>>({})
+  const [kindId, setKind] = useState<EarnKind>("ebook")
+  const [prices, setPrices] = useState<Partial<Record<EarnKind, number>>>({})
   const [perDay, setPerDay] = useState(5)
   const [plan, setPlan] = useState<CommercePlan>("free")
-  const p = commerceProduct(kind)
-  const price = prices[kind] ?? p.price
-  const m = commerceMonth(kind, price, perDay, plan)
+  const p = EARN_KINDS.find((k) => k.id === kindId) ?? EARN_KINDS[0]
+  const price = prices[kindId] ?? p.price
+  const m = commerceMonth(p.as, price, perDay, plan)
 
   return (
     <section ref={ref} className="cme" data-story-section="earnings" aria-labelledby="cme-title">
@@ -94,7 +176,7 @@ export function EarningsCalculator() {
               <div className="cme-label" id={`${uid}-what`}>
                 What you sell
               </div>
-              <CommerceKindPicker value={kind} onChange={setKind} label="What you sell" />
+              <KindTabs value={kindId} onChange={setKind} label="What you sell" />
             </div>
             <CommerceSlider
               id={`${uid}-price`}
@@ -102,8 +184,8 @@ export function EarningsCalculator() {
               value={price}
               min={p.min}
               max={p.max}
-              onChange={(v) => setPrices((s) => ({ ...s, [kind]: v }))}
-              display={<NumberField label="Selling price in dollars" value={price} min={p.min} max={p.max} prefix="$" onChange={(v) => setPrices((s) => ({ ...s, [kind]: v }))} />}
+              onChange={(v) => setPrices((s) => ({ ...s, [kindId]: v }))}
+              display={<NumberField label="Selling price in dollars" value={price} min={p.min} max={p.max} prefix="$" onChange={(v) => setPrices((s) => ({ ...s, [kindId]: v }))} />}
               valueText={commerceUsd(price * 100)}
               hint={
                 <>
@@ -134,12 +216,12 @@ export function EarningsCalculator() {
               </div>
               <div role="radiogroup" aria-labelledby={`${uid}-plan`} className="cme-plans">
                 {(["free", "pro"] as const).map((id) => (
-                  <button key={id} type="button" role="radio" aria-checked={plan === id} onClick={() => setPlan(id)} className="cme-plan" data-on={plan === id || undefined}>
-                    <b>{id === "free" ? "Free" : "Pro"}</b>
-                    <small>{id === "free" ? "$0 a month · 5% + $0.25" : "$29 a month · 3% + $0.25"}</small>
+                  <button key={id} type="button" role="radio" aria-checked={plan === id} aria-label={`${id === "free" ? "Free" : "Pro"}: ${PLAN_TERMS[id]}`} onClick={() => setPlan(id)} className="cme-plan">
+                    {id === "free" ? "Free" : "Pro"}
                   </button>
                 ))}
               </div>
+              <p className="cme-terms">{PLAN_TERMS[plan]}</p>
             </div>
           </div>
 
@@ -155,7 +237,9 @@ export function EarningsCalculator() {
             <YearLine />
             <dl className="cme-rows">
               <div>
-                <dt>{m.orders.toLocaleString("en-US")} orders a month</dt>
+                <dt>
+                  {m.orders.toLocaleString("en-US")} {p.unit} a month
+                </dt>
                 <dd>{commerceUsd(m.revenue, false)}</dd>
               </div>
               <div>
@@ -267,12 +351,16 @@ const EARN_CSS = `
 .cme-num{display:inline-flex;align-items:baseline;gap:1px;padding:2px 10px;border-radius:9px;background:#f6f6f8;box-shadow:inset 0 0 0 1px #ececf0}
 .cme-num input{min-width:2ch;border:0;outline:0;background:transparent;font:inherit;color:inherit;text-align:right;padding:0;font-variant-numeric:tabular-nums}
 .cme-num:focus-within{box-shadow:inset 0 0 0 2px #7c3aed}
-.cme-plans{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:17px;background:#f4f4f6}
-.cme-plan{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:56px;padding:9px 14px;border-radius:13px;border:0;background:transparent;text-align:left;cursor:pointer;transition:background-color .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent}
-.cme-plan b{font-size:15px;font-weight:600}
-.cme-plan small{font-size:12.5px;color:#71717a}
-.cme-plan[data-on]{background:#fff;box-shadow:0 1px 2px rgba(24,24,27,.08),0 4px 12px -6px rgba(24,24,27,.18)}
-.cme-plan:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+.cme-kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:4px;border-radius:26px;background:#f1f1f1;box-shadow:inset 0 0 0 1px #e6e6e6}
+.cme-kind,.cme-plan{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0;height:44px;padding:0 10px;border:0;border-radius:999px;background:transparent;color:#616161;font:500 15px/1 var(--font-inter,Inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .2s ease,color .2s ease,box-shadow .2s ease}
+.cme-kind-i{width:18px;height:18px;flex:none}
+@media (hover:hover) and (pointer:fine){.cme-kind:hover,.cme-plan:hover{background:#e7e7e7;color:#303030}}
+.cme-kind[aria-checked="true"],.cme-plan[aria-checked="true"]{background:#fff;color:#303030;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 1px 1px rgba(0,0,0,.06),inset 0 -1px 0 rgba(0,0,0,.07)}
+.cme-kind:focus-visible,.cme-plan:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+.cme-plans{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:999px;background:#f1f1f1;box-shadow:inset 0 0 0 1px #e6e6e6}
+.cme-terms{margin:10px 0 0;font-size:13.5px;color:#71717a;font-variant-numeric:tabular-nums}
+@media (max-width:480px){.cme-kind{gap:5px;padding:0 2px;font-size:13.5px}.cme-kind-i{width:16px;height:16px}}
+@media (max-width:359px){.cme-kind-i{display:none}}
 .cme-out{position:relative;display:flex;flex-direction:column;padding:clamp(24px,3vw,40px);border-radius:clamp(21px,2.4vw,31px);background:#121017;color:#fff;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
 .cme-out-top{display:flex;justify-content:space-between;align-items:center;font-size:15px;color:#a1a1aa}
 .cme-pill{padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.07);font-size:12px;color:#d4d4d8}
@@ -314,7 +402,7 @@ const EARN_CSS = `
 }
 @media (prefers-reduced-motion:reduce){
   .cme-line-cover{display:none}
-  .cme-plan,.cme-cta,.cme-cta svg{transition:none}
+  .cme-kind,.cme-plan,.cme-cta,.cme-cta svg{transition:none}
 }
 `
 
