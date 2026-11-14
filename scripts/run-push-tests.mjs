@@ -28,12 +28,40 @@ execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inhe
 execFileSync(process.execPath, ["scripts/check-unbound-names.mjs"], { stdio: "inherit" })
 
 const SUITES = [
+  /* Round AW: a label purchase with no answer (a timeout, a dropped connection, "still making it") is settled with Shippo or EasyPost before its claim is touched, so a paid label is never lost and never bought twice; a parcel for another country carries a customs declaration made from the order (value paid, weight as sold, the product's origin and HS code), with what is missing said and never filled in; Print label reads the label from the provider each time (Shippo's address expires); a carrier's price in the checkout's own minor units. */
+  "tests/labels-safe-aw.test.ts",
+  /* Round AW: what the commerce audit found, held in place: a refund that settles late restates the order and tells the buyer, one refund email per press, a receipt that did not go is tried again, a paid basket is never dropped on a Stripe read failure, Cash out's lock undone, a Stripe customer reused only for the member's own row, a guest membership found only by a proven address, members' files not downloads, another store's collection not rewritten, plans not sold through the basket, one stock hold per option and place, the paid race, cancelled orders not sent to partners, "keep it" returns, packing slips, ShipStation's hosts, one purchase id. */
+  "tests/commerce-aw.test.ts",
   /* Round AU: the unbound-name gate reads a tsc log right (scripts/check-unbound-names.mjs) and the two crashes it found are fixed. */
   "tests/unbound-names-au.test.ts",
   /* Round AW: a timer the instance slept through is asked again (the false "no answer in 3000ms"); a new AI website is counted as one however it is asked for; a handed over business drops the founder's Google Calendar; a booking form prices its own store's product only */
   "tests/platform-reliability-aw.test.ts",
   /* Round AV: a seller Stripe has not approved transfers-only accounts for is told why (not "try again"); a store's address answers from the last good lookup when the database is slow, not with a 500 */
   "tests/platform-issues-av.test.ts",
+  /* Round AW (track B, paid calls): an email change's and an account deletion's codes counted where the route's own delete cannot erase them; the OnePage music and video lookups signed in, counted and on the service's own address only; Start with AI counted as a new website by the in-request build (only without the jobs table) and by Start over; the meta description model sent the start of a description; the decide route's model counted, the rules answering over the limit. */
+  "tests/paid-calls-aw.test.ts",
+  /* Round AW (abuse): a banned store sends no campaign mail and its AI-built site answers as no site; new AI site and community addresses are refused phishing names; storelib.com/media/ answers are sandboxed, so a stored SVG never runs as storelib.com. */
+  "tests/abuse-aw.test.ts",
+  /* Round AW (database security): the public key no longer deletes a product, a store or a used AI site (part 452), a OnePage names only its owner's store and storelib.me/{username} serves only that account's own page (part 453, lib/onepage/address-lookup), a product's sales, rating and views are Storelib's (part 454), and the AI job cancel route names the creator on both writes. */
+  "tests/db-security-aw.test.ts",
+  /* Round AW (public pages and caching): a product page whose owner got no answer is the shop's error screen, never a redirect or a 404 the CDN keeps; a creator page whose products read got no answer is the error screen, never an empty shop the CDN keeps; the image optimizer fetches from Storelib's own storage only, never any Supabase project. */
+  "tests/public-cache-aw.test.ts",
+  /* Round AW (heavy load): every Google Calendar call ends (8 s), a signed campaign link redirects without waiting on the database, poll totals and review ratings are counted by the database instead of from a 1,000 row read, and /api/products/prices is limited per address, memory first. */
+  "tests/heavy-load-aw.test.ts",
+  /* Round AW (double actions): a partial refund pressed again after its answer was lost is refused, not sent twice (Orders and a community's payments); a free claim sent again is the same order (process, quick-free); a paid order's losing writer lets its limited copy go. */
+  "tests/double-actions-aw.test.ts",
+  /* Round AW (lead): a OnePage address never another account's name (part 460), a banned store takes no new payments, an unread products count never says noindex, a handle rename clears both addresses, a course not deleted with the public key (part 461) */
+  "tests/lead-fixes-aw.test.ts",
+  /* Round AX (drafts private): a published website's preview token, draft settings and draft sections, and a OnePage's draft blocks, are not readable with the public key (parts 463, 464); no anon or browser reader needs them, and a signed in session reads only its own website. */
+  "tests/drafts-private-ax.test.ts",
+  /* Round AX (address names): a username and a store address move only through the server (lib/profile/move-handle.ts, PATCH /api/profile/username store: true) with every rule on a name; Settings and the seller onboarding no longer write them from the browser; part 462 refuses a browser key write that changes either one. */
+  "tests/address-names-ax.test.ts",
+  /* Round AX (free basket retry): a basket a code makes free names its press (the page's attempt id, an HMAC with the store, the email and the lines), so the same press sent again is the basket already written; a page without an attempt id writes as before; the cart page and the website's checkout send it. */
+  "tests/free-basket-retry-ax.test.ts",
+  /* Round AX (session cookies): the Supabase session under a __Host- name, so a published site cannot plant one */
+  "tests/session-cookies-ax.test.ts",
+  /* Round AX (form relay): visitor and buyer written mail (Contact Form, native forms, bookings, receipt, course, membership and community contact) goes only to an address the store has proven it owns (lib/seller-inbox provenInbox), else the account's own sign in address; the editor says so in tt(). */
+  "tests/form-relay-ax.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
@@ -1371,10 +1399,28 @@ const SUITES = [
   "tests/home-w13-everything.test.ts",
   /* Landing round, the lower sections: audience with real faces and the header's logo, analytics smaller with a dark globe card and SEO · GEO · AEO, the map without "fans" and with an English Buy now everywhere, integrations in two rows that never show a tile twice, crisp marks, no light under the pointer. */
   "tests/home-landing-lower.test.ts",
+  /* Landing round 3: the lower sections on their new grounds (dark cards on purple, the tab family, inert mocks). */
+  "tests/home-landing-lower3.test.ts",
+  /* Landing round 4, the lower sections: audience lighter (one card, three plain rows); analytics without sourdough (a LUT pack search), a dot grid on the dark SEO card, an engine switcher that plays and can be pressed with light in each engine's colours, fewer chips with depth; the map's product and Buy now language change with the country, larger on a phone; integrations' fades lighter and narrower, no bump, nothing square behind a turn; earnings without the plan switch or the black card; the AI terminal a quarter written with a preview, words unselectable, the card wider. */
+  "tests/home-landing-lower4.test.ts",
   /* Landing round: the showcase drags and settles on a glide (autoplay kept), and "Make the work" shows real products (no Golden Hour preset), a calm community, the tee on a grey tile and a continuous storefront rail. */
   "tests/home-landing-top.test.ts",
+  /* Landing round 3, the top sections: the store strip has real OnePages and no address, and takes no pointer; no support request about a payout; the digital product is a LUT pack (and a sample pack in the business section); the ideas and business tabs are of Make the work's family; the business section reads on white; half of the examples ship. */
+  "tests/home-landing-top3.test.ts",
+  /* Landing round 4, the top sections: the showcase without the yoga site, the surf coach, the sample packs or sourdough, with Gia and Bea made again and four new captures of real pages, and a short swipe a whole step; Make the work with a specific heading, colourful grounds that cross fade, a new course and community card, a strip of whole cards (stores, OnePages with share and subscribe, a community on a phone) that drifts and drags, the support card of before without the inbox switch; possibilities pills whose shadow is not cut. */
+  "tests/home-landing-topa4.test.ts",
   /* Landing round (rest): See what you could earn gets one flash photograph and loses its small print; the app's line is short; the public plan cards say plain things, each from the plan tables, with a quiet tick; Your AI tools work here too: the marks, a line true to a connection, the real MCP tools in a terminal on the compositor, paused off screen, still under reduced motion, after the integrations. */
   "tests/home-landing-rest.test.ts",
+  /* Landing round 3, commerce: a sixth How it works tile for a creator's own domain (the three things a domain can serve, Pro, the DNS check and HTTPS, each held to the code), six even tiles, checkout demos that start over, a phone alone for one-tap payments, the pill tabs in their dark form, dark cards on black, and mocks that take no pointer. */
+  "tests/home-landing-commerce3.test.ts",
+  /* Landing round 4, commerce: no Weeknight Pasta or blue tee, colourful changing grounds under How it works, the live OnePage and product sheet captured, a cleaner domain tile; the checkout phone rises and stays with products orbiting it, the headline comes in, four tab cards rise over the phone on view timelines (observer fallback), the website checkout on a computer, Apple Pay, Google Pay and Stripe, one cap in five currencies, a light reminder demo. */
+  "tests/home-landing-commerce4.test.ts",
+  /* Landing round 3 (frame): the page's base is dark and the light sections ride on rounded white and purple sheets that rise by the page's own scroll (no script, no animation, held by position: sticky alone, off for reduced motion); the grounds in the owner's order with One store on white; the footer without the newsletter box, in four columns with the app badges under the logo; a Start now pill, or the person's photo, beside the menu on the home page's phone bar. */
+  "tests/home-landing-frame3.test.ts",
+  /* Landing round 4, top B: See your ideas come to life behind thin pill tabs again (Website builder, OnePage editor, Community), a heading that changes by itself, the desktop editors on a phone, a merch store, a LUT pack on the Ember theme, one community drawn as it is inside; One store for everything you sell pinned while the scroll steps through the five kinds (sticky and one IntersectionObserver, a plain list under reduced motion or on a short screen), new examples on coloured grounds; the creators button calm, four new photographs. */
+  "tests/home-landing-topb4.test.ts",
+  /* Landing round 4 (frame): sheets rise like a phone's sheet (a small side inset settling to full width, the held block behind shrinking a little and dimming), CSS scroll-driven, transform and opacity only, off for reduced motion; Make the work on a flat ground, not a drawer; the globe's pill glides on the compositor a few times a second and its move path reads no layout; the app and the closing call on a dark close with no seam into the footer; a calmer FAQ with a neutral plus and grid-row opening; a small dot grid background. */
+  "tests/home-landing-frame4.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
@@ -1584,6 +1630,10 @@ const STRICT_SUITES = [
   "tests/ai-builder-start-live-n1.test.ts",
   /* Round O (O6): the design intelligence on every AI surface (docs/ai-builder/design-intelligence.md). The website agent, the Ask for a change agent and its creative planner, the section writer, the classic planner and copy filler and the Storelib Sites agent each carry designRulesFor(surface); the agent's system prefix is byte identical across two jobs while the briefs (creative brief, art direction, references as text, motion) differ; every edit surface gets the install's DESIGN.md and the keep-the-brand rule (spec I.5) and a new site does not; no surface carries round N's "editorial serif" type steering, and a personal trainer is not handed the italic serif bundle. */
   "tests/ai-surfaces-o6.test.ts",
+  /* Round AW (double actions), through the real routes: Orders > Refund pressed again after its answer was lost is refused (409) and Stripe makes one refund; Get it free and a OnePage's free product sent again with the same attempt id are one order, one receipt email, a one use code used once. Strict: tests/_journey. */
+  "tests/double-actions-aw-journey.test.ts",
+  /* Round AX (free basket retry), through the real routes: a built site's cart and the website's checkout a code makes free, pressed again and sent twice at once, are one basket, one receipt email, one sale notice, a one use code used once, a limited copy taken once, nothing held; a page without an attempt id writes as before. Strict: tests/_journey. */
+  "tests/free-basket-retry-ax-journey.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

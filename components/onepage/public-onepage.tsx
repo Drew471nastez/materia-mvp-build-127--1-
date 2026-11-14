@@ -66,6 +66,7 @@ import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+import { attemptIdOf } from "@/lib/checkout/attempt-id"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/onepage/block-activity"
 import { canvasRule, heroHeaderShown, pageCanvasColour } from "@/lib/onepage/page-frame"
@@ -929,6 +930,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const [quickCheckoutAssets, setQuickCheckoutAssets] = useState<DigitalAsset[]>([])
   const [quickCheckoutReceiptToken, setQuickCheckoutReceiptToken] = useState<string | null>(null)
   const [quickCheckoutError, setQuickCheckoutError] = useState<string | null>(null)
+  /* One attempt id per opening of the sheet (lib/checkout/free-claim): a press sent again after its answer was lost gets the same order, not a second one. */
+  const quickClaimAttempt = useRef<string | null>(null)
 
   // Purchased products tracking - persisted in localStorage
   const [purchasedProducts, setPurchasedProducts] = useState<Record<string, { receiptToken: string; assets: DigitalAsset[] }>>({})
@@ -961,6 +964,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     setQuickCheckoutAssets([])
     setQuickCheckoutReceiptToken(null)
     setQuickCheckoutError(null)
+    quickClaimAttempt.current = null
     setQuickCheckoutModalOpen(true)
   }, [])
 
@@ -985,6 +989,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           email: formData.email,
           /* This page and where its visit came from, for the order's Source. */
           origin: pageOrigin(),
+          attempt_id: attemptIdOf(quickClaimAttempt),
         }),
       })
 
@@ -1208,8 +1213,17 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const patternClears = safeTheme.background_type === "solid" || safeTheme.background_type === "gradient"
   useHeaderClearance(cardRef, patternClears && liveLayout !== "phone")
   useHeaderClearance(phonePageRef, patternClears && liveLayout !== "desktop")
-  /* Round W8: a classic header flush left sits under the round Share button in the top left corner; it starts clear of it. */
-  const clearOfShare = (top: string) => (top === "50px" && headerAlignOf(safeTheme) === "left" && safeSettings.share_enabled !== false ? "68px" : top)
+  /*
+    Round W8: a classic header flush left sits under the round Share button in the top left corner; it starts clear of it.
+    Wave 15, the owner: "the Share and the bell sit too close to the profile avatar when the header is Classic. Fix that
+    in every theme." A fixed 50px (68px flush left) was measured against a 16px corner, but the corner moves: 24px and a
+    44px button from 640px, further in on the editor's rounded phone (26px), and down by a notch. The picture sat 12px
+    under Share flush left (2px in the editor's preview) and started above the buttons' foot when centred. It now starts
+    a fixed gap below wherever the buttons end, whatever the alignment, size or shape (app/globals.css
+    --onepage-classic-top), whenever either button is drawn.
+  */
+  const cornerButtonsShown = safeSettings.share_enabled !== false || (safeSettings.subscribe_enabled !== false && !!seller_id)
+  const clearOfShare = (top: string) => (top === "50px" && cornerButtonsShown ? "var(--onepage-classic-top, 76px)" : top)
   /* What the page draws, in order: a block, or two links or two products to a row. */
   const laid = pairProductTiles(safeBlocks
     /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */

@@ -69,7 +69,11 @@ const TRACKERS = new Set(["/api/track-view", "/api/track-event"])
 
 /** The same test own-visit.ts uses for "this request carries a sign in". */
 export function carriesSignIn(cookieNames: readonly string[]): boolean {
-  return cookieNames.some((name) => name.startsWith("sb-") && name.includes("auth-token"))
+  /* Under the old name or the `__Host-` one (lib/supabase/host-session.ts, round AX). */
+  return cookieNames.some((name) => {
+    const bare = name.startsWith("__Host-") ? name.slice(7) : name
+    return bare.startsWith("sb-") && bare.includes("auth-token")
+  })
 }
 
 export function skipsSessionRefresh(pathname: string, cookieNames: readonly string[]): boolean {

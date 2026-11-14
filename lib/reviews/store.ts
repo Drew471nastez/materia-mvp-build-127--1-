@@ -24,7 +24,7 @@ import "server-only"
 import { revalidateTag } from "next/cache"
 import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
-import { summarize, type StarCounts } from "./rules"
+import { countStars, summarizeStars, type StarCounts } from "./rules"
 import { readLadder } from "@/lib/supabase/missing-memory"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,33 +94,45 @@ export async function readPublishedReviews(
 }
 
 /**
- * Ratings of the published reviews of one product or one creator: verified
- * buyers' only, as the ratings trigger counts them (run-now part 134), so a
- * website visitor's or an imported review never moves a Storelib rating or
- * Explore. Before part 134 there is no `verified`, and every review was a
- * buyer's.
+ * How many of the published reviews of one product or one creator gave each
+ * number of stars: verified buyers' only, as the ratings trigger counts them
+ * (run-now part 134), so a website visitor's or an imported review never
+ * moves a Storelib rating or Explore. Before part 134 there is no `verified`,
+ * and every review was a buyer's.
+ *
+ * COUNTED BY THE DATABASE, NOT READ ROW BY ROW (round AW). This read every
+ * rating and summed them here, but PostgREST answers at most its max_rows,
+ * 1,000 on Supabase: past a thousand reviews the count stuck at 1,000 and the
+ * average was some thousand of them, and refreshReviewStats then wrote that
+ * over the right figures the part 134 trigger had just counted, on the
+ * product and on the creator, after every review. Five counts give the exact
+ * figures at any size. Each is a GET of one id with its count, not a HEAD:
+ * PostgREST answers a HEAD that names a missing column with no body, so a
+ * database before part 134 would not be seen to lack `verified` and would
+ * never be asked the older way.
  */
-export async function publishedRatings(db: Db, where: { productId?: string | null; creatorId?: string | null }): Promise<number[] | null> {
+export async function publishedStars(db: Db, where: { productId?: string | null; creatorId?: string | null }): Promise<StarCounts | null> {
   const key = where.productId ? "product_id" : "creator_id"
   const value = where.productId ?? where.creatorId
-  if (!value) return []
+  if (!value) return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  const counted = (n: number) => db.from("reviews").select("id", { count: "exact" }).eq(key, value).eq("rating", n)
   const res = await readLadder(
     "reviews:ratings",
     [
-      () => db.from("reviews").select("rating").eq(key, value).eq("status", "published").neq("verified", false),
-      () => db.from("reviews").select("rating").eq(key, value).eq("status", "published"),
-      () => db.from("reviews").select("rating").eq(key, value),
+      () => countStars((n) => counted(n).eq("status", "published").neq("verified", false).limit(1)),
+      () => countStars((n) => counted(n).eq("status", "published").limit(1)),
+      () => countStars((n) => counted(n).limit(1)),
     ],
     missingColumn,
   )
   if (res.error) return null
-  return ((res.data ?? []) as { rating: number }[]).map((r) => Number(r.rating))
+  return res.data
 }
 
 /** The star breakdown of a product's published reviews. */
 export async function starBreakdown(db: Db, productId: string): Promise<{ count: number; average: number; stars: StarCounts } | null> {
-  const ratings = await publishedRatings(db, { productId })
-  return ratings ? summarize(ratings) : null
+  const stars = await publishedStars(db, { productId })
+  return stars ? summarizeStars(stars) : null
 }
 
 /**
@@ -131,16 +143,16 @@ export async function starBreakdown(db: Db, productId: string): Promise<{ count:
 export async function refreshReviewStats(db: Db, ids: { productId?: string | null; creatorId?: string | null; productSlug?: string | null }): Promise<void> {
   try {
     if (ids.productId) {
-      const ratings = await publishedRatings(db, { productId: ids.productId })
-      if (ratings) {
-        const s = summarize(ratings)
+      const stars = await publishedStars(db, { productId: ids.productId })
+      if (stars) {
+        const s = summarizeStars(stars)
         await db.from("products").update({ reviews_count: s.count, reviews_average: s.average }).eq("id", ids.productId)
       }
     }
     if (ids.creatorId) {
-      const ratings = await publishedRatings(db, { creatorId: ids.creatorId })
-      if (ratings) {
-        const s = summarize(ratings)
+      const stars = await publishedStars(db, { creatorId: ids.creatorId })
+      if (stars) {
+        const s = summarizeStars(stars)
         await db.from("creators").update({ reviews_count: s.count, reviews_average: s.average }).eq("id", ids.creatorId)
       }
     }

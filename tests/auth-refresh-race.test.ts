@@ -98,8 +98,9 @@ async function main() {
   {
     const proxy = readFileSync(join(process.cwd(), "proxy.ts"), "utf8")
     check("the proxy installs it", /\nquietAuthRefusals\(\)\n/.test(proxy))
+    // Changed on purpose (round AX): read from the raw header through sessionView (a planted duplicate is visible there) and written under the __Host- name; still the request and the response.
     check("cookies read from the request and written to it and to the response",
-      /getAll\(\) \{\s*return request\.cookies\.getAll\(\)/.test(proxy) && /cookiesToSet\.forEach\(\(\{ name, value \}\) => request\.cookies\.set\(name, value\)\)/.test(proxy))
+      /getAll\(\) \{\s*return sessionView\(cookiePairs\(request\.headers\.get\("cookie"\)\), sessionKey\)\.cookies/.test(proxy) && /cookiesToSet\.forEach\(\(\{ name, value \}\) => request\.cookies\.set\(outgoingName\(name, sessionKey, hostCookies\), value\)\)/.test(proxy) && /supabaseResponse\.cookies\.set\(out, value,/.test(proxy))
     /* Changed on purpose (round rel-auth): a request with no session cookie is answered anonymous before it (no keys fetched), which lengthens the line. */
     check("the user asked for right after the client is made", /const current[^=]*=[\s\S]{0,220}?await readVerifiedSession\(supabase, supabaseUrl\)/.test(proxy))
     check("a redirect to sign in carries the cleared cookies", /for \(const cookie of supabaseResponse\.cookies\.getAll\(\)\) redirect\.cookies\.set\(cookie\)/.test(proxy))

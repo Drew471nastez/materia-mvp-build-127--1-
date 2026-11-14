@@ -430,7 +430,8 @@ export async function priceCheckout(
       .select("id", { count: "exact", head: true })
       .eq("creator_id", creatorId)
       .eq("coupon_id", c.id)
-      .eq("status", "paid")
+      /* Partly refunded is still an order that used the code: counting "paid" alone let the same buyer use a once-per-customer code again after any refund. */
+      .in("status", ["paid", "partially_refunded"])
       .eq("buyer_email", req.buyerEmail.toLowerCase().trim())
     if ((count ?? 0) >= c.per_customer_limit) return { ok: false, status: 400, error: "You have already used this code." }
   }

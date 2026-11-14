@@ -15,7 +15,7 @@ import { currentCreatorId } from "@/lib/creators/current"
 import { blankProject } from "./starter"
 import { siteCountGate, type SitePlan } from "./plan"
 import { projectError } from "./file-path"
-import { siteSlugError, toSiteSlug } from "./slug"
+import { newSiteSlugError, toSiteSlug } from "./slug"
 import type { ProjectFiles, Site } from "./types"
 
 interface SiteRow {
@@ -266,13 +266,14 @@ export async function createSite(
  * instead of `studio-7`.
  */
 async function availableSlug(name: string): Promise<string | null> {
+  /* A new address, so the phishing-name rule too (lib/sites/slug.ts newSiteSlugError): such a name gets none here, and the first publish allocates a plain one. */
   const base = toSiteSlug(name)
-  if (siteSlugError(base)) return null
+  if (newSiteSlugError(base)) return null
 
   const supabase = await createClient()
   for (let attempt = 0; attempt < 8; attempt++) {
     const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`.slice(0, 63)
-    if (siteSlugError(candidate)) continue
+    if (newSiteSlugError(candidate)) continue
     const { count } = await supabase
       .from("sites")
       .select("id", { count: "exact", head: true })

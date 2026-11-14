@@ -31,8 +31,20 @@ const PHONE = "(max-width: 767px)"
   for a whole group), and a hard flick on a phone carries on through up to
   three cards, as a native scroller would. Autoplay is unchanged.
 */
+/*
+  LANDING ROUND 4, THE OWNER: "when I just swipe a little bit, I don't have to
+  swipe so long". A short flick is a whole step: a release faster than
+  110px/s goes on in its own direction, and a drag of 6% of the step (10 to
+  14px, about a third of the 40px it was) is enough on its own. The 6px before a
+  press becomes a drag, and the vertical test there, are unchanged, so a
+  finger moving down the page still scrolls it.
+*/
 export const SHOWCASE_RAIL: RailMotionConfig = {
   ...SHOWCASE_MOTION,
+  swipeVelocity: 110,
+  swipeDistanceRatio: 0.06,
+  swipeDistanceMin: 10,
+  swipeDistanceMax: 14,
   swipeMaxSteps: 3,
   glideSettle: { minMs: 280, maxMs: 520, msPerPx: 0.18, minLaunch: 0.7 },
 }

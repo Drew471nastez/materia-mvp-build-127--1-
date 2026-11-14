@@ -81,6 +81,27 @@ export interface RuleDecision extends RouteDecision {
 /** Asked only when the rules cannot tell. Null is "do not know": the rules' default holds. */
 export type RouteClassifier = (prompt: string, ctx: { addable: string[] }) => Promise<RouteAgent | null>
 
+/*
+  THE MODEL IS ASKED AT MOST SO OFTEN (round AW). The decide route
+  (app/api/website-builder/themes/[installId]/agent/decide) was the one route
+  that starts a model call of its own with no limit at all: it is asked
+  before every Ask Storelib message, writes nothing, and a request the rules
+  cannot place ("add a <thing the theme has no section for>") is a paid call
+  (./router-model.ts), so a script could ask it as fast as it liked. Over the
+  limit the rules answer alone, which is what a model that did not answer in
+  four seconds already means: the person never sees a refusal. Per store,
+  far above anybody typing.
+*/
+export const ROUTER_MODEL_LIMITS = [
+  { limit: 30, seconds: 60 },
+  { limit: 300, seconds: 3600 },
+] as const
+
+/** The classifier, asked only when `may` says this one is within the limit; otherwise "do not know", and the rules decide. */
+export function limitedClassifier(classify: RouteClassifier, may: () => Promise<boolean>): RouteClassifier {
+  return async (prompt, ctx) => ((await may()) ? classify(prompt, ctx) : null)
+}
+
 const text = (s: string) => s.replace(/\s+/g, " ").trim()
 
 /** A section of its own: "add a new section", "build me a section like this image", "a section with a flag". */

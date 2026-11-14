@@ -525,15 +525,21 @@ async function main() {
   /* ── Contact seller ─────────────────────────────────────────────────── */
   console.log("\nContact seller")
   const write = (body: unknown, headers: Record<string, string> = {}) => contact.POST(post("/api/receipt/contact", body, headers))
+  /* Round AX: the seller's sign in address, as Supabase Auth answers it. A support address is used only when it is one the store has proven (lib/seller-inbox provenInbox). */
+  const signIn = (db: any, email = "help@seller.example") => {
+    db.auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === SELLER_USER ? { email } : null } }) } }
+    return db
+  }
   {
-    const db = world()
+    // Changed on purpose (round AX): the support address is the seller's sign in address here, so it is proven and used.
+    const db = signIn(world())
     reset(db, null)
     const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "  Hi, the zip will not open on my Mac.\u0000  ", buyerEmail: "attacker@example.com" })
     const b = await json(r)
     check("a guest holding the token can write: 200", r.status === 200 && b.success === true, JSON.stringify(b))
     const m = S.sent[0]
     /* Changed on purpose: the route resolves the inbox itself now (lib/seller-inbox), the support address the seller set first. */
-    check("one message, to the support address the seller set", S.sent.length === 1 && m.kind === "contact" && m.to === "help@seller.example", JSON.stringify(S.sent))
+    check("one message, to the support address the seller set (their own sign in address)", S.sent.length === 1 && m.kind === "contact" && m.to === "help@seller.example", JSON.stringify(S.sent))
     const logged = db.tables.email_logs.filter((l: any) => l.email_type === "seller_message")
     check("recorded in email_logs as seller_message, sent, with no message text", logged.length === 1 && logged[0].status === "sent" && logged[0].order_id === ORDER && logged[0].recipient_email === "help@seller.example" && !JSON.stringify(logged).includes("zip"), JSON.stringify(logged))
     check("Reply-To is the order's address, not one in the request", m?.message?.buyerEmail === "ghita@example.com", JSON.stringify(m?.message))
@@ -542,6 +548,13 @@ async function main() {
     check("the message tidied", m?.message?.message === "Hi, the zip will not open on my Mac.")
     check("recorded without the message", db.tables.security_events.length === 1 && db.tables.security_events[0].event_type === "seller_contacted" && !JSON.stringify(db.tables.security_events).includes("zip"))
     check("and the limiter counted it", db.tables.rate_limit_hits.some((h: any) => h.bucket === "receipt-contact"))
+  }
+  {
+    /* Round AX: a support address nobody confirmed is passed over: the buyer's words go to the seller's own sign in address. */
+    const db = signIn(world(), "Andrew@Seller.example")
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    check("an unproven support address is passed over for the sign in address", r.status === 200 && S.sent.length === 1 && S.sent[0]?.to === "andrew@seller.example", JSON.stringify(S.sent))
   }
   {
     /* No support address: the login's address as it is now, read from auth, not the profile's older copy. */
@@ -597,6 +610,7 @@ async function main() {
   }
   {
     const db = world()
+    signIn(db)
     reset(db, null)
     const statuses: number[] = []
     for (let i = 0; i < 4; i++) statuses.push((await write({ orderId: ORDER, receiptToken: TOKEN, message: `Question ${i}` })).status)
@@ -611,7 +625,7 @@ async function main() {
     check("five today already: 429 in words", r.status === 429 && /5 times today/.test(b.error) && S.sent.length === 0, JSON.stringify(b))
   }
   {
-    const db = world()
+    const db = signIn(world())
     reset(db, null)
     S.sendFails = true
     const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Hello there" })
@@ -622,7 +636,7 @@ async function main() {
   }
   {
     /* Before the SQL part: email_logs refuses the new type. The message still goes and the buyer is told it went. */
-    const db = world({ failInsert: { email_logs: { code: "23514", message: 'new row for relation "email_logs" violates check constraint "email_logs_email_type_check"' } } })
+    const db = signIn(world({ failInsert: { email_logs: { code: "23514", message: 'new row for relation "email_logs" violates check constraint "email_logs_email_type_check"' } } }))
     reset(db, null)
     const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Hello there" })
     check("before the email_logs SQL: sent and 200 all the same", r.status === 200 && S.sent.length === 1)

@@ -51,7 +51,7 @@
 
 import { platformEmail } from "@/lib/emails/layout"
 import { v4 as uuidv4 } from "uuid"
-import { inboxAddress, sellerInbox, type LoginEmail } from "@/lib/seller-inbox"
+import { inboxAddress, provenInbox, type LoginEmail } from "@/lib/seller-inbox"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -319,8 +319,15 @@ export async function markEmailed(db: Db, id: string | null): Promise<void> {
  * it is now (the owner's, for a second business), then the profile's. Read
  * from the published site and the creator's own rows, never from the request.
  * A "+slb-" business tag never reaches the To.
+ *
+ * Round AX: the section's address and the support email are used only when
+ * the store has proven it owns them (the account's or a team member's sign
+ * in address, lib/seller-inbox provenInbox). Any other goes unused and the
+ * message goes to the account's own address: the Contact Form was an open
+ * relay of visitor text from Storelib's domain to any address typed there.
  */
 export async function creatorInbox(db: Db, creatorId: string, sectionId: string | null, loginEmail: LoginEmail = async () => null): Promise<string | null> {
+  let chosen: string | null = null
   if (sectionId) {
     try {
       const { data: install } = await db
@@ -337,16 +344,19 @@ export async function creatorInbox(db: Db, creatorId: string, sectionId: string 
         for (const p of (pages ?? []) as { sections?: unknown }[]) {
           const list = Array.isArray(p.sections) ? (p.sections as { id?: string; settings?: Record<string, unknown> }[]) : []
           const hit = list.find((s) => s?.id === sectionId)
-          const own = inboxAddress(hit?.settings?.recipient_email)
-          if (own) return own
-          if (hit) break
+          if (hit) {
+            chosen = inboxAddress(hit.settings?.recipient_email)
+            break
+          }
         }
       }
     } catch {
       /* The creator's own addresses below. */
     }
   }
-  return (await sellerInbox(db, creatorId, loginEmail))?.to ?? null
+  const inbox = await provenInbox(db, creatorId, loginEmail, chosen ? [chosen] : [])
+  if (inbox?.held) console.warn("[contact] the form's address is not the account's or a team member's sign in email; sent to the account's address")
+  return inbox?.to ?? null
 }
 
 /* ─── The email to the creator ─────────────────────────────────────────── */

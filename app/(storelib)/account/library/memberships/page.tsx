@@ -5,6 +5,7 @@ import { fullUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadLibraryMemberships } from "@/lib/memberships/library"
 import { NOT_SET_UP, viewerOf } from "@/lib/memberships/server"
+import { provenViewer } from "@/lib/memberships/viewer"
 import { MembershipsList } from "@/components/memberships/library-list"
 
 export const dynamic = "force-dynamic"
@@ -23,7 +24,7 @@ export const metadata: Metadata = { title: "Memberships" }
  */
 export default async function LibraryMembershipsPage() {
   const { user } = await fullUserForRequest()
-  const viewer = viewerOf(user)
+  const viewer = await provenViewer(viewerOf(user))
   if (!viewer) return null
   const list = await loadLibraryMemberships(createAdminClient(), viewer)
   const count = list.available ? list.current.length : 0

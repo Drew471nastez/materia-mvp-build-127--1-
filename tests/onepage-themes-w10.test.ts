@@ -171,7 +171,8 @@ for (const skin of THEME_SKINS) {
 const scene = read("components/onepage/themes/theme-skin-scene.tsx")
 for (const skin of THEME_SKINS) {
   const pieces = [...(scene.match(new RegExp(`\\n  ${skin}: \\[(.*)\\],`))?.[1] ?? "").matchAll(/\["([a-z-]+)", (\d+)\]/g)].map((m) => m[1])
-  check(`${skin}: a scene of ${pieces.length} kinds of piece, each drawn`, pieces.length >= 3 && pieces.every((p) => css.includes(`[data-skin-scene="${skin}"] [data-sk="${p}"]`)), pieces.join())
+  /* Changed on purpose (wave 15): Renaissance's scene is the painting alone, whole and still; its frame, sky band and full scrim are gone at the owner's word. */
+  check(`${skin}: a scene of ${pieces.length} kinds of piece, each drawn`, pieces.length >= (skin === "renaissance" ? 1 : 3) && pieces.every((p) => css.includes(`[data-skin-scene="${skin}"] [data-sk="${p}"]`)), pieces.join())
 }
 const FAMILY: Record<string, string> = { aero2: "aero", aqua2: "aqua", messenger2: "messenger", y2k2: "y2k", playful2: "playful", grunge2: "grunge" }
 for (const [second, first] of Object.entries(FAMILY)) {

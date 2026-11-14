@@ -38,13 +38,32 @@
  * is served as it always was, unoptimised and intact.
  */
 const OPTIMIZABLE_HOSTS = [
-  /(^|\.)supabase\.co$/,
   /^images\.unsplash\.com$/,
   /^img\.youtube\.com$/,
   /^i\.ytimg\.com$/,
   /^images\.pexels\.com$/,
   /^i\.pinimg\.com$/,
 ]
+
+/*
+  STORELIB'S OWN STORAGE ONLY (round AW), as next.config.mjs OWN_STORAGE_HOSTS
+  lists it: the production project and the one this deployment reads, for
+  their storage files. It was any *.supabase.co, which the optimizer no longer
+  fetches from: a picture on another project is drawn as it is.
+*/
+const PRODUCTION_STORAGE_HOST = "skgtqglupjcnfhfscink.supabase.co"
+
+/** Whether a host and path are one of Storelib's own storage files. */
+export function ownStorageFile(hostname: string, pathname: string): boolean {
+  if (!pathname.startsWith("/storage/v1/")) return false
+  const host = hostname.toLowerCase()
+  if (host === PRODUCTION_STORAGE_HOST) return true
+  try {
+    return host === new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname.toLowerCase()
+  } catch {
+    return false
+  }
+}
 
 /** Whether the optimizer can be pointed at this URL at all. */
 export function isOptimizableImage(src?: string | null): boolean {
@@ -56,6 +75,7 @@ export function isOptimizableImage(src?: string | null): boolean {
     if (url.protocol !== "https:") return false
     /* Storelib's own address for a public file (https://storelib.com/media/..., lib/storage/media-url.ts): next.config lists it, path and all. */
     if (url.hostname === (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com") && url.pathname.startsWith("/media/")) return true
+    if (ownStorageFile(url.hostname, url.pathname)) return true
     return OPTIMIZABLE_HOSTS.some((host) => host.test(url.hostname))
   } catch {
     return false

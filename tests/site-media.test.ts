@@ -26,7 +26,8 @@ function check(name: string, ok: boolean, detail?: string) {
   }
 }
 
-const SUPA = "https://abc.supabase.co/storage/v1/object/public/media/shirt.jpg"
+// Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
+const SUPA = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/media/shirt.jpg"
 
 {
   const out = optimizeSectionMedia(`<figure><img src="${SUPA}" alt="A shirt" width="600" height="800"></figure>`)

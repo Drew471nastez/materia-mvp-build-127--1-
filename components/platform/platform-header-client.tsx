@@ -2409,7 +2409,57 @@ export function PlatformHeaderClient({
                   </Link>
                 </div>
 
-                {/* Right - Only hamburger (glassmorphism) with animation */}
+                {/*
+                  Right. On the home page (landing round 3, the owner's picture):
+                  a white "Start now" pill beside the menu for a visitor, the
+                  person's photo there instead once signed in (it opens the
+                  account sheet, as on the buyer pages). Both come from what
+                  this header already knows (the auth snapshot, then the
+                  session read): nothing new is fetched. The slot is 42px
+                  tall either way and sits at the row's right end, so the
+                  logo and the menu do not move when the answer arrives; a
+                  first visit holds the pill's place unseen until then.
+                */}
+                <div className="flex items-center gap-2.5" data-home-phone-actions={pathname === "/" ? "" : undefined}>
+                {pathname === "/" ? (
+                  user ? (
+                    <button
+                      type="button"
+                      onClick={() => setMobileProfileOpen(true)}
+                      className="flex h-[42px] w-[42px] items-center justify-center rounded-full cursor-pointer"
+                      aria-label="Open profile menu"
+                      data-home-phone-avatar=""
+                    >
+                      <AppAvatar
+                        src={avatarUrl}
+                        name={(displayName || "").trim()}
+                        alt=""
+                        size={34}
+                        className={
+                          buyerHeaderLight
+                            ? "shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_1px_2px_rgba(16,24,40,0.14)]"
+                            : "shadow-[0_0_0_1px_rgba(255,255,255,0.16),0_1px_2px_rgba(0,0,0,0.5)]"
+                        }
+                      />
+                    </button>
+                  ) : (
+                    <Link
+                      {...guestLink(GUEST_SELL)}
+                      data-home-phone-start=""
+                      data-placeholder={loading ? "" : undefined}
+                      aria-hidden={loading || undefined}
+                      tabIndex={loading ? -1 : undefined}
+                      className={cn(
+                        "inline-flex h-[38px] touch-manipulation items-center whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors [-webkit-tap-highlight-color:transparent]",
+                        buyerHeaderLight ? "bg-[#1a1a2e] text-white active:bg-black" : "bg-white text-black active:bg-white/85",
+                        chrome.focus,
+                        loading && "invisible",
+                      )}
+                    >
+                      Start now
+                    </Link>
+                  )
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -2419,6 +2469,7 @@ export function PlatformHeaderClient({
                 >
                   <AnimatedHamburger isOpen={mobileMenuOpen} />
                 </button>
+                </div>
               </div>
             </>
           ) : (

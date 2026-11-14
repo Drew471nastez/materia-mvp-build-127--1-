@@ -17,6 +17,12 @@
 
   Landing round, the owner: the line under the heading was too long, so it
   is one short sentence now, and the photo's corner is a pixel tighter.
+
+  Round 4, the owner: no purple ground. It opens the page's dark close now
+  (the near-black that runs on into the footer), drawn for dark itself: the
+  photograph first and large, in a thin light edge; beside it the heading,
+  the line, the three points between faint hairlines and the badges. No
+  card: on dark the only surface is the photograph.
 */
 
 import { useRef, type CSSProperties } from "react"
@@ -73,7 +79,7 @@ function GooglePlayBadge() {
           <span className="mt-[3px] text-[17px] font-semibold tracking-[-0.02em] sm:text-[20px]">Google Play</span>
         </span>
       </span>
-      <span className="absolute -right-2.5 -top-2.5 rounded-full bg-[#7c3aed] px-2 py-[3px] text-[10.5px] font-semibold leading-none text-white ring-2 ring-white">Coming soon</span>
+      <span className="absolute -right-2.5 -top-2.5 rounded-full bg-white px-2 py-[3px] text-[10.5px] font-semibold leading-none text-[#18181b]">Coming soon</span>
     </span>
   )
 }
@@ -88,28 +94,10 @@ export function AppAnywhere() {
       ref={ref}
       id="app-anywhere"
       aria-labelledby="app-anywhere-title"
-      className={`${m.root} bg-white px-[var(--landing-gutter,22px)] py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#18181b]`}
+      className={`${m.root} ${s.section} px-[var(--landing-gutter,22px)] py-[var(--home-pad,clamp(72px,9vw,128px))]`}
     >
-      <div className="mx-auto grid max-w-[1400px] items-center gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
-        <div className="min-w-0">
-          <StoryHeading id="app-anywhere-title" text="Run your business from anywhere" accent={["anywhere"]} />
-          <p className="mt-5 max-w-[48ch] text-[clamp(16px,1.4vw,19px)] leading-[1.6] text-[var(--band-muted,#5f5d66)]">
-            Your sales, orders and visitors on your phone, wherever you are.
-          </p>
-          <ul className={`${s.points} mt-8`}>
-            {POINTS.map((title, i) => (
-              <li key={title} className={`${m.reveal} ${s.point}`} style={{ "--i": i + 1 } as CSSProperties}>
-                {title}
-              </li>
-            ))}
-          </ul>
-          <div className={`${m.reveal} mt-9 flex flex-wrap items-center gap-3 sm:gap-4`} style={{ "--i": 4 } as CSSProperties}>
-            <AppStoreBadge />
-            <GooglePlayBadge />
-          </div>
-        </div>
-
-        <div className={`${m.reveal} ${s.photo}`} style={{ "--i": 1 } as CSSProperties}>
+      <div className="mx-auto grid max-w-[1400px] items-center gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:gap-20">
+        <div className={`${m.reveal} ${s.photo} lg:order-first`} style={{ "--i": 1 } as CSSProperties}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/home/app/storelib-app-720.webp"
@@ -122,6 +110,22 @@ export function AppAnywhere() {
             decoding="async"
             className={s.img}
           />
+        </div>
+
+        <div className="min-w-0 order-first lg:order-none">
+          <StoryHeading id="app-anywhere-title" text="Run your business from anywhere" accent={["anywhere"]} dark />
+          <p className={`mt-5 max-w-[44ch] ${s.lede}`}>Your sales, orders and visitors on your phone, wherever you are.</p>
+          <ul className={`${s.points} mt-8`}>
+            {POINTS.map((title, i) => (
+              <li key={title} className={`${m.reveal} ${s.point}`} style={{ "--i": i + 1 } as CSSProperties}>
+                {title}
+              </li>
+            ))}
+          </ul>
+          <div className={`${m.reveal} mt-9 flex flex-wrap items-center gap-3 sm:gap-4`} style={{ "--i": 4 } as CSSProperties}>
+            <AppStoreBadge />
+            <GooglePlayBadge />
+          </div>
         </div>
       </div>
     </section>

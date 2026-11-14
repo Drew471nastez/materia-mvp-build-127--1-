@@ -2,7 +2,8 @@ import { createBrowserClient } from "@supabase/ssr"
 import { mediaFetch, withMediaAddresses } from "@/lib/storage/media-url"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { isNativePlatform } from "./native-platform"
-import { fresherSession, readSessionFromCookies, sessionCookieRemovals, sessionCookieWrites, storedSessionKey } from "./session-jar"
+import { fresherSession, readSessionFromCookies, SESSION_COOKIE_MAX_AGE, sessionCookieRemovals, sessionCookieWrites, storedSessionKey } from "./session-jar"
+import { cookiePairs, HOST_PREFIX, outgoingName, plantedExpiries, sessionView, writesHostCookies } from "./host-session"
 
 /**
  * createAdminClient is NOT re-exported here.
@@ -121,6 +122,9 @@ function writeCookies(lines: string[]): void {
 
 const secureCookies = () => typeof location !== "undefined" && location.protocol === "https:"
 
+/* http://localhost cannot hold a `__Host-` cookie (it needs Secure): the old name stays there. */
+const onLocalhost = () => isLocalhost() || (typeof location !== "undefined" && /(^|\.)localhost$/.test(location.hostname))
+
 /**
  * What the native client stores through.
  *
@@ -154,6 +158,65 @@ export const capacitorStorage = {
     await deviceStorage.removeItem(key)
   },
 }
+
+/**
+ * THE WEB CLIENT'S COOKIES, UNDER `__Host-` (round AX, lib/supabase/host-session.ts).
+ *
+ * @supabase/ssr reads document.cookie itself when it is given no cookie
+ * methods, and keeps the FIRST of two cookies with one name: a session a
+ * published site planted with Domain=storelib.com could win over the
+ * visitor's own. These methods show it the `__Host-` copy instead (which no
+ * other host can set), under the name it expects, and write its renewals
+ * there.
+ *
+ * Reading also finishes the move for this browser, at once, on pages the
+ * proxy answers from the CDN without a Set-Cookie: an old-name session that
+ * arrived once is copied to `__Host-` and the old name expired; a planted
+ * copy beside the real one is expired where a site could have put it
+ * (Domain=storelib.com), never the host's own, and the jar is read again.
+ */
+export const browserSessionCookies = {
+  getAll(): { name: string; value: string }[] {
+    const key = storedSessionKey()
+    let pairs = cookiePairs(readCookieHeader())
+    let view = sessionView(pairs, key)
+    const https = secureCookies()
+    const host = writesHostCookies({ https, localhost: onLocalhost(), pairs, key })
+    if (!host) return view.cookies
+    if (view.tossed.length > 0 && typeof location !== "undefined") {
+      writeCookies(plantedExpiries(view.tossed, getMainDomain(), location.pathname))
+      pairs = cookiePairs(readCookieHeader())
+      view = sessionView(pairs, key)
+    }
+    if (view.migrate.length > 0) {
+      writeCookies([
+        ...view.migrate.map((c) => `${HOST_PREFIX}${c.name}=${encodeURIComponent(c.value)}; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; samesite=lax; secure`),
+        ...view.migrate.map((c) => `${c.name}=; path=/; max-age=0; samesite=lax; secure`),
+      ])
+    }
+    if (view.shadowed.length > 0) writeCookies(view.shadowed.map((name) => `${name}=; path=/; max-age=0; samesite=lax; secure`))
+    return view.cookies
+  },
+  setAll(list: { name: string; value: string; options?: { path?: string; maxAge?: number; sameSite?: string | boolean; secure?: boolean; domain?: string } }[]): void {
+    const key = storedSessionKey()
+    const pairs = cookiePairs(readCookieHeader())
+    const host = writesHostCookies({ https: secureCookies(), localhost: onLocalhost(), pairs, key })
+    const lines: string[] = []
+    for (const { name, value, options } of list) {
+      const out = outgoingName(name, key, host)
+      const prefixed = out !== name
+      const path = prefixed ? "/" : options?.path || "/"
+      const maxAge = typeof options?.maxAge === "number" ? `; max-age=${options.maxAge}` : ""
+      const domain = !prefixed && options?.domain ? `; domain=${options.domain}` : ""
+      const sameSite = typeof options?.sameSite === "string" ? `; samesite=${options.sameSite}` : "; samesite=lax"
+      const secure = prefixed || options?.secure ? "; secure" : ""
+      lines.push(`${out}=${encodeURIComponent(value)}; path=${path}${maxAge}${domain}${sameSite}${secure}`)
+      if (prefixed) lines.push(`${name}=; path=/; max-age=0; samesite=lax; secure`)
+    }
+    writeCookies(lines)
+  },
+}
+
 
 export function createClient() {
   // Return existing client if already created (singleton pattern)
@@ -205,6 +268,8 @@ export function createClient() {
           secure: !isLocalhost(),
           sameSite: "lax",
         },
+        /* The session under `__Host-`, read and written through browserSessionCookies below (round AX). */
+        cookies: browserSessionCookies,
       }
     )
   }

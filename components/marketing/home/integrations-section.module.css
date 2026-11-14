@@ -9,20 +9,22 @@
 }
 
 /*
-  The rows run the page's full width, but what is seen of them is never
-  wider than 1120px: past that the fades are solid white. Each row's set is
-  wider than 1120px plus one tile (integrations-section.tsx), so no icon is
+  The rows run the page's full width, and what is seen of them is never
+  wider than 1210px: past that the fades are solid white. Each row's set is
+  wider than 1210px plus one tile (integrations-section.tsx), so no icon is
   seen twice. Landing round: the tiles are a fifth smaller (90px, 67px on a
-  phone).
+  phone). Landing round 4, the owner: the fades were too strong and too
+  wide, so they are a fifth narrower and lighter, and the seen strip is
+  wider, so the rows read as the page's full width.
 */
 .rows {
   position: relative;
   display: grid;
-  --solid: max(0px, calc((100vw - 1120px) / 2));
+  --solid: max(0px, calc((100vw - 1210px) / 2));
   /* The rows' own overlap, given back, so the fades cover every shadow. */
   padding-block: calc(var(--room) - (var(--gap) + 4px) / 2);
   --tile: 90px;
-  --gap: 14px;
+  --gap: 20px;
   /* Room above and below each row for a tile's shadow and lift (the row clips sideways). */
   --room: 24px;
 }
@@ -41,18 +43,18 @@
   top: 0;
   bottom: 0;
   z-index: 2;
-  /* An eased fade, wide enough that a tile melts into the page rather than being cut (round 54, the owner: "the fade shadow doesn't get cutted"). */
-  --ramp: clamp(56px, 12vw, 190px);
+  /* An eased fade, wide enough that a tile melts into the page rather than being cut (round 54), a fifth narrower than it was (landing round 4: "too strong"). */
+  --ramp: clamp(45px, 9.6vw, 152px);
   width: calc(var(--solid) + var(--ramp));
   pointer-events: none;
 }
 .rows::before {
   left: 0;
-  background: linear-gradient(90deg, #fff var(--solid), rgba(255, 255, 255, 0.92) calc(var(--solid) + var(--ramp) * 0.18), rgba(255, 255, 255, 0.7) calc(var(--solid) + var(--ramp) * 0.38), rgba(255, 255, 255, 0.42) calc(var(--solid) + var(--ramp) * 0.6), rgba(255, 255, 255, 0.16) calc(var(--solid) + var(--ramp) * 0.82), rgba(255, 255, 255, 0));
+  background: linear-gradient(90deg, #fff var(--solid), rgba(255, 255, 255, 0.8) calc(var(--solid) + var(--ramp) * 0.18), rgba(255, 255, 255, 0.56) calc(var(--solid) + var(--ramp) * 0.38), rgba(255, 255, 255, 0.32) calc(var(--solid) + var(--ramp) * 0.6), rgba(255, 255, 255, 0.12) calc(var(--solid) + var(--ramp) * 0.82), rgba(255, 255, 255, 0));
 }
 .rows::after {
   right: 0;
-  background: linear-gradient(270deg, #fff var(--solid), rgba(255, 255, 255, 0.92) calc(var(--solid) + var(--ramp) * 0.18), rgba(255, 255, 255, 0.7) calc(var(--solid) + var(--ramp) * 0.38), rgba(255, 255, 255, 0.42) calc(var(--solid) + var(--ramp) * 0.6), rgba(255, 255, 255, 0.16) calc(var(--solid) + var(--ramp) * 0.82), rgba(255, 255, 255, 0));
+  background: linear-gradient(270deg, #fff var(--solid), rgba(255, 255, 255, 0.8) calc(var(--solid) + var(--ramp) * 0.18), rgba(255, 255, 255, 0.56) calc(var(--solid) + var(--ramp) * 0.38), rgba(255, 255, 255, 0.32) calc(var(--solid) + var(--ramp) * 0.6), rgba(255, 255, 255, 0.12) calc(var(--solid) + var(--ramp) * 0.82), rgba(255, 255, 255, 0));
 }
 
 .row {
@@ -90,10 +92,10 @@
 
 /*
   THE TILE IS THE ICON. At rest a tile is flat (no 3D transform), so a row
-  is one composited track. Under a pointer it lifts 4px and its shadow
-  deepens (a second shadow faded in: opacity, not a painted box-shadow).
-  Only the tile being turned is given a 3D turn, for the 760ms it lasts
-  (Web Animations, in the tsx).
+  is one composited track. Landing round 4, the owner: no bump under the
+  pointer, and nothing square behind the icon as it turns: the tile does
+  not lift, has no shadow layer of its own, and only the icon's rounded
+  face turns (Web Animations, in the tsx), its back hidden.
 */
 .tile {
   position: relative;
@@ -104,25 +106,6 @@
   height: var(--tile);
   cursor: default;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.tile::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 24%;
-  box-shadow: 0 16px 26px -14px rgba(17, 17, 26, 0.42);
-  opacity: 0;
-  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-}
-@media (hover: hover) and (pointer: fine) {
-  .tile:hover {
-    transform: translate3d(0, -4px, 0);
-  }
-  .tile:hover::before {
-    opacity: 1;
-  }
 }
 .inner {
   position: absolute;
@@ -131,6 +114,11 @@
   place-items: center;
   overflow: hidden;
   border-radius: 24%;
+  backface-visibility: hidden;
+  box-shadow: 0 10px 22px -14px rgba(17, 17, 26, 0.32);
+}
+/* A hairline only round a light icon, where white would meet the white page. */
+.inner[data-light] {
   box-shadow:
     0 0 0 1px rgba(17, 17, 26, 0.07),
     0 10px 22px -14px rgba(17, 17, 26, 0.32);
@@ -201,10 +189,6 @@
   }
   .track > [data-copy] {
     display: none;
-  }
-  .tile,
-  .tile::before {
-    transition: none;
   }
   .rows::before,
   .rows::after {

@@ -20,8 +20,9 @@ import { cleanAgentBody, unreadablePart } from "@/lib/website-builder/agent/requ
 
 import { createClient } from "@/lib/supabase/server"
 import { agentMayWrite } from "@/lib/agent-access/protected"
-import { routeRequest, type RouteSelection } from "@/lib/website-builder/agent/router"
+import { limitedClassifier, routeRequest, ROUTER_MODEL_LIMITS, type RouteSelection } from "@/lib/website-builder/agent/router"
 import { routerClassifier } from "@/lib/website-builder/agent/router-model"
+import { rateLimit } from "@/lib/api/rate-limit"
 import { SECTION_TYPE } from "@/lib/website-builder/agent/selected-section"
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
@@ -118,7 +119,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       onPage: body.sections.filter((s) => !s.group && s.type !== "header" && s.type !== "footer").map((s) => ({ type: s.type, name: s.name || undefined })),
       hasHistory: body.hasHistory,
     },
-    canClassify ? routerClassifier(creatorId) : undefined,
+    /* Counted only when the rules cannot tell and the model would be asked; over the limit the rules decide (router-model.ts limitedClassifier, round AW). */
+    canClassify
+      ? limitedClassifier(routerClassifier(creatorId), async () => !(await rateLimit({ bucket: "ask-route-model", subjects: [`creator:${creatorId}`], windows: ROUTER_MODEL_LIMITS })))
+      : undefined,
   )
   return NextResponse.json(decision, { headers: { "Cache-Control": "no-store" } })
 }

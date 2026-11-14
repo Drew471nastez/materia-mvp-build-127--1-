@@ -30,6 +30,7 @@ import { bandsintownArtist, bandsintownEvents, mergeEvents, parseFeed, FEED_ITEM
 import { couponUsable, promoCode } from "./storelib-blocks"
 import { productCheckoutUrl } from "./product-block"
 import { isPubliclyVisible, publicOnly } from "@/lib/products/visibility"
+import { countStars, summarizeStars } from "@/lib/reviews/rules"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -103,12 +104,18 @@ async function trackedNumber(db: Db, creatorId: string, source: string): Promise
     }
     case "rating": {
       try {
-        const { data, error } = await db.from("reviews").select("rating").eq("creator_id", creatorId).eq("status", "published").limit(5000)
-        if (error || !Array.isArray(data) || !data.length) return null
-        const ratings = (data as { rating: number }[]).map((r) => Number(r.rating)).filter((r) => r >= 1 && r <= 5)
-        if (!ratings.length) return null
+        /*
+          Counted by the database, five head counts (round AW): the ratings were
+          read row by row "up to 5,000", and PostgREST answers at most 1,000, so
+          past a thousand reviews the average was some thousand of them.
+        */
+        const { data: stars } = await countStars((n) => db.from("reviews").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("status", "published").eq("rating", n))
+        if (!stars) return null
+        const { count: total } = summarizeStars(stars)
+        if (!total) return null
+        const sum = ([1, 2, 3, 4, 5] as const).reduce((s, n) => s + n * stars[n], 0)
         /* One decimal, cut and never rounded up: 4.96 reads 4.9, not 5.0. */
-        return (Math.floor((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10).toFixed(1)
+        return (Math.floor((sum / total) * 10) / 10).toFixed(1)
       } catch {
         return null
       }

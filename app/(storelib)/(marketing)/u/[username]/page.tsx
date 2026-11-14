@@ -9,6 +9,7 @@ import { headerAvatar } from "@/lib/store-builder/header-avatar"
 import { loadCreatorForUser, loadCreatorForUserStrict, loadProfileByUsername, loadProfileByUsernameStrict } from "@/lib/commerce/creator-page-data"
 import { heldForCreatorPage } from "@/lib/commerce/creator-page-held"
 import { SiteReadError } from "@/lib/website-builder/site-read"
+import { isTransientDbError } from "@/lib/website-builder/write-retry"
 import { exactIlike } from "@/lib/onepage/username"
 import { withoutContactEmail } from "@/lib/commerce/contact-email"
 import { primaryHostFor } from "@/lib/custom-domains/store"
@@ -223,9 +224,9 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
             .then(({ count, error }) => ({ count: count ?? 0, failed: !!error }))
         : Promise.resolve({ count: 0, failed: false }),
     ])
-    return { data: override.data as { seo_title?: string | null; seo_description?: string | null } | null, publishedProducts: publishedProducts.count, failed: !!override.error || publishedProducts.failed }
+    return { data: override.data as { seo_title?: string | null; seo_description?: string | null } | null, publishedProducts: publishedProducts.count, countFailed: publishedProducts.failed, failed: !!override.error || publishedProducts.failed }
   }
-  const [publishedConfigForMeta, { data: seoOverride, publishedProducts }, pageHost] = await Promise.all([
+  const [publishedConfigForMeta, { data: seoOverride, publishedProducts: countedProducts, countFailed: countReadFailed }, pageHost] = await Promise.all([
     creator ? getPublishedConfig(creator.id, "shop") : Promise.resolve(null),
     creator ? heldForCreatorPage(["creator-page-head", "v1", creator.id, profile.id, handle], creator.id, profile.id, readHead, (h) => h.failed) : readHead(),
     /* Cached (lib/custom-domains/store.ts), and needs only the creator. */
@@ -364,6 +365,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
      */
     ...(() => {
       /* And not banned: a ban takes the products down, and a product put back afterwards does not buy the page back. */
+      /*
+        A COUNT THAT WAS NOT READ IS NOT ZERO (round AW). With no held copy (a first visit, after a save or a deploy), a
+        products count that got no answer read as 0, so a real seller's page said noindex, nofollow, and the CDN kept
+        that head for every crawler for five minutes. Not knowing is not "nothing for sale": the count is taken as one
+        for this answer only, so the handle and spam rules and the ban still decide, and the next read that answers
+        decides again.
+      */
+      const publishedProducts = countReadFailed ? Math.max(countedProducts, 1) : countedProducts
       const indexable = creatorIndexable({ publishedProducts, handle, spamState }) && !isBanned(creator)
       return {
         robots: indexable
@@ -529,7 +538,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   */
   const readCatalogue = async () => {
     const [
-      { data: catalogue, error: productsError },
+      { data: catalogue, error: productsError, status: productsStatus },
       { data: creatorReviews, error: creatorReviewsError },
       place,
       offPage,
@@ -632,7 +641,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     ])
     return {
       catalogue: pricedCatalogue,
-      productsError: productsError ? { message: productsError.message, code: productsError.code } : null,
+      /* The answer's HTTP status rides along: a 5xx or 429 from Supabase is no answer, not a refusal (the throw below). */
+      productsError: productsError ? { message: productsError.message, code: productsError.code, status: productsStatus } : null,
       creatorReviews: (creatorReviews ?? null) as unknown[] | null,
       creatorReviewsError: creatorReviewsError ? { message: (creatorReviewsError as { message?: string }).message } : null,
       place,
@@ -646,6 +656,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     getPublishedConfig(creator.id, "shop"),
   ])
   const { catalogue: pricedCatalogue, productsError, creatorReviews, creatorReviewsError, place } = held
+  /*
+    NO ANSWER FROM THE PRODUCTS READ IS THE SHOP'S ERROR SCREEN, NEVER AN EMPTY SHOP (round AW). With no copy held
+    for it (a first visit, a save's expire, a deploy: new servers hold no last good copy, and the data cache's keys
+    can change with the build), a read that timed out or found the database away drew this store with no products, as a 200, and the CDN
+    kept that page for every visitor for five minutes and replaced its own good copy with it (next.config.mjs
+    EDGE_PAGE; lib/commerce/creator-page-held says why the copy above is not always there). A throw is a 5xx, which
+    Vercel never stores: the CDN goes on serving the last good page, and a visitor with none gets Try again. A read
+    that ANSWERED with an error (a query that is wrong, which a retry will not change) still draws the page as before.
+  */
+  if (productsError && isTransientDbError(productsError, productsError.status)) {
+    throw new SiteReadError("creator page products", productsError.message || productsError.code || "the read failed")
+  }
   const pageHost = await pageHostPromise
   /* Where the creator is from (held above). No Follow and no Message on a creator page (r40), so nothing reads the follow graph here. */
   /* Opened from a person's profile inside a community: the way back lands there even with nothing behind (lib/profile/back communityBackTarget). */

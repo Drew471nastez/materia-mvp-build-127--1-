@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: Params) {
     await admin.from(JOBS_TABLE).update({ cancel_requested_at: new Date().toISOString() }).eq("id", jobId).eq("creator_id", site.creatorId).in("status", ["queued", "running"]).is("cancel_requested_at", null)
   }
   /* Waiting for a free slot or its next turn: nobody will look soon, so it is ended now. */
-  if (row.status === "queued") await admin.from(JOBS_TABLE).update({ lease_until: null }).eq("id", jobId).eq("status", "queued")
+  if (row.status === "queued") await admin.from(JOBS_TABLE).update({ lease_until: null }).eq("id", jobId).eq("creator_id", site.creatorId).eq("status", "queued")
   const held = row.status === "running" && !!row.lease_until && Date.parse(row.lease_until) > Date.now()
   if (!held) {
     const origin = ownOrigin(req.url)

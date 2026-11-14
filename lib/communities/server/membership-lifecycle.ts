@@ -30,8 +30,9 @@ import "server-only"
  *               (community_refunds holds the refund id unique; before part
  *               101, the refund's own metadata remembers it).
  *   CONTACT     a member writes to the owner: to the address the owner set
- *               for the community, else the seller inbox Storelib already
- *               uses (lib/seller-inbox), with Reply-To the member. The owner's
+ *               for the community when the store has proven it owns it, else
+ *               the account's own (lib/seller-inbox provenInbox, round AX),
+ *               with Reply-To the member. The owner's
  *               address never reaches the page. Rate limited by the route,
  *               and capped per day here from the messages table.
  *   ANALYTICS   cancellationsWithReasons and refundsFor, for worker A's
@@ -51,12 +52,14 @@ import {
   cleanContactEmail,
   cleanRefundPolicy,
   cleanRefundReason,
+  formatMoney,
   parseRefundAmount,
   refundableCents,
   type CancelReason,
   type CommunityMembershipView,
   type MembershipStateWord,
 } from "../membership-policy"
+import { REFUND_CHANGED, refundChangedMessage, refundEchoStale } from "@/lib/orders/refund-state"
 import { audit } from "./audit"
 import { isUniqueViolation, missing, nowIso, reasonOf, type Db } from "./db"
 
@@ -273,7 +276,7 @@ export function defaultSubscriptionDeps(db: Db): SubscriptionDeps {
   }
 }
 
-export type LifecycleAnswer<T> = { ok: true; value: T } | { ok: false; status: number; error: string; message: string }
+export type LifecycleAnswer<T> = { ok: true; value: T } | { ok: false; status: number; error: string; message: string; detail?: Record<string, number> }
 
 /**
  * Cancel (at the end of the paid period) or resume the person's own
@@ -650,6 +653,8 @@ export interface RefundInput {
   actorUserId: string
   orderId: string
   amountCents?: unknown
+  /** What the dialog showed as left to refund (lib/orders/refund-state refundEchoStale). Absent: refunded as before. */
+  refundableCents?: unknown
   reason?: unknown
   endMembership?: boolean
 }
@@ -681,7 +686,17 @@ export async function refundCommunityPayment(db: Db, input: RefundInput, deps: R
   if (order.status !== "completed" && order.status !== "refunded") return fail(409, "not_refundable", order.status === "disputed" ? "This payment is disputed. Stripe settles it with the bank." : "Only a paid payment can be refunded.")
   if (!order.stripe_payment_intent_id) return fail(409, "not_stripe", "This payment was not made by card through Stripe. Refund it from Orders.")
   const already = order.status === "refunded" ? Math.max(0, Number(order.refund_amount_cents) || 0) : 0
-  const amount = parseRefundAmount(input.amountCents, refundableCents(order))
+  /*
+    THE FIGURE THE OWNER READ (round AW, lib/orders/refund-state): the key below moves on once a refund has gone
+    through, so the same press sent again after its answer was lost ("No connection. Check it and try again.")
+    would refund the same part twice. When the dialog's figure is not what is left now, nothing is refunded and
+    the answer says what the payment holds.
+  */
+  const left = refundableCents(order)
+  if (refundEchoStale(input.refundableCents, left)) {
+    return { ok: false, status: 409, error: REFUND_CHANGED, message: refundChangedMessage(already, (cents) => formatMoney(cents, order.currency || "usd")), detail: { refundableCents: left, refundedCents: already } }
+  }
+  const amount = parseRefundAmount(input.amountCents, left)
   if (amount.ok === false) return fail(400, "bad_amount", amount.error)
   const reason = cleanRefundReason(input.reason)
   const total = Math.max(0, Number(order.amount_cents) || 0)
@@ -882,11 +897,13 @@ export function defaultContactDeps(db: Db): ContactDeps {
   const refund = defaultRefundDeps(db)
   return {
     ownerInbox: async (community) => {
-      const own = (await communityPolicy(db, community.id)).contactEmail
-      if (own) return own
+      /* Round AX: the community's own address only when the store has proven it owns it (the account's or a
+         team member's sign in address); any other is passed over for the account's own (lib/seller-inbox
+         provenInbox), so a member's words are never relayed to an inbox nobody confirmed. */
       if (!community.creator_id) return null
-      const { loginEmailFrom, sellerInbox } = await import("@/lib/seller-inbox")
-      return (await sellerInbox(db, community.creator_id, loginEmailFrom(db)))?.to ?? null
+      const own = (await communityPolicy(db, community.id)).contactEmail
+      const { loginEmailFrom, provenInbox } = await import("@/lib/seller-inbox")
+      return (await provenInbox(db, community.creator_id, loginEmailFrom(db), own ? [own] : []))?.to ?? null
     },
     sendMail: refund.sendMail,
     baseUrl: refund.baseUrl,

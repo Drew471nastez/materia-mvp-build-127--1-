@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { deadlineFetch } from "@/lib/net/deadline"
+import { embedAddress } from "@/lib/onepage/embed-address"
+import { embedLookupRefusal } from "@/lib/onepage/embed-gate"
 
 /* A provider that does not answer is given up on after EMBED_FETCH_MS, not at the platform's 300 seconds: the lookup answers without those details, as it does when the provider says no. */
 const EMBED_FETCH_MS = 8_000
@@ -181,17 +183,22 @@ async function fetchStreamingLinks(spotifyUrl: string): Promise<{
 }
 
 export async function GET(request: NextRequest) {
+  /* The OnePage editor's, signed in and counted (lib/onepage/embed-gate.ts, round AW). */
+  const refused = await embedLookupRefusal(request)
+  if (refused) return refused
   try {
     const searchParams = request.nextUrl.searchParams
-    const url = searchParams.get("url")
+    const asked = searchParams.get("url")
 
-    if (!url) {
+    if (!asked) {
       return NextResponse.json({ error: "Missing url parameter" }, { status: 400 })
     }
 
-    const spotifyInfo = extractSpotifyInfo(url)
+    /* Spotify's own address only (lib/onepage/embed-address.ts): it is handed to song.link and Spotify's oEmbed below. */
+    const url = embedAddress("spotify", asked)
+    const spotifyInfo = url ? extractSpotifyInfo(url) : null
 
-    if (!spotifyInfo) {
+    if (!url || !spotifyInfo) {
       return NextResponse.json({ error: "Invalid Spotify URL" }, { status: 400 })
     }
 

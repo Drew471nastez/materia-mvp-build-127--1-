@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { sellerNumberAndRef } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendSellerMessageEmail } from "@/lib/email"
-import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
+import { loginEmailFrom, provenInbox } from "@/lib/seller-inbox"
 import { rateLimit, LIMITS } from "@/lib/api/rate-limit"
 import { CONTACT_MAX_CHARS, cleanMessage } from "@/lib/receipts/contact"
 import { orderNumberOf } from "@/lib/receipts/rules"
@@ -17,7 +17,8 @@ export const runtime = "nodejs"
  * POST /api/memberships/<id>/contact  { message }
  *
  * A member writing to the creator, the way a buyer does from a receipt
- * (app/api/receipt/contact): to the creator's own inbox (lib/seller-inbox),
+ * (app/api/receipt/contact): to the creator's own inbox (lib/seller-inbox
+ * provenInbox, an address the store has proven it owns),
  * with Reply-To the member's address, so the creator answers with Reply.
  * The creator's address is never shown to the member. Rate limited per
  * member and per membership.
@@ -50,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const row = read.value
   if (!row?.creator_id) return NextResponse.json({ error: "That membership could not be found." }, { status: 404 })
 
-  const inbox = await sellerInbox(admin, row.creator_id, loginEmailFrom(admin))
+  const inbox = await provenInbox(admin, row.creator_id, loginEmailFrom(admin))
   if (!inbox) return NextResponse.json({ error: "This creator has no email address to write to yet, so the message was not sent." }, { status: 409 })
 
   /* The member's latest payment names the order, as a receipt's message does; a trial has none yet, so the membership does. */

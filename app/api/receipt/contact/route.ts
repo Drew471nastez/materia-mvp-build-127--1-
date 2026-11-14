@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sellerNumberAndRef } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendSellerMessageEmail } from "@/lib/email"
-import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
+import { loginEmailFrom, provenInbox } from "@/lib/seller-inbox"
 import { rateLimit, addressSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
 import { CONTACT_MAX_CHARS, cleanMessage } from "@/lib/receipts/contact"
@@ -15,7 +15,8 @@ export const runtime = "nodejs"
  *
  * The receipt token is the credential, as it is for every other button on
  * the page, so a guest can write too. The message goes to the seller's own
- * inbox (lib/seller-inbox: their support address, else their login's
+ * inbox (lib/seller-inbox provenInbox: their support address when it is the
+ * sign in address of the account or someone on its team, else their login's
  * address as it is now, the owner's for a second business; never shown to
  * the buyer) with Reply-To the address on the order, never one named in the
  * request: the seller's reply lands with the person who paid. A seller with
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://storelib.com"
-    const inbox = await sellerInbox(admin, creatorId, loginEmailFrom(admin))
+    const inbox = await provenInbox(admin, creatorId, loginEmailFrom(admin))
     if (!inbox) {
       console.warn("[receipt/contact] the seller has no address to write to; order", order.id)
       return NextResponse.json(

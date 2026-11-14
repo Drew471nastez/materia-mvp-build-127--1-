@@ -179,6 +179,7 @@ import { arrivedIds, currentStep, followPage, liveRefreshDelay, showBuilding } f
 import type { AgentEvent } from "@/lib/ai-builder/types"
 import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
 import { SignupDestinationNote } from "@/components/website-builder/editor/signup-destination-note"
+import { ContactDestinationNote } from "@/components/website-builder/editor/contact-destination-note"
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
 import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
@@ -9607,6 +9608,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
             {/* A sign up box says where its sign ups go, with the way to them (round 43). */}
             <SignupDestinationNote type={section.type} settings={section.settings} />
+            {/* A Contact Form says where its messages really go (round AX, lib/seller-inbox provenInbox). */}
+            <ContactDestinationNote type={section.type} settings={section.settings} />
             {/* The section's design: its scheme, Customize, heading and body style. Storelib's own:
                 an imported theme reads none of them, and its scheme and any such settings of its
                 own are drawn below as the theme declares them. */}

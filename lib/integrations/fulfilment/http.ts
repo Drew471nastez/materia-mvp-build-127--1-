@@ -56,7 +56,7 @@ export function providerMessage(body: unknown): string | null {
 export async function call<T = unknown>(
   name: string,
   url: string,
-  init: { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: unknown },
+  init: { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: unknown; /** A call that is known to take longer (a label being bought): its own deadline. */ timeoutMs?: number },
 ): Promise<T> {
   const breaker = breakerFor(`provider:${name}`)
   if (!breaker.allow()) throw new ProviderError(`${name} is not answering right now. Storelib tries again shortly.`, 0, true)
@@ -66,7 +66,7 @@ export async function call<T = unknown>(
       method: init.method ?? "GET",
       headers: { Accept: "application/json", "User-Agent": "Storelib/1.0 (+https://storelib.com)", ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}), ...init.headers },
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      signal: AbortSignal.timeout(init.timeoutMs ?? PROVIDER_TIMEOUT_MS),
       cache: "no-store",
     })
   } catch {

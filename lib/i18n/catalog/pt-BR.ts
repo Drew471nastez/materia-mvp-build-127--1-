@@ -7441,6 +7441,7 @@ const words: Record<string, string> = {
  "Print": "Imprimir",
  "Print / Save PDF": "Imprimir / Salvar PDF",
  "Print file": "Arquivo de impressão",
+ "Print customs invoice": "Imprimir fatura alfandegária",
  "Print label": "Imprimir etiqueta",
  "Print on Demand": "Impressão sob demanda",
  "Print on demand": "Impressão sob demanda",
@@ -13433,7 +13434,10 @@ const words: Record<string, string> = {
  "You made changes here on {when} that were never saved. The page has been saved somewhere else since.": "Você fez alterações aqui em {when} que nunca foram salvas. Desde então, a página foi salva em outro lugar.",
  "Use the changes from this device": "Usar as alterações deste dispositivo",
  "Keep the saved page": "Manter a página salva",
- "This page was saved somewhere else. Save again to keep this version": "Esta página foi salva em outro lugar. Salve de novo para manter esta versão"
+ "This page was saved somewhere else. Save again to keep this version": "Esta página foi salva em outro lugar. Salve de novo para manter esta versão",
+ "Messages go to {email} only if it is your sign in email or a team member's. Otherwise they go to your sign in email.": "As mensagens vão para {email} só se for o seu e-mail de login ou o de alguém da equipe. Caso contrário, vão para o seu e-mail de login.",
+ "Messages go to your sign in email.": "As mensagens vão para o seu e-mail de login.",
+ "Every message is also kept in Contacts › Forms.": "Toda mensagem também fica em Contatos › Formulários."
 }
 
 export default words

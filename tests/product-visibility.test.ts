@@ -319,6 +319,8 @@ async function main() {
       "components/website-builder/theme/render-product.tsx": { count: 1, why: "the pricing columns of a product the page already read as published" },
       "lib/checkout/fulfil-cart-session.ts": { count: 1, why: "titles for a paid order: the buyer paid while it was on sale" },
       "lib/checkout/fulfil-payment.ts": { count: 1, why: "the title on a paid order's receipt" },
+      // Changed on purpose (round AX): a free basket pressed again is answered on its store's website, read from the basket's first line; nothing about the product is shown.
+      "lib/checkout/free-claim.ts": { count: 1, why: "the store of a free basket this same press already wrote, so its answer goes back to that store's website; nothing shown" },
       "lib/explore/read-interests.ts": { count: 1, why: "the categories of what this person bought, to rank published products" },
       "lib/onepage/live-products.ts": { count: 1, why: "reads the status and the flag and applies isPubliclyVisible to each row" },
       "lib/seo/announce.ts": { count: 2, why: "tells search engines an address changed; an archived one then answers 404" },

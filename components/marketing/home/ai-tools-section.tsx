@@ -31,6 +31,14 @@
  * on one clock. It runs only while the card is on screen and the tab is
  * visible (data-live, set by one IntersectionObserver), and under reduced
  * motion it is drawn finished and still.
+ *
+ * LANDING ROUND 4, THE OWNER: the terminal starts about a quarter written
+ * (every animation shares a negative delay, AI_TOOLS_START_S), moves more:
+ * beside the log the draft page fills in as each call answers (the page,
+ * the hero, the products and newsletter, the theme turning cream, the checks,
+ * the draft ready), and its words cannot be selected. The card is wider: the
+ * words sit above the terminal, so the terminal takes the page's full
+ * container width, and on a phone the card's padding is smaller.
  */
 import type { CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
@@ -42,6 +50,12 @@ import { StoryHeading } from "../story-heading"
 const LOOP_S = 16
 /** How long a line takes to fade in. */
 const IN_S = 0.32
+/**
+ * Where the clock stands when the card first comes on screen (landing round
+ * 4, the owner: the terminal starts about a quarter written, not empty).
+ * Every animation shares this negative delay, so the run stays in step.
+ */
+export const AI_TOOLS_START_S = 3.7
 
 type Kind = "prompt" | "say" | "call" | "ok" | "done" | "rest"
 interface Line {
@@ -76,39 +90,64 @@ export const AI_TOOLS_SCRIPT: readonly Line[] = [
   { kind: "rest", text: "", at: 11.9 },
 ]
 
+/**
+ * THE PREVIEW beside the log: the draft page as the tools build it, each
+ * part appearing when the call that made it answers (the times above): the
+ * page with its header and footer, the hero, the products, the story and
+ * the newsletter, then the theme turning cream with ink buttons, the checks
+ * passing and the draft ready.
+ */
+const PREVIEW_AT = { page: 4.5, hero: 5.7, patch: 6.9, theme: 8.1, tests: 9.3, ready: 11.3 } as const
+
 const pct = (s: number) => `${Math.min(100, (s / LOOP_S) * 100).toFixed(2)}%`
 
 /**
- * Each line's own keyframes: hidden until its moment, in over IN_S, held,
- * and out with the rest just before the run starts again.
+ * One element's keyframes: hidden until its moment, in over IN_S, held,
+ * and out with the rest just before the run starts again. `out` hides an
+ * element at its moment instead (what a later part replaces).
  */
-function lineKeyframes(i: number, at: number) {
+function fadeKeyframes(name: string, at: number, out = false) {
   const hide = "opacity:0;transform:translate3d(0,5px,0)"
   const show = "opacity:1;transform:translate3d(0,0,0)"
+  if (out) return `@keyframes ${name}{0%,${pct(at)}{${show}}${pct(at + IN_S)},100%{opacity:0;transform:translate3d(0,0,0)}}`
   const start = at === 0 ? "" : `0%,${pct(at)}{${hide}}`
   const first = at === 0 ? `0%,95.5%{${show}}` : `${pct(at + IN_S)},95.5%{${show}}`
-  return `@keyframes ait-l${i}{${start}${first}98.5%,100%{opacity:0;transform:translate3d(0,0,0)}}`
+  return `@keyframes ${name}{${start}${first}98.5%,100%{opacity:0;transform:translate3d(0,0,0)}}`
 }
 
+const PV: Array<[string, number, boolean?]> = [
+  ["ait-pv-empty", PREVIEW_AT.page, true],
+  ["ait-pv-page", PREVIEW_AT.page],
+  ["ait-pv-hero", PREVIEW_AT.hero],
+  ["ait-pv-patch", PREVIEW_AT.patch],
+  ["ait-pv-cream", PREVIEW_AT.theme],
+  ["ait-pv-ink", PREVIEW_AT.theme],
+  ["ait-pv-tests", PREVIEW_AT.tests],
+  ["ait-pv-draft", PREVIEW_AT.ready, true],
+  ["ait-pv-ready", PREVIEW_AT.ready],
+]
+
 const AI_CSS = `
-.ait-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(32px,4vw,56px);align-items:center;padding:clamp(26px,4.4vw,64px);border-radius:clamp(21px,2.4vw,31px);background:#0e0d12;background-image:linear-gradient(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 30px 60px -40px rgba(24,16,48,.55);color:#fff;overflow:hidden}
-.ait-copy{min-width:0}
-.ait-marks{display:flex;align-items:center;gap:clamp(16px,1.6vw,22px);margin:0 0 clamp(22px,2.4vw,30px);padding:0;list-style:none}
+.ait-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(28px,3.4vw,48px);padding:clamp(26px,4vw,56px);border-radius:clamp(21px,2.4vw,31px);background:#0e0d12;background-image:linear-gradient(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 30px 60px -40px rgba(24,16,48,.55);color:#fff;overflow:hidden}
+.ait-copy{display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(16px,2vw,28px);align-items:end;min-width:0}
+.ait-marks{display:flex;align-items:center;gap:clamp(16px,1.6vw,22px);margin:0 0 clamp(20px,2.2vw,28px);padding:0;list-style:none}
 .ait-marks li{display:flex}
 .ait-marks svg{display:block;width:clamp(24px,2.1vw,30px);height:clamp(24px,2.1vw,30px)}
 .ait-card .ait-h{font-size:clamp(34px,4.1vw,60px)}
-.ait-lede{max-width:40ch;margin:clamp(16px,1.6vw,22px) 0 0;font-size:clamp(16px,1.3vw,18px);line-height:1.6;color:#b9b6c3;text-wrap:pretty}
-.ait-cta{display:inline-flex;align-items:center;gap:8px;height:50px;margin-top:clamp(24px,2.6vw,34px);padding:0 24px;border-radius:999px;background:#fff;color:#0b0b0c;font-size:15.5px;font-weight:600;transition:background-color .2s}
+.ait-lede{max-width:44ch;margin:0;font-size:clamp(16px,1.3vw,18px);line-height:1.6;color:#b9b6c3;text-wrap:pretty}
+.ait-cta{display:inline-flex;align-items:center;gap:8px;height:50px;margin-top:clamp(20px,2.2vw,28px);padding:0 24px;border-radius:999px;background:#fff;color:#0b0b0c;font-size:15.5px;font-weight:600;transition:background-color .2s}
 .ait-cta:hover{background:#ede9fe}
 .ait-cta:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}
 .ait-cta svg{transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .ait-cta:hover svg{transform:translateX(3px)}
-.ait-term{--term-bg:#09080c;min-width:0;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
+.ait-term{--term-bg:#09080c;min-width:0;pointer-events:none;-webkit-user-select:none;user-select:none;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
 .ait-bar{display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.06)}
 .ait-bar i{width:10px;height:10px;border-radius:50%;background:#2e2c35}
 .ait-bar span{margin-left:8px;font:500 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#6f6c79}
+.ait-panes{display:grid;grid-template-columns:minmax(0,1fr)}
 .ait-body{padding:16px 18px 20px;font:13px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;color:#d6d4dd;white-space:pre-wrap;overflow-wrap:anywhere}
-.ait-line{display:flex;gap:1ch;min-height:1.75em;animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-timing-function:cubic-bezier(.2,.7,.2,1);animation-fill-mode:both;animation-play-state:paused}
+.ait-line,.ait-pv-a{animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-timing-function:cubic-bezier(.2,.7,.2,1);animation-fill-mode:both;animation-play-state:paused}
+.ait-line{display:flex;gap:1ch;min-height:1.75em}
 .ait-line>b{flex:none;font-weight:400}
 .ait-line>span{min-width:0}
 .ait-prompt>b{color:#bca3ff}
@@ -127,20 +166,63 @@ const AI_CSS = `
 .ait-caret{position:relative;display:inline-block;top:.28em;vertical-align:top;margin-top:0;animation:ait-blink 1.1s steps(1,end) infinite paused}
 @keyframes ait-type{0%{transform:translate3d(0,0,0)}${pct(TYPED_S)},100%{transform:translate3d(100%,0,0)}}
 @keyframes ait-blink{0%{opacity:1}50%{opacity:0}}
+.ait-line,.ait-pv-a,.ait-cover{animation-delay:-${AI_TOOLS_START_S}s}
 .ait-term[data-live] .ait-line,.ait-term[data-live] .ait-cover,.ait-term[data-live] .ait-caret{animation-play-state:running}
-${AI_TOOLS_SCRIPT.map((l, i) => `.ait-l${i}{animation-name:ait-l${i}}\n${lineKeyframes(i, l.at)}`).join("\n")}
+.ait-term[data-live] .ait-pv-a{animation-play-state:running}
+${AI_TOOLS_SCRIPT.map((l, i) => `.ait-l${i}{animation-name:ait-l${i}}\n${fadeKeyframes(`ait-l${i}`, l.at)}`).join("\n")}
+${PV.map(([n, at, out]) => `.${n}{animation-name:${n}}\n${fadeKeyframes(n, at, out)}`).join("\n")}
+.ait-pv{display:flex;flex-direction:column;gap:10px;min-width:0;padding:14px;border-top:1px solid rgba(255,255,255,.06)}
+.ait-pv-top{display:flex;align-items:center;gap:8px;font:500 11.5px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#8f8c99}
+.ait-pv-url{flex:1;min-width:0;padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.05);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ait-pv-badge{display:grid;font-family:var(--font-inter,Inter),Inter,system-ui,sans-serif}
+.ait-pv-badge>span{grid-area:1/1;justify-self:end;padding:5px 9px;border-radius:999px;white-space:nowrap}
+.ait-pv-draft{background:rgba(255,255,255,.07);color:#c9c7d1}
+.ait-pv-ready{background:rgba(125,211,168,.14);color:#7dd3a8}
+.ait-site{position:relative;flex:1;min-height:250px;border-radius:10px;background:#fff;color:#1d1b16;overflow:hidden;font-family:var(--font-inter,Inter),Inter,system-ui,sans-serif}
+.ait-pv-cream{position:absolute;inset:0;background:#f3ede2}
+.ait-pv-empty{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:#9a978f}
+.ait-pv-page{position:relative;display:flex;flex-direction:column;height:100%}
+.ait-s-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;font-size:12px;font-weight:700;letter-spacing:-.01em}
+.ait-s-head i{display:inline-block;vertical-align:middle;width:22px;height:4px;margin-left:6px;border-radius:9px;background:currentColor;opacity:.25}
+.ait-s-hero{position:relative;margin:0 10px;height:clamp(84px,9vw,120px);border-radius:7px;overflow:hidden;background:#d9d2c3}
+.ait-s-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ait-s-hero b{position:absolute;left:10px;bottom:9px;font-size:13px;font-weight:600;letter-spacing:-.02em;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.35)}
+.ait-s-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:9px 10px 0}
+.ait-s-grid span{display:block}
+.ait-s-grid img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:5px;background:#e8e2d6}
+.ait-s-grid i{display:block;height:4px;margin-top:5px;border-radius:9px;background:currentColor;opacity:.22}
+.ait-s-grid i+i{width:50%;margin-top:3px;opacity:.14}
+.ait-s-news{display:flex;gap:6px;margin:auto 10px 10px;padding-top:10px}
+.ait-s-news>span:first-child{flex:1;height:22px;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(29,27,22,.16)}
+.ait-s-btn{position:relative;display:grid;width:62px;height:22px;border-radius:6px;overflow:hidden}
+.ait-s-btn i{grid-area:1/1;display:grid;place-items:center;font-size:10px;font-style:normal;font-weight:600;color:#fff;background:#7c3aed}
+.ait-s-btn .ait-pv-ink{background:#1d1b16}
+.ait-pv-tests{position:absolute;right:16px;top:46px;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:#1d1b16;color:#7dd3a8;font-size:10.5px;font-weight:500}
+@media (min-width:768px){
+  .ait-panes{grid-template-columns:minmax(0,1.12fr) minmax(0,1fr)}
+  .ait-pv{border-top:0;border-left:1px solid rgba(255,255,255,.06)}
+  .ait-site{min-height:0}
+}
 @media (min-width:1024px){
-  .ait-card{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)}
+  .ait-copy{grid-template-columns:minmax(0,1fr) minmax(0,.82fr)}
 }
 @media (max-width:639px){
+  .ait-card{padding:22px 16px 16px;gap:26px}
+  .ait-copy{padding:0 4px}
   .ait-body{padding:14px 14px 18px;font-size:11.5px}
   .ait-bar{height:32px}
   .ait-cta{align-self:stretch;justify-content:center;width:100%}
+  .ait-pv{padding:12px}
+  .ait-s-grid{display:none}
+  .ait-site{min-height:0}
+  .ait-s-news{margin-top:10px}
 }
 @media (prefers-reduced-motion:reduce){
   .ait-line{animation:none!important;opacity:1;transform:none}
   .ait-cover{display:none}
   .ait-caret{animation:none!important}
+  .ait-pv-a{animation:none!important;opacity:1;transform:none}
+  .ait-pv-empty,.ait-pv-draft{opacity:0!important}
   .ait-cta,.ait-cta svg{transition:none}
 }
 `
@@ -180,48 +262,102 @@ export function AiToolsSection() {
       <div>
         <div className="ait-card">
           <div className="ait-copy">
-            <ul className="ait-marks" aria-label="Works with Claude, ChatGPT and Codex, Cursor and GitHub Copilot">
-              {MARKS.map((m) => (
-                <li key={m.name} title={m.name}>
-                  <svg viewBox="0 0 24 24" fill={m.color} aria-hidden="true">
-                    <path d={m.d} />
-                  </svg>
-                </li>
-              ))}
-            </ul>
-            <StoryHeading id="ait-title" text="Your AI tools work here too" accent={["AI"]} dark className="ait-h" />
-            <p className="ait-lede">Connect Claude Code, Codex or Cursor to your site and build with them. Every change waits as a draft until you publish.</p>
-            <Link href="/developers/ai#connect-an-agent-directly" className="ait-cta">
-              See how to connect
-              <svg aria-hidden viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 10h12M11 5l5 5-5 5" />
-              </svg>
-            </Link>
+            <div>
+              <ul className="ait-marks" aria-label="Works with Claude, ChatGPT and Codex, Cursor and GitHub Copilot">
+                {MARKS.map((m) => (
+                  <li key={m.name} title={m.name}>
+                    <svg viewBox="0 0 24 24" fill={m.color} aria-hidden="true">
+                      <path d={m.d} />
+                    </svg>
+                  </li>
+                ))}
+              </ul>
+              <StoryHeading id="ait-title" text="Your AI tools work here too" accent={["AI"]} dark className="ait-h" />
+            </div>
+            <div>
+              <p className="ait-lede">Connect Claude Code, Codex or Cursor to your site and build with them. Every change waits as a draft until you publish.</p>
+              <Link href="/developers/ai#connect-an-agent-directly" className="ait-cta">
+                See how to connect
+                <svg aria-hidden viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 10h12M11 5l5 5-5 5" />
+                </svg>
+              </Link>
+            </div>
           </div>
 
-          <div ref={term} className="ait-term" role="img" aria-label="An agent in a terminal builds a Storelib homepage: it reads the site, creates the page and its sections, sets the theme, runs the checks and leaves it as a draft to publish.">
+          <div ref={term} className="ait-term" role="img" aria-label="An agent in a terminal builds a Storelib homepage while its preview fills in beside it: it reads the site, creates the page and its sections, sets the theme, runs the checks and leaves it as a draft to publish.">
             <div className="ait-bar" aria-hidden="true">
               <i />
               <i />
               <i />
               <span>claude · print-shop</span>
             </div>
-            <div className="ait-body" aria-hidden="true">
-              {AI_TOOLS_SCRIPT.map((l, i) => (
-                <div key={i} className={`ait-line ait-${l.kind} ait-l${i}`} style={{ "--i": i } as CSSProperties}>
-                  <b>{GLYPH[l.kind]}</b>
-                  {l.kind === "prompt" ? (
-                    <span className="ait-typed">
-                      {l.text}
-                      <span className="ait-cover" />
-                    </span>
-                  ) : l.kind === "rest" ? (
-                    <span className="ait-caret" />
-                  ) : (
-                    <span>{l.text}</span>
-                  )}
+            <div className="ait-panes" aria-hidden="true">
+              <div className="ait-body">
+                {AI_TOOLS_SCRIPT.map((l, i) => (
+                  <div key={i} className={`ait-line ait-${l.kind} ait-l${i}`} style={{ "--i": i } as CSSProperties}>
+                    <b>{GLYPH[l.kind]}</b>
+                    {l.kind === "prompt" ? (
+                      <span className="ait-typed">
+                        {l.text}
+                        <span className="ait-cover" />
+                      </span>
+                    ) : l.kind === "rest" ? (
+                      <span className="ait-caret" />
+                    ) : (
+                      <span>{l.text}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* The draft page, filling in as the calls answer. */}
+              <div className="ait-pv">
+                <div className="ait-pv-top">
+                  <span className="ait-pv-url">fernandink.example/home</span>
+                  <span className="ait-pv-badge">
+                    <span className="ait-pv-a ait-pv-draft">Draft</span>
+                    <span className="ait-pv-a ait-pv-ready">Ready to publish</span>
+                  </span>
                 </div>
-              ))}
+                <div className="ait-site">
+                  <span className="ait-pv-a ait-pv-cream" />
+                  <span className="ait-pv-a ait-pv-empty">New page</span>
+                  <div className="ait-pv-a ait-pv-page">
+                    <div className="ait-s-head">
+                      <span>Fern &amp; Ink</span>
+                      <span>
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    </div>
+                    <div className="ait-pv-a ait-pv-hero ait-s-hero">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/home/everything/stores/theo-cover.webp" alt="" width={320} height={200} loading="lazy" decoding="async" />
+                      <b>Prints for quiet walls</b>
+                    </div>
+                    <div className="ait-pv-a ait-pv-patch ait-s-grid">
+                      {["theo-forest", "theo-lake", "mila-course"].map((p) => (
+                        <span key={p}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`/home/everything/stores/${p}.webp`} alt="" width={120} height={120} loading="lazy" decoding="async" />
+                          <i />
+                          <i />
+                        </span>
+                      ))}
+                    </div>
+                    <div className="ait-pv-a ait-pv-patch ait-s-news">
+                      <span />
+                      <span className="ait-s-btn">
+                        <i>Join</i>
+                        <i className="ait-pv-a ait-pv-ink">Join</i>
+                      </span>
+                    </div>
+                  </div>
+                  <span className="ait-pv-a ait-pv-tests">✓ Checks pass</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

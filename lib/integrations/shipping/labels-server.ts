@@ -36,6 +36,23 @@ import "server-only"
  *
  * One label per quoted shipment: the row is claimed before the provider is
  * asked to buy, so two presses of Buy never buy two labels.
+ *
+ * A PURCHASE WITH NO ANSWER IS NOT A NO. The provider may time out, drop the
+ * connection or say "still making it" after it has charged for the label.
+ * The claim used to be thrown away on any failure, so that label was paid
+ * for and nowhere on the order, and the next press bought a second one. Now
+ * the provider is asked what became of the shipment (findLabel) before
+ * anything is decided: a label that exists is taken onto the order, a
+ * purchase still in flight keeps its claim, and only a shipment the
+ * provider says has no label is released to be bought again.
+ *
+ * A PARCEL FOR ANOTHER COUNTRY carries a customs declaration made from the
+ * order (./customs.ts), and its commercial invoice prints from the order.
+ *
+ * PRINTING ASKS THE PROVIDER. Shippo's label address expires; its reference
+ * says to read the transaction again for a fresh one. So Print label goes
+ * through labelDocument, which does, and the address kept on the row is
+ * only what is used when the provider can't be reached.
  */
 
 import type { Db } from "@/lib/physical/auth"
@@ -48,10 +65,11 @@ import { providerInfo } from "@/lib/physical/providers"
 import { holdOf } from "@/lib/physical/fulfilment-state"
 import { ProviderError } from "../fulfilment/http"
 import { connectedKey, noteSync } from "./connect-server"
+import { customsFor, type CustomsSource } from "./customs"
 import { easypost } from "./easypost"
 import { formatMinor } from "./money"
 import { shippo } from "./shippo"
-import type { BuyerPaid, LabelAddress, LabelApi, LabelProviderId, LabelPurchase, LabelRate, Parcel, VoidOutcome } from "./types"
+import type { BuyerPaid, CustomsForm, FoundLabel, LabelAddress, LabelApi, LabelProviderId, LabelPurchase, LabelRate, Parcel, VoidOutcome } from "./types"
 
 export const LABEL_APIS: Record<LabelProviderId, LabelApi> = { shippo, easypost }
 
@@ -68,10 +86,19 @@ export interface LabelOrderLine {
   fulfilled: number
   requiresShipping: boolean
   locationId: string | null
+  /* What a customs declaration reads (./customs.ts). The order engine's lines carry all of them. */
+  productId?: string | null
+  variantName?: string | null
+  sku?: string | null
+  /** One unit's price and the whole line's discount, in the order's minor units. */
+  unitCents?: number
+  discountCents?: number
 }
 export interface LabelOrder {
   id: string
   status: string
+  /** The currency the order was paid in: what a customs declaration states values in. */
+  currency?: string | null
   cancelledAt: string | null
   deliveryMethod: string
   buyerName: string | null
@@ -110,9 +137,20 @@ export interface LabelView {
   testMode: boolean
   fulfillmentId: string | null
   createdAt: string
+  /**
+   * Where Print label goes: the order's own label route, which asks the provider for the label as it is now
+   * (labelDocument). `labelUrl` is the address the provider gave at purchase, which stops working after a while.
+   */
+  printUrl: string | null
+  /** The commercial invoice of a parcel that crossed customs, when the provider made one: the same route. */
+  invoiceUrl: string | null
 }
 
+/** The order's label route with one label named: app/api/physical/orders/[id]/label. */
+const documentPath = (checkoutId: string, labelId: string, doc: "label" | "invoice") => `/api/physical/orders/${encodeURIComponent(checkoutId)}/label?print=${encodeURIComponent(labelId)}${doc === "invoice" ? "&doc=invoice" : ""}`
+
 export function labelView(r: Record<string, any>): LabelView {
+  const printable = r.status === "purchased" && typeof r.label_url === "string" && /^https:\/\//.test(r.label_url) && !!r.id && !!r.checkout_id
   return {
     id: r.id,
     provider: r.provider,
@@ -128,6 +166,8 @@ export function labelView(r: Record<string, any>): LabelView {
     testMode: r.test_mode === true,
     fulfillmentId: r.fulfillment_id ?? null,
     createdAt: r.created_at,
+    printUrl: printable ? documentPath(r.checkout_id, r.id, "label") : null,
+    invoiceUrl: printable && planOf(r.package).invoice ? documentPath(r.checkout_id, r.id, "invoice") : null,
   }
 }
 
@@ -221,6 +261,51 @@ export async function itemsGrams(db: Db, items: { orderId: string; quantity: num
   return Math.round(items.reduce((g, i) => g + (each.get(i.orderId) ?? 0) * i.quantity, 0))
 }
 
+/**
+ * The customs declaration of this parcel, when it leaves for another customs territory (./customs.ts): each chosen
+ * line with its value from the order and its origin and HS code from the product, read with the store's own id so
+ * another store's product is never read. `needed: false` inside one country or inside the EU.
+ */
+export async function customsOf(
+  db: Db,
+  creatorId: string,
+  order: LabelOrder,
+  items: { orderId: string; quantity: number }[],
+  input: { fromCountry: string; toCountry: string; signer: string; providerName: string },
+): Promise<{ needed: false } | { needed: true; form: CustomsForm } | { needed: true; error: string }> {
+  /* Asked first with no lines: inside one country nothing below is read. */
+  if (customsFor({ from: input.fromCountry, to: input.toCountry, currency: "USD", signer: input.signer, providerName: input.providerName, lines: [] }).needed === false) return { needed: false }
+  const chosen = items.filter((i) => i.quantity > 0)
+  const lineOf = new Map(order.lines.map((l) => [l.orderId, l]))
+  const productIds = [...new Set(chosen.map((i) => lineOf.get(i.orderId)?.productId).filter((id): id is string => typeof id === "string" && !!id))]
+  type Made = { id: string; origin_country: string | null; hs_code: string | null }
+  const readProducts = async (): Promise<Made[]> => {
+    if (productIds.length === 0) return []
+    const { data } = await db.from("products").select("id, origin_country, hs_code").eq("creator_id", creatorId).in("id", productIds)
+    return (data ?? []) as Made[]
+  }
+  const [each, products] = await Promise.all([gramsEach(db, chosen.map((i) => i.orderId)), readProducts().catch(() => [] as Made[])])
+  const productOf = new Map(products.map((p) => [p.id, p]))
+  const lines: CustomsSource[] = chosen.flatMap((i) => {
+    const l = lineOf.get(i.orderId)
+    if (!l) return []
+    const product = l.productId ? productOf.get(l.productId) : undefined
+    return [{
+      title: l.title,
+      variantName: l.variantName ?? null,
+      sku: l.sku ?? null,
+      quantity: i.quantity,
+      unitCents: Number(l.unitCents ?? 0),
+      lineDiscountCents: Number(l.discountCents ?? 0),
+      lineQuantity: l.quantity,
+      gramsEach: each.get(i.orderId) ?? 0,
+      originCountry: product?.origin_country ?? null,
+      hsCode: product?.hs_code ?? null,
+    }]
+  })
+  return customsFor({ from: input.fromCountry, to: input.toCountry, currency: String(order.currency ?? "USD"), signer: input.signer, providerName: input.providerName, lines })
+}
+
 /** A package and a weight into the parcel the carrier prices. Null when the size is missing. */
 export function parcelOf(pkg: Pick<ShippingPackage, "lengthMm" | "widthMm" | "heightMm"> | null, custom: { lengthCm?: unknown; widthCm?: unknown; heightCm?: unknown } | null, grams: number): Parcel | null {
   const cm = (v: unknown) => {
@@ -266,22 +351,34 @@ function boundedItems(order: LabelOrder, items: { orderId: string; quantity: num
   return [...merged].map(([orderId, quantity]) => ({ orderId, quantity: Math.min(quantity, left.get(orderId) ?? 0) })).filter((i) => i.quantity > 0)
 }
 
-/** What a label was bought for, kept on its row (shipping_labels.package): the box's name, the location and the items. */
+/**
+ * What a label was bought for, kept on its row (shipping_labels.package): the box's name, the location and the
+ * items; the rate it was quoted at, which is how the provider is asked what became of a purchase that never
+ * answered; and whether the provider made a commercial invoice for it.
+ */
 interface LabelPlan {
   name: string | null
   locationId: string | null
   items: { orderId: string; quantity: number }[]
+  rateId?: string | null
+  invoice?: boolean
 }
 function planOf(pkg: unknown): LabelPlan {
   const p = pkg && typeof pkg === "object" ? (pkg as Record<string, unknown>) : {}
   const items = (Array.isArray(p.items) ? p.items : [])
     .map((i: any) => ({ orderId: String(i?.orderId ?? ""), quantity: Math.floor(Number(i?.quantity)) }))
     .filter((i) => /^[0-9a-f-]{36}$/i.test(i.orderId) && i.quantity > 0)
-  return { name: typeof p.name === "string" ? p.name : null, locationId: typeof p.locationId === "string" ? p.locationId : null, items }
+  return {
+    name: typeof p.name === "string" ? p.name : null,
+    locationId: typeof p.locationId === "string" ? p.locationId : null,
+    items,
+    rateId: typeof p.rateId === "string" && /^[A-Za-z0-9_-]{6,64}$/.test(p.rateId) ? p.rateId : null,
+    invoice: p.invoice === true,
+  }
 }
-/** Kept under the column's 1 KB check: a long order keeps the box and the place, and ships what is left. */
+/** Kept under the column's 1 KB check: a long order keeps the box, the place and the rate, and ships what is left. */
 function planRow(plan: LabelPlan): Record<string, unknown> | null {
-  const row: Record<string, unknown> = { name: plan.name ? plan.name.slice(0, 80) : null, locationId: plan.locationId, items: plan.items.slice(0, 10) }
+  const row: Record<string, unknown> = { name: plan.name ? plan.name.slice(0, 80) : null, locationId: plan.locationId, items: plan.items.slice(0, 10), ...(plan.rateId ? { rateId: plan.rateId.slice(0, 64) } : {}), ...(plan.invoice ? { invoice: true } : {}) }
   if (JSON.stringify(row).length > 900) delete row.items
   return row
 }
@@ -375,6 +472,8 @@ export interface QuoteResult {
   addressOk: boolean
   warnings: string[]
   parcel: Parcel
+  /** True when the parcel crosses a customs border and was quoted with its declaration. */
+  customs?: boolean
 }
 
 export async function quoteLabel(
@@ -388,6 +487,9 @@ export async function quoteLabel(
   if (!api) return { error: "Choose Shippo or EasyPost." }
   const cred = await connectedKey(db, creatorId, api.id)
   if (!cred) return { error: `Connect ${api.name} in Settings › Integrations first.` }
+  /* A purchase for this order that never answered is settled first: no new shipment is quoted while a label may already exist. */
+  const pending = await settleOpenClaims(db, creatorId, checkoutId, deps)
+  if (pending) return { error: pending, status: 409 }
   const order = await deps.loadOrder(db, { creatorId, checkoutId })
   const no = canShip(order)
   if (no) return { error: no }
@@ -404,16 +506,21 @@ export async function quoteLabel(
   const grams = Number.isFinite(typed) && typed > 0 ? typed : (await itemsGrams(db, chosen)) + (pkg?.weightGrams ?? 0)
   const parcel = parcelOf(pkg, pkg ? null : (input.custom ?? null), grams)
   if (!parcel) return { error: grams > 0 ? "Choose a package, or enter its size." : "Enter the parcel's weight: these products have none saved." }
+  /* Another country: the declaration, from the order. What it lacks is said here, before any rate is shown. */
+  const customs = await customsOf(db, creatorId, order!, chosen, { fromCountry: from.address.country, toCountry: to.country, signer: input.storeName, providerName: api.name })
+  let declaration: CustomsForm | null = null
+  if ("error" in customs) return { error: customs.error }
+  if ("form" in customs) declaration = customs.form
 
   try {
     const [check, quoted] = await Promise.all([
       api.checkAddress(cred.key, to).catch(() => ({ ok: true, messages: [] as string[] })),
-      api.rates(cred.key, { from: from.address, to, parcel, reference: referenceFor(checkoutId) }),
+      api.rates(cred.key, { from: from.address, to, parcel, reference: referenceFor(checkoutId), customs: declaration }),
     ])
     const rates = quoted.rates.sort((a, b) => a.cents - b.cents).map((r) => ({ ...r, price: formatMinor(r.cents, r.currency) }))
     await noteSync(db, cred.id, { ok: true })
     const warnings = [...(check.ok ? [] : ["The delivery address may not be deliverable as written."]), ...check.messages, ...(rates.length === 0 ? quoted.messages : [])].slice(0, 6)
-    return { provider: api.id, shipmentId: quoted.shipmentId, rates, addressOk: check.ok, warnings, parcel }
+    return { provider: api.id, shipmentId: quoted.shipmentId, rates, addressOk: check.ok, warnings, parcel, customs: !!declaration }
   } catch (e) {
     const error = providerWords(e, api.name)
     await noteSync(db, cred.id, { ok: false, error })
@@ -425,6 +532,8 @@ export async function quoteLabel(
 
 /** A claim older than this never finished: the request that made it is gone. */
 const STALE_CLAIM_MS = 10 * 60_000
+/** A claim younger than this may still be a purchase in flight: its own request has not given up yet. */
+const IN_FLIGHT_MS = 2 * 60_000
 
 type ShipOutcome = { ok: true; order: any; label: LabelView } | { ok: false; error: string; status?: number; label?: LabelView }
 
@@ -451,7 +560,16 @@ export async function buyLabel(
   if (was && was.checkout_id !== checkoutId) return { ok: false, error: "That label belongs to another order.", status: 409 }
   if (was && was.status === "purchased") return finishShipping(db, creatorId, checkoutId, was, { notifyBuyer: input.notifyBuyer !== false }, deps)
   if (was && was.status !== "buying") return { ok: true, order: await deps.loadOrder(db, { creatorId, checkoutId }), label: labelView(was) }
-  if (was) return stuckClaim(was, api.name)
+  if (was) {
+    /* A claim with no label after it: the provider is asked what became of it before anything is said or bought. */
+    const settled = await settleClaim(db, creatorId, checkoutId, was, api, cred, deps)
+    if (settled.kind === "bought") return finishShipping(db, creatorId, checkoutId, settled.row, { notifyBuyer: input.notifyBuyer !== false }, deps)
+    if (settled.kind === "wait") return settled.outcome
+    /* Released: the provider has no label for this shipment and the claim is gone, so this press buys it. */
+  }
+  /* Another purchase for this order that never answered (a different quoted shipment): settled before a second label is bought. */
+  const pending = await settleOpenClaims(db, creatorId, checkoutId, deps, shipmentId)
+  if (pending) return { ok: false, error: pending, status: 409 }
   const order = await deps.loadOrder(db, { creatorId, checkoutId })
   const no = canShip(order)
   if (no) return { ok: false, error: no }
@@ -470,7 +588,7 @@ export async function buyLabel(
 
   /* Claimed first: one label per quoted shipment, whoever presses Buy twice. */
   const now = new Date().toISOString()
-  const plan: LabelPlan = { name: input.packageName ? String(input.packageName) : null, locationId: input.locationId, items }
+  const plan: LabelPlan = { name: input.packageName ? String(input.packageName) : null, locationId: input.locationId, items, rateId }
   const { data: claim, error: claimError } = await db
     .from("shipping_labels")
     .insert({ creator_id: creatorId, checkout_id: checkoutId, provider: api.id, provider_shipment_id: shipmentId, provider_label_id: `pending:${shipmentId}`.slice(0, 120), carrier: rate.carrier, service: rate.service, cost_cents: rate.cents, currency: rate.currency, test_mode: api.isTestKey(cred.key), status: "buying", package: planRow(plan), created_at: now, updated_at: now })
@@ -487,23 +605,77 @@ export async function buyLabel(
   try {
     bought = await api.buy(cred.key, rate)
   } catch (e) {
-    await db.from("shipping_labels").delete().eq("id", claim.id).eq("status", "buying")
-    const error = providerWords(e, api.name)
-    await noteSync(db, cred.id, { ok: false, error })
-    return { ok: false, error }
+    /*
+      NOT AN ANSWER YET. A timeout, a dropped connection, a 5xx or "still making it" may all follow a label that
+      was bought and charged. So the provider is asked for this shipment's label before the claim is touched.
+    */
+    const refused = e instanceof ProviderError && !e.retry
+    let found: FoundLabel | null = null
+    try {
+      found = await api.findLabel(cred.key, { shipmentId, rateId, labelId: null })
+    } catch {
+      found = null
+    }
+    if (found?.state === "bought") {
+      bought = purchaseFrom(rate, found)
+    } else {
+      const error = providerWords(e, api.name)
+      await noteSync(db, cred.id, { ok: false, error })
+      /* The provider read the request and said no: nothing was bought, the claim goes, the shipment can be bought again. */
+      if (refused) {
+        await db.from("shipping_labels").delete().eq("id", claim.id).eq("status", "buying")
+        return { ok: false, error }
+      }
+      /*
+        No answer, and no label to be seen yet. That is not "nothing was bought": the request may still be running
+        at the provider. The claim stays, so no second label is bought while the first may exist; the next press
+        asks the provider again (settleClaim) and only buys once it says, after a pause, that there is none.
+      */
+      return { ok: false, error: `${api.name} did not answer, so Storelib can't tell yet whether this label was bought. Press Buy label again in a minute or two: if it was bought it comes onto the order, and nothing is bought twice.`, status: 503 }
+    }
   }
+  const row = await recordPurchase(db, creatorId, checkoutId, claim, bought, api, cred.id, deps)
+  return finishShipping(db, creatorId, checkoutId, row, { items, locationId: input.locationId, notifyBuyer: input.notifyBuyer !== false, providerTrackingUrl: bought.trackingUrl }, deps)
+}
 
+/** A label the provider has for a quoted rate, as the purchase it is: the rate's carrier, service and price unless the provider says them itself. */
+function purchaseFrom(rate: Pick<LabelRate, "shipmentId" | "carrier" | "service" | "cents" | "currency">, found: Extract<FoundLabel, { state: "bought" }>): LabelPurchase {
+  return {
+    labelId: found.labelId,
+    shipmentId: rate.shipmentId,
+    carrier: found.carrier ?? rate.carrier,
+    service: found.service ?? rate.service,
+    trackingNumber: found.trackingNumber,
+    trackingUrl: found.trackingUrl,
+    labelUrl: found.labelUrl,
+    invoiceUrl: found.invoiceUrl,
+    cents: found.cents ?? rate.cents,
+    currency: found.currency ?? rate.currency,
+  }
+}
+
+/**
+ * A BOUGHT LABEL, WRITTEN ONTO ITS CLAIM: the provider's ids, the carrier as
+ * the buyer reads it, the tracking number, the label's address and its cost,
+ * then the card's count and the timeline. Run after a purchase that answered
+ * and after one that did not but turned out to be bought (settleClaim), so
+ * both leave exactly the same order behind. The timeline entry is keyed on
+ * the provider's own label id: written once however many times this runs.
+ */
+async function recordPurchase(db: Db, creatorId: string, checkoutId: string, claim: Record<string, any>, bought: LabelPurchase, api: LabelApi, integrationId: string, deps: LabelDeps): Promise<Record<string, any>> {
   /* The carrier as the buyer reads it ("USPS"), so their link and the tracking that follows it know it. */
   const carrier = carrierOf(bought.carrier)?.name ?? bought.carrier
+  const plan = planOf(claim.package)
+  const pkg = bought.invoiceUrl ? planRow({ ...plan, invoice: true }) : claim.package
   const { data: saved } = await db
     .from("shipping_labels")
-    .update({ provider_label_id: bought.labelId.slice(0, 120), carrier: carrier.slice(0, 60), service: bought.service.slice(0, 120), tracking_number: bought.trackingNumber, label_url: bought.labelUrl, cost_cents: bought.cents, currency: bought.currency, status: "purchased", updated_at: new Date().toISOString() })
+    .update({ provider_label_id: bought.labelId.slice(0, 120), carrier: carrier.slice(0, 60), service: bought.service.slice(0, 120), tracking_number: bought.trackingNumber, label_url: bought.labelUrl, cost_cents: bought.cents, currency: bought.currency, status: "purchased", ...(bought.invoiceUrl ? { package: pkg } : {}), updated_at: new Date().toISOString() })
     .eq("id", claim.id)
     .select("*")
     .maybeSingle()
-  const row = saved ?? { ...claim, status: "purchased", label_url: bought.labelUrl, tracking_number: bought.trackingNumber, carrier, service: bought.service, cost_cents: bought.cents, currency: bought.currency }
+  const row = saved ?? { ...claim, provider_label_id: bought.labelId, status: "purchased", label_url: bought.labelUrl, tracking_number: bought.trackingNumber, carrier, service: bought.service, cost_cents: bought.cents, currency: bought.currency, package: pkg }
   const testMode = row.test_mode === true
-  await noteSync(db, cred.id, { ok: true, bump: "labels_bought" })
+  await noteSync(db, integrationId, { ok: true, bump: "labels_bought" })
   await deps.addOrderEvent(db, {
     checkoutId,
     creatorId,
@@ -513,14 +685,82 @@ export async function buyLabel(
     actor: "creator",
     key: `label:${api.id}:${bought.labelId}`.slice(0, 200),
   })
-  return finishShipping(db, creatorId, checkoutId, row, { items, locationId: input.locationId, notifyBuyer: input.notifyBuyer !== false, providerTrackingUrl: bought.trackingUrl }, deps)
+  return row
 }
 
-/** A claim with no label after it: a fresh one is a purchase in progress; an old one never finished, and the seller is told where to look. */
-function stuckClaim(row: Record<string, any>, providerName: string): ShipOutcome {
-  const age = Date.now() - Date.parse(String(row.updated_at ?? row.created_at ?? ""))
-  if (Number.isFinite(age) && age > STALE_CLAIM_MS) return { ok: false, error: `This label purchase did not finish. Check your ${providerName} account for a label on this order before you buy again, then get rates again.`, status: 409 }
-  return { ok: false, error: "This label is already being bought. Wait a moment.", status: 409 }
+/**
+ * A CLAIM WITH NO LABEL AFTER IT, SETTLED WITH THE PROVIDER. The request that
+ * made it never wrote an answer: it timed out, the function was stopped, or
+ * the provider was still making the label.
+ *
+ *   bought     the provider has a label for this shipment: it is written
+ *              onto the claim, exactly as a purchase that answered
+ *   wait       the provider is still making it, or the claim is young enough
+ *              that its own request may still be running; or the provider
+ *              can't be asked (it is down, or the claim is from before the
+ *              rate was kept on it), and the seller is told where to look
+ *   released   the provider says no label exists and the claim is old: it
+ *              is removed, and the caller goes on to buy
+ */
+async function settleClaim(
+  db: Db,
+  creatorId: string,
+  checkoutId: string,
+  claim: Record<string, any>,
+  api: LabelApi,
+  cred: { id: string; key: string },
+  deps: LabelDeps,
+): Promise<{ kind: "bought"; row: Record<string, any> } | { kind: "wait"; outcome: ShipOutcome; /** True while the label may still turn up: no other label is to be bought for the order meanwhile. */ open: boolean } | { kind: "released" }> {
+  const age = Date.now() - Date.parse(String(claim.updated_at ?? claim.created_at ?? ""))
+  const old = Number.isFinite(age) && age > STALE_CLAIM_MS
+  const busy: ShipOutcome = { ok: false, error: "This label is already being bought. Wait a moment.", status: 409 }
+  const unknown: ShipOutcome = old ? { ok: false, error: `This label purchase did not finish. Check your ${api.name} account for a label on this order before you buy again, then get rates again.`, status: 409 } : busy
+  const plan = planOf(claim.package)
+  /* Shippo is asked by the rate; a claim from before the rate was kept can't be, and says where to look as it always did. */
+  if (api.id === "shippo" && !plan.rateId) return { kind: "wait", outcome: unknown, open: !old }
+  let found: FoundLabel
+  try {
+    found = await api.findLabel(cred.key, { shipmentId: String(claim.provider_shipment_id), rateId: plan.rateId ?? null, labelId: null })
+  } catch {
+    return { kind: "wait", outcome: unknown, open: !old }
+  }
+  if (found.state === "bought") {
+    const rate = { shipmentId: String(claim.provider_shipment_id), carrier: String(claim.carrier ?? "Carrier"), service: String(claim.service ?? "Shipping"), cents: Number(claim.cost_cents ?? 0), currency: String(claim.currency ?? "USD") }
+    return { kind: "bought", row: await recordPurchase(db, creatorId, checkoutId, claim, purchaseFrom(rate, found), api, cred.id, deps) }
+  }
+  if (found.state === "pending" || !(Number.isFinite(age) && age > IN_FLIGHT_MS)) return { kind: "wait", outcome: busy, open: true }
+  await db.from("shipping_labels").delete().eq("id", claim.id).eq("status", "buying")
+  return { kind: "released" }
+}
+
+/**
+ * BEFORE ANOTHER LABEL IS QUOTED OR BOUGHT FOR AN ORDER, every purchase of
+ * its that never answered is settled. Without this a seller who closed the
+ * dialog after "did not answer" and got rates again (a new shipment at the
+ * provider, so a new claim) could buy a second label while the first was
+ * bought all along. A label that turns out to be bought ships its items and
+ * the seller is told to look at the order; one still in flight holds the
+ * next purchase back; a claim nothing can be learned about any more (the
+ * provider disconnected, or ten minutes of no answer) is left where it is
+ * and stops nothing. Null when there is nothing to say and the caller goes on.
+ */
+async function settleOpenClaims(db: Db, creatorId: string, checkoutId: string, deps: LabelDeps, except: string | null = null): Promise<string | null> {
+  const { data, error } = await db.from("shipping_labels").select("*").eq("creator_id", creatorId).eq("checkout_id", checkoutId).eq("status", "buying")
+  if (error) return null
+  for (const claim of (data ?? []) as Record<string, any>[]) {
+    if (except && claim.provider_shipment_id === except) continue
+    const api = labelApiFor(claim.provider)
+    const cred = api ? await connectedKey(db, creatorId, api.id) : null
+    if (!api || !cred) continue
+    const settled = await settleClaim(db, creatorId, checkoutId, claim, api, cred, deps)
+    if (settled.kind === "bought") {
+      await finishShipping(db, creatorId, checkoutId, settled.row, { notifyBuyer: true }, deps)
+      const label = labelView(settled.row)
+      return `A ${api.name} label bought earlier for this order has come through${label.trackingNumber ? ` (${[label.carrier, label.trackingNumber].filter(Boolean).join(" ")})` : ""} and is on the order now. Close this and check the order before you buy another.`
+    }
+    if (settled.kind === "wait" && settled.open) return `A label for this order is still being bought at ${api.name}. Wait a minute or two, then get rates again.`
+  }
+  return null
 }
 
 /**
@@ -586,6 +826,42 @@ export async function shipLabel(db: Db, creatorId: string, checkoutId: string, l
   if (!row) return { ok: false, error: "Label not found.", status: 404 }
   if (row.status !== "purchased") return { ok: false, error: row.status === "buying" ? "This label is still being bought." : "A voided label can't ship anything." }
   return finishShipping(db, creatorId, checkoutId, row, { notifyBuyer: input.notifyBuyer === true }, deps)
+}
+
+/* ── printing it ────────────────────────────────────────────────────────── */
+
+/**
+ * WHERE A BOUGHT LABEL (OR ITS COMMERCIAL INVOICE) IS, RIGHT NOW. The
+ * provider is asked each time: Shippo's label address expires, and a label
+ * printed a week after it was bought used to open an error page. The address
+ * kept at purchase is what is used when the provider can't be reached, so a
+ * label that still opens is never held back by an outage. Only a label of
+ * this store, on this order, that is bought and not voided.
+ */
+export async function labelDocument(db: Db, creatorId: string, checkoutId: string, labelId: string, doc: "label" | "invoice"): Promise<{ ok: true; url: string } | { ok: false; error: string; status: number }> {
+  const { data: row } = await db.from("shipping_labels").select("*").eq("id", labelId).eq("creator_id", creatorId).eq("checkout_id", checkoutId).maybeSingle()
+  if (!row) return { ok: false, error: "Label not found.", status: 404 }
+  if (row.status !== "purchased") return { ok: false, error: row.status === "buying" ? "This label is still being bought." : "This label was voided, so it can't be printed.", status: 409 }
+  const kept = doc === "label" && typeof row.label_url === "string" && /^https:\/\//.test(row.label_url) ? (row.label_url as string) : null
+  const api = labelApiFor(row.provider)
+  const cred = api ? await connectedKey(db, creatorId, api.id) : null
+  if (!api || !cred) return kept ? { ok: true, url: kept } : { ok: false, error: `Connect ${providerInfo(row.provider)?.name ?? "the label app"} again to open this.`, status: 409 }
+  let found: FoundLabel | null = null
+  try {
+    const labelIdAtProvider = typeof row.provider_label_id === "string" && !row.provider_label_id.startsWith("pending:") ? row.provider_label_id : null
+    found = await api.findLabel(cred.key, { shipmentId: String(row.provider_shipment_id), rateId: planOf(row.package).rateId ?? null, labelId: labelIdAtProvider })
+  } catch {
+    found = null
+  }
+  if (found?.state === "bought") {
+    const url = doc === "invoice" ? found.invoiceUrl : found.labelUrl
+    /* The fresh address is kept, so the next outage still has one that works. */
+    if (doc === "label" && url && url !== row.label_url && url.length <= 2000) await db.from("shipping_labels").update({ label_url: url, updated_at: new Date().toISOString() }).eq("id", row.id)
+    if (url) return { ok: true, url }
+    return { ok: false, error: `${api.name} made no commercial invoice for this label. Some carriers print the customs form on the label itself.`, status: 404 }
+  }
+  if (kept) return { ok: true, url: kept }
+  return { ok: false, error: `${api.name} could not be reached. Try again in a moment.`, status: 503 }
 }
 
 /* ── voiding it ─────────────────────────────────────────────────────────── */

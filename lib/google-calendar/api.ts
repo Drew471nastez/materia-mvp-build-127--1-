@@ -1,4 +1,5 @@
 import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto"
+import { merged } from "@/lib/net/deadline"
 
 /*
   GOOGLE CALENDAR, AS STORELIB ASKS IT (round AR).
@@ -51,6 +52,34 @@ export class GoogleCalendarError extends Error {
     readonly reconnect = false,
   ) {
     super(message)
+  }
+}
+
+/*
+  EVERY CALL TO GOOGLE ENDS (round AW). None of these calls had a deadline,
+  and Node's fetch has none of its own short of undici's 300 second wait for
+  headers: a Google that took a request and did not answer held a visitor's
+  booking calendar (/api/forms/<id>/slots, through googleBusy), their booking
+  (the submit checks the slot against Google again), a reschedule from the
+  manage link and the creator's Bookings settings until the platform stopped
+  the function. "Google is a helper, never a gate" (./server.ts) only holds
+  when a Google that does not answer is given up on. So each call, the token
+  endpoint included, ends after GOOGLE_CALL_MS, and a call that got no answer
+  at all is a GoogleCalendarError like any other refusal, which every caller
+  already turns into its fallback: no busy times, a sync marked failed, plain
+  words for the creator. A caller's own signal still ends it sooner.
+*/
+export const GOOGLE_CALL_MS = 8_000
+
+export async function askGoogle(fetcher: Fetch, url: string, init: RequestInit, noAnswer: string, ms: number = GOOGLE_CALL_MS): Promise<Response> {
+  const ours = AbortSignal.timeout(ms)
+  const caller = init.signal ?? null
+  try {
+    return await fetcher(url, { ...init, signal: merged(caller, ours) })
+  } catch (e) {
+    /* The caller ending it is the caller's: handed back as it was. */
+    if (caller?.aborted && !ours.aborted) throw e
+    throw new GoogleCalendarError(noAnswer, ours.aborted ? 504 : 502)
   }
 }
 
@@ -128,7 +157,7 @@ export function emailOfIdToken(idToken: unknown): string | null {
 }
 
 async function tokenCall(fetcher: Fetch, body: Record<string, string>, now: number): Promise<Tokens> {
-  const res = await fetcher(TOKEN_URL, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body).toString() })
+  const res = await askGoogle(fetcher, TOKEN_URL, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body).toString() }, "Google did not answer the sign in. Try again.")
   const data = (await res.json().catch(() => null)) as Record<string, unknown> | null
   if (!res.ok || !data || typeof data.access_token !== "string") {
     const code = typeof data?.error === "string" ? data.error : ""
@@ -152,13 +181,13 @@ export function refreshAccess(fetcher: Fetch, config: GoogleCalendarConfig, refr
 }
 
 export async function revokeToken(fetcher: Fetch, token: string): Promise<void> {
-  await fetcher(REVOKE_URL, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ token }).toString() }).catch(() => null)
+  await askGoogle(fetcher, REVOKE_URL, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ token }).toString() }, "Google did not answer.").catch(() => null)
 }
 
 /* ── Calendars ───────────────────────────────────────────────────────────── */
 
 async function call<T>(fetcher: Fetch, token: string, path: string, init: RequestInit = {}): Promise<T | null> {
-  const res = await fetcher(`${API}${path}`, { ...init, headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(init.body ? { "content-type": "application/json" } : {}), ...(init.headers || {}) } })
+  const res = await askGoogle(fetcher, `${API}${path}`, { ...init, headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(init.body ? { "content-type": "application/json" } : {}), ...(init.headers || {}) } }, "Google Calendar did not answer. Try again.")
   if (res.status === 204) return null
   const data = (await res.json().catch(() => null)) as T | { error?: { message?: string } } | null
   if (!res.ok) {

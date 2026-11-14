@@ -960,7 +960,8 @@ export default function CheckoutPageClient({
       const body: Partial<ReturnType<typeof orderBody>> = orderBody()
       delete body.tipCents
       delete body.business
-      const res = await postJson<{ receiptToken?: string }>("/api/checkout/process", body)
+      /* This view's attempt id: pressed again after an answer that never came, the same order is answered, not a second one (lib/checkout/free-claim). */
+      const res = await postJson<{ receiptToken?: string }>("/api/checkout/process", { ...body, attemptId: attemptIdOf(attemptRef) })
       if (!res.ok || !res.data.receiptToken) throw new Error(res.data.error || "The order could not be finished. Try again.")
       showPaid(res.data.receiptToken, { total: 0, free: true })
     } catch (e) {

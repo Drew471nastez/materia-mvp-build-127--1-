@@ -10,7 +10,8 @@ type Chip = { label: string; emoji: string }
   rows, not 3"; wave 12 had three). Edge to edge, one moving left and one
   right. Communities, never Memberships: memberships were folded into
   communities (tests/memberships-folded). Wave 13, the owner: an emoji and a
-  word in a white pill.
+  word in a white pill. Landing round 3: about half of them are things that
+  ship (tees, vinyl, mugs, prints), half are digital or a community.
 */
 const ROW_1: Chip[] = [
   { label: "Presets", emoji: "🎛️" },
@@ -20,34 +21,34 @@ const ROW_1: Chip[] = [
   { label: "Communities", emoji: "👥" },
   { label: "1:1 coaching", emoji: "🤝" },
   { label: "Ebooks", emoji: "📚" },
-  { label: "Fonts", emoji: "✏️" },
-  { label: "Templates", emoji: "📐" },
+  { label: "T-shirts", emoji: "👕" },
+  { label: "Hoodies", emoji: "🧥" },
   { label: "Notion templates", emoji: "📋" },
-  { label: "Photography", emoji: "📸" },
+  { label: "Vinyl records", emoji: "💿" },
   { label: "Podcasts", emoji: "🎙️" },
   { label: "Sample packs", emoji: "🥁" },
-  { label: "3D models", emoji: "🧊" },
-  { label: "Recipes", emoji: "🍳" },
-  { label: "Travel guides", emoji: "🗺️" },
+  { label: "Mugs", emoji: "☕" },
+  { label: "Tote bags", emoji: "👜" },
+  { label: "Posters", emoji: "📌" },
   { label: "Bookings", emoji: "📅" },
-  { label: "Newsletters", emoji: "📬" },
+  { label: "Candles", emoji: "🕯️" },
 ]
 const ROW_2: Chip[] = [
   { label: "Music", emoji: "🎵" },
-  { label: "Software", emoji: "💻" },
+  { label: "Ceramics", emoji: "🏺" },
   { label: "Workshops", emoji: "🧑‍🏫" },
   { label: "Event tickets", emoji: "🎟️" },
   { label: "Art prints", emoji: "🖼️" },
   { label: "Digital art", emoji: "🎨" },
   { label: "Video tutorials", emoji: "🎥" },
   { label: "Fitness plans", emoji: "🏋️" },
-  { label: "Game assets", emoji: "🎮" },
-  { label: "Plugins", emoji: "🧩" },
-  { label: "Spreadsheets", emoji: "📊" },
-  { label: "Worksheets", emoji: "📄" },
+  { label: "Zines", emoji: "📰" },
+  { label: "Hats", emoji: "🧢" },
+  { label: "Jewelry", emoji: "💍" },
+  { label: "Signed books", emoji: "📖" },
   { label: "Procreate brushes", emoji: "🖌️" },
   { label: "Stock footage", emoji: "🎬" },
-  { label: "Icon packs", emoji: "💠" },
+  { label: "Phone cases", emoji: "📱" },
   { label: "Sewing patterns", emoji: "🧵" },
   { label: "Language lessons", emoji: "🗣️" },
   { label: "Stickers", emoji: "🏷️" },
@@ -83,7 +84,8 @@ const CSS = `
 .um-head .story-heading{margin-inline:auto}
 .um-sub{margin:20px auto 0;max-width:46ch;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#6b6874;text-wrap:pretty}
 [data-landing-story] [data-story-section] > .um-rows,.um-rows{max-width:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(4px,.6vw,8px)}
-.um-row{position:relative;width:100%;overflow:hidden;padding-block:8px 12px}
+/* Landing round 4 (the owner: a pill's hover shadow was cut by its row). The row clips sideways only, so the lifted pill's shadow (28px under it) falls outside the row; where overflow-x: clip is not known, the row keeps overflow: hidden and has room for the shadow in its padding, given back by a negative margin so the rows sit where they did. */
+.um-row{position:relative;width:100%;overflow:hidden;overflow:clip visible;padding-block:8px 30px;margin-bottom:-18px}
 .um-track{display:flex;width:max-content;will-change:transform;backface-visibility:hidden;animation:um-left var(--um-s,64s) linear infinite}
 .um-row[data-dir="right"] .um-track{animation-name:um-right}
 .um-copy{display:flex;margin:0;padding:0;list-style:none;flex:none}

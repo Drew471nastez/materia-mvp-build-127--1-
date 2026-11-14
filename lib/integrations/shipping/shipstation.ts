@@ -126,7 +126,8 @@ export function readShipment(s: any): ShipStationShipment | null {
 export function isShipStationResource(url: unknown): url is string {
   try {
     const u = new URL(String(url ?? ""))
-    return u.protocol === "https:" && u.hostname === "ssapi.shipstation.com" && !u.username && !u.password && (u.port === "" || u.port === "443")
+    /* ShipStation's own API hosts: ssapi, and the numbered ones its notifications name (ssapi6, ssapi11). A notification naming a numbered host used to be dropped as "another host", so the shipment never reached the order. */
+    return u.protocol === "https:" && /^ssapi\d{0,3}\.shipstation\.com$/.test(u.hostname) && !u.username && !u.password && (u.port === "" || u.port === "443")
   } catch {
     return false
   }

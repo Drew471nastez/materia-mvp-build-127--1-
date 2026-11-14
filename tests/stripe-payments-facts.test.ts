@@ -66,7 +66,7 @@ check("payouts switched off: does not sell", !stripeRowReady({ stripe_account_id
 check("synced all on, status word stale: sells", stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "pending", charges_enabled: true, payouts_enabled: true, details_submitted: true }))
 check("pending and not all on: does not sell", !stripeRowReady({ stripe_account_id: "acct_1", stripe_onboarding_status: "pending", charges_enabled: true, payouts_enabled: true, details_submitted: false }))
 check("no account: does not sell", !stripeRowReady({ stripe_account_id: null, stripe_onboarding_status: "connected", charges_enabled: true, payouts_enabled: true }))
-check("checkout and Payouts read the same gate", /* Round AE: Stripe only, so the row is read inline. */ /return stripeRowReady\(await readCreatorStripe\(creatorId\)\)/.test(code("lib/payments/service.ts")) && /checkoutReadyForCreator\(creator\.id\)/.test(code("app/api/checkout/stripe-session/route.ts")))
+check("checkout and Payouts read the same gate", /* Round AE: Stripe only, so the row is read inline. */ /readCreatorStripe\(creatorId\)\]\)/.test(code("lib/payments/service.ts")) && /return stripeRowReady\(row\)/.test(code("lib/payments/service.ts")) /* Changed on purpose (round AW): the same row, read beside the ban check */ && /checkoutReadyForCreator\(creator\.id\)/.test(code("app/api/checkout/stripe-session/route.ts")))
 
 console.log("\nWebhooks: both secrets")
 const hook = code("app/api/stripe/webhook/route.ts")

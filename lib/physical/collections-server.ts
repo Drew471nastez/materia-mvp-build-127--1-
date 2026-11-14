@@ -112,8 +112,10 @@ export async function saveCollection(db: Db, creatorId: string, id: string | nul
   }
   let collectionId = id
   if (id) {
-    const { error } = await db.from("product_collections").update(row).eq("id", id).eq("creator_id", creatorId)
+    const { data: mine, error } = await db.from("product_collections").update(row).eq("id", id).eq("creator_id", creatorId).select("id")
     if (error) return { ok: false, error: error.code === "23505" ? "Another collection uses that address." : "The collection could not be saved." }
+    /* Not this store's collection: nothing was updated, and its products are not touched. The items below are written by the collection's id alone, so another store's id used to empty that store's collection. */
+    if (!Array.isArray(mine) || mine.length === 0) return { ok: false, error: "That collection could not be found." }
   } else {
     const { data, error } = await db.from("product_collections").insert(row).select("id").single()
     if (error || !data) return { ok: false, error: error?.code === "23505" ? "Another collection uses that address." : "The collection could not be saved." }
