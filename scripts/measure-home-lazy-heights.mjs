@@ -41,8 +41,8 @@ const HEIGHT = 900
  * screen at 390 and 1440 on every run.
  */
 const TRACKS = {
-  /* The pinned scene (100svh) and its scroll, less the cards pulled up over it: 148vh in all, measured. */
-  checkout: [{ css: "100svh + 48vh", vh: 148 }],
+  /* Landing round 5: the held stage (100svh) and its 80svh, less the 64svh the cards are pulled up over it: 116svh. */
+  checkout: [{ css: "116svh", vh: 116 }],
   /* Pinned while the scroll steps through five kinds: 100svh + 4 steps (56svh below 900px, 62svh from 900). */
   business: [{ until: 899, css: "324svh", vh: 324 }, { css: "348svh", vh: 348 }],
 }

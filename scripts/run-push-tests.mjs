@@ -1429,6 +1429,8 @@ const SUITES = [
   "tests/home-landing-topb4.test.ts",
   /* Landing round 4 (frame): sheets rise like a phone's sheet (a small side inset settling to full width, the held block behind shrinking a little and dimming), CSS scroll-driven, transform and opacity only, off for reduced motion; Make the work on a flat ground, not a drawer; the globe's pill glides on the compositor a few times a second and its move path reads no layout; the app and the closing call on a dark close with no seam into the footer; a calmer FAQ with a neutral plus and grid-row opening; a small dot grid background. */
   "tests/home-landing-frame4.test.ts",
+  /* Landing round 5, checkout: the phone shows the real instant checkout (393px wide, scaled whole), there from the start and sliding up once, held by sticky while the tab cards come up over it, no orbit or scroll timelines; tab cards again, not pills; Built to convert's desktop window whole on any screen; The Loop in place of After Dark. */
+  "tests/home-landing-r5-checkout.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
