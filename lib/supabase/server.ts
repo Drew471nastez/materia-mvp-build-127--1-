@@ -67,7 +67,7 @@ export async function createClient({ fetch: underFetch }: { fetch?: typeof fetch
     ...(underFetch ? { global: { fetch: underFetch } } : {}),
     cookies: {
       getAll() {
-        return sessionView(cookieStore.getAll().map((c) => ({ name: c.name, value: c.value })), key, duplicated).cookies
+        return sessionView(cookieStore.getAll().map((c) => ({ name: c.name, value: c.value })), key, duplicated, { retireLegacy: hostCookies }).cookies
       },
       setAll(cookiesToSet) {
         try {

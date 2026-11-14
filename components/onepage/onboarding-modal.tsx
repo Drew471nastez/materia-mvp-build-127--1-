@@ -704,14 +704,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     const checkAvailability = async () => {
       setCheckingUsername(true)
       try {
-        const { data: existing } = await supabase
-          .from("onepages")
-          .select("id")
-          .eq("slug", slug)
-          .neq("id", onepage?.id || "")
-          .single()
-
-        setUsernameAvailable(!existing)
+        /*
+          Asked of the server (app/api/onepage/address, the check the save
+          runs), never read from other people's pages with the browser key:
+          a signed in account reads only its own OnePage (part 465). Only a
+          name another page or person holds says "taken"; a name the address
+          rules refuse, or a check that could not run, leaves the step open
+          as before.
+        */
+        const res = await fetch(`/api/onepage/address?name=${encodeURIComponent(slug)}`, { cache: "no-store" })
+        const answer = (await res.json().catch(() => null)) as { taken?: boolean } | null
+        setUsernameAvailable(!(res.ok && answer?.taken === true))
       } catch {
         setUsernameAvailable(true)
       } finally {

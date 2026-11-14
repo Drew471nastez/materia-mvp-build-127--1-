@@ -48,6 +48,37 @@ import { isChunkLike } from "@supabase/ssr/dist/main/utils/chunker.js"
 
 export const HOST_PREFIX = "__Host-"
 
+/**
+ * THE END OF THE MOVE (round AY). A lone old-name session is still read and
+ * moved to `__Host-`, so a browser from before round AX is not signed out.
+ * But a visitor with no `__Host-` session yet could be handed one under the
+ * old name by a published site (Domain=storelib.com), and it was read like
+ * their own. So the move has an end: from this date (45 days after
+ * 2026-11-14) an old name is never read on HTTPS, it is expired instead.
+ * Anyone who opened Storelib in those 45 days already holds the `__Host-`
+ * copy and notices nothing; a browser that stayed away signs in once more.
+ * http://localhost keeps the old name (it cannot hold a `__Host-` cookie).
+ *
+ * Narrowing the window further by the request (Referer, Sec-Fetch-Site) was
+ * weighed and left out: a planted cookie waits in the jar and is used on a
+ * later visit typed straight into the address bar, which looks exactly like
+ * the real owner's own, so such a check would only sign real people out.
+ */
+export const LEGACY_SESSION_CUTOFF_MS = Date.UTC(2026, 11, 29)
+
+export interface SessionViewOptions {
+  /** True where writes go to `__Host-` names (writesHostCookies): only there can the old name be retired. */
+  retireLegacy?: boolean
+  /** The clock, for tests. */
+  now?: number
+}
+
+/** Whether a lone old-name session may still be read and moved over. */
+export function legacyMigrationOpen(opts: SessionViewOptions = {}): boolean {
+  if (!opts.retireLegacy) return true
+  return (opts.now ?? Date.now()) < LEGACY_SESSION_CUTOFF_MS
+}
+
 export interface CookiePair {
   name: string
   value: string
@@ -91,7 +122,7 @@ export interface SessionView {
   cookies: CookiePair[]
   /** Old-name cookies trusted on this request (no `__Host-` copy, one of each): to move to `__Host-`. */
   migrate: CookiePair[]
-  /** Old names ignored because a `__Host-` copy exists: safe to expire on this host. */
+  /** Old names ignored because a `__Host-` copy exists, or the move has ended (LEGACY_SESSION_CUTOFF_MS): safe to expire on this host. */
   shadowed: string[]
   /** Old names ignored because they arrived twice or in two shapes: a planted copy is among them. */
   tossed: string[]
@@ -102,7 +133,8 @@ export interface SessionView {
  * sent them; `alsoDuplicated` names a caller knows arrived more than once
  * when `pairs` came through a jar that keeps one of each (Next's cookies()).
  */
-export function sessionView(pairs: readonly CookiePair[], key: string | null, alsoDuplicated: Iterable<string> = []): SessionView {
+export function sessionView(pairs: readonly CookiePair[], key: string | null, alsoDuplicated: Iterable<string> = [], opts: SessionViewOptions = {}): SessionView {
+  const migrationOpen = legacyMigrationOpen(opts)
   const view: SessionView = { cookies: [], migrate: [], shadowed: [], tossed: [] }
   const seen = new Set<string>()
   const count = new Map<string, number>()
@@ -141,6 +173,11 @@ export function sessionView(pairs: readonly CookiePair[], key: string | null, al
     const bothShapes = legacyNames.includes(item) && legacyNames.some((n) => n !== item)
     if (twice || bothShapes) {
       view.tossed.push(...legacyNames)
+      continue
+    }
+    if (!migrationOpen) {
+      /* After the cutoff an old name is never read: expired like one beside a `__Host-` copy (round AY). */
+      view.shadowed.push(...legacyNames)
       continue
     }
     for (const p of g.legacy) {

@@ -267,4 +267,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "462", file: "462_store_addresses_server_only.sql", sha256: "24fc922ea1a6c7c5ab10acdd9f02265b6488531df6a60ca9f455c186724a7f3e" },
   { part: "463", file: "463_website_drafts_private.sql", sha256: "e9ebbc9ef51a64c597c3f0850d5183d7315f7fdb6f4414d16592ad89c634beb2" },
   { part: "464", file: "464_onepage_drafts_private.sql", sha256: "7f1bd1d0c8badfc7b055b5f42992220422b9f9582ec58a02e41db0ac81234152" },
+  { part: "465", file: "465_onepage_drafts_owner_only.sql", sha256: "305f8d5f142976dbaf62c0327972faa0b27eb4a34a0d9afb4e1b3cafcdae6ede" },
+  { part: "466", file: "466_website_pages_deleted_rows_kept.sql", sha256: "2ceb8e3e505b41cec3a91972bd81f5b09d5dcdbd4a324f163f9c42d1f46bf0be" },
 ]

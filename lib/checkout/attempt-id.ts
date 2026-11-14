@@ -24,3 +24,15 @@ export function attemptIdOf(holder: { current: string | null }): string {
   if (!holder.current) holder.current = newCheckoutAttemptId()
   return holder.current
 }
+
+/**
+ * The key a free order that ships is placed under (round AY): the same while the order (its signature) is
+ * the same, so a press sent again after a lost answer finds the order the first placed
+ * (lib/physical/checkout-server freeOrderOfKey); a new one once anything in the order changed. The caller
+ * clears the holder when the server refused, so the next press is a new order.
+ */
+export function freeKeyFor(holder: { current: { key: string; sig: string } | null }, sig: string, make: () => string): string {
+  if (holder.current && holder.current.sig === sig) return holder.current.key
+  holder.current = { key: make(), sig }
+  return holder.current.key
+}
