@@ -123,7 +123,8 @@ console.log("\nCommerce: the sections render on the server")
   check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="A Storelib checkout on a phone/.test(co))
   /* Changed on purpose (landing round): the orbiting products (the Golden preset box, the camera course, a purple membership card) are gone with the orbit. */
 /* Changed on purpose (landing round 4): the owner asked for the products orbiting the phone back, none of them the Golden Hour box or the purple membership card, each crossfading to a pre-blurred file (never a live filter). */
-  check("checkout: products orbit the phone again, new ones, pre-blurred files", /cmc-orbit/.test(co) && ["ebook", "cap", "course", "tee", "club", "vinyl"].every((id) => co.includes(`/home/commerce/float-${id}.webp`) && co.includes(`/home/commerce/float-${id}-blur.webp`)) && !/float-(box|member)/.test(co + src.checkout))
+  /* Changed on purpose (landing round 5): the orbit is gone, it stuttered under a finger. */
+  check("checkout: no products orbit the phone", !/cmc-orbit|\/home\/commerce\/float-/.test(co + src.checkout))
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
@@ -179,8 +180,9 @@ console.log("\nCommerce: motion and performance rules")
   }
   /* Changed on purpose (landing round): the owner found scrolling through the scene "very bad". The scroll no longer scrubs anything frame by frame: an IntersectionObserver sets data-step as bands cross the middle of the screen, and each step plays as a CSS transition of transform and opacity. Stricter than before: no scroll listener at all, no per-frame custom property, no 3D orbit. */
 /* Changed on purpose (landing round 4): the phone rises and stays, the words come in, the tab cards rise over the phone: CSS view timelines (transform and opacity, on the compositor, reversible), and where a browser has none, two IntersectionObservers set two attributes and the same states play as transitions. Still no scroll listener and no layout read. */
-  check("checkout: scroll-driven by view timelines, with an observer fallback, no scroll listener, no layout read", /view-timeline-name:--cmc[;}]/.test(src.checkout) && /view-timeline-name:--cmc-cards/.test(src.checkout) && /timeline-scope:--cmc-cards/.test(src.checkout) && /animation-timeline:--cmc[;,]/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
-  check("checkout: a pinned stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:-60vh 0 0/.test(src.checkout))
+  /* Changed on purpose (landing round 5): no scroll timelines; one observer starts a one-shot entrance, plain scroll does the rest. */
+  check("checkout: one observer for the entrance, no scroll timeline, no scroll listener, no layout read", !/view-timeline|animation-timeline/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
+  check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(\$\{OVERLAP\} \* -1\) 0 0/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
   check("checkout: keyframes animate transform and opacity only", [...src.checkout.matchAll(/@keyframes [\w-]+\{([^@]*?)\}\}/g)].every((m) => !/(width|height|top|left|margin|background|box-shadow|filter)\s*:/.test(m[1])))

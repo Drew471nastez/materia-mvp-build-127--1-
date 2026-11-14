@@ -168,11 +168,11 @@ check("One-tap payments is a phone and nothing else", () => {
   const convert = co.slice(co.indexOf('id="cmc-panel-convert"'), co.indexOf('id="cmc-panel-tap"'))
   assert.ok(/cdx-win/.test(convert) && !/class="cmc-phone"/.test(convert), "the browser is Built to convert's") /* Changed on purpose (landing round 4): the website checkout's window. */
 })
-check("the tabs are the pill tabs in their dark form: a dark track with a light edge, the chosen pill white, no coloured chips", () => {
+/* Changed on purpose (landing round 5, the owner: "not pill shapes, should be tabs, how they were before"): the dark tab cards of 0724a74c1, no pills. */
+check("the tabs are dark tab cards, not pills: no coloured chips", () => {
   const list = rule(coCss, ".cmc-tablist")
-  assert.ok(/border-radius:999px/.test(list) && /background:#141416/.test(list) && /border:1px solid rgba\(255,255,255,\.08\)/.test(list))
-  assert.ok(/\.cmc-tab\{[^}]*border-radius:999px[^}]*background:transparent/.test(coCss))
-  assert.ok(/\.cmc-tab::before\{[^}]*background:#fff/.test(coCss) && /\.cmc-tab\[data-on\]\{color:#18181b\}/.test(coCss))
+  assert.ok(/display:grid/.test(list) && !/999px/.test(list))
+  assert.ok(/\.cmc-tab\{[^}]*border-radius:21px[^}]*background:rgba\(24,24,27,\.94\)/.test(coCss) && !/\.cmc-tab\{[^}]*999px/.test(coCss))
   assert.equal((co.match(/role="tab"/g) ?? []).length, 4) /* Changed on purpose (landing round 4): four tabs. */
   const tabs = co.slice(co.indexOf('role="tablist"'), co.indexOf('class="cmc-panels"'))
   assert.ok(!/<svg|<img/.test(tabs))

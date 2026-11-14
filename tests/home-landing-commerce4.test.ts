@@ -29,8 +29,7 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToString } from "react-dom/server"
 import { HowItWorks, HOW_PRODUCTS, HOW_DOMAIN, HOW_IT_WORKS_STYLES } from "../components/marketing/home/how-it-works"
-import { CheckoutScene, CHECKOUT_HEADING, CHECKOUT_STYLES } from "../components/marketing/home/checkout-scene"
-import { EBOOK } from "../components/marketing/home/ebook-cover"
+import { CheckoutScene, CHECKOUT_HEADING, CHECKOUT_STYLES, GUIDE } from "../components/marketing/home/checkout-scene"
 import { sheetButtonLabel } from "../lib/onepage/product-block"
 import { CURRENCY_FEE_RULES } from "../lib/payments/fees/currency-rules"
 import { DOMAIN_PURPOSES } from "../lib/custom-domains/hostname"
@@ -71,8 +70,8 @@ check("none of this round's banned samples", () => {
 })
 check("half physical, half digital: the cap and the e-book in How it works, physical and digital taking turns around the phone", () => {
   assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["cap", "Physical"], ["ebook", "Digital"]])
-  const ids = [...co.matchAll(/\/home\/commerce\/float-([a-z]+)\.webp/g)].map((m) => m[1])
-  assert.deepEqual(ids, ["ebook", "cap", "course", "tee", "club", "vinyl"])
+  /* Changed on purpose (landing round 5): the orbit is gone (the owner: it stuttered under a finger); no product rides around the phone. */
+  assert.ok(!/\/home\/commerce\/float-/.test(co))
 })
 
 console.log("\nHow it works")
@@ -108,42 +107,25 @@ check("the domain tile is cleaner and keeps the code's claims: the three purpose
 })
 
 console.log("\nThe checkout scene")
-check("the phone rises from below and stays, the words come in one by one after it, all on view timelines", () => {
-  assert.ok(/view-timeline-name:--cmc[;}]/.test(coCss) && /view-timeline-name:--cmc-cards/.test(coCss) && /timeline-scope:--cmc-cards/.test(coCss))
-  assert.ok(/\.cmc-rise\{animation:cmc-rise linear both;animation-timeline:--cmc;animation-range:entry/.test(coCss))
-  assert.ok(onlyCompositor(keyframes(coCss, "cmc-rise")) && /from\{transform:translate3d\(0,62%,0\)/.test(keyframes(coCss, "cmc-rise")))
+/* Changed on purpose (landing round 5): no view timelines and no orbit. The phone is there from the first pixel and slides up once as the section comes in (one observer, a CSS transition); the cards come up over it with plain scroll. tests/home-landing-r5-checkout.test.ts pins the rest. */
+check("the phone is there from the start and slides up once as the section comes in; the words follow", () => {
+  assert.ok(!/view-timeline|animation-timeline|timeline-scope/.test(coCss))
+  assert.ok(/\.cmc\[data-cmc-armed\]:not\(\[data-cmc-in\]\) \.cmc-rise\{transform:translate3d\(0,22%,0\)/.test(coCss))
   const n = CHECKOUT_HEADING.split(" ").length
   assert.equal((co.match(/class="cmc-w"/g) ?? []).length, n)
-  const starts = [...coCss.matchAll(/\.cmc-w\[data-w="\d+"\]\{animation-range:contain ([\d.]+)%/g)].map((m) => Number(m[1]))
-  assert.equal(starts.length, n)
-  assert.ok(starts.every((s, i) => i === 0 || s > starts[i - 1]))
-  assert.ok(onlyCompositor(keyframes(coCss, "cmc-word")))
 })
-check("the tab cards rise over the phone and the phone sinks back and fades into them", () => {
-  assert.ok(/\.cmc-cards\.cmc-cards\{[^}]*margin:-60vh 0 0/.test(coCss) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5/.test(coCss))
-  assert.ok(/\.cmc-sink\{animation:cmc-sink linear both;animation-timeline:--cmc-cards/.test(coCss))
-  const sink = keyframes(coCss, "cmc-sink")
-  assert.ok(onlyCompositor(sink) && /to\{[^}]*opacity:0/.test(sink))
+check("the tab cards come up over the phone with the page", () => {
+  assert.ok(/\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(64svh \* -1\) 0 0/.test(coCss) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5/.test(coCss))
 })
 check("the scroll never steps through a payment on the phone", () => {
   const phone = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))
   assert.ok(!/Payment complete|Face ID|Double Click|cmc-sheet|data-step/.test(phone))
-  assert.ok(phone.includes("Pay $19.00 with Apple Pay") && phone.includes(EBOOK.title))
+  assert.ok(phone.includes("Pay $19.00 with Apple Pay") && phone.includes(GUIDE.title))
 })
-check("browsers without view timelines: two observers set two attributes, the same states play as transitions; no scroll listener", () => {
+check("one observer, no scroll listener, no layout read, no orbit", () => {
   const src = read(CO)
-  assert.ok(/CSS\.supports\?\.\("animation-timeline: view\(\)"\)/.test(src) && (src.match(/new IntersectionObserver/g) ?? []).length === 2)
-  assert.ok(/data-cmc-in/.test(src) && /data-cmc-over/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
-  assert.ok(/\.cmc\[data-cmc-js\] \.cmc-rise\{[^}]*transition:transform/.test(coCss) && /\.cmc\[data-cmc-js\]\[data-cmc-over\] \.cmc-sink\{opacity:0/.test(coCss))
-})
-check("the products orbit the phone again: pre-blurred files, compositor loops, paused off screen", () => {
-  for (const id of ["ebook", "cap", "course", "tee", "club", "vinyl"]) {
-    for (const f of [`float-${id}.webp`, `float-${id}-blur.webp`]) assert.ok(existsSync(`public/home/commerce/${f}`) && statSync(`public/home/commerce/${f}`).size < 40 * 1024, f)
-  }
-  assert.ok(onlyCompositor(keyframes(coCss, "cmc-lap")) && onlyCompositor(keyframes(coCss, "cmc-focus-sharp")) && onlyCompositor(keyframes(coCss, "cmc-focus-soft")))
-  assert.ok(/\.cmc-lap,\.cmc-sharp,\.cmc-soft\{[^}]*animation-play-state:paused/.test(coCss))
-  assert.ok(/\.cmc-track\[data-commerce-live\] :is\(\.cmc-lap,\.cmc-sharp,\.cmc-soft\)\{animation-play-state:running\}/.test(coCss))
-  assert.ok(!/filter:\s*blur/.test(coCss))
+  assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 1 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
+  assert.ok(!/cmc-orbit|cmc-lap|filter:\s*blur/.test(src))
 })
 check("reduced motion: nothing pinned, no overlap, nothing moving", () => {
   const still = coCss.slice(coCss.lastIndexOf("@media (prefers-reduced-motion:reduce)"))
