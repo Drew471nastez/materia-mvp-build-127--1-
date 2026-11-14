@@ -30,6 +30,7 @@ import { stripeAccountSession, stripeOverview, stripeStartOnboarding } from "./s
 import { prepareStorelibAccount } from "./stripe/verification"
 import { beginStripeOnboarding, disconnectStripeAccount, readCreatorStripe, syncStripeAccount } from "./stripe/connect"
 import { stripeRowReady } from "./stripe/facts"
+import { creatorIsBanned } from "@/lib/seo/bans"
 
 /* ── Facts ────────────────────────────────────────────────────────────── */
 
@@ -38,9 +39,24 @@ export async function refreshProviderAccount(creatorId: string, actor: "webhook"
   await syncStripeAccount(creatorId, actor)
 }
 
-/** Whether checkout may charge for this creator (server gate). Never calls Stripe live on checkout. */
+/**
+ * Whether checkout may charge for this creator (server gate). Never calls Stripe live on checkout.
+ *
+ * A BANNED STORE TAKES NO NEW PAYMENTS (round AW). A ban unpublishes the
+ * store's products and takes its pages down, but a product is republished
+ * with one write, and a direct checkout link never looked at the ban: a
+ * banned seller kept selling while every page of theirs answered not found.
+ * Every paid checkout (products, baskets, websites, memberships, tips,
+ * community programs, events and library items) asks this gate, so it is
+ * the one place a ban stops new charges. Orders already paid are fulfilled
+ * as before: nothing that completes a payment asks this. The ban read is
+ * held for a minute and expired by the ban itself (lib/seo/bans.ts); a read
+ * that fails is "not banned", so a database blip never closes a store.
+ */
 export async function checkoutReadyForCreator(creatorId: string): Promise<boolean> {
-  return stripeRowReady(await readCreatorStripe(creatorId))
+  const [banned, row] = await Promise.all([creatorIsBanned(creatorId).catch(() => false), readCreatorStripe(creatorId)])
+  if (banned) return false
+  return stripeRowReady(row)
 }
 
 /**

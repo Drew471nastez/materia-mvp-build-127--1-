@@ -104,7 +104,7 @@ console.log("\n1. The integration is gone")
   check("an embedded session is Stripe's only", /body\.purpose === "stripe_payouts" \|\| body\.purpose === "stripe_onboarding" \|\| body\.purpose === "stripe_management"/.test(api))
 
   const service = read("lib/payments/service.ts")
-  check("checkout's gate is Stripe's row", /return stripeRowReady\(await readCreatorStripe\(creatorId\)\)/.test(service))
+  check("checkout's gate is Stripe's row", /readCreatorStripe\(creatorId\)\]\)/.test(service) && /return stripeRowReady\(row\)/.test(service)) // Changed on purpose (round AW): the same Stripe row, read beside the ban check (a banned store takes no new payments)
   check("refunds and sold out refunds never call Airwallex", !/airwallex/i.test(read("lib/checkout/sold-out-refund.ts")) && !/refundAirwallexOrder/.test(read("app/api/stripe/refund/route.ts")))
   check("an order is always written with Stripe's PaymentIntent", /stripe_payment_intent_id: paid\.paymentId,/.test(read("lib/checkout/fulfil-payment.ts")) && !/fulfilAirwallexIntent|paidAirwallexCheckout/.test(read("lib/checkout/fulfil-payment.ts")))
   check("the reminders count Stripe only", !/payment_accounts/.test(read("lib/notify/payout-weekly.ts")) && !/payment_accounts/.test(read("lib/notify/store.ts")) && !/payment_accounts/.test(read("lib/notifications/snapshot.ts")))

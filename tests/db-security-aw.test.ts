@@ -41,7 +41,7 @@ for (const name of Object.values(PARTS)) {
   check(`${n}: the check after has its column`, new RegExp(`as p${name}[,;]`).test(checkAfter))
   check(`${n}: the bundles carry it`, read("supabase/sql/run-four/3_of_4_latest.sql").includes(`-- part ${name}.sql`) && read("supabase/sql/all-in-two/1_of_2_everything.sql").includes(`-- part ${name}.sql`))
 }
-check("the three columns are the last ones, in order", /as p451_explore_catalogue_index, [\s\S]* as p452_deletes_through_the_server, [\s\S]* as p453_onepage_own_store_only, [\s\S]* as p454_product_counters_server_owned;\s*$/.test(checkAfter))
+check("the three columns follow 451, in order", /as p451_explore_catalogue_index, [\s\S]* as p452_deletes_through_the_server, [\s\S]* as p453_onepage_own_store_only, [\s\S]* as p454_product_counters_server_owned[,;]/.test(checkAfter)) // Changed on purpose (round AW, lead): parts 460 and 461 follow them
 
 /* ───────────────────────────────────────────────────────────────────────── */
 console.log("\n452: a product, a store or a used AI site is not deleted with the browser key")

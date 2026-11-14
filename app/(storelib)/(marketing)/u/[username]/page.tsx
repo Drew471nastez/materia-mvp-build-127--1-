@@ -224,9 +224,9 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
             .then(({ count, error }) => ({ count: count ?? 0, failed: !!error }))
         : Promise.resolve({ count: 0, failed: false }),
     ])
-    return { data: override.data as { seo_title?: string | null; seo_description?: string | null } | null, publishedProducts: publishedProducts.count, failed: !!override.error || publishedProducts.failed }
+    return { data: override.data as { seo_title?: string | null; seo_description?: string | null } | null, publishedProducts: publishedProducts.count, countFailed: publishedProducts.failed, failed: !!override.error || publishedProducts.failed }
   }
-  const [publishedConfigForMeta, { data: seoOverride, publishedProducts }, pageHost] = await Promise.all([
+  const [publishedConfigForMeta, { data: seoOverride, publishedProducts: countedProducts, countFailed: countReadFailed }, pageHost] = await Promise.all([
     creator ? getPublishedConfig(creator.id, "shop") : Promise.resolve(null),
     creator ? heldForCreatorPage(["creator-page-head", "v1", creator.id, profile.id, handle], creator.id, profile.id, readHead, (h) => h.failed) : readHead(),
     /* Cached (lib/custom-domains/store.ts), and needs only the creator. */
@@ -365,6 +365,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
      */
     ...(() => {
       /* And not banned: a ban takes the products down, and a product put back afterwards does not buy the page back. */
+      /*
+        A COUNT THAT WAS NOT READ IS NOT ZERO (round AW). With no held copy (a first visit, after a save or a deploy), a
+        products count that got no answer read as 0, so a real seller's page said noindex, nofollow, and the CDN kept
+        that head for every crawler for five minutes. Not knowing is not "nothing for sale": the count is taken as one
+        for this answer only, so the handle and spam rules and the ban still decide, and the next read that answers
+        decides again.
+      */
+      const publishedProducts = countReadFailed ? Math.max(countedProducts, 1) : countedProducts
       const indexable = creatorIndexable({ publishedProducts, handle, spamState }) && !isBanned(creator)
       return {
         robots: indexable

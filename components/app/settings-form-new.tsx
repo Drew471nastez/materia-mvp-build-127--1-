@@ -1338,12 +1338,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
        * supabase/sql/run-now/43 does the same work for every writer.
        */
       const previousName = profile.display_name || ""
-      if (previousName && previousName !== displayName) {
+      const nameChanged = !!previousName && previousName !== displayName
+      /* A new handle too (round AW): the server clears what the CDN kept for the old address and the new one. */
+      if (nameChanged || renamed) {
         /* Bounded: the name is saved already, and Save waited on this follow-up with no limit. */
         await fetchWithDeadline("/api/account/profile-changed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ previousName }),
+          body: JSON.stringify({ ...(nameChanged ? { previousName } : {}), ...(renamed ? { previousHandle: oldUsername } : {}) }),
         }, WAIT_MS.write).catch(() => null)
       }
 
