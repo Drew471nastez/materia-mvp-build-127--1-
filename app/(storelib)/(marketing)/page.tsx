@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic"
-import { LandingStory, StoryBand } from "@/components/marketing/landing-story"
+import { LandingStory } from "@/components/marketing/landing-story"
+import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/scroll-reveal-panel"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
@@ -43,10 +44,18 @@ export const metadata: Metadata = {
     ones are wrapped in <LazySection>, which lets the browser skip their
     layout and paint until they come near the screen;
 
-    the rhythm (wave 14): white sections, then a band of colour, then white
-    again: black for the kinds of business (and the checkout scene, which
-    draws its own), deep purple for analytics with the map, and for the app
-    (StoryBand, components/marketing/landing-story.tsx);
+    the grounds (landing round 3, the owner): the page's base is dark, and
+    the light sections ride on white sheets with rounded corners that rise
+    over it as the page scrolls, two stretches on purple ones
+    (ScrollRevealPanel, components/marketing/scroll-reveal-panel.tsx):
+
+      dark     the hero and the showcase
+      white    Make the work, ideas, possibilities, one store, creators, how it works
+      dark     the checkout scene (it draws its own black)
+      white    your audience, your apps, your AI tools
+      purple   what is working, the map
+      white    what you could earn, pricing, the questions
+      purple   the app and the closing call, then the black footer
 
     the motion sections from the other wave-12 tracks are mounted near the
     screen by lazySection() (components/marketing/home/lazy-section): their
@@ -60,80 +69,88 @@ const FinalCta = dynamic(() => import("@/components/marketing/home/final-cta").t
 
 export default function StorelibLanding() {
   return (
-    <div className="bg-white">
+    <div className="bg-[#050506]" data-home-ground="dark">
       {/* Who Storelib is, the site and the product, as one graph (lib/seo/structured-data.ts). No SearchAction: Google retired it, and /explore?q= is not crawled. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibHomeJsonLd()) }} />
 
-      {/* 1 HERO */}
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
-      <Hero />
       <LandingStory>
-        {/* 2 BUILD SHOWCASE (its content: track showcase) */}
-        <BuildShowcase />
+        {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). They hold still for their last screen while the first sheet rises over them (from a tablet up: on a phone the showcase is dragged, and scrolls as it did). */}
+        <ScrollRevealBackdrop lift="var(--home-header-height, 0px)" holdOnPhone={false}>
+          <Hero />
+          <BuildShowcase />
+        </ScrollRevealBackdrop>
 
-        {/* 3 EverythingInOnePlace */}
-        <LazyEverythingInOnePlace />
+        {/* WHITE SHEET */}
+        <ScrollRevealPanel tone="white">
+          {/* 3 EverythingInOnePlace */}
+          <LazyEverythingInOnePlace />
 
-        {/* 4 IdeasToLife */}
-        <LazyIdeasComeToLife />
+          {/* 4 IdeasToLife */}
+          <LazyIdeasComeToLife />
 
-        {/* 5 UNLIMITED POSSIBILITIES (frame). Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
-        <LazySection name="possibilities" minHeight="clamp(442px, 21vw + 290px, 600px)">
-          <ProductMarquee />
-        </LazySection>
+          {/* 5 UNLIMITED POSSIBILITIES (frame). Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
+          <LazySection name="possibilities" minHeight="clamp(442px, 21vw + 290px, 600px)">
+            <ProductMarquee />
+          </LazySection>
 
-        {/* 6 EveryKindOfBusiness carousel, on a black band */}
-        <StoryBand tone="black">
+          {/* 6 One store for everything you sell, on white (round 3: no black band) */}
           <LazyBusinessCarousel />
-        </StoryBand>
 
-        {/* 7 CreatorsCarousel */}
-        <LazyCreatorsCarousel />
+          {/* 7 CreatorsCarousel */}
+          <LazyCreatorsCarousel />
 
-        {/* 8 HowItWorks motion graphics + earnings picker */}
-        <LazyHowItWorks />
+          {/* 8 HowItWorks motion graphics + earnings picker */}
+          <LazyHowItWorks />
+        </ScrollRevealPanel>
 
-        {/* 9 CheckoutScene */}
-        <LazyCheckoutScene />
+        {/* DARK: 9 CheckoutScene, held for its last screen under the next sheet */}
+        <ScrollRevealBackdrop>
+          <LazyCheckoutScene />
+        </ScrollRevealBackdrop>
 
-        {/* 10 AudienceOwnership */}
-        <LazyAudienceOwnership />
+        {/* WHITE SHEET */}
+        <ScrollRevealPanel tone="white" hold>
+          {/* 10 AudienceOwnership */}
+          <LazyAudienceOwnership />
 
-        {/* 11 AnalyticsShowcase and 12 SellEverywhere world map, one purple panel */}
-        <StoryBand tone="purple">
+          {/* 11 Integrations */}
+          <LazyIntegrationsSection />
+
+          {/* 12 Your AI tools work here too (landing round): Claude Code, Codex or Cursor connected to a site, building it as drafts */}
+          <LazyAiToolsSection />
+        </ScrollRevealPanel>
+
+        {/* PURPLE SHEET: 13 AnalyticsShowcase and 14 SellEverywhere world map */}
+        <ScrollRevealPanel tone="purple" hold>
           <LazyAnalyticsShowcase />
           <LazySellEverywhereMap />
-        </StoryBand>
+        </ScrollRevealPanel>
 
-        {/* 13 Integrations */}
-        <LazyIntegrationsSection />
+        {/* WHITE SHEET. Not held: a link to #faq must land on the questions, not under the sheet after them. */}
+        <ScrollRevealPanel tone="white">
+          {/* 15 EarningsCalculator */}
+          <LazyEarningsCalculator />
 
-        {/* 13b Your AI tools work here too (landing round): Claude Code, Codex or Cursor connected to a site, building it as drafts */}
-        <LazyAiToolsSection />
+          {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
+          <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">
+            <PricingSection editorial hideDetailsLink />
+          </LazySection>
 
-        {/* 14 EarningsCalculator */}
-        <LazyEarningsCalculator />
+          {/* 17 FAQ */}
+          <LazySection name="faq" minHeight="max(calc(795px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), 730px)">
+            <FaqSection editorial />
+          </LazySection>
+        </ScrollRevealPanel>
 
-        {/* 15 RunFromAnywhere, a purple panel */}
-        <StoryBand tone="purple">
+        {/* PURPLE CLOSE: 18 RunFromAnywhere and 19 FINAL CTA (frame) */}
+        <ScrollRevealPanel tone="purple">
           <LazyAppAnywhere />
-        </StoryBand>
-
-        {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
-        <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">
-          <PricingSection editorial hideDetailsLink />
-        </LazySection>
-
-        {/* 17 FAQ */}
-        <LazySection name="faq" minHeight="max(calc(795px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), 730px)">
-          <FaqSection editorial />
-        </LazySection>
-
-        {/* 18 FINAL CTA (frame) */}
-        <FinalCta />
+          <FinalCta />
+        </ScrollRevealPanel>
       </LandingStory>
-      {/* 19 FOOTER: components/marketing/footer.tsx, drawn under every marketing page by the layout (ConditionalFooter). */}
+      {/* 20 FOOTER: components/marketing/footer.tsx, drawn under every marketing page by the layout (ConditionalFooter). */}
     </div>
   )
 }

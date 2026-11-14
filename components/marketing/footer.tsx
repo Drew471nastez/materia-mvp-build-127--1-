@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { useState, useEffect, type FormEvent, type JSX, type MouseEvent, type ReactNode } from "react"
+import { useState, useEffect, type JSX, type MouseEvent, type ReactNode } from "react"
 import { useLocale } from "@/components/locale-provider"
 import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -69,14 +69,18 @@ const SOCIAL_ICONS: Record<StorelibSocialNetwork, { label: string; Icon: (p: { c
 }
 const SOCIAL = STORELIB_SOCIAL.filter((p) => /^https:\/\//.test(p.url) && p.network in SOCIAL_ICONS).map((p) => ({ href: p.url, ...SOCIAL_ICONS[p.network] }))
 
+/* Round 3: the same links as before, in four columns after the large commerce sites' footers (the owner's picture). */
 const PRODUCT = [
   { label: "Home", href: "/" },
-  { label: "Discover", href: "/explore" },
-  { label: "Blog", href: "/blog" },
-  { label: "Sign In", href: "/login" },
+  { label: "Features", href: "/features" },
   { label: "Pricing", href: "/pricing" },
   { label: "Compare", href: "/alternatives" },
-  { label: "Features", href: "/features" },
+  { label: "Sign In", href: "/login" },
+]
+
+const RESOURCES = [
+  { label: "Discover", href: "/explore" },
+  { label: "Blog", href: "/blog" },
   { label: "Developers", href: "/developers" },
 ]
 
@@ -103,8 +107,8 @@ const LEGAL = [
   { label: "Privacy Policy", href: "/privacy" },
 ]
 
-const linkClass = "block text-left text-[14px] leading-6 text-white/60 transition-colors duration-150 hover:text-white"
-const legalClass = "text-[13px] leading-6 text-white/55 transition-colors duration-150 hover:text-white"
+const linkClass = "block text-left text-[15px] leading-6 text-white/60 transition-colors duration-150 hover:text-white"
+const legalClass = "text-[14px] leading-6 text-white/60 transition-colors duration-150 hover:text-white"
 
 /*
   THE APP. The App Store page is the one the rest of the site uses
@@ -190,7 +194,7 @@ function LanguageButton() {
           setAsked(true)
           setOpen(true)
         }}
-        className="inline-flex h-11 items-center gap-2 rounded-full border border-white/15 px-4 text-[14px] text-white/80 transition-colors hover:border-white/40 hover:text-white"
+        className="-ml-1 inline-flex h-11 items-center gap-2 rounded-md px-1 text-[14px] text-white transition-colors hover:text-white/75"
         data-footer-language=""
       >
         <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
@@ -199,6 +203,9 @@ function LanguageButton() {
         </svg>
         <span className="sr-only">Language: </span>
         {current}
+        <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/60" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
       </button>
       {asked && locale ? <LanguageModal open={open} onOpenChange={setOpen} /> : null}
     </>
@@ -208,52 +215,25 @@ function LanguageButton() {
 function Column({ title, children }: { title: string; children: ReactNode }) {
   return (
     <nav aria-label={title} className="min-w-0">
-      <h2 className="text-[14px] font-semibold text-white">{title}</h2>
-      <div className="mt-4 space-y-2.5">{children}</div>
+      <h2 className="text-[17px] font-medium tracking-[-0.01em] text-white">{title}</h2>
+      <div className="mt-5 space-y-3">{children}</div>
     </nav>
   )
 }
 
 /**
- * The storelib.com footer (wave 12: dark, link groups in columns, the app,
- * the language, a legal row, after the large footers of the big commerce
- * sites). Drawn on every marketing page by ConditionalFooter. The sign-up is
- * real: it posts to /api/newsletter, which keeps the address with the time
- * and the wording agreed to.
+ * The storelib.com footer. Round 3, the owner's picture: black, the logo at
+ * the left with the app badges under it, the links in four columns, a
+ * hairline, then one row with the language, the legal links and Storelib's
+ * profiles as round icons. The newsletter box is gone (the owner). Drawn on
+ * every marketing page by ConditionalFooter.
  */
 export function MarketingFooter() {
   const [logoHref, setLogoHref] = useState("/")
-  const [email, setEmail] = useState("")
-  const [state, setState] = useState<"idle" | "sending" | "done">("idle")
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isNativeApp()) setLogoHref("/explore")
   }, [])
-
-  const subscribe = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!email.trim() || state === "sending") return
-    setState("sending")
-    setError(null)
-    try {
-      const res = await fetch("/api/newsletter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        setError(typeof data?.error === "string" ? data.error : "That did not go through. Try again in a moment.")
-        setState("idle")
-        return
-      }
-      setState("done")
-    } catch {
-      setError("No connection. Try again in a moment.")
-      setState("idle")
-    }
-  }
 
   const year = new Date().getFullYear()
 
@@ -270,63 +250,19 @@ export function MarketingFooter() {
     >
       <div className="relative mx-auto max-w-[1400px] px-5 pb-8 pt-14 sm:px-8 md:pt-20 lg:px-12">
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-10">
-          <div className="space-y-7 lg:col-span-4 lg:pr-8">
-            <Link href={logoHref} scroll={true} className="inline-flex items-center gap-3 transition-opacity hover:opacity-80">
+          <div className="lg:col-span-3" data-footer-brand="">
+            <Link href={logoHref} scroll={true} aria-label="Storelib" className="inline-flex items-center gap-3 transition-opacity hover:opacity-80">
               <StorelibLogo size={40} />
               <span className="text-xl font-bold text-white">Storelib</span>
             </Link>
-            <p className="max-w-[34ch] text-[15px] leading-relaxed text-white/60">
-              The all-in-one platform for creators: your store, your page and your audience, in one place.
-            </p>
-
-            <div className="space-y-3">
-              <h2 className="text-[14px] font-semibold text-white">Join Our Community!</h2>
-              <p className="text-[14px] leading-relaxed text-white/55">Receive weekly assets and future templates for free by joining our community.</p>
-
-              {state === "done" ? (
-                <p className="flex h-12 items-center gap-2 text-sm text-emerald-400" role="status">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Thanks for subscribing!
-                </p>
-              ) : (
-                <form onSubmit={subscribe} className="flex max-w-[440px] gap-2" noValidate>
-                  <label htmlFor="footer-email" className="sr-only">
-                    Email
-                  </label>
-                  <input
-                    id="footer-email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    required
-                    placeholder="Enter your email..."
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value)
-                      if (error) setError(null)
-                    }}
-                    className="storelib-footer-field h-12 min-w-0 flex-1 rounded-xl px-4 text-[15px] text-white placeholder:text-white/35 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={state === "sending"}
-                    className="storelib-footer-cta h-12 shrink-0 rounded-xl px-6 text-[15px] font-semibold text-white disabled:opacity-70"
-                  >
-                    {state === "sending" ? "Sending" : "Sign Up"}
-                  </button>
-                </form>
-              )}
-              {error ? (
-                <p className="text-[13px] text-red-300" role="alert">
-                  {error}
-                </p>
-              ) : null}
+            {/* The app, under the logo: side by side on a phone, one under the other beside the columns. */}
+            <div className="mt-7 flex flex-wrap items-center gap-3 lg:flex-col lg:items-start" data-footer-apps="">
+              <AppStoreBadge />
+              <GooglePlayBadge />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:col-span-8 lg:gap-x-10">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 lg:col-span-9 lg:gap-x-10">
             <Column title="Product">
               {PRODUCT.map((l) => (
                 <Link key={l.label} href={l.href} className={linkClass}>
@@ -337,6 +273,13 @@ export function MarketingFooter() {
             <Column title="Sell">
               {SELL.map((l) => (
                 <Link key={l.href} href={l.href} className={linkClass}>
+                  {l.label}
+                </Link>
+              ))}
+            </Column>
+            <Column title="Resources">
+              {RESOURCES.map((l) => (
+                <Link key={l.label} href={l.href} className={linkClass}>
                   {l.label}
                 </Link>
               ))}
@@ -362,47 +305,38 @@ export function MarketingFooter() {
           </div>
         </div>
 
-        {/* The app, the language and Storelib's profiles: one row on a computer, stacked on a phone. */}
-        <div className="mt-14 flex flex-col gap-6 border-t border-white/[0.08] pt-8 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-3" data-footer-apps="">
-            <AppStoreBadge />
-            <GooglePlayBadge />
-          </div>
-          <div className="flex flex-wrap items-center gap-4">
-            <LanguageButton />
-            {SOCIAL.length ? (
-              <div className="flex items-center gap-1" data-storelib-social="">
-                {SOCIAL.map(({ label, href, Icon }) => (
-                  <a
-                    key={href}
-                    href={href}
-                    target="_blank"
-                    rel="me noopener"
-                    aria-label={label}
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/[0.06] hover:text-white"
-                  >
-                    <Icon className="h-5 w-5" />
-                  </a>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-8 flex flex-col-reverse gap-4 border-t border-white/[0.08] pt-6 md:flex-row md:items-center md:justify-between">
-          <p className="text-[13px] text-white/45">
-            &copy; {year} Storelib Inc. All rights reserved.{" "}
-            <a href="mailto:team@storelib.com" className="whitespace-nowrap transition-colors hover:text-white">
-              team@storelib.com
-            </a>
-          </p>
-          <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        {/* Under the hairline: the language, the legal links, and Storelib's profiles at the right. One row on a computer, stacked on a phone. */}
+        <div className="mt-14 flex flex-col gap-5 border-t border-white/[0.1] pt-7 md:flex-row md:items-center md:gap-10" data-footer-bottom="">
+          <LanguageButton />
+          <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-8 gap-y-2">
             {LEGAL.map((l) => (
               <Link key={l.href} href={l.href} className={legalClass}>
                 {l.label}
               </Link>
             ))}
           </nav>
+          {SOCIAL.length ? (
+            <div className="flex items-center gap-3 md:ml-auto" data-storelib-social="">
+              {SOCIAL.map(({ label, href, Icon }) => (
+                <a
+                  key={href}
+                  href={href}
+                  target="_blank"
+                  rel="me noopener"
+                  aria-label={label}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black transition-opacity hover:opacity-80"
+                >
+                  <Icon className="h-5 w-5" />
+                </a>
+              ))}
+            </div>
+          ) : null}
+          <p className={`text-[13px] text-white/45 ${SOCIAL.length ? "" : "md:ml-auto"}`}>
+            &copy; {year} Storelib Inc. All rights reserved.{" "}
+            <a href="mailto:team@storelib.com" className="whitespace-nowrap transition-colors hover:text-white">
+              team@storelib.com
+            </a>
+          </p>
         </div>
       </div>
     </footer>

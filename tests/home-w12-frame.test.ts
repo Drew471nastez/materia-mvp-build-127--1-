@@ -52,7 +52,8 @@ async function main() {
     check("none of the removed sections is on the page", removed.every((c) => !page.includes(c)), removed.filter((c) => page.includes(c)))
     check("the hero and the showcase stay, first", page.indexOf("<Hero />") > 0 && page.indexOf("<Hero />") < page.indexOf("<BuildShowcase />"))
     /* Changed on purpose (wave 12 integration): the slots are now the sections themselves, loaded by components/marketing/home/lazy-sections. */
-    const order = ["<BuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<LazyIntegrationsSection />", "<LazyEarningsCalculator />", "<LazyAppAnywhere />", "<PricingSection", "<FaqSection", "<FinalCta />"]
+    /* Changed on purpose (landing round 3): the owner asked for a new order by ground. The apps follow the audience on one white sheet, analytics and the map share a purple one, and the app closes the page with the final call. */
+    const order = ["<BuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection", "<LazyAppAnywhere />", "<FinalCta />"]
     const at = order.map((s) => pageRaw.indexOf(s))
     check("the sections and the other tracks' slots in the owner's order", at.every((n, i) => n > 0 && (i === 0 || n > at[i - 1])), order.filter((_, i) => at[i] <= 0 || (i > 0 && at[i] <= at[i - 1])))
     check("pricing is kept, without its See full pricing button", /<PricingSection editorial hideDetailsLink \/>/.test(page) && /\{!hideDetailsLink && \(/.test(read("components/marketing/pricing-section.tsx")))
@@ -124,12 +125,14 @@ async function main() {
     const { MarketingFooter, APP_STORE_HREF } = await import("@/components/marketing/footer")
     const html = renderToStaticMarkup(createElement(MarketingFooter))
     check("dark, with the logo", /class="storelib-footer[^"]*text-white/.test(html) && /<StorelibLogo size=\{40\} \/>/.test(src))
-    check("three link groups and the legal row", ["Product", "Sell", "Support", "Legal"].every((g) => html.includes(`aria-label="${g}"`)))
+    /* Changed on purpose (landing round 3): four columns, as in the owner's picture; the same links. */
+    check("four link groups and the legal row", ["Product", "Sell", "Resources", "Support", "Legal"].every((g) => html.includes(`aria-label="${g}"`)))
     check("the links are the footer's real ones", ["/explore", "/pricing", "/alternatives", "/features", "/developers", "/blog", "/terms", "/privacy", "/faq", "/sell/digital-products"].every((h) => html.includes(`href="${h}"`)))
     check("the App Store badge is a link to the App Store address the site uses, or # until it is set", /data-app-badge="ios"/.test(html) && /aria-label="Download on the App Store"/.test(html) && (APP_STORE_HREF === "#" || /^https:\/\/apps\.apple\.com\//.test(APP_STORE_HREF) || /^https:\/\//.test(APP_STORE_HREF)) && /TODO\(owner\): set NEXT_PUBLIC_IOS_APP_STORE_ID/.test(src))
     check("Google Play: greyed, Coming soon, not a link", /<span role="img" aria-label="Google Play: coming soon"[^>]*data-app-badge="android"/.test(html) && !/<a[^>]*data-app-badge="android"/.test(html))
     check("the language is chosen with the header's own picker, loaded only when asked", /data-footer-language=""/.test(html) && /import\("@\/components\/platform\/language-modal"\)/.test(src) && /ssr: false/.test(src))
-    check("cookie choices, the newsletter and the profiles still work as before", /openCookiePreferences\(\)/.test(src) && /fetch\("\/api\/newsletter"/.test(src) && /\{SOCIAL\.length \? \(/.test(src))
+    /* Changed on purpose (landing round 3): the owner asked for the newsletter box to go from the footer; cookie choices and the profiles work as before. */
+    check("cookie choices and the profiles still work as before, and the newsletter box is gone", /openCookiePreferences\(\)/.test(src) && !/api\/newsletter/.test(src) && !/<form|<input/.test(src) && /\{SOCIAL\.length \? \(/.test(src))
     check("still drawn by ConditionalFooter on the marketing pages", /<MarketingFooter \/>/.test(read("components/marketing/conditional-footer.tsx")))
   }
 

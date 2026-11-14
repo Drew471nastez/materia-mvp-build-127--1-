@@ -8,7 +8,11 @@ import Link from "next/link"
   Wave 13, the owner: it faded in and was too tall. Now it is plain and
   short: no card, no rise or fade, no turning light, no floating receipts.
   The headline and one line on the left, Start free and a second way in on
-  the right (stacked under it on a phone), on the white page. Nothing animates but a button's own hover colour.
+  the right (stacked under it on a phone). Nothing animates but a button's own hover colour.
+
+  Round 3: on the home page it closes the last purple sheet, under the app
+  section; the sheet recolours it (landing-story.tsx BAND_CSS, [data-band]
+  .fcta). Anywhere else it is drawn on white, as written here.
 */
 const STYLES = `
 .fcta{background:#fff;padding:clamp(48px,6vw,96px) var(--landing-gutter,clamp(22px,6vw,96px))}
