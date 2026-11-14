@@ -95,7 +95,8 @@ check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unloc
 console.log("\n── The globe: the notification ──")
 check("the notification has one fixed place and comes and goes by opacity and transform only", /\.ev-globe-pill\{position:absolute;left:16px;bottom:16px;[^}]*opacity:0;transform:translate3d\(0,10px,0\);will-change:opacity,transform;[^}]*transition:opacity \.28s ease,transform \.28s ease\}/.test(evSrc) && /\.ev-globe-pill\[data-on\]\{opacity:1;transform:translate3d\(0,0,0\);/.test(evSrc))
 check("its layer is kept for good (no promotion flash)", !/\.ev-globe-pill\[data-on\]\{[^}]*will-change/.test(evSrc))
-check("the page never positions it", !/style\.(transform|left|top)/.test(globe) && !/\.animate\(/.test(globe) && !/getBoundingClientRect\(\)[^\n]*pill/.test(globe))
+/* Changed on purpose (landing round 6): the owner wants it "where the rocket landed": the page places it once per landing by a transform on its pin (no left or top, no layout read per frame) and lets one animation carry it with the city. */
+check("the page places it once per landing, by transform only", /pin\.style\.transform = `translate\(/.test(globe) && !/style\.(left|top) =/.test(globe) && !/getBoundingClientRect\(\)[^\n]*pill/.test(globe))
 
 /* The engine: a fake host, a canvas that records nothing, and frames by hand. */
 const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true }) as unknown as CanvasRenderingContext2D
@@ -134,9 +135,11 @@ for (let i = 0; i < 1200 && rafCb; i++) {
   cb(t)
   frames++
 }
-check("the engine only says on and off, never where", pills.length > 0 && pills.every((p) => Object.keys(p).sort().join() === "i,on"), pills.slice(0, 4))
+/* Changed on purpose (landing round 6): the engine says where the city is when the notification comes on (once), and only off when it leaves. */
+check("the engine says where only when it comes on, and only off when it leaves", pills.length > 0 && pills.every((p) => (p.on ? Object.keys(p).sort().join() === "i,ms,on,x0,x1,y0,y1" : Object.keys(p).sort().join() === "i,on")), pills.slice(0, 4))
 check("every notification is followed by its leaving", pills.filter((p) => p.on).length >= 1 && pills.filter((p) => !p.on).length >= pills.filter((p) => p.on).length - 1)
-check("on a 120Hz display it draws at most about 60 times a second", /const FRAME_MIN_MS = 15/.test(draw) && /if \(t - st\.drawnAt < \(st\.slow && !st\.dragging \? SLOW_FRAME_IDLE_MS : FRAME_MIN_MS\)\)/.test(draw))
+/* Changed on purpose (landing round 6): the owner called dragging laggy; a drag and the coast after a throw draw every display frame, only the idle spin is held to about 60. */
+check("on a 120Hz display the idle spin draws at most about 60 times a second", /const FRAME_MIN_MS = 15/.test(draw) && /if \(!st\.dragging && !coasting\(\) && t - st\.drawnAt < \(st\.slow \? SLOW_FRAME_IDLE_MS : FRAME_MIN_MS\)\)/.test(draw))
 check("heavy drawing steps the canvas down to fewer device pixels, then the idle spin to 30fps", /st\.dpr = st\.dprCeil = Math\.max\(1, st\.dpr - 0\.5\)/.test(draw) && /const SLOW_FRAME_IDLE_MS = 30/.test(draw))
 
 console.log("\n── The globe: on a phone ──")

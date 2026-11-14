@@ -82,7 +82,8 @@ check("device pixels capped, the sphere painted once per size", /Math\.min\(glob
 /* Changed on purpose (land-globe): the pill is placed every frame the city moves (no 100ms glide that trailed the city), so it sits exactly on it. */
 /* Changed on purpose (landing round 4): the pill is told where the city is and where it will be a moment later a few times a second, and glides there in one compositor animation (a style change every frame made dragging lag); still transform only. */
 /* Changed on purpose (landing round 5): the owner saw the pill flash and jump as it chased the city; it stands in one place and only fades and lifts in and out. */
-check("the order pill is never moved: it comes and goes by opacity and transform", !/style\.(left|top|transform) =/.test(globe) && !/el\.animate\(/.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i, on: true \}\)/.test(engine))
+/* Changed on purpose (landing round 6): the owner wants the notification where the shot landed; it is placed once per landing by a transform on its pin and carried by one compositor animation, never re-aimed per frame (tests/home-landing-r6-globe). */
+check("the order pill sits where the shot landed, placed once by transform, and comes and goes by opacity", !/style\.(left|top) =/.test(globe) && /pin\.style\.transform = /.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i, on: true, x0: /.test(engine))
 check("the globe survives a second mount (a canvas handed to a worker is swapped for a fresh one)", /handedOver\.has\(canvas\)/.test(globe) && /canvas\.replaceWith\(fresh\)/.test(globe))
 check("its motion runs on the display's frames by real elapsed time, on a clock that stops while paused", /const dt = Math\.max\(0, Math\.min\(50, t - st\.last\)\)/.test(engine) && /st\.clock \+= dt/.test(engine))
 const symbols: Record<string, string> = { "€": "EUR", "£": "GBP", "CA$": "CAD", "A$": "AUD", "¥": "JPY", RON: "RON", $: "USD" }
