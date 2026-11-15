@@ -8,7 +8,6 @@ import { LazySection } from "@/components/marketing/home/lazy-section"
 import {
   LazyEverythingInOnePlace,
   LazyIdeasComeToLife,
-  LazyBusinessCarousel,
   LazyCreatorsCarousel,
   LazyHowItWorks,
   LazyCheckoutScene,
@@ -52,7 +51,7 @@ export const metadata: Metadata = {
     5: plain blocks, no scroll-driven motion and nothing held):
 
       dark     the hero and the showcase, sitting on
-      white    Make the work, ideas, possibilities, one store, creators, how it works
+      white    Make the work, ideas, possibilities, creators, how it works (landing round 7: no one store)
                (a flat ground, round 4: it does not rise as a sheet)
       dark     the checkout scene (it draws its own black)
       white    your audience, your apps, your AI tools
@@ -97,9 +96,6 @@ export default function StorelibLanding() {
           <LazySection name="possibilities" minHeight="clamp(442px, 21vw + 290px, 600px)">
             <ProductMarquee />
           </LazySection>
-
-          {/* 6 One store for everything you sell, on white (round 3: no black band) */}
-          <LazyBusinessCarousel />
 
           {/* 7 CreatorsCarousel */}
           <LazyCreatorsCarousel />

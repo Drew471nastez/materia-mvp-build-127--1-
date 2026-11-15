@@ -43,7 +43,6 @@ const HEIGHT = 900
 const TRACKS = {
   /* Landing round 5: the held stage (100svh) and its 80svh, less the cards pulled up over it: 125svh, measured. */
   checkout: [{ css: "125svh", vh: 125 }],
-  /* Landing round 5: business is no longer pinned (the owner: no section that stops the scroll), so its height no longer follows the screen's. */
 }
 const trackAt = (n, w) => TRACKS[n]?.find((t) => t.until == null || w <= t.until)
 /** A line that predicts a measured height within this many pixels is kept; past it a new rule starts. */

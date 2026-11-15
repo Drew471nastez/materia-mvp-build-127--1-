@@ -94,15 +94,16 @@ export function AppAnywhere() {
       ref={ref}
       id="app-anywhere"
       aria-labelledby="app-anywhere-title"
-      className={`${m.root} ${s.section} px-[var(--landing-gutter,22px)] py-[var(--home-pad,clamp(72px,9vw,128px))]`}
+      className={`${m.root} ${s.section} py-[var(--home-pad,clamp(72px,9vw,128px))]`}
     >
-      <div className="mx-auto grid max-w-[1400px] items-center gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:gap-20">
+      {/* Landing round 7: the page's one width (.home-wrap), the photo's left edge on the showcase cards' left edge. */}
+      <div className="home-wrap grid items-center gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:gap-20">
         <div className={`${m.reveal} ${s.photo} lg:order-first`} style={{ "--i": 1 } as CSSProperties}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/home/app/storelib-app-720.webp"
             srcSet="/home/app/storelib-app-720.webp 720w, /home/app/storelib-app-1280.webp 1280w"
-            sizes="(min-width: 1400px) 760px, (min-width: 1024px) 54vw, calc(100vw - 44px)"
+            sizes="(min-width: 2020px) 980px, (min-width: 1024px) 52vw, calc(100vw - 40px)"
             width={1280}
             height={960}
             alt="The Storelib app's Home on a phone: visitors, revenue, orders and the week's chart"
@@ -112,7 +113,7 @@ export function AppAnywhere() {
           />
         </div>
 
-        <div className="min-w-0 order-first lg:order-none">
+        <div className="min-w-0 order-first pl-[var(--home-head-inset)] lg:order-none lg:pl-0">
           <StoryHeading id="app-anywhere-title" text="Run your business from anywhere" accent={["anywhere"]} dark />
           <p className={`mt-5 max-w-[44ch] ${s.lede}`}>Your sales, orders and visitors on your phone, wherever you are.</p>
           <ul className={`${s.points} mt-8`}>
