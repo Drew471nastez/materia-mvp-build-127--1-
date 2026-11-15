@@ -66,7 +66,8 @@ check("the section's content sits in it", /class="ev-in home-wrap"/.test(html) &
 check("no 1240px cap left, and the section adds no side padding of its own", !/max-width:1240px/.test(css) && /padding:var\(--home-pad,clamp\(72px,9vw,128px\)\) 0\}/.test(rule(".ev")))
 check("the heading starts the shared inset in from the content edge", /padding-inline-start:var\(--home-head-inset,0px\)/.test(rule(".ev-h")))
 check("the two by two wide and narrow grid stays", /\.ev-wide\{grid-column:span 13\}/.test(css) && /\.ev-narrow\{grid-column:span 11\}/.test(css) && (html.match(/ev-card ev-wide/g) ?? []).length === 2 && (html.match(/ev-card ev-narrow/g) ?? []).length === 2)
-check("the pictures grow with the cards, up to 620px tall", /@media\(min-width:768px\)\{\.ev-vis\{height:clamp\(320px,33vw,620px\);border-radius:19px\}\}/.test(css))
+// Changed on purpose (landing round 10): the pictures are also capped by the screen's height (58svh), for a 1440x800 laptop.
+check("the pictures grow with the cards, up to 620px tall", /@media\(min-width:768px\)\{\.ev-vis\{height:clamp\(300px,min\(33vw,58svh\),620px\);border-radius:19px\}\}/.test(css))
 check("the product card grows with its picture, its words in its own width", /width:min\(88%,calc\(470px \+ \(100% - 660px\) \* \.55\)\)/.test(rule(".ev-p-stage")) && /container-type:inline-size/.test(rule(".ev-p-stage")) && /font-size:clamp\(14px,3\.8cqi,23px\)/.test(rule(".ev-p-name")) && /font-size:clamp\(12\.5px,3\.05cqi,18px\)/.test(rule(".ev-p-v")))
 check("the store cards grow with a taller picture", /--card-w:clamp\(170px,56cqw,max\(270px,58cqh\)\)/.test(rule(".ev-s")))
 check("the support thread grows with its card", /@container \(min-width:640px\)\{[^@]*\.ev-c-bubble\{[^}]*font-size:15px/.test(css) && /@container \(min-width:860px\)\{[^@]*\.ev-c-bubble\{[^}]*font-size:16\.5px/.test(css))

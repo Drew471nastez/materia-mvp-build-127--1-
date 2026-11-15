@@ -102,7 +102,8 @@ check("no violet gradient and no green in the section", !/gradient\([^)]*#(8b5cf
 check("no checkout tile: no sheet, no drawn phone", !how.includes("cmh-sheet") && !/cmh-ph-scr|cmh-op-/.test(howCss) && sheetButtonLabel("Check out", "$45.00", true) === "Check out · $45.00")
 // Changed on purpose (landing round 8): one browser window with the domain typing in, no address pill and no three rows.
 // Changed on purpose (landing round 9): one address pill over his website, no browser window.
-check("the domain: one address pill over his website", how.includes('class="cmh-pill"') && how.includes('class="cmh-a cmh-site"') && HOW_DOMAIN.host === "lindewoodshop.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
+// Changed on purpose (landing round 10): one address band with its ending gliding, no website under it; the name is "lindewood".
+check("the domain: one address band", how.includes('class="cmh-dm-band"') && !how.includes("cmh-site") && HOW_DOMAIN.host === "lindewood.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
 check("every loop in the section is transform and opacity only", keyframeBodies(howCss).every(onlyCompositor))
 
 console.log("\nCopy and banned samples")

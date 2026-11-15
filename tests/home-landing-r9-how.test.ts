@@ -72,25 +72,31 @@ check("the line draws in once by two opposite transforms, no stroke-dashoffset",
 check("a mouse reads a day off the chart: transforms and two words, mouse only, no frame loop", /pointerType !== "mouse"/.test(code) && /guide\.style\.transform/.test(code) && /day\.textContent/.test(code) && how.includes('class="cmh-ch-tip"'))
 
 console.log("\n5. Use your own domain")
-check("one address pill over his website: no browser window, no www / shop / club list", how.includes('class="cmh-pill"') && how.includes('class="cmh-a cmh-site"') && !/cmh-br|cmh-dm-row/.test(how + css) && !/>(www|shop|club)\.</.test(how))
-check("his site's Storelib address swaps for a domain Storelib accepts", HOW_DOMAIN.before === "lindewoodshop.storelib.com" && hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && text.includes("DNS found") && text.includes("HTTPS on"))
+// Changed on purpose (landing round 10): the owner did not like the pill over his website: one address band in the spirit of "Ready for Google and AI search" (tests/home-landing-r10-how.test.ts).
+check("one address band: no website, no browser window, no www / shop / club list", how.includes('class="cmh-dm-band"') && !how.includes("cmh-pill") && !how.includes("cmh-site") && !/cmh-br|cmh-dm-row/.test(how + css) && !/>(www|shop|club)\.</.test(how))
+// Changed on purpose (landing round 10): the name is "lindewood" (one line on a narrow card) and the DNS and HTTPS ticks are gone with the website.
+check("his site's Storelib address comes first, then a domain Storelib accepts", HOW_DOMAIN.before === "lindewood.storelib.com" && hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && !text.includes("DNS found"))
 
 console.log("\n6. The heading and the ground")
 check("a new two tone heading for these three cards", HOW_HEADING.lead === "Take tips. See what sells." && HOW_HEADING.rest === "All on your own domain." && /<h2 id="cmh-title" class="cmh-h">Take tips\. See what sells\. <span class="cmh-h-mute">All on your own domain\.<\/span><\/h2>/.test(how))
 check("a dot field behind the head of the section, behind the words, taking no pointer", /<div class="cmh-field" aria-hidden="true"><canvas><\/canvas><\/div>/.test(how) && /\.cmh-field\{position:absolute;z-index:-1;[^}]*pointer-events:none\}/.test(css) && /\.cmh\{position:relative;isolation:isolate/.test(css))
-check("subtle and cheap: faint dots, at most 1.5 device pixels a pixel, no mask", HOW_FIELD.rest <= 0.2 && HOW_FIELD.maxDpr <= 1.5 && HOW_FIELD.gap >= 18 && !/mask/.test(css))
+// Changed on purpose (landing round 10): the domain card's endings fade through a still mask; the dot field still has none.
+check("subtle and cheap: faint dots, at most 1.5 device pixels a pixel, no mask", HOW_FIELD.rest <= 0.2 && HOW_FIELD.maxDpr <= 1.5 && HOW_FIELD.gap >= 18 && !/mask/.test(rule(".cmh-field") + rule(".cmh-field canvas")) && [...css.matchAll(/([^{}\n]+)\{[^}]*mask-image/g)].every((m) => m[1] === ".cmh-dm-win"))
 check("it stops off screen and in a hidden tab, stands still for reduced motion, and follows a mouse only", /near && document\.visibilityState !== "hidden" && !reduced/.test(code) && /cancelAnimationFrame\(raf\)/.test(code) && /if \(fine && !reduced\) \{\s*section\.addEventListener\("pointerenter"/.test(code))
 check("its place is read on resize and as a mouse comes in, never in the frame", (code.match(/getBoundingClientRect/g) ?? []).length === 2 && !/getBoundingClientRect/.test(code.slice(code.indexOf("const draw = "), code.indexOf("const resize = "))) && !code.includes('"scroll"') && !/useState/.test(code))
 
 console.log("\n7. Smooth")
-check("every keyframe moves transform and opacity only", keyframeBodies(css).length > 20 && keyframeBodies(css).every(onlyCompositor))
+// Changed on purpose (landing round 10): the domain card has two keyframes now (the reel and the light), not six.
+check("every keyframe moves transform and opacity only", keyframeBodies(css).length >= 15 && keyframeBodies(css).every(onlyCompositor))
 check("no transition or animation on a paint or layout property", [...css.matchAll(/transition:([^;}]+)/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((t) => /^(transform|opacity) |^none$/.test(t.trim()))) && !/animation[^;}]*(height|width|box-shadow|filter)/.test(css))
 check("loops run only while their card is near the screen in a visible tab", /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /rootMargin: "120px 0px"/.test(code) && /visibilitychange/.test(code))
 check("the cards never hide, so a fast scroll finds no blank box", !/\.cmh-card\{[^}]*(opacity|transform)/.test(css) && !/\.cmh-stage\{[^}]*opacity/.test(css))
-check("fixed picture heights, so nothing shifts as it plays", /\.cmh-stage\{[^}]*height:430px/.test(css) && /\.cmh-wide \.cmh-stage\{height:440px\}/.test(css) && /height:clamp\(400px,32vw,560px\)/.test(css))
+// Changed on purpose (landing round 10): on a computer the pictures stop at half the screen's height (svh, so the URL bar never changes it), never under 360px.
+check("fixed picture heights, so nothing shifts as it plays", /\.cmh-stage\{[^}]*height:430px/.test(css) && /\.cmh-wide \.cmh-stage\{height:440px\}/.test(css) && /height:max\(360px,min\(clamp\(400px,32vw,560px\),50svh\)\)/.test(css))
 check("no blur, no glass", !/backdrop-filter|blur\(/.test(css))
 const imgs = [...how.matchAll(/<img\b[^>]*>/g)].map((m) => m[0])
-check("every picture is lazy, decoded off the main thread, with its size set, a small local webp", imgs.length >= 6 && imgs.every((i) => /loading="lazy"/.test(i) && /decoding="async"/.test(i) && /width="\d+"/.test(i) && /height="\d+"/.test(i)) && [...new Set(imgs.map((i) => i.match(/src="([^"]+)"/)![1]))].every((p) => p.endsWith(".webp") && existsSync(`public${p}`) && statSync(`public${p}`).size < 120 * 1024))
+// Changed on purpose (landing round 10): three pictures now, his website's are gone.
+check("every picture is lazy, decoded off the main thread, with its size set, a small local webp", imgs.length >= 3 && imgs.every((i) => /loading="lazy"/.test(i) && /decoding="async"/.test(i) && /width="\d+"/.test(i) && /height="\d+"/.test(i)) && [...new Set(imgs.map((i) => i.match(/src="([^"]+)"/)![1]))].every((p) => p.endsWith(".webp") && existsSync(`public${p}`) && statSync(`public${p}`).size < 120 * 1024))
 check("reduced motion: every picture's finished frame, still", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}\s*\.cmh-o\{animation:none!important\}/.test(css))
 
 console.log("\nCopy")
