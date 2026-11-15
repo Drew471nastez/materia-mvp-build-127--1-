@@ -29,9 +29,9 @@
  * The dot at the end of the line is part of the line and moves with it,
  * frame for frame.
  *
- * The curve is d3's monotone X, the one recharts draws with
- * `type="monotone"`: it never overshoots a point, so a day with nothing
- * does not dip below the axis.
+ * The curve is a held Catmull-Rom (monotonePath, round 65): rounded hills
+ * rather than the monotone curve's flat tops, and never below the lowest
+ * point, so a day with nothing does not dip below the axis.
  */
 import * as React from "react"
 import { MORPH_MS, morphEase } from "@/components/app/chart-morph"
@@ -39,32 +39,54 @@ import { MORPH_MS, morphEase } from "@/components/app/chart-morph"
 /** The grey of a line that is not a number yet. */
 export const PLACEHOLDER_STROKE = "#e5e7eb"
 
-/** d3-shape's curveMonotoneX (Steffen 1990), as an SVG path through the points. */
+/*
+  Round 65, the owner: "I don't like how it looks when it's that kind of flat". A monotone curve keeps the tangent
+  flat at every peak and every run of equal days, so small counts (0, 1, 1, 0) drew mesas with flat tops and sharp
+  V's on the floor. Now a Catmull-Rom curve (each point's tangent is the slope between its neighbours, at
+  TENSION): a run of days rises and falls as a rounded hill. Its control points are held between the lowest point
+  drawn (so a day with nothing never dips under the axis) and a little above the highest (HEADROOM of the range, so a
+  peak rounds over rather than flattening, inside the room the chart keeps above its top value).
+*/
+const TENSION = 0.42
+const HEADROOM = 0.08
+
+/** A smooth path through the points: rounded hills, never below the lowest point (see above). The name is kept for its callers. */
 export function monotonePath(xs: ArrayLike<number>, ys: ArrayLike<number>): string {
   const n = Math.min(xs.length, ys.length)
   if (n === 0) return ""
   const f = (v: number) => (Math.round(v * 10) / 10).toString()
   if (n === 1) return `M${f(xs[0])},${f(ys[0])}`
   if (n === 2) return `M${f(xs[0])},${f(ys[0])}L${f(xs[1])},${f(ys[1])}`
-  const s: number[] = new Array(n - 1)
-  for (let i = 0; i < n - 1; i++) {
-    const h = xs[i + 1] - xs[i]
-    s[i] = h ? (ys[i + 1] - ys[i]) / h : 0
+  /* SVG y grows downward: the floor is the largest y, the peak the smallest. */
+  let floor = -Infinity
+  let peak = Infinity
+  for (let i = 0; i < n; i++) {
+    if (ys[i] > floor) floor = ys[i]
+    if (ys[i] < peak) peak = ys[i]
   }
-  const sign = (v: number) => (v < 0 ? -1 : 1)
-  const t: number[] = new Array(n)
-  for (let i = 1; i < n - 1; i++) {
-    const h0 = xs[i] - xs[i - 1]
-    const h1 = xs[i + 1] - xs[i]
-    const p = (s[i - 1] * h1 + s[i] * h0) / (h0 + h1 || 1)
-    t[i] = (sign(s[i - 1]) + sign(s[i])) * Math.min(Math.abs(s[i - 1]), Math.abs(s[i]), 0.5 * Math.abs(p)) || 0
+  const ceiling = peak - (floor - peak) * HEADROOM
+  /*
+    The tangent at each point, in y per x: its neighbours' slope (the ends use their one neighbour), then made
+    gentler until the control points on both sides of the point are inside [ceiling, floor]. Limiting the tangent,
+    not each control point on its own, keeps the two controls in line with the point, so the curve has no corner.
+  */
+  const m: number[] = new Array(n)
+  for (let i = 0; i < n; i++) {
+    const a = Math.max(0, i - 1)
+    const b = Math.min(n - 1, i + 1)
+    const dx = xs[b] - xs[a]
+    let slope = dx ? ((ys[b] - ys[a]) / dx) * TENSION * 2 : 0
+    for (const reach of [i > 0 ? -(xs[i] - xs[i - 1]) / 3 : 0, i < n - 1 ? (xs[i + 1] - xs[i]) / 3 : 0]) {
+      const y = ys[i] + reach * slope
+      if (y > floor && reach * slope !== 0) slope *= Math.max(0, (floor - ys[i]) / (reach * slope))
+      else if (y < ceiling && reach * slope !== 0) slope *= Math.max(0, (ceiling - ys[i]) / (reach * slope))
+    }
+    m[i] = slope
   }
-  t[0] = (3 * s[0] - t[1]) / 2
-  t[n - 1] = (3 * s[n - 2] - t[n - 2]) / 2
   let d = `M${f(xs[0])},${f(ys[0])}`
   for (let i = 0; i < n - 1; i++) {
     const dx = (xs[i + 1] - xs[i]) / 3
-    d += `C${f(xs[i] + dx)},${f(ys[i] + dx * t[i])},${f(xs[i + 1] - dx)},${f(ys[i + 1] - dx * t[i + 1])},${f(xs[i + 1])},${f(ys[i + 1])}`
+    d += `C${f(xs[i] + dx)},${f(ys[i] + dx * m[i])},${f(xs[i + 1] - dx)},${f(ys[i + 1] - dx * m[i + 1])},${f(xs[i + 1])},${f(ys[i + 1])}`
   }
   return d
 }

@@ -57,7 +57,37 @@ const STORELIB_HOSTS = "(?:www\\.)?storelib\\.com|localhost|127\\.0\\.0\\.1"
  * minute. A save still takes the copy down at once by its tag (lib/storefront/creator-page-purge, lib/onepage/public-cache);
  * the five minutes only bound what no tag names (a count, a review's stars). tests/cdn-r54 pins the lifetime.
  */
+/* The production Supabase project's ref, which names its session cookies (sb-<ref>-auth-token). */
+const PRODUCTION_STORAGE_HOST_REF = "skgtqglupjcnfhfscink"
 export const EDGE_PAGE = "public, s-maxage=300, stale-while-revalidate=86400"
+
+/*
+  A STRANGER'S COMMUNITY PAGE, ONE COPY FOR EVERY STRANGER (round 66). /community/<slug> and its /about were drawn on
+  the server for every request, nothing held. A request with no sign in cookie is drawn the same for everybody (the
+  render reads the session and nothing else of the visitor's; the layout draws no Referer for a stranger), so:
+
+    - a rewrite here (Vercel's own routing, before its CDN) adds STRANGER_QUERY to a stranger's address, which gives
+      the stranger's copy a cache key of its own that a signed in request is never rewritten to;
+    - a header rule here holds that answer at the CDN, a minute fresh and five more while redrawn, under
+      `community-page:<slug>`, which every staff write, a publish and a take down clear
+      (lib/communities/server/public-cache.ts).
+
+  Round 63 tried this from the proxy, and Vercel's CDN ignored cache headers a proxy rewrite carried. Rules in this
+  file are Vercel's routing itself, as the creator page's are (those are HITs). A signed in request carries one of
+  SESSION_COOKIES (the production project's, under its old name and `__Host-`, whole and in chunks): it is never
+  rewritten and never held. Only on storelib.com; never a client side move (`rsc`).
+*/
+export const STRANGER_QUERY = "_sl_pub"
+export const COMMUNITY_STRANGER_CDN = "public, s-maxage=60, stale-while-revalidate=300"
+export const SESSION_COOKIES = (() => {
+  const base = `sb-${PRODUCTION_STORAGE_HOST_REF}-auth-token`
+  const names = [base, ...[0, 1, 2, 3, 4].map((i) => `${base}.${i}`)]
+  return [...names, ...names.map((n) => `__Host-${n}`)]
+})()
+const strangerOnly = () => [
+  { type: 'header', key: 'rsc' },
+  ...SESSION_COOKIES.map((key) => ({ type: 'cookie', key })),
+]
 /* A OnePage's name as its one spelling (lowercase, lib/onepage/username isResolvableOnePageName), never a file the host answers (robots.txt, sitemap.xml). */
 const ONEPAGE_NAME_SEGMENT = "[a-z0-9](?:[a-z0-9_-]|\\.(?!(?:txt|xml|ico|png|jpe?g|svg|webp|webmanifest|json|js|css|map)$))*"
 const NEVER_HELD = [
@@ -353,6 +383,13 @@ const nextConfig = {
     return {
       beforeFiles: [
         { source: "/@:handle", destination: "/member/:handle" },
+        /* Round 66: a stranger's community page to its own cache key (see STRANGER_QUERY above). */
+        ...["/community/:slug", "/community/:slug/about"].map((source) => ({
+          source,
+          has: [{ type: "host", value: "(?:www\\.)?storelib\\.com" }],
+          missing: strangerOnly(),
+          destination: `${source}?${STRANGER_QUERY}=1`,
+        })),
         /* The app links files, built from env vars (lib/platform/app-links.ts): before the public folder, which no longer holds them. */
         { source: "/.well-known/apple-app-site-association", destination: "/api/app-links/apple-app-site-association" },
         { source: "/.well-known/assetlinks.json", destination: "/api/app-links/assetlinks" },
@@ -432,6 +469,16 @@ const nextConfig = {
           ]
         : []),
       edgeRule('/explore/:path*', 'explore'),
+      /* Round 66: the stranger's copy of a community's page and About (STRANGER_QUERY above). */
+      ...['/community/:slug', '/community/:slug/about'].map((source) => ({
+        source,
+        has: [{ type: 'host', value: '(?:www\\.)?storelib\\.com' }],
+        missing: strangerOnly(),
+        headers: [
+          { key: 'Vercel-CDN-Cache-Control', value: COMMUNITY_STRANGER_CDN },
+          { key: 'Vercel-Cache-Tag', value: 'community-page::slug' },
+        ],
+      })),
       /*
         OnePages, storelib.me/<name>: one copy for everybody (round 51, lib/onepage/edge). storelib.me reads no session and
         writes no cookie (proxy.ts), and the page reads nothing of the visitor's. Here and not in the proxy: Next takes the

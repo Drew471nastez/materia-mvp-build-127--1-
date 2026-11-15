@@ -562,6 +562,8 @@ const SUITES = [
   "tests/rail-motion.test.ts",
   /* Round 63: a visitor's OnePage downloads what it draws: the blocks' editors are their own files, the checkout window and the platform header are fetched where used, and the description is one plain text on the server and in the browser (no React 418). */
   "tests/onepage-delivery-r63.test.ts",
+  /* Round 66: a stranger's community page and About, rewritten by next.config.mjs to their own cache key and held by the CDN; never a signed in request or a client side move; cleared by every staff write and take down. */
+  "tests/community-stranger-cdn.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",

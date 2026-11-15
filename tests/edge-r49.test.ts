@@ -32,7 +32,7 @@ import { join } from "node:path"
 import { capturable, hostKey, indexKey, pageKey, pageRecord, readHostRecord, readSnapshot, resetHostHold, resetSnapshotHold, servable, snapshotHost, snapshotPath, snapshotRequest, snapshotResponse, SNAPSHOT_CACHE, SNAPSHOT_HEADER, PAGE_COPY_MAX_AGE_MS, HOLD_MS, type PageRecord } from "@/lib/edge/public-snapshot"
 import { memorySnapshotStore, safeKey, storeConfig } from "@/lib/edge/snapshot-store"
 import { backfillSiteCopies, capturePages, dueForCopy, sitePagePaths, KEEP_EVERY_MS, type Fetched } from "@/lib/edge/snapshot-capture"
-import { answeredOk, dbState, noteDb, probeIfStale, resetDbHealth, DOWN_HOLD_MS, PROBE_EVERY_MS } from "@/lib/edge/db-health"
+import { answeredOk, dbState, noteDb, probeIfStale, resetDbHealth, DOWN_AFTER, DOWN_HOLD_MS, PROBE_EVERY_MS } from "@/lib/edge/db-health"
 import { stripComments } from "./_source"
 
 let passed = 0
@@ -192,7 +192,10 @@ async function main() {
     noteDb(true, 1_000)
     check("up after an answer", dbState(1_001) === "up")
     noteDb(false, 2_000)
-    check("down after a failure", dbState(2_001) === "down")
+    /* Changed on purpose (round 65): one slow call is not an outage; DOWN_AFTER failures in a row are. */
+    check("one failure is not down", dbState(2_001) === "up" && DOWN_AFTER === 2)
+    noteDb(false, 2_000)
+    check("down after failures in a row", dbState(2_001) === "down")
     check("  for DOWN_HOLD_MS with nothing since", dbState(2_000 + DOWN_HOLD_MS - 1) === "down" && dbState(2_000 + DOWN_HOLD_MS) === "up")
     noteDb(true, 2_500)
     check("one answer ends it at once", dbState(2_501) === "up")
@@ -208,7 +211,9 @@ async function main() {
       return 0
     })
     await new Promise((r) => setTimeout(r, 10))
-    check("one probe at a time, and a failed probe is down", probes === 1 && dbState() === "down")
+    /* Changed on purpose (round 65): a failed probe counts as one failure; a second in a row is down. */
+    noteDb(false)
+    check("one probe at a time, and a failed probe with another failure is down", probes === 1 && dbState() === "down")
     probeIfStale(async () => {
       probes++
       return 200

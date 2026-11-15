@@ -69,7 +69,8 @@ const proxyFetch: typeof fetch = (input, init) => {
       return r
     },
     (e) => {
-      noteDb(false)
+      /* Round 65: a call its own caller called off (a race won elsewhere, a request gone) says nothing about the database. */
+      if (!init?.signal?.aborted || own.aborted) noteDb(false)
       throw e
     },
   )
