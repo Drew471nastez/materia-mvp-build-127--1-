@@ -293,11 +293,11 @@ const THUMB_PX = 28
  * nothing yet inside the slop, dragging the thumb when it went mostly
  * sideways, scrolling the page otherwise (a tie scrolls).
  */
-export function earnSliderAxis(dx: number, dy: number): "wait" | "drag" | "scroll" {
+export function earnSliderAxis(dx: number, dy: number): "wait" | "drag" | "page" {
   const ax = Math.abs(dx)
   const ay = Math.abs(dy)
   if (ax < EARN_SLIDER_SLOP_PX && ay < EARN_SLIDER_SLOP_PX) return "wait"
-  return ax > ay ? "drag" : "scroll"
+  return ax > ay ? "drag" : "page"
 }
 
 type SliderGesture = { id: number; x: number; y: number; left: number; width: number; from: number; mode: "wait" | "drag" | "mouse" }
@@ -349,7 +349,7 @@ function ScrollSafeSlider({ value, min, max, onChange, children }: { value: numb
       const axis = earnSliderAxis(e.clientX - g.x, e.clientY - g.y)
       if (axis === "wait") return
       /* Up or down: the page scrolls and the value stays. */
-      if (axis === "scroll") {
+      if (axis === "page") {
         gesture.current = null
         return
       }
