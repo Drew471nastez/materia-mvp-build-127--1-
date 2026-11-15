@@ -49,10 +49,9 @@ console.log("\n── The sheets are plain blocks ──")
 // Changed on purpose (landing round 8): the owner asked for the purple sheet to come up as a sheet again: one scroll-driven transform, only on [data-sheet-rise], still no scale, transition or will-change.
   check("no scroll-driven motion but the purple rise", !/view-timeline|scroll-timeline|scale|transition|will-change/.test(SHEET_CSS) && (SHEET_CSS.match(/animation:/g) || []).length === 1 && /\[data-sheet-rise\]\{[^}]*animation:srp-rise/.test(SHEET_CSS))
   // Changed on purpose (landing round 8): svh only sizes the rise (a stable length on iOS), never a box.
-  check("nothing held: no sticky, no screen tall box", !/sticky|data-sheet-hold|--srp-cover|\b100s?vh|lvh|dvh|height:/.test(SHEET_CSS))
+  check("nothing held: no sticky, no screen tall box", !/sticky|data-sheet-hold|--srp-cover|\b100s?vh|lvh|dvh|height:[^;}]*vh/.test(SHEET_CSS))
   check("no script, no observer, no listener", !/"use client"/.test(src) && !/\buse[A-Z]\w*\(|addEventListener|IntersectionObserver|requestAnimationFrame/.test(src))
-// Changed on purpose (landing round 8): the lower block of a join clips its content to its rounded top (overflow: clip, never a scroll box), so a section's square background cannot draw over the corner.
-  check("a block clips only by overflow: clip, never a scroll box or clip-path", !/overflow:(hidden|auto|scroll)|overflow-[xy]|clip-path/.test(SHEET_CSS) && /overflow:clip/.test(SHEET_CSS))
+  check("nothing clips: no overflow on a sheet", !/overflow|clip-path/.test(SHEET_CSS))
   const white = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "white", children: createElement("p", null, "in") }))
   const dark = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { children: createElement("p", null, "in") }))
   check("a sheet is one block around its sections", /<\/style><div data-sheet="white"><p>in<\/p><\/div>$/.test(white))
@@ -64,9 +63,9 @@ console.log("\n── The corners are never cut ──")
 {
 // Changed on purpose (landing round 8): every join, whatever the two grounds: the lower block laps over the upper by its radius (and the rise), rounds its top and clips to it; the upper is square and leaves that room at its foot.
   const B = ":is([data-sheet],[data-sheet-backdrop])"
-  check("the lower block laps over the upper by its radius, rounded at the top", SHEET_CSS.includes(`${B}+${B}{margin-top:calc((var(--srp-r) + var(--srp-rise)) * -1);border-top-left-radius:var(--srp-r);border-top-right-radius:var(--srp-r);overflow:clip}`))
+  check("the lower block laps over the upper by its radius, rounded at the top", SHEET_CSS.includes(`${B}+${B}{margin-top:calc((var(--srp-r) + var(--srp-rise)) * -1);border-top-left-radius:var(--srp-r);border-top-right-radius:var(--srp-r)}`))
   check("the dark block before leaves that room at its foot", SHEET_CSS.includes(`[data-sheet-backdrop]:has(+${B}){padding-bottom:calc(var(--srp-r) + var(--srp-next-rise))}`))
-  check("every block is its own stacking context, painted in page order (no z-index)", SHEET_CSS.includes(`${B}{--srp-r:clamp(22px,4.2vw,48px)`) && /position:relative;isolation:isolate\}/.test(SHEET_CSS) && !/z-index/.test(SHEET_CSS))
+  check("every block is its own stacking context, painted in page order (the only z-index is the corner fillets' inside their block)", SHEET_CSS.includes(`${B}{--srp-r:clamp(22px,4.2vw,48px)`) && /position:relative;isolation:isolate\}/.test(SHEET_CSS) && (SHEET_CSS.match(/z-index/g) || []).length === 1 && /::before\{content:"";position:absolute;z-index:2147483647;/.test(SHEET_CSS))
   check("a sheet followed by a block is square at its foot and leaves the room", SHEET_CSS.includes(`[data-sheet]:has(+${B}){padding-bottom:calc(var(--srp-pad) + var(--srp-r) + var(--srp-next-rise))}`) && !/border-bottom-(left|right)-radius:var/.test(SHEET_CSS) && !/\[data-sheet\]\{[^}]*border-radius/.test(SHEET_CSS))
   check("a section on the dark ground draws no rounded box of its own (the checkout's corners under the sheet's)", /\[data-sheet-backdrop\] \.cmc\{border-radius:0\}/.test(SHEET_CSS))
   // Changed on purpose (landing round 8): the selector is :is() over both kinds of block.

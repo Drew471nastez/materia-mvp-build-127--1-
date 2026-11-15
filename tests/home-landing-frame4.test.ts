@@ -54,11 +54,10 @@ console.log("\n── The sheet (round 5: plain) ──")
   check("no script: no client directive, no hook, no listener", !/"use client"/.test(src) && !/\buse[A-Z]\w*\(/.test(src) && !/addEventListener|requestAnimationFrame/.test(src))
 // Changed on purpose (landing round 8): the purple sheet rises again (the owner: "come up as a sheet like we had it before"): one keyframe of transform alone, on a view timeline, no scale, no opacity.
   check("one keyframe, transform only, on a view timeline", (SHEET_CSS.match(/@keyframes/g) || []).length === 1 && /@keyframes srp-rise\{from\{transform:translate3d\(0,var\(--srp-rise\),0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(SHEET_CSS) && !/opacity|scale/.test(keyframes(SHEET_CSS)) && /animation-timeline:view\(\)/.test(SHEET_CSS))
-  // Changed on purpose (landing round 8): the lower block of a join clips to its rounded top with overflow: clip, which is not a scroll box.
-  check("still one scrollbar: nothing scrolls", !/overflow:(hidden|auto|scroll)/.test(SHEET_CSS))
-  // Changed on purpose (landing round 8): no flat ground: every join is drawn by the lower block (rounded top over the upper's square foot), so the fillets are gone.
+  check("still one scrollbar: nothing scrolls or clips", !/overflow/.test(SHEET_CSS))
+  // Changed on purpose (landing round 8): no flat ground: every join is drawn by the lower block (rounded top over the upper's square foot, its fillets in the upper's colour).
   const rise = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "purple", arrive: "rise", children: createElement("p", null, "x") }))
-  check("no flat ground and no fillets; a rising sheet is marked", !/data-sheet-flat|radial-gradient\(circle/.test(SHEET_CSS) && /<div data-sheet="purple" data-sheet-rise="" data-band="purple">/.test(rise))
+  check("no flat ground; a rising sheet is marked", !/data-sheet-flat/.test(SHEET_CSS) && /<div data-sheet="purple" data-sheet-rise="" data-band="purple">/.test(rise))
   const plain = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { children: createElement("p", null, "x") }))
   check("a dark stretch is plain", /<div data-sheet-backdrop=""><p>x<\/p><\/div>$/.test(plain))
   check("the purple sheet still sets the band colours", /\[data-sheet="purple"\]\{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba\(255,255,255,\.16\)/.test(SHEET_CSS))

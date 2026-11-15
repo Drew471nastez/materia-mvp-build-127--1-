@@ -17,19 +17,28 @@ import type { CSSProperties, ReactNode } from "react"
                        more than its content (a padding), so its own colour
                        is what sits behind the corners of the block below;
     the lower block    pulled up over that room by its radius (a negative
-                       margin), its top corners rounded, and it clips what
-                       is inside it to that rounded shape (overflow: clip,
-                       which is not a scroll box, so the checkout's sticky
-                       scene and the page's one scrollbar are untouched).
-                       A section's own square background inside can then
-                       never draw over the corner: that was the clipped
-                       strip in the owner's corner screenshot.
+                       margin), its top corners rounded, and over its own
+                       content two small fillets in the upper block's colour
+                       (--srp-above, a ::before as tall as the radius, on
+                       top of everything inside the block), so a section's
+                       own square background inside can never draw over the
+                       corner.
+
+  Why fillets and not overflow: clip with the radius: a rounded clip on a
+  block that holds composited layers (the marquees, the globe, the
+  carousels) costs the compositor a mask on every frame. Measured on a
+  scripted scroll at 1440: frames over 25ms went from about 20 to about 75
+  with the clip, and back to 20 without it.
+
+  The colours behind a corner are therefore named, and each is the upper
+  block's real colour at its foot: white #fff, the purple's flat #24104f
+  (its lower glow ends above its foot), the dark ground #050506 and the
+  checkout's black #000. No third colour, no hairline.
 
   Every block is position: relative with isolation, and none sets a
   z-index, so they paint in the page's order: the lower block is always over
   the upper one, and nothing inside either, however it is layered, can climb
-  out over its neighbour. Nothing is drawn behind a corner except the upper
-  block's own pixels: no third colour, no fillet to match, no hairline.
+  out over its neighbour.
 
   THE PURPLE SHEET RISES (round 8, the owner: "it needs to come up as a
   sheet like we had it before"). With `arrive="rise"` the sheet starts a
@@ -55,11 +64,16 @@ export const SHEET_CSS = `
 ${BLOCK}{--srp-r:clamp(22px,4.2vw,48px);--srp-pad:clamp(10px,1.8vw,28px);--srp-rise:0px;--srp-next-rise:0px;position:relative;isolation:isolate}
 [data-sheet]{padding-block:var(--srp-pad)}
 [data-sheet="white"]{--srp-bg:#fff;background:#fff;color:#18181b}
-[data-sheet="purple"]{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba(255,255,255,.16);background:radial-gradient(70% 45% at 85% 0%,rgba(124,58,237,.42) 0%,rgba(124,58,237,0) 70%),radial-gradient(60% 40% at 0% 100%,rgba(91,33,182,.35) 0%,rgba(91,33,182,0) 70%),#24104f;color:#fff}
+[data-sheet="purple"]{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba(255,255,255,.16);background:radial-gradient(70% 45% at 85% 0%,rgba(124,58,237,.42) 0%,rgba(124,58,237,0) 70%),radial-gradient(60% 25% at 0% 60%,rgba(91,33,182,.35) 0%,rgba(91,33,182,0) 70%),#24104f;color:#fff}
 [data-sheet-backdrop]{--srp-bg:#050506;background:#050506}
 [data-sheet-backdrop] .cmc{border-radius:0}
 [data-sheet-backdrop]:has(.cmc){--srp-bg:#000;background:#000}
-${BLOCK}+${BLOCK}{margin-top:calc((var(--srp-r) + var(--srp-rise)) * -1);border-top-left-radius:var(--srp-r);border-top-right-radius:var(--srp-r);overflow:clip}
+${BLOCK}+${BLOCK}{margin-top:calc((var(--srp-r) + var(--srp-rise)) * -1);border-top-left-radius:var(--srp-r);border-top-right-radius:var(--srp-r)}
+${BLOCK}+${BLOCK}::before{content:"";position:absolute;z-index:2147483647;left:0;right:0;top:0;height:var(--srp-r);pointer-events:none;background:radial-gradient(circle at 100% 100%,transparent calc(var(--srp-r) - .5px),var(--srp-above) var(--srp-r)) left top/var(--srp-r) var(--srp-r) no-repeat,radial-gradient(circle at 0 100%,transparent calc(var(--srp-r) - .5px),var(--srp-above) var(--srp-r)) right top/var(--srp-r) var(--srp-r) no-repeat}
+[data-sheet="white"]+${BLOCK}{--srp-above:#fff}
+[data-sheet="purple"]+${BLOCK}{--srp-above:#24104f}
+[data-sheet-backdrop]+${BLOCK}{--srp-above:#050506}
+[data-sheet-backdrop]:has(.cmc)+${BLOCK}{--srp-above:#000}
 [data-sheet]:has(+${BLOCK}){padding-bottom:calc(var(--srp-pad) + var(--srp-r) + var(--srp-next-rise))}
 [data-sheet-backdrop]:has(+${BLOCK}){padding-bottom:calc(var(--srp-r) + var(--srp-next-rise))}
 @supports (animation-timeline:view()) {

@@ -61,14 +61,13 @@ console.log("\n── The sheet ──")
   /* Changed on purpose (landing round 4): the sheet now rises with a small side inset and the block behind recedes, as CSS scroll-driven animations of transform and opacity (tests/home-landing-frame4.test.ts); still no script. */
   check("no script at all: no client directive, no hook, no listener, no observer", !/"use client"/.test(src) && !/\buse[A-Z]\w*\(/.test(src) && !/addEventListener|IntersectionObserver|ResizeObserver|requestAnimationFrame/.test(src))
   check("nothing is animated by a transition, filter or will-change; motion is only scroll-driven", !/transition|filter|will-change/.test(SHEET_CSS) && !/animation-timeline:(?!view\(\)|--srp-box)/.test(SHEET_CSS))
-  // Changed on purpose (landing round 8): the lower block of a join clips to its rounded top (overflow: clip, not a scroll box).
-  check("no second scrollbar: the sheet never scrolls by itself", !/overflow:(hidden|auto|scroll)/.test(SHEET_CSS))
+    check("no second scrollbar: the sheet never scrolls or clips by itself", !/overflow/.test(SHEET_CSS))
   // Changed on purpose (landing round 8): only the top corners are rounded, on the lower block of every join (the owner: "the roundness should come as the section under").
   check("rounded at the top: about 22px on a phone, 32px on a tablet, 48px on a computer", /--srp-r:clamp\(22px,4\.2vw,48px\)/.test(SHEET_CSS) && /border-top-left-radius:var\(--srp-r\);border-top-right-radius:var\(--srp-r\)/.test(SHEET_CSS) && !/border-bottom-(left|right)-radius:var/.test(SHEET_CSS))
   /* Changed on purpose (landing round 4): each tone also names its colour (--srp-bg) for the fillets of a flat ground. */
   check("white, and the deep purple with the band's light words", /\[data-sheet="white"\]\{--srp-bg:#fff;background:#fff;color:#18181b\}/.test(SHEET_CSS) && /\[data-sheet="purple"\]\{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba\(255,255,255,\.16\);background:[^}]*#24104f;color:#fff\}/.test(SHEET_CSS))
   // Changed on purpose (landing round 8): no z-index: every block is its own stacking context (isolation) and they paint in page order, under the header.
-  check("each block its own stacking context, under the header", /position:relative;isolation:isolate\}/.test(SHEET_CSS) && !/z-index/.test(SHEET_CSS))
+  check("each block its own stacking context, under the header", /position:relative;isolation:isolate\}/.test(SHEET_CSS) && !/z-index:(?!2147483647;)/.test(SHEET_CSS))
   // Changed on purpose (landing round 5): nothing is held any more (the owner: stutters, black bands, sections that stop the scroll); a sheet laps over the block before by its corner and scrolls with the page (tests/home-landing-r5-frame.test.ts).
   check("no sticky hold, no screen tall box: the sheet scrolls with the page", !/sticky|data-sheet-hold|--srp-cover/.test(SHEET_CSS))
   // Changed on purpose (landing round 8): every join: the lower block laps over the upper by its radius, the upper is square at its foot.
