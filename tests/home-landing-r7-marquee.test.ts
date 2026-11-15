@@ -89,15 +89,17 @@ console.log("\n── Connect your favorite apps: edge to edge ──")
 console.log("\n── Storelib is for creators: a finger on the rail ──")
 {
   const src = code("components/marketing/home/creators-carousel.tsx")
-  check("the axis is decided after 8px, across only when more across than down", AXIS_SLOP === 8 && /Math\.hypot\(dx, dy\) < AXIS_SLOP/.test(src) && /drag\.axis = Math\.abs\(dx\) > Math\.abs\(dy\) \? "x" : "y"/.test(src))
-  check("down is the page's: the rail lets go at once", /if \(drag\.axis === "y"\) return letGo\(/.test(src) && CREATORS_CSS.includes("touch-action:pan-y"))
-  check("pointer capture only once the rail has the gesture", src.indexOf("setPointerCapture") > src.indexOf('drag.axis = Math.abs(dx)'))
-  check("the rail follows the finger 1:1 from where the axis was decided, with no jump for the slop", /drag\.startX = e\.clientX\s*drag\.fromX = x/.test(src) && /x = drag\.fromX - \(e\.clientX - drag\.startX\)/.test(src))
+  /* Changed on purpose (landing round 9): the owner: the swipe took too long to start. The gesture is components/marketing/rail-gesture.ts, shared with the showcase: 4px, across only when clearly more across than down, a finger read from touch events. */
+  const gesture = code("components/marketing/rail-gesture.ts")
+  check("the axis is decided after 4px, across only when clearly more across than down", (AXIS_SLOP as number) === 4 && /bindRailGesture\(viewport, \{/.test(src) && /Math\.hypot\(dx, dy\) < RAIL_AXIS\.slop/.test(gesture) && /Math\.abs\(dx\) > Math\.abs\(dy\) \* RAIL_AXIS\.ratio \? "x" : "y"/.test(gesture))
+  check("down is the page's: the rail lets go at once", /if \(d\.axis === "y"\) \{\s*end\(t, false\)/.test(gesture) && CREATORS_CSS.includes("touch-action:pan-y"))
+  check("pointer capture only once the rail has the gesture", /if \(travel\(e\.clientX, e\.clientY, e\.timeStamp\) && !was && !held\?\.finger\) \{\s*try \{\s*el\.setPointerCapture\(e\.pointerId\)/.test(gesture))
+  check("the rail follows the finger 1:1 from where the axis was decided, with no jump for the slop", /d\.startX = x/.test(gesture) && /if \(drag\) drag\.fromX = x/.test(src) && /x = drag\.fromX - dx/.test(src))
   /* Changed on purpose (landing round 8): the owner: "smooth, butterish, optimized, no lag or stutter". The finger's moves are drawn once a frame, and only in a frame the finger moved (no loop while it holds still). */
   check("drawn once a frame, not once an event", /if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(src) && !/const frame = \(t: number\)/.test(src))
   /* Changed on purpose (landing round 8): the throw is the same decay, e every COAST_TAU, played as a Web Animation on the compositor instead of a frame loop. */
   check("a throw coasts and slows smoothly (exponential decay)", /const by = v \* COAST_TAU \* \(1 - Math\.exp\(-ms \/ tauMs\)\)/.test(src) && /play\("coast"/.test(src) && /const COAST_TAU = 0\.42/.test(read("components/marketing/home/creators-carousel.tsx")))
-  check("the throw's speed is the finger's over its last moves; a finger that stopped throws nothing", /VELOCITY_WINDOW_MS/.test(src) && /now - b\.t > 60\) return 0/.test(src))
+  check("the throw's speed is the finger's over its last moves; a finger that stopped throws nothing", /RAIL_AXIS\.velocityWindowMs/.test(code("components/marketing/rail-gesture.ts")) && /t - b\.t <= RAIL_AXIS\.restMs/.test(code("components/marketing/rail-gesture.ts")))
   /* Changed on purpose (landing round 8): easing back in is a compositor curve with the smootherstep's end slopes (0, then twice the average), not a frame loop. */
   check("touching holds the rail; autoplay waits, then eases back in from a standstill, no jump", /holdUntil = performance\.now\(\) \+ RESUME_AFTER_MS/.test(src) && /play\("in", \(want \* RAMP_UP_MS\) \/ 2000, RAMP_UP_MS, "cubic-bezier\(\.5,0,\.75,\.5\)"/.test(src))
   check("waiting out a hold costs no frames (one timer)", /holdTimer = window\.setTimeout\(update, wait \+ 1\)/.test(src) && /clearTimeout\(holdTimer\)/.test(src))

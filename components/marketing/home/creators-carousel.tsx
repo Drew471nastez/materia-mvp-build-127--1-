@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { StoryHeading } from "../story-heading"
+import { RAIL_AXIS, bindRailGesture } from "../rail-gesture"
 import type { SectionStyle } from "./lazy-section"
 
 export type CreatorCard = {
@@ -13,10 +14,13 @@ export type CreatorCard = {
 }
 
 /** Photos: Unsplash (free licence), cropped 4:5 and stored as 400w/720w WebP
- * under public/home/creators. Every name is fictional. */
+ * under public/home/creators. Every name is fictional.
+ * Landing round 9, the owner's own picks: Musicians (a man's portrait on an
+ * orange ground), Photographers and Fitness are Pexels photos (free licence),
+ * cropped and stored the same way. */
 export const CREATORS: readonly CreatorCard[] = [
   { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lena Marsh", alt: "Lena laughing on her purple lit set, a clapperboard held up for the next take" },
-  { slug: "musicians", kind: "Musicians", sells: "Songs, vinyl & lessons", name: "Inés Calla", alt: "Inés smiling at her guitar on a dark stage, a microphone in front of her" },
+  { slug: "musicians", kind: "Musicians", sells: "Songs, vinyl & lessons", name: "Jules Arden", alt: "Jules, a musician, in a dark wool jacket against an orange wall" },
   { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Clara Whitfield", alt: "Clara writing in a notebook at a window table" },
   { slug: "educators", kind: "Educators", sells: "Online courses", name: "Teo Alvarez", alt: "Teo in his sunlit painting studio, an apron on and a brush in hand" },
   { slug: "influencers", kind: "Influencers", sells: "Merch drops", name: "Adaeze Nwosu", alt: "Adaeze, an influencer, in a bold patterned top" },
@@ -25,8 +29,8 @@ export const CREATORS: readonly CreatorCard[] = [
   { slug: "streamers", kind: "Streamers", sells: "Sub perks & emote packs", name: "Kai Navarro", alt: "Kai streaming at a glowing desk setup with a headset on" },
   { slug: "coaches", kind: "Coaches", sells: "1:1 calls & programs", name: "Dev Mehta", alt: "Dev, a coach, smiling in a white tee against a concrete wall" },
   { slug: "agencies", kind: "Agencies", sells: "Storefronts for every client", name: "Northfield Studio", alt: "The Northfield Studio team laughing around a laptop, a painted mural behind them" },
-  { slug: "photographers", kind: "Photographers", sells: "Photo presets & prints", name: "Jonah Price", alt: "Jonah tossing a camera toward the lens in an autumn forest" },
-  { slug: "fitness", kind: "Fitness", sells: "Training plans & challenges", name: "Sasha Ivanova", alt: "Sasha lifting a kettlebell overhead in a bright gym" },
+  { slug: "photographers", kind: "Photographers", sells: "Photo presets & prints", name: "Noa Price", alt: "Noa in silhouette, her camera raised to her eye against a sky going from blue to orange" },
+  { slug: "fitness", kind: "Fitness", sells: "Training plans & challenges", name: "Cole Whitaker", alt: "Cole walking through a dark gym with a dumbbell in each hand, in black and white" },
 ]
 
 export const CREATORS_HEADING = "Storelib is for creators. Whatever you make."
@@ -34,14 +38,12 @@ export const CREATORS_HEADING = "Storelib is for creators. Whatever you make."
 const SIZES = "(max-width: 640px) 66vw, (max-width: 1280px) 24vw, 300px"
 
 /* The feel of a finger on the rail (landing round 7). */
-/** How far a finger moves before the gesture is read as across (the rail's) or down (the page's). */
-export const AXIS_SLOP = 8
+/** How far a finger moves before the gesture is read as across (the rail's) or down (the page's): rail-gesture.ts (landing round 9: 4px, where round 7 waited 8). */
+export const AXIS_SLOP = RAIL_AXIS.slop
 /** A throw slows by e every this many seconds: about the glide of a flicked list on a phone. */
 const COAST_TAU = 0.42
 /** The fastest throw, px a second. */
 const MAX_THROW = 3200
-/** The finger's speed is read over its last this many ms. */
-const VELOCITY_WINDOW_MS = 90
 /** After a hold or a throw, the drift waits this long, then eases back in over RAMP_UP_MS. */
 const RESUME_AFTER_MS = 1400
 const RAMP_UP_MS = 1800
@@ -106,15 +108,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     let holdUntil = 0
     let holdTimer = 0
     let paintFrame = 0
-    let drag: {
-      id: number
-      startX: number
-      startY: number
-      fromX: number
-      axis: "x" | "y" | null
-      samples: Array<{ t: number; cx: number }>
-    } | null = null
-    let suppressClick = false
+    let drag: { fromX: number } | null = null
     /*
      * LANDING ROUND 8 (the owner: "more smooth, butterish, optimized, no lag
      * or stutter"). Round 7 ran the throw, the easing back into the drift and
@@ -261,86 +255,49 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     }
     /*
      * A FINGER ON THE RAIL (landing round 7, the owner: "more buttery, more
-     * realistic", and never fighting the page's own scroll). Touching holds
-     * the rail where it is. Nothing is decided until the finger has moved
-     * AXIS_SLOP px: if it went more across than down, the rail is the
-     * finger's (pointer capture from then on, and it follows 1:1); if more
-     * down, the page scrolls (touch-action: pan-y leaves vertical pans to the
-     * browser, which cancels the pointer) and the rail lets go at once. On
-     * release it coasts with the finger's last speed, slowing smoothly, then
-     * waits a moment and eases back into its drift from a standstill.
+     * realistic", and never fighting the page's own scroll; landing round 9:
+     * "on mobile the swipe must feel very smooth"). Touching holds the rail
+     * where it is. Whose the gesture is, is rail-gesture.ts: decided after
+     * 4px, the rail's only if it went clearly more across than down, read
+     * from touch events so an iPhone hands it over at once; then the rail
+     * follows the finger 1:1 from that very point. A gesture going down is
+     * the page's (touch-action: pan-y, and nothing is ever cancelled) and the
+     * rail lets go at once. On release it coasts with the finger's last
+     * speed, slowing smoothly, then waits a moment and eases back into its
+     * drift from a standstill.
      */
-    const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || reduce.matches || drag) return
-      halt()
-      clearTimeout(holdTimer)
-      drag = { id: e.pointerId, startX: e.clientX, startY: e.clientY, fromX: x, axis: null, samples: [{ t: e.timeStamp, cx: e.clientX }] }
-      suppressClick = false
-    }
-    const onMove = (e: PointerEvent) => {
-      if (!drag || e.pointerId !== drag.id) return
-      const dx = e.clientX - drag.startX
-      const dy = e.clientY - drag.startY
-      if (!drag.axis) {
-        if (Math.hypot(dx, dy) < AXIS_SLOP) return
-        drag.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"
-        if (drag.axis === "y") return letGo(e.timeStamp, false)
-        try {
-          viewport.setPointerCapture(e.pointerId)
-        } catch {}
+    const gesture = bindRailGesture(viewport, {
+      press: () => {
+        if (reduce.matches) return false
+        halt()
+        clearTimeout(holdTimer)
+        drag = { fromX: x }
+      },
+      start: () => {
         viewport.dataset.dragging = ""
-        /* Taken from here, so the slop is not a jump: the rail moves from where the finger is now. */
-        drag.startX = e.clientX
-        drag.fromX = x
-      }
-      x = drag.fromX - (e.clientX - drag.startX)
-      drag.samples.push({ t: e.timeStamp, cx: e.clientX })
-      while (drag.samples.length > 2 && e.timeStamp - drag.samples[0].t > VELOCITY_WINDOW_MS) drag.samples.shift()
-      /* The finger leads: x is set from it here, 1:1, and drawn once a frame, only in a frame it moved. */
-      if (!paintFrame) paintFrame = requestAnimationFrame(paint)
-    }
-    /* The finger's speed over its last few moves, px a second (positive: the rail travels left). A finger that stopped before lifting throws nothing. */
-    const releaseSpeed = (now: number) => {
-      const s = drag?.samples ?? []
-      const a = s[0]
-      const b = s[s.length - 1]
-      if (!a || !b || b.t - a.t < 8 || now - b.t > 60) return 0
-      const speed = -((b.cx - a.cx) / (b.t - a.t)) * 1000
-      return Math.max(-MAX_THROW, Math.min(MAX_THROW, speed))
-    }
-    const letGo = (now: number, wasDrag: boolean) => {
-      const speed = wasDrag ? releaseSpeed(now) : 0
-      drag = null
-      delete viewport.dataset.dragging
-      if (paintFrame) {
-        cancelAnimationFrame(paintFrame)
-        paint()
-      }
-      /* Held and let go: wait a little before drifting again; handed to the page's scroll: none. */
-      holdUntil = wasDrag ? performance.now() + RESUME_AFTER_MS : performance.now()
-      if (wasDrag && Math.abs(speed) > 40 && live()) coast(speed)
-      else update()
-    }
-    const onUp = (e: PointerEvent) => {
-      if (!drag || e.pointerId !== drag.id) return
-      const wasDrag = drag.axis === "x"
-      if (wasDrag) suppressClick = true
-      /* A finger that rested on the rail without moving held it: it waits a moment before drifting again. */
-      if (!drag.axis && e.type === "pointerup" && e.pointerType !== "mouse") {
+        if (drag) drag.fromX = x
+      },
+      move: (dx) => {
+        if (!drag) return
+        /* The finger leads: x is set from it here, 1:1, and drawn once a frame, only in a frame it moved. */
+        x = drag.fromX - dx
+        if (!paintFrame) paintFrame = requestAnimationFrame(paint)
+      },
+      release: ({ dragged, axis, speed, touch: finger, cancelled }) => {
         drag = null
-        holdUntil = performance.now() + RESUME_AFTER_MS
-        update()
-        return
-      }
-      letGo(e.timeStamp, wasDrag)
-    }
-    const onClick = (e: MouseEvent) => {
-      if (suppressClick) {
-        e.preventDefault()
-        e.stopPropagation()
-        suppressClick = false
-      }
-    }
+        delete viewport.dataset.dragging
+        if (paintFrame) {
+          cancelAnimationFrame(paintFrame)
+          paint()
+        }
+        const throwSpeed = dragged ? Math.max(-MAX_THROW, Math.min(MAX_THROW, speed)) : 0
+        /* Dragged, or a finger that rested on the rail without moving: wait a little before drifting again. Handed to the page's scroll, or a mouse click: none. */
+        const heldStill = !dragged && axis === null && finger && !cancelled
+        holdUntil = dragged || heldStill ? performance.now() + RESUME_AFTER_MS : performance.now()
+        if (dragged && Math.abs(throwSpeed) > 40 && live()) coast(throwSpeed)
+        else update()
+      },
+    })
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault()
@@ -355,6 +312,38 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       paint()
       update()
     }
+
+    /*
+     * THE PHOTOS (landing round 9, "images optimized so they don't lag"). They
+     * are lazy in the markup. Left to the browser, each one was fetched and
+     * decoded as its card drifted or was thrown into view: a hitch per card,
+     * and empty cards on a fast swipe. Now, from a screen before the rail
+     * arrives, they are fetched and decoded two at a time, off the main
+     * thread, so by the time a finger is on the rail every card is a decoded
+     * picture. The second copy of the cards is the same files.
+     */
+    const pending = [...track.querySelectorAll<HTMLImageElement>("li:not([aria-hidden]) img")]
+    const next = (): void => {
+      const img = pending.shift()
+      if (!img) return
+      img.loading = "eager"
+      if (typeof img.decode === "function") img.decode().then(next, next)
+      else next()
+    }
+    let warmed = false
+    const near =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver(
+            (entries) => {
+              if (warmed || !entries.some((e) => e.isIntersecting)) return
+              warmed = true
+              next()
+              next()
+            },
+            { rootMargin: "900px 0px" },
+          )
+        : null
+    near?.observe(section)
 
     const io =
       typeof IntersectionObserver === "function"
@@ -371,11 +360,6 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     ro?.observe(viewport)
     viewport.addEventListener("pointerenter", onEnter)
     viewport.addEventListener("pointerleave", onLeave)
-    viewport.addEventListener("pointerdown", onDown)
-    viewport.addEventListener("pointermove", onMove)
-    viewport.addEventListener("pointerup", onUp)
-    viewport.addEventListener("pointercancel", onUp)
-    viewport.addEventListener("click", onClick, true)
     viewport.addEventListener("keydown", onKey)
     viewport.addEventListener("focusin", onFocus)
     viewport.addEventListener("focusout", onBlur)
@@ -391,11 +375,9 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       ro?.disconnect()
       viewport.removeEventListener("pointerenter", onEnter)
       viewport.removeEventListener("pointerleave", onLeave)
-      viewport.removeEventListener("pointerdown", onDown)
-      viewport.removeEventListener("pointermove", onMove)
-      viewport.removeEventListener("pointerup", onUp)
-      viewport.removeEventListener("pointercancel", onUp)
-      viewport.removeEventListener("click", onClick, true)
+      gesture.destroy()
+      near?.disconnect()
+      pending.length = 0
       viewport.removeEventListener("keydown", onKey)
       viewport.removeEventListener("focusin", onFocus)
       viewport.removeEventListener("focusout", onBlur)
@@ -481,6 +463,11 @@ export const CREATORS_CSS = `
 .cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:23px;background:var(--cc-photo);isolation:isolate}
 .cc-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
 .cc-shade{position:absolute;inset:0;background:linear-gradient(to top,rgba(8,8,10,.72),rgba(8,8,10,.28) 34%,rgba(8,8,10,0) 58%);pointer-events:none}
+/* Landing round 9, the owner: "all the card images should have a very subtle cinematic grain". One 192px tile of fine noise (16KB) for every card, drawn at 96px over the photo and under the shade and the words: black and white specks a few percent strong. A still picture in the card's own layer: no filter, no blend mode, nothing per frame. */
+.cc-photo::after{content:"";position:absolute;inset:0;background:url(/home/creators/grain.webp) 0 0/96px 96px;opacity:.55;pointer-events:none}
+.cc-shade,.cc-meta{z-index:1}
+/* On a phone the rail needs only the first five of the second copy to loop (five cards are wider than any phone): a third less to draw and keep. */
+@media(max-width:767px){.cc-card[aria-hidden="true"]:nth-child(n+18){display:none}}
 .cc-meta{position:absolute;left:20px;right:20px;bottom:18px;display:grid;gap:3px;color:#fff}
 .cc-who{font-size:12px;font-weight:500;opacity:.72;letter-spacing:.01em}
 .cc-kind{font-size:clamp(22px,1.9vw,26px);font-weight:500;letter-spacing:-.035em;line-height:1.1}

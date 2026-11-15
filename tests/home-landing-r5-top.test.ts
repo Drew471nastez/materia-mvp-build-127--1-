@@ -66,11 +66,13 @@ check("before the script the rail scrolls natively and snaps, and a swipe at an 
 check("before the script both axes stay the browser's", /\.build-showcase-track \{[^}]*touch-action:pan-x pan-y pinch-zoom/.test(showcase))
 check("cards and groups snap at their start, the phone's on the gutter", /\.build-showcase-group \{[^}]*scroll-snap-align:start/.test(showcase) && /scroll-padding-inline:var\(--showcase-gutter\)/.test(showcase) && /\.build-showcase-slide\{flex:0 0 var\(--showcase-card\);width:var\(--showcase-card\);scroll-snap-align:start/.test(showcase)) /* Changed on purpose (landing round 6): the phone card is a 4:3 card 78% of the screen wide, its caption under it. */
 check("the script's rail turns the snapping off and leaves vertical pans to the page", /\.build-showcase-track\[data-rail-ready\] \{[^}]*touch-action:pan-y pinch-zoom;[^}]*scroll-snap-type:none/.test(showcase))
-check("one engine for touch and mouse, no second rail", !/startNative|RailMotion|const NATIVE =/.test(hook) && /el\.addEventListener\("pointerdown", onDown\)/.test(hook))
+/* Changed on purpose (landing round 9): the one engine reads its pointer through components/marketing/rail-gesture.ts. */
+check("one engine for touch and mouse, no second rail", !/startNative|RailMotion|const NATIVE =/.test(hook) && /const gesture = bindRailGesture\(el, \{/.test(hook))
 check("it runs only on screen, in a visible tab, with motion allowed", /const canPlay = \(\) => visible && !paused && !document\.hidden && !reduce\.matches/.test(hook) && /"visibilitychange", onVisibility/.test(hook))
 check("autoplay: a card every 4.2s, back 5s after the reader's last input", SHOWCASE_AUTOPLAY.intervalMs === 4200 && SHOWCASE_AUTOPLAY.idleMs === 5000)
 check("card places are read once per layout change, never during a swipe", /resize\?\.observe\(viewport\)/.test(hook) && (hook.match(/s\.offsetLeft/g) ?? []).length === 1)
-check("a short flick is a card", SHOWCASE_GESTURE.axisSlop === 8 && SHOWCASE_GESTURE.flickVelocity <= 200 && SHOWCASE_GESTURE.flickDistanceMax <= 30)
+/* Changed on purpose (landing round 9): the axis is read after 4px (rail-gesture.ts), the owner had to pull too long. */
+check("a short flick is a card", (SHOWCASE_GESTURE.axisSlop as number) === 4 && SHOWCASE_GESTURE.flickVelocity <= 200 && SHOWCASE_GESTURE.flickDistanceMax <= 30)
 
 console.log("\n── The showcase: the cards inside the section ──")
 /* Changed on purpose (landing round 6): the owner saw the captions cut by the section's edge; the cards now end inside it with room under their captions, and a phone card is a 4:3 card (tests/home-landing-r6-showcase.test.ts). */

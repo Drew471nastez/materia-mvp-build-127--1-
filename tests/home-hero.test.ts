@@ -125,7 +125,8 @@ assert.ok(
   /* Changed on purpose (landing round 8): one engine of its own for touch and mouse (use-showcase-motion.ts startRail, the creators rail's gesture), not lib/ui/rail-motion. */
   read("components/marketing/use-showcase-motion.ts").includes("function startRail(") &&
     !read("components/marketing/use-showcase-motion.ts").includes("keen-slider") &&
-    showcase.includes('loading="lazy"'),
+    /* Changed on purpose (landing round 9): the first two cards load with the page, the rest stay lazy. */
+    showcase.includes('loading={first ? "eager" : "lazy"}'),
 )
 
 const showcaseMarkup = renderToString(createElement(BuildShowcase))

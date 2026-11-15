@@ -66,7 +66,7 @@ console.log("\n\"One store for everything you sell\" is off the home page")
 console.log("\nRoom under the showcase's cards")
 {
   const show = read("components/marketing/build-showcase.tsx")
-  check("from 768px: as much room under the caption line as between heading and cards, and more (52 to 96px)", /\.build-showcase-card \{width:100%;max-width:var\(--showcase-max,2020px\);margin:0 auto;padding:clamp\(72px,7vw,112px\) 0 clamp\(52px,5\.4vw,96px\)\}/.test(show))
+  check("from 768px: as much room under the caption line as between heading and cards, and more (52 to 96px)", /\.build-showcase-card \{position:relative;z-index:1;width:100%;max-width:var\(--showcase-max,2020px\);margin:0 auto;padding:clamp\(72px,7vw,112px\) 0 clamp\(52px,5\.4vw,96px\)\}/.test(show))
   check("on a phone: 44 to 64px (was 36 to 56)", /\.build-showcase-card\{padding:64px 0 clamp\(44px,12vw,64px\)\}/.test(show))
 }
 
