@@ -1,6 +1,5 @@
 "use client"
 import type {VariantPriceFacts} from "@/lib/pricing/variant-price"
-import {NativeFormBlock} from "@/components/forms/native-form-block"
 
 import { cleanStoredHtml } from "@/lib/rich-text/html"
 import { useStoryDraft } from "@/lib/storefront/story-draft"
@@ -52,6 +51,8 @@ import { ContactReveal } from "@/components/storefront/contact-reveal"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
 import dynamic from "next/dynamic"
+/* Round 64: a form is fetched where a form section is drawn (a store with none no longer downloads the form renderer); the server still draws it. */
+const NativeFormBlock = dynamic(() => import("@/components/forms/native-form-block").then((m) => m.NativeFormBlock))
 /*
   Round 48: the creator's Arrange control is fetched for the creator. Imported
   plainly it brought the editor sheet with it (EditorSheet, the save toast,

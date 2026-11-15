@@ -25,6 +25,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path"
 import { chromePlatformCss } from "@/lib/website-builder/theme-css"
 import { PANEL_SHOWN, PANEL_UNTRAP, ownPanelCss } from "@/lib/website-builder/own-panel-css"
+import { canvasSafeUnits } from "@/lib/storelib-theme/storelib/css-units"
 
 let passed = 0
 let failed = 0
@@ -82,6 +83,13 @@ const BLANK_CSS = `.bl{display:flex;gap:12px;align-items:center;height:64px;padd
 .bl__menu a,.bl__menu button{opacity:0;transition:opacity .2s ease;}
 .bl__menu[data-open="true"] a,.bl__menu[data-open="true"] button{opacity:1;}`
 
+/* A full screen menu the AI sized short of the screen (the owner's screenshot): it must still reach the bottom. */
+const SHORT_HTML = `<header class="sh"><a href="/">Radu Coaching</a><button type="button" data-storelib-menu aria-label="Menu">Menu</button>
+  <div class="sh__menu" data-storelib-menu-panel aria-label="Menu"><button type="button" data-storelib-menu-close>Close</button><nav><a href="/programmes">See the programmes</a></nav></div></header>`
+const SHORT_CSS = `.sh{display:flex;gap:12px;align-items:center;height:64px;padding:0 16px;}.sh button{min-height:44px;}
+.sh__menu{position:fixed;top:0;left:0;right:0;height:calc(100dvh - 80px);overflow-y:auto;z-index:90;padding:24px;background:#f5f5f3;transform:translateY(-8px);opacity:0;transition:opacity .2s,transform .2s;}
+.sh__menu[data-open="true"]{opacity:1;transform:none;}`
+
 const HERO_HTML = `<section style="min-height:3000px;background:#f5f5f3;padding:120px 16px 40px"><h1 style="margin:0;font-size:40px">A plan written for your body and your week</h1><p style="margin-top:1100px"><button type="button" id="add" data-storelib-add-to-cart="p1" data-title="Strength plan" data-price="€40" data-url="/products/strength" data-kind="digital" style="min-height:44px">Add to bag</button></p></section>`
 
 const ORIGIN = "https://shop.example"
@@ -134,10 +142,15 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       { id: "ai_blank_header", html: BLANK_HTML, css: BLANK_CSS, group: "header" },
       { id: "ai_hero", html: HERO_HTML, css: "" },
     ]
-    const pageHtml = (opts: { canvas?: boolean; legacy?: boolean; noPopover?: boolean; noScript?: boolean; blank?: boolean }) => {
+    const short = [
+      /* Through the section compiler's unit rewrite, as every section's CSS is: in the canvas 100dvh is the phone's. */
+      { id: "ai_short_header", html: SHORT_HTML, css: canvasSafeUnits(SHORT_CSS), group: "header" },
+      { id: "ai_hero", html: HERO_HTML, css: "" },
+    ]
+    const pageHtml = (opts: { canvas?: boolean; legacy?: boolean; noPopover?: boolean; noScript?: boolean; blank?: boolean; short?: boolean }) => {
       const head = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font-family:Arial,sans-serif}</style></head><body>`
       if (opts.noScript) return `${head}<div data-storelib-theme=""><style>${css}${HEADER_CSS}</style>${HEADER_HTML}${HERO_HTML}</div></body></html>`
-      const probe = { sections: opts.blank ? blank : sections, canvas: !!opts.canvas, legacy: !!opts.legacy }
+      const probe = { sections: opts.short ? short : opts.blank ? blank : sections, canvas: !!opts.canvas, legacy: !!opts.legacy }
       const pre = opts.noPopover ? `<script>delete HTMLElement.prototype.showPopover;delete HTMLElement.prototype.hidePopover;</script>` : ""
       return `${head}<div id="app"></div>${pre}<script>window.__PROBE__=${JSON.stringify(probe).replace(/</g, "\\u003c")}</script><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
     }
@@ -280,6 +293,27 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         await sleep(600)
         const opened = await p.evaluate(() => { const m = document.querySelector<HTMLElement>("[data-storelib-menu-panel]")!; const a = m.querySelector("a")!; return { open: m.getAttribute("data-open"), link: getComputedStyle(a).opacity, drawn: m.getClientRects().length } })
         check(`${name}:   and still opens, its links faded in`, opened.open === "true" && opened.link === "1" && opened.drawn > 0, opened)
+        check(`${name}:   no page error`, errors.length === 0, errors)
+        await p.close()
+      }
+
+      /* THE SHORT SHEET: a full screen menu written 80px short of the screen reaches its bottom once open, and is as written again when shut. */
+      for (const canvas of [false, true]) {
+        const name = canvas ? "canvas" : "live"
+        const { p, errors } = canvas ? await open(pageHtml({ short: true, canvas: true }), 1280, 800) : await open(pageHtml({ short: true }), 390, 800)
+        await p.click("[data-storelib-menu]")
+        await sleep(700)
+        const m = await p.evaluate(() => {
+          const f = document.querySelector(".wb-canvas-frame")?.getBoundingClientRect()
+          const screen = f ? { top: f.top, bottom: f.bottom } : { top: 0, bottom: innerHeight }
+          const r = document.querySelector<HTMLElement>("[data-storelib-menu-panel]")!.getBoundingClientRect()
+          return { top: Math.round(r.top - screen.top), gap: Math.round(screen.bottom - r.bottom) }
+        })
+        check(`${name}: a full screen menu written short of the screen reaches its bottom, and no further`, m.top === 0 && Math.abs(m.gap) <= 1, m)
+        await p.keyboard.press("Escape")
+        await sleep(900)
+        const back = await p.evaluate(() => { const el = document.querySelector<HTMLElement>("[data-storelib-menu-panel]")!; return { style: el.getAttribute("style") ?? "", drawn: el.getClientRects().length } })
+        check(`${name}:   shut, its own size back and not drawn`, back.drawn === 0 && !/bottom: 0px/.test(back.style), back)
         check(`${name}:   no page error`, errors.length === 0, errors)
         await p.close()
       }

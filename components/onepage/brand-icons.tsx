@@ -42,51 +42,61 @@
 import type React from "react"
 import { useId } from "react"
 import type { IconType } from "react-icons"
-import { FaLinkedin, FaLinkedinIn } from "@/components/icons/brand-icons.generated"
-import {
-  SiAmazon,
-  SiApplemusic,
-  SiApplepodcasts,
-  SiBandcamp,
-  SiBluesky,
-  SiBuymeacoffee,
-  SiCanva,
-  SiCashapp,
-  SiEtsy,
-  SiGoogleforms,
-  SiGooglecalendar,
-  SiGumroad,
-  SiKofi,
-  SiLoom,
-  SiMixcloud,
-  SiPaypal,
-  SiSubstack,
-  SiTypeform,
-  SiVenmo,
-  SiCalendly,
-  SiDiscord,
-  SiFacebook,
-  SiGithub,
-  SiInstagram,
-  SiKick,
-  SiNotion,
-  SiPatreon,
-  SiPinterest,
-  SiReddit,
-  SiSnapchat,
-  SiSoundcloud,
-  SiSpotify,
-  SiTelegram,
-  SiThreads,
-  SiTiktok,
-  SiTwitch,
-  SiVimeo,
-  SiWhatsapp,
-  SiX,
-  SiYoutube,
-} from "@/components/icons/brand-icons.generated"
-import { SiBrevo, SiCaldotcom, SiGoogleanalytics, SiGooglesheets, SiKit, SiMailchimp, SiMake, SiMeta, SiZapier } from "@/components/icons/brand-icons.generated"
-import { SiAppstore, SiAudiomack, SiGoogleplay, SiRss } from "@/components/icons/brand-icons.generated"
+import { FaLinkedin } from "@/components/icons/brand/FaLinkedin"
+import { FaLinkedinIn } from "@/components/icons/brand/FaLinkedinIn"
+import { SiAmazon } from "@/components/icons/brand/SiAmazon"
+import { SiApplemusic } from "@/components/icons/brand/SiApplemusic"
+import { SiApplepodcasts } from "@/components/icons/brand/SiApplepodcasts"
+import { SiBandcamp } from "@/components/icons/brand/SiBandcamp"
+import { SiBluesky } from "@/components/icons/brand/SiBluesky"
+import { SiBuymeacoffee } from "@/components/icons/brand/SiBuymeacoffee"
+import { SiCanva } from "@/components/icons/brand/SiCanva"
+import { SiCashapp } from "@/components/icons/brand/SiCashapp"
+import { SiEtsy } from "@/components/icons/brand/SiEtsy"
+import { SiGoogleforms } from "@/components/icons/brand/SiGoogleforms"
+import { SiGooglecalendar } from "@/components/icons/brand/SiGooglecalendar"
+import { SiGumroad } from "@/components/icons/brand/SiGumroad"
+import { SiKofi } from "@/components/icons/brand/SiKofi"
+import { SiLoom } from "@/components/icons/brand/SiLoom"
+import { SiMixcloud } from "@/components/icons/brand/SiMixcloud"
+import { SiPaypal } from "@/components/icons/brand/SiPaypal"
+import { SiSubstack } from "@/components/icons/brand/SiSubstack"
+import { SiTypeform } from "@/components/icons/brand/SiTypeform"
+import { SiVenmo } from "@/components/icons/brand/SiVenmo"
+import { SiCalendly } from "@/components/icons/brand/SiCalendly"
+import { SiDiscord } from "@/components/icons/brand/SiDiscord"
+import { SiFacebook } from "@/components/icons/brand/SiFacebook"
+import { SiGithub } from "@/components/icons/brand/SiGithub"
+import { SiInstagram } from "@/components/icons/brand/SiInstagram"
+import { SiKick } from "@/components/icons/brand/SiKick"
+import { SiNotion } from "@/components/icons/brand/SiNotion"
+import { SiPatreon } from "@/components/icons/brand/SiPatreon"
+import { SiPinterest } from "@/components/icons/brand/SiPinterest"
+import { SiReddit } from "@/components/icons/brand/SiReddit"
+import { SiSnapchat } from "@/components/icons/brand/SiSnapchat"
+import { SiSoundcloud } from "@/components/icons/brand/SiSoundcloud"
+import { SiSpotify } from "@/components/icons/brand/SiSpotify"
+import { SiTelegram } from "@/components/icons/brand/SiTelegram"
+import { SiThreads } from "@/components/icons/brand/SiThreads"
+import { SiTiktok } from "@/components/icons/brand/SiTiktok"
+import { SiTwitch } from "@/components/icons/brand/SiTwitch"
+import { SiVimeo } from "@/components/icons/brand/SiVimeo"
+import { SiWhatsapp } from "@/components/icons/brand/SiWhatsapp"
+import { SiX } from "@/components/icons/brand/SiX"
+import { SiYoutube } from "@/components/icons/brand/SiYoutube"
+import { SiBrevo } from "@/components/icons/brand/SiBrevo"
+import { SiCaldotcom } from "@/components/icons/brand/SiCaldotcom"
+import { SiGoogleanalytics } from "@/components/icons/brand/SiGoogleanalytics"
+import { SiGooglesheets } from "@/components/icons/brand/SiGooglesheets"
+import { SiKit } from "@/components/icons/brand/SiKit"
+import { SiMailchimp } from "@/components/icons/brand/SiMailchimp"
+import { SiMake } from "@/components/icons/brand/SiMake"
+import { SiMeta } from "@/components/icons/brand/SiMeta"
+import { SiZapier } from "@/components/icons/brand/SiZapier"
+import { SiAppstore } from "@/components/icons/brand/SiAppstore"
+import { SiAudiomack } from "@/components/icons/brand/SiAudiomack"
+import { SiGoogleplay } from "@/components/icons/brand/SiGoogleplay"
+import { SiRss } from "@/components/icons/brand/SiRss"
 import { Globe, Link as LinkGlyph, Mail, Webhook, type LucideIcon } from "lucide-react"
 
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"

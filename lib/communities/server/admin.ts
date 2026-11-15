@@ -382,7 +382,7 @@ export async function applyAdminAction(db: Db, action: AdminCommunityAction, com
     if (writeError) return { ok: false, status: 500, error: "The change was not saved. Nothing was changed." }
     if (updated) next = updated
     /* Its page reads the row live; what is held of it, and its card on the creator's page, go too (./public-cache.ts). */
-    communityPublicChanged(communityId, (row as { creator_id?: string | null }).creator_id ?? null, (row as { slug?: string | null }).slug ?? null)
+    communityPublicChanged(communityId, (row as { creator_id?: string | null }).creator_id ?? null)
   }
   const audited = patch
     ? await audit(db, {

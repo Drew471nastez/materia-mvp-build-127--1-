@@ -79,6 +79,18 @@ check("a paragraph is a space", strip("<p>One</p><p>Two</p>") === "One Two")
 check("entities are read", strip("Tom &amp; Jerry&rsquo;s &#8212; &#x2022; done") === "Tom & Jerry’s — • done", strip("Tom &amp; Jerry&rsquo;s &#8212; &#x2022; done"))
 check("nothing is nothing", strip("") === "" && strip("   ") === "")
 
+console.log("\n4. Round 64: each brand mark its own file, the form fetched where a form is drawn")
+const generator = read("scripts/build-brand-icons.mjs")
+check("the generator writes each mark to its own file, and counts imports of them", /writeFileSync\(join\(root, EACH, `\$\{name\}\.ts`\)/.test(generator) && /@\\\/components\\\/icons\\\/brand\\\/\(\\w\+\)/.test(generator))
+check("every mark the app uses has its file", existsSync("components/icons/brand/SiInstagram.ts") && existsSync("components/icons/brand/SiNamecheap.ts"))
+const importers = ["components/onepage/brand-icons.tsx", "components/social/platform-icons.tsx", "components/community/public/social-icons.tsx", "components/app/settings/registrar-mark.tsx"]
+check("no page imports the one file of every mark", importers.every((f) => !/from "@\/components\/icons\/brand-icons\.generated"/.test(read(f))))
+check("so a OnePage and a creator page carry no registrar's mark", ![...live].some((f) => /registrar-mark/.test(f)))
+for (const f of ["components/store-builder/unified-section-renderer.tsx", "components/onepage/public-onepage.tsx"]) {
+  const src = read(f)
+  check(`${f}: the form block is a dynamic import`, /const NativeFormBlock = dynamic\(\(\) => import\("@\/components\/forms\/native-form-block"\)/.test(src) && !/^import \{[^}]*NativeFormBlock[^}]*\} from "@\/components\/forms\/native-form-block"/m.test(src))
+}
+
 console.log(`\n${passed} passed, ${failures.length} failed`)
 if (failures.length) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

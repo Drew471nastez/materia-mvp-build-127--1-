@@ -241,7 +241,16 @@ export function isUntouchedPlaceholder(section: SectionInstance): boolean {
 }
 
 /** The page with a product section on it, where the placeholder was or under the header. */
-export function withMainProduct(sections: SectionInstance[], ownProductSection?: (type: string) => boolean): SectionInstance[] {
+export function withMainProduct(sections: SectionInstance[], ownProductSection?: (type: string) => boolean, opts: { ownWins?: boolean } = {}): SectionInstance[] {
+  /*
+    A FREE SITE'S OWN PRODUCT SECTION IS THE PAGE'S (round BA). A site the AI started from nothing was created with
+    the theme's product page, built-in product section and all, and the AI then placed a product section of its own
+    on it: the product drawn twice, one under the other. On a free site (opts.ownWins) the built-in one steps aside
+    for a section of the site's own that draws the product.
+  */
+  if (opts.ownWins && ownProductSection && sections.some((s) => !s.hidden && s.type !== "product" && s.type !== "header" && s.type !== "footer" && ownProductSection(s.type))) {
+    return sections.filter((s) => s.type !== "product")
+  }
   if (sections.some((s) => s.type === "product" && !s.hidden)) return sections
   /* A hidden product section was hidden on purpose. */
   if (sections.some((s) => s.type === "product")) return sections

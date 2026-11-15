@@ -28,14 +28,14 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { buildThemePreset, getThemeDefinition, STORELIB_DEFAULT_ID } from "@/lib/website-builder/theme-registry"
 import { briefFrom } from "@/lib/storelib-ai/direction/brief"
-import { snapshotSite, isImportedSnapshot, lookSettings, withoutContact, roleOf, type SnapshotInput } from "@/lib/storelib-ai/bank/snapshot"
+import { snapshotSite, isImportedSnapshot, isPourable, lookSettings, withoutContact, roleOf, type SnapshotInput } from "@/lib/storelib-ai/bank/snapshot"
 import { chooseBankEntry, fitTemplate, listingOf, wantsOf, refitTemplate } from "@/lib/storelib-ai/bank/fit"
 import { bankRowView } from "@/lib/storelib-ai/bank/admin"
 import { bankTemplateLibrary, preloadBankTemplate, type BankReader } from "@/lib/ai-builder/agent/bank-templates"
 import { defaultTemplates } from "@/lib/ai-builder/agent/templates"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import { WRITABLE_PATH } from "@/lib/ai-builder/agent-tools"
-import { TEMPLATE_SETTING, untouchedTemplateParts, type SiteTemplate } from "@/lib/storelib-ai/templates"
+import { SITE_TEMPLATES, TEMPLATE_SETTING, untouchedTemplateParts, type SiteTemplate } from "@/lib/storelib-ai/templates"
 import { CHROME_SOURCES } from "@/lib/storelib-ai/library/examples.generated"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -153,7 +153,7 @@ async function main() {
   check("  files that are not sections are not carried", !own.some((p) => p.startsWith("snippets/")))
   check("every picture taken out is a slot pointing at a real setting", template.imageSlots.length > 0 && template.imageSlots.every((s) => s.targets.every((t) => template.pages.find((p) => p.key === t.page)?.sections.some((x) => x.id === t.section))), template.imageSlots.length)
   check("every record taken out is a binding for the new creator's own", template.bindings.some((b) => b.kind === "products") && template.bindings.some((b) => b.kind === "collection"), template.bindings.slice(0, 3))
-  check("menus keep internal links only", JSON.stringify(template.menus).includes("/products") && !JSON.stringify(template.menus).includes("http"))
+  check("the source's menu is never copied (its titles are its business)", Object.keys(template.menus).length === 0)
   check("the source's words stay as drafts (the finish gate refuses them unchanged)", all.includes("Fuel your focus. Own your day."))
   check("withoutContact takes addresses and phone numbers, keeps prices and years", withoutContact(`Mail ${SOURCE_EMAIL}, call ${SOURCE_PHONE}. From €24, since 2019.`) === "Mail , call . From €24, since 2019.", withoutContact(`Mail ${SOURCE_EMAIL}, call ${SOURCE_PHONE}. From €24, since 2019.`))
   check("lookSettings never takes a key it does not know", Object.keys(lookSettings({ secret_key: "x", stripe_account: "y", color_schemes: {} })).join() === "color_schemes")
@@ -179,64 +179,70 @@ async function main() {
   check("for the coach: no product or collection section stays", !coachTypes.some((t) => /product|collection/.test(t)), coachTypes)
   check("  no product page", !coachFit.template.pages.some((p) => p.key === "product"))
   check("  no slot or binding points at what went", coachFit.template.imageSlots.every((s) => s.targets.every((t) => coachFit.template.pages.find((p) => p.key === t.page)?.sections.some((x) => x.id === t.section))) && coachFit.template.bindings.every((b) => coachFit.template.pages.find((p) => p.key === b.page)?.sections.some((x) => x.id === b.section)))
-  check("  the shop link left the menu", !JSON.stringify(coachFit.template.menus).includes("/products"))
-  check("  the header stays (its bag is a note for the agent)", coachTypes.includes("header") && coachFit.notes.some((n) => /bag/.test(n)))
   check("  home is never emptied", coachFit.template.pages.find((p) => p.key === "home")!.sections.filter((s) => !s.group).length > 0)
   check("  the agent is told what went and why", coachFit.notes.some((n) => /products to sell/.test(n)) && coachFit.notes.some((n) => /pages/.test(n)), coachFit.notes)
+  const coachMenu = JSON.stringify(coachFit.template.menus)
+  check("  its menus are rebuilt from the pages it keeps: no shop, no source titles, no outside links", coachMenu.includes('"/about"') && !coachMenu.includes("/products") && !/Instagram|Sounds|http/.test(coachMenu), coachFit.template.menus)
+  check("Storelib's built-in header and footer never travel: the site writes its own", !coachTypes.includes("header") && !coachTypes.includes("footer") && coachFit.notes.some((n) => /write this site's own/.test(n)), coachTypes)
   const shopFit = fitTemplate(template, profile, shopBrief)
-  check("for the store: everything stays", shopFit.removed.sections.length === 0 && shopFit.removed.pages.length === 0 && shopFit.template.pages.length === template.pages.length)
+  check("for the store: every section it can use stays (only the built-in chrome goes)", shopFit.removed.pages.length === 0 && shopFit.template.pages.length === template.pages.length && shopFit.removed.sections.every((x) => /header|footer|announcement/.test(profile.sections.find((s) => `${s.page}/${s.id}` === x)?.role ?? "")), shopFit.removed)
+  check("  its menus link the shop and its pages", JSON.stringify(shopFit.template.menus).includes('"/products"') && JSON.stringify(shopFit.template.menus).includes('"/about"'))
   check("refitTemplate with the recorded removal is the same template", JSON.stringify(refitTemplate(template, coachFit.removed)) === JSON.stringify(coachFit.template))
 
-  section("4. Choice")
+  section("4. Choice: a site of Storelib's own sections is the plan, never poured in")
   const coach = snapshotSite(coachSite())
   const listings = [listingOf(template.id, template.name, profile), listingOf(coach.template.id, coach.template.name, coach.profile)]
+  check("Materia (Storelib's own sections) is not pourable", !isPourable(profile) && !isPourable(coach.profile))
   const forShop = chooseBankEntry(listings, shopBrief)
-  check("a store brief starts from the store in the bank", forShop?.entry.id === template.id, forShop)
+  check("a store brief is matched with the store in the bank", forShop?.entry.id === template.id, forShop)
   const forCoach = chooseBankEntry(listings, coachBrief)
-  check("a coach brief starts from the coaching site, never the shop-led one", forCoach?.entry.id === coach.template.id, forCoach)
+  check("a coach brief with the coaching site, never the shop-led one", forCoach?.entry.id === coach.template.id, forCoach)
   check("with only the shop-led site, a coach gets none from the bank", chooseBankEntry([listings[0]], coachBrief) === null)
-
   const bank = reader([{ template, profile }, { template: coach.template, profile: coach.profile }])
   const lib = bankTemplateLibrary(bank)
   const chosenShop = await lib.choose(shopBrief, null)
-  check("the library: a store starts from the bank site, fitted", chosenShop?.id === template.id && chosenShop?.source?.kind === "bank")
-  const onlyShop = bankTemplateLibrary(reader([{ template, profile }]))
-  const chosenCoach = await onlyShop.choose(coachBrief, null)
-  const builtIn = await defaultTemplates.choose(coachBrief, null)
-  check("  a coach with only a shop-led bank gets the built-in template, as before", (chosenCoach?.id ?? null) === (builtIn?.id ?? null) && chosenCoach?.source?.kind !== "bank", chosenCoach?.id)
+  const builtInShop = await defaultTemplates.choose(shopBrief, null)
+  check("the library pours none of it in: the built-in templates (code) answer", (chosenShop?.id ?? null) === (builtInShop?.id ?? null) && chosenShop?.source?.kind !== "bank", chosenShop?.id)
+  const plan = await lib.patterns(shopBrief, chosenShop)
+  check("  its structure is the plan in the brief: Materia's pages in order, the product page's included", /THE PLAN FROM THE OWNER'S LIBRARY: Materia Themes/.test(plan) && /- product:/.test(plan) && /never Storelib's built-in sections, header or footer/.test(plan), plan.slice(0, 500))
+  check("  the plan names no source words or pictures", !plan.includes("Fuel your focus") && !plan.includes("cdn.materia.example"))
+  const coachPlan = await lib.patterns(coachBrief, await lib.choose(coachBrief, null))
+  check("  a coach gets the coaching site's plan, with no shop in it", /Radu Coaching/.test(coachPlan) && !/product/.test(coachPlan), coachPlan.slice(0, 400))
   const broken = bankTemplateLibrary({ async list() { throw new Error("db down") }, async load() { throw new Error("db down") } })
-  check("  a bank that cannot be read is no bank: the built-in templates answer", (await broken.choose(shopBrief, null))?.id === (await defaultTemplates.choose(shopBrief, null))?.id)
+  check("a bank that cannot be read is no bank: the built-in templates answer", (await broken.choose(shopBrief, null))?.id === (await defaultTemplates.choose(shopBrief, null))?.id)
 
-  section("5. Apply and resume")
+  section("5. A site written as code is poured in, fitted, and resumed")
+  const built = SITE_TEMPLATES.find((t) => t.id === "course-coach")!
+  const codeSite = snapshotSite({
+    installId: "77777777-6666-4555-8444-333322221111",
+    name: "Course studio",
+    pages: built.pages.map((p) => ({ key: p.key, title: p.title, sections: JSON.parse(JSON.stringify(p.sections)) })),
+    files: built.files,
+    settings: { color_schemes: { a: { name: "Ink", background: "#fbf8f2", text: "#1b1a17", primary_button_background: "#2f4f3a", primary_button_text: "#ffffff" } }, default_color_scheme: "a", font_heading: "Fraunces", font_body: "Inter" },
+  })
+  check("its own code: pourable", isPourable(codeSite.profile) && codeSite.profile.kind === "starting")
+  const courseBrief = briefFrom("An online course teaching beginners to sketch, with lessons, a curriculum and enrolment.")
+  const codeEntry = { template: codeSite.template, profile: codeSite.profile }
+  const codeReader: BankReader = { async list() { return [listingOf(codeSite.template.id, codeSite.template.name, codeSite.profile, { industries: [courseBrief.business.kind] })] }, async load(id) { return id === codeSite.template.id ? JSON.parse(JSON.stringify(codeEntry)) : null } }
+  const codeLib = bankTemplateLibrary(codeReader)
+  const poured = await codeLib.choose(courseBrief, null)
+  check("a course brief starts from it", poured?.id === codeSite.template.id && poured?.source?.kind === "bank", poured?.id)
   const store = memoryStore({ pages: { home: [] }, settings: { site_chrome: "home" } })
-  const coachLib = bankTemplateLibrary(bank)
-  const picked = await coachLib.choose(coachBrief, null)
-  check("the coach picks the coaching bank site", picked?.id === coach.template.id)
-  const shopStore = memoryStore({ pages: { home: [] }, settings: { site_chrome: "home" } })
-  const r = await lib.apply(shopStore, chosenShop!, shopBrief, { jobId: "job-1", choice: null })
-  check("applied: pages and the own code written", r.ok && r.pages.includes("home") && r.pages.includes("product") && r.files.some((f) => f.startsWith(`sections/ai_${template.prefix}_`)), r)
-  const settings = shopStore.project.settings
-  check("  its look written as Theme settings, its schemes beside the agent's own", !!(settings.color_schemes as Record<string, unknown>)?.["scheme-1"] && settings.font_heading === "Archivo", Object.keys((settings.color_schemes as object) ?? {}))
-  check("  its own palette, not a chosen direction's", JSON.stringify(settings).includes("#f6f6f4"))
+  const r = await codeLib.apply(store, poured!, courseBrief, { jobId: "job-1", choice: null })
+  check("applied: its pages and its own code written, under the bank's prefix", r.ok && r.pages.includes("home") && r.files.length > 0 && r.files.every((f) => f.startsWith(`sections/ai_${codeSite.template.prefix}_`) && WRITABLE_PATH.test(f)), { ok: r.ok, files: r.files.slice(0, 3), problems: r.problems })
+  const settings = store.project.settings
+  check("  its look written as Theme settings, its schemes beside the agent's own", !!(settings.color_schemes as Record<string, unknown>)?.a && settings.font_heading === "Fraunces", Object.keys((settings.color_schemes as object) ?? {}))
+  check("  its own palette, not a chosen direction's", JSON.stringify(settings).includes("#fbf8f2"))
   check("  the site still its own chrome (site_chrome kept)", settings.site_chrome === "home")
   const mark = settings[TEMPLATE_SETTING] as { id: string; bank?: { removed: unknown } }
-  check("  the fit recorded on the site", mark?.id === template.id && !!mark.bank)
-  check("  the adaptation notes say it is a library site, and to make the opening its own", /real website from the Storelib library/.test(r.next ?? "") && /at least the opening/.test(r.next ?? ""))
-  check("  no source picture reached the site", !JSON.stringify(shopStore.project).includes("cdn.materia.example"))
-  const u = untouchedTemplateParts(chosenShop!, { files: shopStore.project.files, pages: await shopStore.listPages() })
-  check("the finish gate sees the source's words as untouched copy", u.sections.length > 0 && u.emptyImageSlots.length > 0, { sections: u.sections.length, images: u.emptyImageSlots.length })
-
-  const coachStore = memoryStore({ pages: { home: [] }, settings: { site_chrome: "home" } })
-  const viaShop = bankTemplateLibrary(reader([{ template, profile }]))
-  /* Force the shop-led site onto a coach who sells nothing, as an admin tag might: the fit still strips the shop. */
-  const forced = fitTemplate(template, profile, coachBrief).template
-  ;(viaShop as unknown as { byId: (id: string) => SiteTemplate | null }).byId(forced.id)
-  await coachStore.writeSettings({ [TEMPLATE_SETTING]: { id: template.id, v: 1, bank: { removed: fitTemplate(template, profile, coachBrief).removed } } })
-  const resumed = await preloadBankTemplate(bank, coachStore.project.settings)
-  check("a later slice reads back the same fitted template", JSON.stringify(resumed) === JSON.stringify(forced))
-  check("  and the library hands it to the finish gate by id", bankTemplateLibrary(bank, { preloaded: [resumed!] }).byId(template.id)?.pages.length === forced.pages.length)
-  check("  a site not started from the bank reads back nothing", (await preloadBankTemplate(bank, { [TEMPLATE_SETTING]: { id: "coffee-house", v: 1 } })) === null)
-  void store
+  check("  the fit recorded on the site", mark?.id === codeSite.template.id && !!mark.bank)
+  check("  the adaptation notes say it is a library site written as code", /real website from the Storelib library, written as its own code/.test(r.next ?? ""), (r.next ?? "").slice(0, 300))
+  const u = untouchedTemplateParts(poured!, { files: store.project.files, pages: await store.listPages() })
+  check("the finish gate sees the source's words as untouched copy", u.sections.length > 0, { sections: u.sections.length })
+  const resumed = await preloadBankTemplate(codeReader, settings)
+  check("a later slice reads back the same fitted template", JSON.stringify(resumed) === JSON.stringify(poured))
+  check("  and the library hands it to the finish gate by id", bankTemplateLibrary(codeReader, { preloaded: [resumed!] }).byId(codeSite.template.id)?.pages.length === poured!.pages.length)
+  check("  a site not started from the bank reads back nothing", (await preloadBankTemplate(codeReader, { [TEMPLATE_SETTING]: { id: "coffee-house", v: 1 } })) === null)
 
   section("6. An imported theme is a pattern, never poured in")
   const imported = snapshotSite({

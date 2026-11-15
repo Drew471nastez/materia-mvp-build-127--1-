@@ -1,5 +1,8 @@
 "use client"
-import {NativeActionFrame,NativeFormBlock} from "@/components/forms/native-form-block"
+import { NativeActionFrame } from "@/components/forms/action-frame"
+import dynamic from "next/dynamic"
+/* Round 64: a form is fetched where a form section is drawn (a store with none no longer downloads the form renderer); the server still draws it. */
+const NativeFormBlock = dynamic(() => import("@/components/forms/native-form-block").then((m) => m.NativeFormBlock))
 import {actionOpensNewTab,type NativeAction} from "@/lib/forms/actions"
 import {blockActionVars,withBlockAction,withBlockActions} from "@/lib/onepage/block-action"
 

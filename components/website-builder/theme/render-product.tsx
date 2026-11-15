@@ -45,6 +45,7 @@ import { primaryHostFor } from "@/lib/custom-domains/store"
 import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
 import { productVariants, soldOut, toProductPage } from "@/lib/website-builder/shop-products"
 import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
+import { isFreeSite } from "@/lib/website-builder/free-site"
 import { publishedProductTheme } from "@/lib/website-builder/product-page-theme"
 import { imagesOnly } from "@/lib/media/video"
 import { siteTabTitle } from "@/lib/website-builder/tab-title"
@@ -426,7 +427,7 @@ export async function renderProduct(
   /* With Storelib Reviews on, the stars under the title and the reviews under the product, unless the page has its own (product-page.ts withProductReviews). */
   const reviewsOn = reviewsHere?.enabled === true && reviewsHere.product_page === true
   const rating = productRating(reviewsHere)
-  const placed = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map((s) => (s.type === "product" ? withOffersBlock(withDeliveryBlock(withProductBlocks(s))) : s))
+  const placed = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources), { ownWins: isFreeSite(themeSettings as Record<string, unknown>) }).map((s) => (s.type === "product" ? withOffersBlock(withDeliveryBlock(withProductBlocks(s))) : s))
   const stars = rating ? { rating } : {}
   const withProduct: SectionInstance[] = withProductReviews(placed, reviewsOn).map(s =>
     s.type === "product"

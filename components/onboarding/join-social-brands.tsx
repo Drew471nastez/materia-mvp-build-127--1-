@@ -1,6 +1,11 @@
 import type { ComponentType } from "react"
 import type { IconType } from "react-icons"
-import { FaBluesky, FaInstagram, FaLinkedin, FaTiktok, FaXTwitter, FaYoutube } from "@/components/icons/brand-icons.generated"
+import { FaBluesky } from "@/components/icons/brand/FaBluesky"
+import { FaInstagram } from "@/components/icons/brand/FaInstagram"
+import { FaLinkedin } from "@/components/icons/brand/FaLinkedin"
+import { FaTiktok } from "@/components/icons/brand/FaTiktok"
+import { FaXTwitter } from "@/components/icons/brand/FaXTwitter"
+import { FaYoutube } from "@/components/icons/brand/FaYoutube"
 
 /** Filled monochrome brand marks for join onboarding (Font Awesome Brands style). */
 export const JOIN_SOCIAL_BRANDS: Record<"tiktok" | "instagram" | "youtube" | "bluesky" | "twitter" | "linkedin", IconType> = {
