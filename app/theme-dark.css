@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 915 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 916 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -476,6 +476,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-white\/20:not([data-own-look], [data-own-look] *):active { background-color: rgba(37,37,42,0.2); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-white\/85:not([data-own-look], [data-own-look] *):active { background-color: rgba(37,37,42,0.85); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):active { color: #ececee; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .active\:text-\[\#1a1a2e\]\/60:not([data-own-look], [data-own-look] *):active { color: rgba(236,236,238,0.6); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:text-\[\#4b5563\]:not([data-own-look], [data-own-look] *):active { color: hsla(215,14%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .after\:bg-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)::after { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .aria-\[current\=page\]\:after\:bg-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[aria-current="page"]::after { background-color: #35353c; }
@@ -1054,7 +1055,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-gray-500:not([data-own-look], [data-own-look] *) { color: hsla(220,9%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-gray-600:not([data-own-look], [data-own-look] *) { color: hsla(215,14%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-gray-700:not([data-own-look], [data-own-look] *) { color: hsla(217,19%,72%,1); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .text-gray-800:not([data-own-look], [data-own-look] *) { color: hsla(215,28%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-gray-900:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-green-700:not([data-own-look], [data-own-look] *) { color: hsla(142,72%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-green-800:not([data-own-look], [data-own-look] *) { color: hsla(143,64%,72%,1); }
@@ -1279,6 +1279,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:ring-violet-200:not([data-own-look], [data-own-look] *):hover { --tw-ring-color: hsla(251,50%,40%,0.45); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:ring-white\/30:not([data-own-look], [data-own-look] *):hover { --tw-ring-color: rgba(255,255,255,0.035); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):hover { color: #ececee; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:text-\[\#1a1a2e\]\/60:not([data-own-look], [data-own-look] *):hover { color: rgba(236,236,238,0.6); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:text-\[\#374151\]:not([data-own-look], [data-own-look] *):hover { color: hsla(217,19%,72%,1); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:text-\[\#4b5563\]:not([data-own-look], [data-own-look] *):hover { color: hsla(215,14%,72%,1); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:text-\[\#6b7280\]:not([data-own-look], [data-own-look] *):hover { color: hsla(220,9%,72%,1); }

@@ -18,8 +18,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { BusinessCarousel, BUSINESS_SLIDES, BUSINESS_STYLES } from "@/components/marketing/home/business-carousel"
-import { BUSINESS_MOCK_CSS, TeePage } from "@/components/marketing/home/showcase-mocks/business-mocks"
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { IdeasComeToLife, IDEAS_STYLES } from "@/components/marketing/home/ideas-come-to-life"
 import { BUILDER_CSS, CommunityMock, PlainWeatherSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRINT, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
@@ -42,29 +41,18 @@ const onlyCompositor = (body: string) => [...body.matchAll(/[{;]([a-z-]+):/g)].e
 const small = (p: string, kb: number) => existsSync(p) && statSync(p).size < kb * 1024
 
 const F = {
-  business: "components/marketing/home/business-carousel.tsx",
-  pages: "components/marketing/home/showcase-mocks/business-mocks.tsx",
   ideas: "components/marketing/home/ideas-come-to-life.tsx",
   builders: "components/marketing/home/showcase-mocks/builder-mocks.tsx",
   how: "components/marketing/home/how-it-works.tsx",
 }
-const bizCss = BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? ""
 const ideasCss = IDEAS_STYLES.find((s) => s.href === "w12-ideas")?.css ?? ""
 const howCss = HOW_IT_WORKS_STYLES.map((s) => s.css).join("\n")
 
-console.log("\nOne store for everything you sell: how it was before, nothing that stops the scroll")
-const biz = renderToStaticMarkup(createElement(BusinessCarousel))
-check("no scroll pin: no position: sticky, no tall track, no step markers", !/sticky|biz-track|biz-pin|biz-step|svh/.test(bizCss + biz))
-check("no scroll work of its own: no IntersectionObserver on markers, no scrollTo of the page", !/IntersectionObserver|window\.scrollTo|addEventListener\("scroll"/.test(code(F.business)))
-check("the kinds take turns on the invisible clock (use-auto-tabs), paused unless the section runs", /useAutoTabs\(BUSINESS_SLIDES\.length\)/.test(read(F.business)) && /onAnimationEnd=\{t\.advance\}/.test(read(F.business)) && /\.biz\[data-run\] \.smk-clock\[data-on\]\{animation-play-state:running\}/.test(bizCss))
-check("the round 3 layout: a list beside one page on a computer, the tab row on a phone", /\.biz-grid\{display:grid;grid-template-columns:minmax\(0,5fr\) minmax\(0,8fr\)/.test(bizCss) && /role="tablist" aria-orientation="vertical"/.test(biz) && /@media\(max-width:899px\)\{[\s\S]*\.biz-list\{display:flex/.test(bizCss))
-check("the tab row on a phone scrolls sideways on its own and leaves vertical swipes to the page", /\.biz-list\{display:flex;[^}]*overflow-x:auto;overscroll-behavior-x:contain/.test(bizCss) && !/touch-action:none/.test(bizCss))
-check("a page changes by a crossfade only, none under reduced motion", /@keyframes biz-in\{from\{opacity:0\}\}/.test(bizCss) && /\.biz-slide\{animation:none!important;transition:none!important\}/.test(bizCss))
-check("the light grey stage, no coloured grounds behind the products", /\.bp\{[^}]*background:#eef0f2/.test(BUSINESS_MOCK_CSS) && !/gradient\((1[0-9]0deg|120deg)/.test(BUSINESS_MOCK_CSS) && !/#b37dff|#ff9ec7|#ff7a4d/.test(BUSINESS_MOCK_CSS))
-check("five kinds, physical second, each a newer example", BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings" && /Studio OS/.test(BUSINESS_SLIDES[0].alt) && /Pines Tour Tee/.test(BUSINESS_SLIDES[1].alt))
-check("the tee page draws its photograph", renderToStaticMarkup(createElement(TeePage)).includes("/home/showcase/hp-tee.webp") && small("public/home/showcase/hp-tee.webp", 120))
+console.log("\nOne store for everything you sell: gone from the page (landing round 7)")
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
+check("the section, its product pages and the tee photograph are deleted", !existsSync("components/marketing/home/business-carousel.tsx") && !existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx") && !existsSync("public/home/showcase/hp-tee.webp"))
 const lazy = read("components/marketing/home/lazy-sections.tsx")
-check("its placeholder box no longer grows with the screen's height", !/\[data-lazy-section="business"\]\{--lz:calc\(3\d\dsvh/.test(lazy) && !/business:\s*\[\{/.test(read("scripts/measure-home-lazy-heights.mjs")))
+check("its placeholder box and measured heights are gone", !/data-lazy-section="business"|LazyBusinessCarousel/.test(lazy))
 
 console.log("\nSee your ideas come to life: three tabs above the picture")
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
@@ -73,7 +61,7 @@ check("three real tabs above the picture", (ideas.match(/role="tab"/g) ?? []).le
 // Changed on purpose (landing round 6): the owner wants the pill tabs back "like how it was before"; tests/home-landing-r6-ideas.test.ts pins them.
 check("pills again: a grey track, the chosen tab a white pill", /border-radius:999px/.test(tab) && /\.ideas-tabs\{[^}]*background:#f1f1f2/.test(ideasCss) && !/box-shadow:inset 0 -1px 0 #e7e7ea/.test(ideasCss))
 check("the chosen pill settles in by transform and opacity only", /\.ideas-tab::before\{[^}]*opacity:0;transform:scale\(\.85\);transition:opacity \.35s ease,transform/.test(ideasCss) && /\.ideas-tab\[aria-selected="true"\]::before\{opacity:1;transform:none\}/.test(ideasCss) && /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(ideasCss))
-check("the row keeps round 4's height (30px pills in a 4px track, 38px), so the page does not change length", /height:30px/.test(tab) && /\.ideas-tabs\{[^}]*padding:4px/.test(ideasCss) && /\.ideas-tabs-row\{[^}]*margin:clamp\(24px,3vw,36px\) var\(--landing-gutter,16px\) clamp\(18px,2\.2vw,28px\)/.test(ideasCss))
+check("the row keeps round 4's height (30px pills in a 4px track, 38px), so the page does not change length", /height:30px/.test(tab) && /\.ideas-tabs\{[^}]*padding:4px/.test(ideasCss) && /\.ideas-tabs-row\{[^}]*margin:clamp\(24px,3vw,36px\) auto clamp\(18px,2\.2vw,28px\)/.test(ideasCss)) // Changed on purpose (landing round 7): the row sits in the page's one width; the same vertical margins.
 
 console.log("\nThe website builder: a real small store")
 // Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.

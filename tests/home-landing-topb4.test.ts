@@ -25,8 +25,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { IdeasComeToLife, IDEAS_HEADING, IDEAS_HEADINGS, IDEAS_STYLES, IDEAS_SUB, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
 import { BUILDER_CSS, CommunityMock, DesmondPage, PlainWeatherSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
-import { BusinessCarousel, BUSINESS_SLIDES, BUSINESS_STYLES } from "@/components/marketing/home/business-carousel"
-import { BUSINESS_MOCK_CSS } from "@/components/marketing/home/showcase-mocks/business-mocks"
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { CreatorsCarousel, CREATORS, CREATORS_CSS } from "@/components/marketing/home/creators-carousel"
 
 let passed = 0
@@ -52,12 +51,9 @@ const rule = (css: string, selector: string) => {
 const src = {
   ideas: read("components/marketing/home/ideas-come-to-life.tsx"),
   builders: read("components/marketing/home/showcase-mocks/builder-mocks.tsx"),
-  business: read("components/marketing/home/business-carousel.tsx"),
-  pages: read("components/marketing/home/showcase-mocks/business-mocks.tsx"),
   creators: read("components/marketing/home/creators-carousel.tsx"),
 }
 const ideasCss = IDEAS_STYLES.find((s) => s.href === "w12-ideas")?.css ?? ""
-const bizCss = BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? ""
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 
 console.log("\n── See your ideas come to life: tabs (round 6: pills again) ──")
@@ -114,15 +110,10 @@ check("the community card: cover, address, Members, Online, Admins", cm.includes
 check("the space chips, the composer and a pinned post", cm.includes("Share something...") && cm.includes("Pinned") && (cm.match(/class="cx-post"/g) ?? []).length === 2)
 
 /* Changed on purpose (landing round 5): the owner asked for this section "how it was before", with no interactiveness that stops the scroll. tests/home-landing-r5-middle.test.ts pins the restored section; these keep what still holds. */
-console.log("\n── One store for everything you sell: as before, no pin ──")
-const biz = renderToStaticMarkup(createElement(BusinessCarousel))
-check("five kinds in the owner's order", BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
-check("no pinned track: no position: sticky, no scroll markers", !/position:sticky/.test(bizCss) && !/biz-track|biz-step/.test(bizCss + biz))
-check("pages change by opacity only", !/\.biz-slide[^{]*\{[^}]*transition:[^}]*(top|height|margin|filter)/.test(bizCss))
-check("it reads on white: dark words, no band colours", /\.biz\{position:relative;background:#fff;color:#18181b\}/.test(bizCss) && !/band-ink|band-muted/.test(src.business))
-check("each product on a white card over the light grey stage, no coloured grounds", /\.bp\{[^}]*background:#eef0f2/.test(BUSINESS_MOCK_CSS) && /\.bp-card\{[^}]*background:#fff/.test(BUSINESS_MOCK_CSS) && !/\.bp-(digital|cap|course|community|booking)\{background:linear-gradient/.test(BUSINESS_MOCK_CSS))
-check("the physical product is the tee of before, its photograph on file", src.pages.includes("Pines Tour Tee") && /Pines Tour Tee/.test(BUSINESS_SLIDES[1].alt) && existsSync(join(root, "public/home/showcase/hp-tee.webp")) && !existsSync(join(root, "public/home/showcase/bz-cap.webp")))
-check("the page is a picture: no pointer, nothing that takes focus", /\.biz-stage \.smk\{pointer-events:none;user-select:none/.test(bizCss) && !/<(a|button|input)\b/.test(biz.slice(biz.indexOf('class="biz-stage"'))))
+console.log("\n── One store for everything you sell: gone (landing round 7) ──")
+{
+  check("the section and its product pages are deleted", !existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && !existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
+}
 
 console.log("\n── Storelib is for creators ──")
 const cta = rule(CREATORS_CSS, ".cc-cta")
@@ -143,7 +134,7 @@ check(
   !/sourdough|Hearth &|Golden Hour|wheel throwing|Wheel throwing|Drawing Basics|Saturday Run Club|Dust &|Elena Ruiz|Weeknight Pasta|Heavyweight|Hemi Walker|Lowtide|for real mornings/i.test(words),
 )
 check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|passive income|fans?)\b/i.test(words.replace(/transform[:(][^;}]*/g, "")))
-check("no hover style inside any mock", !/:hover/.test(src.pages) && !/:hover/.test(src.builders))
+check("no hover style inside any mock", !/:hover/.test(src.builders))
 check("this suite runs with the push tests", read("scripts/run-push-tests.mjs").includes('"tests/home-landing-topb4.test.ts"'))
 
 console.log(`\n${passed} passed, ${failed} failed`)

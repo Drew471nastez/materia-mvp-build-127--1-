@@ -5,10 +5,9 @@ import { createElement } from "react"
 import { renderToString } from "react-dom/server"
 import { BuildShowcase, SHOWCASE_EXAMPLES } from "../components/marketing/build-showcase"
 import { IdeasComeToLife, IDEAS_HEADING, IDEAS_TABS } from "../components/marketing/home/ideas-come-to-life"
-import { BusinessCarousel, BUSINESS_HEADING, BUSINESS_SLIDES } from "../components/marketing/home/business-carousel"
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { u } from "../components/marketing/home/showcase-mocks/frame"
 /* Changed on purpose (landing round): section 6 is one product page per kind of thing sold (business-mocks), and the builders gained the Design slide. */
-import * as Biz from "../components/marketing/home/showcase-mocks/business-mocks"
 /* Changed on purpose (landing round, second pass): the OnePage in the editor is Nina Sato's on the Air theme (NinaPage), not Maya Okafor's. */
 /* Changed on purpose (landing round 4): three editors (no Design slide), Desmond Ayo's OnePage on Ember, and the community drawn inside (CommunityMock). */
 import { CommunityMock, DesmondPage, OnePageEditorMock, WebsiteBuilderMock } from "../components/marketing/home/showcase-mocks/builder-mocks"
@@ -19,7 +18,6 @@ const files = [
   "components/marketing/build-showcase.tsx",
   "components/marketing/use-showcase-motion.ts",
   "components/marketing/home/ideas-come-to-life.tsx",
-  "components/marketing/home/business-carousel.tsx",
   ...readdirSync(MOCKS).map((f) => `${MOCKS}/${f}`),
 ]
 const source = files.map(read).join("\n")
@@ -32,7 +30,8 @@ assert.equal(u("transform:translate(14u,-6u) scale(.9)"), "transform:translate(c
 assert.ok(!/https?:\/\/(images\.unsplash|plus\.unsplash|source\.unsplash)/.test(source), "photos are downloaded, never hotlinked")
 assert.ok(!/<img[^>]+src="https?:/.test(source))
 const assets = readdirSync("public/home/showcase")
-assert.ok(assets.length >= 45 && assets.every((f) => f.endsWith(".webp")), "all showcase photos are webp")
+/* Changed on purpose (landing round 7): four photographs went with the business pages. */
+assert.ok(assets.length >= 41 && assets.every((f) => f.endsWith(".webp")), "all showcase photos are webp")
 const total = assets.reduce((sum, f) => sum + statSync(`public/home/showcase/${f}`).size, 0)
 assert.ok(total <= 6 * 1024 * 1024, `track images stay under 6 MB (${total})`)
 for (const f of assets) assert.ok(statSync(`public/home/showcase/${f}`).size < 160 * 1024, `${f} is small`)
@@ -41,7 +40,6 @@ const everyMock = renderToString(
   createElement(
     "div",
     null,
-    ...([Biz.TemplatePage, Biz.CoursePage, Biz.CommunityPage, Biz.TeePage, Biz.BookingPage] as const).map((P) => createElement(P)),
     createElement(DesmondPage),
     createElement(WebsiteBuilderMock),
     createElement(OnePageEditorMock),
@@ -51,7 +49,8 @@ const everyMock = renderToString(
 /* Changed on purpose (wave 13): Storelib's own logo in the editors' bars is drawn by its one component (components/brand/storelib-logo), not a showcase photo. */
 const srcs = new Set([...everyMock.matchAll(/<img(?![^>]*data-storelib-logo)[^>]*src="([^"]+)"/g)].map((m) => m[1]))
 /* Changed on purpose (landing round): fewer, calmer pictures (no storefront pairs, no florals). */
-assert.ok(srcs.size >= 15, `${srcs.size} pictures`)
+/* Changed on purpose (landing round 7): only the editors' mocks are left to draw pictures. */
+assert.ok(srcs.size >= 6, `${srcs.size} pictures`)
 for (const src of srcs) assert.ok(src.startsWith("/home/showcase/") && existsSync(`public${src}`), `${src} exists`)
 /* The logo goes through next/image (lazy by default there; the test stub leaves the attribute out), so the photos are checked here. */
 const photos = everyMock.replace(/<img[^>]*data-storelib-logo[^>]*>/g, "")
@@ -155,26 +154,9 @@ for (const block of builders.matchAll(/@keyframes [\w-]+\{(.*?)\}\}/g)) {
     assert.ok(["opacity", "transform", "box-shadow", "animation-timing-function"].includes(prop[1]), `keyframes use ${prop[1]}`)
 }
 
-/* ---- section 6. Changed on purpose (landing round, the owner: "every business one home at all, please look at something else"): what a store sells, a list beside one product page. */
-assert.notEqual(BUSINESS_HEADING, "Made for every kind of business.")
-assert.ok(!/Every business|Explore the different ways/.test(read("components/marketing/home/business-carousel.tsx")))
-assert.deepEqual(
-  BUSINESS_SLIDES.map((s) => s.label),
-  /* Changed on purpose (landing round 3): half of the examples ship in a box, so the physical product comes second. */
-  ["Digital products", "Physical products", "Courses", "Communities", "Bookings"],
-)
-const biz = renderToString(createElement(BusinessCarousel))
-assert.equal((biz.match(/role="tab"/g) || []).length, 5)
-// Changed on purpose (landing round 5): the section is the round 3 one again (no pin), so only the active page is server-rendered.
-assert.equal((biz.match(/role="tabpanel"/g) || []).length, 1, "only the active page is server-rendered")
-assert.equal((biz.match(/class="biz-slide" data-pane="active"/g) || []).length, 1)
-assert.ok(biz.includes("aspect-ratio:640/520"))
-assert.ok(!/<figcaption|>Next<|Pause the|Play the|biz-phone|biz-chrome/.test(biz))
-const bizSrc = read("components/marketing/home/business-carousel.tsx")
-assert.ok(!/\btint\b|className="[^"]*smk-pills/.test(bizSrc), "no backdrop tint and no pill row")
-const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/'/g, "&#x27;")
-assert.ok(biz.includes(esc(BUSINESS_SLIDES[0].alt)))
-for (const html of [ideas, biz].map((h) => h.replace(/<img[^>]*data-storelib-logo[^>]*>/g, ""))) {
+/* ---- section 6. Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
+assert.ok(!existsSync("components/marketing/home/business-carousel.tsx") && !existsSync(`${MOCKS}/business-mocks.tsx`))
+for (const html of [ideas].map((h) => h.replace(/<img[^>]*data-storelib-logo[^>]*>/g, ""))) {
   assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(html), "every mock image is lazy")
   assert.ok(!/<img(?![^>]*width=)[^>]*>/.test(html), "every mock image is sized")
 }
@@ -189,18 +171,19 @@ const pills = read(`${MOCKS}/pills.ts`)
 assert.ok(/height:44px/.test(pills), "44px tap targets")
 assert.ok(/\.smk-clock\{[^}]*opacity:0/.test(pills) && /\.smk-clock\[data-on\]\{animation:smk-clock 1s linear both paused\}/.test(pills))
 // Changed on purpose (landing round 5): section 6 is back on the invisible clock too (the round 4 scroll pin is gone).
-for (const f of ["ideas-come-to-life.tsx", "business-carousel.tsx"]) {
+for (const f of ["ideas-come-to-life.tsx"]) {
   const s = read(`components/marketing/home/${f}`)
   assert.ok(s.includes("onAnimationEnd={t.advance}") && s.includes('className="smk-clock"') && s.includes("animation-play-state:running"))
   assert.ok(s.includes("prefers-reduced-motion:reduce"))
   assert.ok(!/progress|Pause|setPlaying/.test(s), `${f}: no progress line or pause button`)
 }
-for (const html of [ideas, biz]) assert.ok(!/<button[^>]*role="tab"[^>]*>(?:(?!<\/button>).)*<span[^>]*(progress|clock)/.test(html), "nothing inside a pill but its words")
+for (const html of [ideas]) assert.ok(!/<button[^>]*role="tab"[^>]*>(?:(?!<\/button>).)*<span[^>]*(progress|clock)/.test(html), "nothing inside a pill but its words")
 
 /* ---- section 4: light, centred, the picture with its own depth. Changed on purpose (landing round): the slides glide (rail-motion) and the heading flips; nothing else slides in. */
 const ideasSrc = read("components/marketing/home/ideas-come-to-life.tsx")
 assert.ok(/\.ideas\{position:relative;background:#fff/.test(ideasSrc), "a light section")
-assert.ok(/\.ideas-head\{[^}]*text-align:center/.test(ideasSrc))
+// Changed on purpose (landing round 7): the heading starts at the page's one left edge, set in by the heading inset, like the showcase heading.
+assert.ok(/\.ideas-head\{[^}]*text-align:left/.test(ideasSrc))
 assert.ok(!/radial-gradient|ideas-caption/.test(ideasSrc), "no backdrop and no caption")
 /* Changed on purpose (landing round 4): a panel behind the tabs, not a carousel slide; use-auto-tabs.ts watches the screen and the browser tab. */
 assert.ok(/\.ideas-panel\{[^}]*box-shadow:0 0 0 1px/.test(ideasSrc), "the picture has its own depth")
@@ -221,9 +204,5 @@ const brandImports = [...source.matchAll(/import \{([^}]*)\} from "@\/components
 /* Changed on purpose (landing round 4): a colourist's page shows Instagram, YouTube, Vimeo and TikTok. */
 assert.deepEqual(brandImports, ["SiInstagram,SiTiktok,SiVimeo,SiYoutube"])
 assert.ok(!/\b(Shopify|Nike|Notion Labs|Figma Inc)\b/.test(source))
-
-/* A slide put away keeps the height it last drew (contain-intrinsic-block-size: auto, set on every slide since the browser only records the size while the rule is already there), so the business stage never shrinks when a shorter slide comes up (it scored a 0.02 layout shift on phones). */
-// Changed on purpose (landing round 5): the round 3 rule again, a page put away keeps its last height.
-assert.ok(read("components/marketing/home/business-carousel.tsx").includes('.biz-slide{grid-area:1/1;contain-intrinsic-block-size:auto 0px;'))
 
 console.log("home-w12-showcase: ok")
