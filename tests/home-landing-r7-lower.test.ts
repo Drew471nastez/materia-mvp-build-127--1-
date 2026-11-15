@@ -131,7 +131,8 @@ console.log("\n── the map and the AI tools: the one width ──")
   const mapHtml = renderToStaticMarkup(createElement(SellEverywhereMap))
   const aiHtml = renderToStaticMarkup(createElement(AiToolsSection))
   check("map: in the one width, its heading set in", /\.cmm-wrap,\[data-landing-story\] \.cmm>\.cmm-wrap\{[^}]*max-width:var\(--home-max,2020px\);[^}]*padding:0 var\(--home-edge,/.test(map) && /\.cmm-head\{[^}]*padding-left:var\(--home-head-inset,0px\)\}/.test(map) && /class="cmm-wrap"/.test(mapHtml))
-  check("map: nothing purple on the purple sheet", !PURPLE.test(map) && /\[data-band\] \.cmm \.story-heading\{--story-accent:#fff\}/.test(map), map.match(PURPLE))
+  /* Changed on purpose (landing round 9): the map is on a white sheet now and draws its own white ground and dark heading, whose accent is the page's violet as on every white sheet; the black card itself still has nothing purple. */
+  check("map: nothing purple in the card; the heading is the white sheet's own", !PURPLE.test(map.replace("--story-accent:#7c3aed", "")) && /\[data-landing-story\] \.cmm \.cmm-head \.story-heading\{--story-ink:#18181b;--story-muted:#777780;--story-accent:#7c3aed\}/.test(map), map.match(PURPLE))
   check("AI tools: in the one width", /\.ait-wrap,\[data-landing-story\] \.ait>\.ait-wrap\{[^}]*max-width:var\(--home-max,2020px\);[^}]*padding:0 var\(--home-edge,/.test(ai) && /class="ait-wrap"/.test(aiHtml))
 }
 

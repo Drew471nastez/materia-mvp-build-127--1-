@@ -182,7 +182,7 @@ check("live is Home's live visitors", /live/.test(ana) && /dashboard\.liveVisito
 {
   const ag = read(`${DIR}/analytics-globe.tsx`)
   check("the analytics globe reuses section 3's engine and worker, read only", /from "\.\/everything-globe-draw"/.test(ag) && /EVERYTHING_GLOBE_WORKER_SOURCE/.test(ag) && /transferControlToOffscreen\(\)/.test(ag) && PLATFORM_GLOBE_SPOTS.length > 0)
-  check("it turns only while live and in view, and stands still under reduced motion", /driver\.run\(st\.visible && st\.live && !st\.reduced\)/.test(ag) && /IntersectionObserver/.test(ag) && /driver\.reduced\(next\.reduced\)/.test(ag))
+  check("it turns only while live and in view, and stands still under reduced motion", /const on = st\.visible && st\.live && !st\.reduced && !st\.fast/.test(ag) && /driver\.run\(on\)/.test(ag) /* Changed on purpose (landing round 9): it also waits while the page is flung, and the driver hears only changes. */ && /IntersectionObserver/.test(ag) && /driver\.reduced\(next\.reduced\)/.test(ag))
 }
 const bits = Buffer.from(PLATFORM_LAND_B64, "base64")
 let land = 0

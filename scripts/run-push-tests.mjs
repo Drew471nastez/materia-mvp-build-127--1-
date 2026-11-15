@@ -1507,6 +1507,8 @@ const SUITES = [
   "tests/home-landing-r9-frame.test.ts",
   /* Landing round 9, business: "What will you sell?" without pills or a line under them (plain words, an index beside the stage on a computer, a ring that closes as the turn runs), five digital covers passing in a slow row with a buy card that follows, the Midnight Studio Tee in place of the yellow headphones, a real banner on Applied AI Club; courses and bookings kept. */
   "tests/home-landing-r9-business.test.ts",
+  /* Landing round 9 (purple): analytics blocks enter one by one as each comes on screen, the globe lighter on a phone and still while flung, the map on white with a black card, a 3s turn that renders nothing, Buy now clear of the copy. */
+  "tests/home-landing-r9-purple.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -32,6 +32,36 @@
 }
 
 /*
+  The entrance (landing round 9, the owner: "the tabs and things should
+  appear smoothly, clean, animated as I scroll down"). A block is hidden
+  only by the script (data-rise="wait", set while it is still below the
+  screen) and comes to rest when it is on screen ("in"): opacity and the
+  translate property, once. Nothing takes or gives up room, so nothing
+  shifts. The reports row is never hidden itself; its six tiles are, and
+  come in 55ms apart.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  .rise[data-rise="wait"] {
+    opacity: 0;
+    translate: 0 16px;
+  }
+  .rise[data-rise="in"] {
+    transition:
+      opacity 600ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 80ms),
+      translate 800ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 80ms);
+  }
+  .reports[data-rise="wait"] .report {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  .reports[data-rise="in"] .report {
+    transition:
+      opacity 500ms cubic-bezier(0.22, 1, 0.36, 1) calc(60ms + var(--i, 0) * 55ms),
+      translate 700ms cubic-bezier(0.22, 1, 0.36, 1) calc(60ms + var(--i, 0) * 55ms);
+  }
+}
+
+/*
   The reports (landing round 7: six even tiles, not pills; landing round 8,
   the owner: "don't make them black. Make them white, glassmorphism with a
   slight gradient, very nice and smooth and clean"). White at about a

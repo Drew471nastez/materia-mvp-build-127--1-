@@ -82,10 +82,12 @@ console.log("\n── the map, on the purple sheet ──")
   check("the card is a dark surface with a hairline", dark(rule(src, ".cmm-card").match(/background:(#[0-9a-f]{6})/)?.[1] ?? "") && /inset 0 0 0 1px rgba\(255,255,255,\.08\)/.test(rule(src, ".cmm-card")))
   check("the product card is dark, not a white slab", dark(prod.match(/background:(#[0-9a-f]{6})/)?.[1] ?? "") && !/background:#fff/.test(prod))
   /* Changed on purpose (landing round 4): the owner asked for the button in each country's language. */
-  check("one light buy button, its words in each country's language", (html.match(/class="cmm-buy">/g) ?? []).length === 1 && html.includes('lang="de">Jetzt kaufen<'))
+  /* Changed on purpose (landing round 9): every layer that swaps carries data-i now (a turn writes attributes instead of rendering), so the span has one more attribute. */
+  check("one light buy button, its words in each country's language", (html.match(/class="cmm-buy">/g) ?? []).length === 1 && /lang="de"[^>]*>Jetzt kaufen</.test(html))
   check("the flags are a real switch: one pressed button per country, named", (html.match(/<button type="button" class="cmm-flag"/g) ?? []).length === SELL_COUNTRIES.length && (html.match(/aria-pressed="true"/g) ?? []).length === 1 && html.includes('aria-label="United States"') && /role="group" aria-label="Buyer&#x27;s country"/.test(html))
   /* Changed on purpose (landing round 8): the lit flag's line times the turn and restarts with every country (keyed by it), so a press starts the turn again from the chosen one with no timer to reset. */
-  check("choosing a country restarts the turn from it", /const choose = \(i: number\)/.test(src) && /<i key=\{active\} className="cmm-time" onAnimationEnd=\{next\} \/>/.test(src))
+  /* Changed on purpose (landing round 9): no render per turn. show(i) writes the attributes and starts the line again by giving it the same keyframes under the other name (data-lap). */
+  check("choosing a country restarts the turn from it", /const show = \(i: number\)/.test(src) && /<i className="cmm-time" data-lap="0" onAnimationEnd=\{next\} \/>/.test(src) && /setAttribute\("data-lap", String\(t\.laps % 2\)\)/.test(src) && /\.cmm-time\[data-lap="1"\]\{animation-name:cmm-time-b\}/.test(src))
   /* Changed on purpose (landing round 5): the Example tag is gone, as the owner asked. */
   check("the map, the product and the words are inert", /\.cmm-grid,\.cmm-world,\.cmm-prod,\.cmm-copy\{pointer-events:none\}/.test(src))
   check("no Example tag on the card at any width", !/cmm-tag|>Example</.test(src))
