@@ -1,7 +1,9 @@
 /*
-  Section 10, "Your audience belongs to you" (landing round 5: one picture,
-  nothing moves). Two columns from 1024px, the words then the picture under
-  that. Nothing in it moves, and it makes no layers of its own.
+  Section 10, "Your audience belongs to you" (landing round 5: one picture).
+  Two columns from 1024px, the words then the picture under that. Landing
+  round 7: the picture plays three scenes in one box of a fixed height
+  (growth, synced with, export); only opacity and transform move, and the
+  box never changes size.
 */
 
 .grid {
@@ -15,6 +17,10 @@
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
     gap: clamp(48px, 6vw, 96px);
   }
+}
+/* The heading and its rows start where the showcase's heading does: the content edge plus --home-head-inset. */
+.words {
+  padding-left: var(--home-head-inset, 0px);
 }
 
 .points {
@@ -48,7 +54,7 @@
 /* The picture: Contacts, a white card with a hairline. Nothing in it answers the pointer. */
 .mock {
   width: 100%;
-  max-width: 620px;
+  max-width: 660px;
   justify-self: center;
   overflow: hidden;
   border-radius: 20px;
@@ -66,7 +72,7 @@
     justify-self: end;
   }
 }
-.bar {
+.head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -74,12 +80,12 @@
   padding: 16px 18px;
   border-bottom: 1px solid #f0f0f3;
 }
-.barTitle {
+.headTitle {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
-.barCount {
+.headCount {
   margin-top: 2px;
   font-size: 12.5px;
   color: #6b7280;
@@ -172,29 +178,351 @@
   }
 }
 
-.sync {
+/*
+  THE STAGE (landing round 7): three scenes stacked in one grid cell, so the
+  box is as tall as the tallest and never changes. The one named by
+  data-scene is shown; the others wait faded and 6px low. One attribute
+  changes per turn; everything below follows from it in CSS.
+*/
+.player {
+  padding: 14px 18px 0;
+  border-bottom: 1px solid #f0f0f3;
+  background: #fbfbfc;
+}
+.scenes {
+  display: grid;
+  height: 158px;
+}
+.scene {
+  grid-area: 1 / 1;
+  min-width: 0;
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  transition:
+    opacity 380ms ease-out,
+    transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.player[data-scene="0"] .scene[data-i="0"],
+.player[data-scene="1"] .scene[data-i="1"],
+.player[data-scene="2"] .scene[data-i="2"] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 520ms ease-out 180ms,
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1) 180ms;
+}
+.sceneHead {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 18px 14px;
-  border-top: 1px solid #f0f0f3;
-  background: #fafafb;
-}
-.syncLabel {
   font-size: 12.5px;
   color: #6b7280;
   white-space: nowrap;
 }
-.marks {
+.sceneHead > span:first-child {
+  font-weight: 500;
+  color: #3f3d48;
+}
+
+/* 1. Growth: the line, drawn in by a cover the colour of the stage sliding off to the right. */
+.chart {
+  position: relative;
+  height: 100px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.area {
+  fill: rgba(124, 58, 237, 0.07);
+}
+.line {
+  fill: none;
+  stroke: #7c3aed;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.cover {
+  position: absolute;
+  inset: -2px -4px -2px 0;
+  background: #fbfbfc;
+  transform: translate3d(0, 0, 0);
+  /* Back over the line only once its scene has faded out. */
+  transition: transform 0s linear 420ms;
+}
+.player[data-scene="0"] .cover {
+  transform: translate3d(101%, 0, 0);
+  transition: transform 1500ms cubic-bezier(0.45, 0, 0.2, 1) 260ms;
+}
+.endDot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 999px;
+  background: #7c3aed;
+  box-shadow: 0 0 0 3px #fbfbfc;
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 0s linear 420ms,
+    transform 0s linear 420ms;
+}
+.player[data-scene="0"] .endDot {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 300ms ease-out 1650ms,
+    transform 500ms cubic-bezier(0.22, 1, 0.36, 1) 1650ms;
+}
+.axis {
   display: flex;
-  gap: 6px;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: #9a98a3;
+}
+
+/* 2. Synced with: the five marks, coming in one after another. */
+.platforms {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.platforms li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  opacity: 0;
+  transform: translate3d(0, 8px, 0);
+  transition:
+    opacity 0s linear 420ms,
+    transform 0s linear 420ms;
+}
+.player[data-scene="1"] .platforms li {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 420ms ease-out calc(260ms + var(--d) * 110ms),
+    transform 640ms cubic-bezier(0.22, 1, 0.36, 1) calc(260ms + var(--d) * 110ms);
 }
 .mark {
   display: block;
-  width: 26px;
-  height: 26px;
+  width: 40px;
+  height: 40px;
   overflow: hidden;
-  border-radius: 7px;
-  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.08);
+  border-radius: 11px;
+  box-shadow:
+    0 0 0 1px rgba(16, 24, 40, 0.08),
+    0 6px 14px -8px rgba(16, 24, 40, 0.3);
+}
+.pname {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  color: #2b2933;
+}
+.synced {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: #15803d;
+}
+
+/* On a narrow phone the names get the column: Synced is a small check on each mark's corner. */
+@media (max-width: 479px) {
+  .platforms {
+    gap: 4px;
+  }
+  .platforms li {
+    position: relative;
+  }
+  .pname {
+    font-size: 11px;
+  }
+  .synced {
+    position: absolute;
+    top: -5px;
+    left: calc(50% + 13px);
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    background: #16a34a;
+    box-shadow: 0 0 0 2px #fbfbfc;
+    color: #fff;
+    font-size: 0;
+  }
+}
+
+/* 3. Export: the file, its bar filling as it is written, then Downloaded. */
+.file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 0 0 1px #ececf0;
+}
+.fileIcon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #ecf8f0;
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.fileName,
+.fileMeta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fileName {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.fileMeta {
+  font-size: 12px;
+  color: #6b7280;
+}
+.bar {
+  display: block;
+  height: 3px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #efeff2;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #15803d;
+  transform: scaleX(0.04);
+  transform-origin: 0 50%;
+  transition: transform 0s linear 420ms;
+}
+.player[data-scene="2"] .bar > span {
+  transform: scaleX(1);
+  transition: transform 1700ms cubic-bezier(0.45, 0, 0.25, 1) 380ms;
+}
+.fileState {
+  display: grid;
+  flex: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+.writing,
+.done {
+  grid-area: 1 / 1;
+  text-align: right;
+}
+.writing {
+  color: #6b7280;
+}
+.writing,
+.done {
+  transition: opacity 0s linear 420ms;
+}
+.done {
+  color: #15803d;
+  opacity: 0;
+}
+.player[data-scene="2"] .writing {
+  opacity: 0;
+  transition: opacity 240ms ease-out 2080ms;
+}
+.player[data-scene="2"] .done {
+  opacity: 1;
+  transition: opacity 360ms ease-out 2200ms;
+}
+.columns {
+  margin-top: 12px;
+  padding: 0 2px;
+  font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #8a8794;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Which scene is on: three names, a hairline filling under the one playing for as long as it plays. */
+.steps {
+  display: flex;
+  gap: 20px;
+  margin-top: 10px;
+}
+.step {
+  position: relative;
+  padding: 8px 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #a3a1ad;
+  transition: color 400ms ease-out;
+}
+.step i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: #1a1a2e;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+.player[data-scene="0"] .step[data-i="0"],
+.player[data-scene="1"] .step[data-i="1"],
+.player[data-scene="2"] .step[data-i="2"] {
+  color: #1a1a2e;
+}
+.player[data-scene="0"] .step[data-i="0"] i,
+.player[data-scene="1"] .step[data-i="1"] i,
+.player[data-scene="2"] .step[data-i="2"] i {
+  transform: scaleX(1);
+  transition: transform 3400ms linear;
+}
+/* Not playing (off screen, a hidden tab, before it is first seen): the hairline rests full under the scene shown. */
+[data-platform-live="false"] .step i,
+.mock:not([data-platform-live]) .step i {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene,
+  .cover,
+  .endDot,
+  .platforms li,
+  .bar > span,
+  .writing,
+  .done,
+  .step,
+  .step i {
+    transition: none !important;
+  }
 }

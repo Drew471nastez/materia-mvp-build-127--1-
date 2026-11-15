@@ -64,12 +64,14 @@ console.log("\n── audience: smaller and lighter ──")
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
   /* Changed on purpose (landing round 5): the owner asked for a simpler, shorter section with one compact picture: Contacts, beside three plain rows. */
-  check("one picture only: Contacts; the rest are plain rows", (src.match(/className=\{s\.mock\}/g) ?? []).length === 1 && (html.match(/<li><h3>/g) ?? []).length === 3)
+  check("one picture only: Contacts; the rest are plain rows", (src.match(/\$\{s\.mock\}/g) ?? []).length === 1 && (html.match(/<li><h3>/g) ?? []).length === 3)
   check("the rows are hairlines, not cards", /\.points li \{[^}]*border-top: 1px solid #ececf0;/.test(css) && !/\.points li \{[^}]*background/.test(css))
   check("the old tree, list and pill row are gone", !/s\.tree|s\.list|s\.yours|StorelibLogo/.test(src) && !/\.tree|\.yours|\.list\[/.test(css))
-  check("nothing moves: no timers, loops or reveals", !/setInterval|setTimeout|useState|useEffect|m\.reveal|m\.loop/.test(src) && !/@keyframes|transition/.test(css))  /* Changed on purpose (landing round 5): the owner saw it glitch and flash while scrolling; it is drawn once and still. */
+/* Changed on purpose (landing round 7): the owner asked for a chart, then Synced with, then the export, autoplaying smooth and clean: one attribute a turn, no state, no keyframes, no reveal. */
+  check("calm: no React state, no keyframes, no reveal; the scenes turn by one attribute", !/useState|setTimeout|m\.reveal|m\.loop/.test(src) && !/@keyframes/.test(css) && /el\.dataset\.scene = String\(i\)/.test(src))  /* Changed on purpose (landing round 5): the owner saw it glitch and flash while scrolling; it is drawn once and still. */
   check("the words the owner kept", ["Download every contact, any time", "No lock-in: if you ever leave, your list leaves with you.", "Already on an email platform?", "One list from every sign-up"].every((w) => words.includes(w)))  /* Changed on purpose (landing round 5): the composer and its figures are gone. */
-  check("in the page's container", /mx-auto max-w-\[1400px\] px-\[var\(--landing-gutter,22px\)\]/.test(src) && !/className=\{`\$\{m\.root\} bg-white px-/.test(src))
+/* Changed on purpose (landing round 7): every section in the page's one width (--home-edge, --home-max). */
+  check("in the page's one width", /\$\{s\.grid\} home-wrap/.test(src) && !/max-w-\[1400px\]/.test(src))
   check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
 }
 
@@ -83,18 +85,21 @@ console.log("\n── analytics ──")
   check("the sourdough stills are gone from the repo", ["sourdough-loaf", "sourdough-crumb", "sourdough-rustic"].every((f) => !existsSync(join(root, "public/home/analytics", `${f}.webp`))))
   check("the SEO card stays a dark card, with a quieter dot grid drifting by transform", /function SearchCard[\s\S]*?\$\{s\.dark\}/.test(src) && /\.dots \{[^}]*radial-gradient\(rgba\(255, 255, 255, 0\.09\) 0\.9px/.test(css) && /@keyframes dotsDrift \{\s*from \{\s*transform:[^}]*\}\s*to \{\s*transform: translate3d\(22px, 22px, 0\);/.test(css) && /\$\{s\.dots\} \$\{m\.loop\}/.test(src))  /* Changed on purpose (landing round 5): the owner found the pattern too visible. */
   /* Changed on purpose (landing round 5): the owner asked for the engine switcher as it was before round 4: it plays by itself, no buttons. */
-  check("the switcher plays by itself, as before round 4: five names in fixed slots, no buttons", (html.match(/data-rel="/g) ?? []).length === 5 && !/engineTab|aria-pressed/.test(html) && /setInterval\(\(\) => setActive/.test(src) && /\}, \[live, reduced\]\)/.test(src))
+/* Changed on purpose (landing round 7): smoother: the names ride one strip moved by one transform, no React render per turn. */
+  check("the switcher plays by itself: one strip of names, no buttons", (html.match(/class="[^"]*strip[^"]*"/g) ?? []).length === 1 && !/engineTab|aria-pressed/.test(html) && /el\.style\.setProperty\("--pos"/.test(src) && /\}, \[live, reduced\]\)/.test(src))
   check("nothing to press", !/const choose =|setPicks/.test(src))
   check("one very quiet light turns around it, by transform alone, while live", (html.match(/class="[^"]*orbit[^"]*"/g) ?? []).length === 1 && /\$\{s\.orbit\} \$\{m\.loop\}/.test(src) && /@keyframes orbit \{\s*to \{\s*transform: rotate\(360deg\);/.test(css) && !/\.glow/.test(css))  /* Changed on purpose (landing round 5): "the subtle clean gradients going around, very subtle". */
   check("no part of the card answers the pointer", /\.dark > \* \{\s*pointer-events: none;/.test(css) && !/pointer-events: auto/.test(css))
-  check("fewer words around the reports: six chips, one short line", (html.match(/class="[^"]*report[^"]*"/g) ?? []).length === 6 && words.includes("Every visit and sale on your page and store, live.") && !/No setup, no extra app/.test(words))
-  check("the chips are white with a little depth: a lit top edge and a soft violet shadow", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\)/.test(css) && /\.report \{[^}]*0 10px 22px -12px rgba\(30, 10, 80, 0\.5\)/.test(css))  /* Changed on purpose (landing round 5): white pills, as the owner asked. */
+  check("fewer words around the reports: six chips, one short line", (html.match(/<li class="[^"]*report[^"]*"/g) ?? []).length === 6 && words.includes("Every visit and sale on your page and store, live.") && !/No setup, no extra app/.test(words))
+/* Changed on purpose (landing round 7): not white pills, and nothing purple on the purple sheet. */
+  check("the chips are near-black tiles with a hairline", /\.report \{[^}]*border-radius: 12px;[^}]*background: #0d0d10;/.test(css))  /* Changed on purpose (landing round 5): white pills, as the owner asked. */
   check("top places show each one's share of the visitors, drawn by a static transform", (html.match(/class="[^"]*share[^"]*"/g) ?? []).length === 3 && /46%/.test(words) && /scaleX\(0\.458\)/.test(html))
   check("the creator is a colorist now, and her globe's arcs land in Oslo", words.includes("@noravik.grade") && /const HOME: \[number, number\] = \[59\.91, 10\.75\]/.test(read(`${DIR}/analytics-globe.tsx`)))
   check("on a phone the globe's cards stack full width", /@media \(max-width: 639px\) \{[\s\S]*?\.overlay \{[^}]*flex-direction: column;/.test(css))
   check("keyframes animate only transform and opacity", keyframeProps(css).every((p) => p === "transform" || p === "opacity"), keyframeProps(css))
   check("reduced motion stops the dots and the light", /prefers-reduced-motion: reduce\) \{[\s\S]*\.dots,\s*\.orbit \{\s*animation: none;/.test(css))
-  check("in the page's container", /mx-auto max-w-\[1400px\] px-\[var\(--landing-gutter,22px\)\]/.test(src))
+/* Changed on purpose (landing round 7): every section in the page's one width (--home-edge, --home-max). */
+  check("in the page's one width", /<div className="home-wrap">/.test(src) && !/max-w-\[1400px\]/.test(src))
   check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
 }
 
@@ -138,9 +143,11 @@ console.log("\n── earnings ──")
   check("no Free and Pro switch", !/cme-plan|role="radio"[^>]*>Pro</.test(html) && !/>Free<|>Pro</.test(html))
   check("no black Monthly revenue card", !/Monthly revenue/.test(words) && !/\.cme-out\{[^}]*background:#1/.test(css))
   check("one white panel: the kinds, two sliders, then the total, three figures and Start earning", /class="cme-panel"/.test(html) && (html.match(/type="range"/g) ?? []).length === 2 && words.includes("You keep each month") && (html.match(/<dt>/g) ?? []).length === 3 && /<a[^>]*href="\/signup"[^>]*>Start earning/.test(html))
-  check("the figures say which fee they use", words.includes("After Storelib's 5% + $0.25 a sale") || words.includes("After Storelib&#x27;s 5% + $0.25 a sale"))
+/* Changed on purpose (landing round 7): the owner asked for the fee line under the figures to go. */
+  check("no fee line under the figures", !/After Storelib/.test(words) && !/card processing fee/.test(words))
   check("the photograph kept", html.includes("/home/earnings/night-flash-tee-640.webp"))
-  check("in the page's container", /\.cme-wrap\{max-width:1400px;/.test(css) && /plan: CommercePlan/.test(src))
+/* Changed on purpose (landing round 7): every section in the page's one width (--home-edge, --home-max). */
+  check("in the page's one width", /\.cme-wrap,\[data-landing-story\] \.cme>\.cme-wrap\{[^}]*max-width:var\(--home-max,2020px\)/.test(css) && /plan: CommercePlan/.test(src))
 }
 
 console.log("\n── your AI tools ──")
