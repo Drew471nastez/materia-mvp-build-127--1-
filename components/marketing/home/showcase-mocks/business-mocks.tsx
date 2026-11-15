@@ -176,8 +176,8 @@ export const PHYSICAL_STEP_S = 2.8
 */
 export const PHYSICAL_PRODUCTS = [
   { id: "tee", pic: "bz-tee", ground: "#efedec", name: "Midnight Studio Tee", sub: "Heavyweight cotton, black", price: "$32", label: "Size", options: ["XS", "S", "M", "L", "XL"], pick: 2, ship: "Ships in 2 days" },
-  { id: "cap", pic: "bz-cap", ground: "#ededed", name: "Washed Studio Cap", sub: "Washed cotton twill, one size", price: "$28", label: "Colour", options: ["Charcoal", "Sand", "Black"], pick: 0, ship: "Ships in 2 days" },
-  { id: "tote", pic: "bz-tote", ground: "#bec5ca", name: "Market Tote", sub: "Heavy canvas, natural", price: "$24", label: "Size", options: ["Standard", "Large"], pick: 0, ship: "Ships in 3 days" },
+  { id: "cap", pic: "bz-cap", ground: "#ededec", name: "Washed Studio Cap", sub: "Washed cotton twill, one size", price: "$28", label: "Colour", options: ["Charcoal", "Sand", "Black"], pick: 0, ship: "Ships in 2 days" },
+  { id: "tote", pic: "bz-tote", ground: "#bec5cb", name: "Market Tote", sub: "Heavy canvas, natural", price: "$24", label: "Size", options: ["Standard", "Large"], pick: 0, ship: "Ships in 3 days" },
   { id: "print", pic: "bz-print", ground: "#e7e2da", name: "Field Study No. 4", sub: "Art print on cotton rag paper", price: "$40", label: "Size", options: ["A4", "A3", "A2"], pick: 1, ship: "Printed to order, ships in 4 days" },
 ] as const
 
@@ -502,6 +502,8 @@ const ps = (f: number) => `${+(f * 100).toFixed(2)}%`
 const P_FADE = 0.45
 /* A product under the next one stays drawn until that one is fully in, then goes (it cannot be seen): no two grounds ever show through each other. The last runs under the first, so it is the one that fades out. */
 const S_OUT = PHYSICAL_STEP_S + 0.02
+/* The card's words never overlap: one product's leave, then the next one's come in (each in about a quarter second). */
+const INFO_IN = 0.24
 const P_LOOP = `${P_CYCLE_S}s linear calc(var(--p) * ${PHYSICAL_STEP_S}s - ${P_CYCLE_S}s) infinite`
 const P_STEP = `${PHYSICAL_STEP_S}s linear infinite`
 const thumbAt = (n: number) => `transform:translate3d(calc(var(--tp) * ${n}),0,0)`
@@ -509,7 +511,7 @@ const PHYSICAL_FRAMES = `
 @keyframes bt-show{0%,${pp(S_OUT)}{opacity:1}${pp(S_OUT + 0.02)},${pp(P_CYCLE_S - P_FADE)}{opacity:0;animation-timing-function:ease}100%{opacity:1}}
 @keyframes bt-show-a{0%,${pp(S_OUT)}{opacity:1}${pp(S_OUT + 0.02)},${pp(P_CYCLE_S - P_FADE)}{opacity:0}${pp(P_CYCLE_S - P_FADE + 0.02)},100%{opacity:1}}
 @keyframes bt-show-z{0%,${pp(PHYSICAL_STEP_S - P_FADE)}{opacity:1;animation-timing-function:ease}${pp(PHYSICAL_STEP_S)},${pp(P_CYCLE_S - P_FADE)}{opacity:0;animation-timing-function:ease}100%{opacity:1}}
-@keyframes bt-info{0%,${pp(PHYSICAL_STEP_S - P_FADE)}{opacity:1;transform:none;animation-timing-function:ease}${pp(PHYSICAL_STEP_S - 0.05)}{opacity:0;transform:translate3d(0,-8u,0)}${pp(P_CYCLE_S - P_FADE)}{opacity:0;transform:translate3d(0,10u,0);animation-timing-function:${E}}100%{opacity:1;transform:none}}
+@keyframes bt-info{0%,${pp(PHYSICAL_STEP_S - P_FADE)}{opacity:1;transform:none;animation-timing-function:ease-in}${pp(PHYSICAL_STEP_S - INFO_IN)}{opacity:0;transform:translate3d(0,-8u,0)}${pp(P_CYCLE_S - INFO_IN)}{opacity:0;transform:translate3d(0,10u,0);animation-timing-function:${E}}100%{opacity:1;transform:none}}
 @keyframes bt-pic{0%,${pp(S_OUT + 0.02)}{transform:none}${pp(S_OUT + 0.04)},${pp(P_CYCLE_S - P_FADE)}{transform:translate3d(18u,0,0);animation-timing-function:${E}}100%{transform:none}}
 @keyframes bt-toast{0%,${pp(1.3)}{opacity:0;transform:translate3d(0,12u,0);animation-timing-function:${E}}${pp(1.75)},${pp(PHYSICAL_STEP_S - P_FADE)}{opacity:1;transform:none;animation-timing-function:ease}${pp(PHYSICAL_STEP_S - 0.1)},100%{opacity:0;transform:none}}
 @keyframes bt-thumb{${Array.from({ length: P_COUNT }, (_, n) => `${pp(n * PHYSICAL_STEP_S)},${pp((n + 1) * PHYSICAL_STEP_S - 0.5)}{${thumbAt(n)};animation-timing-function:${GLIDE}}`).join("")}100%{${thumbAt(0)}}}
@@ -704,7 +706,7 @@ export const BUSINESS_MOCK_CSS =
 .bs-com-logo{position:absolute;z-index:1;left:24u;top:22u;display:flex;align-items:center;gap:10u}
 .bs-com-logo svg{width:34u;height:34u}
 .bs-com-logo b{font-size:17u;font-weight:750;line-height:1;letter-spacing:-.03em}
-.bs-com-logo b i{margin:0 1u 0 3u;font-style:normal;color:#d9f969}
+.bs-com-logo b i{margin:0 4u;font-style:normal;color:#d9f969}
 .bs-com-word{position:absolute;z-index:1;left:24u;right:24u;bottom:22u;display:grid;gap:7u}
 .bs-com-word b{max-width:12em;font-size:31u;font-weight:750;line-height:1.02;letter-spacing:-.035em}
 .bs-com-word i{font-size:13.5u;font-style:normal;font-weight:500;color:#d9f969}

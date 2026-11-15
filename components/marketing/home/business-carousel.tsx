@@ -276,7 +276,7 @@ const CSS = `
 /* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
 [data-landing-story] .biz>.biz-head,.biz-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .biz .biz-h{margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
-.biz-sub{margin:clamp(8px,.9vw,14px) 0 0;max-width:46ch;font-size:clamp(16px,1.25vw,19px);line-height:1.45;letter-spacing:-.005em;color:#65616e}
+.biz-sub{margin:clamp(8px,.9vw,14px) 0 0;max-width:64ch;font-size:clamp(16px,1.25vw,19px);line-height:1.45;letter-spacing:-.005em;color:#65616e}
 [data-landing-story] .biz>.biz-body,.biz-body{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);row-gap:clamp(8px,1.4vw,16px);max-width:var(--home-max,2020px);margin:clamp(20px,3vw,44px) auto 0;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 /* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than a small phone slides under the thumb. */
 .biz-tabs{display:flex;gap:clamp(18px,2.6vw,34px);margin:0 calc(var(--home-edge,20px) * -1);padding:0 calc(var(--home-edge,20px) + var(--home-head-inset,14px));overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
