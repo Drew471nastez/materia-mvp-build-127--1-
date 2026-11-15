@@ -70,8 +70,9 @@ console.log("\nThe website builder: a real small store")
 const site = renderToStaticMarkup(createElement(MondoMangoSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
-check("Mondo Mango, a merch label, in the builder with its own address", site.includes("Drop 03") && wb.includes("Mondo Mango") && wb.includes("mondomango.shop"))
-check("its five photographs exist, are webp and small", ["mm-hero", "mm-logo", "mm-crew", "mm-cap", "mm-tee", "mm-tote"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
+// Changed on purpose (landing round 11): Mondo Mango sells a party card game, product shots of its boxes under a studio hero; tests/home-landing-r11-top.test.ts pins it.
+check("Mondo Mango in the builder with its own address", site.includes("Bestsellers") && wb.includes("Mondo Mango") && wb.includes("mondomango.shop"))
+check("its pictures exist, are webp and small", ["mm-studio", "mm-logo", "mm-game", "mm-after-dark", "mm-family", "mm-crate"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
 check("no gradient, the drop on white", !/\.mg[^{]*\{[^}]*gradient/.test(BUILDER_CSS) && /\.mg\{[^}]*background:#fff/.test(BUILDER_CSS)) // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
 check("no Saltmoor left", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/sm-hero.webp"))
 check("no Field Day, no caps left", !/Field Day|FIELD|fielddaysupply|fd-cap|Marigold/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/fd-hero.webp"))

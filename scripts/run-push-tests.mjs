@@ -1529,6 +1529,8 @@ const SUITES = [
   "tests/home-landing-r11-rails.test.ts",
   /* Landing round 11 (purple): a line icon per analytics report and a favicon per search result, the purple's dots brighter and calmer, the map as "Sell to buyers worldwide." with a column of flags, a stack of product cards, an order pill and Shipped words by the dots, the phone's pan back as the map's own transform, a taller card. */
   "tests/home-landing-r11-purple.test.ts",
+  /* Landing round 11, top: the website builder moves on from Mondo Mango (a party card game, product shots of its boxes, a studio hero) to loudlib, the OnePage editor from Desmond to Idris Kane, each a cross fade on the autoplay clock; a little depth on the ideas frame; Noor Haddad's digital product store in place of Soft Ground. */
+  "tests/home-landing-r11-top.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

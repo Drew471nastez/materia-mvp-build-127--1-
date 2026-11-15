@@ -43,6 +43,7 @@ import {
   SlidersHorizontal,
   Sun,
   Undo2,
+  UserRound,
   Users,
 } from "lucide-react"
 import { SiInstagram } from "@/components/icons/brand/SiInstagram"
@@ -117,19 +118,44 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-/* ================================================================ The site in the website builder: Mondo Mango */
-type Product = { pic: string; name: string; price: string; swatches: string[] }
+/* ================================================================ The sites in the website builder: Mondo Mango, then loudlib */
+/*
+  Landing round 11 (the owner: "I don't like the physical product examples; make something more like the 2nd image as
+  the products", and "I also don't like the hero of Mondo Mango; add something else more realistic, smooth, clean"):
+  Mondo Mango is a party card game now, sold by the two friends who made it, and its products are product shots of
+  the boxes themselves, bold titles on a light studio ground, with a sale badge on two of them. The hero is one clean
+  studio picture of the game and its expansion on a soft peach sweep, the words on the plain part of it.
+  The boxes and the studio picture are rendered (public/home/showcase/mm-*.webp), so they are crisp at any size.
+*/
+type Product = { pic: string; name: string; price: string; was?: string }
 const MM_PRODUCTS: Product[] = [
-  { pic: "mm-crew", name: "Logo Crewneck", price: "€68", swatches: ["#f4f1ea", "#ff5b14", "#2338e8"] },
-  { pic: "mm-cap", name: "Trucker Cap", price: "€34", swatches: ["#f4f1ea", "#ffc928"] },
-  { pic: "mm-tee", name: "Logo Tee", price: "€36", swatches: ["#f4f1ea", "#ff5b14", "#16a36b", "#ff8fc6"] },
-  { pic: "mm-tote", name: "Market Tote", price: "€24", swatches: ["#c99a63"] },
+  { pic: "mm-game", name: "Mondo Mango", price: "€29", was: "€35" },
+  { pic: "mm-after-dark", name: "After Dark expansion", price: "€19" },
+  { pic: "mm-family", name: "Family Edition", price: "€25" },
+  { pic: "mm-crate", name: "The Whole Crate", price: "€59", was: "€73" },
 ]
 
+/** A product in a store's grid: its shot, a sale badge when it is reduced, the name and the price. */
+function ShopCard({ p, cls }: { p: Product; cls: string }) {
+  return (
+    <span className={`${cls}-card`}>
+      <span className={`${cls}-img`}>
+        <Pic n={p.pic} w={480} h={480} />
+        {p.was && <i className={`${cls}-sale`}>On sale</i>}
+      </span>
+      <b>{p.name}</b>
+      <span className={`${cls}-price`}>
+        {p.was && <s>{p.was}</s>}
+        {p.price}
+      </span>
+    </span>
+  )
+}
+
 /**
- * Mondo Mango, a loud little merch label's store, the site open in the website builder: the wordmark in the
- * middle of the header, an orange hero with one photograph (landing round 9: one picture, not seven), then the drop on white with the wordmark printed on every
- * piece. `rings` outlines the Hero, then the products, the way the builder rings the section it has selected.
+ * Mondo Mango, a party card game's store, the site open in the website builder: the wordmark in the middle of the
+ * header, a studio picture of the game for a hero, then the bestsellers as product shots. `rings` outlines the Hero,
+ * then the products, the way the builder rings the section it has selected.
  */
 export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
   return (
@@ -137,8 +163,8 @@ export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
       <div className="mg-nav">
         <span className="mg-links">
           <b>Shop all</b>
-          <span>Drop 03</span>
-          <span>About</span>
+          <span>Expansions</span>
+          <span>How to play</span>
         </span>
         <Pic n="mm-logo" w={520} h={120} className="mg-logo" />
         <span className="mg-links mg-right">
@@ -147,15 +173,15 @@ export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
         </span>
       </div>
       <div className="mg-hero">
+        <Pic n="mm-studio" w={1600} h={534} className="mg-studio" />
         <span className="mg-pitch">
-          <b>Wear it loud.</b>
-          <i>Heavy cotton crewnecks, caps and tees, made in small runs.</i>
-          <em>Shop the drop</em>
-        </span>
-        <Pic n="mm-hero" w={960} h={726} className="mg-wall" />
-        <span className="mg-sticker">
-          <b>Drop 03</b>
-          <i>out now</i>
+          <i className="mg-kicker">New: After Dark expansion</i>
+          <b>Game night, but louder.</b>
+          <span className="mg-line">A party card game for 3 to 8 players. Twenty minute rounds.</span>
+          <span className="mg-acts">
+            <em>Shop the game</em>
+            <span>How to play</span>
+          </span>
         </span>
         {rings && (
           <span className="mg-ring wx-ring-a">
@@ -165,24 +191,11 @@ export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
       </div>
       <div className="mg-shop">
         <p className="mg-h">
-          <b>Drop 03</b> <span>Shop all</span>
+          <b>Bestsellers</b> <span>Shop all</span>
         </p>
         <div className="mg-grid">
           {MM_PRODUCTS.map((p) => (
-            <span key={p.name} className="mg-card">
-              <span className="mg-img">
-                <Pic n={p.pic} w={600} h={600} />
-              </span>
-              <span className="mg-row">
-                <b>{p.name}</b>
-                <em>{p.price}</em>
-              </span>
-              <span className="mg-dots">
-                {p.swatches.map((c) => (
-                  <i key={c} style={{ background: c }} />
-                ))}
-              </span>
-            </span>
+            <ShopCard key={p.name} p={p} cls="mg" />
           ))}
         </div>
         {rings && (
@@ -194,6 +207,79 @@ export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
     </div>
   )
 }
+
+/*
+  Landing round 11 (the owner: "after some time another template should appear, e.g. the loudlib website", their own
+  store): loudlib, a dark sample pack store, drawn after loudlib.net. The purple sale bar, the dark header with the
+  thin wordmark, the menu and Discover; a hero with the new bundle's box over a club photograph; then Bestselling, the
+  packs as black boxes with bold titles and the purple On sale badges.
+*/
+const LL_PRODUCTS: Product[] = [
+  { pic: "ll-serum", name: "Serum Presets Vol 1", price: "€8.99", was: "€22.47" },
+  { pic: "ll-tech-house", name: "Tech House Master Bundle 2025", price: "€19.98", was: "€49.96" },
+  { pic: "ll-drums", name: "Tech House Drum Kit Vol I", price: "Free" },
+  { pic: "ll-midi", name: "Melodic Techno MIDI Kit", price: "€12.99", was: "€29.99" },
+]
+const LL_MENU = ["Home", "Shop", "Sample Packs", "Free Downloads", "Blog", "Support"]
+
+export function LoudlibSite({ rings = false }: { rings?: boolean }) {
+  return (
+    <div className="ll">
+      <p className="ll-bar">Sale 60% off all products</p>
+      <div className="ll-nav">
+        <span className="ll-logo">
+          loud<i>LIB.</i>
+        </span>
+        <span className="ll-menu">
+          {LL_MENU.map((m, i) => (
+            <span key={m} className={i === 0 ? "on" : undefined}>
+              {m}
+            </span>
+          ))}
+        </span>
+        <span className="ll-icons">
+          <Search />
+          <UserRound />
+          <ShoppingBag />
+        </span>
+        <span className="ll-discover">Discover</span>
+      </div>
+      <div className="ll-hero">
+        <Pic n="ll-hero" w={1600} h={370} className="ll-hero-pic" />
+        <span className="ll-pitch">
+          <i>New bundle</i>
+          <b>Tech House Master Bundle 2025</b>
+          <span className="ll-line">1,400 loops, one shots and presets, ready for your next track.</span>
+          <span className="ll-buy">
+            <em>Shop now</em>
+            <span>
+              <s>€49.96</s> €19.98
+            </span>
+          </span>
+        </span>
+        {rings && (
+          <span className="mg-ring wx-ring-a">
+            <em>Selected</em>
+          </span>
+        )}
+      </div>
+      <div className="ll-shop">
+        <p className="ll-h">Bestselling</p>
+        <div className="ll-grid">
+          {LL_PRODUCTS.map((p) => (
+            <ShopCard key={p.name} p={p} cls="ll" />
+          ))}
+        </div>
+        {rings && (
+          <span className="mg-ring wx-ring-b">
+            <em>Selected</em>
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 
 /* ================================================================ Website builder */
 /** A section row of the Page group: its blocks' chevron (when it has blocks), the grip, the name; `hl` marks the selected one. */
@@ -280,7 +366,10 @@ function WbBar() {
         <span className="wx-key ghost">
           <ArrowLeftToLine />
         </span>
-        <b className="wx-name">Mondo Mango</b>
+        <b className="wx-name">
+          <span className="bm-s1">Mondo Mango</span>
+          <span className="bm-s2">loudlib</span>
+        </b>
         <i className="wx-live" />
         <span className="wx-key">
           <MoreHorizontal />
@@ -346,7 +435,10 @@ function PublishPanel() {
       <p className="wx-pub-l">Website URL</p>
       <span className="wx-pub-url">
         <Globe />
-        <b>mondomango.shop</b>
+        <b className="wx-pub-host">
+          <span className="bm-s1">mondomango.shop</span>
+          <span className="bm-s2">loudlib.net</span>
+        </b>
         <Copy />
         <ExternalLink />
       </span>
@@ -390,8 +482,12 @@ export function WebsiteBuilderMock() {
         <ChromeRow name="Footer" Icon={PanelBottom} />
       </aside>
       <div className="wx-canvas">
-        <MockFrame label="" className="wx-site">
+        <MockFrame label="" className="wx-site bm-s1">
           <MondoMangoSite rings />
+        </MockFrame>
+        {/* Landing round 11: the second site the tab moves on to (data-scene, ideas-come-to-life.tsx), cross faded in the same canvas. */}
+        <MockFrame label="" className="wx-site bm-s2">
+          <LoudlibSite rings />
         </MockFrame>
       </div>
       <PublishPanel />
@@ -545,6 +641,132 @@ export function DesmondPage() {
   )
 }
 
+/** The Links tab's column: the profile (photo, name, bio, social chips), Add, and the blocks with their switches. */
+function OpePanel({ av, name, bio, blocks, className }: { av: string; name: string; bio: string; blocks: Block[]; className: string }) {
+  return (
+    <div className={`ope-panel ${className}`}>
+      <div className="ope-profile">
+        <Pic n={av} w={240} h={240} className="ope-av" />
+        <span>
+          <b>
+            {name} <Pencil />
+          </b>
+          <i>{bio}</i>
+          <span className="ope-socials">
+            {SOCIALS.map(([k]) => (
+              <em key={k}>
+                <BrandMark k={k} />
+              </em>
+            ))}
+            <em className="add">
+              <Plus />
+            </em>
+          </span>
+        </span>
+      </div>
+      <span className="ope-add">Add</span>
+      <span className="ope-quick">
+        <span>
+          <Layers /> Add Group
+        </span>
+        <span>
+          <Archive /> View archive
+        </span>
+      </span>
+      <div className="ope-list">
+        {blocks.map((b) => (
+          <OpeBlock key={b.t} b={b} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/*
+  Landing round 11 (the owner: "Add Idris Kane as another OnePage in the OnePage editor pill, but more realistic,
+  adapted to how Storelib is"): the photographer from the store strip, on Storelib's own Hero header
+  (components/onepage/public-onepage.tsx): his photo across the top melting into the page (a mask, as
+  HERO_FADE_MASK does), the name with the verified badge over the melted part, the bio, the social row, then his
+  blocks as the dark theme draws them: wide link buttons with their icons, a product card, the email signup the
+  editor turns on, and his showreel.
+*/
+const IDRIS_BIO = "Photographer and film director. Shooting in London and Lisbon."
+const IDRIS_BLOCKS: Block[] = [
+  { t: "Portfolio", s: "idriskane.com", pic: "lt-street", clicks: "3.9k" },
+  { t: "Book a shoot", s: "Booking form", Icon: Calendar, clicks: "418" },
+  { t: "Prints and photo books", s: "From $45", pic: "ik-print", clicks: "1.2k" },
+  { t: "Studio notes", s: "Email signup", Icon: Mail, off: true },
+  { t: "Showreel 2026", s: "vimeo.com/idriskane", pic: "lt-field", clicks: "5.3k" },
+]
+
+export function IdrisPage() {
+  return (
+    <div className="dp ik">
+      <span className="dp-corner dp-share">
+        <Share />
+      </span>
+      <span className="dp-corner dp-bell">
+        <Bell />
+      </span>
+      <span className="ik-hero">
+        <Pic n="ik-portrait" w={600} h={640} />
+      </span>
+      <div className="ik-head">
+        <h3>
+          Idris Kane
+          <svg className="ik-tick" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2.5l2.4 1.8 3 .1.9 2.8 2.4 1.8-.9 2.9.9 2.9-2.4 1.8-.9 2.8-3 .1L12 21.5l-2.4-1.8-3-.1-.9-2.8-2.4-1.8.9-2.9-.9-2.9 2.4-1.8.9-2.8 3-.1L12 2.5Z" fill="#3b82f6" />
+            <path d="M8.2 12.2l2.5 2.5 5-5.2" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </h3>
+        <p>{IDRIS_BIO}</p>
+        <span className="ik-socials">
+          {SOCIALS.slice(0, 3).map(([k, M]) => (
+            <i key={k}>
+              <M />
+            </i>
+          ))}
+          <i>
+            <Mail />
+          </i>
+        </span>
+      </div>
+      <span className="ik-btn">
+        <Globe /> <b>Portfolio</b>
+      </span>
+      <span className="ik-btn">
+        <Calendar /> <b>Book a shoot</b>
+      </span>
+      <span className="dp-prod">
+        <span className="dp-pack">
+          <Pic n="ik-print" w={560} h={700} />
+        </span>
+        <span className="dp-prod-t">
+          <b>Prints and photo books</b>
+          <i>Signed, on cotton rag paper</i>
+        </span>
+        <strong>$45</strong>
+      </span>
+      <span className="dp-btn dp-new">
+        <span className="dp-signup">
+          <b>Studio notes, once a month</b>
+          <span className="dp-form">
+            <span className="dp-input">Your email</span>
+            <span className="dp-sub">Subscribe</span>
+          </span>
+        </span>
+      </span>
+      <span className="dp-video dp-after">
+        <Pic n="lt-field" w={640} h={400} />
+        <span className="dp-vplay">
+          <Play fill="currentColor" strokeWidth={0} />
+        </span>
+        <em>Showreel 2026 · 2:14</em>
+      </span>
+    </div>
+  )
+}
+
 export function OnePageEditorMock() {
   return (
     <div className="bm ope">
@@ -582,45 +804,18 @@ export function OnePageEditorMock() {
           </span>
         </span>
       </div>
-      <div className="ope-panel">
-        <div className="ope-profile">
-          <Pic n="lp-av" w={240} h={240} className="ope-av" />
-          <span>
-            <b>
-              Desmond Ayo <Pencil />
-            </b>
-            <i>Colourist in Lisbon. Film looks for Premiere, Resolve and Final Cut.</i>
-            <span className="ope-socials">
-              {SOCIALS.map(([k]) => (
-                <em key={k}>
-                  <BrandMark k={k} />
-                </em>
-              ))}
-              <em className="add">
-                <Plus />
-              </em>
-            </span>
-          </span>
-        </div>
-        <span className="ope-add">Add</span>
-        <span className="ope-quick">
-          <span>
-            <Layers /> Add Group
-          </span>
-          <span>
-            <Archive /> View archive
-          </span>
-        </span>
-        <div className="ope-list">
-          {DESMOND_BLOCKS.map((b) => (
-            <OpeBlock key={b.t} b={b} />
-          ))}
-        </div>
-      </div>
+      <OpePanel av="lp-av" name="Desmond Ayo" bio="Colourist in Lisbon. Film looks for Premiere, Resolve and Final Cut." blocks={DESMOND_BLOCKS} className="bm-s1" />
+      {/* Landing round 11: Idris Kane's page, the second the tab moves on to (data-scene, ideas-come-to-life.tsx). */}
+      <OpePanel av="ik-av" name="Idris Kane" bio={IDRIS_BIO} blocks={IDRIS_BLOCKS} className="bm-s2" />
       <div className="ope-stage">
         <div className="ope-phone">
           <MockFrame w={390} ratio="287/607" label="" className="ope-screen">
-            <DesmondPage />
+            <span className="ope-page bm-s1">
+              <DesmondPage />
+            </span>
+            <span className="ope-page bm-s2">
+              <IdrisPage />
+            </span>
           </MockFrame>
         </div>
       </div>
@@ -840,27 +1035,63 @@ export const BUILDER_CSS = u(`
 .mg-links{display:flex;gap:18u;font-size:10.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#141414}
 .mg-links b{font-weight:600;box-shadow:inset 0 -1.5u 0 #ff5b14}
 .mg-logo{position:absolute;left:50%;top:50%;width:156u!important;height:36u!important;background:none!important;transform:translate(-50%,-50%)}
-/* Landing round 9 (the owner: "Mondo Mango has too many images"): the wall of seven photographs is one. The hero is the label's orange with three plain lines on it, and one photograph beside it. */
-.mg-hero{position:relative;flex:none;display:flex;height:326u;margin:0 24u;background:#ff5b14}
-.mg-pitch{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:0 40u;color:#fff6e6}
-.mg-pitch b{font-size:68u;font-weight:900;line-height:.92;letter-spacing:-.05em}
-.mg-pitch i{max-width:320u;margin-top:16u;font-size:15u;font-style:normal;font-weight:500;line-height:1.4}
-.mg-pitch em{margin-top:22u;padding:12u 20u;border-radius:999u;background:#141414;color:#fff;font-size:11u;font-style:normal;font-weight:700;line-height:1;letter-spacing:.14em;text-transform:uppercase}
-.mg-wall{flex:none;width:440u!important;height:100%!important;object-fit:cover;object-position:50% 30%}
-.mg-sticker{position:absolute;z-index:3;right:22u;top:20u;display:grid;place-items:center;align-content:center;width:96u;height:96u;border-radius:50%;background:#ffc928;color:#2338e8;transform:rotate(-12deg);box-shadow:0 6u 16u -8u rgba(0,0,0,.4)}
-.mg-sticker b{font-size:18u;font-weight:900;line-height:1;letter-spacing:-.03em}
-.mg-sticker i{margin-top:3u;font-size:9.5u;font-style:normal;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+/* Landing round 11: the hero is one studio picture of the game (the words on its plain left part), the products are shots of the boxes with a sale badge, the price struck through when reduced. */
+.mg-hero{position:relative;flex:none;display:flex;align-items:center;height:326u;margin:0 24u;border-radius:14u;overflow:hidden;background:#ffe1c7}
+.mg-studio{position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover;background:none!important}
+.mg-pitch{position:relative;display:flex;flex-direction:column;align-items:flex-start;padding:0 48u;color:#2b1608}
+.mg-kicker{font-size:11u;font-style:normal;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#d9480f}
+.mg-pitch b{max-width:420u;margin-top:12u;font-size:50u;font-weight:800;line-height:1;letter-spacing:-.035em}
+.mg-line{max-width:330u;margin-top:14u;font-size:15u;font-weight:500;line-height:1.45;color:#5b3a22}
+.mg-acts{display:flex;align-items:center;gap:20u;margin-top:24u;font-size:13u;font-weight:600}
+.mg-acts em{padding:13u 22u;border-radius:999u;background:#1f120a;color:#fff;font-style:normal;line-height:1}
+.mg-acts span{box-shadow:inset 0 -1.5u 0 currentColor}
 .mg-shop{position:relative;flex:1 0 auto;padding:20u 24u 30u}
 .mg-h{display:flex;justify-content:space-between;align-items:baseline;font-size:10.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase}
 .mg-h b{font-size:21u;font-weight:800;letter-spacing:-.02em;text-transform:none}
-.mg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14u;margin-top:12u}
-.mg-card{display:grid;gap:4u}
-.mg-img{display:block;height:200u;background:#f3f3f1;overflow:hidden}
-.mg-img img{width:100%!important;height:100%!important;object-fit:cover}
-.mg-row{display:flex;align-items:baseline;justify-content:space-between;gap:8u;margin-top:6u;font-size:12u;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.mg-row em{font-style:normal;font-weight:600;letter-spacing:0}
-.mg-dots{display:flex;gap:5u}
-.mg-dots i{width:11u;height:11u;border-radius:50%;box-shadow:inset 0 0 0 1u rgba(0,0,0,.14)}
+.mg-grid,.ll-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14u;margin-top:12u}
+.mg-card,.ll-card{display:grid;align-content:start;gap:3u}
+.mg-img,.ll-img{position:relative;display:block;height:200u;border-radius:12u;background:#f4f1ec;overflow:hidden}
+.mg-img img,.ll-img img{width:100%!important;height:100%!important;object-fit:cover;background:none!important}
+.mg-sale,.ll-sale{position:absolute;left:10u;bottom:10u;padding:5u 10u;border-radius:999u;background:#ff5b14;color:#fff;font-size:11u;font-style:normal;font-weight:600;line-height:1.2}
+.mg-card>b,.ll-card>b{margin-top:7u;font-size:13u;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg-price,.ll-price{display:flex;gap:7u;font-size:12.5u;font-weight:500;color:#141414}
+.mg-price s,.ll-price s{color:#8a8a8a;font-weight:400}
+
+/* ---------- loudlib (landing round 11): a dark header over a white shop, after loudlib.net */
+.ll{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#16161a;font-family:var(--font-inter,Inter),Inter,sans-serif}
+.ll-bar{flex:none;height:28u;display:grid;place-items:center;background:#6a2bd6;color:#fff;font-size:11.5u;font-weight:500}
+.ll-nav{flex:none;height:60u;display:flex;align-items:center;gap:30u;padding:0 30u;background:#141416;color:#fff}
+.ll-logo{display:flex;align-items:flex-end;gap:2u;font-size:27u;font-weight:300;line-height:.8;letter-spacing:-.04em}
+.ll-logo i{font-size:8u;font-style:normal;font-weight:700;letter-spacing:.02em}
+.ll-menu{display:flex;gap:20u;font-size:12.5u}
+.ll-menu .on{box-shadow:inset 0 -1u 0 #fff}
+.ll-icons{display:flex;gap:16u;margin-left:auto}
+.ll .ll-icons svg{width:17u;height:17u}
+.ll-discover{padding:9u 20u;border-radius:999u;box-shadow:inset 0 0 0 2u #6a2bd6;font-size:12.5u;font-weight:500}
+.ll-hero{position:relative;flex:none;display:flex;align-items:center;height:236u;background:#0b0b0d;color:#fff}
+.ll-hero-pic{position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover;background:none!important}
+.ll-pitch{position:relative;display:flex;flex-direction:column;align-items:flex-start;padding:0 48u}
+.ll-pitch i{padding:5u 10u;border-radius:999u;background:#6a2bd6;font-size:10.5u;font-style:normal;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.ll-pitch b{max-width:420u;margin-top:12u;font-size:34u;font-weight:800;line-height:1.02;letter-spacing:-.03em}
+.ll-line{max-width:340u;margin-top:10u;font-size:13.5u;line-height:1.45;color:#b9b9c2}
+.ll-buy{display:flex;align-items:center;gap:16u;margin-top:18u;font-size:14u;font-weight:600}
+.ll-buy em{padding:11u 20u;border-radius:999u;background:#fff;color:#141416;font-size:12.5u;font-style:normal;line-height:1}
+.ll-buy s{color:#8d8d97;font-weight:400}
+.ll-shop{position:relative;flex:1 0 auto;padding:22u 24u 30u}
+.ll-h{text-align:center;font-size:24u;font-style:italic;font-weight:800;letter-spacing:-.01em;text-transform:uppercase;color:#14202b}
+.ll-img{background:#fff}
+.ll-sale{background:#6a2bd6}
+
+/* Landing round 11: two sites in the builder, two pages in the OnePage editor. The tab shows the first, then (data-scene="1" on its panel, set on the autoplay clock) cross fades to the second; only opacity moves. */
+.bm-s1,.bm-s2{transition:opacity .7s cubic-bezier(.4,0,.2,1)}
+.bm-s2{opacity:0}
+[data-scene="1"] .bm-s1{opacity:0}
+[data-scene="1"] .bm-s2{opacity:1}
+.wx-name,.wx-pub-host{display:grid}
+.wx-name>span,.wx-pub-host>span{grid-area:1/1}
+.wx-pub-host>span{font-weight:400}
+.ope-page{position:absolute;inset:0;display:block}
+@media(prefers-reduced-motion:reduce){.bm-s1,.bm-s2{transition:none}}
 .mg-ring{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
 .mg-ring em{position:absolute;left:8u;top:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
 .mg-ring.wx-ring-b{opacity:0}
@@ -1072,6 +1303,33 @@ export const BUILDER_CSS = u(`
 .dp-video>em{position:absolute;left:14u;bottom:12u;color:#fff;font-size:12.5u;font-style:normal;font-weight:600;text-shadow:0 1u 4u rgba(0,0,0,.6)}
 .dp-vplay{position:absolute;left:50%;top:50%;width:46u;height:46u;margin:-23u 0 0 -23u;border-radius:50%;display:grid;place-items:center;background:#f6b062;color:#1b1612}
 .dp-vplay svg{width:16u;height:16u;margin-left:2u}
+
+/* ---------- Idris Kane's OnePage (landing round 11): the dark theme on the Hero header */
+.dp.ik{padding:0 20u 30u;background:#0b0b0c;color:#fff}
+.dp.ik::before{display:none}
+.ik .dp-corner{z-index:2;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1u rgba(255,255,255,.18);color:#fff}
+.ik-hero{display:block;flex:none;width:calc(100% + 40u);margin:0 -20u;aspect-ratio:8/9;overflow:hidden;-webkit-mask-image:linear-gradient(#000 0%,#000 46%,rgba(0,0,0,.79) 62%,rgba(0,0,0,.4) 78%,rgba(0,0,0,.07) 94%,transparent);mask-image:linear-gradient(#000 0%,#000 46%,rgba(0,0,0,.79) 62%,rgba(0,0,0,.4) 78%,rgba(0,0,0,.07) 94%,transparent)}
+.ik-hero img{width:100%!important;height:100%!important;object-fit:cover;object-position:50% 30%;background:#151517!important}
+.ik-head{z-index:1;display:flex;flex-direction:column;align-items:center;margin-top:-74u;text-align:center}
+.ik-head h3{display:flex;align-items:center;gap:7u;font-size:30u;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.ik .ik-tick{width:22u;height:22u}
+.ik-head p{max-width:290u;margin-top:7u!important;font-size:13.5u;line-height:1.5;color:#a3a1a8}
+.ik-socials{display:flex;gap:10u;margin:14u 0 6u}
+.ik-socials i{display:grid;place-items:center;width:40u;height:40u;border-radius:50%;background:rgba(242,179,91,.14);color:#f2b35b}
+.ik-socials svg{width:16u;height:16u;fill:currentColor}
+.ik-socials i:last-child svg{fill:none}
+.ik-btn{display:flex;align-items:center;width:100%;height:54u;margin-top:12u;padding:0 16u;border-radius:14u;background:#17171a;box-shadow:inset 0 0 0 1u #2a2a2e;font-size:14.5u;font-weight:500}
+.ik-btn svg{width:20u;height:20u;color:#f2b35b}
+.ik-btn b{flex:1;margin-right:20u;font-weight:500;text-align:center}
+.ik .dp-prod{margin-top:12u;border-radius:14u;background:#17171a;box-shadow:inset 0 0 0 1u #2a2a2e}
+.ik .dp-pack{width:64u;height:64u;border-radius:10u}
+.ik .dp-prod-t i{color:#a3a1a8}
+.ik .dp-prod strong{background:#f2b35b;color:#141414}
+.ik .dp-btn.dp-new{border-radius:14u;background:#17171a;box-shadow:inset 0 0 0 1u #2a2a2e}
+.ik .dp-signup b{color:#fff}
+.ik .dp-input{color:#8d8b93}
+.ik .dp-sub,.ik .dp-vplay{background:#f2b35b;color:#141414}
+.ik .dp-video{border-radius:14u}
 
 /* ---------- inside a community: The Strength Room (components/community/member) */
 .cx{background:#f8f9fa;color:#1a1a2e}
