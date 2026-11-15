@@ -252,21 +252,22 @@ check("the dot at the end travels with the line, in the same frame, instead of v
   /data-chart-end-dot/.test(LINES) && /dot\.setAttribute\("transform", `translate\(\$\{xs\[xs\.length - 1\]\.toFixed\(1\)\} \$\{ys\[ys\.length - 1\]\.toFixed\(1\)\}\)`\)/.test(LINES))
 {
   /*
-    THE CURVE IS MONOTONE, as recharts' `type="monotone"` was: between two
-    points it never goes above the higher or below the lower, so a day with
-    nothing never dips under the axis. Checked on the numbers, not the text.
+    Changed on purpose (round 65, the owner: "I don't like how it looks when it's that kind of flat"). The curve
+    rounds a run of days into a hill instead of the monotone curve's flat tops, but it still never goes below the
+    lowest point (a day with nothing stays on the axis) and rises at most a little above the highest. Checked on the
+    numbers, not the text.
   */
   const xs = [0, 10, 20, 30, 40, 50, 60]
-  const ys = [100, 100, 20, 100, 100, 0, 100]
+  const ys = [100, 100, 20, 20, 100, 0, 100]
   const nums = (monotonePath(xs, ys).match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number)
-  let within = nums.length > 0
-  for (let i = 2; i + 5 < nums.length; i += 6) {
-    const seg = Math.floor(i / 6)
-    const lo = Math.min(ys[seg], ys[seg + 1]) - 0.05
-    const hi = Math.max(ys[seg], ys[seg + 1]) + 0.05
-    if (nums[i + 1] < lo || nums[i + 1] > hi || nums[i + 3] < lo || nums[i + 3] > hi) within = false
-  }
-  check("the curve never overshoots a point, so it never dips under the axis", within && monotonePath(xs, ys).startsWith("M0,100C"))
+  const controlYs: number[] = []
+  for (let i = 2; i + 5 < nums.length; i += 6) controlYs.push(nums[i + 1], nums[i + 3])
+  const floor = Math.max(...ys)
+  const peak = Math.min(...ys)
+  check("the curve never goes under the lowest point, so a day with nothing stays on the axis", controlYs.length === 12 && controlYs.every((y) => y <= floor + 0.05) && monotonePath(xs, ys).startsWith("M0,100C"))
+  check("and rises at most a little over the highest", controlYs.every((y) => y >= peak - (floor - peak) * 0.08 - 0.05))
+  /* The two equal days at 20 (x 20 to 30): their segment's control points leave the line, a rounded top, not a flat one. */
+  check("two equal days are a rounded hill, not a flat top", nums.slice(14, 20).length === 6 && (nums[15] !== 20 || nums[17] !== 20), nums.slice(14, 20))
 }
 check("the scale never changes its number of intervals", /export const INTERVALS = 3/.test(MORPH) && /Array\.from\(\{ length: INTERVALS \+ 1 \}/.test(MORPH))
 check("the axis numbers fade in and out in the stylesheet, with reduced motion respected",

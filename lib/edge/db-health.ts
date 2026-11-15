@@ -33,6 +33,16 @@ export const PROBE_MS = 2_500
 
 let lastOk = 0
 let lastFail = 0
+/*
+  Round 65: FAILURES IN A ROW, NOT ONE. One slow call (a cold connection, a probe past its 2.5s) used to put this
+  server's every public page on its stored copy for thirty seconds, copies up to a quarter of an hour old; on a
+  busy instance that was most of the day (production: andrewrullz.storelib.com and storelib.me/andrewrullz were
+  answered from their copies about once a minute, all day, while the pages drew fine). Now it takes DOWN_AFTER
+  failures with no answer between them; a real outage fails every call, so it is still seen at once.
+*/
+export const DOWN_AFTER = 2
+let failsInRow = 0
+let downLoggedAt = 0
 let probing: Promise<void> | null = null
 /*
   When this server started counting. A server that has just started has had
@@ -48,8 +58,18 @@ let bornAt = Date.now()
 
 /** Say what a database call came back with. */
 export function noteDb(ok: boolean, now = Date.now()): void {
-  if (ok) lastOk = now
-  else lastFail = now
+  if (ok) {
+    lastOk = now
+    failsInRow = 0
+    return
+  }
+  lastFail = now
+  failsInRow++
+  /* Seen in the logs when it starts, at most once a minute per server: it used to happen without a word. */
+  if (failsInRow === DOWN_AFTER && now - downLoggedAt > 60_000) {
+    downLoggedAt = now
+    console.warn(JSON.stringify({ evt: "db_seen_down", fails: failsInRow }))
+  }
 }
 
 /** What a fetch to Supabase came back with, as up or down (see the top of this file). */
@@ -58,7 +78,7 @@ export function answeredOk(status: number): boolean {
 }
 
 export function dbState(now = Date.now()): DbState {
-  if (lastFail > lastOk && now - lastFail < DOWN_HOLD_MS) return "down"
+  if (failsInRow >= DOWN_AFTER && lastFail > lastOk && now - lastFail < DOWN_HOLD_MS) return "down"
   if (lastOk > 0 || lastFail > 0) return "up"
   return "unknown"
 }
@@ -98,6 +118,8 @@ export function supabaseProbe(url: string | undefined, key: string | undefined, 
 export function resetDbHealth(opts: { justStarted?: boolean } = {}): void {
   lastOk = 0
   lastFail = 0
+  failsInRow = 0
+  downLoggedAt = 0
   probing = null
   /* By default a server that has been up for a while and has no word (the probe's own case); justStarted: a cold one. */
   bornAt = opts.justStarted ? Date.now() : 0
