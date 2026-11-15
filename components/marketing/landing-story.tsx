@@ -8,7 +8,26 @@ import { useEffect, useRef, type ReactNode } from "react"
   interesting"). A section's heading comes up word by word and its lead line
   and main block follow it, once, the first time each scrolls into view:
   opacity and the `translate` property only (it composes with any transform
-  a section already sets on the same element), 650ms on one curve.
+  a section already sets on the same element), 500ms on one curve.
+
+  LANDING ROUND 9, the owner: "when I scroll too fast, sections appear as
+  white blank containers", and on a phone "headings glitch, move and
+  stutter, or elements of sections". Both were this entrance. A block
+  waiting for it is invisible, and it then took 650ms and up to 170ms more
+  to arrive: flung through, a section went by as an empty white box, or
+  half faded. And on a phone a heading had three motions at once (each word
+  rising, the heading's own rise with the scroll, the ink). So:
+
+    flung or late, no entrance: a waiting block that comes on screen while
+    the page is moving fast (FAST_PX_PER_MS, from one passive scroll
+    listener that reads no layout), or that is already well up the screen
+    when the browser reports it, or that comes in from above, is simply
+    shown, with no transition at all;
+
+    while the page is moving fast nothing new is hidden;
+
+    on a phone nothing moves: a heading fades as one piece (no words coming
+    up) and a block only fades, 380ms.
 
   Nothing is hidden by the server's markup. A block is hidden only by this
   script, and only when the first report about it says it is wholly below
@@ -42,6 +61,10 @@ export const REVEAL_BODIES = [
   ".fcta-note",
 ].join(",")
 const REVEAL_SELECTOR = `${REVEAL_HEADINGS},${REVEAL_BODIES}`
+/** Landing round 9: faster than this (px per ms: about a screen and a half a second on a phone) the page is being flung, and nothing waits for an entrance. */
+export const FAST_PX_PER_MS = 1.4
+/** Landing round 9: a waiting block first reported on screen with its top above this share of the screen's height has been on screen for a while already: shown at once. */
+export const LATE_ABOVE = 0.5
 const OWN_ENTRANCE = "[data-story-reveal],[class*='__reveal']"
 
 /** Pause decorative loops outside the viewport and in background tabs; give each section its entrance. */
@@ -68,9 +91,26 @@ export function LandingStory({ children }: { children: ReactNode }) {
           )
         : null
 
-    /* The entrance. First report: wholly below the screen -> hidden ("wait"); anything else is let go as it is. Later: on screen -> "in". */
+    /* The entrance. First report: wholly below the screen -> hidden ("wait"); anything else is let go as it is. Later: on screen -> "in", or shown at once when flung. */
     const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
     const seen = new WeakSet<Element>()
+    /* How fast the page is moving, from the scroll events themselves (scrollY and a clock: no layout). */
+    let lastY = window.scrollY
+    let lastAt = performance.now()
+    let speed = 0
+    const onScroll = () => {
+      const now = performance.now()
+      const y = window.scrollY
+      const dt = now - lastAt
+      if (dt > 0) speed = dt > 120 ? 0 : Math.abs(y - lastY) / dt
+      lastY = y
+      lastAt = now
+    }
+    const fast = () => speed > FAST_PX_PER_MS && performance.now() - lastAt < 160
+    const show = (el: HTMLElement) => {
+      delete el.dataset.reveal
+      reveal?.unobserve(el)
+    }
     const reveal =
       typeof IntersectionObserver === "function" && !reduced
         ? new IntersectionObserver(
@@ -82,7 +122,7 @@ export function LandingStory({ children }: { children: ReactNode }) {
                   /* An empty rectangle: the block sits in a lazy box the browser is skipping (content-visibility: auto), which it only does far off screen. */
                   const box = entry.boundingClientRect
                   const skipped = box.width === 0 && box.height === 0
-                  if (!entry.isIntersecting && (skipped || box.top > innerHeight)) {
+                  if (!entry.isIntersecting && (skipped || box.top > innerHeight) && !fast()) {
                     el.dataset.reveal = "wait"
                     continue
                   }
@@ -92,14 +132,17 @@ export function LandingStory({ children }: { children: ReactNode }) {
                   }
                 }
                 if (entry.isIntersecting) {
-                  if (el.dataset.reveal === "wait") el.dataset.reveal = "in"
+                  /* Flung past, reported late (already well up the screen) or coming in from above: shown as it is, no entrance. */
+                  if (el.dataset.reveal === "wait" && !fast() && entry.boundingClientRect.top > innerHeight * LATE_ABOVE) el.dataset.reveal = "in"
+                  else delete el.dataset.reveal
                   reveal?.unobserve(el)
-                }
+                } else if (el.dataset.reveal === "wait" && entry.boundingClientRect.height > 0 && entry.boundingClientRect.bottom < 0) show(el)
               }
             },
-            { rootMargin: "0px 0px -8% 0px" },
+            { rootMargin: "0px 0px -5% 0px" },
           )
         : null
+    if (reveal) window.addEventListener("scroll", onScroll, { passive: true })
     const revealed = new WeakSet<Element>()
 
     const discover = (node: Node) => {
@@ -146,6 +189,7 @@ export function LandingStory({ children }: { children: ReactNode }) {
     return () => {
       observer?.disconnect()
       reveal?.disconnect()
+      window.removeEventListener("scroll", onScroll)
       additions.disconnect()
       document.removeEventListener("visibilitychange", sync)
     }
@@ -168,23 +212,32 @@ export function LandingStory({ children }: { children: ReactNode }) {
   inline blocks at all times (so a word can move, and so nothing reflows when
   the script marks the heading); the padding and the equal negative margin
   keep each word's box as tall as the glyphs without changing the line.
-  Hidden means opacity 0 and 28px lower (a word: half its height lower), and
+  Hidden means opacity 0 and 18px lower (a word: half its height lower), and
   "in" runs back to rest; a heading's words follow each other 40ms apart
-  (at most ten steps, so a long heading still lands in about a second), a
-  lead line follows its heading by 90ms and a main block by 170ms.
+  (at most ten steps, so a long heading still lands in under a second), a
+  lead line follows its heading by 60ms and a main block by 120ms.
+
+  Landing round 9: shorter (500ms, it was 650, and the delays 90 and 170),
+  and on a phone or any touch screen nothing moves: the heading fades as one
+  piece, its words stay where they are, and a block only fades (380ms).
 */
 const EASE = "cubic-bezier(.22,1,.36,1)"
 export const REVEAL_CSS = `
 [data-landing-story] .story-heading:not([data-story-showcase]):not(.ideas-h) [data-story-word]{display:inline-block;padding-block:.08em;margin-block:-.08em}
 @media (prefers-reduced-motion:no-preference){
-  [data-landing-story] [data-reveal]{transition:opacity .65s ${EASE} var(--reveal-delay,0ms),translate .65s ${EASE} var(--reveal-delay,0ms)}
-  [data-landing-story] [data-reveal="wait"]{opacity:0;translate:0 28px}
-  [data-landing-story] :is(.um-sub,.ideas-sub,.ideas-tabs-row,.ait-lede,.fcta-note,[class*="__points"])[data-reveal]{--reveal-delay:90ms}
-  [data-landing-story] :is(.um-rows,.ideas-stage,.ait-term,.cmm-card,.cme-card,[class*="__mock"])[data-reveal]{--reveal-delay:170ms}
+  [data-landing-story] [data-reveal]{transition:opacity .5s ${EASE} var(--reveal-delay,0ms),translate .5s ${EASE} var(--reveal-delay,0ms)}
+  [data-landing-story] [data-reveal="wait"]{opacity:0;translate:0 18px}
+  [data-landing-story] :is(.um-sub,.ideas-sub,.ideas-tabs-row,.ait-lede,.fcta-note,[class*="__points"])[data-reveal]{--reveal-delay:60ms}
+  [data-landing-story] :is(.um-rows,.ideas-stage,.ait-term,.cmm-card,.cme-card,[class*="__mock"])[data-reveal]{--reveal-delay:120ms}
   [data-landing-story] .story-heading[data-reveal]{transition:none}
   [data-landing-story] .story-heading[data-reveal="wait"]{opacity:1;translate:none}
-  [data-landing-story] .story-heading[data-reveal] [data-story-word]{transition:opacity .6s ${EASE},translate .7s ${EASE};transition-delay:calc(min(var(--word-index,0),10) * 40ms)}
+  [data-landing-story] .story-heading[data-reveal] [data-story-word]{transition:opacity .5s ${EASE},translate .55s ${EASE};transition-delay:calc(min(var(--word-index,0),10) * 40ms)}
   [data-landing-story] .story-heading[data-reveal="wait"] [data-story-word]{opacity:0;translate:0 .5em}
+  @media (max-width:767px),(hover:none) and (pointer:coarse){
+    [data-landing-story] [data-reveal][data-reveal]{transition:opacity .38s ease-out;translate:none}
+    [data-landing-story] .story-heading[data-reveal="wait"]{opacity:0}
+    [data-landing-story] .story-heading[data-reveal] [data-story-word][data-story-word]{transition:none;opacity:1;translate:none}
+  }
 }
 `
 

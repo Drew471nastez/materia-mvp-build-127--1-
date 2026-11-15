@@ -60,7 +60,8 @@ console.log("\nUnlimited possibilities moved out of the creators' stretch")
   const page = code("app/(storelib)/(marketing)/page.tsx").replace(/\{\s*\}/g, "")
   // The business track brought "what you can sell" back right after the ideas in the same round, so the possibilities are gone from between the ideas and the creators, with only that section left there.
   check("the ideas run on into what you can sell, then the creators", /<LazyIdeasComeToLife \/>[\s\S]{0,200}<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page) && !/<LazyIdeasComeToLife \/>[\s\S]*<ProductMarquee \/>[\s\S]*<LazyCreatorsCarousel \/>/.test(page))
-  check("it opens the last white sheet, before what you could earn, in its lazy box", /<ScrollRevealPanel tone="white">\s*<LazySection name="possibilities" minHeight="clamp\(380px, 23vw \+ 254px, 720px\)">\s*<ProductMarquee \/>\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
+  // Changed on purpose (landing round 9): the map came out of the purple and opens that sheet; the possibilities follow it.
+  check("it is on the last white sheet, after the map and before what you could earn, in its lazy box", /<ScrollRevealPanel tone="white">\s*<LazySellEverywhereMap \/>\s*<LazySection name="possibilities" minHeight="clamp\(380px, 23vw \+ 254px, 720px\)">\s*<ProductMarquee \/>\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
   check("it is on the page once", (page.match(/<ProductMarquee \/>/g) || []).length === 1)
 }
 
@@ -69,11 +70,14 @@ console.log("\nOne entrance for headings and section bodies")
   const story = code("components/marketing/landing-story.tsx")
   check("one IntersectionObserver for every block, let go once shown", (story.match(/new IntersectionObserver\(/g) || []).length === 2 && /reveal\?\.unobserve\(el\)/.test(story))
   check("hidden only by script, only when first seen wholly below the screen or in a skipped lazy box", /entry\.boundingClientRect/.test(story) && /box\.top > innerHeight/.test(story) && /box\.width === 0 && box\.height === 0/.test(story) && /el\.dataset\.reveal = "wait"/.test(story))
-  check("no reveal at all under reduced motion (script and stylesheet)", /prefers-reduced-motion: reduce/.test(story) && /^\s*@media \(prefers-reduced-motion:no-preference\)\{/m.test(REVEAL_CSS) && (REVEAL_CSS.match(/opacity:0/g) || []).length === 2)
-  check("opacity and the translate property only, 650ms on cubic-bezier(.22,1,.36,1)", /transition:opacity \.65s cubic-bezier\(\.22,1,\.36,1\) var\(--reveal-delay,0ms\),translate \.65s cubic-bezier\(\.22,1,\.36,1\)/.test(REVEAL_CSS) && !/transform|filter|height|top:|margin-top/.test(REVEAL_CSS.replace(/margin-block:-\.08em/, "")))
-  check("a heading comes up word by word, 40ms apart, at most ten steps", /\[data-story-word\]\{transition:opacity \.6s [^;]+;transition-delay:calc\(min\(var\(--word-index,0\),10\) \* 40ms\)\}/.test(REVEAL_CSS) && /\.story-heading\[data-reveal="wait"\] \[data-story-word\]\{opacity:0;translate:0 \.5em\}/.test(REVEAL_CSS))
+  // Changed on purpose (landing round 9): a third opacity:0, the heading fading as one piece on a phone; all three are inside the no-preference block.
+  check("no reveal at all under reduced motion (script and stylesheet)", /prefers-reduced-motion: reduce/.test(story) && /^\s*@media \(prefers-reduced-motion:no-preference\)\{/m.test(REVEAL_CSS) && (REVEAL_CSS.match(/opacity:0/g) || []).length === 3 && !/opacity:0/.test(REVEAL_CSS.slice(0, REVEAL_CSS.indexOf("@media (prefers-reduced-motion:no-preference)"))))
+  // Changed on purpose (landing round 9): 500ms (it was 650): flung through, a section went by half faded.
+  check("opacity and the translate property only, 500ms on cubic-bezier(.22,1,.36,1)", /transition:opacity \.5s cubic-bezier\(\.22,1,\.36,1\) var\(--reveal-delay,0ms\),translate \.5s cubic-bezier\(\.22,1,\.36,1\)/.test(REVEAL_CSS) && !/transform|filter|height|top:|margin-top/.test(REVEAL_CSS.replace(/margin-block:-\.08em/, "")))
+  check("a heading comes up word by word, 40ms apart, at most ten steps", /* Changed on purpose (landing round 9): 500ms a word (it was 600). */ /\[data-story-word\]\{transition:opacity \.5s [^;]+;transition-delay:calc\(min\(var\(--word-index,0\),10\) \* 40ms\)\}/.test(REVEAL_CSS) && /\.story-heading\[data-reveal="wait"\] \[data-story-word\]\{opacity:0;translate:0 \.5em\}/.test(REVEAL_CSS))
   check("words are inline blocks at all times, so marking a heading reflows nothing", /^\[data-landing-story\] \.story-heading:not\(\[data-story-showcase\]\):not\(\.ideas-h\) \[data-story-word\]\{display:inline-block;padding-block:\.08em;margin-block:-\.08em\}/m.test(REVEAL_CSS.trim()))
-  check("lead lines follow by 90ms, main blocks by 170ms", /--reveal-delay:90ms/.test(REVEAL_CSS) && /--reveal-delay:170ms/.test(REVEAL_CSS))
+  // Changed on purpose (landing round 9): 60 and 120ms (they were 90 and 170).
+  check("lead lines follow by 60ms, main blocks by 120ms", /--reveal-delay:60ms/.test(REVEAL_CSS) && /--reveal-delay:120ms/.test(REVEAL_CSS))
   check("nothing animated twice: AnimateOnScroll and the platform risers are skipped", /\[data-story-reveal\],\[class\*='__reveal'\]/.test(story) && /target\.closest\(OWN_ENTRANCE\) \|\| target\.querySelector\(OWN_ENTRANCE\)/.test(story))
   check("the showcase heading, the ideas' turning lines and the checkout scene are not listed", /:not\(\[data-story-showcase\]\):not\(\.ideas-h\)/.test(REVEAL_HEADINGS) && !/cmc/.test(REVEAL_HEADINGS + REVEAL_BODIES))
   check("the everything and how it works cards keep their own entrance (only their headings are listed)", /\.ev-h/.test(REVEAL_HEADINGS) && /\.cmh-h/.test(REVEAL_HEADINGS) && !/\.ev-|\.cmh-/.test(REVEAL_BODIES))

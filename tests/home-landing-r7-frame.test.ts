@@ -34,11 +34,12 @@ console.log("\nThe header's links: plain, full strength, a size up; only a hover
 console.log("\nThe headings fill as one soft wave of colour, from one number")
 {
   const src = code("components/marketing/story-heading.tsx")
-  const fallback = src.slice(src.indexOf("function createHeadingMotion"), src.indexOf("export const STORY_CSS"))
+  // Changed on purpose (landing round 9): the fallback no longer follows the scroll at all (on an iPhone it trailed the scroll and the heading shook); it inks a heading once, as it comes on screen.
+  const fallback = src.slice(src.indexOf("function createHeadingInk"), src.indexOf("export const STORY_CSS"))
   check("the fallback measures nothing on a frame (no getBoundingClientRect, no getComputedStyle)", !/getBoundingClientRect|getComputedStyle|offsetTop|offsetHeight/.test(fallback))
-  check("where a heading sits is taken from the observer's own entries, refreshed at several thresholds", /entry\.boundingClientRect\.top \+ y/.test(fallback) && /threshold: \[0, 0\.25, 0\.5, 0\.75, 1\]/.test(fallback))
-  check("a frame reads scrollY and writes only --story-progress", /const y = scrollY/.test(fallback) && /setProperty\("--story-progress", progress\)/.test(fallback) && (fallback.match(/setProperty\(/g) ?? []).length === 1)
-  check("nothing painted from a guess before the observer has reported", /top: -1/.test(fallback) && /entry\.top < 0\) continue/.test(fallback))
+  check("the fallback has no scroll listener and no frame: one observer marks a heading inked", fallback.length > 200 && !/addEventListener|requestAnimationFrame|scrollY|setProperty/.test(fallback) && (fallback.match(/new IntersectionObserver\(/g) ?? []).length === 1 && /node\.setAttribute\("data-story-inked", ""\)/.test(fallback))
+  check("on screen or already passed, then let go", /!entry\.isIntersecting && entry\.boundingClientRect\.bottom >= 0\) continue/.test(fallback) && /observer\?\.unobserve\(node\)/.test(fallback))
+  check("the stylesheet runs the one number from 0 to 1 as a transition", /\[data-story-js\] > span \{--story-progress:0\}/.test(src) && /\[data-story-js\]\[data-story-inked\] > span \{--story-progress:1\}/.test(src) && /transition:--story-progress 1\.1s/.test(src))
   check("browsers with scroll-driven animations still need no script per frame", /function inkedByCss/.test(src) && /CSS\.supports\("animation-timeline: view\(\)"\)/.test(src))
   check("each word changes only colour, along a smoothstep, overlapping the next words", /--word-on:clamp\(0,\(var\(--story-progress,0\) \* \(var\(--word-count\) \+ 2\.4\) - var\(--word-index\)\) \/ 2\.4,1\)/.test(STORY_CSS) && /3 - 2 \* var\(--word-on\)/.test(STORY_CSS) && /color:color-mix\(in oklab,var\(--word-target\) var\(--word-mix\),var\(--story-muted\)\)/.test(STORY_CSS))
   check("the hard-edged gradient wipe per word is turned off where color-mix works", /@supports \(color:color-mix\(in oklab,red 50%,blue\)\)/.test(STORY_CSS) && /background:none;-webkit-background-clip:border-box;background-clip:border-box/.test(STORY_CSS))

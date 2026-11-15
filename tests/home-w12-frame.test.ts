@@ -54,7 +54,8 @@ async function main() {
     /* Changed on purpose (wave 12 integration): the slots are now the sections themselves, loaded by components/marketing/home/lazy-sections. */
     /* Changed on purpose (landing round 3): the owner asked for a new order by ground. The apps follow the audience on one white sheet, analytics and the map share a purple one, and the app closes the page with the final call. */
     // Changed on purpose (landing round 8): the business section is back after the ideas; the possibilities moved to just before what you could earn.
-    const order = ["<BuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection", "<LazyAppAnywhere />", "<FinalCta />"]
+    // Changed on purpose (landing round 9): the owner moved the app up onto white (after the apps and the AI tools); the questions are last, then the closing call.
+    const order = ["<BuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAppAnywhere />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection", "<FinalCta />"]
     const at = order.map((s) => pageRaw.indexOf(s))
     check("the sections and the other tracks' slots in the owner's order", at.every((n, i) => n > 0 && (i === 0 || n > at[i - 1])), order.filter((_, i) => at[i] <= 0 || (i > 0 && at[i] <= at[i - 1])))
     check("pricing is kept, without its See full pricing button", /<PricingSection editorial hideDetailsLink \/>/.test(page) && /\{!hideDetailsLink && \(/.test(read("components/marketing/pricing-section.tsx")))
@@ -151,7 +152,8 @@ async function main() {
     const box = renderToStaticMarkup(createElement(Lazy))
     check("lazySection draws only a box of the section's height on the server", /data-lazy-section="probe"/.test(box) && /min-height:777px/.test(box) && !/loaded/.test(box))
     /* Changed on purpose (wave 14): two and a half screens; at a screen and a half a fling on a phone reached the box before its section. */
-    check("it mounts when the box comes within two and a half screens", LAZY_AHEAD === "250% 0px 250% 0px" && /new IntersectionObserver/.test(src) && /io\.disconnect\(\)\s*mount\(\)/.test(src))
+    /* Changed on purpose (landing round 9): four screens; a flick on a phone covered two and a half in a third of a second and the owner still saw blank white boxes. */
+    check("it mounts when the box comes within four screens", (LAZY_AHEAD as string) === "400% 0px 400% 0px" && /new IntersectionObserver/.test(src) && /io\.disconnect\(\)\s*mount\(\)/.test(src))
     check("at once for reduced motion, a link into the page, or no observer", /location\.hash\.length > 1/.test(src) && /prefers-reduced-motion: reduce/.test(src) && /typeof IntersectionObserver !== "function"/.test(src))
     check("the code is fetched ahead when idle, after load, not on Save-Data", /requestIdleCallback/.test(src) && /addEventListener\("load"/.test(src) && /saveData/.test(src))
     const kept = renderToStaticMarkup(createElement(LazySection, { name: "faq", minHeight: "900px", children: createElement("h2", null, "Questions") }))
@@ -166,7 +168,7 @@ async function main() {
     const { LAZY_IDLE_AHEAD, insertSectionStyles } = await import("@/components/marketing/home/lazy-section")
     check("a section is drawn as a transition, so its render is sliced between frames", /startTransition\(\(\) => setSection/.test(src))
     /* Changed on purpose (wave 14): five screens ahead when idle (was three), and the chain mounts the waiting section nearest the screen first. */
-    check("further ahead it mounts when idle, and once the code is here the rest mount one per roomy idle slot", LAZY_IDLE_AHEAD === "500% 0px 500% 0px" && /function mountNext/.test(src) && /timeRemaining\(\) < IDLE_ROOM_MS/.test(src) && /idle\(mountNext\)/.test(src))
+    check("further ahead it mounts when idle, and once the code is here the rest mount one per roomy idle slot", /* Changed on purpose (landing round 9): eight screens ahead, and each step waits for a calm idle slot for at most LAZY_BUSY_WAIT_MS (a visitor who never stopped scrolling got none of it). */ (LAZY_IDLE_AHEAD as string) === "800% 0px 800% 0px" && /function mountNext/.test(src) && /timeRemaining\(\) < IDLE_ROOM_MS/.test(src) && /idle\(mountNext, LAZY_BUSY_WAIT_MS\)/.test(src))
     /* Changed on purpose (wave 14): it also starts LAZY_PREFETCH_LATEST_MS after the page came alive when the load event is late (a slow network), two sections at a time. */
     check("the idle prefetch has no timeout, starts after load, and skips Save-Data and 2g", /afterLoad\(\)\.then\(start\)/.test(src) && /saveData/.test(src) && !/timeout: 4000/.test(src) && /LAZY_PREFETCH_LATEST_MS\)/.test(src))
     check("insertSectionStyles does nothing on the server", (insertSectionStyles([{ href: "x", precedence: "default", css: "" }]), true))
@@ -231,7 +233,8 @@ async function main() {
   {
     const src = code("components/marketing/home/lazy-section.tsx")
     const { LAZY_DRAW_AHEAD } = await import("@/components/marketing/home/lazy-section")
-    check("a box is drawn a screen and a half ahead, with the containment content-visibility: auto gave it", LAZY_DRAW_AHEAD === "150% 0px 150% 0px" && /box\.style\.contentVisibility = e\.isIntersecting \? "visible" : "auto"/.test(src) && /box\.style\.contain = e\.isIntersecting \? "layout paint style" : ""/.test(src))
+    /* Changed on purpose (landing round 9): two and a half screens ahead (it was one and a half). */
+    check("a box is drawn two and a half screens ahead, with the containment content-visibility: auto gave it", (LAZY_DRAW_AHEAD as string) === "250% 0px 250% 0px" && /box\.style\.contentVisibility = e\.isIntersecting \? "visible" : "auto"/.test(src) && /box\.style\.contain = e\.isIntersecting \? "layout paint style" : ""/.test(src))
     check("both kinds of box are drawn ahead (mounted sections and server-drawn LazySection)", (src.match(/watchDraw\(el\)/g) || []).length === 2)
     check("idle work waits until the page has stopped scrolling", /const CALM_MS = \d+/.test(src) && /since < CALM_MS/.test(src) && /addEventListener\("scroll", \(\) => \(lastScroll = performance\.now\(\)\), \{ passive: true, capture: true \}\)/.test(src))
     check("the idle chain mounts the waiting section nearest the screen first", /farness\(a\) - farness\(b\)/.test(src))

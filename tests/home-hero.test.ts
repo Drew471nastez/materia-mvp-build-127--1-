@@ -60,12 +60,11 @@ assert.ok(
   ),
 )
 assert.ok(!existsSync("components/marketing/hero-carousel.tsx"))
-assert.ok(
-  HERO_VIDEO.src.startsWith(
-    "https://skgtqglupjcnfhfscink.supabase.co/storage/",
-  ),
-)
-assert.ok(statSync("public" + HERO_VIDEO.poster).size < 50000)
+// Changed on purpose (landing round 9): the film is served from this site, re-encoded from the supplied one (kept as `original`), small and with its index first, so it can start at once; each cut has its own first frame as the poster.
+assert.ok(HERO_VIDEO.original.startsWith("https://skgtqglupjcnfhfscink.supabase.co/storage/"))
+assert.ok(HERO_VIDEO.src.startsWith("/marketing/hero/") && HERO_VIDEO.phoneSrc.startsWith("/marketing/hero/"))
+assert.ok(statSync("public" + HERO_VIDEO.src).size < 3_200_000 && statSync("public" + HERO_VIDEO.phoneSrc).size < 1_900_000)
+assert.ok(statSync("public" + HERO_VIDEO.poster).size < 50000 && statSync("public" + HERO_VIDEO.phonePoster).size < 50000)
 assert.ok(statSync("public/marketing/hero/cinematic-grain.png").size < 50000)
 const video = read("components/marketing/hero-video.tsx")
 for (const guard of [
@@ -116,7 +115,8 @@ assert.ok(
     'className="cinematic-period"',
   ),
 )
-assert.ok(HERO_VIDEO.src.includes("1794426925775466.mp4"))
+// Changed on purpose (landing round 9): the supplied film is the master the two served cuts are made from.
+assert.ok(HERO_VIDEO.original.includes("1794426925775466.mp4"))
 const showcase = read("components/marketing/build-showcase.tsx")
 /* Changed on purpose (wave 13): the owner's new showcase line, read from the showcase itself (not the Hero), below. */
 assert.equal(SHOWCASE_HEADING, "Build your page, sell your products, and manage everything in one place.")

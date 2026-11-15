@@ -1935,6 +1935,14 @@ export function PlatformHeaderClient({
     hero's buttons have gone under the bar they fade and rise in (the CSS is
     the hero's, components/marketing/hero.tsx). One observer and an attribute
     on the bar: no scroll listener, no state, no re-render.
+
+    Landing round 9, the owner: on a phone "the Start now button should
+    appear after I go past the second section (the showcase under the hero),
+    very smooth and clean, unobservable". So on a phone (the bar's phone row,
+    below 768px) the thing watched is the showcase, and the button comes in
+    when its foot has gone under the bar; a computer still watches the hero's
+    buttons. The same observer watches both and the width is asked when it
+    reports, so a turned phone needs no listener.
   */
   useEffect(() => {
     const el = headerRootRef.current
@@ -1944,16 +1952,21 @@ export function PlatformHeaderClient({
       el.setAttribute("data-home-cta", "shown")
       return () => el.removeAttribute("data-home-cta")
     }
-    /* The bar's own height, read once: the hero's buttons count as gone when they are under it. */
+    const showcase = document.querySelector("[data-build-showcase]")
+    const phone = matchMedia("(max-width: 767px)")
+    /* The bar's own height, read once: a block counts as gone when all of it is under the bar. */
     const top = Math.round(el.offsetHeight)
+    const gone = new Map<Element, boolean>()
     const io = new IntersectionObserver(
-      ([entry]) => {
-        const gone = !entry.isIntersecting && entry.boundingClientRect.top < (entry.rootBounds?.top ?? top)
-        el.setAttribute("data-home-cta", gone ? "shown" : "hidden")
+      (entries) => {
+        for (const entry of entries) gone.set(entry.target, !entry.isIntersecting && entry.boundingClientRect.top < (entry.rootBounds?.top ?? top))
+        const watched = phone.matches && showcase ? showcase : cta
+        el.setAttribute("data-home-cta", gone.get(watched) ? "shown" : "hidden")
       },
       { rootMargin: `-${top}px 0px 0px 0px` },
     )
     io.observe(cta)
+    if (showcase) io.observe(showcase)
     return () => {
       io.disconnect()
       el.removeAttribute("data-home-cta")

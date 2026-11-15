@@ -13,9 +13,9 @@
  *       it moves when it arrives) and imports the section when the box comes
  *       within LAZY_AHEAD of the screen, or earlier, within LAZY_IDLE_AHEAD,
  *       when the browser is idle. It is drawn as a React transition, so the
- *       render is sliced between frames. Once the page has loaded and the
- *       browser is idle, the code is fetched ahead one section at a time and
- *       its stylesheets put in <head> (`styles`, see SectionStyle), so a fast
+ *       render is sliced between frames. Every section's code is fetched as
+ *       soon as the page has painted (landing round 9); once the page has
+ *       loaded, the stylesheets are put in <head> (`styles`, see SectionStyle), so a fast
  *       flick to the bottom finds it ready and its mount adds no stylesheet.
  *       Defined in a client file (components/marketing/home/lazy-sections.tsx
  *       holds the home page's):
@@ -54,14 +54,19 @@ import { startTransition, useEffect, useRef, useState, useSyncExternalStore, typ
  * arrived, so a blank box scrolled into view. A section mounted this far
  * away costs little: its box skips it (content-visibility) until it is
  * near, so the mount is React's work only, sliced as a transition.
+ *
+ * Landing round 9 (the owner: "when I scroll too fast, sections appear as
+ * white blank containers"): four screens. A flick on a phone runs at six or
+ * seven screens a second, so two and a half screens was a third of a second
+ * of warning, less than a mount takes on a busy phone.
  */
-export const LAZY_AHEAD = "250% 0px 250% 0px"
+export const LAZY_AHEAD = "400% 0px 400% 0px"
 /**
  * Further ahead, a section mounts when the browser is idle (a visitor
  * reading, not flicking), so the work of drawing it rarely lands in a frame
  * of a scroll. LAZY_AHEAD still mounts it at once if it gets that close first.
  */
-export const LAZY_IDLE_AHEAD = "500% 0px 500% 0px"
+export const LAZY_IDLE_AHEAD = "800% 0px 800% 0px"
 /**
  * How far ahead a mounted section (and a server-drawn LazySection) stops
  * being skipped and is drawn. Wave 14: left to content-visibility: auto, the
@@ -71,8 +76,11 @@ export const LAZY_IDLE_AHEAD = "500% 0px 500% 0px"
  * section arrived blank and filled in after it was already on screen.
  * Drawn a screen and a half ahead, its pictures are painted and rastered
  * before it gets there, and a fling never outruns them.
+ *
+ * Landing round 9: two and a half screens (it was one and a half), for the
+ * same reason as LAZY_AHEAD.
  */
-export const LAZY_DRAW_AHEAD = "150% 0px 150% 0px"
+export const LAZY_DRAW_AHEAD = "250% 0px 250% 0px"
 /** How long after the load event the idle prefetch starts, so it never competes with the hero or a first tap. */
 export const LAZY_PREFETCH_AFTER_MS = 1000
 /**
@@ -82,6 +90,23 @@ export const LAZY_PREFETCH_AFTER_MS = 1000
  * sections' code (a few kilobytes each) waited with it.
  */
 export const LAZY_PREFETCH_LATEST_MS = 2500
+/**
+ * Landing round 9: the sections' code alone (no styles, no mount) is fetched
+ * as soon as the page has painted and the browser has a free moment, and at
+ * the latest this long after the page came alive, scrolling or not. It was
+ * part of the idle prefetch above, which waits for the load event and for
+ * the page to stop scrolling: a visitor who started scrolling at once and
+ * kept going reached boxes whose code had not even been asked for.
+ */
+export const LAZY_CODE_LATEST_MS = 700
+/**
+ * Landing round 9: how long the work that follows (a section's styles, its
+ * mount, a slice of its layout) waits for the page to stop scrolling before
+ * it goes ahead anyway. With no limit, a visitor who never paused got none of
+ * it, and every section was then built in the frame that brought it on
+ * screen: the blank boxes and the stutter on reaching a section.
+ */
+export const LAZY_BUSY_WAIT_MS = 450
 /** An idle slot shorter than this is passed over: fetching and running a section's code needs room. */
 const IDLE_ROOM_MS = 12
 /**
@@ -171,7 +196,7 @@ const idle: Idle = (cb, timeout) => {
   ask()
 }
 
-type Loader = (() => Promise<unknown>) & { box?: Element }
+type Loader = (() => Promise<unknown>) & { box?: Element; code?: () => Promise<unknown> }
 const loaders = new Set<Loader>()
 let prefetchScheduled = false
 let settled: Promise<void> | null = null
@@ -215,11 +240,11 @@ function farness(el: Element) {
  */
 function mountNext(deadline?: IdleDeadline) {
   if (!waiting.size) return
-  if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(mountNext)
+  if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(mountNext, LAZY_BUSY_WAIT_MS)
   const [el, mount] = [...waiting].sort(([a], [b]) => farness(a) - farness(b) || (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))[0]
   waiting.delete(el)
   /* After it has drawn (two frames), wait for the next idle slot. */
-  void mount().finally(() => requestAnimationFrame(() => requestAnimationFrame(() => idle(mountNext))))
+  void mount().finally(() => requestAnimationFrame(() => requestAnimationFrame(() => idle(mountNext, LAZY_BUSY_WAIT_MS))))
 }
 
 /*
@@ -311,14 +336,14 @@ function layOutInSlices(box: HTMLElement, done: () => void): () => void {
     void inner.getBoundingClientRect()
     const took = performance.now() - t
     per = per === 0 ? 1 : took < 12 ? per * 2 : took > 30 ? Math.max(1, per >> 1) : per
-    if (next < groups.length) idle(step)
+    if (next < groups.length) idle(step, LAZY_BUSY_WAIT_MS)
     else {
       finish()
       done()
     }
   }
   slicing.set(box, finish)
-  idle(step)
+  idle(step, LAZY_BUSY_WAIT_MS)
   return finish
 }
 
@@ -350,7 +375,8 @@ function watchDraw(el: HTMLElement) {
 /**
  * After load, when the browser is idle: fetch every lazy section's code and
  * put its styles in place, one section per roomy idle slot, in page order.
- * Only real idle time (no timeout), so it never delays a frame or a tap.
+ * Landing round 9: each step waits for a calm idle slot for at most
+ * LAZY_BUSY_WAIT_MS, so a visitor who never stops scrolling still gets it.
  */
 function schedulePrefetch() {
   if (prefetchScheduled || typeof window === "undefined") return
@@ -376,16 +402,40 @@ function schedulePrefetch() {
           .catch(() => undefined)
           .finally(() => {
             running--
-            idle(next)
+            idle(next, LAZY_BUSY_WAIT_MS)
           })
       }
       if (!running && !queue.length && !done) {
         done = true
-        idle(mountNext)
+        idle(mountNext, LAZY_BUSY_WAIT_MS)
       }
     }
-    idle(next)
+    idle(next, LAZY_BUSY_WAIT_MS)
   }
+  /* Landing round 9: the code first, three sections at a time in the page's order, once the page has painted (two frames) and has a free moment. */
+  const code = () => {
+    const queue = [...loaders]
+    let running = 0
+    const next = () => {
+      while (running < 3 && queue.length) {
+        const load = queue.shift()!
+        running++
+        void (load.code ? load.code() : Promise.resolve())
+          .catch(() => undefined)
+          .finally(() => {
+            running--
+            next()
+          })
+      }
+    }
+    next()
+  }
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(code, { timeout: LAZY_CODE_LATEST_MS })
+      else window.setTimeout(code, 200)
+    }),
+  )
   void afterLoad().then(start)
 }
 
@@ -413,6 +463,7 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
       : Promise.resolve())
   /* The prefetch: the code, then (in an idle slot of its own) the styles. `box` is the section's box once drawn, so the nearest is fetched first. */
   const loader: Loader = () => get().then(style)
+  loader.code = get
   loaders.add(loader)
 
   function LazySectionMount(props: P) {
@@ -478,7 +529,7 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
           far.disconnect()
           void afterLoad()
             .then(style)
-            .then(() => idle(() => live && mount(), 1500))
+            .then(() => idle(() => live && mount(), LAZY_BUSY_WAIT_MS))
         },
         { rootMargin: LAZY_IDLE_AHEAD },
       )

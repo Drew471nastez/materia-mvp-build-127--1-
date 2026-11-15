@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { freezeHeroGeometry } from "@/lib/marketing/hero-geometry"
-import { HERO_VIDEO } from "@/lib/marketing/hero-video"
+import { HERO_VIDEO, heroVideoSource } from "@/lib/marketing/hero-video"
 
 type Connection = EventTarget & { saveData?: boolean; effectiveType?: string }
 
@@ -90,7 +90,7 @@ export function HeroVideo() {
       if (failed) return
       if (!video.hasAttribute("src")) {
         video.muted = true
-        video.src = HERO_VIDEO.src
+        video.src = heroVideoSource()
         video.load()
       }
       // An intersection/focus/pageshow update need not issue another play()
@@ -338,19 +338,25 @@ export function HeroVideo() {
   return (
     <>
       <div className="cinematic-media" aria-hidden="true">
-        {/* A local poster paints before hydration, even if the CDN or autoplay fails. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          className="cinematic-poster"
-          src={HERO_VIDEO.poster}
-          alt=""
-          width={1600}
-          height={900}
-          fetchPriority="high"
-        />
+        {/* Landing round 9: the poster is the film's own first frame (the phone cut's on a phone), so the first paint is the picture and the film takes over from the same pixels. It paints before hydration and stays if autoplay is refused. */}
+        <picture>
+          <source media={HERO_VIDEO.phoneMedia} srcSet={HERO_VIDEO.phonePoster} width={720} height={1080} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="cinematic-poster"
+            src={HERO_VIDEO.poster}
+            alt=""
+            width={1600}
+            height={900}
+            fetchPriority="high"
+            decoding="sync"
+          />
+        </picture>
         <video
           ref={ref}
           data-video-src={HERO_VIDEO.src}
+          data-video-src-phone={HERO_VIDEO.phoneSrc}
+          data-video-phone-media={HERO_VIDEO.phoneMedia}
           suppressHydrationWarning
           className="cinematic-video"
           data-ready={ready}
