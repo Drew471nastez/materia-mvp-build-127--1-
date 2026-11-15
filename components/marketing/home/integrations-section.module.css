@@ -9,33 +9,36 @@
 }
 
 /*
-  The rows run the page's full width, and what is seen of them is never
-  wider than 1210px: past that the fades are solid white. Each row's set is
-  wider than 1210px plus one tile (integrations-section.tsx), so no icon is
-  seen twice. Landing round: the tiles are a fifth smaller (90px, 67px on a
-  phone). Landing round 4, the owner: the fades were too strong and too
-  wide, so they are a fifth narrower and lighter, and the seen strip is
-  wider, so the rows read as the page's full width.
+  The rows run the page's full width. Landing round 7, the owner: the icons
+  themselves run edge to edge too ("like the actual icons to be full width"),
+  with only a short fade at each end of the screen; there is no solid white
+  strip past 1210px any more. So that no icon is seen twice, a tile and its
+  gap take at least 1/10.5 of the screen's width (integrations-section.tsx):
+  on a wide screen the gap grows and the icons spread out. The tiles are
+  90px, 67px on a phone (landing round: a fifth smaller).
 */
 .rows {
   position: relative;
   display: grid;
-  --solid: max(0px, calc((100vw - 1210px) / 2));
   /* The rows' own overlap, given back, so the fades cover every shadow. */
-  padding-block: calc(var(--room) - (var(--gap) + 4px) / 2);
-  --tile: 90px;
-  --gap: 20px;
+  padding-block: calc(var(--room) - (var(--row-gap) + 4px) / 2);
+  /* 90px, growing a little past 1600px wide so the icons hold their own across a wide screen. */
+  --tile: clamp(90px, 5.6vw, 116px);
+  --gap: max(20px, calc(100vw / 10.5 - var(--tile)));
+  /* Space between the two rows: the old tile gap, not the spread one. */
+  --row-gap: clamp(20px, 1.6vw, 30px);
   /* Room above and below each row for a tile's shadow and lift (the row clips sideways). */
   --room: 24px;
 }
 @media (max-width: 639px) {
   .rows {
     --tile: 67px;
-    --gap: 10px;
+    --gap: max(10px, calc(100vw / 10.5 - var(--tile)));
+    --row-gap: 10px;
     --room: 20px;
   }
 }
-/* The rows fade into the page at both ends, over their full height, shadows included. */
+/* The rows fade into the page at both ends of the screen, over their full height, shadows included. */
 .rows::before,
 .rows::after {
   content: "";
@@ -43,18 +46,16 @@
   top: 0;
   bottom: 0;
   z-index: 2;
-  /* An eased fade, wide enough that a tile melts into the page rather than being cut (round 54), a fifth narrower than it was (landing round 4: "too strong"). */
-  --ramp: clamp(45px, 9.6vw, 152px);
-  width: calc(var(--solid) + var(--ramp));
+  width: clamp(40px, 11vw, 220px);
   pointer-events: none;
 }
 .rows::before {
   left: 0;
-  background: linear-gradient(90deg, #fff var(--solid), rgba(255, 255, 255, 0.8) calc(var(--solid) + var(--ramp) * 0.18), rgba(255, 255, 255, 0.56) calc(var(--solid) + var(--ramp) * 0.38), rgba(255, 255, 255, 0.32) calc(var(--solid) + var(--ramp) * 0.6), rgba(255, 255, 255, 0.12) calc(var(--solid) + var(--ramp) * 0.82), rgba(255, 255, 255, 0));
+  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0.8) 18%, rgba(255, 255, 255, 0.5) 42%, rgba(255, 255, 255, 0.2) 70%, rgba(255, 255, 255, 0));
 }
 .rows::after {
   right: 0;
-  background: linear-gradient(270deg, #fff var(--solid), rgba(255, 255, 255, 0.8) calc(var(--solid) + var(--ramp) * 0.18), rgba(255, 255, 255, 0.56) calc(var(--solid) + var(--ramp) * 0.38), rgba(255, 255, 255, 0.32) calc(var(--solid) + var(--ramp) * 0.6), rgba(255, 255, 255, 0.12) calc(var(--solid) + var(--ramp) * 0.82), rgba(255, 255, 255, 0));
+  background: linear-gradient(270deg, #fff, rgba(255, 255, 255, 0.8) 18%, rgba(255, 255, 255, 0.5) 42%, rgba(255, 255, 255, 0.2) 70%, rgba(255, 255, 255, 0));
 }
 
 .row {
@@ -62,8 +63,8 @@
   z-index: 1;
   overflow: hidden;
   padding-block: var(--room);
-  /* Rows overlap by their room, so the tiles sit --gap + 4px apart, not two rooms. */
-  margin-block: calc((var(--gap) + 4px - 2 * var(--room)) / 2);
+  /* Rows overlap by their room, so the tiles sit --row-gap + 4px apart, not two rooms. */
+  margin-block: calc((var(--row-gap) + 4px - 2 * var(--room)) / 2);
 }
 /* Each tile carries its own gap on the right (no flex gap), so the two
    copies are two equal halves and one loop is exactly -50%. */
@@ -185,10 +186,14 @@
     flex-wrap: wrap;
     justify-content: center;
     width: auto;
-    row-gap: var(--gap);
+    row-gap: var(--row-gap);
   }
   .track > [data-copy] {
     display: none;
+  }
+  /* Standing still, the icons sit at the close gap again (the spread one is only there to keep a moving row from showing an icon twice). */
+  .tile {
+    margin-right: var(--row-gap);
   }
   .rows::before,
   .rows::after {

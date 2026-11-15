@@ -79,23 +79,25 @@ async function main() {
     /* Changed on purpose (landing round, the owner: "keep only 2 rows, not 3"). */
     check("two rows: left, right", MARQUEE_ROWS.map((r) => r.direction).join() === "left,right" && (html.match(/class="um-row"/g) ?? []).length === 2)
     const labels = MARQUEE_ROWS.flatMap((r) => r.items.map((i) => i.label))
-    check("at least 36 different things, none twice", labels.length >= 36 && new Set(labels).size === labels.length, labels.length)
+    /* Changed on purpose (landing round 7, the owner: photos and words as in the reference, not pills): fewer, larger things, 18 in all. */
+    check("at least 16 different things, none twice", labels.length >= 16 && new Set(labels).size === labels.length, labels.length)
     check("each row is three identical copies, two hidden from screen readers", (html.match(/<ul class="um-copy"/g) ?? []).length === 6 && (html.match(/<ul class="um-copy" aria-hidden="true"/g) ?? []).length === 4)
-    /* Changed on purpose (wave 13): the owner wanted the emoji back, the way the chips looked before wave 12, in place of the drawn icons. */
-    check("every chip has its emoji", (html.match(/class="um-chip"/g) ?? []).length === labels.length * 3 && (html.match(/<span class="um-emoji" aria-hidden="true">/g) ?? []).length === labels.length * 3 && !/<svg/.test(html))
-    check("each emoji is one picture, different in every row", MARQUEE_ROWS.every((r) => r.items.every((i) => /^\p{Extended_Pictographic}/u.test(i.emoji)) && new Set(r.items.map((i) => i.emoji)).size === r.items.length))
+    /* Changed on purpose (landing round 7): each thing is a photograph and its name, no emoji, no pill. */
+    check("every item has its photo", (html.match(/class="um-item"/g) ?? []).length === labels.length * 3 && (html.match(/<span class="um-pic"/g) ?? []).length === labels.length * 3 && !/<svg/.test(html) && !/um-chip|um-emoji/.test(src))
+    check("each photo different in every row", MARQUEE_ROWS.every((r) => new Set(r.items.map((i) => i.photo)).size === r.items.length))
     check("communities, never memberships", labels.includes("Communities") && !labels.includes("Memberships"))
     check("the loop moves by exactly one copy, with transform only", /@keyframes um-left\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(calc\(-100% \/ 3\),0,0\)\}\}/.test(src) && !/@keyframes um-[a-z]+\{[^}]*\b(left|margin|width):/.test(src))
-    check("copies are spaced by the chip's own margin, not a gap on the track", /\.um-track\{display:flex;width:max-content;/.test(src) && !/\.um-track\{[^}]*gap:/.test(src) && /\.um-chip\{[^}]*margin-right:12px/.test(src))
+    /* Changed on purpose (landing round 7): the items are spaced generously, as in the owner's reference. */
+    check("copies are spaced by the item's own margin, not a gap on the track", /\.um-track\{display:flex;width:max-content;/.test(src) && !/\.um-track\{[^}]*gap:/.test(src) && /\.um-item\{[^}]*margin-right:clamp\(44px,5\.4vw,104px\)/.test(src))
     check("edge to edge: the rows escape the page's 1400px column", /\[data-landing-story\] \[data-story-section\] > \.um-rows,\.um-rows\{max-width:none;margin:0;padding:0/.test(src))
     /* Changed on purpose (wave 13): a row under the mouse glides to a stop (its animation's playback rate eased) instead of freezing, and the purple hover is gone. */
     check("pauses off screen and in a background tab", /\.um\[data-um-paused\] \.um-track/.test(src) && /new IntersectionObserver/.test(src) && /document\.hidden/.test(src))
     check("a row under the mouse eases to a stop and back, on the compositor", /addEventListener\("pointerenter"/.test(src) && /easeRow\(track, 0,/.test(src) && /easeRow\(track, 1,/.test(src) && /updatePlaybackRate/.test(src) && !/\.um-row:hover \.um-track/.test(src))
-    /* Changed on purpose (wave 13 perf): the lift is a 2D transform and a chip at rest has none, so the 114 chips are no longer a compositor layer each. */
-    check("the chip under the mouse lifts with transform, its shadow fades by opacity, no purple", /\.um-chip:hover\{z-index:1;transform:translate\(0,-3px\) scale\(1\.06\)/.test(src) && !/\.um-chip\{[^}]*translate3d/.test(src) && /\.um-chip:hover::after\{opacity:1\}/.test(src) && !/\.um-chip\{[^}]*transition:[^}]*(border-color|box-shadow)/.test(src) && !/124,\s*58,\s*237|#d6c8fb|violet/i.test(src))
+    /* Changed on purpose (landing round 7): no pill to lift any more; a photo's tilt is a 2D transform that never changes, so no item is a compositor layer of its own. */
+    check("an item at rest has no 3D transform and nothing purple", !/\.um-(item|pic)\{[^}]*translate3d/.test(src) && !/\.um-(item|pic)\{[^}]*transition/.test(src) && !/124,\s*58,\s*237|#d6c8fb|violet/i.test(src))
     check("reduced motion: still, one copy, wrapped and centred", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.um-track\{animation:none[\s\S]*\.um-copy\{flex:1 1 auto;flex-wrap:wrap;justify-content:center[\s\S]*\.um-copy\[aria-hidden\]\{display:none\}/.test(src))
-    /* Changed on purpose (wave 13): the emoji are back, beside the words (never inside them). */
-    check("the words carry no emoji; the emoji sit beside them", !/\p{Extended_Pictographic}/u.test(labels.join("")) && /emoji:/.test(src))
+    /* Changed on purpose (landing round 7): the photos sit beside the words; no emoji anywhere. */
+    check("the words carry no emoji", !/\p{Extended_Pictographic}/u.test(labels.join("")) && !/emoji:/.test(src))
   }
 
   console.log("\nThe closing call")
@@ -211,7 +213,8 @@ async function main() {
     /* Changed on purpose (wave 13): the owner wants the showcase heading inked by the scroll again, like the others, so it is no longer kept out of the scroll-driven animation. */
     check("the script keeps only headings inside a scrolling box; the showcase heading inks from the scroll too", !/hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading) && !/data-story-showcase\]\):not/.test(css) && !/"--story-progress": 1/.test(heading))
     const creators = code("components/marketing/home/creators-carousel.tsx")
-    check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(goal\)/.test(creators))
+    /* Changed on purpose (landing round 7): the speed the rail settles at is now `want` (goal is the function that works it out). */
+    check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(want\)/.test(creators))
     /* Changed on purpose (landing round): the sale notification is gone (the owner found it AI looking), so only the rail itself is checked. */
     check("the creators section runs no endless CSS loop of its own", !/infinite/.test(creators) && !existsSync("components/marketing/home/motion/sale-pop.tsx"))
     for (const f of ["how-it-works", "earnings-calculator"]) {

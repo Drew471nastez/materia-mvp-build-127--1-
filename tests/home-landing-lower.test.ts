@@ -35,7 +35,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { AudienceOwnership } from "@/components/marketing/home/audience-ownership"
 import { AnalyticsShowcase } from "@/components/marketing/home/analytics-showcase"
 import { SellEverywhereMap, SELL_COUNTRIES, SELL_PAST_ORDERS, SELL_MAP, sellMapLand } from "@/components/marketing/home/sell-everywhere-map"
-import { IntegrationsSection, INTEGRATION_ROW_SIZES, INTEGRATION_SEEN_MAX, INTEGRATION_TILE_STEP, PLATFORM_INTEGRATION_APPS } from "@/components/marketing/home/integrations-section"
+import { IntegrationsSection, INTEGRATION_ROW_SIZES, INTEGRATION_STEP_SHARE, PLATFORM_INTEGRATION_APPS } from "@/components/marketing/home/integrations-section"
 
 let passed = 0
 let failed = 0
@@ -131,8 +131,10 @@ console.log("\n── integrations ──")
   const css = read(`${DIR}/integrations-section.module.css`)
   const html = renderToStaticMarkup(createElement(IntegrationsSection))
   check("two rows", INTEGRATION_ROW_SIZES.length === 2 && (html.match(/class="[^"]*\brow\b/g) ?? []).length >= 2)
-  check("tiles a fifth smaller: 90px, 67px on a phone", /--tile: 90px;/.test(css) && /--tile: 67px;/.test(css))
-  check("no tile is ever seen twice: each row's set is wider than the most ever seen plus one tile", INTEGRATION_ROW_SIZES.every((n) => n * INTEGRATION_TILE_STEP >= INTEGRATION_SEEN_MAX + INTEGRATION_TILE_STEP) && new RegExp(`100vw - ${INTEGRATION_SEEN_MAX}px`).test(css) && /\[0, 1\]\.flatMap/.test(src) && /translate3d\(-50%, 0, 0\)/.test(css))
+  /* Changed on purpose (landing round 7): the owner wanted the icons full width, so past 1600px they grow a little (116px at most). */
+  check("tiles a fifth smaller: 90px, 67px on a phone", /--tile: clamp\(90px, 5\.6vw, 116px\);/.test(css) && /--tile: 67px;/.test(css))
+  /* Changed on purpose (landing round 7): the rows are seen across the whole screen, so a tile and its gap take at least 1/10.5 of it; a set of n tiles is (n - 1) / 10.5 screens plus a tile. */
+  check("no tile is ever seen twice: each row's set is wider than the screen plus one tile", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1) && /--gap: max\(20px, calc\(100vw \/ 10\.5 - var\(--tile\)\)\);/.test(css) && /--gap: max\(10px, calc\(100vw \/ 10\.5 - var\(--tile\)\)\);/.test(css) && /\[0, 1\]\.flatMap/.test(src) && /translate3d\(-50%, 0, 0\)/.test(css))
   check("every app once per set", new Set(PLATFORM_INTEGRATION_APPS.map((a) => a.name)).size === PLATFORM_INTEGRATION_APPS.length)
   check("no light follows the pointer (nothing to cut, nothing measured)", !/data-glow|data-spot|\.glow|\.spot|pointermove|getBoundingClientRect/.test(src + css))
   check("the shadows have room and the fades run the rows' full height", /padding-block: var\(--room\)/.test(css) && /\.rows::before,\s*\.rows::after \{[\s\S]*?top: 0;\s*bottom: 0;/.test(css) && /padding-block: calc\(var\(--room\)/.test(css))
