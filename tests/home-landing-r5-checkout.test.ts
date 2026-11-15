@@ -61,7 +61,8 @@ check("no payment is stepped through by the scroll", !/Payment complete|data-ste
 
 console.log("\nSmooth: the phone is there, then the cards come up over it with the page")
 // Changed on purpose (landing round 7): the products ride a ring around the phone again, at the owner's ask; still no scroll timeline and no blurred twins.
-check("no scroll timeline; the ring is back without blurred pictures", !/view-timeline|animation-timeline|timeline-scope/.test(src) && /cmc-orbit|cmc-lap/.test(src) && !existsSync("public/home/commerce/float-ebook.webp") && !existsSync("public/home/commerce/float-cap-blur.webp"))
+// Changed on purpose (landing round 8): the owner's recording turns the products as the page scrolls (tests/home-landing-r8-checkout.test.ts).
+check("the objects turn with the page on a scroll timeline (transform only); no blurred pictures", /view-timeline:--cmc-t block/.test(src) && /cmc-orbit/.test(src) && !existsSync("public/home/commerce/float-ebook.webp") && !existsSync("public/home/commerce/float-cap-blur.webp") && !/filter:\s*blur/.test(src))
 check("one observer, no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 1 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
 // Changed on purpose (landing round 7): each part (headline, phone, cards) is armed on its own attribute.
 check("armed only while a part is wholly below the screen, so a part mounted on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /if \(root\.hasAttribute\(`\$\{attr\}-armed`\)\) root\.setAttribute\(attr, ""\)/.test(src))
@@ -74,28 +75,37 @@ check("the stage is held by sticky for 80svh, the cards pulled up 64svh: 16svh o
 check("the phone is a little bigger on a computer (up to 390px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{--hd:68px;[^}]*--pw:min\(390px,/.test(css))
 // Changed on purpose (landing round 7): One-tap is the page's Apple Pay, the wallet's sheet and Payment complete.
 check("the One-tap demo's moves are transform and opacity", ["pc-press", "ap-sheet", "ap-done", "pc-paid"].every((k) => keyframes(k) && onlyCompositor(keyframes(k))))
-check("a finger scrolling past does not hold the autoplay; a mouse over the cards does", /if \(e\.pointerType === "mouse"\) setHeld\(on\)/.test(src))
+// Changed on purpose (landing round 8): no tabs and no autoplay: the four demos are cards, each running while it is on screen.
+check("nothing plays by itself on a timer: no autoplay to hold", !/setTimeout|setInterval/.test(src))
 check("reduced motion: nothing held, nothing moving", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{height:auto\}\s*\.cmc\[data-story-section\] > \.cmc-cards\.cmc-cards\{margin-top:0\}/.test(css) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(css))
 
 console.log("\nThe tabs are tabs again, not pills")
-check("four tab cards in a grid, four across on a computer, two by two on a phone", /\.cmc-tablist\{display:grid;grid-template-columns:repeat\(4,1fr\);gap:12px\}/.test(css) && /@media \(max-width:899px\)\{\s*\.cmc-tablist\{grid-template-columns:repeat\(2,1fr\);gap:10px\}/.test(css))
-check("  each a dark card with its label, a figure and a line that fills", (co.match(/class="cmc-tab-l"/g) ?? []).length === 4 && (co.match(/class="cmc-tab-s"/g) ?? []).length === 4 && (co.match(/class="cmc-tab-bar"/g) ?? []).length === 4 && /border-radius:21px;background:rgba\(24,24,27,\.94\)/.test(rule(".cmc-tab")))
-check("  no pill anywhere in the tabs", !/999px/.test(rule(".cmc-tab") + rule(".cmc-tablist")) && !/\.cmc-tab::before/.test(css))
+// Changed on purpose (landing round 8): the tabs became a grid of cards that slides up over the phone, as in the owner's recording.
+check("four cards in a grid, two across on a computer, a row to swipe on a phone", /\.cmc-bento\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:16px\}/.test(css) && /scroll-snap-type:x mandatory/.test(css))
+// Changed on purpose (landing round 8): cards, not tabs.
+check("  each a dark card with its label, its title, a line and its demo", (co.match(/class="cmc-card-l"/g) ?? []).length === 4 && (co.match(/class="cmc-vis"/g) ?? []).length === 4 && /border-radius:28px;background:#111113/.test(rule(".cmc-card")))
+// Changed on purpose (landing round 8): cards, not tabs.
+check("  no pill anywhere in the cards", !/999px/.test(rule(".cmc-card") + rule(".cmc-bento")))
 
 console.log("\nBuilt to convert: the desktop checkout, whole, on any screen")
-check("the window keeps its shape and fits its box (container of size, every corner round), on a phone too", /\.cdx\{position:absolute;left:3%;right:3%;top:50%;aspect-ratio:var\(--ar,880\/700\);transform:translateY\(-50%\);container-type:size\}/.test(css) && /border-radius:calc\(12\*var\(--u\)\);/.test(rule(".cdx-win")) && /\.cdx\{--ar:880\/1000\}/.test(css))
+// Changed on purpose (landing round 8): on a phone the card draws the same checkout as a phone lays it out (.mcx) in place of the window.
+check("the window keeps its shape and fits its box (container of size, every corner round)", /\.cdx\{position:absolute;left:3%;right:3%;top:50%;aspect-ratio:var\(--ar,880\/700\);transform:translateY\(-50%\);container-type:size\}/.test(css) && /border-radius:calc\(12\*var\(--u\)\);/.test(rule(".cdx-win")))
 check("  the round 4 crop (150% wide, cut on the left) is gone", !/width:150%/.test(css) && !/@container \(max-width:560px\)/.test(css))
 check("  its page scrolls only as far as its own window needs to show Pay", /--vh:calc\(100cqh - calc\(38\*var\(--u\)\)\);--s1:min\(calc\(330\*var\(--u\)\),max\(0px,calc\(1012\*var\(--u\)\) - var\(--vh\)\)\);--s2:max\(0px,calc\(1012\*var\(--u\)\) - var\(--vh\)\)/.test(css))
 // Changed on purpose (landing round 7): Maren Holt's shop.
-check("  both columns, the order and the form", ["Pay Maren Holt", "Total due", "Contact information", "Shipping method", "Powered by Stripe"].every((t) => words(co).includes(t)))
+// Changed on purpose (landing round 8): Mara Quinn's shop.
+check("  both columns, the order and the form", ["Pay Mara Quinn", "Total due", "Contact information", "Shipping method", "Powered by Stripe"].every((t) => words(co).includes(t)))
 
 console.log("\nThe product")
 // Changed on purpose (landing round 7): the owner: not The Loop; Maren Holt's Harbor Cardigan pattern, a real photograph.
-check("not After Dark, not The Loop: Maren Holt's pattern, its picture a real file under 60 KB", !/After Dark|ebook-night|ebook-cover/.test(src + co) && GUIDE.author === "Maren Holt" && co.includes("/home/commerce/maren-pattern.webp") && statSync("public/home/commerce/maren-pattern.webp").size < 60 * 1024)
+// Changed on purpose (landing round 8): the owner: the Cine Tones LUT pack with the cover from Sell what you make (ebook-cover.tsx draws it).
+check("not After Dark, not The Loop: the Cine Tones LUT Pack on its cover", !/After Dark|ebook-night/.test(src + co) && GUIDE.title === "Cine Tones LUT Pack" && GUIDE.author === "Mara Quinn" && co.includes("/home/everything/lut-still.webp"))
 // Changed on purpose (landing round 7): the physical product is the pattern's yarn kit.
-check("no cap: the physical product is the Harbor yarn kit, its picture under 60 KB", !/cap-yellow|Darkroom cap/.test(src + co) && words(co).includes("Harbor yarn kit") && statSync("public/home/commerce/maren-yarn-kit.webp").size < 60 * 1024)
+// Changed on purpose (landing round 8): the owner: "for the physical product, just a t-shirt".
+check("no cap: the physical product is a t-shirt, its picture under 60 KB", !/cap-yellow|Darkroom cap/.test(src + co) && words(co).includes("Midnight Studio Tee") && statSync("public/home/commerce/tee-thumb.webp").size < 60 * 1024)
 // Changed on purpose (landing round 7): the new photograph's Unsplash id.
-check("the photograph is credited to its Unsplash id in the code", /photo-1584992236310-6edddc08acff/.test(src))
+// Changed on purpose (landing round 8): the tee's photograph.
+check("the photograph is credited to its Unsplash id in the code", /photo-1618354691373-d851c5c3a990/.test(src))
 
 console.log("\nCopy")
 const all = words(co)

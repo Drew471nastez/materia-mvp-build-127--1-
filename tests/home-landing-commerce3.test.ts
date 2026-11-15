@@ -140,12 +140,13 @@ const loopS = Number(read(CO).match(/const LOOP_S = (\d+)/)![1])
 check("every demo loops: one cycle that repeats for as long as its panel is open and on screen", () => {
   assert.ok(new RegExp(`animation-duration:${loopS}s;animation-iteration-count:infinite`).test(coCss))
   /* Changed on purpose (landing round 4): the scene's own scroll-driven block comes first now; the demos' loops are the block keyed on the open panel. */
-  const live = [...coCss.matchAll(/@media \(prefers-reduced-motion:no-preference\)\{([\s\S]*?)\n\}/g)].map((m) => m[1]).find((b) => b.includes(".cmc-panel[data-on]"))!
+  // Changed on purpose (landing round 8): the demos are cards, each keyed on its own live attribute.
+  const live = [...coCss.matchAll(/@media \(prefers-reduced-motion:no-preference\)\{([\s\S]*?)\n\}/g)].map((m) => m[1]).find((b) => b.includes(".cmc-card[data-commerce-live]"))!
   const names = [...live.matchAll(/animation-name:([a-z0-9-]+)/g)].map((m) => m[1])
   assert.ok(names.length >= 30, String(names.length))
-  for (const line of live.split("\n").filter((l) => /animation-name/.test(l))) assert.ok(/^\s*\[data-commerce-live\] \.cmc-panel\[data-on\] /.test(line), line)
+  for (const line of live.split("\n").filter((l) => /animation-name/.test(l))) assert.ok(/^\s*\.cmc-card\[data-commerce-live\] /.test(line), line)
   /* Nothing in a demo plays once and stops. */
-  assert.ok(!/\.cmc-panel\[data-on\] [^{]*\{animation:[^}]* both [\d.]+s\}/.test(coCss))
+  assert.ok(!/\.cmc-card\[data-commerce-live\] [^{]*\{animation:[^}]* both [\d.]+s\}/.test(coCss))
   assert.ok(!/\.cmv-[a-z0-9-]+[^{}]*\{[^}]*animation:[^}]*forwards/.test(coCss))
 })
 /* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again (the owner's ask); its loop fills the form, pays, and goes back to the top under the paid screen before it fades. */
@@ -161,7 +162,8 @@ check("Built to convert starts over: the paid screen and the seller's note leave
     assert.ok(/,100%\{opacity:0/.test(k), `${name} ends hidden`)
   }
   assert.ok(/100%\{transform:translate3d\(0,0,0\)\}/.test(kf("cdx-scroll")), "the page is back at its top")
-  assert.ok(/const AUTO_MS = LOOP_S \* 1000/.test(read(CO)))
+  // Changed on purpose (landing round 8): no autoplay: every card runs its own loop while it is on screen.
+  assert.ok(!/AUTO_MS|setTimeout/.test(read(CO)))
 })
 check("the demos move by transform and opacity only", () => {
   for (const m of coCss.matchAll(/@keyframes (cmv-[a-z0-9-]+)\{([\s\S]*?\})\}/g)) {
@@ -170,29 +172,31 @@ check("the demos move by transform and opacity only", () => {
   }
 })
 check("One-tap payments is a phone and nothing else", () => {
-  const panel = co.slice(co.indexOf('id="cmc-panel-tap"'), co.indexOf('id="cmc-panel-currency"'))
+  /* Changed on purpose (landing round 8): the demos are cards (data-k), not tab panels. */
+  const panel = co.slice(co.indexOf('data-k="tap"'), co.indexOf('data-k="currency"'))
   assert.equal((panel.match(/class="cmc-phone"/g) ?? []).length, 1)
   assert.ok(!/cmv-br|cmv-bar|cmv-url|cmv-page/.test(panel), "no browser")
   /* Changed on purpose (landing round 7): the phone is the full page checkout, its express Apple Pay button and then Apple Pay's own sheet. */
-  assert.ok(/Pay \$12\.00/.test(words(panel)) && /Confirm with Side Button/.test(words(panel)))
-  const convert = co.slice(co.indexOf('id="cmc-panel-convert"'), co.indexOf('id="cmc-panel-tap"'))
+  // Changed on purpose (landing round 8): the phone sells the Cine Tones LUT Pack ($29).
+  assert.ok(/Pay \$29\.00/.test(words(panel)) && /Confirm with Side Button/.test(words(panel)))
+  const convert = co.slice(co.indexOf('class="cdx"'), co.indexOf('class="mcx"'))
   assert.ok(/cdx-win/.test(convert) && !/class="cmc-phone"/.test(convert), "the browser is Built to convert's") /* Changed on purpose (landing round 4): the website checkout's window. */
 })
 /* Changed on purpose (landing round 5, the owner: "not pill shapes, should be tabs, how they were before"): the dark tab cards of 0724a74c1, no pills. */
-check("the tabs are dark tab cards, not pills: no coloured chips", () => {
-  const list = rule(coCss, ".cmc-tablist")
-  assert.ok(/display:grid/.test(list) && !/999px/.test(list))
-  assert.ok(/\.cmc-tab\{[^}]*border-radius:21px[^}]*background:rgba\(24,24,27,\.94\)/.test(coCss) && !/\.cmc-tab\{[^}]*999px/.test(coCss))
-  assert.equal((co.match(/role="tab"/g) ?? []).length, 4) /* Changed on purpose (landing round 4): four tabs. */
-  const tabs = co.slice(co.indexOf('role="tablist"'), co.indexOf('class="cmc-panels"'))
-  assert.ok(!/<svg|<img/.test(tabs))
+/* Changed on purpose (landing round 8): the tabs became four dark cards in a grid that slides up over the phone (the owner's recording); still no pills. */
+check("the demos are dark cards in a grid, not pills: no coloured chips", () => {
+  const grid = rule(coCss, ".cmc-bento")
+  assert.ok(/display:grid/.test(grid) && !/999px/.test(grid))
+  assert.ok(/\.cmc-card\{[^}]*border-radius:28px;background:#111113/.test(coCss) && !/\.cmc-card\{[^}]*999px/.test(coCss))
+  assert.equal((co.match(/class="cmc-card"/g) ?? []).length, 4)
+  assert.equal((co.match(/role="tab"/g) ?? []).length, 0)
 })
 check("on black the cards are dark surfaces: the panel, the price card, the email, the receipt, the seller's note", () => {
-  assert.ok(/\.cmc-panel\{[^}]*background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
-  /* Changed on purpose (landing round 4): the receipt card went with the fifth tab; the wallet rows of One-tap payments are dark cards too. */
-  assert.ok(/\.cmv-cc,\.cmv-mail,\.cmv-link\{[^}]*background:#1a1a1e/.test(coCss))
+  /* Changed on purpose (landing round 8): the cards are the surfaces (cmc-card), the price tiles (cv-tile) and the email dark on them; the wallet rows became the wallets' own black buttons. */
+  assert.ok(/\.cmc-card\{[^}]*background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
+  assert.ok(/\.cmv-mail\{[^}]*background:#1a1a1e/.test(coCss) && /\.cv-tile\{[^}]*background:#1a1a1e/.test(coCss))
   assert.ok(/\.cmv-sale\{[^}]*background:#26262b/.test(coCss))
-  for (const sel of [".cmv-cc", ".cmv-mail", ".cmv-link", ".cmv-sale", ".cmv-chips", ".cmc-vis"]) assert.ok(!/background:(#fff|#f[0-9a-f]{5}|rgba\(24[0-9],)/.test(rule(coCss, sel)), sel)
+  for (const sel of [".cv-tile", ".cmv-mail", ".tp-btn", ".cmv-sale", ".cv-chips", ".cmc-vis"]) assert.ok(!/background:(#fff|#f[0-9a-f]{5}|rgba\(24[0-9],)/.test(rule(coCss, sel)), sel)
 })
 check("the words in the reminder are the email's own, and the currencies are ones checkout charges in", () => {
   const tpl = read("lib/physical/email-templates.ts")
@@ -212,10 +216,11 @@ check("a mock takes no pointer and has no hover state; only the tabs are control
   /* The checkout's own stylesheet (the kit's, shared with the calculator's real chips, is not this section's). */
   const own = CHECKOUT_STYLES.find((x) => x.href === "w12-commerce-checkout")!.css.replace(/@media \(hover:hover\)\{/g, "")
   const hovers = [...own.matchAll(/([^{}]*):hover[^{]*\{/g)].map((m) => m[0])
-  assert.ok(hovers.length > 0 && hovers.every((h) => /^\.cmc-tab/.test(h.trim())), hovers.join(" | "))
+  /* Changed on purpose (landing round 8): no tabs, so nothing in the checkout has a hover state. */
+  assert.ok(hovers.length === 0, hovers.join(" | "))
   assert.ok(!/<(a|button|input|select)\b/.test(how), "no control in How it works")
   const buttons = co.match(/<button\b[^>]*>/g) ?? []
-  assert.ok(buttons.length === 4 && buttons.every((b) => /role="tab"/.test(b))) /* Changed on purpose (landing round 4): four tabs. */
+  assert.ok(buttons.length === 0) /* Changed on purpose (landing round 8): no tabs, no buttons; the cards are read and swiped, not pressed. */
   assert.ok(!/<(a|input|select)\b/.test(co))
 })
 
