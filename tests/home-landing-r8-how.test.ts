@@ -41,9 +41,11 @@ const keyframeBodies = (c: string) => [...c.matchAll(/@keyframes [\w-]+\{([\s\S]
 const onlyCompositor = (body: string) => [...body.matchAll(/[{;]([a-z-]+):/g)].every((x) => ["transform", "opacity", "animation-timing-function"].includes(x[1]))
 
 console.log("\n1. A t-shirt and the Cine Tones LUT pack")
-check("the two products are a plain tee and the LUT pack, physical then digital", HOW_PRODUCTS.map((p) => `${p.id}:${p.kind}:${p.name}`).join() === "tee:Physical:Linde Shop Tee,luts:Digital:Cine Tones LUT Pack")
+// Changed on purpose (landing round 9): the products card is gone (the owner: it repeated "Sell anything you make"); the two products are section 3's own, shown as the shop's top products.
+check("the two products are section 3's LUT pack and black tee", HOW_PRODUCTS.map((p) => `${p.id}:${p.name}`).join() === "luts:Cine Tones LUT Pack,tee:Midnight Studio Tee")
 check("no apron and no workbench plans anywhere in the file or on the page", !/apron|workbench|plans-bench|PlansCover/i.test(code + text) && !existsSync("public/home/how/apron.webp") && !existsSync("public/home/how/plans-bench.webp"))
-check("the tee is a local webp photograph under 120 KB, drawn in the card and on his website", existsSync("public/home/how/tee-white.webp") && statSync("public/home/how/tee-white.webp").size < 120 * 1024 && (how.match(/\/home\/how\/tee-white\.webp/g) ?? []).length === 2)
+// Changed on purpose (landing round 9): the tee is section 3's black Midnight Studio Tee (its file), in Top products and on his website; the white tee's picture is deleted.
+check("the tee is section 3's photograph, drawn in Top products and on his website", !existsSync("public/home/how/tee-white.webp") && existsSync("public/home/everything/tee.webp") && statSync("public/home/everything/tee.webp").size < 120 * 1024 && (how.match(/\/home\/everything\/tee\.webp/g) ?? []).length === 2)
 check("the pack's cover uses section 3's still, the file, not an import of section 3's component", HOW_LUTS.still === "/home/everything/lut-still.webp" && existsSync(`public${HOW_LUTS.still}`) && !/from "\.\/everything-in-one-place"/.test(src))
 check("the cover is section 3's: LUT Pack small, CINE / TONES big, in the card and on the shelf", (how.match(/<span class="cmh-lut[^"]*"><img src="\/home\/everything\/lut-still\.webp"[^>]*\/><span class="cmh-lut-tag">LUT Pack<\/span><span class="cmh-lut-name"><span>Cine<\/span><span>Tones<\/span><\/span><\/span>/g) ?? []).length === 2)
 const ev = (sel: string) => (evCss.match(new RegExp(`${sel.replace(/[.[\]()*+?^$|\\/]/g, "\\$&")}\\{([^}]*)\\}`)) ?? [])[1] ?? "x"
@@ -53,43 +55,53 @@ check("the cover's type and shade are section 3's numbers (21cqw heavy name, 7cq
   /left:7cqw;top:7cqw/.test(rule(".cmh-lut-tag")) && /letter-spacing:\.18em;text-transform:uppercase/.test(rule(".cmh-lut-tag")) &&
   /height:64%;object-fit:cover;object-position:50% 60%/.test(rule(".cmh-lut img")) && /background:#0a0a0b/.test(rule(".cmh-lut")) &&
   rule(".cmh-lut::after") === ev(".ev-lut::after") && rule(".cmh-lut::before") === ev(".ev-lut::before"))
-check("what he keeps is the price less Storelib's real fee and, for the tee, an example print cost", HOW_PRODUCTS.every((p) => p.keepCents === p.priceCents - calculateStorelibFee({ grossMinor: p.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - p.baseCents && p.keepCents > 0) && HOW_PRODUCTS[1].baseCents === 0 && HOW_PRODUCTS[1].priceCents === HOW_LUTS.priceCents)
+// Changed on purpose (landing round 9): no "You keep" figures any more (they were the products card's); the prices are section 3's.
+check("the prices are section 3's: the pack $29, the tee $32", HOW_PRODUCTS[0].priceCents === HOW_LUTS.priceCents && HOW_PRODUCTS[1].priceCents === 3200 && typeof calculateStorelibFee === "function")
 check("the pack's price matches section 3's ($29.00)", HOW_LUTS.priceCents === 2900 && /"\$29\.00"/.test(read("components/marketing/home/everything-in-one-place.tsx")))
 
 console.log("\n2 and 4. Four grounds of one family, none the odd one out")
 const grounds = [...how.matchAll(/class="cmh-stage" data-ground="(\w+)"/g)].map((m) => m[1])
-check("the four cards are on sand, sage, clay and mist, and the course is no longer on the shared grey", grounds.join() === "sand,sage,clay,mist" && rule(".cmh-stage[data-ground=sage]") !== "" && !/#f3f3f4/.test(css.slice(css.indexOf(".cmh-stage[data-ground"))))
+// Changed on purpose (landing round 9): three cards; the owner found the grounds "too grey". Flat colour: lilac for the tips, a near white for the numbers, peach for the domain.
+check("the three cards are on lilac, paper and peach", grounds.join() === "lilac,paper,peach" && rule(".cmh-stage[data-ground=lilac]") !== "")
 const stops = (g: string) => [...rule(`.cmh-stage[data-ground=${g}]`).matchAll(/#([0-9a-f]{6})/g)].map((m) => m[1])
 const lum = (h: string) => { const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
 const chroma = (h: string) => { const v = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); return Math.max(...v) - Math.min(...v) }
 const all = ["sand", "sage", "clay", "mist"].flatMap(stops)
-check("each ground is a still two stop tint, top lighter than the foot", ["sand", "sage", "clay", "mist"].every((g) => /^background:linear-gradient\(180deg,#[0-9a-f]{6},#[0-9a-f]{6}\)$/.test(rule(`.cmh-stage[data-ground=${g}]`)) && lum(stops(g)[0]) > lum(stops(g)[1])))
-check("all light, at one lightness (every stop's luminance within 0.70 to 0.90) and soft (no channel spread over 24)", all.length === 8 && all.every((h) => lum(h) > 0.7 && lum(h) < 0.9 && chroma(h) <= 24))
-check("no black ground, no purple, no glass", !/data-ground="night"|night/.test(how + css) && !/#3a1c6b|#050507|#7c3aed|#8b5cf6|#a855f7/.test(css) && !/backdrop-filter|blur\(/.test(css))
+// Changed on purpose (landing round 9): flat colours, no gradient, each with its own ring line colour.
+check("each ground is one flat colour with its ring colour", ["lilac", "paper", "peach"].every((g) => /^background:#[0-9a-f]{6};--ring:rgba\([\d,.]+\)$/.test(rule(`.cmh-stage[data-ground=${g}]`))))
+// Changed on purpose (landing round 9): light, and no longer grey: the lilac and the peach carry colour, the paper between them stays neutral.
+check("all light (luminance over 0.78); lilac and peach coloured, paper neutral", ["lilac", "paper", "peach"].every((g) => stops(g).length === 1 && lum(stops(g)[0]) > 0.78) && chroma(stops("lilac")[0]) > 20 && chroma(stops("peach")[0]) > 20 && chroma(stops("paper")[0]) <= 6 && all.length === 0)
+// Changed on purpose (landing round 9): Storelib's violet is the accent again (the brief: black, white, violet; the owner: "more colorful"), flat, never a gradient of it.
+check("no black ground, no purple gradient, no glass, no green", !/data-ground="night"|ground=night/.test(how + css) && !/gradient\([^)]*(#8b5cf6|#7c3aed|#a855f7)/.test(css) && !/backdrop-filter|blur\(/.test(css) && !/#15803d|#16a34a|#22c55e/.test(css))
 
 console.log("\n3. Your own domain: one browser window, the address typing in")
-check("no www / shop / club banner, no address pill, no rows of addresses", !/cmh-dm-pill|cmh-dm-row|cmh-dm-rows|cmh-dm-tick/.test(how + css) && !/>(www|shop|club)<\/b>\./.test(how) && !("targets" in HOW_DOMAIN))
-check("one window: its bar with the dots, the address field, and his website under it", /<div class="cmh-br"><div class="cmh-br-top"><span class="cmh-br-dots">/.test(how) && how.includes('class="cmh-br-bar"') && how.includes('class="cmh-br-page"') && text.includes("Linde Woodshop") && text.includes("Hand Tool Basics"))
-const typed = [...how.matchAll(/<span class="cmh-a cmh-ch" data-k="(\d+)">([^<]*)/g)]
-check("the address is his bare domain, one letter per span in order", typed.map((m) => m[2]).join("") === HOW_DOMAIN.host && typed.every((m, i) => Number(m[1]) === i))
+check("no www / shop / club banner, no rows of addresses", !/cmh-dm-pill|cmh-dm-row|cmh-dm-rows|cmh-dm-tick/.test(how + css) && !/>(www|shop|club)<\/b>\./.test(how) && !("targets" in HOW_DOMAIN))
+// Changed on purpose (landing round 9): the owner liked the card, not its design. No browser window: one address pill over his website.
+check("no browser window: one address pill over his website", !/cmh-br\b|cmh-br-/.test(how + css) && how.includes('class="cmh-pill"') && how.includes('class="cmh-a cmh-site"') && text.includes("Linde Woodshop"))
+// Changed on purpose (landing round 9): the address is not typed letter by letter; his site's storelib.com address rolls over to his own domain (two lines, transform and opacity).
+check("the pill holds two addresses that swap: his site's on Storelib, then his own domain", how.includes(`<span class="cmh-a cmh-url" data-k="1">${HOW_DOMAIN.host}</span>`) && /<span class="cmh-a cmh-url" data-k="0">lindewoodshop<span>\.storelib\.com<\/span><\/span>/.test(how) && HOW_DOMAIN.before === "lindewoodshop.storelib.com")
 check("a domain Storelib accepts, serving one of the product's purposes, not a Storelib name", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose) && !/storelib/.test(HOW_DOMAIN.host))
 const at = (k: string, n = 1) => Number((css.match(new RegExp(`@keyframes ${k}\\{0%,([\\d.]+)%`)) ?? [])[n] ?? NaN)
-const letters = typed.map((_, i) => at(`cmh-ch${i}`))
-check("the letters come one after another, then the lock comes in after the last", letters.every((t, i) => i === 0 || t > letters[i - 1]) && at("cmh-lk") > letters[letters.length - 1])
-check("a caret leads the typing and each letter's caret hands on to the next", (how.match(/<i class="cmh-a cmh-caret"><\/i>/g) ?? []).length === typed.length && how.includes('class="cmh-a cmh-caret cmh-caret0"') && typed.every((_, i) => css.includes(`@keyframes cmh-ck${i}{`)))
-check("the page comes up after the address: a veil lifts and a load line runs as the lock appears", at("cmh-veil") > letters[letters.length - 1] && at("cmh-load") === at("cmh-lk") && how.includes('class="cmh-a cmh-br-veil"') && /\.cmh-br-veil\{z-index:2;/.test(css))
-check("the caption keeps the code's claims, little text in the picture", /On Pro, point a domain you own at your website, your creator page or a community\. Storelib checks the DNS and adds HTTPS\./.test(text) && words(how.slice(how.indexOf('<div class="cmh-br-top">'), how.indexOf('<div class="cmh-br-page">'))).replace(/\s/g, "") === HOW_DOMAIN.host)
+// Changed on purpose (landing round 9): no typing, so no letter keyframes, carets, veil or load line.
+check("no letter by letter typing left", !/cmh-ch\d|cmh-caret|cmh-br-veil|cmh-load|TYPED_CSS/.test(src))
+check("the lock turns violet after the address swaps, then DNS and HTTPS tick", at("cmh-url1") < at("cmh-lock") && at("cmh-lock") < at("cmh-ok0") && at("cmh-ok0") < at("cmh-ok1") && text.includes("DNS found") && text.includes("HTTPS on"))
+// Changed on purpose (landing round 9): a caption is a title and one short line now.
+check("the caption keeps the code's claims in one line", /On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(text) && text.includes("Use your own domain"))
 
 console.log("\n5. Structure and width stay")
-check("four cards, wide, narrow, narrow, wide, on the 24 column grid", HOW_CARDS.map((c) => c.wide).join() === "true,false,false,true" && /\.cmh-wide\{grid-column:span 13\}/.test(css) && /\.cmh-narrow\{grid-column:span 11\}/.test(css))
+// Changed on purpose (landing round 9): the owner asked for the reference's row: three cards, narrow, wide, narrow.
+check("three cards, narrow, wide, narrow, the wide one twice a narrow one", HOW_CARDS.map((c) => c.wide).join() === "false,true,false" && /\.cmh-grid\{display:grid;grid-template-columns:minmax\(0,1fr\);gap:40px\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,2fr\) minmax\(0,1fr\)/.test(css))
 check("still in the shared box (--home-max, --home-edge)", /\.cmh-in\{box-sizing:border-box;width:100%;max-width:var\(--home-max,2020px\);margin-inline:auto;padding-inline:var\(--home-edge,clamp\(20px,5\.15vw,84px\)\)\}/.test(css) && how.includes('class="cmh-in home-wrap"'))
-check("the pictures keep their heights, so the section's height does not move", /\.cmh-stage\{[^}]*height:clamp\(360px,96vw,400px\)/.test(css) && /\.cmh-stage\{height:clamp\(360px,32vw,440px\);border-radius:19px\}/.test(css))
+// Changed on purpose (landing round 9): three cards in one row are taller pictures; the section is much shorter (reported to the lead for the lazy heights).
+check("the pictures' heights", /\.cmh-stage\{[^}]*height:430px;border-radius:17px/.test(css) && /@media\(min-width:640px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:420px;border-radius:19px\}\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:clamp\(400px,32vw,560px\)\}\}/.test(css))
 
 console.log("\nSmooth")
 check("every keyframe moves transform and opacity only", keyframeBodies(css).every(onlyCompositor))
-check("every moving part is a .cmh-a, paused unless its card is on screen and the tab visible", (how.match(/class="cmh-a /g) ?? []).length > 40 && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /visibilitychange/.test(src))
-check("reduced motion: nothing loops, the address and lock stand, the veil, load line and carets are gone", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(css) && /\.cmh-br-veil,\.cmh-br-loadfill,\.cmh-caret\{opacity:0\}/.test(css))
-check("nothing in a picture is a control", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/<(a|button|input|select)\b/.test(how) && !/:hover/.test(css))
+// Changed on purpose (landing round 9): fewer moving parts (three cards).
+check("every looping part is a .cmh-a, paused unless its card is on screen and the tab visible", (how.match(/class="cmh-a /g) ?? []).length > 25 && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /visibilitychange/.test(src))
+check("reduced motion: nothing loops, his own domain and the lock stand", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(css) && /\.cmh-tb-ok,\.cmh-url\[data-k="0"\],\.cmh-ch-halo\{opacity:0\}/.test(css)) // Changed on purpose (landing round 9): the new picture's parts.
+// Changed on purpose (landing round 9): the owner asked for interactive pictures. A picture still takes no pointer, except the tip card's amounts and Send (a press) and the chart (a mouse); still no links, buttons or inputs.
+check("a picture takes no pointer but for the tip card's parts and the chart", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/<(a|button|input|select)\b/.test(how) && (css.match(/pointer-events:auto/g) ?? []).length === 3)
 
 console.log("\nCopy")
 check("no em dash, none of the banned words, none of the banned samples", !/—/.test(text) && !/unlock|elevate|seamless|powerful|effortless|supercharge|transform(?!:)/i.test(text) && !/Nadia|The Loop|LaSalle|Nails by Bea|Nordline|Charla|Static Bloom|Wildcamp|enthusiast|\bfans?\b/i.test(code + text))

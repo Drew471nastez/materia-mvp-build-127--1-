@@ -1497,6 +1497,8 @@ const SUITES = [
   "tests/home-landing-r9-top.test.ts",
   /* Landing round 9, the white sheet: the audience section in 15 words beside one picture (the list, a new person joining, one strip on a CSS clock, no timer); the AI tools line 35% shorter and its terminal 16 lines on a phone; the earnings sliders not grabbed by a scrolling finger (axis decided after 8px). */
   "tests/home-landing-r9-white.test.ts",
+  /* Landing round 9 (how): three picture cards in one row (tips in colour, the numbers with a chart that draws in and reads by mouse, one address pill for the domain), ring lines, a dot field behind the heading; the products and course cards gone; transform and opacity only, nothing hidden on a fast scroll. */
+  "tests/home-landing-r9-how.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

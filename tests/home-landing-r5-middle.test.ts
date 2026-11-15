@@ -92,13 +92,17 @@ console.log("\nHow it works: no cap, calm grounds, the domain as it was in round
 // the round 3 domain tile back on a black to deep purple ground. tests/home-landing-r7-how.test.ts pins the new section.
 const how = renderToStaticMarkup(createElement(HowItWorks))
 // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" (a plain tee), four light grounds of one family instead of three grey and one black, and no violet .com pill.
-check("the physical product is a plain tee, not a cap, an apron or the print", HOW_PRODUCTS[0].id === "tee" && how.includes(HOW_PRODUCTS[0].name) && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle|apron/i.test(how) && small("public/home/how/tee-white.webp", 120))
-check("what he keeps is the price less the fee and the tee's example cost", HOW_PRODUCTS[0].priceCents === 3200 && HOW_PRODUCTS[0].baseCents === 1250 && HOW_PRODUCTS[0].keepCents < 3200 - 1250)
-check("four light grounds, all still", [...how.matchAll(/data-ground="(\w+)"/g)].map((m) => m[1]).join() === "sand,sage,clay,mist" && !/gradient/.test(rule(howCss, ".cmh-stage")) && !/night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
-check("no rainbow and no violet in the section", !/#ff5f5a|#2bb3a3|#f2689f|#5cbf6a|#7c3aed/.test(howCss))
+// Changed on purpose (landing round 9): the products card is gone; the tee is section 3's black Midnight Studio Tee, among the shop's top products.
+check("the tee is section 3's, not a cap, an apron or the print", HOW_PRODUCTS[1].id === "tee" && how.includes(HOW_PRODUCTS[1].name) && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle|apron/i.test(how) && small("public/home/everything/tee.webp", 120))
+check("the tee is $32 and the pack $29, as in section 3", HOW_PRODUCTS[1].priceCents === 3200 && HOW_PRODUCTS[0].priceCents === 2900) // Changed on purpose (landing round 9): no "You keep" figures any more.
+// Changed on purpose (landing round 9): three cards on flat lilac, paper and peach (the owner: "too grey").
+check("three light grounds, all still", [...how.matchAll(/data-ground="(\w+)"/g)].map((m) => m[1]).join() === "lilac,paper,peach" && !/gradient/.test(rule(howCss, ".cmh-stage")) && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
+// Changed on purpose (landing round 9): the owner asked for more colour: Storelib's violet (#8b5cf6) is the accent and the hearts are five colours; still no gradient of violet and no green.
+check("no violet gradient and no green in the section", !/gradient\([^)]*#(8b5cf6|7c3aed)/.test(howCss) && !/#2bb3a3|#5cbf6a|#15803d|#16a34a/.test(howCss))
 check("no checkout tile: no sheet, no drawn phone", !how.includes("cmh-sheet") && !/cmh-ph-scr|cmh-op-/.test(howCss) && sheetButtonLabel("Check out", "$45.00", true) === "Check out · $45.00")
 // Changed on purpose (landing round 8): one browser window with the domain typing in, no address pill and no three rows.
-check("the domain: his website in one browser window, his domain in its address bar", how.includes('class="cmh-br"') && how.includes('class="cmh-br-page"') && HOW_DOMAIN.host === "lindewoodshop.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
+// Changed on purpose (landing round 9): one address pill over his website, no browser window.
+check("the domain: one address pill over his website", how.includes('class="cmh-pill"') && how.includes('class="cmh-a cmh-site"') && HOW_DOMAIN.host === "lindewoodshop.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
 check("every loop in the section is transform and opacity only", keyframeBodies(howCss).every(onlyCompositor))
 
 console.log("\nCopy and banned samples")
