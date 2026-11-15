@@ -103,7 +103,7 @@ check("there is no checkout tile in How it works", () => {
   assert.ok(!how.includes("cmh-sheet") && !/Checkout without leaving your page/.test(words(how)) && !how.includes("print-lasalle"))
   assert.equal(sheetButtonLabel("Check out", "$45.00", true), "Check out · $45.00")
   assert.ok(statSync("public/home/how/print-lasalle.webp").size < 30 * 1024, "the checkout scene still uses the print")
-  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-lock"))) // Changed on purpose (landing round 9): the lock on the address pill. // Changed on purpose (landing round 8): the lock in the address bar, not the pill's tick.
+  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-reel"))) // Changed on purpose (landing round 10): the reel of endings, no lock keyframes. // Changed on purpose (landing round 9): the lock on the address pill. // Changed on purpose (landing round 8): the lock in the address bar, not the pill's tick.
 })
 // Changed on purpose (landing round 7, the owner: "bring back the design how it was before"): the round 3 tile, the website under the address pill and the three addresses; the caption keeps Pro.
 // Changed on purpose (landing round 8) (the owner: the www, shop and club banner was too complex): one browser window, the domain typing into its address bar; the caption keeps Pro.
@@ -112,7 +112,7 @@ check("the domain tile is one address pill and keeps the code's claims: Pro, a d
   assert.ok((DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
   const w = words(how)
   assert.ok(/On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(w))
-  assert.ok(how.includes('class="cmh-pill"') && !how.includes("cmh-br") && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
+  assert.ok(how.includes('class="cmh-dm-band"') && !how.includes("cmh-pill") && !how.includes("cmh-br") && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row")) // Changed on purpose (landing round 10): one address band, no pill over a website.
 })
 
 console.log("\nThe checkout scene")
@@ -147,7 +147,7 @@ check("one observer, no scroll listener, no layout read, no orbit", () => {
 })
 check("reduced motion: nothing pinned, no overlap, nothing moving", () => {
   const still = coCss.slice(coCss.lastIndexOf("@media (prefers-reduced-motion:reduce)"))
-  // Changed on purpose (landing round 10): the cards' rule is a plain class inside the track.
+  // Changed on purpose (landing round 10): the track holds the stage and the cards together; reduced motion lays it flat (height:auto) and the cards' rule is a plain class.
   assert.ok(/\.cmc-track\.cmc-track\{height:auto\}/.test(still) && /\.cmc-cards\{margin-top:0\}/.test(still) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(still))
 })
 check("a fine dot grid on the black, drawn once in CSS", () => {

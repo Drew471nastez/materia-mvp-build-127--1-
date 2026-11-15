@@ -141,7 +141,7 @@ check("the product is a real looking e-book: a local photograph under its title"
 check("reduced motion: nothing pinned, nothing moves", () => {
   const css = CHECKOUT_STYLES.map((s) => s.css).join("\n")
   const still = css.slice(css.lastIndexOf("@media (prefers-reduced-motion:reduce)"))
-  assert.ok(/* Changed on purpose (landing round 9): the hold is written only under prefers-reduced-motion:no-preference, so reduced motion has none to undo. */ /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*?\.cmc-track\.cmc-track\{height:calc\(100svh/.test(read("components/marketing/home/checkout-scene.tsx")) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(still))
+  assert.ok(/* Changed on purpose (landing round 10): reduced motion lays the track flat again. */ /\.cmc-track\.cmc-track\{height:auto\}/.test(still) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(still))
 })
 
 console.log("\nThe coordinator's follow ups")
