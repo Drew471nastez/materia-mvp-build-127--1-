@@ -189,22 +189,27 @@ function Tile({ app, copy }: { app: App; copy: boolean }) {
 /*
   One turn, landing where it started: edge on at the half, then round from
   the other side, so the mirrored back never shows. The two halves' easings
-  meet at the same speed at the edge, so the turn reads as one smooth motion.
+  meet at the same speed at the edge (1.25 on both), so the turn reads as
+  one smooth motion. Landing round 8 (the owner: "the flip thing is delayed;
+  a little more smooth, buttery and a bit faster"): the first half started
+  from a standstill (an ease in that barely moved for its first 150ms of
+  900), which read as a delay after the pointer arrived. Now it sets off at
+  once and the whole turn takes 680ms, the shine a little sooner.
 */
 const FLIP: Keyframe[] = [
-  { transform: "perspective(700px) rotateY(0deg)", easing: "cubic-bezier(0.45, 0, 0.75, 0.55)" },
+  { transform: "perspective(700px) rotateY(0deg)", easing: "cubic-bezier(0.25, 0.05, 0.6, 0.5)" },
   { transform: "perspective(700px) rotateY(90deg)", offset: 0.5 },
-  { transform: "perspective(700px) rotateY(-90deg)", offset: 0.5, easing: "cubic-bezier(0.25, 0.45, 0.55, 1)" },
+  { transform: "perspective(700px) rotateY(-90deg)", offset: 0.5, easing: "cubic-bezier(0.3, 0.375, 0.4, 1)" },
   { transform: "perspective(700px) rotateY(0deg)" },
 ]
 /* The flash: a band of light across the face as it comes round. */
 const SHINE: Keyframe[] = [
   { transform: "translate3d(-130%, 0, 0)", opacity: 0 },
-  { transform: "translate3d(-130%, 0, 0)", opacity: 0, offset: 0.45 },
-  { transform: "translate3d(-10%, 0, 0)", opacity: 1, offset: 0.7 },
+  { transform: "translate3d(-130%, 0, 0)", opacity: 0, offset: 0.4 },
+  { transform: "translate3d(-10%, 0, 0)", opacity: 1, offset: 0.65 },
   { transform: "translate3d(130%, 0, 0)", opacity: 0 },
 ]
-const TURN_MS = 900
+const TURN_MS = 680
 
 export function IntegrationsSection() {
   const ref = useRef<HTMLElement>(null)

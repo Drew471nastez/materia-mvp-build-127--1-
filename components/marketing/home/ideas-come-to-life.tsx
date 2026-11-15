@@ -184,10 +184,11 @@ const CSS = `
 .ideas-line:first-child{opacity:1;transform:none}
 .ideas-line em{font-style:normal;color:var(--story-accent,#7c3aed)}
 @media(prefers-reduced-motion:no-preference){
-  .ideas-line{animation:ideas-flip ${IDEAS_HEADINGS.length * IDEAS_HEADING_S}s cubic-bezier(.2,.8,.2,1) infinite both paused}
+  .ideas-line{animation:ideas-flip ${IDEAS_HEADINGS.length * IDEAS_HEADING_S}s cubic-bezier(.22,1,.36,1) infinite both paused}
   .ideas[data-live] .ideas-line{animation-play-state:running}
 }
-@keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}6%,29%{opacity:1;transform:none}34%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
+/* Landing round 8 (the owner: "the flip thing is delayed"): the old line left from 29% (of the 10.8s loop, each line's turn is 33.3%) and the next came in only from 33.3%, so for a moment the heading was empty and every change read as late. Now the old line leaves (31% to 35%) while the next comes in (0 to 4.5% of its own turn, 486ms, was 648ms): one line hands over to the next in about 0.75s instead of 1.1s, with no empty moment. */
+@keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}4.5%,31%{opacity:1;transform:none}35%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
 .ideas-sub{max-width:56ch;margin:18px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
 [data-landing-story] .ideas>.ideas-tabs-row,.ideas-tabs-row{box-sizing:border-box;display:flex;justify-content:flex-start;max-width:var(--home-max,2020px);margin:clamp(24px,3vw,36px) auto clamp(18px,2.2vw,28px);padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .ideas-tabs{display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#f1f1f2}

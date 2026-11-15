@@ -52,10 +52,13 @@ console.log("\n── The sheet (round 5: plain) ──")
   // Changed on purpose (landing round 5): the scroll-driven rise, the hold and the dimming are gone (the owner: glitches with black, cut corners, stutter); tests/home-landing-r5-frame.test.ts pins what replaced them.
   const src = code("components/marketing/scroll-reveal-panel.tsx")
   check("no script: no client directive, no hook, no listener", !/"use client"/.test(src) && !/\buse[A-Z]\w*\(/.test(src) && !/addEventListener|requestAnimationFrame/.test(src))
-  check("no keyframes, no scroll-driven animation, no transform", !/@keyframes|animation|view-timeline|transform/.test(SHEET_CSS) && keyframes(SHEET_CSS) === "")
-  check("still one scrollbar: nothing scrolls or clips", !/overflow/.test(SHEET_CSS))
-  const flat = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "white", arrive: "flat", children: createElement("p", null, "x") }))
-  check("a flat ground: a square top, fillets that round the dark block above, no lap", /<div data-sheet="white" data-sheet-flat="">/.test(flat) && /\[data-sheet\]:not\(\[data-sheet-flat\]\)\{margin-top/.test(SHEET_CSS) && /\[data-sheet\]\[data-sheet-flat\]\{border-top-left-radius:0;border-top-right-radius:0\}/.test(SHEET_CSS) && /\[data-sheet\]\[data-sheet-flat\]::before\{content:"";position:absolute;[^}]*radial-gradient\(circle at 100% 0,transparent/.test(SHEET_CSS))
+// Changed on purpose (landing round 8): the purple sheet rises again (the owner: "come up as a sheet like we had it before"): one keyframe of transform alone, on a view timeline, no scale, no opacity.
+  check("one keyframe, transform only, on a view timeline", (SHEET_CSS.match(/@keyframes/g) || []).length === 1 && /@keyframes srp-rise\{from\{transform:translate3d\(0,var\(--srp-rise\),0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(SHEET_CSS) && !/opacity|scale/.test(keyframes(SHEET_CSS)) && /animation-timeline:view\(\)/.test(SHEET_CSS))
+  // Changed on purpose (landing round 8): the lower block of a join clips to its rounded top with overflow: clip, which is not a scroll box.
+  check("still one scrollbar: nothing scrolls", !/overflow:(hidden|auto|scroll)/.test(SHEET_CSS))
+  // Changed on purpose (landing round 8): no flat ground: every join is drawn by the lower block (rounded top over the upper's square foot), so the fillets are gone.
+  const rise = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "purple", arrive: "rise", children: createElement("p", null, "x") }))
+  check("no flat ground and no fillets; a rising sheet is marked", !/data-sheet-flat|radial-gradient\(circle/.test(SHEET_CSS) && /<div data-sheet="purple" data-sheet-rise="" data-band="purple">/.test(rise))
   const plain = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { children: createElement("p", null, "x") }))
   check("a dark stretch is plain", /<div data-sheet-backdrop=""><p>x<\/p><\/div>$/.test(plain))
   check("the purple sheet still sets the band colours", /\[data-sheet="purple"\]\{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba\(255,255,255,\.16\)/.test(SHEET_CSS))
@@ -65,10 +68,11 @@ console.log("\n── The page ──")
 {
   const page = code("app/(storelib)/(marketing)/page.tsx").replace(/\{\s*\}/g, "")
   // Changed on purpose (landing round 5): nothing is held anywhere, so no hold props.
-  check("the hero and showcase are not held, and Make the work sits on a flat ground", /<ScrollRevealBackdrop>\s*<Hero \/>\s*<BuildShowcase \/>\s*<\/ScrollRevealBackdrop>\s*<ScrollRevealPanel tone="white" arrive="flat">\s*<LazyEverythingInOnePlace \/>/.test(page))
-  check("the later grounds are sheets over plain blocks, nothing held", /<ScrollRevealBackdrop>\s*<LazyCheckoutScene \/>/.test(page) && /<ScrollRevealPanel tone="white">\s*<LazyAudienceOwnership \/>/.test(page) && /<ScrollRevealPanel tone="purple">/.test(page) && !/\bhold\b/.test(page))
+// Changed on purpose (landing round 8): Make the work sits on a white sheet whose rounded top lies over the showcase's square foot; the purple rises.
+  check("the hero and showcase are not held, and Make the work sits on a white sheet under them", /<ScrollRevealBackdrop>\s*<Hero \/>\s*<BuildShowcase \/>\s*<\/ScrollRevealBackdrop>\s*<ScrollRevealPanel tone="white">\s*<LazyEverythingInOnePlace \/>/.test(page))
+  check("the later grounds are sheets over plain blocks, nothing held", /<ScrollRevealBackdrop>\s*<LazyCheckoutScene \/>/.test(page) && /<ScrollRevealPanel tone="white">\s*<LazyAudienceOwnership \/>/.test(page) && /<ScrollRevealPanel tone="purple" arrive="rise">/.test(page) && !/\bhold\b/.test(page))
   /* Changed on purpose (landing round 7): the owner asked for the purple's dots more subtle and clean, so they are a little sparser there (gap 22). */
-  check("a dot grid over the top of the purple, limited to about a screen", /<ScrollRevealPanel tone="purple">\s*<DotField tone="purple" fade="bottom"(?: gap=\{\d+\})? style=\{\{ height: "min\(100%, 1100px\)" \}\} \/>/.test(page))
+  check("a dot grid over the top of the purple, limited to about a screen", /<ScrollRevealPanel tone="purple" arrive="rise">\s*<DotField tone="purple" fade="bottom"(?: gap=\{\d+\})? style=\{\{ height: "min\(100%, 1100px\)" \}\} \/>/.test(page))
   check("the close is dark (no purple): the app, then the closing call", /<ScrollRevealBackdrop>\s*<LazyAppAnywhere \/>\s*<FinalCta \/>\s*<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page) && (page.match(/<ScrollRevealPanel tone="purple"/g) || []).length === 1)
   check("the measured lazy heights are still written in", /LAZY_SECTION_HEIGHTS_CSS/.test(page))
 }

@@ -46,10 +46,13 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^
 console.log("\n── The sheets are plain blocks ──")
 {
   const src = code("components/marketing/scroll-reveal-panel.tsx")
-  check("no scroll-driven motion of any kind", !/@keyframes|animation|view-timeline|scroll-timeline|transform|scale|transition|will-change/.test(SHEET_CSS))
-  check("nothing held: no sticky, no screen tall box, no viewport unit", !/sticky|data-sheet-hold|--srp-cover|vh\b|svh|lvh|dvh/.test(SHEET_CSS))
+// Changed on purpose (landing round 8): the owner asked for the purple sheet to come up as a sheet again: one scroll-driven transform, only on [data-sheet-rise], still no scale, transition or will-change.
+  check("no scroll-driven motion but the purple rise", !/view-timeline|scroll-timeline|scale|transition|will-change/.test(SHEET_CSS) && (SHEET_CSS.match(/animation:/g) || []).length === 1 && /\[data-sheet-rise\]\{[^}]*animation:srp-rise/.test(SHEET_CSS))
+  // Changed on purpose (landing round 8): svh only sizes the rise (a stable length on iOS), never a box.
+  check("nothing held: no sticky, no screen tall box", !/sticky|data-sheet-hold|--srp-cover|\b100s?vh|lvh|dvh|height:/.test(SHEET_CSS))
   check("no script, no observer, no listener", !/"use client"/.test(src) && !/\buse[A-Z]\w*\(|addEventListener|IntersectionObserver|requestAnimationFrame/.test(src))
-  check("nothing clips: no overflow on a sheet", !/overflow|clip-path/.test(SHEET_CSS))
+// Changed on purpose (landing round 8): the lower block of a join clips its content to its rounded top (overflow: clip, never a scroll box), so a section's square background cannot draw over the corner.
+  check("a block clips only by overflow: clip, never a scroll box or clip-path", !/overflow:(hidden|auto|scroll)|overflow-[xy]|clip-path/.test(SHEET_CSS) && /overflow:clip/.test(SHEET_CSS))
   const white = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "white", children: createElement("p", null, "in") }))
   const dark = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { children: createElement("p", null, "in") }))
   check("a sheet is one block around its sections", /<\/style><div data-sheet="white"><p>in<\/p><\/div>$/.test(white))
@@ -59,12 +62,15 @@ console.log("\n── The sheets are plain blocks ──")
 
 console.log("\n── The corners are never cut ──")
 {
-  check("a sheet laps over the block before by exactly its radius", /\[data-sheet\]:not\(\[data-sheet-flat\]\)\{margin-top:calc\(var\(--srp-r\) \* -1\)\}/.test(SHEET_CSS))
-  check("the dark block before leaves that room at its foot", /\[data-sheet-backdrop\]:has\(\+\[data-sheet\]:not\(\[data-sheet-flat\]\)\)\{padding-bottom:var\(--srp-r\)\}/.test(SHEET_CSS))
-  check("a dark block is its own stacking context under the sheet (0 against 1)", /\[data-sheet-backdrop\]\{position:relative;z-index:0\}/.test(SHEET_CSS) && /\[data-sheet\]\{position:relative;z-index:1;border-radius:var\(--srp-r\)/.test(SHEET_CSS))
-  check("a sheet followed by a sheet squares its foot and leaves the room", /\[data-sheet\]:has\(\+\[data-sheet\]:not\(\[data-sheet-flat\]\)\)\{border-bottom-left-radius:0;border-bottom-right-radius:0;padding-bottom:calc\(var\(--srp-pad\) \+ var\(--srp-r\)\)\}/.test(SHEET_CSS))
+// Changed on purpose (landing round 8): every join, whatever the two grounds: the lower block laps over the upper by its radius (and the rise), rounds its top and clips to it; the upper is square and leaves that room at its foot.
+  const B = ":is([data-sheet],[data-sheet-backdrop])"
+  check("the lower block laps over the upper by its radius, rounded at the top", SHEET_CSS.includes(`${B}+${B}{margin-top:calc((var(--srp-r) + var(--srp-rise)) * -1);border-top-left-radius:var(--srp-r);border-top-right-radius:var(--srp-r);overflow:clip}`))
+  check("the dark block before leaves that room at its foot", SHEET_CSS.includes(`[data-sheet-backdrop]:has(+${B}){padding-bottom:calc(var(--srp-r) + var(--srp-next-rise))}`))
+  check("every block is its own stacking context, painted in page order (no z-index)", SHEET_CSS.includes(`${B}{--srp-r:clamp(22px,4.2vw,48px)`) && /position:relative;isolation:isolate\}/.test(SHEET_CSS) && !/z-index/.test(SHEET_CSS))
+  check("a sheet followed by a block is square at its foot and leaves the room", SHEET_CSS.includes(`[data-sheet]:has(+${B}){padding-bottom:calc(var(--srp-pad) + var(--srp-r) + var(--srp-next-rise))}`) && !/border-bottom-(left|right)-radius:var/.test(SHEET_CSS) && !/\[data-sheet\]\{[^}]*border-radius/.test(SHEET_CSS))
   check("a section on the dark ground draws no rounded box of its own (the checkout's corners under the sheet's)", /\[data-sheet-backdrop\] \.cmc\{border-radius:0\}/.test(SHEET_CSS))
-  check("the radius is one variable, set on both kinds of block", /\[data-sheet\],\[data-sheet-backdrop\]\{--srp-r:clamp\(22px,4\.2vw,48px\)/.test(SHEET_CSS))
+  // Changed on purpose (landing round 8): the selector is :is() over both kinds of block.
+  check("the radius is one variable, set on both kinds of block", /:is\(\[data-sheet\],\[data-sheet-backdrop\]\)\{--srp-r:clamp\(22px,4\.2vw,48px\)/.test(SHEET_CSS))
 }
 
 console.log("\n── The page ──")
@@ -72,7 +78,8 @@ console.log("\n── The page ──")
   const page = code("app/(storelib)/(marketing)/page.tsx")
   check("no cover watch and no hold anywhere", !/SheetCoverWatch|sheet-cover-watch|\bhold\b|holdOnPhone|lift=/.test(page))
   check("the cover watch file is gone", !existsSync(join(root, "components/marketing/sheet-cover-watch.tsx")))
-  check("the grounds are still there: two dark stretches around the sheets, one purple", (page.match(/<ScrollRevealBackdrop>/g) || []).length === 3 && (page.match(/<ScrollRevealPanel tone="purple">/g) || []).length === 1 && /<ScrollRevealPanel tone="white" arrive="flat">/.test(page))
+// Changed on purpose (landing round 8): no flat ground any more (the first white sheet rounds its own top over the showcase), and the purple sheet rises.
+  check("the grounds are still there: two dark stretches around the sheets, one purple", (page.match(/<ScrollRevealBackdrop>/g) || []).length === 3 && (page.match(/<ScrollRevealPanel tone="purple" arrive="rise">/g) || []).length === 1 && !/arrive="flat"/.test(page))
 }
 
 console.log("\n── The header keeps one height ──")
