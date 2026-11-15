@@ -21,7 +21,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { IdeasComeToLife, IDEAS_STYLES } from "@/components/marketing/home/ideas-come-to-life"
 import { BUILDER_CSS, CommunityMock, PlainWeatherSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
-import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRINT, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
+import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
 import { CNAME_TARGET, DEFAULT_A } from "@/lib/custom-domains/hostname"
 import { sheetButtonLabel } from "@/lib/onepage/product-block"
 
@@ -83,20 +83,16 @@ check("its photographs exist and are small", ["st-cover", "st-pull", "st-squat"]
 check("the caret steps once per typed character", BUILDER_CSS.includes(`steps(${ST_TYPED.length},end)`))
 check("no Crema Club left", !/Crema|cremaclub|Joana Reis|cc-cover/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/cc-cover.webp"))
 
-console.log("\nHow it works: no cap, a bold sheet, calm grounds, a simple domain")
+console.log("\nHow it works: no cap, calm grounds, the domain as it was in round 3")
+// Changed on purpose (landing round 7): the owner removed Nadia Brooks, LaSalle at dusk and the checkout tile (with its drawn sheet), and asked for
+// the round 3 domain tile back on a black to deep purple ground. tests/home-landing-r7-how.test.ts pins the new section.
 const how = renderToStaticMarkup(createElement(HowItWorks))
-check("the physical product is Nadia's signed print, not a cap", HOW_PRODUCTS[0].id === "print" && how.includes(HOW_PRINT.title) && !/Darkroom cap|cap-yellow/.test(how) && small("public/home/how/print-lasalle.webp", 30))
-check("what she keeps is the price less the fee and the print's example cost", HOW_PRODUCTS[0].priceCents === 4500 && HOW_PRODUCTS[0].baseCents === HOW_PRINT.baseCents && HOW_PRODUCTS[0].keepCents < 4500 - HOW_PRINT.baseCents)
-check("every ground is a soft grey or near black, and still", (how.match(/data-ground="(light|dark)"/g) ?? []).length === 6 && !/gradient/.test(rule(howCss, ".cmh-stage")) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
-check("no purple and no rainbow in the section", !/#7c3aed|#ff5f5a|#2bb3a3|#f2689f|#5cbf6a/.test(howCss))
-const title = rule(howCss, ".cmh-sh-title")
-const price = rule(howCss, ".cmh-sh-price")
-const px = (r: string) => Number((r.match(/font-size:calc\(([\d.]+) \* var\(--p\)\)/) ?? [])[1])
-const weight = (r: string) => Number((r.match(/font-weight:(\d+)/) ?? [])[1])
-check("the sheet's title and price are big and bold (32 and 26 at a phone's width, 800 and 700)", px(title) >= 30 && weight(title) >= 800 && px(price) >= 24 && weight(price) >= 700)
-check("the sheet is drawn, not a captured picture, and its button is the product sheet's own", how.includes('class="cmh-a cmh-sheet"') && !/op-nadia/.test(read(F.how)) && how.includes(sheetButtonLabel("Check out", HOW_PRINT.price, true).replace("·", "·")))
-check("the phone's drawing is measured once, from the screen's width (--p), so its parts and the tap agree", /\.cmh-ph-scr\{--p:calc\(100cqw \/ 393\)/.test(howCss) && /\.cmh-op \.cmh-tap\{[^}]*top:calc\(26px \+ \d+ \* var\(--p\)\)/.test(howCss))
-check("the domain: one dark card, the address and lock, the two records Storelib asks for", /\.cmh-dm-card\{[^}]*background:#1a1a1d/.test(howCss) && how.includes('class="cmh-dm-bar"') && HOW_DOMAIN.records.map((r) => r.value).join() === `${DEFAULT_A},${CNAME_TARGET}` && how.includes(CNAME_TARGET))
+check("the physical product is the shop apron, not a cap and not the print", HOW_PRODUCTS[0].id === "apron" && how.includes(HOW_PRODUCTS[0].name) && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle/.test(how) && small("public/home/how/apron.webp", 120))
+check("what he keeps is the price less the fee and the apron's example cost", HOW_PRODUCTS[0].priceCents === 3800 && HOW_PRODUCTS[0].baseCents === 1600 && HOW_PRODUCTS[0].keepCents < 3800 - 1600)
+check("three light grounds and one night ground, all still", (how.match(/data-ground="light"/g) ?? []).length === 3 && (how.match(/data-ground="night"/g) ?? []).length === 1 && !/gradient/.test(rule(howCss, ".cmh-stage")) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
+check("no rainbow in the section; the one violet is round 3's .com in the pill", !/#ff5f5a|#2bb3a3|#f2689f|#5cbf6a/.test(howCss) && (howCss.match(/#7c3aed/g) ?? []).length === 1 && /\.cmh-dm-addr b\{[^}]*color:#7c3aed/.test(howCss))
+check("no checkout tile: no sheet, no drawn phone", !how.includes("cmh-sheet") && !/cmh-ph-scr|cmh-op-/.test(howCss) && sheetButtonLabel("Check out", "$45.00", true) === "Check out · $45.00")
+check("the domain: the drawn website, the address pill and the three addresses Storelib serves", how.includes('class="cmh-dm-site"') && how.includes('class="cmh-dm-pill"') && HOW_DOMAIN.targets.length === 3 && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
 check("every loop in the section is transform and opacity only", keyframeBodies(howCss).every(onlyCompositor))
 
 console.log("\nCopy and banned samples")

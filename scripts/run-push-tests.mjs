@@ -1459,6 +1459,8 @@ const SUITES = [
   "tests/home-landing-r7-everything.test.ts",
   /* Landing round 7 (frame): the header's links plain white and a size up, the headings' scroll fill one soft colour wave from one number (no measuring on a frame), One store for everything you sell off the page, room under the showcase's cards, ideas, pricing, the questions and the app in the page's one width. */
   "tests/home-landing-r7-frame.test.ts",
+  /* Landing round 7, how: How it works in section 3's shape (two tone heading, wide and narrow cards), Linde Woodshop in place of Nadia Brooks, no checkout tile, round 3's domain tile on black to deep purple, in the shared page box. */
+  "tests/home-landing-r7-how.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
