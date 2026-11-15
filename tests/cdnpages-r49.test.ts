@@ -189,9 +189,12 @@ async function main() {
     check("  never the editor's canvas or a scheme being tried", answer("/andrewrullz", { query: { embedded: "1" } })["vercel-cdn-cache-control"] === undefined && answer("/andrewrullz", { query: { scheme: "dark" } })["vercel-cdn-cache-control"] === undefined)
     check("  a language is its own address and is held like any other", answer("/andrewrullz", { query: { lang: "fr" } })["vercel-cdn-cache-control"] === EDGE)
     check("  only on storelib.com", answer("/x", { host: "andrewrullz.storelib.com" })["vercel-cdn-cache-control"] === undefined && answer("/x", { host: "shop.example.com" })["vercel-cdn-cache-control"] === undefined && answer("/x", { host: "evil-localhost.example" })["vercel-cdn-cache-control"] === undefined && answer("/x", { host: "www.storelib.com" })["vercel-cdn-cache-control"] === EDGE)
-    for (const path of ["/pricing", "/app", "/app/products", "/u/andrewrullz", "/p/x", "/robots.txt", "/andrewrullz/links", "/community/x", "/a/b/c", "/api/creator-page/viewer", "/checkout/x", "/library"]) {
+    for (const path of ["/pricing", "/app", "/app/products", "/u/andrewrullz", "/p/x", "/robots.txt", "/andrewrullz/links", "/a/b/c", "/api/creator-page/viewer", "/checkout/x", "/library"]) {
       check(`  not one of these pages, no CDN rule: ${path}`, answer(path)["vercel-cdn-cache-control"] === undefined, answer(path))
     }
+    /* Changed on purpose (round 66): a community's page is held for a stranger only, never for the production session (tests/community-stranger-cdn). */
+    const prodSession = "sb-skgtqglupjcnfhfscink-auth-token"
+    check("  a community's page: a stranger's copy is held, a signed in member's never", answer("/community/x")["vercel-cdn-cache-control"] === "public, s-maxage=60, stale-while-revalidate=300" && answer("/community/x", { cookies: { [prodSession]: "x" } })["vercel-cdn-cache-control"] === undefined && answer("/community/x", { cookies: { [`__Host-${prodSession}.1`]: "x" } })["vercel-cdn-cache-control"] === undefined && answer("/community/x", { headers: { rsc: "1" } })["vercel-cdn-cache-control"] === undefined && answer("/community/x/post/1")["vercel-cdn-cache-control"] === undefined)
     check("no cookie-keyed rule is left (round 48's stranger and personal rules)", !rules.some((r) => JSON.stringify([r.has, r.missing]).includes('"cookie"') && /andrew|handle|explore/.test(r.source + JSON.stringify(r.headers))) && !/CREATOR_PAGE_PERSONAL_COOKIES|EXPLORE_SIGNED_IN_COOKIES/.test(read("next.config.mjs")))
     const shared = await import("@/lib/storefront/shared-view")
     const paths = ["/andrewrullz", "/andrewrullz/p", "/andrewrullz/links", "/pricing", "/app", "/a.png", "/a/b/c", "/u/x", "/p/x", "/community/x", "/sitemap.xml", "/appx", "/pricing2/x"]
