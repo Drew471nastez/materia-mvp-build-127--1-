@@ -1829,6 +1829,14 @@ try {
   } catch {
     /* suites importing real packages will say so themselves */
   }
+  // next.config.mjs is plain JS and not compiled, so it is not in the temp
+  // directory either; a suite that imports it (community-stranger-cdn, round
+  // 66: the CDN rewrites) reads it through a link to the real file.
+  try {
+    if (existsSync(join(process.cwd(), "next.config.mjs"))) symlinkSync(join(process.cwd(), "next.config.mjs"), join(out, "next.config.mjs"))
+  } catch {
+    /* the one suite that imports it will say so itself */
+  }
 
   const compiled = walk(out)
   for (const suite of [...SUITES, ...STRICT_SUITES]) {

@@ -146,7 +146,7 @@ check("one observer, no scroll listener, no layout read, no orbit", () => {
 })
 check("reduced motion: nothing pinned, no overlap, nothing moving", () => {
   const still = coCss.slice(coCss.lastIndexOf("@media (prefers-reduced-motion:reduce)"))
-  assert.ok(/\.cmc-track\.cmc-track\{height:auto\}/.test(still) && /\.cmc-cards\.cmc-cards\{margin-top:0\}/.test(still) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(still))
+  assert.ok(/* Changed on purpose (landing round 9): the hold is written only under prefers-reduced-motion:no-preference, so reduced motion has none to undo. */ /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*?\.cmc-track\.cmc-track\{height:calc\(100svh/.test(read("components/marketing/home/checkout-scene.tsx")) && /\.cmc-cards\.cmc-cards\{margin-top:0\}/.test(still) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(still))
 })
 check("a fine dot grid on the black, drawn once in CSS", () => {
   assert.ok(co.includes('class="cmc-dots"') && /\.cmc-dots\{[^}]*radial-gradient\(rgba\(255,255,255,\.\d+\) 1px/.test(coCss))
