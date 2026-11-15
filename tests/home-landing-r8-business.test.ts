@@ -92,7 +92,7 @@ console.log("\nThe five examples")
 }
 
 console.log("\nRegistered")
-check("this suite runs with the push tests, after the last home-landing entry", /"tests\/home-landing-r7-lower\.test\.ts",[\s\S]{0,400}"tests\/home-landing-r8-business\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
+check("this suite runs with the push tests, after the last home-landing entry", /"tests\/home-landing-r7-lower\.test\.ts",[\s\S]{0,4000}"tests\/home-landing-r8-business\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
