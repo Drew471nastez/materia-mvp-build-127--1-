@@ -149,7 +149,6 @@ const TemplateCard = memo(function TemplateCard({
         <span data-template-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-[18px] [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
           <TemplatePicture template={template} />
           {/* Round 17: a Hero theme says so, in the corner, so Classic and Hero read at a glance. Outside the scaled page, so it is crisp. */}
-          {themeIsHero(template as never) ? <span data-theme-hero="" className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-black/45 px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white backdrop-blur-[6px]">{tt("Hero")}</span> : null}
           <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" />
           <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] opacity-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.22)] transition-opacity duration-150 group-hover/theme:opacity-100" />
         </span>

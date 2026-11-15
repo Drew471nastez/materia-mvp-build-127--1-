@@ -1354,12 +1354,29 @@ export function WebsiteBuilderClient({
       /* `a.download` WINS over the server's Content-Disposition for a blob
          URL, so the name has to end in .zip here too or the header's does
          nothing. See the note in the export route. */
-      a.download = `${i.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase()}.storelib-theme.zip`
+      /* An imported Shopify theme comes back as a Shopify theme, to upload in Shopify: named so, with what to know before uploading it. */
+      const shopify = res.headers.get("X-Storelib-Export-Kind") === "shopify"
+      const slug = i.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase()
+      a.download = shopify ? `${slug}-shopify-theme.zip` : `${slug}.storelib-theme.zip`
       document.body.appendChild(a)
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      toast({ title: tt("Exported {name}", { name: i.name }) })
+      let notes: string[] = []
+      try {
+        const raw = res.headers.get("X-Storelib-Export-Notes")
+        const parsed = raw ? JSON.parse(decodeURIComponent(raw)) : []
+        notes = Array.isArray(parsed) ? parsed.filter((n): n is string => typeof n === "string") : []
+      } catch {
+        notes = []
+      }
+      const skipped = Number(res.headers.get("X-Storelib-Media-Skipped") ?? 0)
+      if (skipped > 0) notes.push(tt("{count, plural, one {# picture} other {# pictures}} could not be fetched in time and are not in the file. Export again to include them.", { count: skipped }))
+      toast({
+        title: shopify ? tt("Exported {name} as a Shopify theme", { name: i.name }) : tt("Exported {name}", { name: i.name }),
+        ...(shopify ? { description: [tt("Upload it in Shopify: Online Store › Themes › Add theme › Upload zip file."), ...notes].join(" ") } : notes.length ? { description: notes.join(" ") } : {}),
+        ...(notes.length ? { duration: 15000 } : {}),
+      })
     } finally {
       setBusy(null)
     }

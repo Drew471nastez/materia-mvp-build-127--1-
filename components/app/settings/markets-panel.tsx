@@ -260,7 +260,7 @@ export function MarketsPanel() {
       <div className="space-y-4 sm:space-y-6" data-markets-panel="" aria-busy={!error}>
         {/* Keyed in both shapes: the card above is the same one while the languages load and after, never drawn again from nothing (it moved the page down by its own height). */}
         <CountryCurrency key="currency" />
-        <Card title={tt("Languages")} help="languages" description={tt("Your website in more languages, each at its own address like /fr.")}>
+        <Card title={tt("Languages")} help="languages" description={tt("Your website in more languages, like /fr.")}>
           {error ? (
             <Notice>{error}</Notice>
           ) : (
@@ -318,7 +318,7 @@ export function MarketsPanel() {
       <Card
         title={tt("Languages")}
         help="languages"
-        description={tt("Your website in more languages, each at its own address like /fr.")}
+        description={tt("Your website in more languages, like /fr.")}
         action={status ? <span className="text-[12.5px] text-[#6b7280]" aria-live="polite" data-markets-status="">{status}</span> : null}
       >
         <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-languages="">

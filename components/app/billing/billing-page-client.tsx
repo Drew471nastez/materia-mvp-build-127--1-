@@ -1051,12 +1051,14 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
       <PlanCards
         heading={
           <div className="mx-auto max-w-[560px] pt-1 text-center sm:pt-2" data-plans-header="">
-            <h2 className="text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-[#1a1a2e] sm:text-[32px]">{tt("Plans and pricing")}</h2>
-            <p className="mt-2 text-balance text-[14.5px] leading-[1.5] text-[#6b7280] sm:text-[15px]">{tt("Start free. Upgrade when you're ready, and change or cancel anytime.")}</p>
+            <h2 className="text-[22px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] sm:text-[24px]">{tt("Plans and pricing")}</h2>
+            <p className="mt-1.5 text-balance text-[14px] leading-[1.5] text-[#6b7280]">{tt("Start free. Upgrade when you're ready, and change or cancel anytime.")}</p>
           </div>
         }
         actions={{ free: actionFor("free"), growth: actionFor("growth"), pro: actionFor("pro") }}
         lead={currentPlan.id === "free" ? "growth" : undefined}
+        /* Inside Settings the cards are the onboarding's compact size: the page-size cards overflowed the panel (the owner: "look how bad it looks"). */
+        compact
       />
     </div>
   )

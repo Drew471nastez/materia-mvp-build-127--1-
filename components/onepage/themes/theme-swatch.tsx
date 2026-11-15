@@ -18,9 +18,8 @@
  *             draws the cover as a band, the disc on its edge, as the page does.
  *   Hero      the top half is a picture that fades into the wallpaper
  *             (the page's own HERO_FADE_MASK), "Aa" on the fade, then the
- *             buttons: the shape a Hero page has. The card also says Hero in
- *             its corner (the Design tab's ThemeCard), so the two read at a
- *             glance.
+ *             buttons: the shape a Hero page has. The picture is a real portrait,
+ *             so a Hero card reads as a Hero without a label.
  *
  * The wallpaper is the page's own layers (its colour, gradient or photo,
  * noise, pattern, a skin's scene) at a phone's width, so a pattern's cells
@@ -94,6 +93,10 @@ export function swatchButtonStyle(theme: ButtonThemeLike): React.CSSProperties {
   }
 }
 
+/** The portrait every Hero card shows, in place of the creator's photo (the same picture on every card, so the themes are what differs). */
+/* Unsplash photo-1544005313-94ddf0286df2 (Unsplash License), kept in public/images so it is served with the app. */
+export const HERO_SAMPLE_PHOTO = "/images/onepage/hero-sample.jpg"
+
 /** `thumb` is the address of a theme's own picture (its wallpaper photo or cover) at a card's size. `hero` draws the Hero layout. */
 export function ThemeSwatch({ c: given, thumb, hero = false }: { c: Look; thumb: (url: string) => string; hero?: boolean }) {
   /* The colours the page will really draw (lib/onepage/contrast readableTheme). */
@@ -113,14 +116,16 @@ export function ThemeSwatch({ c: given, thumb, hero = false }: { c: Look; thumb:
   const DISC = 104
   const coverH = cover ? 118 : 0
   const discTop = cover ? coverH - DISC / 2 : 40
-  const nameTop = hero ? 214 : discTop + DISC + 18
+  const nameTop = hero ? 236 : discTop + DISC + 18
   const BUTTON_H = hero ? 60 : 62
-  const firstButton = hero ? 312 : nameTop + 86
+  const firstButton = hero ? 326 : nameTop + 86
   const button = swatchButtonStyle(theme)
   const name: React.CSSProperties = {
     color: c.title_color || text,
     fontFamily: fontStack(c.title_font || c.font_family),
     ...titleTypeStyle(c as never),
+    /* On the Hero's photo the words carry a halo of the page's own colour, as the live page's do. */
+    ...(hero ? { textShadow: `0 2px 18px ${bg}, 0 0 3px ${bg}` } : null),
   }
 
   return (
@@ -150,19 +155,16 @@ export function ThemeSwatch({ c: given, thumb, hero = false }: { c: Look; thumb:
       </span>
 
       {hero ? (
-        /* The Hero: a picture full bleed, fading into the page (a light from the top, a figure's soft shape in the middle). */
-        <span
-          data-ts-hero=""
-          className="absolute left-0 top-0 block w-full"
-          style={{
-            height: 310,
-            /* A portrait, out of focus: a head and shoulders in the theme's own tones over a lit backdrop. */
-            background: `radial-gradient(17% 21% at 50% 44%, color-mix(in srgb, ${text} 52%, ${bg}) 0%, color-mix(in srgb, ${text} 52%, ${bg}) 55%, transparent 100%), radial-gradient(40% 24% at 50% 92%, color-mix(in srgb, ${text} 46%, ${bg}) 0%, color-mix(in srgb, ${text} 46%, ${bg}) 50%, transparent 100%), linear-gradient(168deg, color-mix(in srgb, ${text} 30%, ${bg}) 0%, color-mix(in srgb, ${text} 14%, ${bg}) 75%)`,
-            filter: "blur(6px)",
-            maskImage: HERO_FADE_MASK,
-            WebkitMaskImage: HERO_FADE_MASK,
-          }}
-        />
+        /*
+          The Hero: a real photo full bleed, fading into the wallpaper with the
+          page's own HERO_FADE_MASK. The owner: show "that it's a hero instead of
+          displaying the pill shape" and make it "more realistic". A blurred
+          figure in the theme's tones read as a placeholder; a portrait reads
+          as the page a creator's photo makes.
+        */
+        <span data-ts-hero="" className="absolute left-0 top-0 block w-full overflow-hidden" style={{ height: 330, maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, backgroundColor: `color-mix(in srgb, ${text} 14%, ${bg})` }}>
+          <img src={thumb(HERO_SAMPLE_PHOTO)} alt="" draggable={false} loading="eager" decoding="async" data-ts-hero-photo="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: "50% 22%" }} />
+        </span>
       ) : null}
 
       {cover ? (

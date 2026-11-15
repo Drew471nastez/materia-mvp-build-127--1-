@@ -112,7 +112,8 @@ assert.ok(/data-email-button-preset/.test(tab), "the signup's button words are a
 assert.ok(!/renderChildSettings/.test(tab) && /<BlockEditor\s+block=\{selectedChild\}/.test(tab), "a block inside a group uses the one block editor")
 assert.ok(/updateBlockOverride\(block\.id, \{ data: updates/.test(tab), "a group child's edit sends only what changed")
 assert.ok(/PART_AWARE = new Set\(\[[^\]]*"storelib_shelf"[^\]]*"social_posts"/.test(tab))
-const shelf = readFileSync("components/onepage/storelib-blocks.tsx", "utf8")
+/* The shelf's editor half lives in storelib-blocks-editor.tsx since the block files were split; both halves are read. */
+const shelf = readFileSync("components/onepage/storelib-blocks.tsx", "utf8") + readFileSync("components/onepage/storelib-blocks-editor.tsx", "utf8")
 assert.ok(/useBlockPart\(\)/.test(shelf) && /data-shelf-cards/.test(shelf) && /data-shelf-layout/.test(shelf))
 const route = readFileSync("app/api/onepage/link-preview/route.ts", "utf8")
 assert.ok(/routeUser\(\)/.test(route) && /rateLimit\(/.test(route) && /maxBytes: 524_288/.test(route) && /TOTAL_MS/.test(route) && /maxRedirects: 2/.test(route))

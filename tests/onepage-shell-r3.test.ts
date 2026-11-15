@@ -41,8 +41,10 @@ const rule = (selector: string) => {
 /* ── The bar on a computer ── */
 check("it spans the card, edge to edge, at the top of the window", new RegExp(`md:inset-x-\\[max\\(16px,calc\\(50%_-_${CARD_PX / 2}px\\)\\)\\] md:pt-0`).test(bar) && !/md:top-3/.test(bar) && /max-w-\[550px\]/.test(page) && CARD_PX === 550)
 check("no pill: no ring, no shadow, no inset corner", !/md:rounded-\[28px\]/.test(bar) && !/box-shadow: 0 0 0 1px color-mix\(in srgb, var\(--op-bar-ink/.test(css) && !/BAR_DESKTOP_INSET_PX/.test(read("lib/onepage/feel.ts")))
-check("its top corners are the card's, only where the card is cut to match", new RegExp(`\\.op-topbar \\{ border-radius: ${CARD_RADIUS_PX}px ${CARD_RADIUS_PX}px 0 0; \\}`).test(css) && /@supports \(animation-timeline: scroll\(\)\) \{\s*@media \(min-width: 48rem\) \{\s*\[data-op-card\]/.test(css))
-check("a soft fade of the page's own colour at its foot, not an edge", /* Changed on purpose (round 17): the foot is the bar's own frosted colour, faded out by a mask. */ /\.op-topbar::after \{[^}]*top: 100%;[^}]*background-color: color-mix\(in srgb, var\(--op-bar-bg[^}]*mask-image: linear-gradient\(to bottom, #000, transparent\)/.test(css) && /\["--op-bar-bg" as string\]: background/.test(bar))
+/* Changed on purpose (the owner: the header "is getting cutted"): the card passes the window's top square, so the bar has no corners of its own and is the card's measured width. */
+check("the bar is square and the card's own measured width on a computer", !/\.op-topbar \{ border-radius: /.test(css) && /bar\.style\.left = `\$\{r\.left\}px`/.test(bar) && /bar\.style\.width = `\$\{r\.width\}px`/.test(bar))
+/* Changed on purpose: on a computer the bar is solid and its foot a plain fade of its colour, with no blur to end on a line. */
+check("a soft fade of the page's own colour at its foot, not an edge", /\.op-topbar::after \{[^}]*top: 100%;/.test(css) && /\.op-topbar::after \{\s*height: 36px;\s*background: linear-gradient\(to bottom, var\(--op-bar-bg, #ffffff\), transparent\);/.test(css) && /\["--op-bar-bg" as string\]: background/.test(bar))
 check("its height on a computer is the one lib/onepage/feel names", BAR_DESKTOP_PX === 56 && /--op-bar-h: 56px;/.test(css))
 
 /* ── Drawn from the scroll, never a frame behind ── */
@@ -53,7 +55,8 @@ check("the script writes it only where the stylesheet does not", /if \(!css && p
 check("the timeline's name leaves the name with the bar", /anchor\?\.style\.removeProperty\("view-timeline-name"\)/.test(bar))
 
 /* ── The card's corners at the top of the window ── */
-check("the card is cut at the top of the window with its own corners, on a scroll timeline", new RegExp(`@keyframes op-card-top \\{ from \\{ clip-path: inset\\(0 round ${CARD_RADIUS_PX}px\\); \\} to \\{ clip-path: inset\\(20000px 0 0 0 round ${CARD_RADIUS_PX}px\\); \\} \\}`).test(css) && /animation-timeline: scroll\(root block\);\s*animation-range: var\(--op-card-top, 32px\) calc\(var\(--op-card-top, 32px\) \+ 20000px\);/.test(css))
+/* Changed on purpose: the card is no longer cut with corners at the window's top. */
+check("the card is not cut at the top of the window", !/@keyframes op-card-top/.test(css) && !/animation-timeline: scroll\(root block\);\s*animation-range: var\(--op-card-top/.test(css))
 check("from where the card starts, measured", /card\.style\.setProperty\("--op-card-top"/.test(bar) && /data-op-card=""/.test(page))
 check("its shadow is drawn by the box around it, which the cut leaves alone", /<div className="w-full max-w-\[550px\] mx-4 rounded-\[40px\]" style=\{\{ boxShadow: "0 25px 80px -12px rgba\(0, 0, 0, 0\.35\)" \}\}>/.test(page) && (page.match(/0 25px 80px -12px/g) || []).length === 1)
 

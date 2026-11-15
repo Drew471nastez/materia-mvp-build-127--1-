@@ -13445,6 +13445,12 @@ const words: Record<string, string> = {
  "Use the changes from this device": "Änderungen von diesem Gerät verwenden",
  "Keep the saved page": "Gespeicherte Seite behalten",
  "This page was saved somewhere else. Save again to keep this version": "Diese Seite wurde woanders gespeichert. Speichere erneut, um diese Version zu behalten",
+ "Exported {name} as a Shopify theme": "{name} als Shopify-Theme exportiert",
+ "Upload it in Shopify: Online Store › Themes › Add theme › Upload zip file.": "Lade es in Shopify hoch: Onlineshop › Themes › Theme hinzufügen › ZIP-Datei hochladen.",
+ "{count, plural, one {# picture} other {# pictures}} could not be fetched in time and are not in the file. Export again to include them.": "{count, plural, one {# Bild konnte} other {# Bilder konnten}} nicht rechtzeitig geladen werden und sind nicht in der Datei. Exportiere erneut, um sie aufzunehmen.",
+ "The emails your buyers and members get. Open one to edit.": "Die E-Mails, die deine Käufer und Mitglieder bekommen. Öffne eine zum Bearbeiten.",
+ "Where your products are listed.": "Wo deine Produkte gelistet sind.",
+ "Your website in more languages, like /fr.": "Deine Website in weiteren Sprachen, etwa /fr.",
  "Messages go to {email} only if it is your sign in email or a team member's. Otherwise they go to your sign in email.": "Nachrichten gehen nur an {email}, wenn das deine Anmelde-E-Mail oder die eines Teammitglieds ist. Sonst gehen sie an deine Anmelde-E-Mail.",
  "Messages go to your sign in email.": "Nachrichten gehen an deine Anmelde-E-Mail.",
  "Every message is also kept in Contacts › Forms.": "Jede Nachricht wird auch unter Kontakte › Formulare gespeichert."

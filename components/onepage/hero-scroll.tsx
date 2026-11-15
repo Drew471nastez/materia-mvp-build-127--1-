@@ -289,6 +289,23 @@ export function HeroTopBar({
       /* Where the card starts on the page, so it keeps its corners at the top of the window from there (app/globals.css [data-op-card]). */
       const card = visibleOf("[data-op-card]")
       if (card) card.style.setProperty("--op-card-top", `${Math.max(0, Math.round(card.getBoundingClientRect().top + window.scrollY))}px`)
+      /*
+        ON A COMPUTER THE BAR IS THE CARD'S OWN WIDTH, MEASURED (the owner: "the header ... is getting cutted"). The bar
+        worked out its place as half the window less 275px while the card is centred in the page without the
+        scrollbar, so the two were apart by half a scrollbar and the bar's corner hung off the card. The card's own
+        box is read here, once per resize, and the bar takes its left and width.
+      */
+      if (card && window.matchMedia(LIVE_DESKTOP_QUERY).matches) {
+        const r = card.getBoundingClientRect()
+        bar.style.left = `${r.left}px`
+        bar.style.width = `${r.width}px`
+        bar.style.right = "auto"
+      } else {
+        bar.style.removeProperty("left")
+        bar.style.removeProperty("width")
+        bar.style.removeProperty("right")
+      }
+      barBottom = bar.getBoundingClientRect().bottom
     }
     const write = () => {
       frame = 0
@@ -353,6 +370,9 @@ export function HeroTopBar({
     watch?.observe(document.body, { childList: true, subtree: true })
     window.addEventListener("scroll", onScroll, { passive: true })
     window.addEventListener("resize", onResize, { passive: true })
+    /* A scrollbar that comes or goes moves the card without a resize: the page's width is watched too. */
+    const sized = typeof ResizeObserver === "function" ? new ResizeObserver(() => onResize()) : null
+    sized?.observe(document.documentElement)
     const mq = window.matchMedia(LIVE_DESKTOP_QUERY)
     mq.addEventListener("change", onResize)
     return () => {
@@ -362,6 +382,7 @@ export function HeroTopBar({
       watch?.disconnect()
       window.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onResize)
+      sized?.disconnect()
       mq.removeEventListener("change", onResize)
       anchor?.style.removeProperty("view-timeline-name")
     }

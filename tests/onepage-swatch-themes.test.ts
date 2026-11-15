@@ -10,7 +10,7 @@
  *   SWATCH    a card is a small page in the theme's layout (round 17): Classic
  *             is a profile disc, "Aa" in its title face and two of its
  *             buttons; Hero a picture fading into the page, "Aa" on the
- *             fade, the buttons, and a Hero mark. It asks for no account,
+ *             fade, the buttons; the picture is a real portrait, so no Hero mark. It asks for no account,
  *             draws no photo of the creator's, and nothing answers the pointer.
  *   CARD      the Design tab and the onboarding draw that swatch, with no
  *             hover that moves or resizes anything.
@@ -60,8 +60,8 @@ check(`Classic cards draw the profile disc; Hero cards (${heroes.length}) the pi
 check("the button is the page's own .op-btn, so a skin's material is on it", drawn.every((d) => /class="op-btn [^"]*"[^>]*|data-ts-button=""[^>]*class="op-btn /.test(d.html)))
 check("nothing on a swatch answers the pointer, so no hover of the theme's can play", drawn.every((d) => /data-ts-page=""[^>]*class="pointer-events-none /.test(d.html)) && drawn.every((d) => !d.html.includes("op-demo") && !d.html.includes("data-hover")))
 check("a swatch draws nothing of a creator's: no photo, link, product, newsletter or socials", drawn.every((d) => !/data-tp-|data-theme-avatar|data-tp-monogram/.test(d.html)))
-const pictures = (d: { c: T; hero: boolean }) => (d.c.background_type === "image" && d.c.background_image_url ? 1 : 0) + (!d.hero && d.c.cover_image_url ? 1 : 0)
-check("the only pictures are a theme's own wallpaper photo and cover, through the card's small copy", drawn.every((d) => count(d.html, "<img") === pictures(d) && (pictures(d) === 0 || d.html.includes('src="thumb:'))), drawn.filter((d) => count(d.html, "<img") !== pictures(d)).map((d) => d.id).join())
+const pictures = (d: { c: T; hero: boolean }) => (d.c.background_type === "image" && d.c.background_image_url ? 1 : 0) + (!d.hero && d.c.cover_image_url ? 1 : 0) + (d.hero ? 1 : 0) /* a Hero card's sample portrait */
+check("the only pictures are a theme's own wallpaper photo and cover, and a Hero card's portrait, through the card's small copy", drawn.every((d) => count(d.html, "<img") === pictures(d) && (pictures(d) === 0 || d.html.includes('src="thumb:'))), drawn.filter((d) => count(d.html, "<img") !== pictures(d)).map((d) => d.id).join())
 check("a card is 4:5 of a phone's width", SWATCH_WIDTH === 390 && Math.abs(SWATCH_WIDTH / SWATCH_HEIGHT - 0.8) < 0.002)
 const pill = swatchButtonStyle({ button_style: "filled", button_color: "#000000", button_text_color: "#ffffff", button_border_radius: 999, button_border_width: 0, button_shadow: "none" } as never)
 const soft = swatchButtonStyle({ button_style: "outline", button_color: "#000000", button_text_color: "#000000", button_border_radius: 8, button_border_width: 1, button_border_color: "#000000", button_shadow: "hard", button_shadow_color: "#112233" } as never)
@@ -74,8 +74,9 @@ const design = read("components/onepage/tabs/design-tab.tsx")
 const onboarding = read("components/onepage/onboarding-modal.tsx")
 const card = design.slice(design.indexOf("const ThemeCard = memo("), design.indexOf("type ThemeFilter = "))
 const tcard = onboarding.slice(onboarding.indexOf("const TemplatePicture = memo("), onboarding.indexOf('<span data-template-name=""'))
-check("the Design tab's card is the swatch, in the theme's layout, with the Hero mark", /<ThemeSwatch c=\{c\} thumb=\{themeThumbSrc\} hero=\{hero\} \/>/.test(card) && /const hero = themeIsHero\(template as never\)/.test(card) && /data-theme-hero=""/.test(card))
-check("the onboarding's card is the same swatch", /<ThemeSwatch c=\{template\.theme_config as Record<string, any>\} thumb=\{themeThumbSrc\} hero=\{themeIsHero\(template as never\)\} \/>/.test(tcard) && /data-theme-hero=""/.test(tcard))
+check("the Design tab's card is the swatch, in the theme's layout, with no Hero pill (the photo says it)", /<ThemeSwatch c=\{c\} thumb=\{themeThumbSrc\} hero=\{hero\} \/>/.test(card) && /const hero = themeIsHero\(template as never\)/.test(card) && !/data-theme-hero=""/.test(card))
+check("the onboarding's card is the same swatch, with no Hero pill", /<ThemeSwatch c=\{template\.theme_config as Record<string, any>\} thumb=\{themeThumbSrc\} hero=\{themeIsHero\(template as never\)\} \/>/.test(tcard) && !/data-theme-hero=""/.test(tcard))
+check("a Hero card draws a real photo, faded into the page", drawn.filter((d) => d.hero).every((d) => d.html.includes('data-ts-hero-photo=""')))
 for (const [name, src] of [["Design tab", card], ["onboarding", tcard]] as const) {
   check(`${name}: no account is handed to a card`, !/\bwho\b/.test(src.replace(/\/\*[\s\S]*?\*\//g, "")))
   check(`${name}: the card plays no hover of the theme's and has no hover that moves, sizes or shadows it`, !src.includes("op-demo") && !/hover:(?:scale|translate|-translate|shadow|border|p[xy]?-|m[xy]?-|w-|h-)/.test(src) && !/group-hover\/theme:(?!opacity-100)/.test(src))
