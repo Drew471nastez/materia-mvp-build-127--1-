@@ -172,7 +172,8 @@ check("One-tap payments is a phone and nothing else", () => {
   /* Changed on purpose (landing round 7): the phone is the full page checkout, its express Apple Pay button and then Apple Pay's own sheet. */
   // Changed on purpose (landing round 8): the phone sells the Cine Tones LUT Pack ($29).
   assert.ok(/Pay \$29\.00/.test(words(panel)) && /Confirm with Side Button/.test(words(panel)))
-  const convert = co.slice(co.indexOf('class="cdx"'), co.indexOf('class="mcx"'))
+  // Changed on purpose (landing round 9): one picture for Built to convert on every screen (the owner: on a phone "like on desktop"), so the phone layout that followed the window is gone.
+  const convert = co.slice(co.indexOf('class="cdx"'), co.indexOf('data-k="tap"'))
   assert.ok(/cdx-win/.test(convert) && !/class="cmc-phone"/.test(convert), "the browser is Built to convert's") /* Changed on purpose (landing round 4): the website checkout's window. */
 })
 /* Changed on purpose (landing round 5, the owner: "not pill shapes, should be tabs, how they were before"): the dark tab cards of 0724a74c1, no pills. */

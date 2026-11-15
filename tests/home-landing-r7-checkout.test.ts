@@ -67,38 +67,52 @@ check("Mara Quinn's Cine Tones LUT Pack ($29) and a t-shirt ($32), not The Loop,
 // Changed on purpose (landing round 8): the round 5 names point at the LUT pack and the tee.
 check("the old names still export (older suites import them)", GUIDE === LUTS && PRINT === TEE)
 // Changed on purpose (landing round 8): the products around the phone are 3D renders with transparent grounds (tests/home-landing-r8-checkout.test.ts).
-check("the pictures are webp files under 120 KB, credited in the code", ["tee-thumb", "creator-mara", "obj-tee", "obj-camera", "obj-hat", "obj-lamp", "obj-vase", "obj-cassette", "obj-plant"].every((f) => small(`public/home/commerce/${f}.webp`, 120)) && /photo-1618354691373-d851c5c3a990/.test(src) && /photo-1438761681033-6461ffad8d80/.test(src) && /Poly Haven/.test(src))
+// Changed on purpose (landing round 9): the owner: "physical products and digital products, not random things like a camera or a plant"; the scanned models are gone, the cap and the tote are cut out of photographs the page already shows.
+check("the pictures are webp files under 120 KB, credited in the code", ["tee-thumb", "creator-mara", "obj-tee", "obj-cap", "obj-tote"].every((f) => small(`public/home/commerce/${f}.webp`, 120)) && ["obj-camera", "obj-hat", "obj-lamp", "obj-vase", "obj-cassette", "obj-plant"].every((f) => !existsSync(`public/home/commerce/${f}.webp`)) && /photo-1618354691373-d851c5c3a990/.test(src) && /photo-1438761681033-6461ffad8d80/.test(src) && !/Poly Haven/.test(src))
 check("the round 5 print is gone from public/home/commerce", !existsSync("public/home/commerce/print-lasalle.webp"))
 check("no banned sample content", !/Weeknight Pasta|sourdough|Golden Hour|wheel throwing|Drawing Basics|Saturday Run Club|Dust & Tape|Elena Ruiz/i.test(words(co)))
 
 console.log("\nCentred, and the phone rises as it comes up the screen")
 check("the headline is centred at the top, on a computer too (no copy column beside the phone)", /text-align:center/.test(rule(".cmc-copy")) && !/text-align:left/.test(css.slice(css.indexOf("@media (min-width:900px)"), css.indexOf(".cmc[data-story-section] > .cmc-cards"))))
-check("the phone is centred (left 50%, half its width back)", /left:50%/.test(rule(".cmc-phone-wrap")) && /margin-left:calc\(var\(--pw\) \/ -2\)/.test(rule(".cmc-phone-wrap")) && !/right:max/.test(css))
-check("one observer watches the headline, the phone's box and the cards; no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 1 && /\[".cmc-phone-wrap", "data-cmc-in"\]/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
-check("armed only while wholly below the screen, so a part already on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /if \(root\.hasAttribute\(`\$\{attr\}-armed`\)\) root\.setAttribute\(attr, ""\)/.test(src))
-check("the rise is a transform transition from 34% low, no opacity flash", /\.cmc\[data-cmc-in-armed\]:not\(\[data-cmc-in\]\) \.cmc-rise\{transform:translate3d\(0,34%,0\);transition-duration:0s\}/.test(css) && /\.cmc-rise\{transition:transform 1\.1s/.test(css))
-check("a jump past the section and back refreshes every part (observe again on a real arrival only, so it never loops)", /if \(was === false\)/.test(src) && /io\.unobserve\(other\)\s*io\.observe\(other\)/.test(src))
+// Changed on purpose (landing round 9): the phone's box is its big size, centred in the stage, with both margins in one declaration.
+check("the phone is centred (left 50%, half its width back)", /left:50%/.test(rule(".cmc-phone-wrap")) && /margin:calc\(var\(--pw\) \* -1\.035\) 0 0 calc\(var\(--pw\) \/ -2\)/.test(rule(".cmc-phone-wrap")) && !/right:max/.test(css))
+// Changed on purpose (landing round 9): the headline and the phone are revealed by the scroll timeline (the owner's choreography), so the observer watches the cards only.
+check("one observer watches the cards; no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 1 && /root\.querySelector\("\.cmc-cards"\)/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
+// Changed on purpose (landing round 9): one part (the cards), so the attribute is named.
+check("armed only while wholly below the screen, so a part already on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /if \(root\.hasAttribute\("data-cmc-over-armed"\)\) root\.setAttribute\("data-cmc-over", ""\)/.test(src))
+// Changed on purpose (landing round 9): the owner: the phone comes first, big, and comes down as the page scrolls; a scroll timeline of transform, no transition.
+check("the phone comes down and a little smaller over the hold: transform only, no opacity flash", /@keyframes cmc-settle\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(0,var\(--down\),0\)\}\}/.test(css) && /@keyframes cmc-shrink\{from\{transform:scale\(1\)\}to\{transform:scale\(var\(--ps\)\)\}\}/.test(css) && !/data-cmc-in/.test(css))
+// Changed on purpose (landing round 9): one watched part, so there is no other part to ask about; the observer reports the cards' box afresh on every crossing.
+check("a jump past the section and back: the cards re-arm below the screen and play when they arrive", /root\.removeAttribute\("data-cmc-over"\)\s*root\.setAttribute\("data-cmc-over-armed", ""\)/.test(src))
 check("the phone is dimmed under a black veil, never made see-through (the ring would show through it)", !/\.cmc\[data-cmc-over\] \.cmc-rise\{opacity/.test(css))
 // Changed on purpose (landing round 8): the owner's recording turns the products as the page scrolls; a scroll timeline of transform is the compositor's own work.
-check("a scroll timeline drives the objects only (transform), with a paused time loop where it is missing", /@supports \(animation-timeline:view\(\)\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && !/timeline-scope/.test(css))
+// Changed on purpose (landing round 9): the timeline also brings the phone down and the headline in (the owner's choreography); where it is missing the ring still turns by itself, paused off screen.
+check("a scroll timeline over the scene's track (transform and opacity), with the ring's own paused loop either way", /@supports \(animation-timeline:view\(\)\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{[^}]*view-timeline:--cmc-t block\}/.test(css) && !/timeline-scope/.test(css) && /\.cmc-o\{animation:cmc-orbit \d+s linear infinite;animation-play-state:paused\}/.test(css))
 
 console.log("\nThe tab cards come over the phone, fading in")
-check("the stage holds 80svh and the cards are pulled 64svh up over it, above it (z 5)", /\.cmc-track\.cmc-track\{[^}]*height:calc\(100svh \+ 80svh\)/.test(css) && /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(css) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5;[^}]*margin:calc\(64svh \* -1\) 0 0/.test(css))
+// Changed on purpose (landing round 9): the owner asked for a short sticky stage here: about one screen (100svh), only where scroll timelines exist; the cards are pulled 56svh up.
+check("the stage holds one screen and the cards are pulled 56svh up over it, above it (z 5)", /\.cmc-track\.cmc-track\{height:calc\(100svh \+ 100svh\)/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5;[^}]*margin:calc\(56svh \* -1\) 0 0/.test(css))
 // Changed on purpose (landing round 8): each card slides up on its own, staggered, as the grid in the owner's recording does.
-check("the cards slide up one after another; the phone, the ring and the headline step back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-rise\{transform:translate3d\(0,0,0\) scale\(\.97\)\}/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-rise::after\{opacity:\.5\}/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-orbit\{opacity:\.25\}/.test(css))
+// Changed on purpose (landing round 9): the ring cannot fade (opacity would flatten its 3D space) and the headline stays over the cards; the phone alone dims under them.
+check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-rise::after\{opacity:\.45\}/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
 // Changed on purpose (landing round 8): the transition is on each card.
-check("  as transitions of transform and opacity only", /\.cmc-card\{transition:opacity \.7s ease,transform 1s/.test(css) && /\.cmc-rise\{transition:transform 1\.1s cubic-bezier\(\.16,1,\.3,1\)\}/.test(css) && /\.cmc-rise::after\{transition:opacity \.6s ease\}/.test(css))
+// Changed on purpose (landing round 9): the phone's move is the scroll timeline's now.
+check("  as transitions of transform and opacity only", /\.cmc-card\{transition:opacity \.7s ease,transform 1s/.test(css) && /\.cmc-rise::after\{transition:opacity \.6s ease\}/.test(css))
 
 console.log("\nThe products ride a ring around the phone again")
 // Changed on purpose (landing round 8): the baked 2D lap became a 3D turn over the scroll.
-const lap = keyframes("cmc-turn")
+// Changed on purpose (landing round 9): the turn is a whole turn of the ring now.
+const lap = keyframes("cmc-orbit")
 // Changed on purpose (landing round 8): seven 3D objects (the owner: "3D products, not images").
-check("seven real objects, four on a phone", FLOATS.length === 7 && FLOATS.filter((f) => f.m).length === 4 && (co.match(/class="cmc-o"/g) ?? []).length === 7 && /\.cmc-o:not\(\[data-m\]\)\{display:none\}/.test(css))
+// Changed on purpose (landing round 9): seven products a creator sells (three photographs, four digital), five of them on a phone.
+check("seven products, five on a phone", FLOATS.length === 7 && FLOATS.filter((f) => f.m).length === 5 && (co.match(/class="cmc-o"/g) ?? []).length === 7 && /\.cmc-o:not\(\[data-m\]\)\{display:none\}/.test(css))
 // Changed on purpose (landing round 8): the turn is 3D on purpose (perspective, rotateY), still transform only.
 check("one turn, transform only, in 3D", onlyCompositor(lap) && /rotateY/.test(lap) && /translate3d/.test(lap) && !/filter/.test(lap))
 // Changed on purpose (landing round 8): the float is what runs by itself.
-check("the float (and the time loop) paused until the stage is on screen in a visible tab", /\.cmc-bob\{animation:cmc-bob [^}]*animation-play-state:paused\}/.test(css) && /\.cmc-stage\[data-commerce-live\] \.cmc-bob\{animation-play-state:running\}/.test(css) && /useCommerceLive<HTMLDivElement>\("0px 0px", false\)/.test(src))
-check("the ring comes up a beat behind the phone (parallax), by transform and opacity", /\.cmc\[data-cmc-in-armed\]:not\(\[data-cmc-in\]\) \.cmc-floats\{opacity:0;transform:translate3d\(0,22svh,0\)/.test(css))
+// Changed on purpose (landing round 9): no float on top; the ring's turn is the loop, paused until the stage is on screen.
+check("the ring's turn paused until the stage is on screen in a visible tab", /\.cmc-o\{animation:cmc-orbit [^}]*animation-play-state:paused\}/.test(css) && /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /useCommerceLive<HTMLDivElement>\("0px 0px", false\)/.test(src))
+// Changed on purpose (landing round 9): the ring is in the phone's own 3D space and comes with it.
+check("the ring is in the phone's 3D space and moves with it", /class="cmc-world"><div class="cmc-orbit"/.test(co) && /\.cmc-world\{[^}]*transform-style:preserve-3d/.test(css))
 
 console.log("\nThe dot grid, very faint")
 check("1px dots at 7% white (was 13%), masked toward the edges", /rgba\(255,255,255,\.07\) 1px/.test(rule(".cmc-dots")) && /mask-image/.test(rule(".cmc-dots")) && !/rgba\(255,255,255,\.13\)/.test(css))
