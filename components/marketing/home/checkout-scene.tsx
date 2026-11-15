@@ -187,6 +187,17 @@ const at = (sec: number) => `${Math.round((sec / LOOP_S) * 10000) / 100}%`
  * transform and opacity, on the compositor. A box already on screen when this
  * runs is never armed, so the cards are simply there. Scrolled back up past
  * it, it re-arms. Nothing is read or written per frame.
+ *
+ * Wave 17, touch screens (the owner's iPhone recording, round 9: "a dark
+ * shade sweeps up over the phone"): the cards came up over the phone with
+ * the page while still armed (opacity 0) and only began their 0.7s fade once
+ * the observer reported, so a flick brought up their black ground empty, and
+ * again on every pass down after a pass up (in Chromium at 4x CPU, 7 to 9
+ * frames a pass with the box on screen and the cards under half opacity).
+ * Round 10 took the ground away; the late fade stayed, now as empty space
+ * where the cards should be. A finger already moves the cards up over the
+ * phone, so on a touch screen nothing is armed and they are simply there. A
+ * mouse keeps the entrance, as the sheet's rise does (scroll-reveal-panel.tsx).
  */
 function useEntrances(rootRef: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -195,14 +206,15 @@ function useEntrances(rootRef: React.RefObject<HTMLElement | null>) {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
     const cards = root.querySelector(".cmc-cards")
     if (!cards) return
+    const arm = matchMedia("(hover: hover) and (pointer: fine)").matches
     const io = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
-          if (root.hasAttribute("data-cmc-over-armed")) root.setAttribute("data-cmc-over", "")
+          if (!arm || root.hasAttribute("data-cmc-over-armed")) root.setAttribute("data-cmc-over", "")
         } else if (e.boundingClientRect.top > 0 || e.boundingClientRect.height === 0) {
           /* Below the screen, or not laid out yet: the lazy box skips its content (content-visibility) until it is near, and the observer then reports an empty box at 0. */
           root.removeAttribute("data-cmc-over")
-          root.setAttribute("data-cmc-over-armed", "")
+          if (arm) root.setAttribute("data-cmc-over-armed", "")
         }
       },
       { rootMargin: "0px 0px -12% 0px" },
@@ -1262,6 +1274,19 @@ const RECEDE_SCALE = 0.92
 const COPY_OUT = [86, 116] as const
 /* Each word's stretch of the hold: a fifth of it, each starting a little after the one before, the last done as the phone lands. */
 const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{animation-range:contain ${f3(5 + i * 2.6)}svh contain ${f3(SETTLE - 18.2 + i * 2.6)}svh}`).join("\n    ")
+/*
+ * Wave 17: the ring's turn runs the whole time the track is on screen, as it
+ * did with "entry 0% exit 100%", but its start is written as a length of
+ * scroll before "contain 0%" (the track's top at the screen's top). "entry
+ * 0%" is the track's top at the screen's foot, so it moves with the
+ * scrollport's height, and on an iPhone that grows and shrinks with Safari's
+ * toolbar while svh does not: turning back mid-hold brought the toolbar out
+ * and turned the ring a step (measured in Chromium at 390 wide with svh held
+ * at a 664px screen, 664 -> 750 tall). "exit 100%" (the track's foot at the
+ * screen's top) does not depend on the screen. Same numbers with the toolbar
+ * out.
+ */
+const SPIN_RANGE = "contain -100svh exit 100%"
 
 /** An object's place on the ring as custom properties: its start (a turn), its height, its width, its picture's height over its width, its lean. */
 const spotVars = (s: Spot, f: Thing) => `--p:${f3(s.p)};--y:${f3(s.y)};--s:${f3(s.s)};--ar:${f3(f.ar)};--rz:${f3(f.rz)}deg`
@@ -1332,6 +1357,22 @@ const THINGS_CSS = `
 
 const SCENE_CSS = `
 .cmc{position:relative;background:#000;color:#fff;border-radius:clamp(28px,4vw,56px);overflow:clip;padding-block:0!important;isolation:isolate;--edge:var(--home-edge,clamp(20px,5.15vw,84px))}
+/*
+ * Wave 17, the white strips (the owner's iPhone recording: a white band at
+ * the foot of the held stage, and the scene arriving as a black block with
+ * white under it and the ring's products drawn on the white). Safari paints
+ * the page's tiles on the page's thread; a tile not painted yet when the
+ * finger brings it on screen shows the page's own background, white, and the
+ * black of this section is only in those tiles (the stage, the ring and the
+ * phone are layers of their own, already painted, which is why they showed
+ * on the white). So the black is also a layer of its own: one box the size
+ * of the section, a plain colour and a 3D transform, which WebKit draws as a
+ * colour with no tiles to paint, under everything in the section. Touch
+ * screens only, where a fling outruns the painting; a mouse keeps one layer.
+ */
+@media (hover:none),(pointer:coarse){
+  .cmc::before{content:"";position:absolute;inset:0;z-index:0;background:#000;transform:translateZ(0);pointer-events:none}
+}
 /* The dots (round 7: "very extremely subtle"): 1px at 7% white on a 24px grid, faded out toward the edges. */
 .cmc-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.3px);background-size:24px 24px;background-position:12px 12px;-webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 40%,#000 25%,transparent 80%);mask-image:radial-gradient(ellipse 75% 65% at 50% 40%,#000 25%,transparent 80%)}
 /*
@@ -1422,8 +1463,8 @@ ${THINGS_CSS}
     .cmc-soft{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
     .cmc-phone-soft{animation-name:cmc-in-half}
     .cmc-copy{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${COPY_OUT[0]}svh contain ${COPY_OUT[1]}svh}
-    .cmc-orbit{animation:cmc-spin linear both;animation-timeline:--cmc-t;animation-range:entry 0% exit 100%}
-    .cmc-face{animation:cmc-unspin linear both,cmc-depth ${TURN_S}s linear infinite;animation-timeline:--cmc-t,auto;animation-range:entry 0% exit 100%;animation-delay:0s,calc(var(--p) * -${TURN_S}s);animation-play-state:running,paused}
+    .cmc-orbit{animation:cmc-spin linear both;animation-timeline:--cmc-t;animation-range:${SPIN_RANGE}}
+    .cmc-face{animation:cmc-unspin linear both,cmc-depth ${TURN_S}s linear infinite;animation-timeline:--cmc-t,auto;animation-range:${SPIN_RANGE};animation-delay:0s,calc(var(--p) * -${TURN_S}s);animation-play-state:running,paused}
     .cmc-stage[data-commerce-live] .cmc-face{animation-play-state:running,running}
     .cmc-w{animation:cmc-word cubic-bezier(.2,.7,.3,1) both;animation-timeline:--cmc-t}
     ${wordRanges()}
