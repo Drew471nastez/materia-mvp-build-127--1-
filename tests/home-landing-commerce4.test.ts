@@ -71,7 +71,8 @@ check("none of this round's banned samples", () => {
 // Changed on purpose (landing round 5): the owner did not like the cap; How it works sells a signed print of Nadia's photograph instead.
 // Changed on purpose (landing round 7): the owner did not like Nadia Brooks's shop; How it works sells Ruben Linde's apron and workbench plans.
 check("half physical, half digital: the apron and the plans in How it works", () => {
-  assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["apron", "Physical"], ["plans", "Digital"]])
+  // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack on section 3's cover.
+  assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["tee", "Physical"], ["luts", "Digital"]])
   /* Changed on purpose (landing round 7): the owner asked for the products around the phone back ("bring back the axis products how they were before"), with a new set of pictures; tests/home-landing-r7-checkout.test.ts pins the ring. */
   assert.ok(/\/home\/commerce\/float-/.test(co))
 })
@@ -80,8 +81,8 @@ console.log("\nHow it works")
 // Changed on purpose (landing round 5): the owner found the colourful grounds "too colorful"; they are a soft grey or near black, and still.
 check("every tile stands on a calm ground in Storelib's colours, nothing drifting behind it, loops paused off screen", () => {
   // Changed on purpose (landing round 7): four cards; the domain's ground is a still black to deep purple gradient (the owner).
-  assert.equal((how.match(/class="cmh-stage" data-ground="light"/g) ?? []).length, 3)
-  assert.equal((how.match(/class="cmh-stage" data-ground="night"/g) ?? []).length, 1)
+  // Changed on purpose (landing round 8): three grey and one black "doesn't work for the eye" (the owner); four light tints of one family.
+  assert.deepEqual([...how.matchAll(/class="cmh-stage" data-ground="(\w+)"/g)].map((m) => m[1]), ["sand", "sage", "clay", "mist"])
   assert.ok(!/cmh-gl|cmh-drift/.test(how + howCss))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss) && howCss.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}"))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss))
@@ -101,14 +102,15 @@ check("there is no checkout tile in How it works", () => {
   assert.ok(!how.includes("cmh-sheet") && !/Checkout without leaving your page/.test(words(how)) && !how.includes("print-lasalle"))
   assert.equal(sheetButtonLabel("Check out", "$45.00", true), "Check out · $45.00")
   assert.ok(statSync("public/home/how/print-lasalle.webp").size < 30 * 1024, "the checkout scene still uses the print")
-  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-dok")))
+  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-lk"))) // Changed on purpose (landing round 8): the lock in the address bar, not the pill's tick.
 })
 // Changed on purpose (landing round 7, the owner: "bring back the design how it was before"): the round 3 tile, the website under the address pill and the three addresses; the caption keeps Pro.
-check("the domain tile is round 3's again and keeps the code's claims: the three purposes, Pro, DNS, HTTPS", () => {
-  assert.deepEqual(HOW_DOMAIN.targets.map((t) => t.purpose), [...DOMAIN_PURPOSES])
+// Changed on purpose (landing round 8) (the owner: the www, shop and club banner was too complex): one browser window, the domain typing into its address bar; the caption keeps Pro.
+check("the domain tile is one browser window and keeps the code's claims: the three purposes, Pro, DNS, HTTPS", () => {
+  assert.ok((DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
   const w = words(how)
   assert.ok(/On Pro, point a domain you own at your website, your creator page or a community\. Storelib checks the DNS and adds HTTPS\./.test(w))
-  assert.ok(how.includes('class="cmh-dm-site"') && how.includes('class="cmh-dm-pill"') && !how.includes("cmh-dm-card"))
+  assert.ok(how.includes('class="cmh-br"') && how.includes('class="cmh-br-bar"') && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
 })
 
 console.log("\nThe checkout scene")

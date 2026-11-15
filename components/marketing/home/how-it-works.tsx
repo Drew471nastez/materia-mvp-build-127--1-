@@ -12,20 +12,28 @@
  * --home-max), so its edges line up with the showcase under the hero.
  *
  * One shop throughout: Ruben Linde's Linde Woodshop, a woodworker who films
- * his builds and sells a shop apron (physical, printed by a print partner
- * when it is ordered), plans for a weekend workbench (a PDF), a hand tool
- * course, and takes tips. Round 7 (the owner) took out Nadia Brooks, her
- * print and the checkout tile; this file draws its own data and imports
- * nothing from the checkout scene's files.
+ * his builds and sells a plain shop tee (physical, printed by a print partner
+ * when it is ordered), Cine Tones, the LUT pack he grades his build videos
+ * with (a download), a hand tool course, and takes tips. Round 7 (the owner)
+ * took out Nadia Brooks, her print and the checkout tile; this file draws
+ * its own data and imports nothing from the checkout scene's files.
  *
- *   products   one product card at a time, the apron and then the plans:
- *              its price, what making it costs, what he keeps, its status
+ *   products   one product card at a time, the tee and then the LUT pack:
+ *              its price, what making it costs, what he keeps, its status.
+ *              Round 8 (the owner): "just a t-shirt", and the LUT pack on
+ *              the same black cover as section 3's, drawn here from the
+ *              same still (LutCover), not imported
  *   course     the course player: a lesson playing and ticked off
  *   tips       a tip card choosing an amount, sending it, the tip landing
- *   domain     the round 3 design again (the owner): his website under a
- *              large address pill, and the three things a creator's own
- *              domain can serve, each checked in turn. Now on a smooth black
- *              to deep purple ground
+ *   domain     round 8 (the owner found the address banner with www, shop
+ *              and club too complex): one browser window. His domain types
+ *              into the address bar, the lock appears, and his website comes
+ *              up under it. One idea, no rows
+ *
+ * The grounds (round 8, the owner: three light grey and one black "doesn't
+ * work for the eye"): four light grounds of one family, each a soft tint
+ * that leans toward its card's subject (sand, sage, clay, mist), all at the
+ * same lightness, so no card is the odd one out.
  *
  * Every loop is CSS keyframes on transform and opacity only, in fixed-size
  * boxes, so nothing lays out while they play. They run only while their card
@@ -33,7 +41,7 @@
  * shows each card's finished frame, still.
  *
  * TRUE TO THE PRODUCT. Merch without stock is made on demand by a print
- * partner the seller connects (lib/physical/providers.ts); the apron's cost
+ * partner the seller connects (lib/physical/providers.ts); the tee's cost
  * is an example partner price. What the seller keeps is after Storelib's
  * real fee (lib/payments/fees/calculate). The player's words are the course
  * player's (components/courses/course-player.tsx). A domain a creator owns
@@ -71,50 +79,69 @@ export const HOW_SHOP = {
   avatar: `${HOW}/linde-avatar.webp`,
 } as const
 
-/** The digital product: his workbench plans, one PDF. */
-export const HOW_PLANS = {
-  title: "Weekend Workbench",
-  kind: "Plans",
-  file: "Weekend-Workbench-Plans.pdf",
-  priceCents: 2400,
+/**
+ * The digital product (landing round 8, the owner): Cine Tones, the LUT pack
+ * section 3 sells, on the same cover: black, the graded desert road still
+ * across its top, "LUT Pack" small, "Cine Tones" big and heavy. The still is
+ * section 3's file; the cover is drawn in this file.
+ */
+export const HOW_LUTS = {
+  name: "Cine Tones LUT Pack",
+  tag: "LUT Pack",
+  words: ["Cine", "Tones"],
+  still: "/home/everything/lut-still.webp",
+  priceCents: 2900,
 } as const
 
-/** Ruben's shop: a shop apron printed when ordered, and the workbench plans. */
+/** Ruben's shop: a plain tee printed when ordered, and the LUT pack. */
 export const HOW_PRODUCTS = [
   {
-    id: "apron",
+    id: "tee",
     kind: "Physical",
-    name: "Linde Shop Apron",
+    name: "Linde Shop Tee",
     how: "Printed when ordered",
     steps: ["New order", "Printing", "Shipped"],
-    /** An example print partner price for a printed canvas apron. */
-    ...sale(3800, 1600),
+    /** An example print partner price for a printed cotton tee. */
+    ...sale(3200, 1250),
   },
   {
-    id: "plans",
+    id: "luts",
     kind: "Digital",
-    name: `${HOW_PLANS.title} ${HOW_PLANS.kind}`,
+    name: HOW_LUTS.name,
     how: "Instant download",
     steps: ["New order", "Paid", "Delivered"],
-    ...sale(HOW_PLANS.priceCents, 0),
+    ...sale(HOW_LUTS.priceCents, 0),
   },
 ] as const
 
 /**
- * Ruben's own domain (made up), and the three things Storelib serves on a
- * creator's domain. One address each: a domain row has one purpose, so a
- * creator who wants all three connects the domain and two subdomains of it.
+ * Ruben's own domain (made up), serving his website (lib/custom-domains
+ * DOMAIN_PURPOSES: a domain serves one thing, here the website). A bare
+ * domain, typed the way a buyer types it.
  */
 export const HOW_DOMAIN = {
-  name: "www.lindewoodshop",
-  tld: ".com",
-  targets: [
-    { purpose: "website", sub: "www", what: "Website" },
-    { purpose: "creator_page", sub: "shop", what: "Creator page, OnePage" },
-    { purpose: "community", sub: "club", what: "Community" },
-  ] satisfies readonly { purpose: DomainPurpose; sub: string; what: string }[],
+  host: "lindewoodshop.com",
+  purpose: "website" satisfies DomainPurpose,
 } as const
-const DOMAIN_ROOT = `${HOW_DOMAIN.name.replace(/^www\./, "")}${HOW_DOMAIN.tld}`
+
+/*
+  The address typing in: each letter shows at its own moment of the loop,
+  then the caret leaves, the lock comes in and the page loads. Percentages of
+  one 9 second loop; every step is opacity or transform.
+*/
+const TYPE = { start: 7, step: 0.95, enter: 29, out: 92 } as const
+const typedAt = (i: number) => +(TYPE.start + i * TYPE.step).toFixed(2)
+const TYPED_CSS = [...HOW_DOMAIN.host]
+  .map((_, i, all) => {
+    const at = typedAt(i)
+    const leave = i === all.length - 1 ? TYPE.enter : typedAt(i + 1)
+    return (
+      `.cmh-ch[data-k="${i}"]{animation-name:cmh-ch${i}}.cmh-ch[data-k="${i}"]>.cmh-caret{animation-name:cmh-ck${i}}` +
+      `@keyframes cmh-ch${i}{0%,${at}%{opacity:0}${(at + 0.05).toFixed(2)}%,${TYPE.out}%{opacity:1}${TYPE.out + 2}%,100%{opacity:0}}` +
+      `@keyframes cmh-ck${i}{0%,${at}%{opacity:0}${(at + 0.05).toFixed(2)}%,${leave}%{opacity:1}${(leave + 0.05).toFixed(2)}%,100%{opacity:0}}`
+    )
+  })
+  .join("\n")
 
 /** The four cards, in section 3's order: wide, narrow, then narrow, wide. */
 export const HOW_CARDS = [
@@ -202,10 +229,10 @@ export function HowItWorks() {
   useCardsLive(grid)
   useCardReveal(grid)
   const pictures: Record<(typeof HOW_CARDS)[number]["key"], { ground: Ground; scene: ReactNode }> = {
-    products: { ground: "light", scene: <ProductsScene /> },
-    course: { ground: "light", scene: <CourseScene /> },
-    tips: { ground: "light", scene: <TipScene /> },
-    domain: { ground: "night", scene: <DomainScene /> },
+    products: { ground: "sand", scene: <ProductsScene /> },
+    course: { ground: "sage", scene: <CourseScene /> },
+    tips: { ground: "clay", scene: <TipScene /> },
+    domain: { ground: "mist", scene: <DomainScene /> },
   }
   return (
     <section className="cmh" data-how-section="" aria-labelledby="cmh-title">
@@ -233,8 +260,8 @@ export function HowItWorks() {
   )
 }
 
-/** A soft grey, or for the domain a smooth black to deep purple. Nothing moves in the ground. */
-type Ground = "light" | "night"
+/** Four light tints of one family, one per card (landing round 8). Nothing moves in the ground. */
+type Ground = "sand" | "sage" | "clay" | "mist"
 
 const Check = ({ size = 12 }: { size?: number }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -242,15 +269,16 @@ const Check = ({ size = 12 }: { size?: number }) => (
   </svg>
 )
 
-/** The plans' cover, the way a seller uploads it: a photo of the bench, the title set over its foot. */
-function PlansCover({ className = "" }: { className?: string }) {
+/** The LUT pack's cover, section 3's: a black square, the graded still across its top fading into the black, "LUT Pack" small, the name big. Sized in its own width. */
+function LutCover({ className = "" }: { className?: string }) {
   return (
-    <span className={`cmh-cover ${className}`}>
-      <img src={`${HOW}/plans-bench.webp`} alt="" width={480} height={640} loading="lazy" decoding="async" />
-      <span className="cmh-cover-t">
-        <b>Weekend</b>
-        <b>Workbench</b>
-        <small>Plans, PDF</small>
+    <span className={`cmh-lut ${className}`}>
+      <img src={HOW_LUTS.still} alt="" width={720} height={405} loading="lazy" decoding="async" />
+      <span className="cmh-lut-tag">{HOW_LUTS.tag}</span>
+      <span className="cmh-lut-name">
+        {HOW_LUTS.words.map((w) => (
+          <span key={w}>{w}</span>
+        ))}
       </span>
     </span>
   )
@@ -264,7 +292,7 @@ function ProductsScene() {
         {HOW_PRODUCTS.map((p, i) => (
           <div key={p.id} className="cmh-a cmh-pc" data-k={i}>
             <div className="cmh-pc-pic" data-kind={p.id}>
-              {p.id === "apron" ? <img src={`${HOW}/apron.webp`} alt="" width={480} height={600} loading="lazy" decoding="async" /> : <PlansCover className="cmh-pc-cover" />}
+              {p.id === "tee" ? <img src={`${HOW}/tee-white.webp`} alt="" width={560} height={560} loading="lazy" decoding="async" /> : <LutCover />}
             </div>
             <div className="cmh-pc-b">
               <span className="cmh-pc-kind">{p.kind}</span>
@@ -399,34 +427,67 @@ function TipScene() {
   )
 }
 
-/* 4. The round 3 design (the owner: "how it was before"): his website under his own address, and what else the domain serves, checked one after another. */
+/*
+  4. Landing round 8 (the owner: the www, shop and club banner was "too
+  complex"): one browser window. His domain types into the address bar, the
+  lock comes in as the page loads, and his website is there under it.
+*/
 function DomainScene() {
   return (
     <div className="cmh-dm">
-      <div className="cmh-dm-top">
-        <div className="cmh-dm-site">
+      <div className="cmh-br">
+        <div className="cmh-br-top">
+          <span className="cmh-br-dots">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span className="cmh-br-bar">
+            <span className="cmh-br-lock">
+              <span className="cmh-a cmh-br-lk">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
+                  <path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" />
+                </svg>
+              </span>
+            </span>
+            <span className="cmh-br-url">
+              <i className="cmh-a cmh-caret cmh-caret0" />
+              {[...HOW_DOMAIN.host].map((c, i) => (
+                <span key={i} className="cmh-a cmh-ch" data-k={i}>
+                  {c}
+                  <i className="cmh-a cmh-caret" />
+                </span>
+              ))}
+            </span>
+          </span>
+          <span className="cmh-br-load">
+            <span className="cmh-a cmh-br-loadfill" />
+          </span>
+        </div>
+        <div className="cmh-br-page">
           <div className="cmh-dm-nav">
             <img src={HOW_SHOP.avatar} alt="" loading="lazy" decoding="async" width={160} height={160} />
             <b>{HOW_SHOP.name}</b>
             <span>Shop</span>
-            <span>Plans</span>
+            <span>Course</span>
             <span>About</span>
           </div>
           <div className="cmh-dm-hero">
             <img src={`${HOW}/site-workshop.webp`} alt="" loading="lazy" decoding="async" width={720} height={405} />
             <span>
-              <b>Furniture you can build this weekend</b>
+              <b>Built by hand, filmed every week</b>
               <i>Shop</i>
             </span>
           </div>
           <div className="cmh-dm-shelf">
             <span>
-              <img src={`${HOW}/apron.webp`} alt="" loading="lazy" decoding="async" width={480} height={600} />
+              <img src={`${HOW}/tee-white.webp`} alt="" loading="lazy" decoding="async" width={560} height={560} />
               <b>{HOW_PRODUCTS[0].name}</b>
               <small>{commerceUsd(HOW_PRODUCTS[0].priceCents)}</small>
             </span>
             <span>
-              <PlansCover className="cmh-dm-cover" />
+              <LutCover className="cmh-dm-lut" />
               <b>{HOW_PRODUCTS[1].name}</b>
               <small>{commerceUsd(HOW_PRODUCTS[1].priceCents)}</small>
             </span>
@@ -436,31 +497,8 @@ function DomainScene() {
               <small>Course</small>
             </span>
           </div>
+          <span className="cmh-a cmh-br-veil" />
         </div>
-        <div className="cmh-dm-pill">
-          <span className="cmh-dm-addr">
-            {HOW_DOMAIN.name}
-            <b>{HOW_DOMAIN.tld}</b>
-          </span>
-          <span className="cmh-a cmh-dm-ok">
-            <Check size={13} />
-          </span>
-        </div>
-      </div>
-      <div className="cmh-dm-rows">
-        {HOW_DOMAIN.targets.map((t, i) => (
-          <div key={t.purpose} className="cmh-dm-row">
-            <span className="cmh-dm-mark">
-              <span className="cmh-a cmh-dm-tick" data-k={i}>
-                <Check size={9} />
-              </span>
-            </span>
-            <span className="cmh-dm-host">
-              <b>{t.sub}</b>.{DOMAIN_ROOT}
-            </span>
-            <span className="cmh-dm-what">{t.what}</span>
-          </div>
-        ))}
       </div>
     </div>
   )
@@ -488,8 +526,11 @@ const HOW_CSS = `
 @media(min-width:768px){.cmh-card:nth-child(even){--d:110ms}}
 .cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;height:clamp(360px,96vw,400px);border-radius:17px;background:#f3f3f4;overflow:hidden;contain:paint;isolation:isolate;font-family:inherit}
 @media(min-width:768px){.cmh-stage{height:clamp(360px,32vw,440px);border-radius:19px}}
-/* The domain's ground (the owner, round 7): black that turns, slowly, to a deep purple in the far corner. Two still gradients, no glow, no glass. */
-.cmh-stage[data-ground=night]{background:radial-gradient(90% 80% at 100% 100%,#3a1c6b 0%,rgba(58,28,107,.55) 38%,rgba(20,12,36,0) 78%),linear-gradient(160deg,#050507 0%,#0c0a12 46%,#1d1233 100%)}
+/* The grounds (landing round 8): four light tints of one family at one lightness, each a touch deeper at its foot. Still, no glow, no glass. */
+.cmh-stage[data-ground=sand]{background:linear-gradient(180deg,#f4efe7,#ebe3d7)}
+.cmh-stage[data-ground=sage]{background:linear-gradient(180deg,#eef1ea,#e1e7dc)}
+.cmh-stage[data-ground=clay]{background:linear-gradient(180deg,#f6ede8,#eedfd7)}
+.cmh-stage[data-ground=mist]{background:linear-gradient(180deg,#edf0f4,#dfe4eb)}
 .cmh-cap{margin:24px 0 0;max-width:46ch;font-size:15.5px;line-height:1.5;color:#7c7a84;text-wrap:pretty}
 .cmh-cap-lead{font-weight:500;color:#18181b}
 @media(min-width:768px){.cmh-cap{font-size:16px}}
@@ -501,12 +542,13 @@ const HOW_CSS = `
 .cmh-stack{display:grid}
 .cmh-stack>.cmh-a{grid-area:1/1}
 
-/* ── the plans' cover ── */
-.cmh-cover{position:relative;display:block;aspect-ratio:3/4;overflow:hidden;background:#2a2118;container-type:inline-size}
-.cmh-cover img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover}
-.cmh-cover-t{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:30cqw 9cqw 9cqw;background:linear-gradient(180deg,rgba(14,10,6,0),rgba(14,10,6,.86) 55%);color:#fff}
-.cmh-cover-t b{font-size:15cqw;font-weight:800;line-height:.98;letter-spacing:-.04em}
-.cmh-cover-t small{margin-top:5cqw;font-size:8cqw;font-weight:500;color:rgba(255,255,255,.72)}
+/* ── the LUT pack's cover: section 3's (everything-in-one-place .ev-lut), sized in its own width ── */
+.cmh-lut{position:relative;display:block;aspect-ratio:1;overflow:hidden;background:#0a0a0b;color:#fff;container-type:inline-size}
+.cmh-lut img{position:absolute;left:0;top:0;display:block;width:100%;height:64%;object-fit:cover;object-position:50% 60%}
+.cmh-lut::before{content:"";z-index:1;position:absolute;left:0;right:0;top:0;height:30%;background:linear-gradient(rgba(10,10,11,.5),rgba(10,10,11,0))}
+.cmh-lut::after{content:"";position:absolute;left:0;right:0;top:26%;height:39%;background:linear-gradient(rgba(10,10,11,0),rgba(10,10,11,.55) 50%,#0a0a0b)}
+.cmh-lut-tag{z-index:1;position:absolute;left:7cqw;top:7cqw;font-size:max(4.6cqw,6px);font-weight:600;line-height:1;letter-spacing:.18em;text-transform:uppercase}
+.cmh-lut-name{z-index:1;position:absolute;left:6.4cqw;bottom:6.4cqw;display:flex;flex-direction:column;font-size:21cqw;font-weight:800;line-height:.84;letter-spacing:-.05em;text-transform:uppercase}
 
 /* ── products: one card at a time ── */
 .cmh-pr{position:absolute;inset:0;display:grid;place-items:center;padding:18px;box-sizing:border-box}
@@ -517,8 +559,8 @@ const HOW_CSS = `
 @keyframes cmh-card0{0%,44%{opacity:1;transform:translate3d(0,0,0) scale(1)}49%,95%{opacity:0;transform:translate3d(0,-10px,0) scale(.98)}100%{opacity:1;transform:translate3d(0,0,0) scale(1)}}
 @keyframes cmh-card1{0%,46%{opacity:0;transform:translate3d(0,10px,0) scale(.98)}51%,94%{opacity:1;transform:translate3d(0,0,0) scale(1)}99%,100%{opacity:0;transform:translate3d(0,-10px,0) scale(.98)}}
 .cmh-pc-pic{flex:none;display:grid;place-items:center;width:44%;aspect-ratio:1;border-radius:12px;overflow:hidden;background:#ececef}
-.cmh-pc-pic[data-kind=apron] img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 30%}
-.cmh-pc-cover{width:62%;border-radius:3px;box-shadow:0 1px 2px rgba(24,24,27,.12),0 14px 26px -14px rgba(24,24,27,.55)}
+.cmh-pc-pic[data-kind=tee] img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 40%}
+.cmh-pc-pic>.cmh-lut{width:100%}
 .cmh-pc-b{flex:1;min-width:0;display:flex;flex-direction:column}
 .cmh-pc-kind{font-size:11px;color:#8b8b94}
 .cmh-pc-name{margin-top:1px;font-size:15px;font-weight:600;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -601,42 +643,43 @@ const HOW_CSS = `
 .cmh-tip-pop b{color:#15803d;font-weight:700;font-size:13px}
 @keyframes cmh-tpop{0%,36%{opacity:0;transform:translate3d(-50%,14px,0) scale(.94)}42%,70%{opacity:1;transform:translate3d(-50%,0,0)}78%,100%{opacity:0;transform:translate3d(-50%,-10px,0)}}
 
-/* ── your own domain: the round 3 design, on the night ground ── */
-.cmh-dm{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 20px 20px;box-sizing:border-box;container-type:inline-size}
-.cmh-dm .cmh-a{animation-duration:9s;animation-timing-function:cubic-bezier(.3,1.4,.5,1)}
-.cmh-dm-top{position:relative;flex:1;min-height:0;width:100%;display:flex;justify-content:center}
-.cmh-dm-site{width:min(100%,300px);height:100%;border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 24px 48px -24px rgba(0,0,0,.8);color:#18181b}
-.cmh-dm-nav{display:flex;align-items:center;gap:9px;height:30px;padding:0 12px;font-size:8.5px;color:#71717a}
-.cmh-dm-nav img{width:15px;height:15px;border-radius:50%;object-fit:cover;margin-right:-3px}
-.cmh-dm-nav b{margin-right:auto;font-size:9.5px;font-weight:600;color:#18181b}
-.cmh-dm-hero{position:relative;display:grid;grid-template-columns:1.25fr 1fr;height:88px;background:#f1ede6}
-.cmh-dm-hero img{display:block;width:100%;height:88px;object-fit:cover}
-.cmh-dm-hero span{display:grid;align-content:center;justify-items:start;gap:7px;padding:0 12px}
-.cmh-dm-hero b{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:13px;font-weight:400;line-height:1.15;letter-spacing:-.01em}
-.cmh-dm-hero i{padding:3px 9px;border-radius:99px;background:#18181b;color:#fff;font-size:7.5px;font-style:normal;font-weight:600}
-.cmh-dm-shelf{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 12px 0}
+/* ── your own domain: one browser window, the address typing in (landing round 8) ── */
+.cmh-dm{position:absolute;inset:0;display:grid;place-items:center;padding:24px 20px;box-sizing:border-box}
+.cmh-dm .cmh-a{animation-duration:9s;animation-timing-function:linear}
+.cmh-br{display:flex;flex-direction:column;width:min(100%,500px);height:100%;max-height:390px;border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 0 0 1px rgba(24,24,27,.06),0 28px 56px -30px rgba(24,24,27,.42)}
+.cmh-br-top{position:relative;flex:none;display:flex;align-items:center;gap:12px;height:50px;padding:0 12px;background:#f7f7f8;border-bottom:1px solid #ececef}
+.cmh-br-dots{flex:none;display:flex;gap:6px}
+.cmh-br-dots i{width:9px;height:9px;border-radius:50%;background:#dcdce0}
+.cmh-br-bar{flex:1;min-width:0;display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:9px;background:#fff;box-shadow:inset 0 0 0 1px #e4e4e7;font-size:15px;font-weight:500;letter-spacing:-.01em;color:#18181b;white-space:nowrap}
+@media(min-width:768px){.cmh-br-bar{font-size:16px}}
+.cmh-br-lock{flex:none;display:grid;place-items:center;width:14px;height:14px;color:#3f3f46}
+.cmh-br-lk{display:grid;place-items:center;animation-name:cmh-lk;animation-timing-function:cubic-bezier(.3,1.4,.5,1)!important}
+@keyframes cmh-lk{0%,${TYPE.enter}%{opacity:0;transform:scale(.4)}${TYPE.enter + 3}%,${TYPE.out}%{opacity:1;transform:none}${TYPE.out + 2}%,100%{opacity:0;transform:scale(.4)}}
+.cmh-br-url{position:relative;min-width:0;overflow:hidden}
+.cmh-ch{position:relative}
+.cmh-caret{position:absolute;top:50%;right:-1px;width:1.5px;height:1.15em;margin-top:-.575em;background:#18181b;opacity:0}
+.cmh-caret0{left:0;right:auto;animation-name:cmh-ck}
+@keyframes cmh-ck{0%,${TYPE.start}%{opacity:1}${TYPE.start + 0.05}%,100%{opacity:0}}
+${TYPED_CSS}
+.cmh-br-load{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
+.cmh-br-loadfill{position:absolute;inset:0;background:#18181b;transform-origin:0 50%;transform:scaleX(0);opacity:0;animation-name:cmh-load;animation-timing-function:ease-out!important}
+@keyframes cmh-load{0%,${TYPE.enter}%{opacity:1;transform:scaleX(0)}${TYPE.enter + 5}%{opacity:1;transform:scaleX(1)}${TYPE.enter + 7}%,100%{opacity:0;transform:scaleX(1)}}
+.cmh-br-page{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;color:#18181b;container-type:inline-size}
+.cmh-br-veil{z-index:2;position:absolute;inset:0;background:#fff;opacity:0;animation-name:cmh-veil;animation-timing-function:ease!important}
+@keyframes cmh-veil{0%,${TYPE.enter + 2}%{opacity:.9}${TYPE.enter + 7}%,${TYPE.out}%{opacity:0}${TYPE.out + 3}%,100%{opacity:.9}}
+.cmh-dm-nav{flex:none;display:flex;align-items:center;gap:12px;height:36px;padding:0 14px;font-size:10px;color:#71717a}
+.cmh-dm-nav img{width:18px;height:18px;border-radius:50%;object-fit:cover;margin-right:-4px}
+.cmh-dm-nav b{margin-right:auto;font-size:11.5px;font-weight:600;color:#18181b}
+.cmh-dm-hero{flex:1;min-height:70px;display:grid;grid-template-columns:1.2fr 1fr;background:#f1ede6}
+.cmh-dm-hero img{display:block;width:100%;height:100%;min-height:0;object-fit:cover}
+.cmh-dm-hero span{display:grid;align-content:center;justify-items:start;gap:9px;padding:0 14px}
+.cmh-dm-hero b{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:clamp(13px,3.6cqw,19px);font-weight:400;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
+.cmh-dm-hero i{padding:4px 11px;border-radius:99px;background:#18181b;color:#fff;font-size:9px;font-style:normal;font-weight:600}
+.cmh-dm-shelf{flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px 14px 14px}
 .cmh-dm-shelf>span{display:grid;gap:1px;min-width:0}
-.cmh-dm-shelf img,.cmh-dm-cover{display:block;width:100%;aspect-ratio:1;margin-bottom:4px;border-radius:5px;object-fit:cover}
-.cmh-dm-cover img{margin:0;border-radius:0}
-.cmh-dm-shelf b{font-size:8px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmh-dm-shelf small{font-size:7.5px;color:#8b8b94}
-.cmh-dm-pill{position:absolute;left:50%;top:50%;display:flex;align-items:center;gap:.5em;height:2.55em;padding:0 .8em 0 1.05em;border-radius:99px;background:#fff;color:#3f3f46;font-size:min(20px,5.9cqw);font-weight:500;letter-spacing:-.025em;white-space:nowrap;box-shadow:0 0 0 1px rgba(24,24,27,.04),0 2px 4px rgba(0,0,0,.12),0 18px 38px -12px rgba(0,0,0,.6);transform:translate(-50%,-50%)}
-.cmh-dm-addr b{font-weight:500;color:#7c3aed}
-.cmh-dm-ok{display:grid;place-items:center;width:1.1em;height:1.1em;flex:none;border-radius:50%;color:#16a34a;box-shadow:inset 0 0 0 2px #16a34a;animation-name:cmh-dok}
-@keyframes cmh-dok{0%,7%{opacity:0;transform:scale(.5)}12%,93%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.5)}}
-.cmh-dm-rows{flex:none;width:min(100%,360px);padding:3px 10px;border-radius:14px;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 18px 40px -22px rgba(0,0,0,.7);box-sizing:border-box}
-.cmh-dm-row{display:flex;align-items:center;gap:7px;height:31px;font-size:11px;letter-spacing:-.01em}
-.cmh-dm-row+.cmh-dm-row{border-top:1px solid #f0f0f2}
-.cmh-dm-mark{position:relative;display:grid;place-items:center;width:15px;height:15px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1.5px #d4d4d8}
-.cmh-dm-tick{display:grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#16a34a;color:#fff;animation-name:cmh-dt0}
-.cmh-dm-tick[data-k="1"]{animation-name:cmh-dt1}
-.cmh-dm-tick[data-k="2"]{animation-name:cmh-dt2}
-@keyframes cmh-dt0{0%,20%{opacity:0;transform:scale(.5)}25%,93%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.5)}}
-@keyframes cmh-dt1{0%,32%{opacity:0;transform:scale(.5)}37%,93%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.5)}}
-@keyframes cmh-dt2{0%,44%{opacity:0;transform:scale(.5)}49%,93%{opacity:1;transform:none}98%,100%{opacity:0;transform:scale(.5)}}
-.cmh-dm-host{flex:0 1 auto;min-width:0;color:#8b8b94;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmh-dm-host b{font-weight:600;color:#18181b}
-.cmh-dm-what{flex:none;margin-left:auto;font-size:10.5px;color:#52525b;white-space:nowrap}
+.cmh-dm-shelf>span>img,.cmh-dm-lut{display:block;width:100%;aspect-ratio:1;margin-bottom:5px;border-radius:6px;object-fit:cover}
+.cmh-dm-shelf b{font-size:9.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-dm-shelf small{font-size:9px;color:#8b8b94}
 
 @media (prefers-reduced-motion:reduce){
   .cmh-a{animation:none!important}
@@ -644,6 +687,7 @@ const HOW_CSS = `
   .cmh-tip-pop{display:none}
   .cmh-pc[data-k="1"]{display:none}
   .cmh-pc-step:not([data-k="2"]){opacity:0}
+  .cmh-br-veil,.cmh-br-loadfill,.cmh-caret{opacity:0}
 }
 @media(scripting:none){.cmh-card{opacity:1;transform:none}}
 `

@@ -59,7 +59,8 @@ check("the first tile still sells a physical and a digital product, and there ar
   /* Changed on purpose (landing round 4): no blue tee, no Weeknight Pasta. */
   // Changed on purpose (landing round 5): no cap either (the owner); the physical product is Nadia's signed print.
   // Changed on purpose (landing round 7): the owner did not like Nadia Brooks or LaSalle at dusk; the shop is Linde Woodshop, an apron and workbench plans.
-  assert.ok(/Sell physical and digital products\./.test(w) && /Linde Shop Apron/.test(w) && /Weekend Workbench Plans/.test(w) && !/LaSalle|Nadia|The Loop|Darkroom cap/.test(w))
+  // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack in place of the apron and the plans.
+  assert.ok(/Sell physical and digital products\./.test(w) && /Linde Shop Tee/.test(w) && /Cine Tones LUT Pack/.test(w) && !/LaSalle|Nadia|The Loop|Darkroom cap|Apron|Workbench/.test(w))
   for (const f of [HOW, CO, "components/marketing/home/ebook-cover.tsx", "components/marketing/home/commerce-kit.tsx"]) assert.ok(!/golden hour|preset/i.test(read(f)), f)
 })
 
@@ -67,36 +68,28 @@ console.log("\nYour own domain")
 /* Changed on purpose (landing round 4): a cleaner design: the pill over the domain's own card (Pro, the three addresses, DNS checked, HTTPS on), no drawn website. */
 // Changed on purpose (landing round 5): the owner found the tile "too colorful": one dark card, the address bar with its lock on top, the two records Storelib asks for, no purple TLD, no green pill.
 // Changed on purpose (landing round 7, the owner: "bring back the design how it was before", on black to purple): the round 3 tile again, his website under the address pill and the three addresses checked, on a dark ground that turns deep purple.
-check("the tile: the drawn website under the address pill, the three addresses checked, on the night ground", () => {
-  assert.ok(how.includes('class="cmh-dm-site"') && how.includes('class="cmh-dm-pill"') && !how.includes("cmh-dm-card") && !how.includes("cmh-dm-bar"))
-  assert.ok(how.replace(/<!-- -->/g, "").includes(`${HOW_DOMAIN.name}<b>${HOW_DOMAIN.tld}</b>`))
-  assert.ok(/data-ground="night"/.test(how) && /\.cmh-stage\[data-ground=night\]\{background:radial-gradient\([^}]*#3a1c6b[^}]*linear-gradient\(160deg,#050507/.test(howCss), "black to deep purple")
+// Changed on purpose (landing round 8) (the owner: the www, shop and club banner was "too complex", and the black card the odd one out): one browser window on a light ground, his domain typing into the address bar over his website.
+check("the tile: one browser window, the domain in its address bar over his website, on a light ground", () => {
+  assert.ok(how.includes('class="cmh-br"') && how.includes('class="cmh-br-bar"') && how.includes('class="cmh-br-page"') && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
+  const typed = [...how.matchAll(/<span class="cmh-a cmh-ch" data-k="\d+">([^<]*)/g)].map((m) => m[1]).join("")
+  assert.equal(typed, HOW_DOMAIN.host)
+  assert.ok(/data-ground="mist"/.test(how) && !/data-ground="night"/.test(how))
   assert.ok(!/backdrop-filter|blur\(/.test(howCss), "no glass")
   assert.ok(/Use your own domain\./.test(words(how)))
 })
 check("the address is one Storelib would accept, and is not a Storelib name", () => {
-  const host = `${HOW_DOMAIN.name}${HOW_DOMAIN.tld}`
-  const apex = cleanHostname(host)
+  const apex = cleanHostname(HOW_DOMAIN.host)
+  assert.equal(apex, HOW_DOMAIN.host)
   assert.equal(hostnameProblem(apex), null)
-  /* A bare domain is served at its www, which is the address the pill shows. */
-  assert.equal(servingHost(apex), host)
-  assert.ok(!/storelib/.test(host))
-  // Changed on purpose (landing round 5): the tile shows the apex and its two records, not three subdomains; the subdomains are still addresses Storelib would accept.
-  for (const t of HOW_DOMAIN.targets.slice(1)) {
-    const sub = `${t.sub}.${apex}`
-    assert.equal(hostnameProblem(cleanHostname(sub)), null, sub)
-    assert.equal(servingHost(sub), sub)
-  }
+  /* A bare domain is served at its www; the bar shows it the way a buyer types it. */
+  assert.equal(servingHost(apex), `www.${apex}`)
+  assert.ok(!/storelib/.test(apex))
 })
-check("it shows exactly what a domain can serve in the product: the website, the creator page (with the OnePage), a community", () => {
-  assert.deepEqual(HOW_DOMAIN.targets.map((t) => t.purpose), [...DOMAIN_PURPOSES])
+check("it serves one of the things a domain can serve in the product, and the caption names all three", () => {
+  assert.ok((DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
   const w = words(how)
-  // Changed on purpose (landing round 5): a short name per purpose in the tile's switch.
-  // Changed on purpose (landing round 7): the round 3 rows again, each address with what it serves.
-  for (const t of HOW_DOMAIN.targets) assert.ok(how.replace(/<!-- -->/g, "").includes(`<b>${t.sub}</b>.lindewoodshop.com`) && w.includes(t.what), t.what)
   /* The creator page's domain serves the OnePage too (at /links). */
   assert.ok(/OnePage at \/links/.test(read("components/app/settings/domains-panel.tsx")) && /OnePage at \/links/.test(read("lib/custom-domains/store.ts")))
-  assert.ok(HOW_DOMAIN.targets.find((t) => t.purpose === "creator_page")!.what.includes("OnePage"))
   /* One community per domain. */
   assert.ok(/purpose 'community'/.test(read("lib/custom-domains/store.ts")))
   /* Nothing else is claimed: no store, checkout, email or app on the domain. */
@@ -119,17 +112,17 @@ check("the caption's claims are the code's: Pro, a domain you own, the DNS is ch
   assert.ok(existsSync("components/app/settings/domains-panel.tsx") && /slowingPoll/.test(read("components/app/settings/domains-panel.tsx")), "and it is asked again without the creator pressing anything")
 })
 check("its motion: the ticks come one after another, transform and opacity only, paused off screen, still when motion is reduced", () => {
-  // Changed on purpose (landing round 5): two records to check (A on @, CNAME on www), then DNS checked and HTTPS on; no tick in a pill.
-  // Changed on purpose (landing round 7): the round 3 design again: the pill's tick, then the three addresses, one after another.
-  for (const k of ["cmh-dok", "cmh-dt0", "cmh-dt1", "cmh-dt2"]) {
+  // Changed on purpose (landing round 8): the letters come one after another, then the lock; no ticks.
+  const keys = [...Array(HOW_DOMAIN.host.length).keys()].map((i) => `cmh-ch${i}`).concat(["cmh-lk"])
+  for (const k of keys) {
     const m = howCss.match(new RegExp(`@keyframes ${k}\\{([\\s\\S]*?\\})\\}`))
     assert.ok(m, k)
     const props = [...m![1].matchAll(/([a-z-]+):/g)].map((x) => x[1])
     assert.ok(props.every((p) => p === "opacity" || p === "transform"), `${k}: ${props.join(",")}`)
   }
-  const starts = ["cmh-dok", "cmh-dt0", "cmh-dt1", "cmh-dt2"].map((k) => Number(howCss.match(new RegExp(`@keyframes ${k}\\{0%,(\\d+)%`))![1]))
-  assert.ok(starts[0] < starts[1] && starts[1] < starts[2] && starts[2] < starts[3], starts.join(","))
-  assert.ok((how.match(/class="cmh-a cmh-dm-tick"/g) ?? []).length === 3 && /cmh-a cmh-dm-ok/.test(how))
+  const starts = keys.map((k) => Number(howCss.match(new RegExp(`@keyframes ${k}\\{0%,([\\d.]+)%`))![1]))
+  assert.ok(starts.every((t, i) => i === 0 || t > starts[i - 1]), starts.join(","))
+  assert.ok((how.match(/class="cmh-a cmh-ch"/g) ?? []).length === HOW_DOMAIN.host.length && /cmh-a cmh-br-lk/.test(how))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss))
   assert.ok(/\[data-commerce-live\] \.cmh-a\{animation-play-state:running!important\}/.test(howCss))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss)) /* Changed on purpose (landing round 4): no spinner any more. */

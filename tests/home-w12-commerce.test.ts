@@ -98,7 +98,8 @@ console.log("\nCommerce: the sections render on the server")
 /* Changed on purpose (landing round 4): the owner wanted the blue tee and Weeknight Pasta gone: an embroidered cap and a night photography e-book. */
   // Changed on purpose (landing round 5): the owner did not like the cap: a $45 signed print (an example $14 print cost) and the $19 e-book.
   // Changed on purpose (landing round 7): the owner did not like Nadia Brooks's print: a $38 shop apron (an example $16 print cost) and $24 workbench plans.
-  check("how it works: a $38 apron and $24 plans, physical and digital", how.includes("$38.00") && how.includes("$24.00") && how.includes("$16.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/apron.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
+  // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack: a $32 tee (an example $12.50 print cost) and the $29 pack.
+  check("how it works: a $32 tee and the $29 LUT pack, physical and digital", how.includes("$32.00") && how.includes("$29.00") && how.includes("$12.50") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/tee-white.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
   check("how it works: what each product leaves is Storelib's fee and the example cost off the price", HOW_PRODUCTS.every((m) => m.keepCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.keepCents > 0))
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
 /* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
@@ -223,7 +224,8 @@ console.log("\nCommerce: images")
 /* Changed on purpose (landing round 4): the cap, the course's street still, and the captured OnePage and its sheet. */
   // Changed on purpose (landing round 5): the print instead of the captured OnePage; the cap picture stays for the checkout scene's currencies panel.
   // Changed on purpose (landing round 7): Linde Woodshop's five pictures; the cap and the print stay for the checkout scene; the street course still is gone.
-  check("public/home/how holds the checkout's cap and print and the woodshop's pictures, webp, each under 30 KB", howFiles.sort().join() === "apron.webp,cap-yellow.webp,lesson-plane.webp,linde-avatar.webp,plans-bench.webp,print-lasalle.webp,site-workshop.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 8): the tee in place of the apron and the bench (the LUT pack's still is section 3's file).
+  check("public/home/how holds the checkout's cap and print and the woodshop's pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,lesson-plane.webp,linde-avatar.webp,print-lasalle.webp,site-workshop.webp,tee-white.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }

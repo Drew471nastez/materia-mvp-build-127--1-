@@ -1471,6 +1471,8 @@ const SUITES = [
   "tests/home-landing-r7-lower.test.ts",
   /* Landing round 8, ideas: Mondo Mango, a bold colourful merch label, in the website builder (wordmark, a wall of colour, the drop with the wordmark printed on it); The Strength Room's barbell emblem and its yellow banner cover; tabs and autoplay as they were. */
   "tests/home-landing-r8-ideas.test.ts",
+  /* Landing round 8, how: a plain tee and the Cine Tones LUT pack on section 3's cover, the domain as one browser window with the address typing in, four light grounds of one family. */
+  "tests/home-landing-r8-how.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
