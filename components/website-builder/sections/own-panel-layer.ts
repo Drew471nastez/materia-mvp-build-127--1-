@@ -109,7 +109,40 @@ function lift(panel: PopoverElement, inCanvas: boolean) {
   lifted.set(panel, untrap(panel))
 }
 
+/*
+  A SHEET THAT STOPS SHORT (round BA). The owner's screenshot: a full screen menu drawer the AI wrote ending a
+  hand's width above the bottom of the phone, the page showing under it (or one running past it, its last links out
+  of reach). A panel opened at the very top of the screen and taller than half of it is a sheet meant to fill it,
+  whatever its height says: its bottom is pinned to the screen's. A card hanging under its button (not at the top) or a short drop down is left as written.
+*/
+const stretched = new WeakMap<HTMLElement, { top: string; bottom: string; height: string; maxHeight: string }>()
+
+function reachBottom(panel: HTMLElement) {
+  if (stretched.has(panel) || panel.getAttribute("data-open") !== "true") return
+  if (getComputedStyle(panel).position !== "fixed") return
+  const frame = panel.closest<HTMLElement>(".wb-canvas-frame")?.getBoundingClientRect()
+  const screen = frame ? { top: frame.top, bottom: frame.bottom, height: frame.height } : { top: 0, bottom: window.innerHeight, height: window.innerHeight }
+  const r = panel.getBoundingClientRect()
+  if (r.top > screen.top + 4 || r.height < screen.height * 0.5 || Math.abs(screen.bottom - r.bottom) <= 12) return
+  stretched.set(panel, { top: panel.style.top, bottom: panel.style.bottom, height: panel.style.height, maxHeight: panel.style.maxHeight })
+  panel.style.top = "0px"
+  panel.style.bottom = "0px"
+  panel.style.height = "auto"
+  panel.style.maxHeight = "none"
+}
+
+function unstretch(panel: HTMLElement) {
+  const was = stretched.get(panel)
+  if (!was) return
+  stretched.delete(panel)
+  panel.style.top = was.top
+  panel.style.bottom = was.bottom
+  panel.style.height = was.height
+  panel.style.maxHeight = was.maxHeight
+}
+
 function drop(panel: PopoverElement) {
+  unstretch(panel)
   const how = lifted.get(panel)
   if (!how) return
   lifted.delete(panel)
@@ -148,6 +181,8 @@ export function setOwnPanel(panel: HTMLElement, open: boolean, inCanvas: boolean
       panel.setAttribute(PANEL_SHOWN, "")
       lift(panel, inCanvas)
       void panel.offsetWidth
+      /* Measured once it is laid out where it opens (its own opening motion moves it sideways, never its top or bottom). */
+      requestAnimationFrame(() => reachBottom(panel))
     }
     if (panel.getAttribute("data-open") !== "true") panel.setAttribute("data-open", "true")
     return

@@ -27,7 +27,9 @@
  *   brand        only look settings are kept (LOOK_SETTING): never the
  *                logo, name, tagline, socials, announcement, cookie words,
  *                intro media, free shipping threshold or currency display
- *   menus        internal paths only
+ *   menus        never copied: the source's menu titles are its business
+ *                ("Sounds", "Refunds"); fit.ts rebuilds them from the pages
+ *                the new site keeps
  *
  * Its words stay, as every template's do: the finish gate refuses a site
  * that still carries them (untouchedTemplateParts), so they are a draft the
@@ -43,7 +45,7 @@ import type { BusinessKind } from "@/lib/storelib-ai/direction/brief"
 import { BUSINESS_KINDS } from "@/lib/storelib-ai/direction/brief"
 import type { DesignTokens } from "@/lib/ai-builder/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
-import type { ImageAspect, SiteTemplate, TemplateBinding, TemplateImageSlot, TemplateMenu, TemplateMenuLink, TemplatePage } from "@/lib/storelib-ai/templates/types"
+import type { ImageAspect, SiteTemplate, TemplateBinding, TemplateImageSlot, TemplatePage } from "@/lib/storelib-ai/templates/types"
 
 /** What a site or a section needs the creator to have, for it to work. */
 export type BankFeature = "shop" | "booking" | "courses" | "community" | "blog" | "reviews"
@@ -401,20 +403,14 @@ function headingOf(s: SectionInstance): string {
 
 const MAX_SLOTS = 32
 
-function menusFrom(settings: Record<string, unknown>): Record<string, TemplateMenu> {
-  const out: Record<string, TemplateMenu> = {}
-  const src = isObj(settings.menus) ? settings.menus : {}
-  const linkOf = (l: unknown): TemplateMenuLink | null => {
-    if (!isObj(l) || typeof l.title !== "string") return null
-    const url = typeof l.url === "string" && !/^(https?:)?\/\//i.test(l.url) ? l.url : "/"
-    const links = Array.isArray(l.links) ? l.links.map(linkOf).filter((x): x is TemplateMenuLink => !!x) : []
-    return { title: l.title.slice(0, 60), url, ...(links.length ? { links } : {}) }
-  }
-  for (const [handle, m] of Object.entries(src)) {
-    if (!isObj(m) || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(handle)) continue
-    out[handle] = { title: typeof m.title === "string" ? m.title.slice(0, 60) : handle, links: Array.isArray(m.links) ? m.links.map(linkOf).filter((x): x is TemplateMenuLink => !!x).slice(0, 40) : [] }
-  }
-  return out
+/**
+ * Whether a bank site is poured in as a starting site: most of home's own sections are its own code. A site built
+ * from Storelib's built-in sections is the plan (its pages, their order, its product page) the agent writes its own
+ * code against, never its sections: a new site never depends on the built-in header, footer or sections.
+ */
+export function isPourable(profile: Pick<BankProfile, "sections">): boolean {
+  const body = profile.sections.filter((s) => s.page === "home" && s.role !== "header" && s.role !== "footer" && s.role !== "announcement")
+  return body.length > 0 && body.filter((s) => s.code).length / body.length >= 0.5
 }
 
 /** One library website as a bank entry. */
@@ -522,7 +518,8 @@ export function snapshotSite(input: SnapshotInput): Snapshot {
     files,
     pages,
     tokens,
-    menus: menusFrom(settings),
+    /* Never the source's menu (its titles are its business): rebuilt from the pages the site keeps (fit.ts menusForPages). */
+    menus: {},
     imageSlots,
     bindings,
     design: {

@@ -321,3 +321,15 @@ The owner asked for the AI to build from their best work: the Materia sites and 
 - **Imported themes** are references, never poured in: their sections are compat Liquid, which a Storelib page does not run.
 - Tests: `tests/ai-template-bank.test.ts` (a real Storelib Default store filled as a live one is).
 - **Not done yet:** a zip uploaded straight on the admin page (imports go through Website › Import theme in the account, then appear in the picker), Storelib Sites (React) projects as sources, and vision-reviewed screenshots of bank sites.
+
+## Round BA: the bank is a plan, not a theme; one product per page; sheets reach the bottom
+
+The owner, after the bank shipped: AI sites "depend on the header and footer", use "ugly, weird templates and structures", a coaching site's menu read "Home, Sounds, About Us, FAQ, Refunds" (the Materia site's own), product pages had two product sections, and a menu drawer stopped well short of the bottom of the phone.
+
+- **Menus never copied.** A bank snapshot keeps no menu; `fit.ts menusForPages` builds the menus from the pages the new site keeps (its own pages by title, Shop when it sells, Search in the footer).
+- **Storelib's built-in header, footer and announcement never travel.** `fitTemplate` leaves them out and tells the agent to write the site's own from the chrome kit.
+- **A bank site of Storelib's own sections is the plan, never poured in.** `isPourable` (most of home's sections are the site's own code) decides; Materia, built of Storelib Default sections, is not. Its structure goes into the first brief as THE PLAN FROM THE OWNER'S LIBRARY (pages in order, the product page's order), every section to be the agent's own component. A site written as code is still poured in and adapted.
+- **One product per product page.** `withMainProduct(..., { ownWins })`: on a free site a section of the site's own that draws the product takes the place of the built-in one (repairs sites already made). The agent's finish gate refuses a product page with both (`site.product_twice`).
+- **A sheet reaches the bottom.** `own-panel-layer.ts reachBottom`: a panel opened at the top of the screen and taller than half of it is pinned to the screen's bottom, short or long; given back as written when it shuts.
+- Tests: `tests/ai-template-bank.test.ts` (72), `tests/kit-panels-canvas.test.ts` (every kit panel in the phone preview, scrolled), `tests/product-page-once-ba.test.ts`, `tests/own-panel-layer.test.ts` (the short sheet, live and canvas).
+- **Checked by eye**: two built-in templates (course-coach, salon-chair) photographed at 390 and 1440 while scrolling; their sections draw. Not checked: a real generation end to end (no model key in the build environment).

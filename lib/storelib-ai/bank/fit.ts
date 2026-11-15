@@ -143,6 +143,20 @@ export interface Fitted {
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 
+/** Pages a menu never links to by name: the shop's own templates and the site's system pages. */
+const SYSTEM_PAGE = /^(product|collection|search|cart|404|account|login|register|wishlist|password|checkout)(\b|[-_]|$)/
+
+/** A site's menus from the pages it has: its own pages by title, the shop when it has one. */
+export function menusForPages(pages: readonly { key: string; title: string }[]): Record<string, TemplateMenu> {
+  const own = pages.filter((p) => p.key !== "home" && !SYSTEM_PAGE.test(p.key) && !isShopPage(p.key)).map((p) => ({ title: p.title, url: `/${p.key}` }))
+  const shop = pages.some((p) => isShopPage(p.key)) ? [{ title: "Shop", url: "/products" }] : []
+  const main = [...shop, ...own].slice(0, 7)
+  return {
+    "main-menu": { title: "Main", links: main },
+    footer: { title: "Footer", links: [...main, { title: "Search", url: "/search" }] },
+  }
+}
+
 /** The template with the given sections and pages taken out, and everything that pointed at them. */
 export function refitTemplate(template: SiteTemplate, removed: Removed): SiteTemplate {
   const t = clone(template)
@@ -161,7 +175,7 @@ export function refitTemplate(template: SiteTemplate, removed: Removed): SiteTem
   }
   const menus: Record<string, TemplateMenu> = {}
   for (const [h, m] of Object.entries(t.menus)) menus[h] = { ...m, links: m.links.map(keepLink).filter((x): x is TemplateMenuLink => !!x) }
-  t.menus = menus
+  t.menus = Object.keys(menus).length ? menus : menusForPages(t.pages)
   /* Files no page places any more are not written: a component nothing uses is noise in the code panel. */
   const placed = new Set(t.pages.flatMap((p) => p.sections.map((s) => `sections/${s.type}.storelib`)))
   t.files = Object.fromEntries(Object.entries(t.files).filter(([path]) => placed.has(path)))
@@ -177,9 +191,15 @@ export function fitTemplate(template: SiteTemplate, profile: BankProfile, brief:
   if (!wants.has("shop")) {
     removed.pages = template.pages.filter((p) => isShopPage(p.key)).map((p) => p.key)
   }
+  let builtInChrome = 0
   for (const s of profile.sections) {
     if (removed.pages.includes(s.page)) continue
     if (missing(s.needs)) removed.sections.push(`${s.page}/${s.id}`)
+    /* Storelib's built-in header, footer or announcement never travel: the new site writes its own (the chrome kit), free of the theme's. */
+    else if (!s.code && (s.role === "header" || s.role === "footer" || s.role === "announcement")) {
+      removed.sections.push(`${s.page}/${s.id}`)
+      builtInChrome++
+    }
   }
   /* Never empty a home: when everything on it would go, the first and last of its own sections stay to be rewritten. */
   const homeOwn = profile.sections.filter((s) => s.page === "home" && s.role !== "header" && s.role !== "footer" && s.role !== "announcement")
@@ -190,7 +210,8 @@ export function fitTemplate(template: SiteTemplate, profile: BankProfile, brief:
   const byFeature = new Map<BankFeature, number>()
   for (const s of profile.sections) if (removed.sections.includes(`${s.page}/${s.id}`) && s.needs) byFeature.set(s.needs, (byFeature.get(s.needs) ?? 0) + 1)
   for (const [f, n] of byFeature) notes.push(`${n} section${n === 1 ? "" : "s"} that need${n === 1 ? "s" : ""} ${f === "shop" ? "products to sell" : f} were left out: this business has no ${f === "shop" ? "shop" : f}.`)
+  if (builtInChrome) notes.push("The library site's header, footer and announcement were Storelib's built-in ones and were left out: write this site's own (the chrome kit: header, menu drawer, cart, search, footer), so nothing depends on the theme's.")
   if (removed.pages.length) notes.push(`The shop's own pages (${removed.pages.join(", ")}) were left out, with their menu links.`)
-  if (!wants.has("shop") && profile.sections.some((s) => s.role === "header")) notes.push("The header still has the source's bag and search: take the bag out of it (this business does not sell) and keep search only if the site has enough pages for it.")
+  if (!wants.has("shop") && profile.sections.some((s) => s.role === "header" && s.code)) notes.push("The header still has the source's bag: take it out (this business does not sell) and keep search only if the site has enough pages for it.")
   return { template: refitTemplate(template, removed), removed, notes }
 }
