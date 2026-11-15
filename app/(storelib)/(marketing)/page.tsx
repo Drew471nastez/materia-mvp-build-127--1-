@@ -49,15 +49,15 @@ export const metadata: Metadata = {
     the light sections ride on white sheets with rounded corners that lap
     over it and scroll with the page, one stretch on a purple one
     (ScrollRevealPanel, components/marketing/scroll-reveal-panel.tsx; round
-    5: plain blocks, no scroll-driven motion and nothing held):
+    8: at every join the lower block carries the rounded corners and the
+    upper one is square; nothing is held):
 
       dark     the hero and the showcase, sitting on
-      white    Make the work, ideas, what you can sell (landing round 8), possibilities, creators, how it works
-               (a flat ground, round 4: it does not rise as a sheet)
+      white    Make the work, ideas, what you can sell (landing round 8), creators, how it works
       dark     the checkout scene (it draws its own black)
       white    your audience, your apps, your AI tools
-      purple   what is working, the map
-      white    what you could earn, pricing, the questions
+      purple   what is working, the map (round 8: it rises over the white as a sheet)
+      white    the possibilities, what you could earn, pricing, the questions
       dark     the app and the closing call, running on into the black footer
 
     the motion sections from the other wave-12 tracks are mounted near the
@@ -85,8 +85,8 @@ export default function StorelibLanding() {
           <BuildShowcase />
         </ScrollRevealBackdrop>
 
-        {/* WHITE GROUND: flat, not a sheet that rises. Its top runs straight on under the showcase, whose bottom corners it rounds. */}
-        <ScrollRevealPanel tone="white" arrive="flat">
+        {/* WHITE SHEET. Landing round 8: its rounded top lies over the showcase's square foot (the lower block carries the corners). */}
+        <ScrollRevealPanel tone="white">
           {/* 3 EverythingInOnePlace */}
           <LazyEverythingInOnePlace />
 
@@ -95,11 +95,6 @@ export default function StorelibLanding() {
 
           {/* 4b What you can sell (landing round 8: back after round 7 took it off, redesigned) */}
           <LazyBusinessCarousel />
-
-          {/* 5 UNLIMITED POSSIBILITIES (frame). Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
-          <LazySection name="possibilities" minHeight="clamp(380px, 23vw + 254px, 720px)">
-            <ProductMarquee />
-          </LazySection>
 
           {/* 7 CreatorsCarousel */}
           <LazyCreatorsCarousel />
@@ -125,16 +120,21 @@ export default function StorelibLanding() {
           <LazyAiToolsSection />
         </ScrollRevealPanel>
 
-        {/* PURPLE SHEET: 13 AnalyticsShowcase and 14 SellEverywhere world map */}
-        <ScrollRevealPanel tone="purple">
+        {/* PURPLE SHEET: 13 AnalyticsShowcase and 14 SellEverywhere world map. Landing round 8: it rises over the white above as the page scrolls (transform only, nothing held). */}
+        <ScrollRevealPanel tone="purple" arrive="rise">
           {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
           <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1100px)" }} />
           <LazyAnalyticsShowcase />
           <LazySellEverywhereMap />
         </ScrollRevealPanel>
 
-        {/* WHITE SHEET: earnings, pricing, the questions */}
+        {/* WHITE SHEET: what you can sell, earnings, pricing, the questions */}
         <ScrollRevealPanel tone="white">
+          {/* 5 UNLIMITED POSSIBILITIES (frame). Landing round 8: moved here from between the ideas and the creators (the owner: it sat inside "Storelib is for creators"); what you can sell, then what it could earn. Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
+          <LazySection name="possibilities" minHeight="clamp(380px, 23vw + 254px, 720px)">
+            <ProductMarquee />
+          </LazySection>
+
           {/* 15 EarningsCalculator */}
           <LazyEarningsCalculator />
 

@@ -61,15 +61,18 @@ console.log("\n── The sheet ──")
   /* Changed on purpose (landing round 4): the sheet now rises with a small side inset and the block behind recedes, as CSS scroll-driven animations of transform and opacity (tests/home-landing-frame4.test.ts); still no script. */
   check("no script at all: no client directive, no hook, no listener, no observer", !/"use client"/.test(src) && !/\buse[A-Z]\w*\(/.test(src) && !/addEventListener|IntersectionObserver|ResizeObserver|requestAnimationFrame/.test(src))
   check("nothing is animated by a transition, filter or will-change; motion is only scroll-driven", !/transition|filter|will-change/.test(SHEET_CSS) && !/animation-timeline:(?!view\(\)|--srp-box)/.test(SHEET_CSS))
-  check("no second scrollbar: the sheet never scrolls or clips by itself", !/overflow/.test(SHEET_CSS))
-  check("rounded top and bottom: about 22px on a phone, 32px on a tablet, 48px on a computer", /--srp-r:clamp\(22px,4\.2vw,48px\)/.test(SHEET_CSS) && /\[data-sheet\]\{[^}]*border-radius:var\(--srp-r\)/.test(SHEET_CSS))
+    check("no second scrollbar: the sheet never scrolls or clips by itself", !/overflow/.test(SHEET_CSS))
+  // Changed on purpose (landing round 8): only the top corners are rounded, on the lower block of every join (the owner: "the roundness should come as the section under").
+  check("rounded at the top: about 22px on a phone, 32px on a tablet, 48px on a computer", /--srp-r:clamp\(22px,4\.2vw,48px\)/.test(SHEET_CSS) && /border-top-left-radius:var\(--srp-r\);border-top-right-radius:var\(--srp-r\)/.test(SHEET_CSS) && !/border-bottom-(left|right)-radius:var/.test(SHEET_CSS))
   /* Changed on purpose (landing round 4): each tone also names its colour (--srp-bg) for the fillets of a flat ground. */
   check("white, and the deep purple with the band's light words", /\[data-sheet="white"\]\{--srp-bg:#fff;background:#fff;color:#18181b\}/.test(SHEET_CSS) && /\[data-sheet="purple"\]\{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba\(255,255,255,\.16\);background:[^}]*#24104f;color:#fff\}/.test(SHEET_CSS))
-  check("above the dark page, under the header (z-index 1 against the header's 40)", /\[data-sheet\]\{position:relative;z-index:1/.test(SHEET_CSS))
+  // Changed on purpose (landing round 8): no z-index: every block is its own stacking context (isolation) and they paint in page order, under the header.
+  check("each block its own stacking context, under the header", /position:relative;isolation:isolate\}/.test(SHEET_CSS) && !/z-index:(?!2147483647;)/.test(SHEET_CSS))
   // Changed on purpose (landing round 5): nothing is held any more (the owner: stutters, black bands, sections that stop the scroll); a sheet laps over the block before by its corner and scrolls with the page (tests/home-landing-r5-frame.test.ts).
   check("no sticky hold, no screen tall box: the sheet scrolls with the page", !/sticky|data-sheet-hold|--srp-cover/.test(SHEET_CSS))
-  check("the next sheet laps over the end of the block before by its corner", /\[data-sheet\]:not\(\[data-sheet-flat\]\)\{margin-top:calc\(var\(--srp-r\) \* -1\)\}/.test(SHEET_CSS))
-  check("a sheet under another loses its bottom corners, so no dark shows between them", /\[data-sheet\]:has\(\+\[data-sheet\]:not\(\[data-sheet-flat\]\)\)\{border-bottom-left-radius:0;border-bottom-right-radius:0/.test(SHEET_CSS))
+  // Changed on purpose (landing round 8): every join: the lower block laps over the upper by its radius, the upper is square at its foot.
+  check("the next block laps over the end of the block before by its corner", /\+:is\(\[data-sheet\],\[data-sheet-backdrop\]\)\{margin-top:calc\(\(var\(--srp-r\) \+ var\(--srp-rise\)\) \* -1\)/.test(SHEET_CSS))
+  check("the block above has no bottom corners, so nothing shows between them", !/border-bottom-(left|right)-radius:var|border-radius:var/.test(SHEET_CSS))
 }
 
 console.log("\n── The bands it replaced ──")
@@ -92,11 +95,12 @@ console.log("\n── The page ──")
   /* Changed on purpose (landing round 4): the hero is not held and the first white ground is flat (Make the work must not arrive as a drawer); the close is dark, not purple. */
   const grounds: [string, string[]][] = [
     ["<ScrollRevealBackdrop>", ["<Hero />", "<BuildShowcase />"]], // Changed on purpose (landing round 5): nothing is held, so no hold props.
-    ['<ScrollRevealPanel tone="white" arrive="flat">', ["<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", /* Changed on purpose (landing round 8): the business section is back, after the ideas. */ "<LazyBusinessCarousel />", "<ProductMarquee />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />"]],
+    /* Changed on purpose (landing round 8): no flat ground (the white sheet rounds its own top); the business section is back after the ideas; the possibilities moved to open the last white sheet. */
+    ['<ScrollRevealPanel tone="white">', ["<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />"]],
     ["<ScrollRevealBackdrop>", ["<LazyCheckoutScene />"]],
     ['<ScrollRevealPanel tone="white">', ["<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />"]],
-    ['<ScrollRevealPanel tone="purple">', ["<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />"]],
-    ['<ScrollRevealPanel tone="white">', ["<LazyEarningsCalculator />", "<PricingSection", "<FaqSection"]],
+    ['<ScrollRevealPanel tone="purple" arrive="rise">', ["<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />"]],
+    ['<ScrollRevealPanel tone="white">', ["<ProductMarquee />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection"]],
     ["<ScrollRevealBackdrop>", ["<LazyAppAnywhere />", "<FinalCta />"]],
   ]
   let at = 0
@@ -121,9 +125,9 @@ console.log("\n── The page ──")
   }
   check("the grounds and their sections, in the owner's order", wrong.length === 0, wrong)
   check("everything is inside the one story root, so loops still pause off screen", /<LandingStory>\s*<ScrollRevealBackdrop/.test(page) && /<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page))
-  // Changed on purpose (landing round 8): One store for everything you sell is back, on the white ground, right after the ideas section, with no band.
-  check("One store for everything you sell is back after the ideas, with no band", !/StoryBand|data-band/.test(page) && /<LazyIdeasComeToLife \/>[\s\S]{0,200}<LazyBusinessCarousel \/>/.test(page))
-  check("the questions' sheet is not held, so a link to #faq lands on them", /<ScrollRevealPanel tone="white">\s*<LazyEarningsCalculator \/>/.test(page))
+  // Changed on purpose (landing round 8): the business section is back after the ideas; the possibilities left the creators' stretch and open the last white sheet, before what you could earn.
+  check("the ideas, then what you can sell, then the creators; the possibilities open the last white sheet", !/StoryBand|data-band/.test(page) && /<LazyIdeasComeToLife \/>[\s\S]{0,200}<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page) && /<ScrollRevealPanel tone="white">\s*<LazySection name="possibilities"[^>]*>\s*<ProductMarquee \/>\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
+  check("the questions' sheet is not held, so a link to #faq lands on them", /<LazyEarningsCalculator \/>/.test(page) && !/\bhold\b/.test(page))
   check("every server-drawn lazy box keeps its name", ["possibilities", "pricing", "faq"].every((n) => page.includes(`<LazySection name="${n}"`)))
   check("the measured heights are still written into the page", /<style dangerouslySetInnerHTML=\{\{ __html: LAZY_SECTION_HEIGHTS_CSS \}\} \/>/.test(page))
 }

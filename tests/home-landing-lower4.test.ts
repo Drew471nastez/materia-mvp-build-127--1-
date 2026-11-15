@@ -132,7 +132,8 @@ console.log("\n── integrations ──")
   check("the fades short and light, at the screen's edges only", /width: clamp\(40px, 11vw, 220px\);/.test(css) && /rgba\(255, 255, 255, 0\.8\) 18%/.test(css) && !/0\.92\)/.test(css) && !/--solid/.test(css))
   check("no bump under the pointer: no lift, no shadow layer of the tile's own", !/\.tile:hover|\.tile::before|translate3d\(0, -4px, 0\)/.test(css))
   check("nothing square behind a turning icon: only the rounded face turns, its back hidden, a hairline only round light icons", /\.inner \{[^}]*border-radius: 24%;[^}]*backface-visibility: hidden;/.test(css) && /\.inner\[data-light\]/.test(css) && /data-light=/.test(src) && (html.match(/data-light="true"/g) ?? []).length >= 8)
-  check("one smooth turn", /const TURN_MS = 900/.test(src) && /perspective\(700px\) rotateY\(90deg\)", offset: 0\.5/.test(src))
+  // Changed on purpose (landing round 8): the owner found the flip delayed: 680ms, setting off at once.
+  check("one smooth turn", /const TURN_MS = 680/.test(src) && /perspective\(700px\) rotateY\(90deg\)", offset: 0\.5/.test(src))
 }
 
 console.log("\n── earnings ──")
