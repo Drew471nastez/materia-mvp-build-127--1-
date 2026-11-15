@@ -207,7 +207,8 @@ console.log("\nCommerce: motion and performance rules")
   /* Changed on purpose (landing round 9): the observer watches the cards only; the timeline also brings the phone down and the headline in. */
   check("checkout: one observer for the cards, a scroll timeline for the scene, no scroll listener, no layout read", /animation-timeline:--cmc-t/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-over/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
   /* Changed on purpose (landing round 9): held only where scroll timelines exist. */
-  check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0\}/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(\$\{OVERLAP\} \* -1\) 0 0/.test(src.checkout))
+  // Changed on purpose (landing round 10): the cards are inside the track, starting the overlap short of the stage's foot, so the stage stays held behind them.
+  check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0\}/.test(src.checkout) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(\$\{DWELL\} - \$\{OVERLAP\}\)\}/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
   check("checkout: keyframes animate transform and opacity only", [...src.checkout.matchAll(/@keyframes [\w-]+\{([^@]*?)\}\}/g)].every((m) => !/(width|height|top|left|margin|background|box-shadow|filter)\s*:/.test(m[1])))
