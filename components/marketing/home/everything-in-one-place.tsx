@@ -418,7 +418,7 @@ type MerchStore = {
   /** The drop's name, as its two lines: the first sits left, the second right. */
   title: readonly [string, string]
   products: ReadonlyArray<{ src: string; name: string; price: string }>
-  /** Landing round 8: a store laid out like a real Storelib store, its menu and cart around a centred wordmark and a wide photo of the drop. */
+  /** Landing round 8: a store laid out like a real Storelib store, its menu and cart around a centred wordmark; landing round 10: they stand on the cover photo, with the drop's name. */
   hero?: string
 }
 type LinkPage = {
@@ -458,7 +458,7 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
     key: "fieldwork",
     brand: "Fieldwork",
     title: ["Cold", "Season"],
-    hero: `${ST}/knit-hero.webp`,
+    hero: `${ST}/knit-cover.webp`,
     products: [
       { src: `${ST}/knit-orange.webp`, name: "Signal Beanie", price: "$34" },
       { src: `${ST}/knit-mustard.webp`, name: "Dock Rib Beanie", price: "$38" },
@@ -544,17 +544,20 @@ function MerchCard({ s }: { s: MerchStore }) {
   if (s.hero)
     return (
       <div className="ev-st ev-mc" data-store="">
-        <span className="ev-ms-top">
-          <span className="ev-ms-nav">Shop all</span>
-          <span className="ev-ms-mark">{s.brand}</span>
-          <span className="ev-ms-nav">Cart (0)</span>
+        <span className="ev-ms-cover">
+          <Img eager className="ev-ms-hero" src={s.hero} w={780} h={464} />
+          <span className="ev-ms-top">
+            <span className="ev-ms-nav">Shop all</span>
+            <span className="ev-ms-mark">{s.brand}</span>
+            <span className="ev-ms-nav">Cart (0)</span>
+          </span>
+          <span className="ev-ms-drop">
+            <b>{s.title[0]}</b>
+            <b>{s.title[1]}</b>
+            <i>{s.products.length} pieces</i>
+          </span>
         </span>
-        <Img eager className="ev-ms-hero" src={s.hero} w={720} h={420} />
-        <span className="ev-ms-drop">
-          <b>{s.title.join(" ")}</b>
-          <i>{s.products.length} pieces</i>
-        </span>
-        <span className="ev-mc-grid ev-ms-grid">
+        <span className="ev-mc-grid">
           {s.products.map((p) => (
             <span key={p.name} className="ev-mc-item">
               <Img eager piece className="ev-mc-img" src={p.src} w={360} h={450} />
@@ -1152,7 +1155,8 @@ const CSS = `
 .ev-card[data-in]{opacity:1;transform:none}
 @media(min-width:768px){.ev-card:nth-child(even){--d:110ms}}
 .ev-vis{position:relative;overflow:hidden;height:clamp(300px,86vw,380px);border-radius:17px;isolation:isolate;contain:paint}
-@media(min-width:768px){.ev-vis{height:clamp(320px,33vw,620px);border-radius:19px}}
+/* Landing round 10 (the owner, on a 1440x800 laptop: sections too tall): the pictures also stay under 58% of the screen's height (svh, so iOS's bar never moves them), and a wide card with its caption and the heading fit in one screen. */
+@media(min-width:768px){.ev-vis{height:clamp(300px,min(33vw,58svh),620px);border-radius:19px}}
 .ev-cap{margin:24px 0 0;max-width:46ch;font-size:15.5px;line-height:1.5;color:#7c7a84;text-wrap:pretty}
 .ev-cap-lead{font-weight:500;color:#18181b}
 @media(min-width:768px){.ev-cap{font-size:16px}}
@@ -1302,15 +1306,21 @@ const CSS = `
 /*
   Landing round 8: a store laid out like a real Storelib store. The menu and the cart in small capitals either side of
   the centred wordmark, a wide photo of the drop, the drop's name with how many pieces, and the pieces on white.
+  Landing round 10 (the owner: "I don't like the cover for Fieldwork", and its page did not match the others' height):
+  a clean studio photo of folded knits on pale grey, the menu, wordmark and cart standing on the photo's light top and
+  the drop's name on its empty left, as a store's header over its cover does. The cover is as tall as the other stores'
+  header and title together, and the pieces below sit in the same grid, so every store's first row of pieces ends at
+  the same height and the second row starts under it.
 */
-.ev-ms-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:${r(22)} ${r(20)} ${r(18)};font-size:${r(11)};letter-spacing:.16em;text-transform:uppercase;color:#2a2a2a}
+.ev-ms-cover{position:relative;display:block;flex:none;height:${r(214)};overflow:hidden;background:#e4e4e2}
+.ev-ms-hero{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 40%}
+.ev-ms-top{position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:${r(20)} ${r(22)} 0;font-size:${r(11)};letter-spacing:.16em;text-transform:uppercase;color:#2a2a2a}
 .ev-ms-nav:last-child{justify-self:end}
 .ev-ms-mark{font-size:${r(25)};font-weight:800;letter-spacing:-.04em;text-transform:none;color:#111}
-.ev-ms-hero{width:100%;height:auto;aspect-ratio:12/7;object-fit:cover;background:#ececec}
-.ev-ms-drop{display:flex;align-items:baseline;justify-content:space-between;margin:${r(22)} ${r(20)} 0}
-.ev-ms-drop b{font-size:${r(24)};font-weight:700;letter-spacing:-.02em;color:#111}
-.ev-ms-drop i{font-size:${r(13)};font-style:normal;color:#77757d}
-.ev-ms-grid{margin:${r(18)} ${r(20)} 0;gap:${r(22)} ${r(12)}}
+.ev-ms-drop{position:absolute;left:${r(22)};bottom:${r(26)};display:flex;flex-direction:column;color:#141414}
+.ev-ms-drop b{font-size:${r(34)};font-weight:700;line-height:.98;letter-spacing:-.035em}
+.ev-ms-drop i{margin-top:${r(10)};font-size:${r(12)};font-style:normal;letter-spacing:.14em;text-transform:uppercase;color:#4a4a4a}
+.ev-ms-cover + .ev-mc-grid{margin-top:${r(24)}}
 .ev-mc[data-store] .ev-mc-img{border-radius:${r(10)}}
 
 /* A creator's link page: a dark, blurred photo, the name big in the page's colour, the icons, two buttons, the products. */
