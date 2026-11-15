@@ -29,6 +29,22 @@ import { useEffect, useRef, type ReactNode } from "react"
     on a phone nothing moves: a heading fades as one piece (no words coming
     up) and a block only fades, 380ms.
 
+  THE SECTIONS' OWN ENTRANCES, FLUNG (landing round 9). The blocks left
+  alone above are hidden by their own stylesheets until their own observers
+  see them, and then take 700 to 900ms and a stagger to arrive: the cards of
+  Make the work and of how it works (.ev-card, .cmh-card, shown by data-in),
+  everything that rises in the platform sections (.reveal under a section
+  root, shown by the root's data-platform-in: your audience, the apps, the
+  app, what is working) and AnimateOnScroll's blocks (pricing, the
+  questions). Flung through, these were the tallest blank white boxes on the
+  page: Make the work alone is two screens of invisible cards. They stay
+  the sections' own, but while the page is being flung this script answers
+  for them: each one within a screen and a half of the screen (FLUNG_AHEAD)
+  is given its own mark at once (data-in, data-platform-in), with its
+  transition switched off for two frames (data-reveal-now), so it is simply
+  there when it scrolls in. At reading speed nothing here runs and each
+  section's entrance plays as its track wrote it.
+
   Nothing is hidden by the server's markup. A block is hidden only by this
   script, and only when the first report about it says it is wholly below
   the screen (or inside a lazy box the browser is still skipping, which
@@ -66,6 +82,10 @@ export const FAST_PX_PER_MS = 1.4
 /** Landing round 9: a waiting block first reported on screen with its top above this share of the screen's height has been on screen for a while already: shown at once. */
 export const LATE_ABOVE = 0.5
 const OWN_ENTRANCE = "[data-story-reveal],[class*='__reveal']"
+/** Landing round 9: the blocks with an entrance of their own that are shown at once when the page is flung: the two card grids, a platform section's root, an AnimateOnScroll block. */
+export const FLUNG_OWN = ".ev-card,.cmh-card,[class*='__root'],[data-story-reveal]"
+/** Landing round 9: how far ahead of the screen (and behind it) a flung page shows them. */
+export const FLUNG_AHEAD = "150% 0px 150% 0px"
 
 /** Pause decorative loops outside the viewport and in background tabs; give each section its entrance. */
 export function LandingStory({ children }: { children: ReactNode }) {
@@ -105,12 +125,52 @@ export function LandingStory({ children }: { children: ReactNode }) {
       if (dt > 0) speed = dt > 120 ? 0 : Math.abs(y - lastY) / dt
       lastY = y
       lastAt = now
+      if (speed > FAST_PX_PER_MS && near.size) for (const el of [...near]) showNow(el)
     }
     const fast = () => speed > FAST_PX_PER_MS && performance.now() - lastAt < 160
     const show = (el: HTMLElement) => {
       delete el.dataset.reveal
       reveal?.unobserve(el)
     }
+    /*
+      Flung: every block near the screen that is still waiting for an
+      entrance (this script's, or a section's own) is shown now, with no
+      transition. `near` is kept by one observer a screen and a half out, so
+      nothing is measured here; a block is handled once and then let go.
+    */
+    const near = new Set<HTMLElement>()
+    const showNow = (el: HTMLElement) => {
+      near.delete(el)
+      ahead?.unobserve(el)
+      if (el.dataset.reveal === "wait") return show(el)
+      if ("reveal" in el.dataset) return
+      if (el.hasAttribute("data-story-reveal")) {
+        /* AnimateOnScroll keeps its state in React: the stylesheet shows the block, for good. */
+        el.setAttribute("data-reveal-now", "")
+        return
+      }
+      const card = el.matches(".ev-card,.cmh-card")
+      if (card ? "in" in el.dataset : el.hasAttribute("data-platform-in")) return
+      el.setAttribute("data-reveal-now", "")
+      if (card) el.dataset.in = ""
+      else el.setAttribute("data-platform-in", "")
+      requestAnimationFrame(() => requestAnimationFrame(() => el.removeAttribute("data-reveal-now")))
+    }
+    const ahead =
+      typeof IntersectionObserver === "function" && !reduced
+        ? new IntersectionObserver(
+            (entries) => {
+              const flung = fast()
+              for (const entry of entries) {
+                const el = entry.target as HTMLElement
+                if (!entry.isIntersecting) near.delete(el)
+                else if (flung) showNow(el)
+                else near.add(el)
+              }
+            },
+            { rootMargin: FLUNG_AHEAD },
+          )
+        : null
     const reveal =
       typeof IntersectionObserver === "function" && !reduced
         ? new IntersectionObserver(
@@ -124,6 +184,7 @@ export function LandingStory({ children }: { children: ReactNode }) {
                   const skipped = box.width === 0 && box.height === 0
                   if (!entry.isIntersecting && (skipped || box.top > innerHeight) && !fast()) {
                     el.dataset.reveal = "wait"
+                    ahead?.observe(el)
                     continue
                   }
                   if (!entry.isIntersecting) {
@@ -136,6 +197,8 @@ export function LandingStory({ children }: { children: ReactNode }) {
                   if (el.dataset.reveal === "wait" && !fast() && entry.boundingClientRect.top > innerHeight * LATE_ABOVE) el.dataset.reveal = "in"
                   else delete el.dataset.reveal
                   reveal?.unobserve(el)
+                  ahead?.unobserve(el)
+                  near.delete(el)
                 } else if (el.dataset.reveal === "wait" && entry.boundingClientRect.height > 0 && entry.boundingClientRect.bottom < 0) show(el)
               }
             },
@@ -158,6 +221,14 @@ export function LandingStory({ children }: { children: ReactNode }) {
         }
       }
       if (!reveal) return
+      if (ahead) {
+        const own = node.matches(FLUNG_OWN) ? [node, ...node.querySelectorAll(FLUNG_OWN)] : node.querySelectorAll(FLUNG_OWN)
+        for (const block of own) {
+          if (revealed.has(block)) continue
+          revealed.add(block)
+          ahead.observe(block)
+        }
+      }
       const targets = node.matches(REVEAL_SELECTOR)
         ? [node, ...node.querySelectorAll(REVEAL_SELECTOR)]
         : node.querySelectorAll(REVEAL_SELECTOR)
@@ -189,6 +260,7 @@ export function LandingStory({ children }: { children: ReactNode }) {
     return () => {
       observer?.disconnect()
       reveal?.disconnect()
+      ahead?.disconnect()
       window.removeEventListener("scroll", onScroll)
       additions.disconnect()
       document.removeEventListener("visibilitychange", sync)
@@ -233,6 +305,8 @@ export const REVEAL_CSS = `
   [data-landing-story] .story-heading[data-reveal="wait"]{opacity:1;translate:none}
   [data-landing-story] .story-heading[data-reveal] [data-story-word]{transition:opacity .5s ${EASE},translate .55s ${EASE};transition-delay:calc(min(var(--word-index,0),10) * 40ms)}
   [data-landing-story] .story-heading[data-reveal="wait"] [data-story-word]{opacity:0;translate:0 .5em}
+  [data-landing-story] [data-reveal-now],[data-landing-story] [data-reveal-now] [class*="__reveal"]{transition:none!important}
+  [data-landing-story] [data-reveal-now][data-story-reveal]{opacity:1!important;transform:none!important}
   @media (max-width:767px),(hover:none) and (pointer:coarse){
     [data-landing-story] [data-reveal][data-reveal]{transition:opacity .38s ease-out;translate:none}
     [data-landing-story] .story-heading[data-reveal="wait"]{opacity:0}
