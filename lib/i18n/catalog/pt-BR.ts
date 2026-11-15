@@ -13418,7 +13418,10 @@ const words: Record<string, string> = {
  "This page was saved somewhere else. Save again to keep this version": "Esta página foi salva em outro lugar. Salve de novo para manter esta versão",
  "Exported {name} as a Shopify theme": "{name} exportado como tema da Shopify",
  "Upload it in Shopify: Online Store › Themes › Add theme › Upload zip file.": "Envie na Shopify: Loja virtual › Temas › Adicionar tema › Enviar arquivo zip.",
- "{count, plural, one {# picture} other {# pictures}} could not be fetched in time and are not in the file. Export again to include them.": "{count, plural, one {# imagem não pôde ser baixada} other {# imagens não puderam ser baixadas}} a tempo e não estão no arquivo. Exporte de novo para incluí-las."
+ "{count, plural, one {# picture} other {# pictures}} could not be fetched in time and are not in the file. Export again to include them.": "{count, plural, one {# imagem não pôde ser baixada} other {# imagens não puderam ser baixadas}} a tempo e não estão no arquivo. Exporte de novo para incluí-las.",
+ "The emails your buyers and members get. Open one to edit.": "Os e-mails que seus compradores e membros recebem. Abra um para editar.",
+ "Where your products are listed.": "Onde seus produtos aparecem.",
+ "Your website in more languages, like /fr.": "Seu site em mais idiomas, como /fr."
 }
 
 export default words

@@ -148,8 +148,16 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
   const text: string = c.text_color || "#111111"
   const secondary: string = c.secondary_text_color || `${text}cc`
   const image = c.background_type === "image" && c.background_image_url ? (c.background_image_url as string) : null
-  /* A Hero is drawn only with a photo, as the page draws it (lib/onepage/page-frame heroHeaderShown). */
-  const hero = c.header_layout === "hero" && !!who.avatar
+  /*
+    A HERO CARD IS ALWAYS A HERO. The owner: show "that it's a hero instead of
+    displaying the pill shape". Without the creator's photo the card fell back
+    to the Classic header and only a pill said Hero. Now the band is drawn
+    either way: the creator's photo, else the theme's own picture (cover or
+    wallpaper), else a wash of the theme's own colours, so the card reads as
+    the page a photo will make.
+  */
+  const hero = c.header_layout === "hero"
+  const heroStandIn = hero && !who.avatar ? (coverImageOf(c) || (c.background_type === "image" && c.background_image_url ? (c.background_image_url as string) : null)) : null
   const cover = hero ? null : coverImageOf(c)
   const left = !hero && headerAlignOf(c) === "left"
   const look = avatarLook(c as never, false)
@@ -407,7 +415,9 @@ export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAc
           {hero ? (
             <span className="relative -mx-5 mb-2 block w-[calc(100%+40px)] shrink-0" style={{ marginTop: -heroShift }} data-tp-header="hero" data-tp-shift={heroShift}>
               <span className="relative block w-full overflow-hidden" style={{ aspectRatio: HERO_ASPECT, maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, backgroundColor: `color-mix(in srgb, ${text} 6%, transparent)` }}>
-                {face ? <img src={onePageImageSrc(face, PREVIEW_WIDTH)} alt="" draggable={false} decoding="async" data-tp-photo="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `50% ${c.hero_position_y ?? 50}%` }} /> : null}
+                {face ? <img src={onePageImageSrc(face, PREVIEW_WIDTH)} alt="" draggable={false} decoding="async" data-tp-photo="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `50% ${c.hero_position_y ?? 50}%` }} />
+                  : heroStandIn ? <img src={thumb(heroStandIn)} alt="" draggable={false} decoding="async" data-tp-photo="stand-in" className="absolute inset-0 h-full w-full object-cover" onError={hideBroken} />
+                  : <span aria-hidden data-tp-photo="wash" className="absolute inset-0" style={{ background: `radial-gradient(120% 90% at 50% 30%, color-mix(in srgb, ${text} 22%, ${bg}) 0%, color-mix(in srgb, ${text} 8%, ${bg}) 55%, ${bg} 100%)` }} />}
               </span>
               <span className="absolute inset-x-0 bottom-4 z-[1] flex flex-col items-center gap-2 px-6 text-center">
                 {title}

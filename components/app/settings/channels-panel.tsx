@@ -49,7 +49,7 @@ export function ChannelsPanel() {
 
       <Card
         title={tt("Sales channels")}
-        description={tt("Where your products are listed. Take a product off a channel from its own page; its link keeps working.")}
+        description={tt("Where your products are listed.")}
         help="channels"
         action={
           <button type="button" className={cn(BTN_SECONDARY, "gap-1.5")} onClick={() => setEditing("new")} disabled={!setup.ready || setup.channels.length >= MAX_CHANNELS} data-create-channel="">

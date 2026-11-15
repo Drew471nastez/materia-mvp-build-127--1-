@@ -324,7 +324,8 @@ function PlanCard({
         <p className="mt-1.5 text-[13px] font-medium leading-[18px] text-white/85">
           <TextSwap value={interval} items={{ monthly: monthly.priceNote, yearly: yearly.priceNote }} />
         </p>
-        <p className={`mt-auto ${compact ? "pt-3" : "pt-4"} ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-white/90`}>{plan.summary}</p>
+        {/* Two lines' room for every summary, so a one-line one ("Keep more of every sale.") ends its card's head level with the others. */}
+        <p className={`mt-auto ${compact ? "pt-3" : "pt-4"} ${compact ? "min-h-[52px] text-[13px]" : "min-h-[56px] text-[14px]"} leading-[20px] text-white/90`}>{plan.summary}</p>
       </div>
 
       <div className={`flex flex-1 flex-col ${pad} ${compact ? "pb-5 pt-5" : "pb-6 pt-5"}`}>

@@ -58,7 +58,7 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 /* The pictures the cards name, fetched once. */
 const cardsSource = readFileSync(join(root, "components/billing/plan-cards.tsx"), "utf8")
 const base = /const PICTURE_BASE = "([^"]+)"/.exec(cardsSource)?.[1]
-const names = [...cardsSource.matchAll(/picture: `\$\{PICTURE_BASE\}\/([^`]+)`/g)].map((m) => m[1])
+const names = [...new Set([...cardsSource.matchAll(/picture: `\$\{PICTURE_BASE\}\/([^`]+)`/g)].map((m) => m[1]))] /* Three cards, two pictures: Pro and Scale share one. */
 if (!base || names.length !== 2) fail("Could not find the two header pictures in plan-cards.tsx.")
 const pictures = new Map()
 for (const [i, name] of names.entries()) {
