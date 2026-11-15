@@ -1443,6 +1443,8 @@ const SUITES = [
   "tests/home-landing-topb4.test.ts",
   /* Landing round 4 (frame): sheets rise like a phone's sheet (a small side inset settling to full width, the held block behind shrinking a little and dimming), CSS scroll-driven, transform and opacity only, off for reduced motion; Make the work on a flat ground, not a drawer; the globe's pill glides on the compositor a few times a second and its move path reads no layout; the app and the closing call on a dark close with no seam into the footer; a calmer FAQ with a neutral plus and grid-row opening; a small dot grid background. */
   "tests/home-landing-frame4.test.ts",
+  /* Round 5: the home page's desktop mouse wheel glides like the Materia theme's smooth scroll (components/marketing/smooth-wheel.tsx). */
+  "tests/home-smooth-wheel-r5.test.ts",
   /* Landing round 5 (top): the showcase is the browser's own snapping scroller on a touch screen or phone width (autoplay steps aside for a touch and comes back), its cards bigger and cut a little by the section's bottom edge; Make the work's new heading, no support labels, a Pilates course and a plain LUT pack cover; the globe's order notification stands in one place and only fades in and out, the globe capped at 60fps and 2x (1.5x on a low end phone) and a finger takes it only sideways. */
   "tests/home-landing-r5-top.test.ts",
   /* Landing round 5, middle: One store for everything you sell as it was before (no scroll pin, the clock, the grey stage); Ideas behind plain tabs with a candle studio's store and a paid strength coaching community; How it works without the cap, a bold drawn product sheet, calm grey and dark grounds, a simple dark domain card. */
