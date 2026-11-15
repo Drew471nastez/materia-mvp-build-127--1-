@@ -90,10 +90,16 @@ export const DOT_FIELD_CSS = `
  * The dots' colour per ground, how bright they rest at the crest of the flow
  * and how bright the light makes them. Round 7: neutral white on the purple
  * too (the owner: nothing purple on the purple, not even light purple).
+ * `r` is a dot's radius in CSS px; `ride` how far a dot rides the flow (1 is
+ * under a pixel). Landing round 11, the owner, of the purple sheet: the dots
+ * "more smooth, clean and more visible". So on purple they rest at 0.17 (was
+ * 0.12) and light to 0.4 (was 0.32), a touch rounder (0.95px), and ride the
+ * flow half as far, so a dot no longer shimmers as it crosses a device pixel;
+ * the bands of light carry the motion. The dark tone is unchanged.
  */
 export const DOT_FIELD_TONES = {
-  dark: { rgb: "255,255,255", rest: 0.19, lit: 0.46 },
-  purple: { rgb: "255,255,255", rest: 0.12, lit: 0.32 },
+  dark: { rgb: "255,255,255", rest: 0.19, lit: 0.46, r: 0.8, ride: 1 },
+  purple: { rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 },
 } as const
 
 /** Largest device pixel ratio the canvas is drawn at. */
@@ -107,8 +113,6 @@ const PART = 6
 const LEVELS = 32
 /** How strong the light is on its own path, with no mouse over the field. */
 const WANDER = 0.6
-/** A dot's radius, in CSS px. */
-const DOT_R = 0.8
 /** The darkest a dot gets in the trough of the flow, as a share of its crest. */
 const TROUGH = 0.3
 
@@ -223,8 +227,8 @@ export function DotField({
       } else {
         tx = w * (0.5 + 0.32 * Math.sin(t * 0.00011))
         ty = h * (0.42 + 0.26 * Math.sin(t * 0.000083 + 1.3))
-        /* The purple sheet keeps its quieter wander (round 7); the closing call's light is out on its own. */
-        goal = tone === "dark" ? WANDER : fine ? 0.35 : 0.5
+        /* The purple sheet keeps a quieter wander (round 7), a little stronger since round 11; the closing call's light is out on its own. */
+        goal = tone === "dark" ? WANDER : fine ? 0.45 : 0.55
       }
       const k = 1 - Math.pow(1 - FOLLOW, dt / 16.67)
       if (!started) {
@@ -242,8 +246,8 @@ export function DotField({
       for (let i = 0, j = 0; i < points.length; i += 4, j += 2) {
         const flow = flowAt(waves[j], waves[j + 1], t)
         /* Each dot rides the current by under a pixel. */
-        let x = points[i] + (flow - 0.5) * 0.8
-        let y = points[i + 1] + (flow - 0.5) * 1.4
+        let x = points[i] + (flow - 0.5) * 0.8 * colour.ride
+        let y = points[i + 1] + (flow - 0.5) * 1.4 * colour.ride
         let a = colour.rest * points[i + 2] * (TROUGH + (1 - TROUGH) * flow * flow)
         const dx = x - lightX
         const dy = y - lightY
@@ -269,8 +273,8 @@ export function DotField({
         ctx.fillStyle = `rgba(${colour.rgb},${((l / (LEVELS - 1)) * colour.lit).toFixed(3)})`
         ctx.beginPath()
         for (let j = 0; j < b.length; j += 2) {
-          ctx.moveTo(b[j] + DOT_R, b[j + 1])
-          ctx.arc(b[j], b[j + 1], DOT_R, 0, Math.PI * 2)
+          ctx.moveTo(b[j] + colour.r, b[j + 1])
+          ctx.arc(b[j], b[j + 1], colour.r, 0, Math.PI * 2)
         }
         ctx.fill()
       }

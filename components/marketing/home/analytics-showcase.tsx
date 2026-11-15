@@ -83,6 +83,7 @@
 */
 
 import { useEffect, useRef, type CSSProperties, type ComponentType, type RefObject } from "react"
+import { Eye, Globe, Link2, MonitorSmartphone, ShoppingBag, Waypoints, type LucideIcon } from "lucide-react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { AnalyticsGlobe } from "./analytics-globe"
 import { ClaudeMark, GeminiMark, GoogleG, OpenAIMark, PerplexityMark } from "./engine-marks"
@@ -92,8 +93,20 @@ import s from "./analytics-showcase.module.css"
 
 const IMG = "/home/analytics"
 
-/** The reports, in Analytics' own words, as few as say it. */
-const REPORTS = ["Views", "Traffic sources", "Countries", "Top links", "Devices", "Sales"] as const
+/**
+ * The reports, in Analytics' own words, as few as say it. Landing round 11,
+ * the owner: "smooth, clean icons; non-AI, simple, clean". One line set
+ * (lucide, the app's own), 16px at a 1.75 stroke, a little dimmer than the
+ * word so the word stays the louder of the two.
+ */
+const REPORTS: ReadonlyArray<{ label: string; Icon: LucideIcon }> = [
+  { label: "Views", Icon: Eye },
+  { label: "Traffic sources", Icon: Waypoints },
+  { label: "Countries", Icon: Globe },
+  { label: "Top links", Icon: Link2 },
+  { label: "Devices", Icon: MonitorSmartphone },
+  { label: "Sales", Icon: ShoppingBag },
+]
 
 const VISITORS = 21480
 /** Her top places, each with its visitors: the share is of VISITORS. */
@@ -170,11 +183,28 @@ function GlobeCard({ live, reduced }: { live: boolean; reduced: boolean }) {
 
 /* ── SEO, GEO, AEO ───────────────────────────────────────────────────── */
 const QUERY = "cinematic LUT pack for Premiere Pro"
+/*
+  Landing round 11, the owner: the results "should also have favicons". Each
+  site its own small mark in its own colour, the way a real result shows it:
+  a 16px icon in Google's round 26px well. Drawn here (no files to load).
+*/
 const RESULTS = [
-  { site: "Nora Vik", initial: "N", url: "noravik.example › luts", title: "Fjord LUTs: 24 cinematic looks for Premiere Pro", body: "Cube files for Premiere, DaVinci Resolve and Final Cut.", img: "lut-fog.webp" },
-  { site: "Frame & Grain", initial: "F", url: "frameandgrain.example › guides", title: "How to install a LUT pack in Premiere Pro", body: "Lumetri, Creative, Look, and the pack is in. Step by step.", img: "lut-neon.webp" },
-  { site: "Colorist Notes", initial: "C", url: "coloristnotes.example › film", title: "Film emulation LUTs that keep skin tones", body: "Warm film looks without orange faces, side by side.", img: "lut-autumn.webp" },
+  { site: "Nora Vik", favicon: { mark: "N", bg: "#1d5b5e", ink: "#f3efe6", round: false }, url: "noravik.example › luts", title: "Fjord LUTs: 24 cinematic looks for Premiere Pro", body: "Cube files for Premiere, DaVinci Resolve and Final Cut.", img: "lut-fog.webp" },
+  { site: "Frame & Grain", favicon: { mark: "fg", bg: "#d4712a", ink: "#fff8f0", round: false }, url: "frameandgrain.example › guides", title: "How to install a LUT pack in Premiere Pro", body: "Lumetri, Creative, Look, and the pack is in. Step by step.", img: "lut-neon.webp" },
+  { site: "Colorist Notes", favicon: { mark: "C", bg: "#b8322c", ink: "#ffffff", round: true }, url: "coloristnotes.example › film", title: "Film emulation LUTs that keep skin tones", body: "Warm film looks without orange faces, side by side.", img: "lut-autumn.webp" },
 ]
+
+/** A site's favicon: its monogram on its own colour, a rounded square or a disc, 16px. */
+function Favicon({ mark, bg, ink, round }: { mark: string; bg: string; ink: string; round: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" width={16} height={16} className={s.favicon} aria-hidden="true" focusable="false">
+      {round ? <circle cx="8" cy="8" r="8" fill={bg} /> : <rect width="16" height="16" rx="3.5" fill={bg} />}
+      <text x="8" y="8" dy=".36em" textAnchor="middle" fill={ink} fontSize={mark.length > 1 ? 8.6 : 10.5} fontWeight={700} letterSpacing={mark.length > 1 ? "-0.04em" : undefined} fontFamily="inherit">
+        {mark}
+      </text>
+    </svg>
+  )
+}
 
 function SearchCard() {
   return (
@@ -205,7 +235,9 @@ function SearchCard() {
             <li key={r.site} className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[12px] font-semibold text-[#ececf1]">{r.initial}</span>
+                  <span className={s.faviconWell}>
+                    <Favicon {...r.favicon} />
+                  </span>
                   <span className="min-w-0 leading-[1.2]">
                     <span className="block truncate text-[12.5px] text-[#ececf1]">{r.site}</span>
                     <span className="block truncate text-[11.5px] text-[#8f8d99]">https://{r.url}</span>
@@ -357,9 +389,10 @@ export function AnalyticsShowcase() {
             </div>
             {/* The reports come in one after another (--i), when the row itself is on screen. */}
             <ul className={`${s.reports} mt-6`} aria-label="Reports" data-rise="">
-              {REPORTS.map((label, i) => (
+              {REPORTS.map(({ label, Icon }, i) => (
                 <li key={label} className={s.report} style={{ "--i": i } as CSSProperties}>
-                  {label}
+                  <Icon className={s.reportIcon} size={16} strokeWidth={1.75} aria-hidden="true" />
+                  <span className={s.reportLabel}>{label}</span>
                 </li>
               ))}
             </ul>

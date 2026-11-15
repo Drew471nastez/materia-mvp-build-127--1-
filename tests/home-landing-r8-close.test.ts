@@ -105,8 +105,8 @@ console.log("\n── the close: dots, motion, the footer's edge ──")
 {
   const dots = read("components/marketing/home/dot-field.tsx")
   const cta = read("components/marketing/home/final-cta.tsx")
-  check("a little more visible, only a little", DOT_FIELD_TONES.dark.rest === 0.19 && DOT_FIELD_TONES.dark.lit === 0.46 && DOT_FIELD_TONES.purple.rest === 0.12)
-  check("round dots in 32 levels", /ctx\.arc\(b\[j\], b\[j \+ 1\], DOT_R, 0, Math\.PI \* 2\)/.test(dots) && /const LEVELS = 32/.test(dots) && !/ctx\.rect\(/.test(dots))
+  check("a little more visible, only a little", DOT_FIELD_TONES.dark.rest === 0.19 && DOT_FIELD_TONES.dark.lit === 0.46 && DOT_FIELD_TONES.purple.rest === 0.17) // Changed on purpose (landing round 11): the purple tone rests at 0.17 (was 0.12); the dark tone is unchanged.
+  check("round dots in 32 levels", /ctx\.arc\(b\[j\], b\[j \+ 1\], colour\.r, 0, Math\.PI \* 2\)/.test(dots) && /const LEVELS = 32/.test(dots) && !/ctx\.rect\(/.test(dots)) // Changed on purpose (landing round 11): the radius is the tone's own (0.8 dark, 0.95 on purple).
   check("moves by itself, follows the mouse while it is over the field", /const WANDER = 0\.6/.test(dots) && /goal = tone === "dark" \? WANDER/.test(dots) && /hasAim && mx > -40 && my > -40 && mx < w \+ 40 && my < h \+ 40/.test(dots))
   check("60 a second whenever it runs, paused off screen and in a hidden tab", /if \(last && t - last < 12\) return/.test(dots) && /IntersectionObserver/.test(dots) && /visibilitychange/.test(dots))
   check("the field fades out before the call's foot", /<DotField fade="close" \/>/.test(cta) && /\.dotf\[data-fade="close"\]\{-webkit-mask-image:radial-gradient\(115% 80% at 50% 38%,#000 32%,transparent 76%\)/.test(DOT_FIELD_CSS))

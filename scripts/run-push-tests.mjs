@@ -1521,6 +1521,8 @@ const SUITES = [
   "tests/home-landing-r10-top.test.ts",
   /* Landing round 10, checkout: the stage stays held behind the cards, the phone and the ring stepping back and going soft under them (each cross fades to a blurred copy baked as a small webp, opacity only, no filter), the cards a little see-through; a card's picture capped at 44svh for a 1440 x 800 screen. */
   "tests/home-landing-r10-checkout.test.ts",
+  /* Landing round 11 (purple): a line icon per analytics report and a favicon per search result, the purple's dots brighter and calmer, the map as "Sell to buyers worldwide." with a column of flags, a stack of product cards, an order pill and Shipped words by the dots, the phone's pan back as the map's own transform, a taller card. */
+  "tests/home-landing-r11-purple.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
