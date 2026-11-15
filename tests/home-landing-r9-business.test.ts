@@ -101,7 +101,9 @@ console.log("\nSmooth and clean")
   check("off screen or a hidden tab: every moment waits", /\.biz:not\(\[data-live\]\) \.bz-on \*,\.biz:not\(\[data-live\]\) \.bz-on \*::after\{animation-play-state:paused!important\}/.test(css))
   check("the moments run only with motion allowed", /@media\(prefers-reduced-motion:no-preference\)\{\n\.bz-on/.test(BUSINESS_MOCK_CSS) && !/\n\.bz-on[^\n]*animation/.test(BUSINESS_MOCK_CSS.split("@media(prefers-reduced-motion:no-preference){")[0]))
   const every = [DigitalScene, TeeScene, CourseScene, ClubScene, CoachScene].map((s) => renderToStaticMarkup(createElement(s))).join("")
-  check("every picture is lazy, sized and decoded off the main thread", !/<img(?![^>]*loading="lazy")[^>]*>/.test(every) && !/<img(?![^>]*width=)[^>]*>/.test(every) && !/<img(?![^>]*decoding="async")[^>]*>/.test(every))
+  const stills = every.match(/<img[^>]*class="bc-still"[^>]*>/g) ?? []
+  check("every picture is sized and decoded off the main thread; all lazy but the covers in the moving row", !/<img(?![^>]*width=)[^>]*>/.test(every) && !/<img(?![^>]*decoding="async")[^>]*>/.test(every) && !/<img(?![^>]*(?:loading="lazy"|class="bc-still"))[^>]*>/.test(every))
+  check("the row's covers load with the scene (clipped by the rail, a lazy one would arrive mid glide)", stills.length === 4 && stills.every((i) => /loading="eager"/.test(i)))
   const pics = ["bz-tee", "bz-ebook", "bz-presets", "bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
   check("every photograph is a small webp (under 120 KB)", pics.every((p) => existsSync(p) && statSync(p).size < 120 * 1024), pics.filter((p) => !existsSync(p) || statSync(p).size >= 120 * 1024))
   const words = `${BUSINESS_SLIDES.map((s) => `${s.alt} ${s.line}`).join(" ")} ${every.replace(/<[^>]+>/g, " ")}`

@@ -1,6 +1,6 @@
 import { CalendarDays, Check, CheckCircle2, Download, Heart, MessageCircle, Play, ShoppingBag, Truck, Users, Video } from "lucide-react"
 import type { CSSProperties } from "react"
-import { Pic, u } from "./frame"
+import { Pic, pic, u } from "./frame"
 
 /*
   WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 and 9).
@@ -50,12 +50,21 @@ export const DIGITAL_PRODUCTS = [
 /* A month of posts on the template's cover: which days carry something, and in which colour. */
 const DAYS_ON: Record<number, string> = { 1: "a", 3: "b", 4: "c", 8: "b", 10: "a", 12: "d", 15: "c", 16: "a", 19: "b", 22: "d", 24: "a", 26: "c" }
 
+/*
+  A cover's photograph loads with the scene, not lazily: the row is clipped by its rail, so a lazy picture would only
+  be asked for as its cover slides in, and arrive as a grey box turning into a photograph mid glide. The section
+  itself is mounted late (lazy-sections.tsx), so nothing is fetched before it is near.
+*/
+function Still({ src, w, h }: { src: string; w: number; h: number }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" width={w} height={h} loading="eager" decoding="async" draggable={false} className="bc-still" />
+}
+
 function Cover({ id }: { id: (typeof DIGITAL_PRODUCTS)[number]["id"] }) {
   if (id === "lut")
     return (
       <span className="bc bc-lut">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/home/everything/lut-still.webp" alt="" width={720} height={405} loading="lazy" decoding="async" draggable={false} />
+        <Still src="/home/everything/lut-still.webp" w={720} h={405} />
         <span className="bc-tag">LUT Pack</span>
         <span className="bc-big">
           <span>Cine</span>
@@ -82,7 +91,7 @@ function Cover({ id }: { id: (typeof DIGITAL_PRODUCTS)[number]["id"] }) {
   if (id === "book")
     return (
       <span className="bc bc-book">
-        <Pic n="bz-ebook" w={640} h={800} />
+        <Still src={pic("bz-ebook")} w={640} h={800} />
         <span className="bc-title">
           Slow
           <br />
@@ -95,7 +104,7 @@ function Cover({ id }: { id: (typeof DIGITAL_PRODUCTS)[number]["id"] }) {
   if (id === "presets")
     return (
       <span className="bc bc-presets">
-        <Pic n="bz-presets" w={640} h={800} />
+        <Still src={pic("bz-presets")} w={640} h={800} />
         <span className="bc-tag">12 Lightroom presets</span>
         <span className="bc-title">Highland</span>
       </span>
@@ -508,11 +517,11 @@ export const BUSINESS_MOCK_CSS =
 
 /* the five covers, each sized in its own width (cqw), so one drawing serves the computer's row and the phone's */
 .bc{position:absolute;inset:0;display:block;overflow:hidden;color:#fff}
-.bc>img{position:absolute;left:0;top:0}
+.bc-still{position:absolute;left:0;top:0;display:block;width:100%;height:100%;object-fit:cover;background:#e9e6e1}
 .bc-tag{position:absolute;z-index:2;left:7cqw;top:7cqw;font-size:4.8cqw;font-weight:600;line-height:1;letter-spacing:.14em;text-transform:uppercase}
 .bc-title,.bc-line,.bc-foot,.bc-big,.bc-glyph{position:absolute;z-index:2}
 .bc-lut{background:#0a0a0b}
-.bc-lut>img{display:block;width:100%;height:58%;object-fit:cover;object-position:50% 60%}
+.bc-lut>.bc-still{height:58%;object-position:50% 60%;background:#0a0a0b}
 .bc-lut::before{content:"";position:absolute;z-index:1;left:0;right:0;top:0;height:26%;background:linear-gradient(rgba(10,10,11,.5),rgba(10,10,11,0))}
 .bc-lut::after{content:"";position:absolute;z-index:1;left:0;right:0;top:22%;height:37%;background:linear-gradient(rgba(10,10,11,0),rgba(10,10,11,.55) 50%,#0a0a0b)}
 .bc-big{left:6.4cqw;bottom:6.4cqw;display:flex;flex-direction:column;font-size:21cqw;font-weight:800;line-height:.84;letter-spacing:-.05em;text-transform:uppercase}

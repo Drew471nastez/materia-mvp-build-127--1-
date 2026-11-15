@@ -91,7 +91,8 @@ console.log("\nThe five examples")
   const pics = ["bz-ebook", "bz-presets", "bz-tee", "bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
   check("every photograph is a small webp (under 120 KB)", pics.every((p) => existsSync(p) && statSync(p).size < 120 * 1024), pics.filter((p) => !existsSync(p) || statSync(p).size >= 120 * 1024))
   const every = brain + phones + course + club + coach
-  check("every picture is lazy and sized", !/<img(?![^>]*loading="lazy")[^>]*>/.test(every) && !/<img(?![^>]*width=)[^>]*>/.test(every))
+  /* Changed on purpose (landing round 9): the covers in the digital row (.bc-still) load with the scene; clipped by the row's rail, a lazy one was only asked for as it slid in. */
+  check("every picture is sized, and lazy but for the covers in the moving row", !/<img(?![^>]*(?:loading="lazy"|class="bc-still"))[^>]*>/.test(every) && !/<img(?![^>]*width=)[^>]*>/.test(every))
   check("the scenes are pictures: labelled, nothing inside takes the pointer", BUSINESS_SLIDES.every((s) => s.alt.length > 60) && /\.biz-stage \.smk\{pointer-events:none/.test(sectionCss))
   /* Changed on purpose (landing round 9): the stage stands beside the index on a computer, so it is drawn at 1040 x 600. */
   check("phones get their own layout (400 x 640), computers 1040 x 600", /\.bz-frame\{aspect-ratio:1040\/600/.test(BUSINESS_MOCK_CSS) && /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:400\/640\}\n  \.bz-frame>\.smk\{--w:400\}/.test(BUSINESS_MOCK_CSS))
