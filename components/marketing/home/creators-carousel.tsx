@@ -97,22 +97,15 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     const count = CREATORS.length
     let loop = 0
     let step = 1
-    /* x: how far the rail has travelled left, in px. v: its speed, px a second. */
+    /* x: how far the rail has travelled left, in px, whenever no animation holds it. */
     let x = 0
-    let v = 0
-    let glide = 0
-    let last = 0
-    let raf = 0
     let visible = typeof IntersectionObserver !== "function"
     let hovering = false
     let focused = false
-    /* After a touch or a drag the drift waits this long (a timestamp) before it picks up again. */
+    /* After a touch, a drag or a throw the drift waits until this moment (performance.now()) before it picks up again. */
     let holdUntil = 0
     let holdTimer = 0
-    /* A throw: the rail coasting after the finger has let go, slowing down on its own. */
-    let coasting = false
-    /* A change of speed in progress: from one speed to another over a set time, eased at both ends. */
-    let ramp: { from: number; to: number; t0: number; ms: number } | null = null
+    let paintFrame = 0
     let drag: {
       id: number
       startX: number
@@ -123,19 +116,20 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     } | null = null
     let suppressClick = false
     /*
-     * The steady drift runs on the compositor. Once the rail has eased up to
-     * its cruising speed, the motion is handed to a Web Animation (the same
-     * straight line, one copy of the cards per lap), and the frame loop
-     * stops: a transform set from script on every frame made Chromium
-     * re-layer the whole page each frame (5 to 9 ms at 4x CPU) for as long as
-     * the section was on screen. Anything that changes the speed (a pointer,
-     * a drag, a key, focus, a resize) takes the motion back from where the
-     * animation has got to, so nothing jumps.
+     * LANDING ROUND 8 (the owner: "more smooth, butterish, optimized, no lag
+     * or stutter"). Round 7 ran the throw, the easing back into the drift and
+     * the slowing under a mouse in a frame loop that set the transform from
+     * script every frame. Now every one of those is a Web Animation on the
+     * compositor, each a curve with the right speed at both ends, chained one
+     * after the other: ease in (0 to cruising), cruise (a straight line, one
+     * copy of the cards a lap, forever), ease out (cruising to 0), coast (a
+     * throw's speed decaying by e every COAST_TAU, then still) and the
+     * arrow keys' nudge. The main thread does no work per frame unless a
+     * finger or the mouse is holding the rail, and then only the one
+     * transform per frame the hand moved. Taking the motion back (a press, a
+     * hover, a resize) reads the rail's place once, at that moment.
      */
-    let drift: Animation | null = null
-    let cruiseFrom = 0
-    let cruiseSpeed = 0
-    const cruiseX = () => (drift ? cruiseFrom + ((Number(drift.currentTime) || 0) / 1000) * cruiseSpeed : x)
+    let motion: { anim: Animation; kind: "in" | "cruise" | "out" | "coast" | "nudge"; t0: number; ms: number; speed: number } | null = null
 
     const measure = () => {
       const cards = track.querySelectorAll<HTMLElement>("[data-idx]")
@@ -148,120 +142,122 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     }
     const live = () => visible && !document.hidden && !reduce.matches
     const cruise = () => (touch.matches ? 30 : 36)
+    const wrap = (v: number) => (loop > 0 ? ((v % loop) + loop) % loop : v)
+    const tf = (v: number) => `translate3d(${(-v).toFixed(2)}px,0,0)`
 
     const paint = () => {
-      if (loop > 0) x = ((x % loop) + loop) % loop
-      track.style.transform = `translate3d(${(-x).toFixed(2)}px,0,0)`
+      paintFrame = 0
+      x = wrap(x)
+      track.style.transform = tf(x)
     }
-    const startCruise = (speed: number) => {
-      if (loop <= 0 || speed <= 0 || typeof track.animate !== "function") return false
-      x = ((x % loop) + loop) % loop
-      cruiseFrom = x
-      cruiseSpeed = speed
-      drift = track.animate(
-        [{ transform: `translate3d(${(-x).toFixed(2)}px,0,0)` }, { transform: `translate3d(${(-(x + loop)).toFixed(2)}px,0,0)` }],
-        { duration: (loop / speed) * 1000, iterations: Infinity, easing: "linear" },
-      )
-      return true
-    }
-    const stopCruise = () => {
-      if (!drift) return
-      x = cruiseX()
-      v = cruiseSpeed
+    /* The rail's place this moment: off the running animation (read once, here), or x. The animation is let go. */
+    const halt = () => {
+      if (!motion) return
+      const m = getComputedStyle(track).transform
+      if (m && m !== "none") x = -new DOMMatrixReadOnly(m).m41
+      motion.anim.cancel()
+      motion = null
       paint()
-      drift.cancel()
-      drift = null
-      last = 0
     }
-    /* What the rail's speed should settle at right now: nothing while it is held, looked at or waiting, its drift otherwise. */
-    const goal = (t: number) => (hovering || focused || drag || coasting || t < holdUntil ? 0 : cruise())
-    const frame = (t: number) => {
-      raf = 0
-      const dt = last ? Math.min(0.05, (t - last) / 1000) : 1 / 60
-      last = t
-      if (drag) {
-        /* The finger leads: x was set from it in onMove, 1:1, and is only drawn here, once a frame. */
+    /* One leg of motion on the compositor, from x to x + by. The end is written to the style first, so nothing flashes when the animation lets go. */
+    const play = (kind: NonNullable<typeof motion>["kind"], by: number, ms: number, easing: string, speed: number, then?: () => void) => {
+      if (loop <= 0 || typeof track.animate !== "function" || ms <= 0) {
+        x += by
         paint()
-        schedule()
+        then?.()
         return
       }
-      const want = goal(t)
-      if (coasting) {
-        /* A throw slows the way a flicked list does on a phone: by the same share of its speed every moment, so it glides out rather than stopping short. */
-        v *= Math.exp(-dt / COAST_TAU)
-        if (Math.abs(v) < 4) {
-          v = 0
-          coasting = false
-          holdUntil = t + RESUME_AFTER_MS
-        }
-      } else {
-        if (!ramp || ramp.to !== want) {
-          /* Picking up is slow and soft; slowing for a pointer or a key is quicker. Both ease in and out (smootherstep), so the speed never changes with a jolt. */
-          ramp = { from: v, to: want, t0: t, ms: want > Math.abs(v) ? RAMP_UP_MS : RAMP_DOWN_MS }
-        }
-        const p = Math.min(1, (t - ramp.t0) / ramp.ms)
-        const e = p * p * p * (p * (p * 6 - 15) + 10)
-        v = ramp.from + (ramp.to - ramp.from) * e
-        if (p >= 1) v = ramp.to
-      }
-      let move = v * dt
-      if (glide) {
-        // Arrow-key nudges ease out over a card width on top of the drift.
-        let part = glide * (1 - Math.exp(-dt * 7))
-        if (Math.abs(glide - part) < 0.4) part = glide
-        glide -= part
-        move += part
-      }
-      x += move
-      paint()
-      const settled = !coasting && !glide && ramp !== null && v === ramp.to
-      if (live() && settled && want && startCruise(want)) {
-        ramp = null
-        last = 0
-      } else if (live() && (coasting || glide || !settled)) schedule()
-      else {
-        last = 0
-        /* Waiting out a hold, standing still: no frames, one timer to wake it when the wait is over. */
-        if (live() && t < holdUntil) {
-          clearTimeout(holdTimer)
-          holdTimer = window.setTimeout(schedule, holdUntil - t + 1)
-        }
+      const from = wrap(x)
+      const anim = track.animate([{ transform: tf(from) }, { transform: tf(from + by) }], kind === "cruise" ? { duration: ms, iterations: Infinity, easing: "linear" } : { duration: ms, easing })
+      motion = { anim, kind, t0: performance.now(), ms, speed }
+      x = from + by
+      if (kind !== "cruise") paint()
+      else x = from
+      if (!live()) anim.pause()
+      anim.onfinish = () => {
+        if (motion?.anim !== anim) return
+        motion = null
+        anim.cancel()
+        then ? then() : update()
       }
     }
-    const schedule = () => {
-      if (!raf && !drift && live()) raf = requestAnimationFrame(frame)
+    /* What the rail's speed should settle at now: nothing while it is held, looked at or waiting, its drift otherwise. */
+    const goal = () => (hovering || focused || drag || performance.now() < holdUntil ? 0 : cruise())
+    /*
+     * Decide the next leg. Easing in or out is a smootherstep of the speed
+     * (p * p * p * (p * (p * 6 - 15) + 10)); as a position over time that is
+     * close to a cubic Bézier whose ends have the right slopes: in, 0 then
+     * twice the average (cruising); out, twice the average then 0.
+     */
+    const update = () => {
+      clearTimeout(holdTimer)
+      if (!live() || drag || loop <= 0) return
+      const want = goal()
+      const kind = motion?.kind
+      if (want > 0) {
+        if (kind === "cruise" || kind === "in") return
+        if (kind === "coast" || kind === "nudge") return
+        halt()
+        play("in", (want * RAMP_UP_MS) / 2000, RAMP_UP_MS, "cubic-bezier(.5,0,.75,.5)", want, () => play("cruise", loop, (loop / want) * 1000, "linear", want))
+        return
+      }
+      if (kind === "cruise" || kind === "in") {
+        /* From the speed it has now: cruising, or the share of it an ease in has reached. */
+        let v = motion!.speed
+        if (kind === "in") {
+          const p = Math.min(1, (performance.now() - motion!.t0) / motion!.ms)
+          v *= p * p * p * (p * (p * 6 - 15) + 10)
+        }
+        halt()
+        play("out", (v * RAMP_DOWN_MS) / 2000, RAMP_DOWN_MS, "cubic-bezier(.25,.5,.5,1)", 0)
+        return
+      }
+      /* Waiting out a hold, standing still: no frames, one timer to wake it when the wait is over. */
+      const wait = holdUntil - performance.now()
+      if (!motion && wait > 0) holdTimer = window.setTimeout(update, wait + 1)
     }
-    /* Something changes the speed: take the motion back from the compositor first. */
-    const wake = () => {
-      stopCruise()
-      schedule()
+    /*
+     * A throw: v * COAST_TAU * (1 - e^(-t / COAST_TAU)) px after t seconds,
+     * until it is under 4px a second. As a Bézier: it leaves at the finger's
+     * speed (its first slope) and comes to rest with none.
+     */
+    const coast = (v: number) => {
+      const tauMs = COAST_TAU * 1000
+      const ms = Math.min(2800, Math.max(260, tauMs * Math.log(Math.abs(v) / 4)))
+      const by = v * COAST_TAU * (1 - Math.exp(-ms / tauMs))
+      const slope = Math.abs((v * ms) / 1000 / by)
+      const x1 = Math.min(0.33, 1 / slope)
+      play("coast", by, ms, `cubic-bezier(${x1.toFixed(3)},${Math.min(1, slope * x1).toFixed(3)},.32,1)`, 0, () => {
+        holdUntil = performance.now() + RESUME_AFTER_MS
+        update()
+      })
     }
-    /* Shown or hidden (scrolled away, another tab): a cruising rail just pauses where it is. */
+    /* Shown or hidden (scrolled away, another tab): whatever is moving pauses where it is, and goes on from there. */
     const resume = () => {
-      if (!drift) return schedule()
-      if (live()) drift.play()
-      else drift.pause()
+      if (!motion) return update()
+      if (live()) motion.anim.play()
+      else motion.anim.pause()
     }
 
     const onEnter = (e: PointerEvent) => {
       if (e.pointerType === "mouse") {
         hovering = true
-        wake()
+        update()
       }
     }
     const onLeave = (e: PointerEvent) => {
       if (e.pointerType === "mouse") {
         hovering = false
-        wake()
+        update()
       }
     }
     const onFocus = () => {
       focused = viewport.matches(":focus-visible") || !!viewport.querySelector(":focus-visible")
-      wake()
+      update()
     }
     const onBlur = () => {
       focused = false
-      wake()
+      update()
     }
     /*
      * A FINGER ON THE RAIL (landing round 7, the owner: "more buttery, more
@@ -276,14 +272,10 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
      */
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || reduce.matches || drag) return
-      stopCruise()
-      coasting = false
-      glide = 0
-      v = 0
-      ramp = null
+      halt()
+      clearTimeout(holdTimer)
       drag = { id: e.pointerId, startX: e.clientX, startY: e.clientY, fromX: x, axis: null, samples: [{ t: e.timeStamp, cx: e.clientX }] }
       suppressClick = false
-      schedule()
     }
     const onMove = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
@@ -304,7 +296,8 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       x = drag.fromX - (e.clientX - drag.startX)
       drag.samples.push({ t: e.timeStamp, cx: e.clientX })
       while (drag.samples.length > 2 && e.timeStamp - drag.samples[0].t > VELOCITY_WINDOW_MS) drag.samples.shift()
-      schedule()
+      /* The finger leads: x is set from it here, 1:1, and drawn once a frame, only in a frame it moved. */
+      if (!paintFrame) paintFrame = requestAnimationFrame(paint)
     }
     /* The finger's speed over its last few moves, px a second (positive: the rail travels left). A finger that stopped before lifting throws nothing. */
     const releaseSpeed = (now: number) => {
@@ -319,18 +312,14 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       const speed = wasDrag ? releaseSpeed(now) : 0
       drag = null
       delete viewport.dataset.dragging
-      const t = performance.now()
-      if (wasDrag && Math.abs(speed) > 40) {
-        v = speed
-        coasting = true
-        ramp = null
-      } else {
-        v = 0
-        ramp = null
-        /* Held still and let go, or handed to the page's scroll: wait a little after a hold, none after a scroll. */
-        holdUntil = wasDrag ? t + RESUME_AFTER_MS : t
+      if (paintFrame) {
+        cancelAnimationFrame(paintFrame)
+        paint()
       }
-      schedule()
+      /* Held and let go: wait a little before drifting again; handed to the page's scroll: none. */
+      holdUntil = wasDrag ? performance.now() + RESUME_AFTER_MS : performance.now()
+      if (wasDrag && Math.abs(speed) > 40 && live()) coast(speed)
+      else update()
     }
     const onUp = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
@@ -339,10 +328,8 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       /* A finger that rested on the rail without moving held it: it waits a moment before drifting again. */
       if (!drag.axis && e.type === "pointerup" && e.pointerType !== "mouse") {
         drag = null
-        v = 0
-        ramp = null
         holdUntil = performance.now() + RESUME_AFTER_MS
-        schedule()
+        update()
         return
       }
       letGo(e.timeStamp, wasDrag)
@@ -357,15 +344,16 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault()
-        glide += (e.key === "ArrowRight" ? 1 : -1) * step
-        wake()
+        halt()
+        holdUntil = performance.now() + RESUME_AFTER_MS
+        play("nudge", (e.key === "ArrowRight" ? 1 : -1) * step, 520, "cubic-bezier(.22,1,.36,1)", 0)
       }
     }
     const sync = () => {
-      stopCruise()
+      halt()
       measure()
       paint()
-      schedule()
+      update()
     }
 
     const io =
@@ -396,9 +384,9 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     /* Wave 13 perf: the first measure comes from the ResizeObserver's first report, after the browser has laid the rail out, not as the section mounts (a forced layout of the page). */
     if (!ro) sync()
     return () => {
-      cancelAnimationFrame(raf)
+      cancelAnimationFrame(paintFrame)
       clearTimeout(holdTimer)
-      drift?.cancel()
+      motion?.anim.cancel()
       io?.disconnect()
       ro?.disconnect()
       viewport.removeEventListener("pointerenter", onEnter)
@@ -484,13 +472,10 @@ export const CREATORS_CSS = `
 
 [data-landing-story] [data-story-section="creators"] > .cc-viewport{max-width:none;padding-inline:0}
 .cc-viewport{position:relative;margin-top:clamp(36px,5vw,60px);overflow:hidden;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline-offset:-4px}
-/* From 768px the rail sits in the shared box, its cards' edges on the showcase cards' edges, with the showcase's 14px fade at each side. On a phone it runs to the screen's edges, the first card starting at the gutter. */
-@media(min-width:768px){
-  [data-landing-story] [data-story-section="creators"] > .cc-viewport,.cc-viewport{margin-inline:max(var(--cc-gutter),calc((100% - var(--home-max,2020px)) / 2 + var(--cc-gutter)));mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
-}
+/* Landing round 8, the owner: "full width, not with a fade". The rail runs from one edge of the screen to the other at every width, with no mask; at rest its first card starts on the content edge (the showcase cards' edge, the shared box's gutter). */
+.cc-section{--cc-start:max(var(--cc-gutter),calc((100% - var(--home-max,2020px)) / 2 + var(--cc-gutter)))}
 .cc-viewport[data-dragging]{cursor:grabbing}
-.cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-gutter) 8px;list-style:none;will-change:transform;backface-visibility:hidden}
-@media(min-width:768px){.cc-track{padding-inline:0}}
+.cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-start) 8px;list-style:none;will-change:transform;backface-visibility:hidden}
 .cc-card{flex:none;width:var(--cc-w);margin:0;padding:0}
 /* The card as it was before the product tiles: the photo, and on a soft shade at its foot the creator's name, their kind and what they sell. It stays still under the pointer. */
 .cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:23px;background:var(--cc-photo);isolation:isolate}

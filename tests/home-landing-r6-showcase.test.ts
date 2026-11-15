@@ -25,7 +25,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { BuildShowcase, SHOWCASE_EXAMPLES } from "@/components/marketing/build-showcase"
-import { SHOWCASE_NATIVE } from "@/components/marketing/use-showcase-motion"
+import { SHOWCASE_AUTOPLAY } from "@/components/marketing/use-showcase-motion"
 
 let passed = 0
 let failed = 0
@@ -46,7 +46,7 @@ const showcase = read("components/marketing/build-showcase.tsx")
 const hook = read("components/marketing/use-showcase-motion.ts")
 const css = showcase.slice(showcase.indexOf("const CSS = `"))
 const phone = css.slice(css.indexOf("@media(max-width:767px)"))
-const native = hook.slice(hook.indexOf("function startNative"), hook.indexOf("export function useShowcaseMotion"))
+const rail = hook.slice(hook.indexOf("function startRail"), hook.indexOf("export function useShowcaseMotion"))
 const html = renderToStaticMarkup(createElement(BuildShowcase))
 
 console.log("\n── The caption never lands on anything ──")
@@ -67,25 +67,24 @@ check("the left-gutter cover is gone (nothing fades over a moving card)", !/buil
 
 console.log("\n── On a phone: the reference's shape ──")
 check("every card is 78% of the screen wide (440px at most), on the gutter", /--showcase-card:min\(78vw,440px\)/.test(phone) && /\.build-showcase-slide\{flex:0 0 var\(--showcase-card\);width:var\(--showcase-card\);scroll-snap-align:start;scroll-snap-stop:normal\}/.test(phone) && /padding-inline:var\(--showcase-gutter\);scroll-padding-inline:var\(--showcase-gutter\)/.test(phone))
-check("4:3 landscape, OnePages too, 10px apart", /\.build-showcase-pic,\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone) && /--showcase-gap:10px/.test(phone))
-check("a OnePage stands in its card as a phone screen, on its own page colour", /\[data-format="portrait"\] \.build-showcase-pic\{background:var\(--showcase-tone,#151517\)\}/.test(phone) && /\[data-format="portrait"\] \.build-showcase-pic img\{position:absolute;left:27%;top:9%;width:46%;height:auto;aspect-ratio:540\/1056/.test(phone))
+/* Changed on purpose (landing round 8): the owner wants a OnePage on a phone as a tall 9:16 card, as a short video is shown, not a phone screen stood in a 4:3 card; stores and websites stay 4:3 (tests/home-landing-r8-rails.test.ts). */
+check("4:3 landscape for stores and websites, 10px apart", /\.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone) && /--showcase-gap:10px/.test(phone))
+check("a OnePage is a 9:16 card on its own page colour", /\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:9\/16;background:var\(--showcase-tone,#151517\)\}/.test(phone) && !/left:27%;top:9%;width:46%/.test(phone))
 const tones = SHOWCASE_EXAMPLES.filter((e) => e.format === "portrait").map((e) => e.tone)
 check("each OnePage has its tone, the wide pages none", tones.length === 4 && tones.every((t) => /^#[0-9a-f]{6}$/.test(t ?? "")) && SHOWCASE_EXAMPLES.filter((e) => e.format === "wide").every((e) => e.tone === undefined), tones)
 check("the tone reaches the card as a custom property", (html.match(/style="--showcase-tone:#[0-9a-f]{6}"/g) ?? []).length === 4)
 check("the phone rail has hard edges: no mask over a scroller (it keeps WebKit's scroll on the compositor)", /\.build-showcase-viewport\{margin-inline:0;mask-image:none;-webkit-mask-image:none\}/.test(phone))
 check("desktop keeps its groups: wide, OnePage, wide in their own shapes", /grid-template-columns:256fr 90fr 256fr/.test(css) && /aspect-ratio:1440\/990/.test(css) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic \{aspect-ratio:540\/1056\}/.test(css))
 
-console.log("\n── The swipe is the browser's, autoplay waits for the reader ──")
-check("the native scroller: both axes to the browser, mandatory snap, no back gesture at the ends", /\.build-showcase-track \{[^}]*overflow-x:auto;[^}]*touch-action:pan-x pan-y pinch-zoom;overscroll-behavior-x:contain;scroll-snap-type:x mandatory/.test(css))
-check("no touchmove listener and nothing per frame on the native rail", !/"touchmove"/.test(native) && !/requestAnimationFrame\(tick|requestAnimationFrame\(step/.test(native))
-check("the timing: a card every 4.2s, 6s after the reader's last scroll, never into a moving rail", SHOWCASE_NATIVE.intervalMs === 4200 && SHOWCASE_NATIVE.idleMs === 6000 && SHOWCASE_NATIVE.settleMs >= 150)
-check("every scroll that is not autoplay's own counts as reading (momentum after the finger lifts too)", /const onScroll = \(\) => \{\s*const now = performance\.now\(\)\s*lastMove = now[\s\S]*?if \(!auto\) lastRead = now/.test(native))
-check("autoplay steps only once the reader has been idle, an interval has passed and the rail is still", /lastRead \+ SHOWCASE_NATIVE\.idleMs,\s*lastStep \+ SHOWCASE_NATIVE\.intervalMs,\s*lastMove \+ SHOWCASE_NATIVE\.settleMs/.test(native) && /if \(touching \|\| due > now\) return schedule/.test(native))
-check("a touch, a mouse press, a sideways wheel or a key takes the rail back from autoplay at once", /const hold = \(\) => \{[\s\S]*?auto = false\s*lastRead = performance\.now\(\)/.test(native) && (native.match(/hold\(\)/g) ?? []).length >= 5)
-check("autoplay is one smooth scrollTo the next card, marked as its own", /auto = true\s*lastStep = performance\.now\(\)\s*el\.scrollTo\(\{ left: stops\[next\], behavior: "smooth" \}\)/.test(native))
-check("coming on screen, it rests a whole interval before the first step", /if \(v && !visible\) lastStep = performance\.now\(\)/.test(native))
-check("one timer at most, no timer per scroll event", /const schedule = \(ms: number = SHOWCASE_NATIVE\.intervalMs\) => \{\s*clearTimeout\(timer\)/.test(native) && !/onScroll[\s\S]{0,200}setTimeout/.test(native))
-check("the browser check is there", /Input\.dispatchTouchEvent/.test(read("scripts/check-showcase-swipe.mjs")))
+console.log("\n── Autoplay waits for the reader ──")
+/* Changed on purpose (landing round 8): the native scroller is only the rail before the script; the script moves it on every screen (one engine, tests/home-landing-r8-rails.test.ts). Autoplay still never yanks the strip. */
+check("before the script: the native scroller, mandatory snap, no back gesture at the ends", /\.build-showcase-track \{[^}]*overflow-x:auto;[^}]*touch-action:pan-x pan-y pinch-zoom;overscroll-behavior-x:contain;scroll-snap-type:x mandatory/.test(css))
+check("no touchmove listener and no frame loop", !/"touchmove"/.test(rail) && !/requestAnimationFrame\(tick|requestAnimationFrame\(step/.test(rail))
+check("the timing: a card every 4.2s, 5s after the reader's last input", SHOWCASE_AUTOPLAY.intervalMs === 4200 && SHOWCASE_AUTOPLAY.idleMs === 5000)
+check("autoplay steps only once the reader has been idle and an interval has passed, never into a held or moving rail", /lastInput \+ SHOWCASE_AUTOPLAY\.idleMs, lastStep \+ SHOWCASE_AUTOPLAY\.intervalMs/.test(rail) && /if \(holding \|\| drag \|\| moving\(\) \|\| due > now\) return schedule/.test(rail))
+check("coming on screen, it rests a whole interval before the first step", /if \(v && !visible\) lastStep = performance\.now\(\)/.test(rail))
+check("one timer at most", /const schedule = \(ms: number = SHOWCASE_AUTOPLAY\.intervalMs\) => \{\s*clearTimeout\(timer\)/.test(rail))
+check("the browser check is there", /Input\.dispatchTouchEvent/.test(read("scripts/check-landing-r8-rails.mjs")))
 
 console.log("\n── Words ──")
 const words = SHOWCASE_EXAMPLES.map((e) => `${e.label} ${e.alt}`).join(" ")

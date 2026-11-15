@@ -1,171 +1,203 @@
 "use client"
 
 import { useCallback, useEffect, useRef } from "react"
-import { RailMotion, SHOWCASE_MOTION, type RailMotionConfig } from "@/lib/ui/rail-motion"
 
 /*
-  THE SHOWCASE'S MOTION (round 60). One controller (lib/ui/rail-motion) owns
-  the rail's position: dragging, release momentum, settling, the trackpad,
-  the wheel, the keys and autoplay. It replaces Keen Slider here, whose drag,
-  release animation and the autoplay timer around it were three systems
-  moving one position.
+  THE SHOWCASE'S MOTION, LANDING ROUND 8. The owner: "I don't like the pull
+  to swipe / pull to drag in that section. It doesn't initialize, especially
+  on mobile devices, or on desktop and large screens ... I have to make the
+  whole drag too long. Make it buttery like the 'Storelib is for creators'
+  section."
 
-  What it snaps to depends on the width, as before: from 768px a complete
-  wide, OnePage, wide group comes to rest; on a phone each card does, its
-  left edge on the page's gutter.
+  Round 5 handed phones and touch screens to the browser's own scroll snap,
+  and a mouse from 768px to lib/ui/rail-motion. Two engines, and on iOS the
+  native snap needed a long, decided swipe before it let go of a card. Now
+  one engine moves the rail on every screen, with a finger and with a mouse,
+  the one the creators rail uses (home/creators-carousel.tsx):
 
-  Wave 13: a flick or a short drag is a whole step, and every timed motion
-  (the settle, autoplay) plays on the compositor (lib/ui/rail-motion), so
-  autoplay does no work per frame; it runs only while half the rail is on
-  screen and the tab is visible.
+  - The rail is a transform. touch-action: pan-y leaves vertical pans to the
+    browser; nothing is decided until the pointer has moved AXIS_SLOP px. More
+    across than down and the rail is the pointer's (captured from then on,
+    following 1:1, taken from where it is so the slop is not a jump); more
+    down and the page scrolls and the rail lets go at once.
+  - On release the rail goes to a card chosen from the throw: a flick faster
+    than flickVelocity, or a drag longer than flickDistance, moves at least
+    one card in its direction, and a hard throw carries on through up to
+    maxSteps cards (where its momentum would have taken it). A 60px flick is
+    one card on a phone and one page of three on a desktop.
+  - The glide to that card is a Web Animation on the compositor whose curve
+    starts at the hand's own speed (glideEasing), so letting go has no jolt
+    and nothing runs on the main thread per frame.
+  - Autoplay steps a card every intervalMs while half the rail is on screen
+    and the tab is visible; any touch, drag, wheel or key holds it, and it
+    comes back idleMs after the reader's last input with a soft ease, never
+    into a moving rail.
 */
+export const SHOWCASE_GESTURE = {
+  /** px a pointer moves before the gesture is read as across (the rail's) or down (the page's). */
+  axisSlop: 8,
+  /** px/s: a release faster than this goes on to the next card in its direction. */
+  flickVelocity: 160,
+  /** A slow drag this long moves a card on its own: a share of the step, between min and max px. */
+  flickDistanceRatio: 0.06,
+  flickDistanceMin: 12,
+  flickDistanceMax: 28,
+  /** How far a throw would coast, in seconds of its release speed: where it lands decides how many cards it passes. */
+  projectSeconds: 0.22,
+  /** The most cards one throw passes (a phone; a desktop page of three passes one). */
+  maxSteps: 3,
+  /** The finger's speed is read over its last this many ms. */
+  velocityWindowMs: 90,
+  /** Past either end the rail gives a third of the pull. */
+  edgeResistance: 0.32,
+  /** The glide to a card: base ms plus ms per px, clamped. */
+  glideMinMs: 360,
+  glideMaxMs: 760,
+  glideMsPerPx: 0.32,
+} as const
+
+/** Autoplay: a card every intervalMs, back only idleMs after the reader's last input, its own step a slow soft ease. */
+export const SHOWCASE_AUTOPLAY = { intervalMs: 4200, idleMs: 5000, stepMs: 900, rewindMs: 1300, easing: "cubic-bezier(.45,0,.2,1)" } as const
+
 const PHONE = "(max-width: 767px)"
 
-/*
-  LANDING ROUND 5, THE OWNER (on an iPhone): "the swipe doesn't work at all.
-  I go with the touch and it doesn't work. It doesn't initialize. It thinks
-  that I want to scroll the page." Wanted: a swipe that is smooth,
-  "butterish", and autoplay that "doesn't interfere with it" and still runs.
+/**
+ * Where a released rail comes to rest. x: where it is now; moved: how far the pointer pulled it (positive: towards
+ * later cards); v: the release speed, px/s, positive towards later cards; stops: the cards' resting places in order;
+ * from: the card the gesture started on. Returns the index of the card to glide to.
+ */
+export function chooseShowcaseStop(x: number, moved: number, v: number, stops: readonly number[], from: number, maxSteps: number = SHOWCASE_GESTURE.maxSteps): number {
+  if (stops.length === 0) return 0
+  const last = stops.length - 1
+  const step = stops.length > 1 ? Math.abs(stops[1] - stops[0]) : 1
+  const nearest = (to: number) => {
+    let at = 0
+    for (let i = 1; i < stops.length; i++) if (Math.abs(stops[i] - to) < Math.abs(stops[at] - to)) at = i
+    return at
+  }
+  const g = SHOWCASE_GESTURE
+  const distance = Math.max(g.flickDistanceMin, Math.min(g.flickDistanceMax, step * g.flickDistanceRatio))
+  const flick = Math.abs(v) >= g.flickVelocity
+  /* The way the reader meant: the throw's, or the pull's when there was no throw. */
+  const dir = flick ? Math.sign(v) : Math.abs(moved) >= distance ? Math.sign(moved) : 0
+  let target = nearest(x + v * g.projectSeconds)
+  if (dir > 0) target = Math.max(target, from + 1)
+  if (dir < 0) target = Math.min(target, from - 1)
+  if (dir === 0) target = nearest(x)
+  target = Math.max(from - maxSteps, Math.min(from + maxSteps, target))
+  return Math.max(0, Math.min(last, target))
+}
 
-  So on a touch screen, and on any screen under 768px, the rail is the
-  browser's own horizontal scroller with scroll snapping, and the script only
-  runs autoplay (useNativeRail below). The finger is then the browser's, as
-  in the photo row of a native app: the browser's own gesture recogniser
-  decides the axis, so a sideways swipe moves the cards at once and a
-  vertical one scrolls the page; the throw carries on with the system's
-  momentum and lands on a card (scroll-snap-type: x mandatory, a hard flick
-  passes several); overscroll-behavior-x keeps a swipe at either end from
-  becoming the back gesture. It all runs on the compositor's scroll thread,
-  no script per frame. A rail driven by pointer events has to win the
-  gesture from the page first, and on iOS that race is what was lost.
-
-  With a mouse from 768px up, RailMotion keeps the rail as before.
-*/
-const NATIVE = "(max-width: 767px), (pointer: coarse)"
-/*
-  LANDING ROUND 6, THE OWNER: the swipe should feel like a native app's photo
-  row, "smooth and clean", and autoplay must never yank the strip. Round 5
-  counted the 4s back from the finger lifting, while the throw's momentum
-  was still running, and could then scrollTo into a moving rail. Now every
-  scroll the reader causes (a finger, its momentum, a trackpad, the keys)
-  counts as reading: autoplay waits until idleMs after the last of them, never
-  starts while the rail is still moving (settleMs of quiet first), and its own
-  smooth scroll is told apart from the reader's.
-*/
-/** Autoplay on the native rail: a card every intervalMs, back only idleMs after the reader's last scroll, and never into a moving rail. */
-export const SHOWCASE_NATIVE = { intervalMs: 4200, idleMs: 6000, settleMs: 220 } as const
-
-/*
-  LANDING ROUND, THE OWNER: pull to drag and swipe, with the mouse and the
-  finger, "butter" smooth. The hand still holds the rail exactly; what
-  changes is the letting go. The settle used to leave at up to half of the
-  fastest speed a spring could take (a whole group at about 8,000px/s after
-  a slow pull), a visible jolt. Now it glides on from the hand's own speed
-  (glideCurve: no jump in speed, never past its place, about half a second
-  for a whole group), and a hard flick on a phone carries on through up to
-  three cards, as a native scroller would. Autoplay is unchanged.
-*/
-/*
-  LANDING ROUND 4, THE OWNER: "when I just swipe a little bit, I don't have to
-  swipe so long". A short flick is a whole step: a release faster than
-  110px/s goes on in its own direction, and a drag of 6% of the step (10 to
-  14px, about a third of the 40px it was) is enough on its own. The 6px before a
-  press becomes a drag, and the vertical test there, are unchanged, so a
-  finger moving down the page still scrolls it.
-*/
-export const SHOWCASE_RAIL: RailMotionConfig = {
-  ...SHOWCASE_MOTION,
-  swipeVelocity: 110,
-  swipeDistanceRatio: 0.06,
-  swipeDistanceMin: 10,
-  swipeDistanceMax: 14,
-  swipeMaxSteps: 3,
-  glideSettle: { minMs: 280, maxMs: 520, msPerPx: 0.18, minLaunch: 0.7 },
+/**
+ * A curve for a glide of `distance` px over `ms` that starts at `speed` px/s (along the glide) and eases to a stop:
+ * its first control point's slope is the hand's own speed, so there is no jump in speed when the hand lets go.
+ */
+export function glideEasing(distance: number, speed: number, ms: number): string {
+  const d = Math.abs(distance)
+  if (d < 0.5 || speed <= 0) return "cubic-bezier(.3,.1,.2,1)"
+  const slope = (speed * ms) / 1000 / d
+  const x1 = Math.min(0.33, 1 / Math.max(slope, 0.001))
+  const y1 = Math.min(1, slope * x1)
+  return `cubic-bezier(${x1.toFixed(3)},${y1.toFixed(3)},.24,1)`
 }
 
 type Hooks = { onFirstMove: () => void; setVisible: (fn: (visible: boolean) => void) => void }
 
-/** The rail under a mouse from 768px: RailMotion, as before. Returns its cleanup. */
+/** The rail on every screen and pointer. Returns its cleanup. Nothing here reads layout per frame. */
 function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () => void {
-  const phone = matchMedia(PHONE)
-  const groups = () => [...el.querySelectorAll<HTMLElement>(".build-showcase-group")]
-  const slides = () => [...el.querySelectorAll<HTMLElement>(".build-showcase-slide")]
-  const parts = () => (phone.matches ? { items: slides(), snaps: slides() } : { items: groups(), snaps: groups() })
-
-  /* Whatever the native scroller was moved to before the script came is undone, then it stops scrolling. */
-  el.scrollLeft = 0
-  el.dataset.railReady = "true"
-  const { items, snaps } = parts()
-  const motion = new RailMotion(el, items, snaps, SHOWCASE_RAIL, {
-    /* Wave 13: nothing on the page restyles while the rail moves; the first move only lets the phone's left gutter show the card before. */
-    onMoving: (moving) => {
-      if (moving) hooks.onFirstMove()
-    },
-    onDragging: (dragging) => {
-      if (dragging) el.dataset.dragging = "true"
-      else delete el.dataset.dragging
-    },
-    onIndex: (index) => {
-      el.dataset.showcaseIndex = String(index)
-    },
-  })
-  hooks.setVisible((visible) => motion.setVisible(visible))
-
-  /* Layout changes (a resize, images arriving) are measured once and never during motion. */
-  let frame = 0
-  const remeasure = () => {
-    cancelAnimationFrame(frame)
-    frame = requestAnimationFrame(() => {
-      const next = parts()
-      motion.measure(next.items, next.snaps)
-    })
-  }
-  const resize = typeof ResizeObserver === "function" ? new ResizeObserver(remeasure) : null
-  resize?.observe(viewport)
-  phone.addEventListener("change", remeasure)
-
-  return () => {
-    cancelAnimationFrame(frame)
-    resize?.disconnect()
-    phone.removeEventListener("change", remeasure)
-    motion.dispose()
-    delete el.dataset.railReady
-    delete el.dataset.dragging
-  }
-}
-
-/**
- * The native rail on a touch screen or a phone width: the browser scrolls and snaps, this only plays autoplay and
- * steps aside for the reader. Nothing here runs per frame; card places are read once per layout change.
- */
-function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () => void {
-  el.dataset.showcaseNative = "true"
+  const g = SHOWCASE_GESTURE
   const phone = matchMedia(PHONE)
   const reduce = matchMedia("(prefers-reduced-motion: reduce)")
-  const snapsOf = () => [...el.querySelectorAll<HTMLElement>(phone.matches ? ".build-showcase-slide" : ".build-showcase-group")]
-  /* Each card's resting scrollLeft, read once per layout change (offsetLeft is from the rail's own padding box). */
-  let stops: number[] = []
-  const measure = () => {
-    const pad = phone.matches ? parseFloat(getComputedStyle(el).scrollPaddingLeft) || 0 : 0
-    const max = el.scrollWidth - el.clientWidth
-    stops = snapsOf().map((s) => Math.min(max, Math.max(0, s.offsetLeft - pad)))
-    stops = stops.filter((v, i) => i === 0 || v > stops[i - 1] + 1)
+
+  /* Whatever the native scroller (before the script) was moved to is undone, then the rail is a transform. */
+  el.scrollLeft = 0
+  el.dataset.railReady = "true"
+
+  /* x: how far the rail has travelled left, px. stops: each card's (or, from 768px, each page's) resting x. */
+  let x = 0
+  let stops: number[] = [0]
+  let index = 0
+  let glide: Animation | null = null
+  let paintFrame = 0
+
+  const paint = () => {
+    paintFrame = 0
+    el.style.transform = `translate3d(${(-x).toFixed(2)}px,0,0)`
+  }
+  const schedulePaint = () => {
+    if (!paintFrame) paintFrame = requestAnimationFrame(paint)
+  }
+  const setIndex = (i: number) => {
+    index = i
+    el.dataset.showcaseIndex = String(i)
   }
 
+  /* Read once per layout change (a resize, a font, the phone breakpoint), never while the rail moves. */
+  const measure = () => {
+    const items = [...el.querySelectorAll<HTMLElement>(phone.matches ? ".build-showcase-slide" : ".build-showcase-group")]
+    if (!items.length) return
+    const pad = phone.matches ? parseFloat(getComputedStyle(el).paddingLeft) || 0 : 0
+    const lastItem = items[items.length - 1]
+    const end = lastItem.offsetLeft + lastItem.offsetWidth + pad
+    const max = Math.max(0, end - el.clientWidth)
+    const next = items.map((s) => Math.min(max, Math.max(0, s.offsetLeft - pad)))
+    stops = next.filter((v, i) => i === 0 || v > next[i - 1] + 1)
+    const at = Math.min(index, stops.length - 1)
+    stopGlide()
+    x = stops[at]
+    setIndex(at)
+    paint()
+  }
+
+  /* The rail's place this moment, read off the running glide once (a gesture's start), and the glide let go. */
+  const stopGlide = () => {
+    if (!glide) return
+    const m = getComputedStyle(el).transform
+    if (m && m !== "none") x = -new DOMMatrixReadOnly(m).m41
+    glide.cancel()
+    glide = null
+    paint()
+  }
+
+  const glideTo = (i: number, ms: number, easing: string) => {
+    stopGlide()
+    const to = stops[i] ?? 0
+    setIndex(i)
+    if (Math.abs(to - x) < 0.5 || reduce.matches || typeof el.animate !== "function") {
+      x = to
+      paint()
+      return
+    }
+    const from = x
+    const anim = el.animate([{ transform: `translate3d(${(-from).toFixed(2)}px,0,0)` }, { transform: `translate3d(${(-to).toFixed(2)}px,0,0)` }], { duration: ms, easing })
+    glide = anim
+    /* The end is written to the style first, then the animation goes: nothing flashes between them. */
+    x = to
+    paint()
+    anim.onfinish = () => {
+      if (glide === anim) glide = null
+      anim.cancel()
+    }
+  }
+  const settle = (i: number, speed: number) => {
+    const to = stops[i] ?? 0
+    const d = Math.abs(to - x)
+    const ms = Math.round(Math.max(g.glideMinMs, Math.min(g.glideMaxMs, g.glideMinMs + d * g.glideMsPerPx - Math.min(160, Math.abs(speed) * 0.04))))
+    /* The hand's speed counts only if it was going the glide's way. */
+    const along = Math.sign(to - x) === Math.sign(speed) ? Math.abs(speed) : 0
+    glideTo(i, ms, glideEasing(d, along, ms))
+  }
+  const moving = () => !!glide
+
+  /* ---------- autoplay ---------- */
   let visible = false
   let paused = false
   let timer: ReturnType<typeof setTimeout> | undefined
-  let touching = false
-  /* performance.now() of the reader's last input or scroll, of the rail's last scroll of any kind, and of autoplay's last step. */
-  let lastRead = -Infinity
-  let lastMove = -Infinity
+  let lastInput = -Infinity
   let lastStep = performance.now()
-  /* True from autoplay's scrollTo until the rail is quiet again: those scroll events are autoplay's, not the reader's. */
-  let auto = false
-
+  let holding = false
   const canPlay = () => visible && !paused && !document.hidden && !reduce.matches && stops.length > 1
-  /* One timer at most, rearmed only when it fires or the conditions change: nothing runs per scroll event but two numbers. */
-  const schedule = (ms: number = SHOWCASE_NATIVE.intervalMs) => {
+  const schedule = (ms: number = SHOWCASE_AUTOPLAY.intervalMs) => {
     clearTimeout(timer)
     timer = undefined
     if (!canPlay()) return
@@ -175,49 +207,141 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
     timer = undefined
     if (!canPlay()) return
     const now = performance.now()
-    if (now - lastMove > SHOWCASE_NATIVE.settleMs) auto = false
-    const due = Math.max(
-      lastRead + SHOWCASE_NATIVE.idleMs,
-      lastStep + SHOWCASE_NATIVE.intervalMs,
-      lastMove + SHOWCASE_NATIVE.settleMs,
-    )
-    if (touching || due > now) return schedule(touching ? SHOWCASE_NATIVE.idleMs : due - now)
-    step()
-  }
-  const step = () => {
-    const x = el.scrollLeft
-    /* The card the rail rests on now, then the next, or back to the first. */
-    let at = 0
-    for (let i = 0; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[at] - x)) at = i
-    const next = at + 1 < stops.length ? at + 1 : 0
-    auto = true
-    lastStep = performance.now()
-    el.scrollTo({ left: stops[next], behavior: "smooth" })
+    const due = Math.max(lastInput + SHOWCASE_AUTOPLAY.idleMs, lastStep + SHOWCASE_AUTOPLAY.intervalMs)
+    if (holding || drag || moving() || due > now) return schedule(holding || drag ? SHOWCASE_AUTOPLAY.idleMs : Math.max(240, due - now))
+    lastStep = now
+    const next = index + 1 < stops.length ? index + 1 : 0
+    glideTo(next, next === 0 ? SHOWCASE_AUTOPLAY.rewindMs : SHOWCASE_AUTOPLAY.stepMs, SHOWCASE_AUTOPLAY.easing)
     schedule()
   }
-  /* The reader has the rail: autoplay waits idleMs from now, and whatever autoplay was doing is theirs. */
-  const hold = () => {
-    hooks.onFirstMove()
-    auto = false
-    lastRead = performance.now()
-    if (!timer) schedule(SHOWCASE_NATIVE.idleMs)
+  /* The reader has the rail: autoplay waits idleMs from their last input. */
+  const read = () => {
+    lastInput = performance.now()
+    if (!timer) schedule(SHOWCASE_AUTOPLAY.idleMs)
   }
-  const onTouchStart = () => {
-    touching = true
-    hold()
+
+  /* ---------- the pointer: a finger, a pen or a mouse ---------- */
+  let drag: { id: number; startX: number; startY: number; fromX: number; from: number; axis: "x" | "y" | null; samples: Array<{ t: number; cx: number }> } | null = null
+  let suppressClick = false
+  const max = () => stops[stops.length - 1] ?? 0
+  /* Past either end the rail gives less than the pull. */
+  const resist = (to: number) => (to < 0 ? to * g.edgeResistance : to > max() ? max() + (to - max()) * g.edgeResistance : to)
+
+  const onDown = (e: PointerEvent) => {
+    if (e.button !== 0 || drag) return
+    if (e.pointerType === "mouse") e.preventDefault()
+    stopGlide()
+    holding = true
+    read()
+    /* The card nearest where the rail was caught is the one the gesture starts from. */
+    let from = 0
+    for (let i = 1; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[from] - x)) from = i
+    drag = { id: e.pointerId, startX: e.clientX, startY: e.clientY, fromX: x, from, axis: null, samples: [{ t: e.timeStamp, cx: e.clientX }] }
+    suppressClick = false
   }
-  const onTouchEnd = () => {
-    touching = false
-    hold()
+  const onMove = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const dx = e.clientX - drag.startX
+    const dy = e.clientY - drag.startY
+    if (!drag.axis) {
+      if (Math.hypot(dx, dy) < g.axisSlop) return
+      drag.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"
+      if (drag.axis === "y") return letGo(e, false)
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {}
+      el.dataset.dragging = "true"
+      hooks.onFirstMove()
+      /* Taken from here, so the slop is not a jump: the rail moves from where the pointer is now. */
+      drag.startX = e.clientX
+      drag.fromX = x
+      drag.samples = [{ t: e.timeStamp, cx: e.clientX }]
+    }
+    x = resist(drag.fromX - (e.clientX - drag.startX))
+    drag.samples.push({ t: e.timeStamp, cx: e.clientX })
+    while (drag.samples.length > 2 && e.timeStamp - drag.samples[0].t > g.velocityWindowMs) drag.samples.shift()
+    schedulePaint()
   }
-  const onPointerDown = (e: PointerEvent) => {
-    if (e.pointerType === "touch") return
-    hold()
+  /* The pointer's speed over its last few moves, px/s, positive towards later cards. One that stopped before lifting throws nothing. */
+  const releaseSpeed = (now: number) => {
+    const s = drag?.samples ?? []
+    const a = s[0]
+    const b = s[s.length - 1]
+    if (!a || !b || b.t - a.t < 8 || now - b.t > 70) return 0
+    return Math.max(-4000, Math.min(4000, -((b.cx - a.cx) / (b.t - a.t)) * 1000))
   }
+  const letGo = (e: PointerEvent, wasDrag: boolean) => {
+    const d = drag
+    drag = null
+    holding = false
+    delete el.dataset.dragging
+    read()
+    if (!d) return
+    if (!wasDrag) {
+      /* Handed to the page's scroll, or a tap: the rail goes back to rest where it was caught. */
+      if (Math.abs(x - (stops[d.from] ?? 0)) > 0.5) settle(d.from, 0)
+      return
+    }
+    suppressClick = true
+    const speed = releaseSpeed(e.timeStamp)
+    if (paintFrame) {
+      cancelAnimationFrame(paintFrame)
+      paint()
+    }
+    settle(chooseShowcaseStop(x, x - d.fromX, speed, stops, d.from, phone.matches ? g.maxSteps : 1), speed)
+  }
+  const onUp = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return
+    letGo(e, drag.axis === "x")
+  }
+  const onClick = (e: MouseEvent) => {
+    if (!suppressClick) return
+    e.preventDefault()
+    e.stopPropagation()
+    suppressClick = false
+  }
+
+  /* ---------- a trackpad's sideways swipe or a sideways wheel ---------- */
+  let wheel: { fromX: number; from: number; sum: number; quiet: ReturnType<typeof setTimeout> | undefined } | null = null
+  let wheelLockUntil = 0
   const onWheel = (e: WheelEvent) => {
     if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
-    hold()
+    e.preventDefault()
+    read()
+    const now = performance.now()
+    /* A trackpad's own momentum after the rail has already gone on to its card is not a new swipe. */
+    if (now < wheelLockUntil) {
+      wheelLockUntil = now + 160
+      return
+    }
+    if (!wheel) {
+      stopGlide()
+      let from = 0
+      for (let i = 1; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[from] - x)) from = i
+      wheel = { fromX: x, from, sum: 0, quiet: undefined }
+      hooks.onFirstMove()
+    }
+    const px = e.deltaMode === 1 ? e.deltaX * 16 : e.deltaX
+    wheel.sum += px
+    x = resist(wheel.fromX + wheel.sum)
+    schedulePaint()
+    clearTimeout(wheel.quiet)
+    /* A swipe that has gone a card's flick distance goes on at once; a slow one settles when the wheel goes quiet. */
+    const step = stops.length > 1 ? Math.abs(stops[1] - stops[0]) : 1
+    const enough = Math.abs(wheel.sum) >= Math.max(g.flickDistanceMin, Math.min(g.flickDistanceMax * 2, step * 0.12))
+    const finish = () => {
+      if (!wheel) return
+      const w = wheel
+      wheel = null
+      clearTimeout(w.quiet)
+      wheelLockUntil = performance.now() + 160
+      settle(chooseShowcaseStop(x, w.sum, 0, stops, w.from, 1), 0)
+    }
+    if (enough) finish()
+    else wheel.quiet = setTimeout(finish, 140)
   }
+
+  /* ---------- keys ---------- */
   const onKey = (e: KeyboardEvent) => {
     if (e.key === " ") {
       e.preventDefault()
@@ -226,66 +350,17 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
       schedule()
       return
     }
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return
+    const to = e.key === "ArrowRight" ? index + 1 : e.key === "ArrowLeft" ? index - 1 : e.key === "Home" ? 0 : e.key === "End" ? stops.length - 1 : null
+    if (to === null) return
     e.preventDefault()
-    hold()
-    const x = el.scrollLeft
-    const target = e.key === "ArrowRight" ? stops.find((s) => s > x + 2) : [...stops].reverse().find((s) => s < x - 2)
-    if (target !== undefined) el.scrollTo({ left: target, behavior: reduce.matches ? "auto" : "smooth" })
-  }
-  /* The first sideways move by the reader lets the phone's left gutter show the card before (data-showcase-pristine). */
-  const onScroll = () => {
-    const now = performance.now()
-    lastMove = now
-    /* Not autoplay's own scroll: the reader's finger, its momentum, a trackpad or the keys. */
-    if (!auto) lastRead = now
-    if (el.scrollLeft > 4) hooks.onFirstMove()
-  }
-
-  /*
-    A mouse on a narrow window (or a touch laptop's mouse) can still pull the rail: it scrolls it by hand with the
-    snapping off, and on release the rail is handed the nearest card. A finger never comes here.
-  */
-  let drag: { id: number; x0: number; left: number; moved: boolean } | null = null
-  const onMouseDown = (e: PointerEvent) => {
-    if (e.pointerType !== "mouse" || e.button !== 0) return
-    drag = { id: e.pointerId, x0: e.clientX, left: el.scrollLeft, moved: false }
-  }
-  const onMouseMove = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.id) return
-    const dx = e.clientX - drag.x0
-    if (!drag.moved) {
-      if (Math.abs(dx) < 6) return
-      drag.moved = true
-      el.dataset.dragging = "true"
-      el.style.scrollSnapType = "none"
-      try {
-        el.setPointerCapture(e.pointerId)
-      } catch {}
-    }
-    el.scrollLeft = drag.left - dx
-  }
-  const onMouseUp = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.id) return
-    const moved = drag.moved
-    drag = null
-    if (!moved) return
-    delete el.dataset.dragging
-    const x = el.scrollLeft
-    /* The card in the direction pulled, once past a sixth of the way. */
-    let at = 0
-    for (let i = 0; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[at] - x)) at = i
-    el.style.scrollSnapType = ""
-    el.scrollTo({ left: stops[at] ?? 0, behavior: "smooth" })
-    hold()
-  }
-  const onClick = (e: MouseEvent) => {
-    if (el.dataset.dragging) e.preventDefault()
+    read()
+    hooks.onFirstMove()
+    settle(Math.max(0, Math.min(stops.length - 1, to)), 0)
   }
   const onVisibility = () => schedule()
   const onReduce = () => schedule()
 
-  measure()
+  /* Wave 13 perf: the first measure comes from the ResizeObserver's first report, after layout, not as the section mounts. */
   let frame = 0
   const remeasure = () => {
     cancelAnimationFrame(frame)
@@ -293,22 +368,17 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
   }
   const resize = typeof ResizeObserver === "function" ? new ResizeObserver(remeasure) : null
   resize?.observe(viewport)
+  if (!resize) measure()
   phone.addEventListener("change", remeasure)
   reduce.addEventListener("change", onReduce)
 
-  const passive = { passive: true } as const
-  el.addEventListener("touchstart", onTouchStart, passive)
-  el.addEventListener("touchend", onTouchEnd, passive)
-  el.addEventListener("touchcancel", onTouchEnd, passive)
-  el.addEventListener("pointerdown", onPointerDown, passive)
-  el.addEventListener("pointerdown", onMouseDown)
-  el.addEventListener("pointermove", onMouseMove)
-  el.addEventListener("pointerup", onMouseUp)
-  el.addEventListener("pointercancel", onMouseUp)
+  el.addEventListener("pointerdown", onDown)
+  el.addEventListener("pointermove", onMove)
+  el.addEventListener("pointerup", onUp)
+  el.addEventListener("pointercancel", onUp)
   el.addEventListener("click", onClick, true)
-  el.addEventListener("wheel", onWheel, passive)
+  el.addEventListener("wheel", onWheel, { passive: false })
   el.addEventListener("keydown", onKey)
-  el.addEventListener("scroll", onScroll, passive)
   document.addEventListener("visibilitychange", onVisibility)
   hooks.setVisible((v) => {
     /* Coming on screen, the rail rests a whole interval before autoplay's first step. */
@@ -319,25 +389,23 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
 
   return () => {
     clearTimeout(timer)
+    clearTimeout(wheel?.quiet)
     cancelAnimationFrame(frame)
+    cancelAnimationFrame(paintFrame)
+    glide?.cancel()
     resize?.disconnect()
     phone.removeEventListener("change", remeasure)
     reduce.removeEventListener("change", onReduce)
-    el.removeEventListener("touchstart", onTouchStart)
-    el.removeEventListener("touchend", onTouchEnd)
-    el.removeEventListener("touchcancel", onTouchEnd)
-    el.removeEventListener("pointerdown", onPointerDown)
-    el.removeEventListener("pointerdown", onMouseDown)
-    el.removeEventListener("pointermove", onMouseMove)
-    el.removeEventListener("pointerup", onMouseUp)
-    el.removeEventListener("pointercancel", onMouseUp)
+    el.removeEventListener("pointerdown", onDown)
+    el.removeEventListener("pointermove", onMove)
+    el.removeEventListener("pointerup", onUp)
+    el.removeEventListener("pointercancel", onUp)
     el.removeEventListener("click", onClick, true)
     el.removeEventListener("wheel", onWheel)
     el.removeEventListener("keydown", onKey)
-    el.removeEventListener("scroll", onScroll)
     document.removeEventListener("visibilitychange", onVisibility)
-    el.style.scrollSnapType = ""
-    delete el.dataset.showcaseNative
+    el.style.transform = ""
+    delete el.dataset.railReady
     delete el.dataset.dragging
   }
 }
@@ -351,7 +419,6 @@ export function useShowcaseMotion() {
     if (!el) return
     const section = el.closest<HTMLElement>("[data-build-showcase]")
     const viewport = el.parentElement ?? el
-    const native = matchMedia(NATIVE)
 
     /* Autoplay only while half the rail is on screen; the first sight of it plays the cards' entrance. */
     let visible = !("IntersectionObserver" in window)
@@ -365,22 +432,13 @@ export function useShowcaseMotion() {
         fn(visible)
       },
     }
-    let stop = (native.matches ? startNative : startRail)(el, viewport, hooks)
-    /* A window resized across 768px, or a mouse plugged into a tablet: the other rail takes over from the start. */
-    const swap = () => {
-      stop()
-      el.scrollLeft = 0
-      stop = (native.matches ? startNative : startRail)(el, viewport, hooks)
-    }
-    native.addEventListener("change", swap)
+    const stop = startRail(el, viewport, hooks)
 
     /*
       Wave 14: every card's picture is fetched and decoded as soon as the
       section comes on screen, not when its card is moved into view. The
       pictures are lazy in the markup (nothing off screen costs the page's
-      first load), but a card brought in by a swipe or autoplay was still
-      empty for a moment at 4x CPU while its picture loaded. Twelve small
-      webps, decoded off the main thread (decoding="async", img.decode()).
+      first load), decoded off the main thread (decoding="async", img.decode()).
     */
     let warmed = false
     const warm = () => {
@@ -415,7 +473,6 @@ export function useShowcaseMotion() {
 
     cleanup.current = () => {
       seen?.disconnect()
-      native.removeEventListener("change", swap)
       stop()
     }
   }, [])
