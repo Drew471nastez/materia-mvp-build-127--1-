@@ -89,7 +89,8 @@ check("the shared tuning is untouched for the other rails", SHOWCASE_MOTION.swip
   check("desktop: an 8px nudge settles back", chooseShowcaseStop(8, 8, 0, desktop, 0, 1) === 0)
   check("phone: a short flick at 200px/s goes to the next card", chooseShowcaseStop(9, 9, 200, phone, 0) === 1)
   check("phone: a slow 20px drag goes to the next card", chooseShowcaseStop(20, 20, 0, phone, 0) === 1)
-  check("the axis waits 8px, so a finger going down the page scrolls it", SHOWCASE_GESTURE.axisSlop === 8)
+  /* Changed on purpose (landing round 9): 4px and a clear angle (rail-gesture.ts); a finger going down still scrolls the page. */
+  check("the axis waits 4px, so a finger going down the page scrolls it", (SHOWCASE_GESTURE.axisSlop as number) === 4)
 }
 
 console.log("\n── Make the work: the heading ──")

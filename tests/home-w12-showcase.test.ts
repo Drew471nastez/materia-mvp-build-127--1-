@@ -69,7 +69,9 @@ for (const e of SHOWCASE_EXAMPLES) {
 const gallery = renderToString(createElement(BuildShowcase))
 assert.equal((gallery.match(/data-showcase-slide=""/g) || []).length, 12)
 /* Changed on purpose (merge of main's round 60): each card is its picture's own shape, so a slide is its picture alone, with no blurred fill behind it. */
-assert.equal((gallery.match(/loading="lazy"/g) || []).length, 12)
+/* Changed on purpose (landing round 9): the first two cards are in the page's first load (eager, high priority), the other ten lazy. */
+assert.equal((gallery.match(/loading="lazy"/g) || []).length, 10)
+assert.equal((gallery.match(/loading="eager"/g) || []).length, 2)
 assert.equal((gallery.match(/decoding="async"/g) || []).length, 12)
 assert.equal((gallery.match(/build-showcase-fill/g) || []).length, 0)
 // Four wide–OnePage–wide pages.
@@ -104,10 +106,12 @@ for (const e of SHOWCASE_EXAMPLES.filter((x) => x.format === "portrait")) assert
 for (const e of SHOWCASE_EXAMPLES) assert.ok(e.label.split(/\s+/).length <= 3, `"${e.label}" is three words at most`)
 assert.equal(new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size, 12, "twelve different pictures")
 /* Changed on purpose (landing round 4): the owner asked for Lowtide (the sample pack store) to go; the set keeps a digital seller, a coach and a merch store. */
-for (const want of [/Notion template/, /strength|training program/i, /merch|tee|hoodie|cap/i]) assert.ok(SHOWCASE_EXAMPLES.some((e) => want.test(e.alt) || want.test(e.label)), `a creator for ${want}`)
+/* Changed on purpose (landing round 9): the owner did not like the strength coach's picture; an interior stylist's guides and consults took its place. */
+for (const want of [/Notion template/, /guides?|consult/i, /merch|tee|hoodie|cap/i]) assert.ok(SHOWCASE_EXAMPLES.some((e) => want.test(e.alt) || want.test(e.label)), `a creator for ${want}`)
 // The caption and its fade are hidden by default and come in only while a mouse rests on the picture, as one opacity on its own layer.
 /* Changed on purpose (wave 13 perf): the caption's own layer (will-change) only where a mouse can show it; a touch screen never does. */
-assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(showcaseSrc) && /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-slide figcaption\{will-change:opacity\}/.test(showcaseSrc), "the caption starts hidden")
+/* Changed on purpose (landing round 9): no standing layer for each caption (twelve layers riding a dragged rail); the fade makes its own while it runs. */
+assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(showcaseSrc) && !/figcaption\{will-change/.test(showcaseSrc), "the caption starts hidden")
 assert.ok(/@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(showcaseSrc), "and shows only under a resting mouse, never while dragging")
 /* Changed on purpose (landing round 6): the caption is a line under the picture, so on a touch screen (no hover) it is simply shown; with a mouse only the hover shows it. */
 assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 2, "no other rule shows it")
@@ -128,7 +132,8 @@ assert.ok(!/data-showcase-browsing/.test(showcaseSrc + read("components/marketin
 const motion = read("components/marketing/use-showcase-motion.ts") + read("lib/ui/rail-motion.ts")
 assert.ok(motion.includes("prefers-reduced-motion") && motion.includes("IntersectionObserver") && motion.includes("document.hidden"))
 /* Added (wave 14): the pictures stay lazy in the markup, and all twelve are fetched and decoded once the section is on screen, so a card brought in by a swipe or autoplay is never empty (it was, for a few frames, at 4x CPU). */
-assert.ok(/if \(entry\.isIntersecting\) warm\(\)/.test(motion) && motion.includes('img.loading = "eager"') && motion.includes("img.decode?.()"))
+/* Changed on purpose (landing round 9): the owner: "the images appear very stutterish ... they take too much performance". Not all twelve at once any more: from a screen before the section arrives, two at a time, each shown once decoded. */
+assert.ok(/rootMargin: "900px 0px"/.test(motion) && motion.includes('img.loading = "eager"') && motion.includes("img.decode().then(shown, shown)") && /next\(\)\s*next\(\)/.test(motion))
 
 /* ---- section 4: builder previews. Changed on purpose (landing round 4, the owner): thin pill tabs again over one picture at a time (Website builder, OnePage editor, Community), the same drawing on a phone. */
 assert.deepEqual(

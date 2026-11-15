@@ -1489,6 +1489,8 @@ const SUITES = [
   "tests/home-landing-r8-business.test.ts",
   /* Landing round 8 (frame): every join rounded on the lower block over the upper's square foot, nothing but the upper's colour behind a corner; the purple sheet rises over the white by a scroll-driven transform, nothing held; the possibilities before the earnings; one entrance for headings (word by word) and bodies; the tile turn and the ideas heading quicker. */
   "tests/home-landing-r8-frame.test.ts",
+  /* Landing round 9, rails: one gesture for the showcase and the creators rail (a finger from touch events, 4px, across only when clearly across, down never cancelled), pictures at the size drawn and decoded ahead, OnePages their own shape and 4:3 files for the rest, the dot field under the mouse, the creators' new photos and grain. */
+  "tests/home-landing-r9-rails.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

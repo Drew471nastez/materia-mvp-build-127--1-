@@ -65,11 +65,13 @@ check("seven kinds have new photographs, each 4:5 WebP within budget", () => {
   }
   const alt = (slug: string) => CREATORS.find((c) => c.slug === slug)?.alt ?? ""
   /* Changed on purpose (landing round 4): new pictures for agencies and YouTubers (and musicians and educators), their words with them. */
-  assert.ok(/guitar/.test(alt("musicians")) && /notebook/.test(alt("authors")) && /microphone/.test(alt("podcasters")) && /easel/.test(alt("artists")) && /laptop/.test(alt("agencies")) && /kettlebell/.test(alt("fitness")) && /clapperboard/.test(alt("youtubers")))
+  /* Changed on purpose (landing round 9): the owner picked new photos for musicians (a portrait on orange), photographers (a silhouette at dusk) and fitness (dumbbells, black and white). */
+  assert.ok(/orange/.test(alt("musicians")) && /notebook/.test(alt("authors")) && /microphone/.test(alt("podcasters")) && /easel/.test(alt("artists")) && /laptop/.test(alt("agencies")) && /dumbbell/.test(alt("fitness")) && /silhouette/.test(alt("photographers")) && /clapperboard/.test(alt("youtubers")))
 })
 check("the rail stays endless, on the compositor, and draggable without fighting the page's scroll", () => {
   const src = read(CC)
-  assert.ok(/track\.animate\(/.test(src) && src.includes("setPointerCapture") && CREATORS_CSS.includes("touch-action:pan-y"))
+  /* Changed on purpose (landing round 9): the pointer handling moved to components/marketing/rail-gesture.ts, shared with the showcase. */
+  assert.ok(/track\.animate\(/.test(src) && src.includes("bindRailGesture(viewport") && read("components/marketing/rail-gesture.ts").includes("setPointerCapture") && CREATORS_CSS.includes("touch-action:pan-y"))
 })
 
 console.log("\nHow it works")

@@ -1,25 +1,28 @@
 "use client"
 
 import { useCallback, useEffect, useRef } from "react"
+import { RAIL_AXIS, bindRailGesture } from "./rail-gesture"
 
 /*
-  THE SHOWCASE'S MOTION, LANDING ROUND 8. The owner: "I don't like the pull
+  THE SHOWCASE'S MOTION. LANDING ROUND 8, the owner: "I don't like the pull
   to swipe / pull to drag in that section. It doesn't initialize, especially
   on mobile devices, or on desktop and large screens ... I have to make the
   whole drag too long. Make it buttery like the 'Storelib is for creators'
-  section."
+  section." LANDING ROUND 9, after round 8: "still the drag is not smooth: I
+  have to pull, press and swipe much longer to initialize the swipe", "it
+  must not mistake scrolling down for swiping", "when I swipe through it, it
+  lags a lot".
 
-  Round 5 handed phones and touch screens to the browser's own scroll snap,
-  and a mouse from 768px to lib/ui/rail-motion. Two engines, and on iOS the
-  native snap needed a long, decided swipe before it let go of a card. Now
-  one engine moves the rail on every screen, with a finger and with a mouse,
-  the one the creators rail uses (home/creators-carousel.tsx):
+  One engine moves the rail on every screen, with a finger and with a mouse:
 
-  - The rail is a transform. touch-action: pan-y leaves vertical pans to the
-    browser; nothing is decided until the pointer has moved AXIS_SLOP px. More
-    across than down and the rail is the pointer's (captured from then on,
-    following 1:1, taken from where it is so the slop is not a jump); more
-    down and the page scrolls and the rail lets go at once.
+  - The rail is a transform. Whose a gesture is, the rail's or the page's
+    scroll, is rail-gesture.ts (round 9): a touch is read from touch events,
+    decided after 4px, across only under about 40 degrees from level, and the
+    rail follows from that very point. A gesture going down is never
+    cancelled, so the page scrolls. (The browser's own sideways scroller with
+    snapping was measured again in round 9, scripts/check-landing-r9-rails.mjs:
+    it is no smoother than this in WebKit, and it cannot be told that a short
+    pull means the next card, which is what the owner asked for in round 8.)
   - On release the rail goes to a card chosen from the throw: a flick faster
     than flickVelocity, or a drag longer than flickDistance, moves at least
     one card in its direction, and a hard throw carries on through up to
@@ -32,10 +35,13 @@ import { useCallback, useEffect, useRef } from "react"
     and the tab is visible; any touch, drag, wheel or key holds it, and it
     comes back idleMs after the reader's last input with a soft ease, never
     into a moving rail.
+  - What a drag costs (round 9): one transform a frame on one layer. The
+    rail's fading mask, the captions' own layers and the whole rail's fade
+    are gone, and the pictures are decoded before they are needed.
 */
 export const SHOWCASE_GESTURE = {
-  /** px a pointer moves before the gesture is read as across (the rail's) or down (the page's). */
-  axisSlop: 8,
+  /** px a pointer moves before the gesture is read as across (the rail's) or down (the page's): rail-gesture.ts, round 9. */
+  axisSlop: RAIL_AXIS.slop,
   /** px/s: a release faster than this goes on to the next card in its direction. */
   flickVelocity: 160,
   /** A slow drag this long moves a card on its own: a share of the step, between min and max px. */
@@ -46,8 +52,6 @@ export const SHOWCASE_GESTURE = {
   projectSeconds: 0.22,
   /** The most cards one throw passes (a phone; a desktop page of three passes one). */
   maxSteps: 3,
-  /** The finger's speed is read over its last this many ms. */
-  velocityWindowMs: 90,
   /** Past either end the rail gives a third of the pull. */
   edgeResistance: 0.32,
   /** The glide to a card: base ms plus ms per px, clamped. */
@@ -220,86 +224,56 @@ function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () 
     if (!timer) schedule(SHOWCASE_AUTOPLAY.idleMs)
   }
 
-  /* ---------- the pointer: a finger, a pen or a mouse ---------- */
-  let drag: { id: number; startX: number; startY: number; fromX: number; from: number; axis: "x" | "y" | null; samples: Array<{ t: number; cx: number }> } | null = null
-  let suppressClick = false
+  /* ---------- the pointer: a finger, a pen or a mouse (rail-gesture.ts decides whose the gesture is) ---------- */
+  let drag: { fromX: number; from: number } | null = null
   const max = () => stops[stops.length - 1] ?? 0
   /* Past either end the rail gives less than the pull. */
   const resist = (to: number) => (to < 0 ? to * g.edgeResistance : to > max() ? max() + (to - max()) * g.edgeResistance : to)
-
-  const onDown = (e: PointerEvent) => {
-    if (e.button !== 0 || drag) return
-    if (e.pointerType === "mouse") e.preventDefault()
-    stopGlide()
-    holding = true
-    read()
-    /* The card nearest where the rail was caught is the one the gesture starts from. */
+  /* The card nearest where the rail is: the one a gesture starts from. */
+  const nearest = () => {
     let from = 0
     for (let i = 1; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[from] - x)) from = i
-    drag = { id: e.pointerId, startX: e.clientX, startY: e.clientY, fromX: x, from, axis: null, samples: [{ t: e.timeStamp, cx: e.clientX }] }
-    suppressClick = false
+    return from
   }
-  const onMove = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.id) return
-    const dx = e.clientX - drag.startX
-    const dy = e.clientY - drag.startY
-    if (!drag.axis) {
-      if (Math.hypot(dx, dy) < g.axisSlop) return
-      drag.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"
-      if (drag.axis === "y") return letGo(e, false)
-      try {
-        el.setPointerCapture(e.pointerId)
-      } catch {}
+  const gesture = bindRailGesture(el, {
+    press: () => {
+      /* Caught where it is: a glide stops under the finger. */
+      stopGlide()
+      holding = true
+      read()
+      drag = { fromX: x, from: nearest() }
+    },
+    start: () => {
       el.dataset.dragging = "true"
       hooks.onFirstMove()
-      /* Taken from here, so the slop is not a jump: the rail moves from where the pointer is now. */
-      drag.startX = e.clientX
-      drag.fromX = x
-      drag.samples = [{ t: e.timeStamp, cx: e.clientX }]
-    }
-    x = resist(drag.fromX - (e.clientX - drag.startX))
-    drag.samples.push({ t: e.timeStamp, cx: e.clientX })
-    while (drag.samples.length > 2 && e.timeStamp - drag.samples[0].t > g.velocityWindowMs) drag.samples.shift()
-    schedulePaint()
-  }
-  /* The pointer's speed over its last few moves, px/s, positive towards later cards. One that stopped before lifting throws nothing. */
-  const releaseSpeed = (now: number) => {
-    const s = drag?.samples ?? []
-    const a = s[0]
-    const b = s[s.length - 1]
-    if (!a || !b || b.t - a.t < 8 || now - b.t > 70) return 0
-    return Math.max(-4000, Math.min(4000, -((b.cx - a.cx) / (b.t - a.t)) * 1000))
-  }
-  const letGo = (e: PointerEvent, wasDrag: boolean) => {
-    const d = drag
-    drag = null
-    holding = false
-    delete el.dataset.dragging
-    read()
-    if (!d) return
-    if (!wasDrag) {
-      /* Handed to the page's scroll, or a tap: the rail goes back to rest where it was caught. */
-      if (Math.abs(x - (stops[d.from] ?? 0)) > 0.5) settle(d.from, 0)
-      return
-    }
-    suppressClick = true
-    const speed = releaseSpeed(e.timeStamp)
-    if (paintFrame) {
-      cancelAnimationFrame(paintFrame)
-      paint()
-    }
-    settle(chooseShowcaseStop(x, x - d.fromX, speed, stops, d.from, phone.matches ? g.maxSteps : 1), speed)
-  }
-  const onUp = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.id) return
-    letGo(e, drag.axis === "x")
-  }
-  const onClick = (e: MouseEvent) => {
-    if (!suppressClick) return
-    e.preventDefault()
-    e.stopPropagation()
-    suppressClick = false
-  }
+      if (drag) drag.fromX = x
+    },
+    move: (dx) => {
+      if (!drag) return
+      /* 1:1 with the pointer, drawn once a frame and only in a frame it moved. */
+      x = resist(drag.fromX - dx)
+      schedulePaint()
+    },
+    release: ({ dragged, speed }) => {
+      const d = drag
+      drag = null
+      holding = false
+      delete el.dataset.dragging
+      read()
+      if (!d) return
+      if (!dragged) {
+        /* Handed to the page's scroll, or a tap: the rail goes back to rest where it was caught. */
+        if (Math.abs(x - (stops[d.from] ?? 0)) > 0.5) settle(d.from, 0)
+        return
+      }
+      if (paintFrame) {
+        cancelAnimationFrame(paintFrame)
+        paint()
+      }
+      const v = Math.max(-4000, Math.min(4000, speed))
+      settle(chooseShowcaseStop(x, x - d.fromX, v, stops, d.from, phone.matches ? g.maxSteps : 1), v)
+    },
+  })
 
   /* ---------- a trackpad's sideways swipe or a sideways wheel ---------- */
   let wheel: { fromX: number; from: number; sum: number; quiet: ReturnType<typeof setTimeout> | undefined } | null = null
@@ -316,9 +290,7 @@ function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () 
     }
     if (!wheel) {
       stopGlide()
-      let from = 0
-      for (let i = 1; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[from] - x)) from = i
-      wheel = { fromX: x, from, sum: 0, quiet: undefined }
+      wheel = { fromX: x, from: nearest(), sum: 0, quiet: undefined }
       hooks.onFirstMove()
     }
     const px = e.deltaMode === 1 ? e.deltaX * 16 : e.deltaX
@@ -372,11 +344,6 @@ function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () 
   phone.addEventListener("change", remeasure)
   reduce.addEventListener("change", onReduce)
 
-  el.addEventListener("pointerdown", onDown)
-  el.addEventListener("pointermove", onMove)
-  el.addEventListener("pointerup", onUp)
-  el.addEventListener("pointercancel", onUp)
-  el.addEventListener("click", onClick, true)
   el.addEventListener("wheel", onWheel, { passive: false })
   el.addEventListener("keydown", onKey)
   document.addEventListener("visibilitychange", onVisibility)
@@ -396,11 +363,7 @@ function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () 
     resize?.disconnect()
     phone.removeEventListener("change", remeasure)
     reduce.removeEventListener("change", onReduce)
-    el.removeEventListener("pointerdown", onDown)
-    el.removeEventListener("pointermove", onMove)
-    el.removeEventListener("pointerup", onUp)
-    el.removeEventListener("pointercancel", onUp)
-    el.removeEventListener("click", onClick, true)
+    gesture.destroy()
     el.removeEventListener("wheel", onWheel)
     el.removeEventListener("keydown", onKey)
     document.removeEventListener("visibilitychange", onVisibility)
@@ -435,27 +398,52 @@ export function useShowcaseMotion() {
     const stop = startRail(el, viewport, hooks)
 
     /*
-      Wave 14: every card's picture is fetched and decoded as soon as the
-      section comes on screen, not when its card is moved into view. The
-      pictures are lazy in the markup (nothing off screen costs the page's
-      first load), decoded off the main thread (decoding="async", img.decode()).
+      THE PICTURES, LANDING ROUND 9. The owner: "as I scroll down on mobile,
+      the images appear very stutterish and too direct instead of smooth; they
+      take too much performance." Wave 14 fetched and decoded all twelve at
+      once, at full size, the moment the section touched the screen. Now the
+      files are the size they are drawn at (build-showcase.tsx), the first two
+      are in the page's first load, and the rest are fetched and decoded two
+      at a time, off the main thread, from a screen before the section
+      arrives. A picture is shown only once it is decoded, with a short fade
+      (data-shown, the stylesheet); its card holds its place and its ground
+      meanwhile, so nothing moves and nothing flashes half drawn.
     */
+    const pictures = [...el.querySelectorAll<HTMLImageElement>("img")]
+    const pending: HTMLImageElement[] = []
+    for (const img of pictures) {
+      /* Already there when the script arrived (the first two, or a cached visit): shown as it is, no fade. */
+      if (img.complete && img.naturalWidth > 0) img.setAttribute("data-shown", "now")
+      else pending.push(img)
+    }
     let warmed = false
+    const next = (): void => {
+      const img = pending.shift()
+      if (!img) return
+      img.loading = "eager"
+      const shown = () => {
+        img.setAttribute("data-shown", "")
+        next()
+      }
+      /* decode() waits for the file and its decoding; a browser without it shows the picture on load. */
+      if (typeof img.decode === "function") img.decode().then(shown, shown)
+      else if (img.complete) shown()
+      else img.addEventListener("load", shown, { once: true })
+    }
     const warm = () => {
       if (warmed) return
       warmed = true
-      for (const img of el.querySelectorAll<HTMLImageElement>("img")) {
-        img.loading = "eager"
-        img.decode?.().catch(() => {})
-      }
+      next()
+      next()
     }
+    const near = typeof IntersectionObserver === "function" ? new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && warm(), { rootMargin: "900px 0px" }) : null
+    if (section) near?.observe(section)
 
     const seen =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(
             (entries) => {
               for (const entry of entries) {
-                if (entry.isIntersecting) warm()
                 if (entry.target === el) {
                   visible = entry.intersectionRatio >= 0.5
                   onVisible(visible)
@@ -469,9 +457,11 @@ export function useShowcaseMotion() {
     seen?.observe(el)
     const heading = section?.querySelector(".build-showcase-top")
     if (heading) seen?.observe(heading)
-    if (!seen) warm()
+    if (!near || !section) warm()
 
     cleanup.current = () => {
+      near?.disconnect()
+      pending.length = 0
       seen?.disconnect()
       stop()
     }

@@ -37,16 +37,23 @@ const showcase = read("components/marketing/build-showcase.tsx")
 const css = showcase.slice(showcase.indexOf("const CSS = `"))
 const phone = css.slice(css.indexOf("@media(max-width:767px)"))
 const creators = code("components/marketing/home/creators-carousel.tsx")
+/* Landing round 9: whose a gesture is (the rail's or the page's) moved to one file both rails share. */
+const gesture = code("components/marketing/rail-gesture.ts")
 
 console.log("\nThe showcase: one engine, touch and mouse, the creators rail's gesture")
 check("no native scroller rail and no lib/ui/rail-motion: one startRail for every screen", !/startNative|RailMotion|scrollTo\(/.test(hook) && /const stop = startRail\(el, viewport, hooks\)/.test(hook))
-check("the axis is decided after 8px, across only when more across than down, the same as the creators rail", SHOWCASE_GESTURE.axisSlop === 8 && SHOWCASE_GESTURE.axisSlop === AXIS_SLOP && /if \(Math\.hypot\(dx, dy\) < g\.axisSlop\) return/.test(hook) && /drag\.axis = Math\.abs\(dx\) > Math\.abs\(dy\) \? "x" : "y"/.test(hook))
-check("down is the page's: the rail lets go at once, and vertical pans are the browser's", /if \(drag\.axis === "y"\) return letGo\(e, false\)/.test(hook) && /\.build-showcase-track\[data-rail-ready\] \{overflow:visible;touch-action:pan-y pinch-zoom/.test(css))
-check("pointer capture only once the rail has the gesture", hook.indexOf("el.setPointerCapture") > hook.indexOf('drag.axis = Math.abs(dx)'))
-check("1:1 from where the axis was decided, no jump for the slop", /drag\.startX = e\.clientX\s*drag\.fromX = x/.test(hook) && /x = resist\(drag\.fromX - \(e\.clientX - drag\.startX\)\)/.test(hook))
+/* Changed on purpose (landing round 9): the owner had to "pull, press and swipe much longer to initialize the swipe". 4px, and across only when clearly more across than down (1.2 times), in rail-gesture.ts. */
+check("the axis is decided after 4px, across only when clearly more across than down, the same as the creators rail", (SHOWCASE_GESTURE.axisSlop as number) === 4 && SHOWCASE_GESTURE.axisSlop === AXIS_SLOP && /bindRailGesture\(el, \{/.test(hook) && /if \(Math\.hypot\(dx, dy\) < RAIL_AXIS\.slop\) return null/.test(gesture) && /Math\.abs\(dx\) > Math\.abs\(dy\) \* RAIL_AXIS\.ratio \? "x" : "y"/.test(gesture))
+/* Changed on purpose (landing round 9): the same rule, in rail-gesture.ts. */
+check("down is the page's: the rail lets go at once, and vertical pans are the browser's", /if \(d\.axis === "y"\) \{\s*end\(t, false\)\s*return false/.test(gesture) && /\.build-showcase-track\[data-rail-ready\] \{overflow:visible;touch-action:pan-y pinch-zoom/.test(css))
+/* Changed on purpose (landing round 9): in rail-gesture.ts, for a mouse or a pen (a finger's touch events need no capture). */
+check("pointer capture only once the rail has the gesture", /if \(travel\(e\.clientX, e\.clientY, e\.timeStamp\) && !was && !held\?\.finger\) \{\s*try \{\s*el\.setPointerCapture\(e\.pointerId\)/.test(gesture) && !/setPointerCapture/.test(hook))
+/* Changed on purpose (landing round 9): the gesture hands the rail its dx from the point the axis was decided. */
+check("1:1 from where the axis was decided, no jump for the slop", /d\.startX = x\s*d\.samples = \[\{ t, cx: x \}\]\s*h\.start\(\)/.test(gesture) && /h\.move\(x - d\.startX\)/.test(gesture) && /if \(drag\) drag\.fromX = x/.test(hook) && /x = resist\(drag\.fromX - dx\)/.test(hook))
 check("drawn once a frame, only in a frame the pointer moved, as a transform", /if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(hook) && /el\.style\.transform = `translate3d\(/.test(hook))
 check("nothing reads layout while the rail moves: card places once per resize", (hook.match(/offsetLeft/g) ?? []).length === 2 && /resize\?\.observe\(viewport\)/.test(hook) && !/getBoundingClientRect/.test(hook))
-check("the touch and the mouse take the same path (pointer events, no touch or mouse listeners)", /el\.addEventListener\("pointerdown", onDown\)/.test(hook) && !/"touchstart"|"touchmove"|"mousedown"/.test(hook))
+/* Changed on purpose (landing round 9): on an iPhone a touch's pointer events come late and are cancelled when Safari thinks of scrolling, so a finger is read from touch and pointer events alike, whichever arrives first (the first move decides, an across move is cancelled, a down move never), a mouse from pointer events; the rail sees one gesture either way. */
+check("the touch and the mouse end in the same path: one gesture, a finger from touch and pointer events, a mouse from pointer events", /el\.addEventListener\("touchstart", onTouchStart, \{ passive: true \}\)/.test(gesture) && /el\.addEventListener\("touchmove", onTouchMove, \{ passive: false \}\)/.test(gesture) && /el\.addEventListener\("pointerdown", onPointerDown\)/.test(gesture) && !/"touchstart"|"touchmove"|"mousedown"|"pointerdown"/.test(hook))
 {
   const phoneStops = [0, 314, 520, 834, 1040, 1354]
   const desk = [0, 1296, 2592, 3888]
@@ -74,11 +81,12 @@ check("a mouse shows it on hover, never while dragging", /@media\(hover:hover\) 
 check("the caption line under the picture is unchanged", /\.build-showcase-slide figcaption \{height:44px;padding-top:14px;box-sizing:border-box;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:15px;font-weight:500;line-height:20px;letter-spacing:-\.005em;color:#d4d4d8;opacity:0;pointer-events:none;transition:opacity 380ms cubic-bezier\(\.33,0,\.2,1\)\}/.test(css))
 check("dragging marks the rail, so the caption stays away under a moving pointer", /el\.dataset\.dragging = "true"/.test(hook) && /delete el\.dataset\.dragging/.test(hook))
 
-console.log("\nThe showcase on a phone: OnePages 9:16, stores 4:3")
+console.log("\nThe showcase on a phone: OnePages their own shape, stores 4:3")
 check("a store or website card is 4:3", /\.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone))
-check("a OnePage card is 9:16, 0.6328 of a 4:3 card's width: half again as tall", /\.build-showcase-slide\[data-format="portrait"\]\{flex-basis:calc\(var\(--showcase-card\)\*\.6328\);width:calc\(var\(--showcase-card\)\*\.6328\)\}/.test(phone) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:9\/16;/.test(phone) && Math.abs(((0.6328 * 16) / 9) / 0.75 - 1.5) < 0.01)
+/* Changed on purpose (landing round 9): the owner: "Keep OnePages as they are". The card is the page's own 540 x 1056, as on a desktop, not cut to 9:16. */
+check("a OnePage card is the page's own shape (540 x 1056), 0.6328 of a 4:3 card's width", /\.build-showcase-slide\[data-format="portrait"\]\{flex-basis:calc\(var\(--showcase-card\)\*\.6328\);width:calc\(var\(--showcase-card\)\*\.6328\)\}/.test(phone) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:540\/1056\}/.test(phone) && !/aspect-ratio:9\/16/.test(css))
 check("the cards stand on one top line", /\.build-showcase-track\{--showcase-gap:10px;gap:var\(--showcase-gap\);align-items:flex-start;/.test(phone))
-check("the page fills its 9:16 card from the top, no phone screen stood inside a card", /\.build-showcase-pic img\{object-position:50% 0\}/.test(phone) && !/left:27%;top:9%;width:46%/.test(phone))
+check("the page fills its card from the top, no phone screen stood inside a card", /\.build-showcase-pic img\{object-position:50% 0\}/.test(phone) && !/left:27%;top:9%;width:46%/.test(phone))
 check("desktop keeps its groups", /grid-template-columns:256fr 90fr 256fr/.test(css) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic \{aspect-ratio:540\/1056\}/.test(css))
 
 console.log("\nThe showcase's pages")
@@ -100,7 +108,8 @@ check("no frame loop: every leg of motion is a Web Animation (in, cruise, out, a
 check("the speeds join: in leaves at 0 and arrives at cruising, out the other way, a throw leaves at the finger's speed", /"cubic-bezier\(\.5,0,\.75,\.5\)"/.test(creators) && /"cubic-bezier\(\.25,\.5,\.5,1\)"/.test(creators) && /const x1 = Math\.min\(0\.33, 1 \/ slope\)/.test(creators))
 check("the rail's place is read once when motion is taken back, never per frame", (creators.match(/getComputedStyle\(track\)/g) ?? []).length === 1 && /const halt = \(\) => \{/.test(creators))
 check("the finger is drawn once a frame, only when it moved", /if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(creators))
-check("round 7's axis lock is kept", AXIS_SLOP === 8 && /if \(Math\.hypot\(dx, dy\) < AXIS_SLOP\) return/.test(creators) && /if \(drag\.axis === "y"\) return letGo\(/.test(creators) && CREATORS_CSS.includes("touch-action:pan-y"))
+/* Changed on purpose (landing round 9): the lock is rail-gesture.ts's, 4px and a clear angle. */
+check("round 7's axis lock is kept", (AXIS_SLOP as number) === 4 && /bindRailGesture\(viewport, \{/.test(creators) && /if \(d\.axis === "y"\)/.test(gesture) && CREATORS_CSS.includes("touch-action:pan-y"))
 check("off screen or in a hidden tab whatever moves pauses", /if \(live\(\)\) motion\.anim\.play\(\)\s*else motion\.anim\.pause\(\)/.test(creators) && /document\.addEventListener\("visibilitychange", resume\)/.test(creators))
 
 console.log("\nThe browser check")
