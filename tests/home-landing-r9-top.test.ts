@@ -127,7 +127,7 @@ const kaia = html.slice(html.lastIndexOf('<div class="ev-st ev-lp"', kaiaAt), ht
 check("only her page is marked", (html.match(/data-hype="true"/g) ?? []).length === 2 && /class="ev-st ev-lp" data-hype="true"/.test(kaia) && EVERYTHING_STORES.filter((s) => s.kind === "link" && s.hype).length === 1)
 check("Shop merch and Tour dates, as before", /<span class="ev-lp-btn">Shop merch<\/span><span class="ev-lp-btn">Tour dates<\/span>/.test(kaia))
 const hype = rule(css, ".ev-lp[data-hype] .ev-lp-btn")
-check("fatter: taller, fully round, set heavy", /height:calc\(66 \* var\(--r\)\)/.test(hype) && /border-radius:calc\(33 \* var\(--r\)\)/.test(hype) && /font-weight:800/.test(hype) && /font-size:calc\(19 \* var\(--r\)\)/.test(hype))
+check("fatter: taller, fully round, set heavy, never squeezed by the column", /^\.ev-lp\[data-hype\] \.ev-lp-btn\{flex:none;/.test(hype) && /height:calc\(66 \* var\(--r\)\)/.test(hype) && /border-radius:calc\(33 \* var\(--r\)\)/.test(hype) && /font-weight:800/.test(hype) && /font-size:calc\(19 \* var\(--r\)\)/.test(hype))
 check("the first is filled in her mint with dark words", /background:var\(--accent\);color:#0b1b26/.test(rule(css, ".ev-lp[data-hype] .ev-lp-social + .ev-lp-btn")))
 check("the other pages' buttons are as they were", /\.ev-lp-btn\{display:flex;align-items:center;justify-content:center;height:calc\(58 \* var\(--r\)\);[^}]*background:rgba\(255,255,255,\.14\);font-size:calc\(17 \* var\(--r\)\);font-weight:500\}/.test(css))
 check("no frosted glass", !/backdrop-filter|filter:blur/.test(css))

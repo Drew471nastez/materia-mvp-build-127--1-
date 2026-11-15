@@ -1331,9 +1331,10 @@ const CSS = `
 /*
   Landing round 9 (the owner: Kaia Moon's Shop merch and Tour dates "more fatty, more hype, a little bit"): on her page
   the two buttons are taller, fully round and set heavy; the first is filled in her mint with dark words, the second
-  keeps the tint under a mint outline. The other pages' buttons are as they were.
+  keeps the tint under a mint outline. The other pages' buttons are as they were. They never shrink: her page has a
+  line under the name, so it is longer than its card, and the column had been squeezing her buttons thin.
 */
-.ev-lp[data-hype] .ev-lp-btn{height:${r(66)};border:${r(2)} solid var(--accent);border-radius:${r(33)};background:rgba(255,255,255,.1);font-size:${r(19)};font-weight:800;letter-spacing:-.01em}
+.ev-lp[data-hype] .ev-lp-btn{flex:none;height:${r(66)};border:${r(2)} solid var(--accent);border-radius:${r(33)};background:rgba(255,255,255,.1);font-size:${r(19)};font-weight:800;letter-spacing:-.01em}
 .ev-lp[data-hype] .ev-lp-social + .ev-lp-btn{background:var(--accent);color:#0b1b26}
 .ev-lp-grid{display:grid;grid-template-columns:1fr 1fr;gap:${r(14)};margin-top:${r(26)}}
 .ev-lp-img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;border-radius:${r(14)};background:rgba(255,255,255,.08)}
