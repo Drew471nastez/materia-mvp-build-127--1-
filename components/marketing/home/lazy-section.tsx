@@ -394,7 +394,7 @@ function schedulePrefetch() {
     let running = 0
     let done = false
     const next = (deadline?: IdleDeadline) => {
-      if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(next)
+      if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(next, LAZY_BUSY_WAIT_MS)
       while (running < 2 && queue.length) {
         const load = queue.shift()!
         running++
