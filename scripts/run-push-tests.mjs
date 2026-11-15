@@ -1463,6 +1463,8 @@ const SUITES = [
   "tests/home-landing-r7-how.test.ts",
   /* Landing round 7 (marquee): Unlimited possibilities is two full-width rows of tilted photos and words; the app icons run edge to edge; the creators rail decides the axis after 8px, follows the finger 1:1, coasts and eases back into its drift; headings on the shared home width. */
   "tests/home-landing-r7-marquee.test.ts",
+  /* Landing round 7, checkout: the phone shows Storelib's full page checkout (not the in page sheet) for Maren Holt's knitting pattern, centred under a centred headline and rising as it comes up the screen; product pictures ride a ring around it again; the tab cards fade in over it; a fainter dot grid; One-tap and reminder demos on fewer transform and opacity layers; the cards in the shared content box. */
+  "tests/home-landing-r7-checkout.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

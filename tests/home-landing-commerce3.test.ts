@@ -173,7 +173,8 @@ check("One-tap payments is a phone and nothing else", () => {
   const panel = co.slice(co.indexOf('id="cmc-panel-tap"'), co.indexOf('id="cmc-panel-currency"'))
   assert.equal((panel.match(/class="cmc-phone"/g) ?? []).length, 1)
   assert.ok(!/cmv-br|cmv-bar|cmv-url|cmv-page/.test(panel), "no browser")
-  assert.ok(/Pay \$19\.00 with Apple Pay/.test(words(panel)))
+  /* Changed on purpose (landing round 7): the phone is the full page checkout, its express Apple Pay button and then Apple Pay's own sheet. */
+  assert.ok(/Pay \$12\.00/.test(words(panel)) && /Confirm with Side Button/.test(words(panel)))
   const convert = co.slice(co.indexOf('id="cmc-panel-convert"'), co.indexOf('id="cmc-panel-tap"'))
   assert.ok(/cdx-win/.test(convert) && !/class="cmc-phone"/.test(convert), "the browser is Built to convert's") /* Changed on purpose (landing round 4): the website checkout's window. */
 })

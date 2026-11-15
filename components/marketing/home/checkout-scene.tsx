@@ -2,41 +2,41 @@
 
 /**
  * ===========================================================================
- *  CHECKOUT THAT TURNS A TAP INTO A SALE (home, section 9, landing round 5)
+ *  CHECKOUT THAT TURNS A TAP INTO A SALE (home, section 9, landing round 7)
  * ===========================================================================
- * Black, with a fine dot grid. The owner's order, round 5:
+ * Black, with a dot grid so faint it reads as texture. The owner's order,
+ * round 7:
  *
- *   1. the phone     an iPhone showing Storelib's real instant checkout, the
- *                    window a buyer gets on a OnePage in Safari. It is there
- *                    from the first pixel of the section and slides up into
- *                    place as the section comes in (a one-shot transform,
- *                    started once by an observer, never tied to scroll)
- *   2. the headline  beside it (under it on a phone), its words in one after
- *                    another on the same signal
- *   3. the tabs      scrolling on, the stage holds and the four tab cards
- *                    (Built to convert, One-tap payments, Local currencies,
- *                    Checkout reminders) come up over the phone with the page
- *                    and hide it. Plain scroll moves them: nothing is drawn per
- *                    frame, there is no scroll timeline and no orbit
+ *   1. the headline  centred at the top, its words in one after another
+ *   2. the phone     centred under it, an iPhone showing Storelib's real
+ *                    full page checkout (/checkout, the page a buyer lands
+ *                    on from a product), not the in page sheet. It rises from
+ *                    below as it reaches the screen: one observer sees the
+ *                    phone's own box come up and starts a CSS transition of
+ *                    transform, so the rise happens where it can be seen
+ *   3. the products  pictures of things creators sell ride a slow ring around
+ *                    the phone, behind it, as they did before round 5
+ *                    (cfd3b8cab): one baked lap of transform and opacity
+ *                    keyframes, paused off screen
+ *   4. the tabs      scrolling on, the stage holds (sticky) and the four tab
+ *                    cards come up over the phone with the page, fading in as
+ *                    they come; the phone and the ring dim under them
  *
- * The tabs are the cards they were before the pill row (Nov 13, 0724a74c1):
- * a label, a short figure, a line that fills while the tab has its turn.
- *
- * THE PHONE IS THE REAL WINDOW. RealCheckout below is
- * components/checkout/instant-checkout.tsx inside checkout-window.tsx, as a
- * phone draws them (the window full screen, its grey head with the product's
- * picture, title and seller, Your details, the order line, Have a code?, the
- * payment method from components/community/public/compact-pay.tsx with the
- * device's wallet chosen, Pay, the terms line and Powered by Stripe), with the
- * same sizes, colours and words, laid out at the iPhone's own width (393px)
- * and scaled to the drawn phone in one transform. Safari's status bar and its
- * bottom address bar sit over it, as they do on the phone.
+ * THE PHONE IS THE REAL PAGE. PageCheckout below is
+ * app/(storelib)/checkout/checkout-client.tsx as a phone lays it out: the
+ * white bar (Back, the creator, Continue shopping), the grey order (Pay
+ * <creator>, the total, Hide details, the line, Subtotal, Add promotion code,
+ * Total due), then the form (the express Apple Pay button from
+ * parts/stripe-pay.tsx, OR, Contact information, the news box, Payment
+ * method as Stripe's accordion with checkout's appearance, the terms box,
+ * Pay, Powered by Stripe), with the same sizes, colours and words, laid out
+ * at the iPhone's own width (393px) and scaled to the drawn phone in one
+ * transform. Safari's status bar and its floating address bar sit over it.
  *
  * TRUE FIGURES. The desktop window is the website checkout as
- * app/(storelib)/checkout/site/site-checkout.tsx lays it out, drawn whole
- * (both columns, every corner) and scaled to the box on any screen. The
- * seller's notice is the in-app sale notification (lib/notify/templates/
- * catalog.ts). The currencies are ones fees are written for
+ * app/(storelib)/checkout/site/site-checkout.tsx lays it out. The seller's
+ * notice is the in-app sale notification (lib/notify/templates/catalog.ts).
+ * The currencies are ones fees are written for
  * (lib/payments/fees/currency-rules). The reminder is
  * lib/physical/email-templates checkoutReminderEmail's words
  * (lib/automations/abandoned.ts). Prices are examples.
@@ -49,18 +49,43 @@ import { u } from "./showcase-mocks/frame"
 
 const IMG = "/home/commerce"
 /**
- * What the phone sells: Nadia Brooks's field guide to street photography in
- * Chicago's Loop, an e-book. Its cover is a picture file, as a creator uploads
- * one (rendered once from a real Unsplash photograph of LaSalle Street,
- * photo-1519501025264-65ba15a82390, with the title set on paper stock).
+ * Landing round 7 (the owner: not The Loop). What the phone sells: Maren
+ * Holt's Harbor Cardigan, a knitting pattern sold as a PDF. Its picture is a
+ * real photograph, Unsplash photo-1584992236310-6edddc08acff (yarn and
+ * needles), cropped to the cover (public/home/commerce/maren-pattern.webp).
  */
-export const GUIDE = { title: "The Loop", author: "Nadia Brooks", price: "$19.00", cover: `${IMG}/guide-loop.webp` } as const
-const PRODUCT = GUIDE.title
-const SELLER = GUIDE.author
-/** The physical product the demos sell beside the e-book: a signed A3 print of LaSalle Street (the same photograph, public/home/commerce/print-lasalle.webp). The owner did not want the cap. */
-const PRINT = { title: "LaSalle at dusk", option: "Signed print, A3", price: "$45.00", img: `${IMG}/print-lasalle.webp` } as const
+export const PATTERN = { title: "Harbor Cardigan pattern", author: "Maren Holt", price: "$12.00", cover: `${IMG}/maren-pattern.webp`, kind: "Knitting pattern, PDF" } as const
+/** Round 5's name for what the phone sells, kept so older imports still resolve. */
+export const GUIDE = PATTERN
+/** The physical product the demos sell beside the pattern: the yarn for it, as a kit (the same photograph, its other half). */
+export const YARN = { title: "Harbor yarn kit", option: "Merino, 6 skeins", price: "$64.00", img: `${IMG}/maren-yarn-kit.webp` } as const
+/** Round 5's name for the physical product, kept so older imports still resolve. */
+export const PRINT = YARN
+const PRODUCT = PATTERN.title
+const SELLER = PATTERN.author
+/** Maren's photo: Unsplash photo-1438761681033-6461ffad8d80. */
+const AVATAR = `${IMG}/creator-maren.webp`
 
 export const CHECKOUT_HEADING = "Checkout that turns a tap into a sale"
+
+/**
+ * The products around the phone (round 4's ring, brought back with a new set,
+ * each a real Unsplash photograph): the pattern itself
+ * (photo-1584992236310-6edddc08acff), a hand poured candle
+ * (photo-1603006905003-be475563bc59), rings (photo-1608042314453-ae338d80c427),
+ * a face oil (photo-1608571423902-eed4a5ad8108), framed prints
+ * (photo-1513519245088-0e12902e5a38) and a leather bag
+ * (photo-1600857062241-98e5dba7f214). Each has its place on the ring (phase 0
+ * to 1, and a second set for phones, which show four) and a small lean.
+ */
+export const FLOATS = [
+  { id: "pattern", src: PATTERN.cover, ar: "3 / 4", ph: 0, phm: 0, r: -6, m: true },
+  { id: "candle", src: `${IMG}/float-candle.webp`, ar: "4 / 5", ph: 1 / 6, phm: 0.25, r: 5, m: true },
+  { id: "rings", src: `${IMG}/float-rings.webp`, ar: "4 / 5", ph: 2 / 6, phm: 0, r: -4, m: false },
+  { id: "oil", src: `${IMG}/float-oil.webp`, ar: "4 / 5", ph: 3 / 6, phm: 0.5, r: 6, m: true },
+  { id: "prints", src: `${IMG}/float-prints.webp`, ar: "4 / 5", ph: 4 / 6, phm: 0, r: -5, m: false },
+  { id: "bag", src: `${IMG}/float-bag.webp`, ar: "4 / 5", ph: 5 / 6, phm: 0.75, r: 4, m: true },
+] as const
 
 const TABS = [
   {
@@ -100,36 +125,72 @@ const AUTO_MS = LOOP_S * 1000
 const at = (sec: number) => `${Math.round((sec / LOOP_S) * 10000) / 100}%`
 
 /**
- * The entrance, without scroll work. One observer on the track: while the
- * track is wholly below the screen the section is armed (data-cmc-armed: the
- * phone a little low, the words out); once its top is 12% up the screen,
- * data-cmc-in plays the rise and the words as CSS transitions, on the
- * compositor. Mounted while already on screen, nothing is armed, so the
- * phone is simply there. Scrolled back up past it, it re-arms.
+ * The scene's three entrances, without scroll work. One observer watches the
+ * headline, the phone's box and the tab cards. While one of them is wholly
+ * below the screen its part is armed (data-cmc-<part>-armed: the words out,
+ * the phone a little low, the cards faint and low); once it crosses 88% of
+ * the screen its attribute is set and the part plays in as CSS transitions of
+ * transform and opacity, on the compositor. A part already on screen when
+ * this runs is never armed, so it is simply there. Scrolled back up past it,
+ * it re-arms. Nothing is read or written per frame.
  */
-function useEntrance(rootRef: React.RefObject<HTMLElement | null>) {
+const PARTS = [
+  [".cmc-copy", "data-cmc-words"],
+  [".cmc-phone-wrap", "data-cmc-in"],
+  [".cmc-cards", "data-cmc-over"],
+] as const
+function useEntrances(rootRef: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const root = rootRef.current
-    const track = root?.querySelector<HTMLElement>(".cmc-track")
-    if (!root || !track || typeof IntersectionObserver !== "function") return
+    if (!root || typeof IntersectionObserver !== "function") return
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const parts = new Map<Element, string>()
+    for (const [sel, attr] of PARTS) {
+      const el = root.querySelector(sel)
+      if (el) parts.set(el, attr)
+    }
+    /* What the observer last said of each part, to tell a real arrival from a repeat. */
+    const seen = new Map<Element, boolean>()
     const io = new IntersectionObserver(
       (entries) => {
-        const e = entries[entries.length - 1]
-        if (e.isIntersecting) {
-          if (root.hasAttribute("data-cmc-armed")) root.setAttribute("data-cmc-in", "")
-        } else if (e.boundingClientRect.top > 0) {
-          root.removeAttribute("data-cmc-in")
-          root.setAttribute("data-cmc-armed", "")
+        for (const e of entries) {
+          const attr = parts.get(e.target)
+          if (!attr) continue
+          const was = seen.get(e.target)
+          seen.set(e.target, e.isIntersecting)
+          if (e.isIntersecting) {
+            if (root.hasAttribute(`${attr}-armed`)) root.setAttribute(attr, "")
+            /*
+             * A part arrived: ask about the others afresh (observing again
+             * reports where they are now). A jump past the whole section and
+             * back (a tap on the status bar, a link) crosses none of them, so
+             * the observer would not tell, and the phone would stay dimmed
+             * under cards that are not there, or never rise again. A repeat
+             * answer changes nothing, so this never loops.
+             */
+            if (was === false) {
+              for (const other of parts.keys()) {
+                if (other === e.target) continue
+                io.unobserve(other)
+                io.observe(other)
+              }
+            }
+          } else if (e.boundingClientRect.top > 0 || e.boundingClientRect.height === 0) {
+            /* Below the screen, or not laid out yet: the lazy box skips its content (content-visibility) until it is near, and the observer then reports an empty box at 0. Round 5 read that as "on screen" and never armed, so the rise never played. */
+            root.removeAttribute(attr)
+            root.setAttribute(`${attr}-armed`, "")
+          }
         }
       },
       { rootMargin: "0px 0px -12% 0px" },
     )
-    io.observe(track)
+    for (const el of parts.keys()) io.observe(el)
     return () => {
       io.disconnect()
-      root.removeAttribute("data-cmc-armed")
-      root.removeAttribute("data-cmc-in")
+      for (const [, attr] of PARTS) {
+        root.removeAttribute(attr)
+        root.removeAttribute(`${attr}-armed`)
+      }
     }
   }, [rootRef])
 }
@@ -137,7 +198,9 @@ function useEntrance(rootRef: React.RefObject<HTMLElement | null>) {
 export function CheckoutScene() {
   const rootRef = useRef<HTMLElement>(null)
   const reduced = useCommerceReducedMotion()
-  useEntrance(rootRef)
+  /* The ring turns only while the stage is on screen in a visible tab (no React state: the attribute runs or pauses the CSS). */
+  const [stageRef] = useCommerceLive<HTMLDivElement>("0px 0px", false)
+  useEntrances(rootRef)
   const words = CHECKOUT_HEADING.split(" ")
 
   return (
@@ -148,7 +211,7 @@ export function CheckoutScene() {
       </style>
       <span className="cmc-dots" aria-hidden="true" />
       <div className="cmc-track">
-        <div className="cmc-stage">
+        <div ref={stageRef} className="cmc-stage">
           <div className="cmc-copy">
             <h2 id="cmc-title" className="cmc-title">
               {words.map((w, i) => (
@@ -163,8 +226,19 @@ export function CheckoutScene() {
           </div>
 
           <div className="cmc-phone-wrap">
+            <div className="cmc-floats" aria-hidden="true">
+              <div className="cmc-orbit">
+                {FLOATS.map((f) => (
+                  <span key={f.id} className="cmc-o" data-f={f.id} data-m={f.m || undefined} style={{ "--ph": f.ph, "--phm": f.phm, "--r": `${f.r}deg` } as React.CSSProperties}>
+                    <span className="cmc-lap">
+                      <img className="cmc-pic" src={f.src} alt="" width={360} height={450} loading="lazy" decoding="async" style={{ aspectRatio: f.ar }} />
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
             <div className="cmc-rise">
-              <Phone label={`A Storelib checkout on a phone (an iPhone): ${PRODUCT}, an e-book by ${SELLER}, ${GUIDE.price}, with Apple Pay.`} />
+              <Phone label={`Storelib's checkout page on a phone (an iPhone): ${PRODUCT} by ${SELLER}, ${PATTERN.price}, with Apple Pay.`} />
             </div>
           </div>
         </div>
@@ -229,8 +303,8 @@ function SafariBar() {
   )
 }
 
-/** The iPhone: titanium band, black border, Dynamic Island, and the checkout under Safari's bars. */
-function Phone({ label, wallets = false }: { label?: string; wallets?: boolean }) {
+/** The iPhone: titanium band, black border, Dynamic Island, and the checkout page under Safari's bars. With `pay`, the One-tap demo: the page scrolled to its form and Apple Pay's sheet. */
+function Phone({ label, pay = false }: { label?: string; pay?: boolean }) {
   return (
     <div className="cmc-phone" role={label ? "img" : undefined} aria-label={label}>
       <span className="cmc-key cmc-key-act" />
@@ -240,7 +314,7 @@ function Phone({ label, wallets = false }: { label?: string; wallets?: boolean }
       <div className="cmc-bezel">
         <div className="cmc-screen" aria-hidden="true" inert>
           <div className="cmc-ui">
-            <RealCheckout wallets={wallets} />
+            <PageCheckout pay={pay} />
             <SafariBar />
             <StatusBar />
           </div>
@@ -250,122 +324,224 @@ function Phone({ label, wallets = false }: { label?: string; wallets?: boolean }
   )
 }
 
-/**
- * The instant checkout a buyer sees on a phone, in the real window's own
- * pixels (the rc- rules copy the Tailwind classes of checkout-window.tsx,
- * instant-checkout.tsx and compact-pay.tsx one for one). With `wallets`, the
- * One-tap payments demo: Apple Pay, then Google Pay on an Android phone, then
- * the card field, each with its own Pay.
- */
-function RealCheckout({ wallets }: { wallets: boolean }) {
+function ArrowLeft() {
   return (
-    <div className="rc">
-      <div className="rc-head">
-        <div className="rc-row">
-          <span />
-          <span className="rc-x">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6 6 18M6 6l12 12" />
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  )
+}
+
+function Chevron({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
+/**
+ * The checkout page a buyer gets on a phone (checkout-client.tsx), in the
+ * page's own pixels: the pc- rules copy its Tailwind classes, and those of
+ * parts/order-summary.tsx, parts/stripe-pay.tsx (the express button, the
+ * Payment Element in checkout's appearance) and components/checkout/parts/ui.tsx,
+ * one for one. The order shows open, as a phone first draws it.
+ */
+function PageCheckout({ pay }: { pay: boolean }) {
+  return (
+    <div className="pc" data-pay={pay || undefined}>
+      <div className="pc-page">
+        <div className="pc-bar">
+          <span className="pc-back">
+            <span className="pc-back-f">
+              <ArrowLeft />
+            </span>
+          </span>
+          <span className="pc-who">
+            <img className="pc-av" src={AVATAR} alt="" width={28} height={28} loading="lazy" decoding="async" />
+            <span>{SELLER}</span>
+          </span>
+          <span className="pc-cont">Continue shopping</span>
+        </div>
+
+        <div className="pc-sum">
+          <p className="pc-payto">Pay {SELLER}</p>
+          <p className="pc-total">{PATTERN.price}</p>
+          <span className="pc-det">
+            Hide details
+            <Chevron className="pc-up" />
+          </span>
+          <div className="pc-details">
+            <div className="pc-line">
+              <span className="pc-thumb">
+                <img src={PATTERN.cover} alt="" width={96} height={128} loading="lazy" decoding="async" />
+              </span>
+              <span className="pc-li">
+                <b>{PRODUCT}</b>
+                <small>Qty 1</small>
+              </span>
+              <b className="pc-lp">{PATTERN.price}</b>
+            </div>
+            <div className="pc-tots">
+              <div className="pc-row pc-strong">
+                <span>Subtotal</span>
+                <span>{PATTERN.price}</span>
+              </div>
+              <span className="pc-promo">Add promotion code</span>
+              <div className="pc-row pc-due">
+                <span>Total due</span>
+                <span>{PATTERN.price}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="pc-form">
+          <span className="pc-ap">
+            <AppleMark />
+            Pay
+          </span>
+          <div className="pc-or">
+            <i />
+            OR
+            <i />
+          </div>
+          <div className="pc-h">Contact information</div>
+          <span className="pc-in">sam.rivera@mail.com</span>
+          <span className="pc-check">
+            <span className="pc-box" />
+            Email me with news and offers
+          </span>
+          <div className="pc-h pc-gap">Payment method</div>
+          <div className="pc-acc">
+            <div className="pc-acc-h">
+              <span className="pc-radio">
+                <i />
+              </span>
+              <CardGlyph />
+              Card
+            </div>
+            <span className="pc-lbl">Card number</span>
+            <span className="pc-in pc-ph">
+              1234 1234 1234 1234
+              <span className="pc-brands">
+                <i className="pc-visa">VISA</i>
+                <i className="pc-mc">
+                  <b />
+                  <b />
+                </i>
+              </span>
+            </span>
+            <div className="pc-2">
+              <span>
+                <span className="pc-lbl">Expiration date</span>
+                <span className="pc-in pc-ph">MM / YY</span>
+              </span>
+              <span>
+                <span className="pc-lbl">Security code</span>
+                <span className="pc-in pc-ph">CVC</span>
+              </span>
+            </div>
+            <span className="pc-lbl">Country</span>
+            <span className="pc-in pc-sel">
+              United States
+              <Chevron />
+            </span>
+          </div>
+          <span className="pc-check pc-terms">
+            <span className="pc-box" />
+            <span>
+              I agree to the <u>Terms and Conditions</u> and the <u>Refund policy</u>
+            </span>
+          </span>
+          <span className="pc-pay">Pay {PATTERN.price}</span>
+          <p className="rc-pow">
+            <span className="rc-pow-s">
+              Powered by
+              <svg viewBox="0 120 640 272" width="33" height="14" fill="currentColor">
+                <path d={STRIPE_WORDMARK} />
+              </svg>
+            </span>
+            <i>·</i>
+            Terms
+            <i>·</i>
+            Privacy
+          </p>
+        </div>
+      </div>
+      {pay ? <ApplePay /> : null}
+    </div>
+  )
+}
+
+/**
+ * The One-tap demo's moving parts, over the page: a press on Apple Pay, the
+ * wallet's sheet (iOS 26, floating, its words Apple's), Done, the sheet away,
+ * and checkout's own paid screen (parts/success.tsx: Payment complete,
+ * "<total> paid. Opening your receipt"). Eight layers, transform and opacity.
+ */
+function ApplePay() {
+  return (
+    <>
+      <span className="pc-touch" />
+      <span className="pc-top" />
+      <span className="ap-dim" />
+      <div className="ap-sheet">
+        <div className="ap-head">
+          <span className="ap-logo">
+            <AppleMark />
+            Pay
+          </span>
+          <span className="ap-x">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+              <path d="M17 7 7 17M7 7l10 10" />
             </svg>
           </span>
         </div>
-        <div className="rc-who">
-          <img className="rc-mark" src={GUIDE.cover} alt="" width={57} height={76} loading="lazy" decoding="async" />
-          <div className="rc-title">{PRODUCT}</div>
-          <div className="rc-sub">{SELLER}</div>
+        <div className="ap-row">
+          <span className="ap-card" />
+          <span className="ap-t">
+            <b>Visa •••• 4242</b>
+            <small>Sam Rivera</small>
+          </span>
+          <Chevron className="ap-chev" />
         </div>
-      </div>
-      <div className="rc-body">
-        <div className="rc-body-in">
-          <div className="rc-sec">
-            <div className="rc-h3">Your details</div>
-            <div className="rc-in">sam.rivera@mail.com</div>
-            <div className="rc-in">Sam Rivera</div>
-            <div className="rc-opt">
-              <span className="rc-cb" />
-              Email me news and offers
-            </div>
-          </div>
-          <div className="rc-sum">
-            <span className="rc-sum-t">{PRODUCT}</span>
-            <b>{GUIDE.price}</b>
-          </div>
-          <div className="rc-code">
-            Have a code?
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 9 6 6 6-6" />
+        <div className="ap-row">
+          <span className="ap-t">
+            <small>Contact</small>
+            <b>sam.rivera@mail.com</b>
+          </span>
+          <Chevron className="ap-chev" />
+        </div>
+        <div className="ap-sum">
+          <span>Pay {SELLER}</span>
+          <b>{PATTERN.price}</b>
+        </div>
+        <div className="ap-foot">
+          <span className="ap-side">
+            <span className="ap-btn" />
+            Confirm with Side Button
+          </span>
+          <span className="ap-done">
+            <svg viewBox="0 0 48 48" width="44" height="44">
+              <circle cx="24" cy="24" r="21" fill="none" stroke="#0a84ff" strokeWidth="3" />
+              <path d="M15 24.5l6 6 12-13" fill="none" stroke="#0a84ff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </div>
-          <div className="rc-paysec">
-            <div className="rc-h3 rc-h3-pay">Payment method</div>
-            <div className="rc-mwrap">
-              <div className="rc-methods">
-                <span className="rc-m" data-on={wallets ? undefined : ""}>
-                  <span className="ck-stack">
-                    <span className="ck-w ck-mw-a">
-                      <AppleMark />
-                      Pay
-                    </span>
-                    {wallets ? (
-                      <span className="ck-w ck-mw-g">
-                        <GoogleMark />
-                        Pay
-                      </span>
-                    ) : null}
-                  </span>
-                </span>
-                <span className="rc-m">
-                  <CardGlyph />
-                  Card
-                </span>
-              </div>
-              {wallets ? (
-                <>
-                  <span className="ck-ring" />
-                  <span className="rc-cardf">
-                    <svg viewBox="0 0 24 16" width="24" height="16">
-                      <rect width="24" height="16" rx="2.5" fill="#1a1f71" />
-                      <path d="M9.6 10.9 10.6 5h1.6l-1 5.9H9.6Zm6.9-5.8a4 4 0 0 0-1.4-.2c-1.6 0-2.7.8-2.7 1.9 0 .9.8 1.3 1.4 1.6.6.3.8.5.8.7 0 .4-.5.6-1 .6a3.4 3.4 0 0 1-1.5-.3l-.2-.1-.2 1.3c.4.2 1 .3 1.7.3 1.7 0 2.8-.8 2.8-2 0-.7-.4-1.2-1.4-1.6-.6-.3-.9-.5-.9-.8 0-.2.3-.5.9-.5.5 0 .9.1 1.2.2l.1.1.4-1.2ZM20.6 5h-1.2c-.4 0-.7.1-.8.5l-2.4 5.4h1.7l.3-.9h2.1l.2.9h1.5L20.6 5Zm-2 3.8.6-1.6.2-.5.1.5.4 1.6h-1.3ZM8.3 5 6.7 9 6.5 8.2A4.7 4.7 0 0 0 4.3 5.6l1.5 5.3h1.7L10 5H8.3Z" fill="#fff" />
-                    </svg>
-                    <span className="rc-cardn">4242 4242 4242 4242</span>
-                    <span className="rc-cardx">08 / 29</span>
-                    <span className="rc-cardx">314</span>
-                  </span>
-                </>
-              ) : null}
-            </div>
-            <div className="rc-after">
-              <div className="rc-pay">
-                <span className="ck-stack">
-                  <span className="ck-w ck-w-a">{`Pay ${GUIDE.price} with Apple Pay`}</span>
-                  {wallets ? (
-                    <>
-                      <span className="ck-w ck-w-g">{`Pay ${GUIDE.price} with Google Pay`}</span>
-                      <span className="ck-w ck-w-c">{`Pay ${GUIDE.price}`}</span>
-                    </>
-                  ) : null}
-                </span>
-              </div>
-              <p className="rc-terms">
-                By paying you agree to the <u>Terms</u>. Your receipt and access come by email.
-              </p>
-              <p className="rc-pow">
-                <span className="rc-pow-s">
-                  Powered by
-                  <svg viewBox="0 120 640 272" width="33" height="14" fill="currentColor">
-                    <path d={STRIPE_WORDMARK} />
-                  </svg>
-                </span>
-                <i>·</i>
-                Terms
-                <i>·</i>
-                Privacy
-              </p>
-            </div>
-          </div>
+            Done
+          </span>
         </div>
       </div>
-    </div>
+      <div className="pc-paid">
+        <span className="pc-paid-ring">
+          <svg viewBox="0 0 64 64" width="64" height="64">
+            <circle cx="32" cy="32" r="29" fill="none" stroke="#1a1a2e" strokeWidth="3" />
+            <path d="M20 33.5l8 8 16-17" fill="none" stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+        <b>Payment complete</b>
+        <small>{PATTERN.price} paid. Opening your receipt</small>
+      </div>
+    </>
   )
 }
 
@@ -520,13 +696,13 @@ const Panel = memo(function Panel({ id, on }: { id: TabId; on: boolean }) {
 
 type Line = { id: string; img: string; title: string; option?: string; price: string; physical: boolean }
 const CART: Line[] = [
-  { id: "print", img: PRINT.img, title: PRINT.title, option: PRINT.option, price: PRINT.price, physical: true },
-  { id: "guide", img: GUIDE.cover, title: PRODUCT, price: GUIDE.price, physical: false },
+  { id: "kit", img: YARN.img, title: YARN.title, option: YARN.option, price: YARN.price, physical: true },
+  { id: "pattern", img: PATTERN.cover, title: PRODUCT, option: PATTERN.kind, price: PATTERN.price, physical: false },
 ]
-/* $45.00 + $19.00 = $64.00; + $6.00 shipping + $5.12 tax (8% of the goods, an example) = $75.12. */
-const SUB = "$64.00"
-const TOTAL = "$75.12"
-const SHOP_HOST = "nadiabrooks.storelib.com"
+/* $64.00 + $12.00 = $76.00; + $6.00 shipping + $6.08 tax (8% of the goods, an example) = $88.08. */
+const SUB = "$76.00"
+const TOTAL = "$88.08"
+const SHOP_HOST = "marenholt.storelib.com"
 
 /** A field as the checkout draws one: the label above, the box, the placeholder until it is filled. */
 function Field({ label, value, ph, k, select = false }: { label?: string; value: string; ph?: string; k: string; select?: boolean }) {
@@ -581,7 +757,7 @@ function VisConvert() {
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </span>
-              <img className="cdx-av" src={`${IMG}/creator-nadia.webp`} alt="" loading="eager" decoding="async" width={56} height={56} />
+              <img className="cdx-av" src={AVATAR} alt="" loading="eager" decoding="async" width={56} height={56} />
               <span className="cdx-shop">{SELLER}</span>
               <span className="cdx-cont">Continue shopping</span>
             </div>
@@ -596,12 +772,12 @@ function VisConvert() {
                   <ul className="cdx-lines">
                     {CART.map((l) => (
                       <li key={l.id}>
-                        <span className="cdx-thumb" data-cut={l.id === "print" || undefined}>
+                        <span className="cdx-thumb">
                           <img src={l.img} alt="" loading="eager" decoding="async" width={96} height={96} />
                         </span>
                         <span className="cdx-li">
                           <b>{l.title}</b>
-                          {l.option ? <small>{l.option}</small> : <small>E-book, PDF</small>}
+                          <small>{l.option}</small>
                           <span className="cdx-ctl">
                             {l.physical ? (
                               <span className="cdx-step">
@@ -634,7 +810,7 @@ function VisConvert() {
                       <span>Tax</span>
                       <span className="cdx-swap">
                         <span className="cdx-s0">Calculated next</span>
-                        <span className="cdx-s1">$5.12</span>
+                        <span className="cdx-s1">$6.08</span>
                       </span>
                     </div>
                     <div className="cdx-row cdx-due">
@@ -762,7 +938,7 @@ function VisConvert() {
             <small>now</small>
           </span>
           <span className="cmv-note-p">
-            Sam Rivera bought {PRINT.title} and 1 more for {TOTAL}.
+            Sam Rivera bought {YARN.title} and 1 more for {TOTAL}.
           </span>
         </span>
       </div>
@@ -776,21 +952,21 @@ function VisTap() {
   return (
     <div className="cmv-tap">
       <div className="cmv-phone">
-        <Phone wallets />
+        <Phone pay />
       </div>
       <div className="cmv-links">
-        <span className="cmv-link cmv-link-a">
-          <span className="cmv-link-m cmv-link-ap">
+        <span className="cmv-link" data-on="">
+          <span className="cmv-link-m">
             <AppleMark />
             Pay
           </span>
           <span className="cmv-link-t">
             <b>Apple Pay</b>
-            <small>Face ID, one tap</small>
+            <small>iPhone, iPad and Mac</small>
           </span>
           <i className="cmv-ok" />
         </span>
-        <span className="cmv-link cmv-link-g">
+        <span className="cmv-link">
           <span className="cmv-link-m cmv-link-gp">
             <GoogleMark />
             Pay
@@ -801,13 +977,13 @@ function VisTap() {
           </span>
           <i className="cmv-ok" />
         </span>
-        <span className="cmv-link cmv-link-s">
+        <span className="cmv-link">
           <span className="cmv-link-m cmv-link-st">
             <StripeMark />
           </span>
           <span className="cmv-link-t">
-            <b>Stripe</b>
-            <small>Cards and payouts</small>
+            <b>Cards</b>
+            <small>Visa, Mastercard, Amex</small>
           </span>
           <i className="cmv-ok" />
         </span>
@@ -816,15 +992,15 @@ function VisTap() {
   )
 }
 
-/* ── Local currencies: one print, five readings ────────────────────────── */
+/* ── Local currencies: one yarn kit, five readings ─────────────────────── */
 
-/* Example prices for one $45 print as each currency would show it. */
+/* Example prices for one $64 yarn kit as each currency would show it. */
 const PRICES = [
-  { code: "USD", flag: "US", where: "United States", price: "$45.00" },
-  { code: "EUR", flag: "EU", where: "Euro area", price: "€42.00" },
-  { code: "GBP", flag: "GB", where: "United Kingdom", price: "£36.00" },
-  { code: "JPY", flag: "JP", where: "Japan", price: "¥6,900" },
-  { code: "CAD", flag: "CA", where: "Canada", price: "C$62.00" },
+  { code: "USD", flag: "US", where: "United States", price: "$64.00" },
+  { code: "EUR", flag: "EU", where: "Euro area", price: "€59.00" },
+  { code: "GBP", flag: "GB", where: "United Kingdom", price: "£50.00" },
+  { code: "JPY", flag: "JP", where: "Japan", price: "¥9,800" },
+  { code: "CAD", flag: "CA", where: "Canada", price: "C$88.00" },
 ] as const
 
 function Flag({ code }: { code: string }) {
@@ -840,7 +1016,7 @@ function VisCurrency() {
         </span>
         <div className="cmv-cc-b">
           <b className="cmv-cc-name">{PRINT.title}</b>
-          <small className="cmv-cc-sub">Signed print, A3 · {SELLER}</small>
+          <small className="cmv-cc-sub">{YARN.option} · {SELLER}</small>
           <span className="cmv-stack cmv-price">
             {PRICES.map((p, i) => (
               <span key={p.code} className="cmv-cyc" data-first={i === 0 || undefined} style={{ "--i": i } as React.CSSProperties}>
@@ -872,10 +1048,14 @@ function VisCurrency() {
 
 /* ── Checkout reminders: left at Pay, the email an hour later, paid ──── */
 
+/** Three moments on one line that fills as the hour passes, and the email that brings the buyer back. */
 function VisRecover() {
   return (
     <div className="cmv-rec">
       <div className="cmv-tl">
+        <span className="cmv-rail">
+          <span className="cmv-fill" />
+        </span>
         <span className="cmv-st cmv-st1">
           <i />
           <b>Left at Pay</b>
@@ -888,28 +1068,28 @@ function VisRecover() {
         </span>
         <span className="cmv-st cmv-st3">
           <i />
-          <b>Paid {PRINT.price}</b>
+          <b>Paid {YARN.price}</b>
           <small>3:31 PM</small>
         </span>
       </div>
       <div className="cmv-mail">
         <div className="cmv-mail-from">
-          <img src={`${IMG}/creator-nadia.webp`} alt="" loading="eager" decoding="async" width={64} height={64} />
+          <img src={AVATAR} alt="" loading="eager" decoding="async" width={64} height={64} />
           <span>
             <b>{SELLER}</b>
             <small>to Sam · 3:14 PM</small>
           </span>
         </div>
-        <div className="cmv-mail-subj">You left {PRINT.title} at checkout</div>
+        <div className="cmv-mail-subj">You left {YARN.title} at checkout</div>
         <div className="cmv-mail-h">Still thinking it over?</div>
         <p>Hi Sam, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.</p>
         <span className="cmv-mail-btn">Finish checkout</span>
         <div className="cmv-mail-line">
           <span className="cmv-thumb">
-            <img src={PRINT.img} alt="" loading="eager" decoding="async" width={96} height={96} />
+            <img src={YARN.img} alt="" loading="eager" decoding="async" width={96} height={96} />
           </span>
-          <span>{PRINT.title}</span>
-          <b>{PRINT.price}</b>
+          <span>{YARN.title}</span>
+          <b>{YARN.price}</b>
         </div>
       </div>
     </div>
@@ -919,56 +1099,114 @@ function VisRecover() {
 /* ── Styles ──────────────────────────────────────────────────────────── */
 
 const WORDS = CHECKOUT_HEADING.split(" ").length
-/* The headline's words, one after another once the section is in. */
-const wordDelays = () => Array.from({ length: WORDS }, (_, i) => `.cmc[data-cmc-in] .cmc-w[data-w="${i}"]{transition-delay:${0.15 + i * 0.05}s}`).join("\n")
+/* The headline's words, one after another once it is in. */
+const wordDelays = () => Array.from({ length: WORDS }, (_, i) => `.cmc[data-cmc-words] .cmc-w[data-w="${i}"]{transition-delay:${0.05 + i * 0.045}s}`).join("\n")
+
+/**
+ * ONE LAP OF THE RING, BAKED (round 4's, lighter). Each product rides the same
+ * keyframes, a negative delay putting it at its own place on the lap: 24
+ * points of an ellipse (x = -cos, y = sin, so the front of the ring is its
+ * lower half), smaller and dimmer at the back, with a small lean that rocks
+ * twice a lap so the loop closes on itself with no seam. One animated layer
+ * per product, transform and opacity only, no 3D, no filter.
+ */
+const LAP_POINTS = 24
+function lapKeyframes(): string {
+  const f = (v: number) => String(+v.toFixed(3))
+  let lap = ""
+  for (let i = 0; i <= LAP_POINTS; i++) {
+    const t = (i / LAP_POINTS) * Math.PI * 2
+    const x = -Math.cos(t)
+    const y = Math.sin(t)
+    const d = (1 + y) / 2
+    lap += `${f((i / LAP_POINTS) * 100)}%{transform:translate3d(calc(var(--rx) * ${f(x)}),calc(var(--ry) * ${f(y)}),0) rotate(calc(var(--r) * ${f(Math.cos(t * 2))})) scale(${f(0.64 + 0.36 * d)});opacity:${f(0.5 + 0.5 * d)}}`
+  }
+  return `@keyframes cmc-lap{${lap}}`
+}
 
 /*
  * The scene. The track is a screen of stage plus DWELL of scroll, the stage
  * held in it (position: sticky, the browser's own scrolling, nothing per
  * frame). The tab cards follow, pulled up by OVERLAP, so after a short look
- * at the phone they come up the screen with the page, over it, and hide it.
- * DWELL - OVERLAP is all the page spends on the phone alone.
+ * at the phone they come up the screen with the page, over it. DWELL -
+ * OVERLAP is all the page spends on the phone alone.
+ *
+ * Round 7: the headline centred at the top, the phone centred under it (on a
+ * computer too: no copy column beside it). The content box is the page's
+ * shared one (globals.css .home-wrap: --home-edge, --home-max), so the cards'
+ * edges meet the showcase's.
  */
 const DWELL = "80svh"
 const OVERLAP = "64svh"
 const SCENE_CSS = `
-.cmc{position:relative;background:#000;color:#fff;border-radius:clamp(28px,4vw,56px);overflow:clip;padding-block:0!important;isolation:isolate}
-.cmc-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.13) 1px,transparent 1.4px);background-size:22px 22px;background-position:11px 11px;-webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 35%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse 70% 60% at 50% 35%,#000 20%,transparent 75%)}
+.cmc{position:relative;background:#000;color:#fff;border-radius:clamp(28px,4vw,56px);overflow:clip;padding-block:0!important;isolation:isolate;--edge:var(--home-edge,clamp(20px,5.15vw,84px))}
+/* The dots (round 7: "very extremely subtle"): 1px at 7% white on a 24px grid, faded out toward the edges. */
+.cmc-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.3px);background-size:24px 24px;background-position:12px 12px;-webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 40%,#000 25%,transparent 80%);mask-image:radial-gradient(ellipse 75% 65% at 50% 40%,#000 25%,transparent 80%)}
 .cmc[data-story-section] > .cmc-track.cmc-track{position:relative;z-index:1;max-width:none;margin:0;padding:0;height:calc(100svh + ${DWELL})}
 .cmc-stage{position:sticky;top:0;height:100svh;overflow:hidden;
-  --hd:60px;--pw:min(70vw,300px,calc((100svh - 250px) / 2.07))}
-.cmc-copy{position:absolute;z-index:4;left:20px;right:20px;top:calc(var(--hd) + clamp(14px,3svh,32px));text-align:center}
-.cmc-title{margin:0 auto;font-size:clamp(30px,8.6vw,46px);font-weight:300;line-height:1.04;letter-spacing:-.045em;text-wrap:balance;color:#fff}
+  --hd:60px;--tt:clamp(14px,2.4svh,28px);--pw:min(70vw,300px,calc((100svh - 196px) / 2.07));--rx:41vw;--ry:24svh}
+.cmc-copy{position:absolute;z-index:4;left:var(--edge);right:var(--edge);top:calc(var(--hd) + var(--tt));text-align:center}
+.cmc-title{margin:0 auto;max-width:15em;font-size:clamp(30px,8.4vw,46px);font-weight:300;line-height:1.04;letter-spacing:-.045em;text-wrap:balance;color:#fff}
 .cmc-w{display:inline-block}
-.cmc-phone-wrap{position:absolute;z-index:3;left:50%;bottom:20px;width:var(--pw);margin-left:calc(var(--pw) / -2)}
-.cmc-rise{position:relative}
+.cmc-phone-wrap{position:absolute;z-index:3;left:50%;bottom:clamp(14px,2.4svh,28px);width:var(--pw);margin-left:calc(var(--pw) / -2)}
+.cmc-rise{position:relative;z-index:2}
+.cmc-rise::after{content:"";position:absolute;inset:0;border-radius:calc(var(--pw) * .178);background:#000;opacity:0;pointer-events:none}
 
+/* The ring, centred on the phone, behind it. Paused until the stage is on screen in a visible tab (data-commerce-live). */
+.cmc-floats{position:absolute;z-index:1;left:50%;top:50%;width:0;height:0;pointer-events:none}
+.cmc-orbit{position:absolute;left:0;top:0;width:0;height:0}
+.cmc-o{position:absolute;left:0;top:0;width:clamp(96px,9vw,156px);transform:translate(-50%,-50%)}
+.cmc-lap{display:block;animation:cmc-lap 72s linear infinite both;animation-delay:calc(var(--ph) * -72s);animation-play-state:paused}
+.cmc-stage[data-commerce-live] .cmc-lap{animation-play-state:running}
+.cmc-pic{display:block;width:100%;height:auto;border-radius:14px;object-fit:cover;background:#1a1a1e;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 18px 40px rgba(0,0,0,.55)}
+${lapKeyframes()}
+
+@media (max-width:899px){
+  .cmc-o{width:22vw}
+  .cmc-o:not([data-m]){display:none}
+  .cmc-lap{animation-delay:calc(var(--phm) * -72s)}
+  .cmc-pic{border-radius:10px}
+}
 @media (min-width:900px){
-  .cmc-stage{--hd:68px;--pw:min(410px,calc((100svh - 104px) / 2.07))}
-  .cmc-copy{left:max(var(--landing-gutter,48px),calc(50% - 600px));right:auto;width:min(44vw,560px);top:calc(50% + var(--hd) / 2);transform:translateY(-50%);text-align:left}
-  .cmc-title{margin:0;font-size:clamp(42px,4.5vw,72px)}
-  .cmc-phone-wrap{left:auto;right:max(calc(var(--landing-gutter,48px) + 40px),calc(50% - 500px));bottom:auto;top:calc(50% + var(--hd) / 2);margin:0;transform:translateY(-50%)}
+  .cmc-stage{--hd:68px;--tt:clamp(18px,3.4svh,40px);--pw:min(390px,calc((100svh - 220px) / 2.07));--rx:min(25vw,400px);--ry:25svh}
+  .cmc-title{max-width:none;font-size:clamp(40px,4.3vw,68px)}
+  .cmc-phone-wrap{bottom:clamp(16px,2.6svh,32px)}
 }
 
-/* The tab cards: a black ground that fades in from transparent at its top edge, so the phone goes under it softly. */
-.cmc[data-story-section] > .cmc-cards.cmc-cards{position:relative;z-index:5;max-width:none;margin:calc(${OVERLAP} * -1) 0 0;padding:0;background:linear-gradient(180deg,rgba(0,0,0,0),#000 clamp(90px,14vh,160px))}
-.cmc-cards-in{max-width:1320px;margin:0 auto;padding:clamp(72px,10vh,120px) var(--landing-gutter,clamp(20px,5vw,72px)) clamp(64px,8vw,120px)}
+/* The tab cards: a black ground that fades in from transparent at its top edge, so the cards lie over the phone and it goes under them softly. */
+.cmc[data-story-section] > .cmc-cards.cmc-cards{position:relative;z-index:5;max-width:none;margin:calc(${OVERLAP} * -1) 0 0;padding:0;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.72) clamp(110px,16vh,180px),#000 clamp(220px,30vh,320px))}
+.cmc-cards-in{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:clamp(72px,10vh,120px) var(--edge) clamp(64px,8vw,120px)}
 
 /*
- * The entrance (useEntrance): armed while the section is below the screen,
- * played once it comes in. Transform and opacity, as transitions, so the
+ * The entrances (useEntrances): armed while a part is below the screen,
+ * played once it comes up. Transform and opacity, as transitions, so the
  * compositor runs them and a finger on the glass never waits for them.
  */
 @media (prefers-reduced-motion:no-preference){
-  .cmc-rise{transition:transform 1.15s cubic-bezier(.16,1,.3,1)}
-  .cmc-w{transition:opacity .6s ease,transform .8s cubic-bezier(.16,1,.3,1)}
-  .cmc[data-cmc-armed]:not([data-cmc-in]) .cmc-rise{transform:translate3d(0,22%,0);transition-duration:0s}
-  .cmc[data-cmc-armed]:not([data-cmc-in]) .cmc-w{opacity:0;transform:translate3d(0,.32em,0);transition-duration:0s}
+  .cmc-w{transition:opacity .55s ease,transform .8s cubic-bezier(.16,1,.3,1)}
+  .cmc[data-cmc-words-armed]:not([data-cmc-words]) .cmc-w{opacity:0;transform:translate3d(0,.36em,0);transition-duration:0s;transition-delay:0s}
   ${wordDelays()}
+
+  /* The phone rises from below as its own box comes up the screen. */
+  .cmc-rise{transition:transform 1.1s cubic-bezier(.16,1,.3,1)}
+  .cmc[data-cmc-in-armed]:not([data-cmc-in]) .cmc-rise{transform:translate3d(0,34%,0);transition-duration:0s}
+  /* The ring comes up a beat behind it, from a little lower (parallax). */
+  .cmc-floats{transition:transform 1.4s cubic-bezier(.16,1,.3,1) .08s,opacity .9s ease .08s}
+  .cmc[data-cmc-in-armed]:not([data-cmc-in]) .cmc-floats{opacity:0;transform:translate3d(0,22svh,0);transition-duration:0s;transition-delay:0s}
+
+  /* The cards fade in and lift as they come over the phone; the phone, the ring and the headline step back under them. */
+  .cmc-cards-in{transition:opacity .7s ease,transform .9s cubic-bezier(.16,1,.3,1)}
+  .cmc[data-cmc-over-armed]:not([data-cmc-over]) .cmc-cards-in{opacity:0;transform:translate3d(0,56px,0);transition-duration:0s}
+  .cmc-copy,.cmc-orbit{transition:opacity .6s ease}
+  .cmc-rise::after{transition:opacity .6s ease}
+  .cmc[data-cmc-over] .cmc-rise{transform:translate3d(0,0,0) scale(.97)}
+  .cmc[data-cmc-over] .cmc-rise::after{opacity:.5}
+  .cmc[data-cmc-over] .cmc-orbit{opacity:.25}
+  .cmc[data-cmc-over] .cmc-copy{opacity:0}
 }
 `
 
-/* The iPhone, and the real checkout inside it at the phone's own width (393px), scaled to the drawing by --k. */
+/* The iPhone, and the real checkout page inside it at the phone's own width (393px), scaled to the drawing by --k. */
 const PHONE_CSS = `
 .cmc-phone{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;width:var(--pw);aspect-ratio:100/207;border-radius:calc(var(--pw) * .178);padding:calc(var(--pw) * .0135);background:linear-gradient(140deg,#77777c 0%,#36363a 14%,#1d1d20 42%,#232326 62%,#3c3c40 86%,#808086 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 0 calc(var(--pw) * .01) rgba(255,255,255,.12),0 calc(var(--pw) * .08) calc(var(--pw) * .16) rgba(0,0,0,.6);
   --k:tan(atan2(calc(var(--pw) * .915),393px))}
@@ -980,67 +1218,116 @@ const PHONE_CSS = `
 .cmc-bezel{height:100%;padding:calc(var(--pw) * .029);border-radius:calc(var(--pw) * .165);background:#030303;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
 .cmc-screen{position:relative;height:100%;border-radius:calc(var(--pw) * .137);overflow:hidden;background:#fff;color:#1a1a2e}
 .cmc-ui{position:absolute;left:0;top:0;width:393px;height:852px;transform-origin:0 0;transform:scale(var(--k));font-size:16px;line-height:1.5;font-family:inherit;text-align:left;-webkit-font-smoothing:antialiased}
-.cmc-status{position:absolute;left:0;right:0;top:0;height:3.375em;display:flex;align-items:center;justify-content:space-between;padding:0 1.9em 0 2.35em;font-size:1em;font-weight:600;color:#000}
+.cmc-status{position:absolute;z-index:9;left:0;right:0;top:0;height:3.375em;display:flex;align-items:center;justify-content:space-between;padding:0 1.9em 0 2.35em;font-size:1em;font-weight:600;color:#000}
 .cmc-time{font-size:1.0625em;letter-spacing:-.01em;padding-top:.15em}
-.cmc-island{position:absolute;left:50%;top:.6875em;width:7.875em;height:2.3125em;margin-left:-3.9375em;border-radius:1.2em;background:#000}
+.cmc-island{position:absolute;z-index:9;left:50%;top:.6875em;width:7.875em;height:2.3125em;margin-left:-3.9375em;border-radius:1.2em;background:#000}
 .cmc-icons{display:flex;align-items:center;gap:.32em;padding-top:.15em}
 .cmc-batt{position:relative;width:1.6em;height:.78em;border-radius:.26em;border:1.5px solid rgba(0,0,0,.4);padding:1.5px}
 .cmc-batt::after{content:"";position:absolute;right:-.2em;top:50%;width:.12em;height:.28em;margin-top:-.14em;border-radius:0 1px 1px 0;background:rgba(0,0,0,.4)}
 .cmc-batt span{display:block;width:82%;height:100%;border-radius:.12em;background:#000}
-.cmc-home{position:absolute;left:50%;bottom:.5em;width:8.375em;height:.3125em;margin-left:-4.19em;border-radius:1em;background:#0b0b0d}
+.cmc-home{position:absolute;z-index:9;left:50%;bottom:.5em;width:8.375em;height:.3125em;margin-left:-4.19em;border-radius:1em;background:#0b0b0d}
 
 /* Safari's floating address bar (iOS 26). */
-.rc-safari{position:absolute;left:14px;right:14px;bottom:28px;display:flex;align-items:center;gap:10px;height:50px}
+.rc-safari{position:absolute;z-index:6;left:14px;right:14px;bottom:28px;display:flex;align-items:center;gap:10px;height:50px}
 .rc-sf-btn,.rc-sf-url{display:flex;align-items:center;justify-content:center;height:50px;border-radius:25px;background:rgba(255,255,255,.97);box-shadow:0 0 0 .5px rgba(0,0,0,.1),0 6px 20px rgba(0,0,0,.12);color:#111}
 .rc-sf-btn{flex:none;width:50px}
 .rc-sf-url{flex:1;gap:8px;font-size:16px;font-weight:500;letter-spacing:-.01em}
 
-/* checkout-window.tsx on a phone: the window full screen, its head, its scrolling body. */
-.rc{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#1a1a2e}
-.rc-head{flex:none;padding:66px 20px 20px;background:#f8f9fa;border-bottom:1px solid #eef0f2}
-.rc-row{display:flex;align-items:center;justify-content:space-between}
-.rc-x{display:grid;place-items:center;width:44px;height:44px;margin-right:-8px;border-radius:50%;color:#4b5563}
-.rc-who{display:flex;flex-direction:column;align-items:center;margin-top:-12px;text-align:center}
-.rc-mark{display:block;width:57px;height:76px;border-radius:12px;object-fit:cover;background:#eef0f2;box-shadow:0 0 0 1px rgba(17,17,19,.06)}
-.rc-title{margin-top:10px;font-size:21px;font-weight:600;letter-spacing:-.01em}
-.rc-sub{margin-top:2px;font-size:13.5px;color:#6b7280}
-.rc-body{position:relative;flex:1;min-height:0;overflow:hidden}
-.rc-body-in{display:flex;flex-direction:column;gap:20px;padding:20px 20px 0}
-/* instant-checkout.tsx */
-.rc-sec{display:flex;flex-direction:column;gap:10px}
-.rc-h3{font-size:14.5px;font-weight:600}
-.rc-h3-pay{margin-bottom:8px}
-.rc-in{display:flex;align-items:center;height:48px;padding:0 14px;border:1px solid #e1e3e7;border-radius:12px;background:#fff;font-size:16px;white-space:nowrap;box-sizing:border-box}
-.rc-opt{display:flex;align-items:center;gap:10px;padding:4px 0;font-size:13.5px;color:#4b5563}
-.rc-cb{flex:none;width:16px;height:16px;border:1px solid #8e8e93;border-radius:4px;background:#fff;box-sizing:border-box}
-.rc-sum{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;border:1px solid #e5e7eb;border-radius:12px;font-size:14px}
-.rc-sum-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6b7280}
-.rc-sum b{font-weight:600;font-variant-numeric:tabular-nums}
-.rc-code{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:500;color:#6b7280}
-/* compact-pay.tsx: the wallet and the card as two choices, the card field, Pay. */
-.rc-mwrap{position:relative}
-.rc-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.rc-m{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;border:1px solid #e1e3e7;border-radius:12px;background:#fff;font-size:15px;font-weight:500;box-sizing:border-box}
-.rc-m[data-on]{border-color:#1a1a2e;box-shadow:0 0 0 1px #1a1a2e}
-.rc-after{position:relative}
-.rc-pay{display:flex;align-items:center;justify-content:center;height:52px;margin-top:16px;border-radius:12px;background:#1a1a2e;color:#fff;font-size:16px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 2px rgba(16,24,40,.2)}
-.rc-terms{margin:20px 0 0;text-align:center;font-size:11.5px;line-height:1.625;color:#8b919a}
-.rc-terms u{text-decoration-color:#d1d5db;text-underline-offset:2px}
+/* checkout-client.tsx on a phone (no lg: classes): the page under the status bar, the white bar, the grey order, the form. */
+.pc{position:absolute;inset:0;overflow:hidden;background:#fff;color:#1a1a2e}
+.pc-page{padding-top:54px}
+.pc-bar{position:relative;z-index:1;display:flex;align-items:center;gap:6px;height:56px;padding:0 16px;background:#fff;box-shadow:0 1px 0 rgba(17,17,19,.055),0 4px 12px -10px rgba(17,17,19,.09)}
+.pc-back{flex:none;display:grid;place-items:center;width:44px;height:44px}
+.pc-back-f{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 1px rgba(17,17,19,.04),0 1px 3px -1px rgba(17,17,19,.06);box-sizing:border-box}
+.pc-who{display:flex;align-items:center;gap:8px;min-width:0;padding:4px 10px 4px 4px;font-size:14px;font-weight:500;white-space:nowrap}
+.pc-av{flex:none;width:28px;height:28px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px rgba(17,17,19,.06),0 1px 2px rgba(17,17,19,.08)}
+.pc-cont{flex:none;margin:0 4px 0 auto;display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:9px;border:1px solid #e1e3e7;font-size:13.5px;font-weight:500;white-space:nowrap;box-shadow:0 1px 1px rgba(17,17,19,.04);box-sizing:border-box}
+.pc-sum{padding:24px 20px;background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.06)}
+.pc-payto{margin:0;font-size:15px;font-weight:500;color:#6b7280}
+.pc-total{margin:4px 0 0;font-size:32px;font-weight:600;line-height:1.25;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.pc-det{display:inline-flex;align-items:center;gap:4px;height:32px;margin-top:12px;padding:0 10px;border-radius:6px;background:#e9ebee;font-size:13px;font-weight:500}
+.pc-up{color:#6b7280;transform:rotate(180deg)}
+.pc-details{padding-top:24px}
+.pc-line{display:flex;align-items:flex-start;gap:14px}
+.pc-thumb{flex:none;width:48px;height:48px;overflow:hidden;border-radius:8px;border:1px solid rgba(0,0,0,.06);background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06);box-sizing:border-box}
+.pc-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.pc-li{flex:1;min-width:0;display:flex;flex-direction:column}
+.pc-li b{font-size:14px;font-weight:500;line-height:1.375}
+.pc-li small{margin-top:2px;font-size:12.5px;color:#6b7280}
+.pc-lp{flex:none;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums}
+.pc-tots{margin-top:24px;padding-top:20px;border-top:1px solid rgba(0,0,0,.07);font-size:14px}
+.pc-row{display:flex;justify-content:space-between;gap:16px;font-variant-numeric:tabular-nums}
+.pc-strong{font-weight:500}
+.pc-promo{display:inline-flex;align-items:center;height:32px;margin-top:12px;padding:0 12px;border-radius:6px;background:#e9ebee;font-size:13px;font-weight:500}
+.pc-due{margin-top:20px;padding-top:16px;border-top:1px solid rgba(0,0,0,.07);font-size:15px;font-weight:600}
+.pc-form{padding:28px 20px 40px}
+/* The express button: Stripe's Apple Pay button, black, 44px, checkout's 8px corners. */
+.pc-ap{display:flex;align-items:center;justify-content:center;gap:2px;height:44px;border-radius:8px;background:#000;color:#fff;font-size:19px;font-weight:500;letter-spacing:-.01em}
+.pc-ap svg{margin-top:-3px}
+.pc-or{display:flex;align-items:center;gap:12px;margin:24px 0;font-size:13px;color:#6b7280}
+.pc-or i{flex:1;height:1px;background:#e5e7eb}
+.pc-h{margin-bottom:12px;font-size:16px;font-weight:600}
+.pc-gap{margin-top:32px}
+.pc-in{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:8px;border:1px solid #e1e3e7;background:#fff;font-size:16px;white-space:nowrap;box-shadow:0 1px 1px rgba(0,0,0,.03),0 3px 6px rgba(0,0,0,.02);box-sizing:border-box}
+.pc-ph{color:#a2a7b0}
+.pc-sel{justify-content:space-between}
+.pc-sel svg{color:#6b7280}
+.pc-check{display:flex;align-items:flex-start;gap:10px;margin-top:14px;padding:4px 0;font-size:14px;line-height:1.45;color:#4b5563}
+.pc-box{flex:none;width:18px;height:18px;margin-top:1px;border-radius:5px;border:1px solid #c9ccd2;background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.04);box-sizing:border-box}
+/* Stripe's Payment Element as checkout dresses it (stripeAppearance): the accordion item, its radio, 13px labels over 8px fields. */
+.pc-acc{padding:14px 16px 16px;border-radius:8px;border:1px solid #e1e3e7;box-shadow:0 1px 1px rgba(0,0,0,.03),0 3px 6px rgba(0,0,0,.02)}
+.pc-acc-h{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:500}
+.pc-acc-h svg{color:#6b7280}
+.pc-radio{flex:none;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;border:1px solid #1a1a2e;box-sizing:border-box}
+.pc-radio i{width:8px;height:8px;border-radius:50%;background:#1a1a2e}
+.pc-lbl{display:block;margin:14px 0 6px;font-size:13px;font-weight:500;color:#4b5563}
+.pc-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pc-brands{display:flex;gap:4px;margin-left:auto}
+.pc-brands i{display:grid;place-items:center;width:30px;height:20px;border-radius:3px;font-style:normal}
+.pc-visa{background:#1a1f71;color:#fff;font-size:9px;font-weight:800;letter-spacing:.02em}
+.pc-mc{position:relative;background:#252525}
+.pc-mc b{position:absolute;top:4px;width:12px;height:12px;border-radius:50%;background:#eb001b}
+.pc-mc b:first-child{left:6px}
+.pc-mc b+b{left:12px;background:#f79e1b;opacity:.9}
+.pc-terms{margin-top:28px}
+.pc-terms u{color:#1a1a2e;font-weight:500;text-decoration-color:#c9ccd2;text-underline-offset:2px}
+.pc-pay{display:flex;align-items:center;justify-content:center;height:48px;margin-top:20px;border-radius:8px;background:#1a1a2e;color:#fff;font-size:16px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 1px rgba(0,0,0,.12),0 3px 8px -2px rgba(26,26,46,.35)}
 .rc-pow{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 4px;margin:14px 0 0;padding:6px 0;font-size:12.5px;color:#8b919a}
 .rc-pow-s{display:inline-flex;align-items:center;gap:4px;padding:0 4px}
 .rc-pow-s svg{margin-top:1px}
 .rc-pow i{font-style:normal;color:#c4c8ce;padding:0 4px}
-/* The One-tap demo's moving parts: a ring that moves to Card, the card field it opens. */
-.ck-stack{display:inline-grid;place-items:center}
-.ck-stack>*{grid-area:1/1}
-.ck-w{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-.ck-mw-a{gap:2px}
-.ck-mw-g{gap:4px}
-.ck-w-g,.ck-w-c,.ck-mw-g{opacity:0}
-.ck-ring{position:absolute;left:0;top:0;z-index:1;width:calc(50% - 5px);height:48px;border-radius:12px;box-shadow:0 0 0 2px #1a1a2e;pointer-events:none}
-.rc-cardf{position:absolute;left:0;right:0;top:calc(100% + 12px);display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border:1px solid #e1e3e7;border-radius:12px;background:#fff;font-size:16px;box-sizing:border-box;opacity:0}
-.rc-cardn{flex:1;white-space:nowrap}
-.rc-cardx{flex:none;color:#1a1a2e}
+
+/* The One-tap demo: the page scrolled down to its form (a still transform), a white strip under the status bar. */
+.pc[data-pay] .pc-page{transform:translate3d(0,-410px,0)}
+.pc-top{position:absolute;left:0;right:0;top:0;z-index:2;height:54px;background:#fff}
+.pc-touch{position:absolute;left:50%;top:128px;z-index:2;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:rgba(26,26,46,.18);opacity:0}
+.ap-dim{position:absolute;inset:0;z-index:7;background:#000;opacity:0}
+/* Apple Pay's sheet on iOS 26: floating, inset, round. */
+.ap-sheet{position:absolute;left:8px;right:8px;bottom:8px;z-index:8;padding:22px 22px 24px;border-radius:44px;background:#fff;box-shadow:0 -10px 40px rgba(0,0,0,.2);transform:translate3d(0,110%,0);font-size:16px;color:#000}
+.ap-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ap-logo{display:inline-flex;align-items:center;gap:2px;font-size:24px;font-weight:600;letter-spacing:-.02em}
+.ap-logo svg{width:20px;height:24px;margin-top:-4px}
+.ap-x{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#ececee;color:#6e6e73}
+.ap-row{display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #e5e5ea}
+.ap-card{flex:none;width:46px;height:30px;border-radius:5px;background:linear-gradient(135deg,#1d3b8b,#0d1b4a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.ap-t{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.ap-t b{font-size:16px;font-weight:500}
+.ap-t small{font-size:13px;color:#6e6e73}
+.ap-chev{flex:none;color:#c7c7cc;transform:rotate(-90deg)}
+.ap-sum{display:flex;align-items:baseline;justify-content:space-between;padding:16px 4px 4px;font-size:15px;color:#6e6e73}
+.ap-sum b{font-size:28px;font-weight:600;letter-spacing:-.02em;color:#000}
+.ap-foot{display:grid;place-items:center;height:92px;margin-top:8px}
+.ap-foot>*{grid-area:1/1}
+.ap-side{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:15px;color:#3a3a3c}
+.ap-btn{width:46px;height:46px;border-radius:12px;border:2.5px solid #0a84ff;box-sizing:border-box;position:relative}
+.ap-btn::after{content:"";position:absolute;right:-9px;top:8px;width:4px;height:24px;border-radius:2px;background:#0a84ff}
+.ap-done{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:15px;font-weight:500;color:#0a84ff;opacity:0}
+/* checkout's paid screen (parts/success.tsx). */
+.pc-paid{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 32px 40px;text-align:center;background:#fff;opacity:0}
+.pc-paid-ring{display:block;width:64px;height:64px}
+.pc-paid-ring svg{display:block}
+.pc-paid b{margin-top:20px;font-size:20px;font-weight:600;letter-spacing:-.01em}
+.pc-paid small{margin-top:4px;font-size:14px;color:#6b7280}
 `
 /*
  * Built to convert, the website checkout at a desktop width (880 design
@@ -1184,9 +1471,12 @@ const TABS_CSS = `
 .cmv-phone{position:absolute;left:5.5em;top:2.4em;--pw:calc(100cqw * 17 / 48)}
 .cmv-phone .cmc-phone{box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 1.5em 3em rgba(0,0,0,.55)}
 .cmv-links{position:absolute;left:25.5em;right:2.4em;top:9.5em;display:grid;gap:1em}
-.cmv-link{position:relative;display:flex;align-items:center;gap:.9em;height:4.6em;padding:0 1em;font-size:1em}
-.cmv-link::before{content:"";position:absolute;right:100%;top:50%;width:3.4em;height:1px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.28));transform-origin:100% 50%}
+.cmv-link{position:relative;display:flex;align-items:center;gap:.9em;height:4.6em;padding:0 1em;font-size:1em;opacity:.6}
+.cmv-link[data-on]{opacity:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
+.cmv-link[data-on]::before{content:"";position:absolute;right:100%;top:50%;width:3.4em;height:1px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.3))}
 .cmv-link-m{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:.08em;width:3.6em;height:2.4em;border-radius:.6em;background:#000;color:#fff;font-size:.95em;font-weight:600;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.cmv-link-m svg{flex:none;width:.95em;height:1.1em}
+.cmv-link-gp svg{width:1.05em;height:1.05em}
 .cmv-link-gp{background:#fff;color:#3c4043}
 .cmv-link-st{background:#635bff}
 .cmv-stripe{font-size:1.02em;font-weight:700;letter-spacing:-.03em;color:#fff}
@@ -1213,14 +1503,14 @@ const TABS_CSS = `
 .cmv-chip{position:relative;display:flex;align-items:center;justify-content:center;gap:.45em;height:2.8em;font-size:.95em;font-weight:600;letter-spacing:.02em;color:#e4e4e7}
 .cmv-hl{position:absolute;left:.3em;top:.3em;bottom:.3em;width:calc((100% - .6em) / 5);border-radius:.9em;background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
 
-/* The reminder: three moments and the email. */
+/* The reminder: three moments on one rail that fills as the hour passes, and the email. */
 .cmv-rec{position:absolute;inset:0;font-size:1.15em}
 .cmv-tl{position:absolute;left:3.6em;right:2.4em;top:2.6em;display:grid;grid-template-columns:repeat(3,1fr)}
+.cmv-rail{position:absolute;left:.35em;right:calc(33.333% - .35em);top:.25em;height:2px;border-radius:1px;background:rgba(255,255,255,.12);overflow:hidden}
+.cmv-fill{position:absolute;inset:0;background:linear-gradient(90deg,#e4e4e7,#4ade80);transform-origin:0 50%}
 .cmv-st{position:relative;display:grid;gap:.1em;padding-top:1.5em;font-size:.85em}
-.cmv-st i{position:absolute;left:0;top:0;width:.7em;height:.7em;border-radius:50%;background:#e4e4e7}
+.cmv-st i{position:absolute;left:0;top:0;width:.7em;height:.7em;border-radius:50%;background:#e4e4e7;box-shadow:0 0 0 .25em #111113}
 .cmv-st3 i{background:#4ade80}
-.cmv-st::after{content:"";position:absolute;left:1.3em;right:.6em;top:.32em;height:1px;background:rgba(255,255,255,.16)}
-.cmv-st3::after{display:none}
 .cmv-st b{font-weight:500;color:#f4f4f5;white-space:nowrap}
 .cmv-st small{font-size:.9em;color:#8b8b94}
 .cmv-mail{position:absolute;left:3.6em;right:3.6em;top:8.6em;padding:1.5em 1.7em}
@@ -1250,8 +1540,9 @@ const TABS_CSS = `
   .cmc-vis-in{font-size:calc(100cqw / 30)}
   /* Built to convert: the same desktop window, whole, a little taller so the page shows more of itself. */
   .cdx{--ar:880/1000}
-  .cmv-phone{left:1.4em;top:1.6em;--pw:calc(100cqw * 14.2 / 30)}
-  .cmv-links{left:12.4em;right:.8em;top:6.5em;gap:.8em}
+  .cmv-phone{left:1.2em;top:1.8em;--pw:calc(100cqw * 12.6 / 30)}
+  .cmv-links{left:14.6em;right:.8em;top:8.5em;gap:.8em}
+  .cmv-link[data-on]::before{width:.8em}
   .cmv-link{height:4.4em;padding:0 .7em;gap:.6em;font-size:.86em}
   .cmv-link-t small{display:none}
   .cmv-sale{right:.8em;left:.8em;top:.8em;width:auto;font-size:.9em}
@@ -1294,7 +1585,7 @@ const FIELDS: [string, number][] = [
 /* Built to convert: the form fills, the page scrolls to the shipping, it is chosen and the totals settle, on down to the card, Pay, paid, the seller's notice, and back to the top under the paid screen. */
 const LOOP_CSS = u(`
 @media (prefers-reduced-motion:no-preference){
-  ${ON} :is(.cdx-v,.cdx-ph,.cdx-scroll,.cdx-sum-in,.cdx-radio i,.cdx-s0,.cdx-s1,.cdx-t0,.cdx-t1,.cdx-box-terms,.cmv-cursor,.cdx-pay,.cdx-paid,.cdx-ring,.cdx-paid b,.cdx-paid small,.cmv-sale,.ck-ring,.ck-w-a,.ck-w-g,.ck-w-c,.ck-mw-a,.ck-mw-g,.rc-cardf,.rc-after,.rc-body-in,.cmv-link,.cmv-ok,.cmv-cyc,.cmv-hl,.cmv-st,.cmv-mail){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1)}
+  ${ON} :is(.cdx-v,.cdx-ph,.cdx-scroll,.cdx-sum-in,.cdx-radio i,.cdx-s0,.cdx-s1,.cdx-t0,.cdx-t1,.cdx-box-terms,.cmv-cursor,.cdx-pay,.cdx-paid,.cdx-ring,.cdx-paid b,.cdx-paid small,.cmv-sale,.pc-ap,.pc-touch,.ap-dim,.ap-sheet,.ap-side,.ap-done,.pc-paid,.pc-paid-ring,.pc-paid b,.pc-paid small,.cmv-cyc,.cmv-hl,.cmv-rec,.cmv-fill,.cmv-st,.cmv-mail,.cmv-mail-btn){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1)}
   ${ON} .cdx-v-country,${ON} .cdx-v-state{animation-name:none}
   ${FIELDS.map(([k, t]) => typed(k, t)).join("\n  ")}
   ${ON} .cdx-scroll{animation-name:cdx-scroll}
@@ -1312,29 +1603,26 @@ const LOOP_CSS = u(`
   ${ON} .cdx-paid b,${ON} .cdx-paid small{animation-name:cdx-paidt}
   ${ON} .cmv-sale{animation-name:cmv-sale}
 
-  ${ON} .ck-ring{animation-name:cmv-ring}
-  ${ON} .ck-w-a{animation-name:cmv-wa}
-  ${ON} .ck-w-g{animation-name:cmv-wg}
-  ${ON} .ck-w-c{animation-name:cmv-wc}
-  ${ON} .rc-cardf{animation-name:cmv-cardf}
-  ${ON} .rc-after{animation-name:cmv-after}
-  ${ON} .rc-body-in{animation-name:cmv-lift}
-  ${ON} .ck-mw-a{animation-name:cmv-mwa}
-  ${ON} .ck-mw-g{animation-name:cmv-mwg}
-  ${ON} .cmv-link-a{animation-name:cmv-la}
-  ${ON} .cmv-link-g{animation-name:cmv-lg}
-  ${ON} .cmv-link-s{animation-name:cmv-ls}
-  ${ON} .cmv-link-a .cmv-ok{animation-name:cmv-ok0}
-  ${ON} .cmv-link-g .cmv-ok{animation-name:cmv-ok1}
-  ${ON} .cmv-link-s .cmv-ok{animation-name:cmv-ok2}
+  ${ON} .pc-ap{animation-name:pc-press}
+  ${ON} .pc-touch{animation-name:pc-touch}
+  ${ON} .ap-dim{animation-name:ap-dim}
+  ${ON} .ap-sheet{animation-name:ap-sheet}
+  ${ON} .ap-side{animation-name:ap-side}
+  ${ON} .ap-done{animation-name:ap-done}
+  ${ON} .pc-paid{animation-name:pc-paid}
+  ${ON} .pc-paid-ring{animation-name:pc-ring}
+  ${ON} .pc-paid b,${ON} .pc-paid small{animation-name:pc-paidt}
 
   ${ON} .cmv-cyc{animation-name:cmv-cyc;animation-delay:calc(var(--i) * ${LOOP_S / 5}s)}
   ${ON} .cmv-hl{animation-name:cmv-hl}
 
+  ${ON} .cmv-rec{animation-name:cmv-rec;animation-timing-function:ease}
+  ${ON} .cmv-fill{animation-name:cmv-fill;animation-timing-function:cubic-bezier(.45,0,.2,1)}
   ${ON} .cmv-st1{animation-name:cmv-st1}
   ${ON} .cmv-st2{animation-name:cmv-st2}
   ${ON} .cmv-st3{animation-name:cmv-st3}
-  ${ON} .cmv-mail{animation-name:cmv-mail}
+  ${ON} .cmv-mail{animation-name:cmv-mail;animation-timing-function:cubic-bezier(.16,1,.3,1)}
+  ${ON} .cmv-mail-btn{animation-name:cmv-btn}
 }
 @keyframes cdx-scroll{0%,${at(2.1)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(2.8)},${at(3.4)}{transform:translate3d(0,calc(var(--s1) * -1),0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(4.1)},${at(RESET)}{transform:translate3d(0,calc(var(--s2) * -1),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
 @keyframes cdx-stick{0%,${at(2.1)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(2.8)},${at(3.4)}{transform:translate3d(0,max(0px,calc(var(--s1) - 62u)),0);animation-timing-function:cubic-bezier(.45,0,.2,1)}${at(4.1)},${at(RESET)}{transform:translate3d(0,max(0px,calc(var(--s2) - 62u)),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
@@ -1348,30 +1636,27 @@ const LOOP_CSS = u(`
 @keyframes cdx-ring{0%,${at(6.2)}{opacity:0;transform:scale(.5)}${at(6.6)},100%{opacity:1;transform:scale(1)}}
 @keyframes cdx-paidt{0%,${at(6.35)}{opacity:0;transform:translate3d(0,8u,0)}${at(6.75)},100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmv-sale{0%,${at(6.9)}{opacity:0;transform:translate3d(0,-1em,0)}${at(7.4)},${at(9.2)}{opacity:1;transform:translate3d(0,0,0)}${at(9.6)},100%{opacity:0;transform:translate3d(0,-.4em,0)}}
-/* One-tap payments: Apple Pay, then Google Pay, then the card on Stripe, each lit on the phone and beside it, each ticked as connected. */
-@keyframes cmv-ring{0%,${at(3.2)}{transform:translate3d(0,0,0)}${at(3.6)},${at(6.4)}{transform:translate3d(0,0,0)}${at(6.8)},${at(9.6)}{transform:translate3d(calc(100% + 10px),0,0)}100%{transform:translate3d(0,0,0)}}
-@keyframes cmv-wa{0%,${at(3.2)}{opacity:1;transform:translate3d(0,0,0)}${at(3.5)},${at(9.6)}{opacity:0;transform:translate3d(0,-.4em,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmv-wg{0%,${at(3.25)}{opacity:0;transform:translate3d(0,.4em,0)}${at(3.55)},${at(6.4)}{opacity:1;transform:translate3d(0,0,0)}${at(6.7)},100%{opacity:0;transform:translate3d(0,-.4em,0)}}
-@keyframes cmv-mwa{0%,${at(3.2)}{opacity:1;transform:translate3d(0,0,0)}${at(3.5)},${at(6.4)}{opacity:0;transform:translate3d(0,-.4em,0)}${at(6.7)},100%{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmv-mwg{0%,${at(3.25)}{opacity:0;transform:translate3d(0,.4em,0)}${at(3.55)},${at(6.4)}{opacity:1;transform:translate3d(0,0,0)}${at(6.7)},100%{opacity:0;transform:translate3d(0,-.4em,0)}}
-@keyframes cmv-cardf{0%,${at(6.45)}{opacity:0}${at(6.75)},${at(9.6)}{opacity:1}${at(9.9)},100%{opacity:0}}
-@keyframes cmv-after{0%,${at(6.4)}{transform:translate3d(0,0,0)}${at(6.75)},${at(9.6)}{transform:translate3d(0,60px,0)}${at(9.95)},100%{transform:translate3d(0,0,0)}}
-@keyframes cmv-lift{0%,${at(6.4)}{transform:translate3d(0,0,0)}${at(6.75)},${at(9.6)}{transform:translate3d(0,-60px,0)}${at(9.95)},100%{transform:translate3d(0,0,0)}}
-@keyframes cmv-wc{0%,${at(6.45)}{opacity:0;transform:translate3d(0,.4em,0)}${at(6.75)},${at(9.6)}{opacity:1;transform:translate3d(0,0,0)}${at(9.9)},100%{opacity:0}}
-@keyframes cmv-la{0%,${at(3.2)}{opacity:1;transform:translate3d(0,0,0)}${at(3.5)},${at(9.6)}{opacity:.45;transform:translate3d(.5em,0,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmv-lg{0%,${at(3.2)}{opacity:.45;transform:translate3d(.5em,0,0)}${at(3.5)},${at(6.4)}{opacity:1;transform:translate3d(0,0,0)}${at(6.7)},100%{opacity:.45;transform:translate3d(.5em,0,0)}}
-@keyframes cmv-ls{0%,${at(6.4)}{opacity:.45;transform:translate3d(.5em,0,0)}${at(6.7)},${at(9.6)}{opacity:1;transform:translate3d(0,0,0)}${at(9.9)},100%{opacity:.45;transform:translate3d(.5em,0,0)}}
-@keyframes cmv-ok0{0%,${at(0.3)}{opacity:0;transform:scale(.4)}${at(0.7)},100%{opacity:1;transform:scale(1)}}
-@keyframes cmv-ok1{0%,${at(3.5)}{opacity:0;transform:scale(.4)}${at(3.9)},100%{opacity:1;transform:scale(1)}}
-@keyframes cmv-ok2{0%,${at(6.7)}{opacity:0;transform:scale(.4)}${at(7.1)},100%{opacity:1;transform:scale(1)}}
+/* One-tap payments: a tap on Apple Pay, the wallet's sheet up, Done, the sheet away, Payment complete, and back. Eight layers, transform and opacity, nothing else. */
+@keyframes pc-press{0%,${at(1)}{transform:scale(1)}${at(1.12)}{transform:scale(.96)}${at(1.34)},100%{transform:scale(1)}}
+@keyframes pc-touch{0%,${at(0.95)}{opacity:0;transform:scale(.4)}${at(1.08)}{opacity:1;transform:scale(1)}${at(1.5)},100%{opacity:0;transform:scale(1.4)}}
+@keyframes ap-dim{0%,${at(1.25)}{opacity:0}${at(1.75)},${at(4.25)}{opacity:.32}${at(4.75)},100%{opacity:0}}
+@keyframes ap-sheet{0%,${at(1.25)}{transform:translate3d(0,110%,0)}${at(1.9)},${at(4.25)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.5,0,.75,0)}${at(4.7)},100%{transform:translate3d(0,110%,0)}}
+@keyframes ap-side{0%,${at(2.9)}{opacity:1}${at(3.1)},${at(4.8)}{opacity:0}${at(5)},100%{opacity:1}}
+@keyframes ap-done{0%,${at(3)}{opacity:0;transform:scale(.7)}${at(3.4)},${at(4.8)}{opacity:1;transform:scale(1)}${at(5)},100%{opacity:0;transform:scale(.7)}}
+@keyframes pc-paid{0%,${at(4.35)}{opacity:0}${at(4.8)},${at(8.9)}{opacity:1}${at(9.4)},100%{opacity:0}}
+@keyframes pc-ring{0%,${at(4.45)}{opacity:0;transform:scale(.6)}${at(4.95)},100%{opacity:1;transform:scale(1)}}
+@keyframes pc-paidt{0%,${at(4.6)}{opacity:0;transform:translate3d(0,8px,0)}${at(5)},100%{opacity:1;transform:translate3d(0,0,0)}}
 /* Local currencies: each reading in turn, the marker stepping along under it. */
 @keyframes cmv-cyc{0%{opacity:0;transform:translate3d(0,.25em,0)}4%,17%{opacity:1;transform:translate3d(0,0,0)}21%,100%{opacity:0;transform:translate3d(0,-.25em,0)}}
 @keyframes cmv-hl{0%,17%{transform:translate3d(0,0,0)}21%,37%{transform:translate3d(100%,0,0)}41%,57%{transform:translate3d(200%,0,0)}61%,77%{transform:translate3d(300%,0,0)}81%,96%{transform:translate3d(400%,0,0)}100%{transform:translate3d(0,0,0)}}
-/* Checkout reminders: left, reminded (the email arrives), paid. Few layers, quick to arrive. */
-@keyframes cmv-st1{0%,${at(0.1)}{opacity:.3}${at(0.4)},${at(9.2)}{opacity:1}${at(9.6)},100%{opacity:.3}}
-@keyframes cmv-st2{0%,${at(0.9)}{opacity:.3}${at(1.2)},${at(9.2)}{opacity:1}${at(9.6)},100%{opacity:.3}}
-@keyframes cmv-st3{0%,${at(4.2)}{opacity:.3}${at(4.5)},${at(9.2)}{opacity:1}${at(9.6)},100%{opacity:.3}}
-@keyframes cmv-mail{0%,${at(0.9)}{opacity:0;transform:translate3d(0,.8em,0)}${at(1.4)},${at(9.2)}{opacity:1;transform:translate3d(0,0,0)}${at(9.6)},100%{opacity:0;transform:translate3d(0,0,0)}}
+/* Checkout reminders: left at Pay, the rail fills to the hour, the email comes up, Finish checkout, paid; then the whole demo fades and starts over (one fade, not each part on its own). */
+@keyframes cmv-rec{0%{opacity:0}${at(0.3)},${at(9.35)}{opacity:1}${at(9.8)},100%{opacity:0}}
+@keyframes cmv-fill{0%,${at(0.35)}{transform:scaleX(0)}${at(1.15)},${at(4.1)}{transform:scaleX(.5)}${at(4.7)},100%{transform:scaleX(1)}}
+@keyframes cmv-st1{0%,${at(0.2)}{opacity:.35}${at(0.5)},100%{opacity:1}}
+@keyframes cmv-st2{0%,${at(0.95)}{opacity:.35}${at(1.25)},100%{opacity:1}}
+@keyframes cmv-st3{0%,${at(4.55)}{opacity:.35}${at(4.85)},100%{opacity:1}}
+@keyframes cmv-mail{0%,${at(1)}{opacity:0;transform:translate3d(0,1.4em,0)}${at(1.9)},100%{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes cmv-btn{0%,${at(3.8)}{transform:scale(1)}${at(3.95)}{transform:scale(.94)}${at(4.2)},100%{transform:scale(1)}}
 `)
 
 /* The mocks' resting states, where no loop runs: paid, Apple Pay, the email in. */
@@ -1387,6 +1672,7 @@ const STILL_CSS = `
   .cmc[data-story-section] > .cmc-cards.cmc-cards{margin-top:0}
   .cmc-stage{position:relative;height:max(100svh,calc(var(--pw) * 2.07 + 220px))}
   .cmc-stage *{transition:none!important;animation:none!important}
+  .cmc-floats{display:none}
   .cmc-panel,.cmc-tab{transition:none!important}
 }
 `
