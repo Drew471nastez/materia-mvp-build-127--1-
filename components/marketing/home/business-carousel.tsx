@@ -45,9 +45,9 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   stage still stand on one laptop screen. Physical products is a row of four
   things one store ships, turning like the digital covers.
 */
-export const BUSINESS_HEADING = "Sell what you make"
+export const BUSINESS_HEADING = "One store, every kind of product"
 /** The line under the heading: at most ten words (the owner). */
-export const BUSINESS_SUB = "Files, merch, courses, memberships and calls, from one store."
+export const BUSINESS_SUB = "Downloads, merch, courses, communities and calls, each with checkout."
 export const BUSINESS_SLIDE_MS = 6500
 /** How long autoplay waits after a finger leaves the stage. */
 export const BUSINESS_TOUCH_RESUME_MS = 2500
@@ -178,7 +178,7 @@ export function BusinessCarousel() {
     >
       <ShowcaseStyles styles={BUSINESS_STYLES} />
       <div className="biz-head">
-        <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={["make"]} />
+        <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={["every", "kind", "of", "product"]} />
         <p className="biz-sub">{BUSINESS_SUB}</p>
       </div>
       <div className="biz-body">

@@ -46,7 +46,7 @@ const small = (n: string) => { const p = `public/home/showcase/${n}.webp`; retur
 
 console.log("\nA new heading and a line under it")
 {
-  check("the heading is no longer the question", (BUSINESS_HEADING as string) !== "What will you sell?" && BUSINESS_HEADING === "Sell what you make" && !html.includes("What will you sell"))
+  check("the heading is no longer the question", (BUSINESS_HEADING as string) !== "What will you sell?" && /* Lead (landing round 11): "Sell what you make" is already section 3's heading, so this one names what the section shows. */ BUSINESS_HEADING === "One store, every kind of product" && !html.includes("What will you sell"))
   check("the subheading is at most ten words", typeof BUSINESS_SUB === "string" && BUSINESS_SUB.trim().split(/\s+/).length <= 10, BUSINESS_SUB)
   check("it stands under the heading, in the heading block", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><p class="biz-sub">[^<]+<\/p><\/div><div class="biz-body">/.test(html))
   check("it is a quiet line: body size, grey, set close under the heading", /\.biz-sub\{margin:clamp\(8px,\.9vw,14px\) 0 0;[^}]*font-size:clamp\(16px,1\.25vw,19px\);[^}]*color:#65616e\}/.test(css))
