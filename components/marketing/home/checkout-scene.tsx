@@ -149,13 +149,32 @@ function useEntrances(rootRef: React.RefObject<HTMLElement | null>) {
       const el = root.querySelector(sel)
       if (el) parts.set(el, attr)
     }
+    /* What the observer last said of each part, to tell a real arrival from a repeat. */
+    const seen = new Map<Element, boolean>()
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
           const attr = parts.get(e.target)
           if (!attr) continue
+          const was = seen.get(e.target)
+          seen.set(e.target, e.isIntersecting)
           if (e.isIntersecting) {
             if (root.hasAttribute(`${attr}-armed`)) root.setAttribute(attr, "")
+            /*
+             * A part arrived: ask about the others afresh (observing again
+             * reports where they are now). A jump past the whole section and
+             * back (a tap on the status bar, a link) crosses none of them, so
+             * the observer would not tell, and the phone would stay dimmed
+             * under cards that are not there, or never rise again. A repeat
+             * answer changes nothing, so this never loops.
+             */
+            if (was === false) {
+              for (const other of parts.keys()) {
+                if (other === e.target) continue
+                io.unobserve(other)
+                io.observe(other)
+              }
+            }
           } else if (e.boundingClientRect.top > 0 || e.boundingClientRect.height === 0) {
             /* Below the screen, or not laid out yet: the lazy box skips its content (content-visibility) until it is near, and the observer then reports an empty box at 0. Round 5 read that as "on screen" and never armed, so the rise never played. */
             root.removeAttribute(attr)
@@ -964,7 +983,7 @@ function VisTap() {
           </span>
           <span className="cmv-link-t">
             <b>Cards</b>
-            <small>Visa, Mastercard, Amex on Stripe</small>
+            <small>Visa, Mastercard, Amex</small>
           </span>
           <i className="cmv-ok" />
         </span>
@@ -1131,6 +1150,7 @@ const SCENE_CSS = `
 .cmc-w{display:inline-block}
 .cmc-phone-wrap{position:absolute;z-index:3;left:50%;bottom:clamp(14px,2.4svh,28px);width:var(--pw);margin-left:calc(var(--pw) / -2)}
 .cmc-rise{position:relative;z-index:2}
+.cmc-rise::after{content:"";position:absolute;inset:0;border-radius:calc(var(--pw) * .178);background:#000;opacity:0;pointer-events:none}
 
 /* The ring, centred on the phone, behind it. Paused until the stage is on screen in a visible tab (data-commerce-live). */
 .cmc-floats{position:absolute;z-index:1;left:50%;top:50%;width:0;height:0;pointer-events:none}
@@ -1168,7 +1188,7 @@ ${lapKeyframes()}
   ${wordDelays()}
 
   /* The phone rises from below as its own box comes up the screen. */
-  .cmc-rise{transition:transform 1.1s cubic-bezier(.16,1,.3,1),opacity .6s ease}
+  .cmc-rise{transition:transform 1.1s cubic-bezier(.16,1,.3,1)}
   .cmc[data-cmc-in-armed]:not([data-cmc-in]) .cmc-rise{transform:translate3d(0,34%,0);transition-duration:0s}
   /* The ring comes up a beat behind it, from a little lower (parallax). */
   .cmc-floats{transition:transform 1.4s cubic-bezier(.16,1,.3,1) .08s,opacity .9s ease .08s}
@@ -1178,7 +1198,9 @@ ${lapKeyframes()}
   .cmc-cards-in{transition:opacity .7s ease,transform .9s cubic-bezier(.16,1,.3,1)}
   .cmc[data-cmc-over-armed]:not([data-cmc-over]) .cmc-cards-in{opacity:0;transform:translate3d(0,56px,0);transition-duration:0s}
   .cmc-copy,.cmc-orbit{transition:opacity .6s ease}
-  .cmc[data-cmc-over] .cmc-rise{opacity:.3;transform:translate3d(0,0,0) scale(.97)}
+  .cmc-rise::after{transition:opacity .6s ease}
+  .cmc[data-cmc-over] .cmc-rise{transform:translate3d(0,0,0) scale(.97)}
+  .cmc[data-cmc-over] .cmc-rise::after{opacity:.5}
   .cmc[data-cmc-over] .cmc-orbit{opacity:.25}
   .cmc[data-cmc-over] .cmc-copy{opacity:0}
 }
@@ -1196,17 +1218,17 @@ const PHONE_CSS = `
 .cmc-bezel{height:100%;padding:calc(var(--pw) * .029);border-radius:calc(var(--pw) * .165);background:#030303;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
 .cmc-screen{position:relative;height:100%;border-radius:calc(var(--pw) * .137);overflow:hidden;background:#fff;color:#1a1a2e}
 .cmc-ui{position:absolute;left:0;top:0;width:393px;height:852px;transform-origin:0 0;transform:scale(var(--k));font-size:16px;line-height:1.5;font-family:inherit;text-align:left;-webkit-font-smoothing:antialiased}
-.cmc-status{position:absolute;left:0;right:0;top:0;height:3.375em;display:flex;align-items:center;justify-content:space-between;padding:0 1.9em 0 2.35em;font-size:1em;font-weight:600;color:#000}
+.cmc-status{position:absolute;z-index:9;left:0;right:0;top:0;height:3.375em;display:flex;align-items:center;justify-content:space-between;padding:0 1.9em 0 2.35em;font-size:1em;font-weight:600;color:#000}
 .cmc-time{font-size:1.0625em;letter-spacing:-.01em;padding-top:.15em}
-.cmc-island{position:absolute;left:50%;top:.6875em;width:7.875em;height:2.3125em;margin-left:-3.9375em;border-radius:1.2em;background:#000}
+.cmc-island{position:absolute;z-index:9;left:50%;top:.6875em;width:7.875em;height:2.3125em;margin-left:-3.9375em;border-radius:1.2em;background:#000}
 .cmc-icons{display:flex;align-items:center;gap:.32em;padding-top:.15em}
 .cmc-batt{position:relative;width:1.6em;height:.78em;border-radius:.26em;border:1.5px solid rgba(0,0,0,.4);padding:1.5px}
 .cmc-batt::after{content:"";position:absolute;right:-.2em;top:50%;width:.12em;height:.28em;margin-top:-.14em;border-radius:0 1px 1px 0;background:rgba(0,0,0,.4)}
 .cmc-batt span{display:block;width:82%;height:100%;border-radius:.12em;background:#000}
-.cmc-home{position:absolute;left:50%;bottom:.5em;width:8.375em;height:.3125em;margin-left:-4.19em;border-radius:1em;background:#0b0b0d}
+.cmc-home{position:absolute;z-index:9;left:50%;bottom:.5em;width:8.375em;height:.3125em;margin-left:-4.19em;border-radius:1em;background:#0b0b0d}
 
 /* Safari's floating address bar (iOS 26). */
-.rc-safari{position:absolute;left:14px;right:14px;bottom:28px;display:flex;align-items:center;gap:10px;height:50px}
+.rc-safari{position:absolute;z-index:6;left:14px;right:14px;bottom:28px;display:flex;align-items:center;gap:10px;height:50px}
 .rc-sf-btn,.rc-sf-url{display:flex;align-items:center;justify-content:center;height:50px;border-radius:25px;background:rgba(255,255,255,.97);box-shadow:0 0 0 .5px rgba(0,0,0,.1),0 6px 20px rgba(0,0,0,.12);color:#111}
 .rc-sf-btn{flex:none;width:50px}
 .rc-sf-url{flex:1;gap:8px;font-size:16px;font-weight:500;letter-spacing:-.01em}
@@ -1276,12 +1298,12 @@ const PHONE_CSS = `
 .rc-pow i{font-style:normal;color:#c4c8ce;padding:0 4px}
 
 /* The One-tap demo: the page scrolled down to its form (a still transform), a white strip under the status bar. */
-.pc[data-pay] .pc-page{transform:translate3d(0,-478px,0)}
+.pc[data-pay] .pc-page{transform:translate3d(0,-410px,0)}
 .pc-top{position:absolute;left:0;right:0;top:0;z-index:2;height:54px;background:#fff}
-.pc-touch{position:absolute;left:50%;top:108px;z-index:2;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:rgba(26,26,46,.18);opacity:0}
-.ap-dim{position:absolute;inset:0;z-index:3;background:#000;opacity:0}
+.pc-touch{position:absolute;left:50%;top:128px;z-index:2;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:rgba(26,26,46,.18);opacity:0}
+.ap-dim{position:absolute;inset:0;z-index:7;background:#000;opacity:0}
 /* Apple Pay's sheet on iOS 26: floating, inset, round. */
-.ap-sheet{position:absolute;left:8px;right:8px;bottom:8px;z-index:4;padding:22px 22px 24px;border-radius:44px;background:#fff;box-shadow:0 -10px 40px rgba(0,0,0,.2);transform:translate3d(0,110%,0);font-size:16px;color:#000}
+.ap-sheet{position:absolute;left:8px;right:8px;bottom:8px;z-index:8;padding:22px 22px 24px;border-radius:44px;background:#fff;box-shadow:0 -10px 40px rgba(0,0,0,.2);transform:translate3d(0,110%,0);font-size:16px;color:#000}
 .ap-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .ap-logo{display:inline-flex;align-items:center;gap:2px;font-size:24px;font-weight:600;letter-spacing:-.02em}
 .ap-logo svg{width:20px;height:24px;margin-top:-4px}
@@ -1427,7 +1449,8 @@ const TABS_CSS = `
 /* A demo is a picture: it takes no pointer and nothing in it can be selected. */
 .cmc-vis{position:relative;aspect-ratio:48/42;overflow:hidden;border-radius:20px;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
 .cmc-vis-in{position:absolute;inset:0;font-size:calc(100cqw / 48);color:#fff;line-height:1.35}
-/* Round 7: a hidden panel is laid out once and never painted (visibility), so opening a tab only paints it; no content-visibility, which made the switch lay the whole demo out in that frame. */
+/* Wave 13 perf: a panel's mock is drawn only while its panel shows (and through its fade out). Its pictures are loaded eagerly, so a tab opened shows them at once. */
+.cmc-panel:not([data-on]) .cmc-vis-in{content-visibility:hidden;transition:content-visibility 0s linear .35s allow-discrete}
 
 /* The dark cards the demos are drawn on. */
 .cmv-cc,.cmv-mail,.cmv-link{border-radius:1.4em;background:#1a1a1e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:#f4f4f5}

@@ -73,12 +73,14 @@ check("the phone is centred (left 50%, half its width back)", /left:50%/.test(ru
 check("one observer watches the headline, the phone's box and the cards; no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 1 && /\[".cmc-phone-wrap", "data-cmc-in"\]/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
 check("armed only while wholly below the screen, so a part already on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /if \(root\.hasAttribute\(`\$\{attr\}-armed`\)\) root\.setAttribute\(attr, ""\)/.test(src))
 check("the rise is a transform transition from 34% low, no opacity flash", /\.cmc\[data-cmc-in-armed\]:not\(\[data-cmc-in\]\) \.cmc-rise\{transform:translate3d\(0,34%,0\);transition-duration:0s\}/.test(css) && /\.cmc-rise\{transition:transform 1\.1s/.test(css))
+check("a jump past the section and back refreshes every part (observe again on a real arrival only, so it never loops)", /if \(was === false\)/.test(src) && /io\.unobserve\(other\)\s*io\.observe\(other\)/.test(src))
+check("the phone is dimmed under a black veil, never made see-through (the ring would show through it)", !/\.cmc\[data-cmc-over\] \.cmc-rise\{opacity/.test(css))
 check("no scroll timelines", !/view-timeline|animation-timeline|timeline-scope/.test(css))
 
 console.log("\nThe tab cards come over the phone, fading in")
 check("the stage holds 80svh and the cards are pulled 64svh up over it, above it (z 5)", /\.cmc-track\.cmc-track\{[^}]*height:calc\(100svh \+ 80svh\)/.test(css) && /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(css) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5;[^}]*margin:calc\(64svh \* -1\) 0 0/.test(css))
-check("the cards fade and lift in; the phone, the ring and the headline step back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-cards-in\{opacity:0;transform:translate3d\(0,56px,0\)/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-rise\{opacity:\.3;transform:translate3d\(0,0,0\) scale\(\.97\)\}/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-orbit\{opacity:\.25\}/.test(css))
-check("  as transitions of transform and opacity only", /\.cmc-cards-in\{transition:opacity \.7s ease,transform \.9s/.test(css) && /\.cmc-rise\{transition:transform 1\.1s cubic-bezier\(\.16,1,\.3,1\),opacity \.6s ease\}/.test(css))
+check("the cards fade and lift in; the phone, the ring and the headline step back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-cards-in\{opacity:0;transform:translate3d\(0,56px,0\)/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-rise\{transform:translate3d\(0,0,0\) scale\(\.97\)\}/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-rise::after\{opacity:\.5\}/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-orbit\{opacity:\.25\}/.test(css))
+check("  as transitions of transform and opacity only", /\.cmc-cards-in\{transition:opacity \.7s ease,transform \.9s/.test(css) && /\.cmc-rise\{transition:transform 1\.1s cubic-bezier\(\.16,1,\.3,1\)\}/.test(css) && /\.cmc-rise::after\{transition:opacity \.6s ease\}/.test(css))
 
 console.log("\nThe products ride a ring around the phone again")
 const lap = keyframes("cmc-lap")
@@ -96,7 +98,7 @@ check("One-tap: the page's Apple Pay pressed, the wallet's sheet up, Done, Payme
 check("  the round 5 ring, swapped labels and moving card field are gone", !/ck-ring|ck-w-g|rc-cardf|cmv-lift|cmv-after/.test(css))
 const rec = ["cmv-rec", "cmv-fill", "cmv-st1", "cmv-st2", "cmv-st3", "cmv-mail", "cmv-btn"]
 check("Reminders: a rail that fills (scaleX), the email up, the button pressed, one fade for the loop", rec.every((k) => onlyCompositor(keyframes(k))) && /scaleX/.test(keyframes("cmv-fill")))
-check("a hidden panel is never painted and opening a tab lays nothing out (no content-visibility)", !/content-visibility/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")) && /visibility:hidden/.test(rule(".cmc-panel")))
+check("a hidden panel's demo is not drawn (content-visibility), so only the open tab's demo is laid out", /\.cmc-panel:not\(\[data-on\]\) \.cmc-vis-in\{content-visibility:hidden/.test(css) && /visibility:hidden/.test(rule(".cmc-panel")))
 
 console.log("\nThe shared content box")
 check("the cards sit in --home-max and --home-edge, as the showcase does", /max-width:var\(--home-max,2020px\)/.test(rule(".cmc-cards-in")) && /var\(--edge\)/.test(rule(".cmc-cards-in")) && /--edge:var\(--home-edge,clamp\(20px,5\.15vw,84px\)\)/.test(rule(".cmc")))
