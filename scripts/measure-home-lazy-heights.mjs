@@ -42,7 +42,8 @@ const HEIGHT = 900
  */
 const TRACKS = {
   /* Landing round 5: the held stage (100svh) and its 80svh, less the cards pulled up over it: 125svh, measured. */
-  checkout: [{ css: "125svh", vh: 125 }],
+  /* Landing round 9: the stage held 100svh plus its dwell, less the cards pulled up over it: 153svh at every width, measured at 390 and 1440. */
+  checkout: [{ css: "153svh", vh: 153 }],
 }
 const trackAt = (n, w) => TRACKS[n]?.find((t) => t.until == null || w <= t.until)
 /** A line that predicts a measured height within this many pixels is kept; past it a new rule starts. */

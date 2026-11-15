@@ -112,7 +112,7 @@ console.log("\n── Storelib is for creators: a finger on the rail ──")
 
 console.log("\n── Words ──")
 {
-  const words = [...MARQUEE_ROWS.flatMap((r) => r.items.map((i) => i.label)), renderToStaticMarkup(createElement(ProductMarquee)).replace(/<style>[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ")].join(" ")
+  const words = [...MARQUEE_ROWS.flatMap((r) => r.items.map((i) => i.label)), renderToStaticMarkup(createElement(ProductMarquee)).replace(/<style[^>]*>[\s\S]*?<\/style>/g, "") /* Changed on purpose (landing round 9): the section's stylesheet now carries an href, so its tag has attributes. */.replace(/<[^>]+>/g, " ")].join(" ")
   check("no banned words or em dashes", !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(words) && !/—/.test(words))
   check("no banned sample content", !/weeknight pasta|sourdough|golden hour|wheel throwing|drawing basics|run club|\bfans?\b/i.test(words))
 }

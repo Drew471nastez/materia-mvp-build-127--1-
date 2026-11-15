@@ -83,7 +83,8 @@ check("the phone is a little bigger on a computer (up to 400px wide, centred)", 
 check("the One-tap demo's moves are transform and opacity", ["pc-press", "ap-sheet", "ap-done", "pc-paid"].every((k) => keyframes(k) && onlyCompositor(keyframes(k))))
 // Changed on purpose (landing round 8): no tabs and no autoplay: the four demos are cards, each running while it is on screen.
 check("nothing plays by itself on a timer: no autoplay to hold", !/setTimeout|setInterval/.test(src))
-check("reduced motion: nothing held, nothing moving", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{height:auto\}\s*\.cmc\[data-story-section\] > \.cmc-cards\.cmc-cards\{margin-top:0\}/.test(css) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(css))
+/* Changed on purpose (landing round 9): the hold is written only under prefers-reduced-motion:no-preference (with scroll timelines), so reduced motion has no hold to undo; it still lays the cards flat and stops every motion. */
+check("reduced motion: nothing held, nothing moving", /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*?@supports \(animation-timeline:view\(\)\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{height:calc\(100svh/.test(css) && /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmc\[data-story-section\] > \.cmc-cards\.cmc-cards\{margin-top:0\}/.test(css) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(css))
 
 console.log("\nThe tabs are tabs again, not pills")
 // Changed on purpose (landing round 8): the tabs became a grid of cards that slides up over the phone, as in the owner's recording.
