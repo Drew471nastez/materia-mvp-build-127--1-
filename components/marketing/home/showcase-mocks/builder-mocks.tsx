@@ -130,7 +130,7 @@ function Cursor({ className }: { className: string }) {
 type Product = { pic: string; name: string; price: string; was?: string }
 const MM_PRODUCTS: Product[] = [
   { pic: "mm-game", name: "Mondo Mango", price: "€29", was: "€35" },
-  { pic: "mm-after-dark", name: "After Dark expansion", price: "€19" },
+  { pic: "mm-late-round", name: "Late Round expansion", price: "€19" },
   { pic: "mm-family", name: "Family Edition", price: "€25" },
   { pic: "mm-crate", name: "The Whole Crate", price: "€59", was: "€73" },
 ]
@@ -175,7 +175,7 @@ export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
       <div className="mg-hero">
         <Pic n="mm-studio" w={1600} h={534} className="mg-studio" />
         <span className="mg-pitch">
-          <i className="mg-kicker">New: After Dark expansion</i>
+          <i className="mg-kicker">New: Late Round expansion</i>
           <b>Game night, but louder.</b>
           <span className="mg-line">A party card game for 3 to 8 players. Twenty minute rounds.</span>
           <span className="mg-acts">

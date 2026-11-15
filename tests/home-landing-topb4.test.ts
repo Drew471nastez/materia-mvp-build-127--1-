@@ -88,7 +88,7 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
 // Changed on purpose (landing round 11): Mondo Mango sells a party card game, product shots of its boxes under a studio hero, and the builder moves on to loudlib (two sites, two pairs of rings); tests/home-landing-r11-top.test.ts pins it.
 check("Mondo Mango, a real looking store", site.includes("Bestsellers") && wb.includes("Mondo Mango"))
-check("its products are pictures that exist and are small", ["mm-studio", "mm-logo", "mm-game", "mm-after-dark", "mm-family", "mm-crate"].every((n) => {
+check("its products are pictures that exist and are small", ["mm-studio", "mm-logo", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => {
   const f = join(root, `public/home/showcase/${n}.webp`)
   return existsSync(f) && statSync(f).size < 120_000 && site.includes(`/home/showcase/${n}.webp`)
 }))

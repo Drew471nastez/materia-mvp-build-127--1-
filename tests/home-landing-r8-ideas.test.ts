@@ -53,8 +53,9 @@ check("a wordmark in the middle of the header, drawn as a picture (no webfont to
 check("the header's links, small and tracked", ["Shop all", "Expansions", "How to play", "Search", "Bag (2)"].every((w) => site.includes(w)) && /\.mg-links\{[^}]*letter-spacing:\.16em;text-transform:uppercase/.test(BUILDER_CSS))
 check("a cover: one studio picture in the hero", (site.match(/mm-studio\.webp/g) ?? []).length === 1 && /class="smk-pic mg-studio"/.test(site) && !/pw-hero|Everyday cotton|Porto|mg-wall|mg-sticker/.test(site + read(F.builders)))
 const prices = [...site.matchAll(/<span class="mg-price">(?:<s>€\d+<\/s>)?€(\d+)<\/span>/g)].map((m) => Number(m[1]))
-check("the game, its expansion, a family edition and a bundle, priced like real games", prices.length === 4 && prices.every((p) => p >= 15 && p <= 90) && ["Mondo Mango", "After Dark expansion", "Family Edition", "The Whole Crate"].every((n) => site.includes(n)))
-check("every picture is real, webp and under 120 KB", ["mm-studio", "mm-logo", "mm-game", "mm-after-dark", "mm-family", "mm-crate"].every((n) => small(n) && site.includes(`/home/showcase/${n}.webp`)))
+// Changed on purpose (landing round 11, lead): the owner turned down an "After Dark" product in round 5, so the expansion is Late Round.
+check("the game, its expansion, a family edition and a bundle, priced like real games", prices.length === 4 && prices.every((p) => p >= 15 && p <= 90) && ["Mondo Mango", "Late Round expansion", "Family Edition", "The Whole Crate"].every((n) => site.includes(n)))
+check("every picture is real, webp and under 120 KB", ["mm-studio", "mm-logo", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => small(n) && site.includes(`/home/showcase/${n}.webp`)))
 check("Plain Weather and its pictures are gone", !/Plain Weather|plainweather|PlainWeather|\bpw-/.test(code(F.builders) + code(F.ideas)) && ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => !existsSync(pic(n))))
 check("the page is white with no gradient", /\.mg\{[^}]*background:#fff;/.test(BUILDER_CSS) && !/\.mg[^{]*\{[^}]*gradient/.test(BUILDER_CSS))
 // Changed on purpose (landing round 11): two sites, so two pairs of rings.
