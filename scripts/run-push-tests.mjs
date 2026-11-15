@@ -1493,6 +1493,8 @@ const SUITES = [
   "tests/home-landing-r9-rows.test.ts",
   /* Landing round 9, checkout: the phone first and big, the stage held a screen while the scroll brings it down and reveals the headline; a creator's physical and digital products going round it in one 3D space; Google Pay beside Apple Pay; the phone mockup's scale fixed for WebKit; the cards' computer pictures in 4:3 on a phone, shorter lines, smoother loops, the Recovered tile, faint orbs. */
   "tests/home-landing-r9-checkout.test.ts",
+  /* Landing round 9 (top): the store strip and the globe read a finger's first pixels with one rule (down or up is the page's, clearly sideways is taken, then followed as if from the first pixel), one write a frame, 240px pictures for the pieces; the support card raspberry to peach again; Kaia Moon's buttons fatter; the ideas heading, line and tabs centred, the picture 88% wide on a computer in one hairline frame with no shadow; Mondo Mango's hero one photograph. */
+  "tests/home-landing-r9-top.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

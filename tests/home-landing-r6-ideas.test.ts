@@ -48,7 +48,7 @@ check("it settles in by transform and opacity only", /\.ideas-tab::before\{[^}]*
 check("no underline left from round 5", !/\.ideas-tab::after/.test(ideasCss) && !/inset 0 -1px 0 #e7e7ea/.test(ideasCss))
 check("still under reduced motion", /prefers-reduced-motion:reduce\)\{[^@]*\.ideas-tab,\.ideas-tab::before\{transition:none\}/.test(ideasCss))
 // Changed on purpose (landing round 7): the row starts at the page's one left edge (the heading inset), the same vertical margins.
-check("the row keeps its 38px height and margins, so the section does not change length", /\.ideas-tabs-row\{box-sizing:border-box;display:flex;justify-content:flex-start;max-width:var\(--home-max,2020px\);margin:clamp\(24px,3vw,36px\) auto clamp\(18px,2\.2vw,28px\);/.test(ideasCss))
+check("the row keeps its 38px height and margins, so the section does not change length", /* Changed on purpose (landing round 9): the tabs are centred. */ /\.ideas-tabs-row\{box-sizing:border-box;display:flex;justify-content:center;max-width:var\(--home-max,2020px\);margin:clamp\(24px,3vw,36px\) auto clamp\(18px,2\.2vw,28px\);/.test(ideasCss))
 
 console.log("\nThe later fixes are kept: real tabs, roving focus, autoplay that pauses")
 check("a tablist of three tabs, each controlling its panel", /role="tablist"/.test(ideas) && (ideas.match(/role="tab"/g) ?? []).length === IDEAS_TABS.length && IDEAS_TABS.every((t) => ideas.includes(`aria-controls="ideas-panel-${t.id}"`)))

@@ -30,6 +30,17 @@ export const IDEAS_HEADING = "See your ideas come to life."
   a wall of colour photographs and the drop on white, the wordmark printed
   on each piece. The Strength Room gets a real emblem and a cover with its
   name in heavy yellow. The tabs and the autoplay are as they were.
+
+  Landing round 9 (the owner): the heading, the line under it and the pill
+  tabs are centred, on a phone and on a computer. The picture is "too big"
+  on a computer: from 768px it is 88% of the page's shared width, centred
+  (a phone keeps the full width). The depth under the picture "comes in very
+  stutterish and gets cut by the section's container": every panel carried
+  its own wide shadow, so a switch laid one shadow over another and took it
+  away again, and the lazy box (paint containment) cut it at the foot. The
+  panels now stand in one frame that never changes, a hairline border and no
+  shadow, so a switch only cross fades what is inside it. Mondo Mango's hero
+  is one photograph.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
 export const IDEAS_SUB = "No code, nothing to install. Drag sections in, edit on the page, publish when it looks right."
@@ -47,7 +58,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Mondo Mango's home page in the sidebar, and the page itself, a bright merch label's store: its orange wordmark, a wall of colour photographs, and a crewneck, a trucker cap, a tee and a tote with the wordmark printed on them. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Mondo Mango's home page in the sidebar, and the page itself, a bright merch label's store: its orange wordmark, an orange hero with one photograph of the drop, and a crewneck, a trucker cap, a tee and a tote with the wordmark printed on them. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
   },
   {
@@ -148,24 +159,26 @@ export function IdeasComeToLife() {
         aria-hidden="true"
       />
       <div className="ideas-stage" {...t.hoverProps}>
-        {IDEAS_TABS.map((s, i) => {
-          const state = t.states.get(i)
-          if (!state) return null
-          return (
-            <div
-              key={s.id}
-              id={`ideas-panel-${s.id}`}
-              role="tabpanel"
-              aria-labelledby={`ideas-tab-${s.id}`}
-              aria-hidden={state !== "active" || undefined}
-              className="ideas-panel"
-              data-pane={state}
-              data-mock-live={(state === "active" && t.live) || undefined}
-            >
-              <IdeasMock i={i} />
-            </div>
-          )
-        })}
+        <div className="ideas-frame">
+          {IDEAS_TABS.map((s, i) => {
+            const state = t.states.get(i)
+            if (!state) return null
+            return (
+              <div
+                key={s.id}
+                id={`ideas-panel-${s.id}`}
+                role="tabpanel"
+                aria-labelledby={`ideas-tab-${s.id}`}
+                aria-hidden={state !== "active" || undefined}
+                className="ideas-panel"
+                data-pane={state}
+                data-mock-live={(state === "active" && t.live) || undefined}
+              >
+                <IdeasMock i={i} />
+              </div>
+            )
+          })}
+        </div>
       </div>
     </section>
   )
@@ -183,8 +196,8 @@ const CSS = `
 .ideas{position:relative;background:#fff;color:#18181b;overflow-x:clip}
 /* Landing round 7: the page's one width (app/globals.css, .home-wrap): the editor as wide as the showcase cards under the hero, the heading, its line and the tabs from the same left edge, set in by the heading inset. */
 /* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
-[data-landing-story] .ideas>.ideas-head,.ideas-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px));text-align:left}
-.ideas .ideas-h{margin-inline:0;font-size:clamp(36px,5vw,72px)}
+[data-landing-story] .ideas>.ideas-head,.ideas-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px));text-align:center}
+.ideas .ideas-h{margin-inline:auto;font-size:clamp(36px,5vw,72px)}
 .ideas-stack{display:grid}
 .ideas-line{grid-area:1/1;align-self:center;opacity:0;transform:translate3d(0,.45em,0)}
 .ideas-line:first-child{opacity:1;transform:none}
@@ -195,8 +208,8 @@ const CSS = `
 }
 /* Landing round 8 (the owner: "the flip thing is delayed"): the old line left from 29% (of the 10.8s loop, each line's turn is 33.3%) and the next came in only from 33.3%, so for a moment the heading was empty and every change read as late. Now the old line leaves (31% to 35%) while the next comes in (0 to 4.5% of its own turn, 486ms, was 648ms): one line hands over to the next in about 0.75s instead of 1.1s, with no empty moment. */
 @keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}4.5%,31%{opacity:1;transform:none}35%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
-.ideas-sub{max-width:56ch;margin:18px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
-[data-landing-story] .ideas>.ideas-tabs-row,.ideas-tabs-row{box-sizing:border-box;display:flex;justify-content:flex-start;max-width:var(--home-max,2020px);margin:clamp(24px,3vw,36px) auto clamp(18px,2.2vw,28px);padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
+.ideas-sub{max-width:56ch;margin:18px auto 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
+[data-landing-story] .ideas>.ideas-tabs-row,.ideas-tabs-row{box-sizing:border-box;display:flex;justify-content:center;max-width:var(--home-max,2020px);margin:clamp(24px,3vw,36px) auto clamp(18px,2.2vw,28px);padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .ideas-tabs{display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#f1f1f2}
 .ideas-tab{position:relative;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
 .ideas-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08);opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s cubic-bezier(.22,1,.36,1)}
@@ -209,7 +222,10 @@ const CSS = `
 @media(max-width:359px){.ideas-tab{padding:0 8px;font-size:12px}}
 .ideas[data-run] .smk-clock[data-on]{animation-play-state:running}
 [data-landing-story] .ideas>.ideas-stage,.ideas-stage{position:relative;display:grid;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px));box-sizing:border-box}
-.ideas-panel{grid-area:1/1;border-radius:clamp(9px,1.3vw,17px);overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05),0 28px 60px -30px rgba(16,24,40,.35);transition:opacity .55s cubic-bezier(.2,.7,.2,1)}
+/* Landing round 9: one frame for every panel, with the corners and a hairline; no shadow anywhere, so nothing comes and goes at the foot when a tab changes and nothing is there for the lazy box to cut. From 768px it is 88% of the shared width, centred. */
+.ideas-frame{grid-area:1/1;display:grid;box-sizing:border-box;width:100%;justify-self:center;border:1px solid #e3e3e6;border-radius:clamp(9px,1.3vw,17px);overflow:hidden;background:#fff}
+@media(min-width:768px){.ideas-frame{width:88%}}
+.ideas-panel{grid-area:1/1;background:#fff;transition:opacity .55s cubic-bezier(.2,.7,.2,1)}
 .ideas-panel[data-pane="active"]{z-index:2;animation:ideas-in .55s cubic-bezier(.2,.7,.2,1) both}
 .ideas-panel[data-pane="leaving"]{z-index:1}
 .ideas-panel[data-pane="next"]{z-index:0;opacity:0;pointer-events:none;transition:none}

@@ -74,7 +74,8 @@ check("the support thread grows with its card", /@container \(min-width:640px\)\
 console.log("\n── 2. The support card's ground ──")
 const ground = rule(".ev-c")
 /* Changed on purpose (landing round 8): the owner liked the gradient but not the orange, pink and red; deep teal to aqua (tests/home-landing-r8-everything). */
-check("a still bold gradient", /linear-gradient\(168deg,#053c4a 0%,#0a6b78 36%,#12999b 64%,#5fd6c2 100%\)/.test(ground) && !/animation/.test(ground))
+/* Changed on purpose (landing round 9): the owner wants round 7's pink, orange and red back in place of the teal. */
+check("a still bold gradient", /linear-gradient\(168deg,#9d1640 0%,#c03560 36%,#dc6476 64%,#f1a283 100%\)/.test(ground) && !/animation/.test(ground))
 check("no grey, no purple, no noise", !/#eef0f2/.test(ground) && !/#8b5cf6|#a855f7|#7c3aed|violet|purple/i.test(ground) && !/url\(|noise|filter/.test(ground))
 check("the thread a plain white rounded card on it, readable", /background:#fff/.test(rule(".ev-c-thread")) && /border-radius:18px/.test(rule(".ev-c-thread")) && /\.ev-c-dark\{background:#111113;color:#fff\}/.test(css) && /\.ev-c-light\{background:#f0eff2;color:#18181b\}/.test(css))
 
@@ -92,7 +93,8 @@ check("drag, flick and glide paint the offset wrapped into one turn", /const lef
 check("the turn read from the boxes, on resize only", /s\.getBoundingClientRect\(\)\.left/.test(src) && /new ResizeObserver\(measure\)/.test(src))
 check("a resize keeps the same page in place", /if \(before > 0\) x = \(at \/ before\) \* turn/.test(src))
 check("paused off screen and in a hidden tab, transform only", /else stopDrift\(\)/.test(src) && /visibilitychange/.test(src) && /will-change:transform/.test(rule(".ev-s-slot")))
-check("touch leaves vertical swipes to the page, the axis decided after 8px", /touch-action:pan-y/.test(rule(".ev-s")) && /Math\.hypot\(dx, dy\) < 8/.test(src) && /Math\.abs\(dy\) >= Math\.abs\(dx\)/.test(src))
+/* Changed on purpose (landing round 9): the axis is read by swipeAxis (everything-globe.tsx; tests/home-landing-r9-top). */
+check("touch leaves vertical swipes to the page, the axis decided in the first pixels", /touch-action:pan-y/.test(rule(".ev-s")) && /swipeAxis\(dx, dy\)/.test(src) && /if \(axis === "y"\) \{\s*drag = null/.test(src))
 /* One set is wider than any picture it is shown in, so the second copy always fills the rest: the smallest set (every card 170px plus a 12px gap) against the widest picture (a narrow card at the 2020px cap, and a phone sized tablet's one column at 767px). */
 const minSet = EVERYTHING_STORES.length * (170 + 12)
 const widestNarrow = ((2020 - 2 * 84) * 11) / 24
