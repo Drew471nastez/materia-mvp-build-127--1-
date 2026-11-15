@@ -53,7 +53,7 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     id: "digital",
     label: "Digital products",
     tab: "Digital",
-    line: "Templates, presets, e-books, fonts",
+    line: "Templates, presets, e-books",
     /* Three covers rest in the middle before the next kind comes up. */
     ms: Math.round(DIGITAL_STEP_S * 3 * 1000 + 500),
     Scene: DigitalScene,
@@ -63,7 +63,7 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     id: "physical",
     label: "Physical products",
     tab: "Physical",
-    line: "Merch, prints, anything you ship",
+    line: "Merch and prints you ship",
     Scene: TeeScene,
     alt: "A physical product on Storelib: the Midnight Studio Tee, a black heavyweight cotton t-shirt, $32. Size M is picked, it is added to the cart and ships in 2 days.",
   },
@@ -79,7 +79,7 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     id: "communities",
     label: "Communities",
     tab: "Communities",
-    line: "Members, posts and live events",
+    line: "Members, posts, live events",
     Scene: ClubScene,
     alt: "A community on Storelib: Applied AI Club, hosted by Sam Adeyemi, $12 a month, 2,480 members, with a live build on Wednesday and new posts arriving in its show-and-tell space.",
   },
@@ -293,7 +293,7 @@ const CSS = `
   .biz-sub{font-size:16px}
 }
 @media(min-width:1200px){
-  [data-landing-story] .biz>.biz-body,.biz-body{grid-template-columns:clamp(236px,19.5vw,330px) minmax(0,1fr);column-gap:clamp(30px,3.2vw,64px)}
+  [data-landing-story] .biz>.biz-body,.biz-body{grid-template-columns:clamp(244px,19.5vw,330px) minmax(0,1fr);column-gap:clamp(30px,3.2vw,64px)}
   .biz-tabs{display:grid;grid-template-rows:repeat(5,minmax(0,1fr));gap:0;margin:0;padding:0 0 0 var(--home-head-inset,14px);overflow:visible}
   .biz-tab{flex-direction:row-reverse;justify-content:space-between;gap:16px;min-height:0;border-top:1px solid #ececee;font-size:clamp(19px,1.5vw,26px);font-weight:600;letter-spacing:-.02em;white-space:normal}
   .biz-tab:last-child{border-bottom:1px solid #ececee}

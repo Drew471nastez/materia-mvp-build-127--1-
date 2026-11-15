@@ -50,7 +50,7 @@ console.log("\nThe layout: an index beside the stage, a row over it on a phone")
 {
   check("one box in the page's width holds the words and the stage", /\.biz-body\{[^}]*display:grid;grid-template-columns:minmax\(0,1fr\)[^}]*max-width:var\(--home-max,2020px\)[^}]*padding:0 var\(--home-edge/.test(css))
   const wide = css.match(/@media\(min-width:1200px\)\{([\s\S]*?)\n\}/)?.[1] ?? ""
-  check("from 1200px: two columns, the index as tall as the stage in five equal rows with hairlines", /\.biz-body\{grid-template-columns:clamp\(236px,19\.5vw,330px\) minmax\(0,1fr\)/.test(wide) && /\.biz-tabs\{display:grid;grid-template-rows:repeat\(5,minmax\(0,1fr\)\)/.test(wide) && /\.biz-tab\{[^}]*border-top:1px solid #ececee/.test(wide))
+  check("from 1200px: two columns, the index as tall as the stage in five equal rows with hairlines", /\.biz-body\{grid-template-columns:clamp\(244px,19\.5vw,330px\) minmax\(0,1fr\)/.test(wide) && /\.biz-tabs\{display:grid;grid-template-rows:repeat\(5,minmax\(0,1fr\)\)/.test(wide) && /\.biz-tab\{[^}]*border-top:1px solid #ececee/.test(wide))
   check("the index says what each kind covers", /\.biz-tab-d\{display:block/.test(wide) && /\.biz-tab-s,\.biz-tab-d\{display:none\}/.test(css) && BUSINESS_SLIDES.every((s) => s.line.length > 12 && html.includes(s.line)))
   check("below that: one row that slides inside itself, never the page", /\.biz-tabs\{display:flex;[^}]*overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none\}/.test(css))
   check("a word is a 44px touch target at 16px on a phone", /\.biz-tab\{[^}]*min-height:44px[^}]*font-size:16px/.test(css))
