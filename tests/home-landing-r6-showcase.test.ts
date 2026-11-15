@@ -60,8 +60,9 @@ check("the picture is clipped in its own box, the caption outside it", /\.build-
 
 console.log("\n── The cards end inside the section, with room under them ──")
 check("no negative bottom margin runs the rail past the section's edge", !/margin-bottom:calc\([^)]*-\./.test(css) && !/--showcase-height/.test(css))
-check("desktop: padding under the caption line", /\.build-showcase-card \{[^}]*padding:clamp\(72px,7vw,112px\) 0 clamp\(36px,3\.6vw,64px\)\}/.test(css))
-check("phone: padding under the caption line", /\.build-showcase-card\{padding:64px 0 clamp\(36px,9vw,56px\)\}/.test(phone))
+// Changed on purpose (landing round 7): the owner: "the bottom padding of the section under the hero is too short"; 52 to 96px under the caption line, 44 to 64px on a phone (tests/home-landing-r7-frame.test.ts).
+check("desktop: padding under the caption line", /\.build-showcase-card \{[^}]*padding:clamp\(72px,7vw,112px\) 0 clamp\(52px,5\.4vw,96px\)\}/.test(css))
+check("phone: padding under the caption line", /\.build-showcase-card\{padding:64px 0 clamp\(44px,12vw,64px\)\}/.test(phone))
 check("the left-gutter cover is gone (nothing fades over a moving card)", !/build-showcase-viewport::after/.test(css))
 
 console.log("\n── On a phone: the reference's shape ──")

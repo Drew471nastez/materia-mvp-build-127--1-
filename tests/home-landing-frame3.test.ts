@@ -92,7 +92,7 @@ console.log("\n── The page ──")
   /* Changed on purpose (landing round 4): the hero is not held and the first white ground is flat (Make the work must not arrive as a drawer); the close is dark, not purple. */
   const grounds: [string, string[]][] = [
     ["<ScrollRevealBackdrop>", ["<Hero />", "<BuildShowcase />"]], // Changed on purpose (landing round 5): nothing is held, so no hold props.
-    ['<ScrollRevealPanel tone="white" arrive="flat">', ["<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />"]],
+    ['<ScrollRevealPanel tone="white" arrive="flat">', ["<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", /* Changed on purpose (landing round 7): no business carousel. */ "<LazyCreatorsCarousel />", "<LazyHowItWorks />"]],
     ["<ScrollRevealBackdrop>", ["<LazyCheckoutScene />"]],
     ['<ScrollRevealPanel tone="white">', ["<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />"]],
     ['<ScrollRevealPanel tone="purple">', ["<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />"]],
@@ -121,7 +121,8 @@ console.log("\n── The page ──")
   }
   check("the grounds and their sections, in the owner's order", wrong.length === 0, wrong)
   check("everything is inside the one story root, so loops still pause off screen", /<LandingStory>\s*<ScrollRevealBackdrop/.test(page) && /<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page))
-  check("One store for everything you sell is straight on the white sheet", !/StoryBand|data-band/.test(page) && /<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page))
+  // Changed on purpose (landing round 7): One store for everything you sell is off the page; the possibilities run straight on into the creators.
+  check("One store for everything you sell is gone; the possibilities run on into the creators", !/StoryBand|data-band|LazyBusinessCarousel/.test(page) && /<\/LazySection>\s*<LazyCreatorsCarousel \/>/.test(page))
   check("the questions' sheet is not held, so a link to #faq lands on them", /<ScrollRevealPanel tone="white">\s*<LazyEarningsCalculator \/>/.test(page))
   check("every server-drawn lazy box keeps its name", ["possibilities", "pricing", "faq"].every((n) => page.includes(`<LazySection name="${n}"`)))
   check("the measured heights are still written into the page", /<style dangerouslySetInnerHTML=\{\{ __html: LAZY_SECTION_HEIGHTS_CSS \}\} \/>/.test(page))

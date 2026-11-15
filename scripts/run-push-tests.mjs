@@ -1457,6 +1457,8 @@ const SUITES = [
   "tests/home-landing-r6-everything.test.ts",
   /* Landing round 7, everything: the section in the page's shared box with taller pictures, the support thread on a still raspberry to peach gradient, the store strip a true endless loop, and the AI Builders Masterclass in place of the book club. */
   "tests/home-landing-r7-everything.test.ts",
+  /* Landing round 7 (frame): the header's links plain white and a size up, the headings' scroll fill one soft colour wave from one number (no measuring on a frame), One store for everything you sell off the page, room under the showcase's cards, ideas, pricing, the questions and the app in the page's one width. */
+  "tests/home-landing-r7-frame.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

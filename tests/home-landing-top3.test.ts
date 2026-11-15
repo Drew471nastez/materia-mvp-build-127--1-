@@ -35,8 +35,7 @@ import {
 } from "@/components/marketing/home/everything-in-one-place"
 /* Changed on purpose (landing round 4): the ideas section has three thin pill tabs again (IDEAS_TABS), the business section a Notion template as its digital product. */
 import { IdeasComeToLife, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
-import { BusinessCarousel, BUSINESS_SLIDES } from "@/components/marketing/home/business-carousel"
-import { TemplatePage } from "@/components/marketing/home/showcase-mocks/business-mocks"
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { MARQUEE_ROWS } from "@/components/marketing/product-marquee"
 
 let passed = 0
@@ -61,8 +60,6 @@ const rule = (css: string, selector: string) => {
 const src = {
   everything: read("components/marketing/home/everything-in-one-place.tsx"),
   ideas: read("components/marketing/home/ideas-come-to-life.tsx"),
-  business: read("components/marketing/home/business-carousel.tsx"),
-  pages: read("components/marketing/home/showcase-mocks/business-mocks.tsx"),
 }
 const everything = renderToStaticMarkup(createElement(EverythingInOnePlace))
 const evCss = EVERYTHING_STYLES[0]?.css ?? ""
@@ -109,10 +106,8 @@ check("drawn as the pack's cover: a graded still and its name, no panel", /class
 check("no book cover and no guide left in the product card", !/ev-p-book|ev-p-guide|Sourdough at Home<\/p>|page guide/i.test(everything) && !existsSync(join(root, "public/home/everything/guide-bread.webp")))
 /* Changed on purpose (landing round 6): the cover's still is lut-still.webp, a wide frame. */
 check("its one photo exists and is small", existsSync(join(root, "public/home/everything/lut-still.webp")) && statSync(join(root, "public/home/everything/lut-still.webp")).size < 120_000)
-const pack = renderToStaticMarkup(createElement(TemplatePage))
-/* Changed on purpose (landing round 4, the owner did not like Dust & Tape Drums): a Notion template, drawn in HTML. */
-check("the business section's digital product is a template drawn in HTML, with no photograph", BUSINESS_SLIDES[0].id === "digital" && pack.includes("Studio OS for Notion") && !/<img/.test(pack))
-check("no cookbook cover left there", !/Weeknight Green|bp-book(?!ing)|bp-shelf|EbookPage/.test(src.pages + src.business) && !existsSync(join(root, "public/home/showcase/ss-bowl.webp")))
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
+check("no cookbook cover left anywhere", !existsSync(join(root, "public/home/showcase/ss-bowl.webp")))
 
 console.log("\n── Tabs of one family (the tabs of Make the work) ──")
 const family = (r: string) => /height:30px/.test(r) && /padding:0 13px/.test(r) && /border-radius:999px/.test(r) && /color:#55525c/.test(r) && /font-size:13px/.test(r) && /font-weight:500/.test(r)
@@ -123,25 +118,15 @@ check("ideas: tabs in place of the dots, the chosen one dark", /\.ideas-tab\[ari
 check("ideas: the same family as Make the work's tabs, on a grey pill track", family(rule(src.ideas, ".ideas-tab")) && /\.ideas-tabs\{[^}]*border-radius:999px;background:#f1f1f2/.test(src.ideas) && /\.ideas-tab::before\{[^}]*background:#fff/.test(src.ideas))
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 check("ideas: one tab an editor, each named in full", (ideas.match(/class="ideas-tab"/g) ?? []).length === IDEAS_TABS.length && IDEAS_TABS.every((s) => ideas.includes(`<span>${s.title}</span>`)))
-check("business, on a phone: the same pill row", /@media\(max-width:899px\)\{[\s\S]*\.biz-kind-s\{[^}]*height:30px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:500/.test(src.business) && /\.biz-kind\[aria-selected="true"\] \.biz-kind-s\{background:#fff\}/.test(src.business))
-check("business, on a computer: the chosen line on a soft grey, no rule beside it", /\.biz-kind::before\{[^}]*inset:0;border-radius:inherit;background:#f2f2f3/.test(src.business) && !/scaleY/.test(src.business))
-const biz = renderToStaticMarkup(createElement(BusinessCarousel))
-/* Changed on purpose (landing round 4): no clock in the business section (the scroll steps through it); the tabs end where the stage begins. */
-const tabs = biz.slice(biz.indexOf('role="tablist"'), biz.indexOf('class="biz-stage"'))
 /* Changed on purpose (landing round 4): the ideas tabs now sit above the picture, so only the tab row is read. */
-check("no icons and no coloured chips in the tabs", !/<svg|<img/.test(tabs) && !/<svg|<img/.test(ideas.slice(ideas.indexOf('class="ideas-tabs"'), ideas.indexOf('class="ideas-stage"'))))
+check("no icons and no coloured chips in the tabs", !/<svg|<img/.test(ideas.slice(ideas.indexOf('class="ideas-tabs"'), ideas.indexOf('class="ideas-stage"'))))
 
-console.log("\n── One store for everything you sell, on white ──")
-check("dark text on white by itself", /\.biz\{position:relative;background:#fff;color:#18181b\}/.test(src.business) && !/band-ink|band-muted/.test(src.business))
-/* Changed on purpose (landing round 4, the owner: colourful grounds behind the products): each page a white card on its own soft gradient, on the white sheet. */
-// Changed on purpose (landing round 5): "how it was before": the light grey stage of round 3, no coloured grounds.
-check("each page a white card on the light grey stage", /\.bp-card\{[^}]*background:#fff/.test(src.pages) && /\.bp\{[^}]*background:#eef0f2/.test(src.pages) && !/linear-gradient\(1[45]0deg/.test(src.pages))
-check("the page in the stage is a picture: no pointer, no selection, nothing that takes focus", /\.biz-stage \.smk\{pointer-events:none;user-select:none/.test(src.business) && !/<(a|button|input)\b/.test(biz.slice(biz.indexOf('class="biz-stage"'))))
+console.log("\n── One store for everything you sell: gone (landing round 7) ──")
+check("the section and its product pages are deleted", !existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && !existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
 check("the editors' previews take no pointer either", /\.ideas-mock\{[^}]*pointer-events:none/.test(src.ideas))
-check("no hover style inside any mock", !/:hover/.test(src.pages) && !/:hover/.test(read("components/marketing/home/showcase-mocks/builder-mocks.tsx")))
+check("no hover style inside any mock", !/:hover/.test(read("components/marketing/home/showcase-mocks/builder-mocks.tsx")))
 
 console.log("\n── Half of the examples ship in a box ──")
-check("a physical product comes second in the list", BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
 const PHYSICAL = /^(Merch|T-shirts|Hoodies|Vinyl records|Mugs|Tote bags|Posters|Candles|Art prints|Ceramics|Zines|Hats|Jewelry|Signed books|Phone cases|Stickers)$/
 const chips = MARQUEE_ROWS.flatMap((r) => r.items.map((c) => c.label))
 const physical = chips.filter((c) => PHYSICAL.test(c)).length
@@ -151,7 +136,7 @@ check("no chip twice", new Set(chips).size === chips.length)
 check("the strip's stores sell physical pieces, priced", EVERYTHING_STORES.some((s) => s.kind === "merch" && s.products.every((p) => /^\$\d+$/.test(p.price))))
 
 console.log("\n── The words ──")
-const words = [EVERYTHING_SUPPORT.map((r) => `${r.sub} ${r.ask} ${r.reply}`).join(" "), BUSINESS_SLIDES.map((s) => `${s.label} ${s.line} ${s.alt}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
+const words = [EVERYTHING_SUPPORT.map((r) => `${r.sub} ${r.ask} ${r.reply}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
 check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|passive income|fans?)\b/i.test(words))
 
 console.log(`\n${passed} passed, ${failed} failed`)

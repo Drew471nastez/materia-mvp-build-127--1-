@@ -111,15 +111,18 @@ export function PricingSection({
   /*
     WAVE 13, THE OWNER: the section wider, three bigger cards across it,
     the heading "Pricing & Plans" and one plain line under it. On the home
-    page (editorial) it uses the page's heading type and its 1400px column;
+    page (editorial) it uses the page's heading type and, landing round 7, the
+    page's one width (.home-wrap): cards edge to edge with the showcase under
+    the hero, the heading and the pill from its left edge, set in by the
+    heading inset;
     /pricing keeps its own h1 and the same words.
   */
   /* Landing round 3: on the home page the section sits on the white sheet with the calculator and the questions, so it is white there, with no rules above and below. */
   return (
     <section data-story-section={editorial ? "pricing" : undefined} className={editorial ? "bg-white py-20 sm:py-24" : "py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]"} id="pricing">
-      <div className={editorial ? "mx-auto max-w-[1400px]" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
+      <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [&_[data-plan-cards]]:!max-w-none [&_[data-plan-interval-row]]:justify-start [&_[data-plan-interval-row]]:pl-[var(--home-head-inset)]" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
         <AnimateOnScroll variant="blur-in">
-          <div className={editorial ? "story-section-heading !mx-auto !mb-10 !text-center [&>p]:!mx-auto" : "text-center max-w-[640px] mx-auto mb-10 sm:mb-12"}>
+          <div className={editorial ? "story-section-heading !mb-10 pl-[var(--home-head-inset)]" : "text-center max-w-[640px] mx-auto mb-10 sm:mb-12"}>
             {editorial ? <StoryHeading text={headingOverride || "Pricing & Plans"} accent={["Plans"]} /> : (
             <Heading className="text-[clamp(28px,4vw,40px)] font-semibold leading-[1.15] tracking-tight text-[#1a1a2e]">
               {headingOverride || "Pricing & Plans"}
