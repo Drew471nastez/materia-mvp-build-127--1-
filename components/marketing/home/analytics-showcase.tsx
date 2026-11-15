@@ -60,6 +60,21 @@
   engines card has, quieter: small round lights drifting by transform alone
   (no layer bigger than its card, no blur filter), paused off screen.
 
+  LANDING ROUND 9, THE OWNER: "as I reach the section, the tabs and things
+  should appear smoothly, clean, animated as I scroll down". The section's
+  blocks used to rise together the moment the section came within 200px of
+  the screen, so most of it had finished before it was seen and the second
+  row never moved at all. Now each block has its own entrance, the first
+  time IT comes on screen: the words, then the six reports one after
+  another 55ms apart, the globe card, and further down the search card and
+  the engines. Opacity and the `translate` property only (16px for a block,
+  10px for a report), once, on the compositor; nothing is hidden by the
+  markup, only by the script and only while a block is still below the
+  screen, so nothing can flash or shift and reduced motion hides nothing.
+  The heading keeps the page's own entrance (components/marketing/
+  landing-story.tsx); these blocks are not in its list, so nothing runs
+  twice. The globe is lighter on a phone (./analytics-globe).
+
   Motion: the globe turns only while the section is live and in view. The
   strip of engines moves by one custom property written every 2.6s (no React
   render); names, lights and dots move by transform and opacity on the
@@ -67,7 +82,7 @@
   and under reduced motion, nothing runs.
 */
 
-import { useEffect, useRef, type CSSProperties, type ComponentType } from "react"
+import { useEffect, useRef, type CSSProperties, type ComponentType, type RefObject } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { AnalyticsGlobe } from "./analytics-globe"
 import { ClaudeMark, GeminiMark, GoogleG, OpenAIMark, PerplexityMark } from "./engine-marks"
@@ -163,7 +178,7 @@ const RESULTS = [
 
 function SearchCard() {
   return (
-    <div className={`${s.dark} ${s.fixed} ${m.reveal} flex flex-col px-5 pt-5 sm:px-7 sm:pt-7`} style={{ "--i": 2 } as CSSProperties}>
+    <div className={`${s.dark} ${s.fixed} ${s.rise} flex flex-col px-5 pt-5 sm:px-7 sm:pt-7`} data-rise="">
       {/* A very quiet dot grid, drifting one cell at a time (a transform loop). */}
       <span className={`${s.dots} ${m.loop}`} aria-hidden="true" />
       <span className={`${s.orb} ${s.orbSearch} ${m.loop}`} aria-hidden="true" />
@@ -250,7 +265,7 @@ function EnginesCard({ live, reduced }: { live: boolean; reduced: boolean }) {
     return () => window.clearInterval(id)
   }, [live, reduced])
   return (
-    <div className={`${s.dark} ${s.fixed} ${m.reveal} flex flex-col p-5 sm:p-7`} style={{ "--i": 3 } as CSSProperties}>
+    <div className={`${s.dark} ${s.fixed} ${s.rise} flex flex-col p-5 sm:p-7`} data-rise="" style={{ "--i": 1 } as CSSProperties}>
       <span className={`${s.orbit} ${m.loop}`} aria-hidden="true" />
       <div className="relative flex min-h-[150px] flex-1 items-center">
         <div className={`${s.engines} w-full`} aria-hidden="true">
@@ -276,9 +291,49 @@ function EnginesCard({ live, reduced }: { live: boolean; reduced: boolean }) {
   )
 }
 
+/*
+  THE ENTRANCE (landing round 9). Every block marked data-rise is watched by
+  one IntersectionObserver. The first report about a block decides: wholly
+  below the screen, it is hidden ("wait") until it comes on screen ("in");
+  already on screen or above it, it is left exactly as it is. So a block is
+  never hidden while it could be seen, and without script or under reduced
+  motion nothing is hidden at all. No scroll listener, nothing measured.
+*/
+function useRise(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const root = ref.current
+    if (!root || typeof IntersectionObserver !== "function") return
+    if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const seen = new WeakSet<Element>()
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const el = entry.target as HTMLElement
+          if (!seen.has(el)) {
+            seen.add(el)
+            if (!entry.isIntersecting) {
+              if (entry.boundingClientRect.top > innerHeight) el.dataset.rise = "wait"
+              else io.unobserve(el)
+              continue
+            }
+          }
+          if (entry.isIntersecting) {
+            if (el.dataset.rise === "wait") el.dataset.rise = "in"
+            io.unobserve(el)
+          }
+        }
+      },
+      { rootMargin: "0px 0px -8% 0px" },
+    )
+    root.querySelectorAll("[data-rise]").forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [ref])
+}
+
 export function AnalyticsShowcase() {
   const ref = useRef<HTMLElement>(null)
   const { live, reduced } = usePlatformSection(ref, "200px 0px")
+  useRise(ref)
   return (
     <section
       ref={ref}
@@ -292,18 +347,21 @@ export function AnalyticsShowcase() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div className={`${m.reveal} ${s.inset} flex flex-col justify-center pb-4 lg:col-span-5 lg:pb-0 lg:pr-8`} style={{ "--i": 0 } as CSSProperties}>
-            <h3 className="text-[clamp(26px,2.6vw,36px)] font-medium leading-[1.1] tracking-[-0.035em] text-[var(--band-ink,#0f0e13)]">See where your visitors are</h3>
-            <p className="mt-3 max-w-[40ch] text-[15.5px] leading-[1.6] text-[var(--band-muted,#55525e)]">Every visit and sale on your page and store, live.</p>
-            <ul className={`${s.reports} mt-6`} aria-label="Reports">
-              {REPORTS.map((label) => (
-                <li key={label} className={s.report}>
+          <div className={`${s.inset} flex flex-col justify-center pb-4 lg:col-span-5 lg:pb-0 lg:pr-8`}>
+            <div className={s.rise} data-rise="">
+              <h3 className="text-[clamp(26px,2.6vw,36px)] font-medium leading-[1.1] tracking-[-0.035em] text-[var(--band-ink,#0f0e13)]">See where your visitors are</h3>
+              <p className="mt-3 max-w-[40ch] text-[15.5px] leading-[1.6] text-[var(--band-muted,#55525e)]">Every visit and sale on your page and store, live.</p>
+            </div>
+            {/* The reports come in one after another (--i), when the row itself is on screen. */}
+            <ul className={`${s.reports} mt-6`} aria-label="Reports" data-rise="">
+              {REPORTS.map((label, i) => (
+                <li key={label} className={s.report} style={{ "--i": i } as CSSProperties}>
                   {label}
                 </li>
               ))}
             </ul>
           </div>
-          <div className={`${m.reveal} lg:col-span-7`} style={{ "--i": 1 } as CSSProperties}>
+          <div className={`${s.rise} lg:col-span-7`} data-rise="" style={{ "--i": 1 } as CSSProperties}>
             <GlobeCard live={live} reduced={reduced} />
           </div>
           <div className="lg:col-span-7">
