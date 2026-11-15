@@ -137,7 +137,7 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
       >
         <style href="faq-section" precedence="default">{FAQ_CSS}</style>
         <style href="faq-section-rows" precedence="default">{FAQ_ROWS_CSS}</style>
-        <div data-faq-column="" className="mx-auto w-full max-w-[880px]">
+        <div data-faq-column="" className="!mx-auto w-full !max-w-[880px] !px-0">
           <AnimateOnScroll variant="fade-up">
             <div className="story-section-heading !mx-auto !mb-9 w-full !text-center sm:!mb-12">
               <StoryHeading text="Frequently asked questions" accent={["questions"]} />

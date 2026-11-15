@@ -100,7 +100,7 @@ console.log("\n── questions: a centred column of grey rows ──")
   const home = renderToStaticMarkup(createElement(FaqSection, { editorial: true }))
   const pricing = renderToStaticMarkup(createElement(FaqSection))
   check("the heading is the owner's words, centred", /Frequently[\s\S]{0,400}asked[\s\S]{0,400}questions/.test(home) && !/Good questions|Clear answers/.test(src) && /story-section-heading !mx-auto !mb-9 w-full !text-center/.test(src))
-  check("one centred column inside the page's width", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(src) && /data-faq-column="" class="mx-auto w-full max-w-\[880px\]"/.test(home))
+  check("one centred column inside the page's width", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(src) && /data-faq-column="" class="!mx-auto w-full !max-w-\[880px\] !px-0"/.test(home))
   check("the grey is on each row, with a small gap between them", /\.faq-rows\{display:grid;gap:6px;border-top:0\}/.test(src) && /\.faq-rows \.faq-item\{border-bottom:0;border-radius:10px;background:#f5f5f6\}/.test(src) && /style="background:transparent"/.test(home))
   const rows = (home.match(/class="faq-item"/g) ?? []).length
   check("seven rows, each a real button in a heading with a plus", rows === 7 && (home.match(/<h3 class="m-0"><button type="button" class="faq-q" aria-expanded="false" aria-controls="faq-a-\d" id="faq-q-\d">/g) ?? []).length === 7 && (home.match(/<span class="faq-mark" aria-hidden="true"><\/span>/g) ?? []).length === 7)

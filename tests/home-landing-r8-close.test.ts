@@ -96,7 +96,7 @@ console.log("\n── questions: no grey box ──")
   const faq = read("components/marketing/faq-section.tsx")
   // Changed on purpose (landing round 9): the home page's questions have their own branch, so the style is stated outright; and the owner's reference is one centred column, so the heading no longer starts at the inset.
   check("transparent over the grey ground globals.css gives the section", /style=\{\{ background: "transparent" \}\}/.test(faq) && /!rounded-none/.test(faq))
-  check("in the page's one width, one centred column inside it", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /data-faq-column="" className="mx-auto w-full max-w-\[880px\]"/.test(faq) &&!/!px-\[clamp\(20px,4\.4vw,80px\)\]/.test(faq))
+  check("in the page's one width, one centred column inside it", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /data-faq-column="" className="!mx-auto w-full !max-w-\[880px\] !px-0"/.test(faq) &&!/!px-\[clamp\(20px,4\.4vw,80px\)\]/.test(faq))
 }
 
 console.log("\n── the close: dots, motion, the footer's edge ──")
