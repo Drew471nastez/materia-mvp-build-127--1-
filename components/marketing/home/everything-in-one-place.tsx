@@ -410,6 +410,13 @@ function ProductSlides() {
   shows its creator's photo. A seventh page is a OnePage in the realistic dark style of a creative director's (Idris
   Kane): a photo that fades into black, the name with a verified mark, a line about him, round icons and wide link
   buttons with their icons. The stores never stand side by side.
+
+  Landing round 11 (the owner: "Soft Ground (Kiln Goods): make it a digital product store, like the product being a
+  digital product store, with a different heading/hero"): in its place a photographer's store of digital products,
+  Noor Haddad's. A dark band for a header with her name and the cart, a line saying what she sells and that it
+  downloads at once, then the products as their real covers (rendered, public/home/everything/stores/dg-*.webp): a
+  preset pack with its before and after, an e-book, a Notion template and a pack of video LUTs, one of them reduced.
+  The band is as tall as the other stores' header and title, so the pieces line up with theirs.
 */
 type MerchStore = {
   kind: "merch"
@@ -417,7 +424,9 @@ type MerchStore = {
   brand: string
   /** The drop's name, as its two lines: the first sits left, the second right. */
   title: readonly [string, string]
-  products: ReadonlyArray<{ src: string; name: string; price: string }>
+  products: ReadonlyArray<{ src: string; name: string; price: string; /** The price before a sale (landing round 11). */ was?: string }>
+  /** Landing round 11: a store of digital products, with its own dark header band in place of the title. */
+  digital?: { line: string; note: string }
   /** Landing round 8: a store laid out like a real Storelib store, its menu and cart around a centred wordmark; landing round 10: they stand on the cover photo, with the drop's name. */
   hero?: string
 }
@@ -504,14 +513,15 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
   },
   {
     kind: "merch",
-    key: "soft-ground",
-    brand: "Kiln Goods",
-    title: ["Soft", "Ground"],
+    key: "noor",
+    brand: "Noor Haddad",
+    title: ["Presets and", "guides"],
+    digital: { line: "Lightroom presets, video LUTs and guides from my shoots on the coast.", note: "Instant download" },
     products: [
-      { src: `${ST}/kiln-sweat.webp`, name: "Studio Crew", price: "$54" },
-      { src: `${ST}/kiln-tote.webp`, name: "Market Tote", price: "$18" },
-      { src: `${ST}/kiln-back.webp`, name: "Coast Print Tee", price: "$32" },
-      { src: `${ST}/kiln-plain.webp`, name: "Everyday Tee", price: "$24" },
+      { src: `${ST}/dg-saltwater.webp`, name: "Saltwater Presets", price: "$29", was: "$39" },
+      { src: `${ST}/dg-book.webp`, name: "Shoot to Invoice", price: "$18" },
+      { src: `${ST}/dg-planner.webp`, name: "Client Shoot Planner", price: "$12" },
+      { src: `${ST}/dg-luts.webp`, name: "Night Drive LUTs", price: "$24" },
     ],
   },
   {
@@ -540,7 +550,43 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
   },
 ]
 
+function Price({ p }: { p: MerchStore["products"][number] }) {
+  return (
+    <span className="ev-mc-price">
+      {p.was ? <s>{p.was}</s> : null}
+      {p.price}
+    </span>
+  )
+}
+
 function MerchCard({ s }: { s: MerchStore }) {
+  if (s.digital)
+    return (
+      <div className="ev-st ev-mc" data-store="" data-digital="">
+        <span className="ev-dg-band">
+          <span className="ev-dg-top">
+            <span className="ev-dg-mark">{s.brand}</span>
+            <span>Cart (0)</span>
+          </span>
+          <span className="ev-dg-head">
+            <b>
+              {s.title[0]} {s.title[1]}
+            </b>
+            <span>{s.digital.line}</span>
+            <i>{s.digital.note}</i>
+          </span>
+        </span>
+        <span className="ev-mc-grid">
+          {s.products.map((p) => (
+            <span key={p.name} className="ev-mc-item">
+              <Img eager piece className="ev-mc-img" src={p.src} w={360} h={450} />
+              <span className="ev-mc-name">{p.name}</span>
+              <Price p={p} />
+            </span>
+          ))}
+        </span>
+      </div>
+    )
   if (s.hero)
     return (
       <div className="ev-st ev-mc" data-store="">
@@ -1322,6 +1368,17 @@ const CSS = `
 .ev-ms-drop i{margin-top:${r(10)};font-size:${r(12)};font-style:normal;letter-spacing:.14em;text-transform:uppercase;color:#4a4a4a}
 .ev-ms-cover + .ev-mc-grid{margin-top:${r(24)}}
 .ev-mc[data-store] .ev-mc-img{border-radius:${r(10)}}
+.ev-mc-price s{margin-right:${r(6)};color:#9a9a9a}
+
+/* Landing round 11: a store of digital products. A dark band as tall as the other stores' header and title: her name and the cart, what she sells in one plain heading and a line, and that it downloads at once; the covers below in the same grid. */
+.ev-dg-band{position:relative;display:flex;flex-direction:column;flex:none;height:${r(214)};padding:${r(22)} ${r(22)} 0;box-sizing:border-box;background:#101315;color:#fff}
+.ev-dg-top{display:flex;align-items:center;justify-content:space-between;font-size:${r(11)};letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.ev-dg-mark{font-size:${r(19)};font-weight:700;letter-spacing:-.02em;text-transform:none;color:#fff}
+.ev-dg-head{display:flex;flex-direction:column;align-items:flex-start;margin-top:auto;padding-bottom:${r(24)}}
+.ev-dg-head b{font-size:${r(34)};font-weight:700;line-height:1;letter-spacing:-.035em}
+.ev-dg-head span{max-width:${r(300)};margin-top:${r(10)};font-size:${r(13.5)};line-height:1.4;color:rgba(255,255,255,.66)}
+.ev-dg-head i{margin-top:${r(14)};padding:${r(6)} ${r(11)};border-radius:999px;background:rgba(255,255,255,.12);font-size:${r(11.5)};font-style:normal;font-weight:600;letter-spacing:.02em}
+.ev-dg-band + .ev-mc-grid{margin-top:${r(24)}}
 
 /* A creator's link page: a dark, blurred photo, the name big in the page's colour, the icons, two buttons, the products. */
 .ev-lp{align-items:stretch;padding:${r(48)} ${r(24)} 0;color:#fff;text-align:center}

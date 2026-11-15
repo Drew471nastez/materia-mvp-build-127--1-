@@ -86,12 +86,13 @@ const site = renderToStaticMarkup(createElement(MondoMangoSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
 // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
-check("Mondo Mango, a merch label's store", site.includes("Drop 03") && wb.includes("Mondo Mango"))
-check("its products are photographs that exist and are small", ["mm-hero", "mm-logo", "mm-crew", "mm-cap", "mm-tee", "mm-tote"].every((n) => {
+// Changed on purpose (landing round 11): Mondo Mango sells a party card game, product shots of its boxes under a studio hero, and the builder moves on to loudlib (two sites, two pairs of rings); tests/home-landing-r11-top.test.ts pins it.
+check("Mondo Mango, a real looking store", site.includes("Bestsellers") && wb.includes("Mondo Mango"))
+check("its products are pictures that exist and are small", ["mm-studio", "mm-logo", "mm-game", "mm-after-dark", "mm-family", "mm-crate"].every((n) => {
   const f = join(root, `public/home/showcase/${n}.webp`)
   return existsSync(f) && statSync(f).size < 120_000 && site.includes(`/home/showcase/${n}.webp`)
 }))
-check("Publish puts mondomango.shop live, the selected sections outlined", wb.includes("mondomango.shop") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
+check("Publish puts mondomango.shop live, the selected sections outlined", wb.includes("mondomango.shop") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
 
 console.log("\n── The OnePage editor: a LUT pack on a real theme ──")
 const page = renderToStaticMarkup(createElement(DesmondPage))

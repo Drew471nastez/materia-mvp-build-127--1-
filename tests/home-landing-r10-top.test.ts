@@ -75,7 +75,8 @@ check("and never taller than the screen under the tabs allows (svh, so iOS's bar
 check("centred, full width on a phone", /justify-self:center/.test(frame) && /width:100%/.test(frame) && !/@media\(max-width:767px\)\{[^}]*\.ideas-frame/.test(ideasCss))
 check("the picture keeps its shape, so the editor inside shrinks whole", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss))
 check("the three editors are all still there", Ideas.IDEAS_TABS.map((t) => t.title).join() === "Website builder,OnePage editor,Community" && (ideas.match(/role="tabpanel"/g) ?? []).length >= 1)
-check("the frame still has no shadow", !/box-shadow/.test(frame) && /border:1px solid #e3e3e6/.test(frame))
+// Changed on purpose (landing round 11): the owner: "a little more depth, just a little"; one soft layered shadow on the frame, which never changes (tests/home-landing-r11-top.test.ts).
+check("the frame has the hairline and only round 11's soft shadow", /border:1px solid #e3e3e6/.test(frame) && /box-shadow:0 1px 2px rgba\(16,24,40,\.04\),0 6px 16px -6px rgba\(16,24,40,\.08\),0 22px 44px -22px rgba\(16,24,40,\.16\)\}/.test(frame))
 
 console.log("\n── 2. Ideas: no line under the heading ──")
 check("the line is gone from the page", !/class="ideas-sub"/.test(ideas) && !/No code, nothing to install/.test(ideas))

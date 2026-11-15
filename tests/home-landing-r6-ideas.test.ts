@@ -65,9 +65,10 @@ console.log("\nThe website builder's merch brand")
 // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
 const site = renderToStaticMarkup(createElement(MondoMangoSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-check("Plain Weather is gone, Mondo Mango is in the bar and in Publish", !/Plain Weather|plainweather|pw-/.test(code(F.builders)) && wb.includes('<b class="wx-name">Mondo Mango</b>') && wb.includes("<b>mondomango.shop</b>"))
-check("four products priced in euros", [...site.matchAll(/<em>(€\d+)<\/em>/g)].length === 4)
-check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2 && /class="mg-ring wx-ring-a"/.test(wb) && /class="mg-ring wx-ring-b"/.test(wb))
+// Changed on purpose (landing round 11): the bar and Publish name Mondo Mango, then loudlib (a cross fade); the prices sit under each box's shot; two sites, so two pairs of rings.
+check("Plain Weather is gone, Mondo Mango is in the bar and in Publish", !/Plain Weather|plainweather|pw-/.test(code(F.builders)) && wb.includes('<span class="bm-s1">Mondo Mango</span>') && wb.includes('<span class="bm-s1">mondomango.shop</span>'))
+check("four products priced in euros", [...site.matchAll(/<span class="mg-price">(<s>€\d+<\/s>)?€\d+<\/span>/g)].length === 4)
+check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4 && /class="mg-ring wx-ring-a"/.test(wb) && /class="mg-ring wx-ring-b"/.test(wb))
 check("the Saltmoor store and its pictures are gone", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && ["sm-hero", "sm-bergamot", "sm-glass", "sm-votive", "sm-pillar"].every((n) => !existsSync(`public/home/showcase/${n}.webp`)))
 
 console.log("\nCopy")
