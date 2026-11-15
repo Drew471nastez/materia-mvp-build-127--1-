@@ -68,7 +68,7 @@ console.log("\n── audience ──")
   check("the sync row shows the email platforms in their own marks, not the old tree", /EMAIL_PLATFORMS\.map/.test(src) && !/STORELIB_S_PATH/.test(src) && !/s\.tree/.test(src))
   /* Changed on purpose (landing round 5): the owner found the composer too big and asked for one compact picture; the composer is gone. */
   check("no composer: one compact picture", !/Composer|s\.bleed/.test(src) && !/\.bleed/.test(css))
-  check("Download every contact, any time, as it was", /Download every contact, any time/.test(words) && /Names, emails, tags and where each person came from, as a CSV\./.test(words) && /Export CSV/.test(words))  /* Changed on purpose (landing round 5): the CSV is the picture's Export CSV button now. */
+  check("Download every contact, any time, as it was", /Download every contact, any time/.test(words) && /Export CSV/.test(words))  /* Changed on purpose (landing round 9): the owner asked for half the words; the line under each point is gone. */  /* Changed on purpose (landing round 5): the CSV is the picture's Export CSV button now. */
   /* Changed on purpose (landing round 5): one card, the Contacts picture, at 20px. */
   check("one card, a 20px corner", /\.mock \{[^}]*border-radius: 20px;/.test(css) && !/border-radius: 28px/.test(css))
   check("no fans in the words", !/\bfans?\b/i.test(words))

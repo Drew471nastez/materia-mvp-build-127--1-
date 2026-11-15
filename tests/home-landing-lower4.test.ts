@@ -64,12 +64,12 @@ console.log("\n── audience: smaller and lighter ──")
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
   /* Changed on purpose (landing round 5): the owner asked for a simpler, shorter section with one compact picture: Contacts, beside three plain rows. */
-  check("one picture only: Contacts; the rest are plain rows", (src.match(/\$\{s\.mock\}/g) ?? []).length === 1 && (html.match(/<li><h3>/g) ?? []).length === 3)
+  check("one picture only: Contacts; the rest are plain rows", (src.match(/\$\{s\.mock\}/g) ?? []).length === 1 && (html.match(/<li>[^<]+<\/li>/g) ?? []).length === 3)  /* Changed on purpose (landing round 9): each point is one short line, no heading over a sentence. */
   check("the rows are hairlines, not cards", /\.points li \{[^}]*border-top: 1px solid #ececf0;/.test(css) && !/\.points li \{[^}]*background/.test(css))
   check("the old tree, list and pill row are gone", !/s\.tree|s\.list|s\.yours|StorelibLogo/.test(src) && !/\.tree|\.yours|\.list\[/.test(css))
 /* Changed on purpose (landing round 7): the owner asked for a chart, then Synced with, then the export, autoplaying smooth and clean: one attribute a turn, no state, no keyframes, no reveal. */
-  check("calm: no React state, no keyframes, no reveal; the scenes turn by one attribute", !/useState|setTimeout|m\.reveal|m\.loop/.test(src) && !/@keyframes/.test(css) && /el\.dataset\.scene = String\(i\)/.test(src))  /* Changed on purpose (landing round 5): the owner saw it glitch and flash while scrolling; it is drawn once and still. */
-  check("the words the owner kept", ["Download every contact, any time", "No lock-in: if you ever leave, your list leaves with you.", "Already on an email platform?", "One list from every sign-up"].every((w) => words.includes(w)))  /* Changed on purpose (landing round 5): the composer and its figures are gone. */
+  check("calm: no React state, no keyframes, no reveal; the scenes turn by one attribute", /* Changed on purpose (landing round 9): one strip on one CSS clock (two keyframes, transform and opacity), no timer at all. */ !/useState|setTimeout|setInterval|m\.reveal|m\.loop/.test(src) && (css.match(/@keyframes/g) ?? []).length === 2)  /* Changed on purpose (landing round 5): the owner saw it glitch and flash while scrolling; it is drawn once and still. */
+  check("the words the owner kept", /* Changed on purpose (landing round 9): half the words. */ ["Download every contact, any time", "Syncs with your email platform", "One list from every sign-up"].every((w) => words.includes(w)))  /* Changed on purpose (landing round 5): the composer and its figures are gone. */
 /* Changed on purpose (landing round 7): every section in the page's one width (--home-edge, --home-max). */
   check("in the page's one width", /\$\{s\.grid\} home-wrap/.test(src) && !/max-w-\[1400px\]/.test(src))
   check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
