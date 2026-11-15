@@ -82,7 +82,8 @@ check("device pixels capped, the sphere painted once per size", /Math\.min\(glob
 /* Changed on purpose (land-globe): the pill is placed every frame the city moves (no 100ms glide that trailed the city), so it sits exactly on it. */
 /* Changed on purpose (landing round 4): the pill is told where the city is and where it will be a moment later a few times a second, and glides there in one compositor animation (a style change every frame made dragging lag); still transform only. */
 /* Changed on purpose (landing round 5): the owner saw the pill flash and jump as it chased the city; it stands in one place and only fades and lifts in and out. */
-check("the order pill is never moved: it comes and goes by opacity and transform", !/style\.(left|top|transform) =/.test(globe) && !/el\.animate\(/.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i, on: true \}\)/.test(engine))
+/* Changed on purpose (landing round 6): the owner wants the notification where the shot landed; it is placed once per landing by a transform on its pin and carried by one compositor animation, never re-aimed per frame (tests/home-landing-r6-globe). */
+check("the order pill sits where the shot landed, placed once by transform, and comes and goes by opacity", !/style\.(left|top) =/.test(globe) && /pin\.style\.transform = /.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i, on: true, x0: /.test(engine))
 check("the globe survives a second mount (a canvas handed to a worker is swapped for a fresh one)", /handedOver\.has\(canvas\)/.test(globe) && /canvas\.replaceWith\(fresh\)/.test(globe))
 check("its motion runs on the display's frames by real elapsed time, on a clock that stops while paused", /const dt = Math\.max\(0, Math\.min\(50, t - st\.last\)\)/.test(engine) && /st\.clock \+= dt/.test(engine))
 const symbols: Record<string, string> = { "€": "EUR", "£": "GBP", "CA$": "CAD", "A$": "AUD", "¥": "JPY", RON: "RON", $: "USD" }
@@ -93,7 +94,8 @@ check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSy
 console.log("\n── card 2 and 4 ──")
 /* Changed on purpose (landing round): the owner asked for a continuous carousel, like the creators rail; the stores drift without a stop, the set twice over moved by half its width in one linear loop. */
 /* Changed on purpose (landing round 4): the strip can be dragged, so its drift is a Web Animation from script (one set's width a loop) that a hand can take over; tests/home-landing-topa4. */
-check("the storefronts drift past without a stop, the strip seamless (the set twice, one set's width a loop)", /const strip = \[\.\.\.EVERYTHING_STRIP, \.\.\.EVERYTHING_STRIP\]/.test(src) && /loop = copy\.offsetLeft - first\.offsetLeft/.test(src) && /iterations: Infinity, easing: "linear"/.test(src))
+/* Changed on purpose (landing round 6): the strip is EVERYTHING_STORES (merch stores and link pages), twice over. */
+check("the storefronts drift past without a stop, the strip seamless (the set twice, one set's width a loop)", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && /loop = copy\.offsetLeft - first\.offsetLeft/.test(src) && /iterations: Infinity, easing: "linear"/.test(src))
 /* Changed on purpose (landing round 2): the support card is the Support page as it reads, its two inboxes (From buyers, Storelib) and threads with no avatars, so the Storelib logo avatar went with them. */
 /* Changed on purpose (landing round 4): the owner wants the support card of before without the From buyers / Storelib switch; the two kinds of request are told by their titles. */
 /* Changed on purpose (landing round 5): the "Storelib support" and "From a buyer" labels are gone (the owner); the thread's subject heads it. */

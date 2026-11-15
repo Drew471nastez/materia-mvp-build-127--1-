@@ -42,8 +42,18 @@ const PHONE = "(max-width: 767px)"
   With a mouse from 768px up, RailMotion keeps the rail as before.
 */
 const NATIVE = "(max-width: 767px), (pointer: coarse)"
-/** Autoplay on the native rail: a card every so often, and how long after the last touch it waits to come back. */
-export const SHOWCASE_NATIVE = { intervalMs: 4200, resumeMs: 4000 } as const
+/*
+  LANDING ROUND 6, THE OWNER: the swipe should feel like a native app's photo
+  row, "smooth and clean", and autoplay must never yank the strip. Round 5
+  counted the 4s back from the finger lifting, while the throw's momentum
+  was still running, and could then scrollTo into a moving rail. Now every
+  scroll the reader causes (a finger, its momentum, a trackpad, the keys)
+  counts as reading: autoplay waits until idleMs after the last of them, never
+  starts while the rail is still moving (settleMs of quiet first), and its own
+  smooth scroll is told apart from the reader's.
+*/
+/** Autoplay on the native rail: a card every intervalMs, back only idleMs after the reader's last scroll, and never into a moving rail. */
+export const SHOWCASE_NATIVE = { intervalMs: 4200, idleMs: 6000, settleMs: 220 } as const
 
 /*
   LANDING ROUND, THE OWNER: pull to drag and swipe, with the mouse and the
@@ -145,31 +155,52 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
   let visible = false
   let paused = false
   let timer: ReturnType<typeof setTimeout> | undefined
-  let resumeAt = 0
   let touching = false
+  /* performance.now() of the reader's last input or scroll, of the rail's last scroll of any kind, and of autoplay's last step. */
+  let lastRead = -Infinity
+  let lastMove = -Infinity
+  let lastStep = performance.now()
+  /* True from autoplay's scrollTo until the rail is quiet again: those scroll events are autoplay's, not the reader's. */
+  let auto = false
 
-  const canPlay = () => visible && !paused && !touching && !document.hidden && !reduce.matches && stops.length > 1
-  const schedule = () => {
+  const canPlay = () => visible && !paused && !document.hidden && !reduce.matches && stops.length > 1
+  /* One timer at most, rearmed only when it fires or the conditions change: nothing runs per scroll event but two numbers. */
+  const schedule = (ms: number = SHOWCASE_NATIVE.intervalMs) => {
     clearTimeout(timer)
+    timer = undefined
     if (!canPlay()) return
-    const wait = Math.max(SHOWCASE_NATIVE.intervalMs, resumeAt - performance.now())
-    timer = setTimeout(step, wait)
+    timer = setTimeout(tick, Math.max(ms, 120))
+  }
+  const tick = () => {
+    timer = undefined
+    if (!canPlay()) return
+    const now = performance.now()
+    if (now - lastMove > SHOWCASE_NATIVE.settleMs) auto = false
+    const due = Math.max(
+      lastRead + SHOWCASE_NATIVE.idleMs,
+      lastStep + SHOWCASE_NATIVE.intervalMs,
+      lastMove + SHOWCASE_NATIVE.settleMs,
+    )
+    if (touching || due > now) return schedule(touching ? SHOWCASE_NATIVE.idleMs : due - now)
+    step()
   }
   const step = () => {
-    if (!canPlay()) return
     const x = el.scrollLeft
-    /* The card the rail rests on now (the reader may have left it anywhere), then the next, or back to the first. */
+    /* The card the rail rests on now, then the next, or back to the first. */
     let at = 0
     for (let i = 0; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[at] - x)) at = i
     const next = at + 1 < stops.length ? at + 1 : 0
+    auto = true
+    lastStep = performance.now()
     el.scrollTo({ left: stops[next], behavior: "smooth" })
     schedule()
   }
-  /* The reader takes the rail: autoplay waits until resumeMs after they let go. */
+  /* The reader has the rail: autoplay waits idleMs from now, and whatever autoplay was doing is theirs. */
   const hold = () => {
     hooks.onFirstMove()
-    clearTimeout(timer)
-    resumeAt = performance.now() + SHOWCASE_NATIVE.resumeMs
+    auto = false
+    lastRead = performance.now()
+    if (!timer) schedule(SHOWCASE_NATIVE.idleMs)
   }
   const onTouchStart = () => {
     touching = true
@@ -178,17 +209,14 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
   const onTouchEnd = () => {
     touching = false
     hold()
-    schedule()
   }
   const onPointerDown = (e: PointerEvent) => {
     if (e.pointerType === "touch") return
     hold()
-    schedule()
   }
   const onWheel = (e: WheelEvent) => {
     if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
     hold()
-    schedule()
   }
   const onKey = (e: KeyboardEvent) => {
     if (e.key === " ") {
@@ -204,10 +232,13 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
     const x = el.scrollLeft
     const target = e.key === "ArrowRight" ? stops.find((s) => s > x + 2) : [...stops].reverse().find((s) => s < x - 2)
     if (target !== undefined) el.scrollTo({ left: target, behavior: reduce.matches ? "auto" : "smooth" })
-    schedule()
   }
   /* The first sideways move by the reader lets the phone's left gutter show the card before (data-showcase-pristine). */
   const onScroll = () => {
+    const now = performance.now()
+    lastMove = now
+    /* Not autoplay's own scroll: the reader's finger, its momentum, a trackpad or the keys. */
+    if (!auto) lastRead = now
     if (el.scrollLeft > 4) hooks.onFirstMove()
   }
 
@@ -237,7 +268,6 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
   const onMouseUp = (e: PointerEvent) => {
     if (!drag || e.pointerId !== drag.id) return
     const moved = drag.moved
-    const dx = e.clientX - drag.x0
     drag = null
     if (!moved) return
     delete el.dataset.dragging
@@ -247,13 +277,13 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
     for (let i = 0; i < stops.length; i++) if (Math.abs(stops[i] - x) < Math.abs(stops[at] - x)) at = i
     el.style.scrollSnapType = ""
     el.scrollTo({ left: stops[at] ?? 0, behavior: "smooth" })
-    if (Math.abs(dx) > 0) hold()
-    schedule()
+    hold()
   }
   const onClick = (e: MouseEvent) => {
     if (el.dataset.dragging) e.preventDefault()
   }
   const onVisibility = () => schedule()
+  const onReduce = () => schedule()
 
   measure()
   let frame = 0
@@ -264,7 +294,7 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
   const resize = typeof ResizeObserver === "function" ? new ResizeObserver(remeasure) : null
   resize?.observe(viewport)
   phone.addEventListener("change", remeasure)
-  reduce.addEventListener("change", schedule)
+  reduce.addEventListener("change", onReduce)
 
   const passive = { passive: true } as const
   el.addEventListener("touchstart", onTouchStart, passive)
@@ -281,6 +311,8 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
   el.addEventListener("scroll", onScroll, passive)
   document.addEventListener("visibilitychange", onVisibility)
   hooks.setVisible((v) => {
+    /* Coming on screen, the rail rests a whole interval before autoplay's first step. */
+    if (v && !visible) lastStep = performance.now()
     visible = v
     schedule()
   })
@@ -290,7 +322,7 @@ function startNative(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): (
     cancelAnimationFrame(frame)
     resize?.disconnect()
     phone.removeEventListener("change", remeasure)
-    reduce.removeEventListener("change", schedule)
+    reduce.removeEventListener("change", onReduce)
     el.removeEventListener("touchstart", onTouchStart)
     el.removeEventListener("touchend", onTouchEnd)
     el.removeEventListener("touchcancel", onTouchEnd)

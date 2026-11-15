@@ -78,8 +78,10 @@ console.log("\n── The globe in Make the work ──")
   const globe = code("components/marketing/home/everything-globe.tsx")
   const every = Number(/const PILL_EVERY = (\d+)/.exec(draw)?.[1])
   /* Changed on purpose (landing round 5): the owner saw the pill "glitch and stutter, move and flash" as it chased the city; it is now a notification in one fixed place, told only on and off (tests/home-landing-r5-top). */
-  check("the pill is told only when an order lands and when it leaves, never where to go", Number.isNaN(every) && /host\.onPill\(\{ i, on: true \}\)/.test(draw) && /host\.onPill\(\{ i: st\.pill, on: false \}\)/.test(draw))
-  check("no glide on the page: the pill is never moved", !/el\.animate\(/.test(globe) && !/style\.transform/.test(globe))
+  /* Changed on purpose (landing round 6): the owner wants the notification "where the rocket landed"; it is told once per landing where the city is and where the spin takes it (never per frame, no re-aiming), and leaves early if the city turns away (tests/home-landing-r6-globe). */
+  check("the pill is told only when an order lands (with where) and when it leaves, never re-aimed", Number.isNaN(every) && /host\.onPill\(\{ i, on: true, x0: /.test(draw) && /host\.onPill\(\{ i: st\.pill, on: false \}\)/.test(draw))
+  /* Changed on purpose (landing round 6): placed by a transform on its pin once per landing, then one compositor animation along with the city; never moved per frame. */
+  check("placed once per landing, by transform only", /pin\.style\.transform = `translate\(/.test(globe) && (globe.match(/pin\.animate\(/g) || []).length === 1 && !/style\.(left|top) =/.test(globe))
   const move = globe.slice(globe.indexOf("const onMove"), globe.indexOf("const onUp"))
   check("the move path reads no layout: a drag passes straight on, the lean uses a box read once", /driver\.pointer\(\{ kind: "move"/.test(move) && (move.match(/getBoundingClientRect/g) || []).length === 1 && /if \(!rect\) \{/.test(move) && !/offset(Width|Height|Left|Top)|getComputedStyle/.test(move))
   check("drawing stays in a worker that owns the canvas", /transferControlToOffscreen/.test(globe) && /new Worker\(url\)/.test(globe))

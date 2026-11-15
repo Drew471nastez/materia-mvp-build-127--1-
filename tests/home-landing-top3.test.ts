@@ -28,10 +28,8 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import {
   EverythingInOnePlace,
-  EVERYTHING_SHOTS,
   EVERYTHING_SLIDES,
   EVERYTHING_STORES,
-  EVERYTHING_STRIP,
   EVERYTHING_STYLES,
   EVERYTHING_SUPPORT,
 } from "@/components/marketing/home/everything-in-one-place"
@@ -74,19 +72,17 @@ console.log("\n── Build a store that looks like you: stores and real OnePage
 check("no storelib.me address in the section, in its markup or its source", !/storelib\.me/i.test(everything) && !/storelib\.me/i.test(src.everything))
 check("no address of any kind in the strip (no URL bar over a page)", !/https?:|www\.|\.com|\.me\b|ev-(op|st)-(url|bar-url|chrome|address)/i.test(strip.replace(/src="[^"]*"/g, "")))
 /* Changed on purpose (landing round 4): the owner asked for stores, communities on a phone and OnePages with their share and subscribe buttons, each card whole, and a strip that can be dragged. So the pictures between the stores are OnePages and a community at a phone's first screen (EVERYTHING_SHOTS, public/home/everything/strip), and the strip takes the pointer (only the strip: the cards inside take none) and drifts as a Web Animation from script. tests/home-landing-topa4.test.ts pins the rest. */
-check("pictures stand between the stores", EVERYTHING_SHOTS.length >= 3 && EVERYTHING_STRIP.length === EVERYTHING_STORES.length + EVERYTHING_SHOTS.length)
+/* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
+check("link pages stand between the stores", EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3)
+check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind === (i % 2 === 1 ? "link" : "merch")))
 check(
-  "a store, then a picture, taking turns",
-  EVERYTHING_STRIP.slice(0, EVERYTHING_SHOTS.length * 2).every((item, i) => "src" in item === (i % 2 === 1)),
-)
-check(
-  "each picture is a capture that exists, at a phone screen's shape (390 by 650), and small",
-  EVERYTHING_SHOTS.every((p) => {
-    const file = join(root, "public", p.src)
-    return p.src.startsWith("/home/everything/strip/") && existsSync(file) && statSync(file).size < 120_000
+  "each picture is local, exists and is small",
+  EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : [s.ground, ...s.products])).every((u) => {
+    const file = join(root, "public", u)
+    return u.startsWith("/home/everything/stores/") && existsSync(file) && statSync(file).size < 120_000
   }),
 )
-check("a picture in the strip is its picture and nothing else", (strip.match(/class="ev-st ev-op"[^>]*><img[^>]*class="ev-op-img"[^>]*><\/div>/g) ?? []).length === EVERYTHING_SHOTS.length * 2)
+check("the strip draws every page twice over (one set's width a loop)", (strip.match(/class="ev-st ev-(mc|lp)"/g) ?? []).length === EVERYTHING_STORES.length * 2)
 check("the cards in the strip take no pointer, and nothing is selectable", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && /user-select:none/.test(rule(evCss, ".ev-s")))
 check("the strip is hidden from assistive tech and holds nothing that takes focus", /class="ev-vis ev-s" aria-hidden="true"/.test(everything) && !/<(a|button|input|select|textarea)\b|tabindex/i.test(strip))
 check("no hover style on anything in the strip", !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))
@@ -103,12 +99,15 @@ check("a buyer's request is there too", EVERYTHING_SUPPORT.some((r) => r.replyAv
 
 console.log("\n── The digital product is a real one ──")
 const digital = EVERYTHING_SLIDES.find((s) => s.tab === "Digital")
-check("it is a LUT pack, named like one", digital?.name === "Cine Tones, 12 LUTs" && digital.kind === "luts")
+/* Changed on purpose (landing round 6): the owner: "LUT pack without the 12, just LUT pack". */
+check("it is a LUT pack, named like one", digital?.name === "Cine Tones LUT Pack" && digital.kind === "luts")
 check("its numbers add up", digital?.stats.map(([, v]) => v).join() === "$29.00,386,$11,194.00" && 29 * 386 === 11194)
 /* Changed on purpose (landing round 5): the owner found the pack's panel "too complex and non realistic"; it is the cover a seller uploads, one photo split flat and graded with the pack's name (tests/home-landing-r5-top). */
-check("drawn as the pack's cover: one photo split flat and graded, its name", /class="ev-lut-flat"/.test(everything) && !/ev-lut-look/.test(everything) && !everything.includes("CT_04_Dusk.cube"))
+/* Changed on purpose (landing round 6): the owner wanted the cover "more clean and smooth, more bold, black, modern": one graded still on black and the name, big (tests/home-landing-r6-everything). */
+check("drawn as the pack's cover: a graded still and its name, no panel", /class="ev-lut-still"/.test(everything) && !/ev-lut-look/.test(everything) && !everything.includes("CT_04_Dusk.cube"))
 check("no book cover and no guide left in the product card", !/ev-p-book|ev-p-guide|Sourdough at Home<\/p>|page guide/i.test(everything) && !existsSync(join(root, "public/home/everything/guide-bread.webp")))
-check("its one photo exists and is small", existsSync(join(root, "public/home/everything/lut-cover.webp")) && statSync(join(root, "public/home/everything/lut-cover.webp")).size < 40_000)
+/* Changed on purpose (landing round 6): the cover's still is lut-still.webp, a wide frame. */
+check("its one photo exists and is small", existsSync(join(root, "public/home/everything/lut-still.webp")) && statSync(join(root, "public/home/everything/lut-still.webp")).size < 120_000)
 const pack = renderToStaticMarkup(createElement(TemplatePage))
 /* Changed on purpose (landing round 4, the owner did not like Dust & Tape Drums): a Notion template, drawn in HTML. */
 check("the business section's digital product is a template drawn in HTML, with no photograph", BUSINESS_SLIDES[0].id === "digital" && pack.includes("Studio OS for Notion") && !/<img/.test(pack))
@@ -118,9 +117,9 @@ console.log("\n── Tabs of one family (the tabs of Make the work) ──")
 const family = (r: string) => /height:30px/.test(r) && /padding:0 13px/.test(r) && /border-radius:999px/.test(r) && /color:#55525c/.test(r) && /font-size:13px/.test(r) && /font-weight:500/.test(r)
 check("Make the work's tab is the reference", family(rule(evCss, ".ev-tab")) && /\.ev-tab\[data-on\]\{color:#18181b\}/.test(evCss) && /\.ev-tab::before\{[^}]*background:#fff/.test(evCss))
 /* Changed on purpose (landing round 4): real tabs (aria-selected) above the picture. */
-// Changed on purpose (landing round 5): the owner wants the ideas tabs "not as pill shapes": words on a hairline, the chosen one dark with a rule under it.
+// Changed on purpose (landing round 6): the owner wants the ideas tabs "with pill shapes like how it was before": the family again, a grey track, the chosen one white.
 check("ideas: tabs in place of the dots, the chosen one dark", /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(src.ideas) && !/ideas-dot/.test(src.ideas))
-check("ideas: no pill track", !/\.ideas-tabs\{[^}]*border-radius:999px/.test(src.ideas) && !/\.ideas-tab\{[^}]*border-radius:999px/.test(src.ideas))
+check("ideas: the same family as Make the work's tabs, on a grey pill track", family(rule(src.ideas, ".ideas-tab")) && /\.ideas-tabs\{[^}]*border-radius:999px;background:#f1f1f2/.test(src.ideas) && /\.ideas-tab::before\{[^}]*background:#fff/.test(src.ideas))
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 check("ideas: one tab an editor, each named in full", (ideas.match(/class="ideas-tab"/g) ?? []).length === IDEAS_TABS.length && IDEAS_TABS.every((s) => ideas.includes(`<span>${s.title}</span>`)))
 check("business, on a phone: the same pill row", /@media\(max-width:899px\)\{[\s\S]*\.biz-kind-s\{[^}]*height:30px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:500/.test(src.business) && /\.biz-kind\[aria-selected="true"\] \.biz-kind-s\{background:#fff\}/.test(src.business))
@@ -147,8 +146,8 @@ const chips = MARQUEE_ROWS.flatMap((r) => r.items.map((c) => c.label))
 const physical = chips.filter((c) => PHYSICAL.test(c)).length
 check("the possibilities: close to half are physical, in two rows", MARQUEE_ROWS.length === 2 && physical / chips.length >= 0.4 && physical / chips.length <= 0.6, { physical, of: chips.length })
 check("no chip twice", new Set(chips).size === chips.length)
-const storeProducts = EVERYTHING_STORES.flatMap((s) => s.products)
-check("the stores sell both kinds", storeProducts.some((p) => p.badge === "Physical") && storeProducts.some((p) => p.badge === "Digital") && storeProducts.some((p) => p.badge === "Course") && storeProducts.some((p) => p.badge === "Community"))
+/* Changed on purpose (landing round 6): the strip shows merch stores and creators' link pages as the owner's reference does; the product card above still shows merch, a download, a course and a community. */
+check("the strip's stores sell physical pieces, priced", EVERYTHING_STORES.some((s) => s.kind === "merch" && s.products.every((p) => /^\$\d+$/.test(p.price))))
 
 console.log("\n── The words ──")
 const words = [EVERYTHING_SUPPORT.map((r) => `${r.sub} ${r.ask} ${r.reply}`).join(" "), BUSINESS_SLIDES.map((s) => `${s.label} ${s.line} ${s.alt}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")

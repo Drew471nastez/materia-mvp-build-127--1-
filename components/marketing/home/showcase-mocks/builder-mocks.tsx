@@ -62,8 +62,9 @@ import { MockFrame, Pic, u } from "./frame"
                       tree-parts.tsx's grid, the page itself with the blue
                       ring and its "Selected" chip (sections/_shared.tsx), and
                       Publish's own panel (publish-panel.tsx). The site is a
-                      small candle studio's store, Saltmoor (round 5, the
-                      owner: a more realistic store than the merch one).
+                      small apparel label's store, Plain Weather (round 6,
+                      the owner: a simple, clean merch brand in place of
+                      round 5's candle studio).
     OnePage editor    components/onepage/onepage-editor.tsx and tabs/links-tab:
                       undo and redo, the Links / Design / Products pill row
                       and Settings, Save and Share your OnePage; the Links tab
@@ -106,78 +107,73 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-/* ================================================================ The site in the website builder: Saltmoor */
-type Product = { pic: string; name: string; size: string; price: string }
-const SM_PRODUCTS: Product[] = [
-  { pic: "sm-bergamot", name: "Bergamot & Black Tea", size: "220 g · 45 h", price: "£26" },
-  { pic: "sm-glass", name: "Smoked Vetiver tumbler", size: "300 g · 60 h", price: "£32" },
-  { pic: "sm-votive", name: "Linen votives, set of 3", size: "3 × 80 g", price: "£18" },
-  { pic: "sm-pillar", name: "Unscented pillars, set of 3", size: "3 × 7.5 cm", price: "£22" },
+/* ================================================================ The site in the website builder: Plain Weather */
+type Product = { pic: string; name: string; colours: string; price: string }
+const PW_PRODUCTS: Product[] = [
+  { pic: "pw-tee-white", name: "Everyday Tee, White", colours: "4 colours", price: "€35" },
+  { pic: "pw-tee-black", name: "Everyday Tee, Black", colours: "4 colours", price: "€35" },
+  { pic: "pw-hoodie", name: "Loopback Hoodie, Fog", colours: "3 colours", price: "€89" },
+  { pic: "pw-cap", name: "Washed Cap, Slate", colours: "2 colours", price: "€32" },
 ]
 
 /**
- * Saltmoor, a two person candle studio's store, the site open in the website builder. `rings` outlines the Hero,
+ * Plain Weather, a small apparel label's store, the site open in the website builder. `rings` outlines the Hero,
  * then the products, the way the builder rings the section it has selected.
  */
-export function SaltmoorSite({ rings = false }: { rings?: boolean }) {
+export function PlainWeatherSite({ rings = false }: { rings?: boolean }) {
   return (
-    <div className="sm">
-      <div className="sm-nav">
-        <span className="sm-logo">Saltmoor</span>
-        <span className="sm-links">
-          <b>Shop all</b>
-          <span>Candles</span>
-          <span>Refills</span>
-          <span>Gift sets</span>
-          <span>Our studio</span>
+    <div className="pw">
+      <div className="pw-nav">
+        <span className="pw-logo">Plain Weather</span>
+        <span className="pw-links">
+          <b>New in</b>
+          <span>Tees</span>
+          <span>Sweats</span>
+          <span>Caps</span>
+          <span>About</span>
         </span>
-        <span className="sm-cart">
-          <ShoppingBag /> Bag (2)
+        <span className="pw-cart">
+          <ShoppingBag /> Bag (1)
         </span>
       </div>
-      <div className="sm-hero">
-        <div className="sm-copy">
-          <p className="sm-eyebrow">Autumn scents are in</p>
-          <h3>Candles poured by hand in Leeds.</h3>
-          <p className="sm-sub">Rapeseed wax, cotton wicks and scents we blend ourselves. Send an empty jar back and we refill it for £14.</p>
-          <span className="sm-btns">
-            <b>Shop candles</b>
-            <span>How refills work</span>
+      <div className="pw-hero">
+        <div className="pw-copy">
+          <p className="pw-eyebrow">Autumn restock</p>
+          <h3>Everyday cotton, cut and sewn in Porto.</h3>
+          <p className="pw-sub">Tees, hoodies and caps in four quiet colours, made in small runs.</p>
+          <span className="pw-btns">
+            <b>Shop new in</b>
           </span>
-          <span className="sm-note">Free UK delivery over £40 · Dispatched in 2 days</span>
         </div>
-        <div className="sm-photo">
-          <Pic n="sm-hero" w={640} h={800} />
-          <em>
-            Amber jar, Fig &amp; Cedar <b>£28</b>
-          </em>
+        <div className="pw-photo">
+          <Pic n="pw-hero" w={940} h={680} />
         </div>
         {rings && (
-          <span className="sm-ring wx-ring-a">
+          <span className="pw-ring wx-ring-a">
             <em>Selected</em>
           </span>
         )}
       </div>
-      <div className="sm-shop">
-        <p className="sm-h">
-          Bestsellers <span>View all</span>
+      <div className="pw-shop">
+        <p className="pw-h">
+          Bestsellers <span>Shop all</span>
         </p>
-        <div className="sm-grid">
-          {SM_PRODUCTS.map((p) => (
-            <span key={p.name} className="sm-card">
-              <span className="sm-img">
-                <Pic n={p.pic} w={520} h={520} />
+        <div className="pw-grid">
+          {PW_PRODUCTS.map((p) => (
+            <span key={p.name} className="pw-card">
+              <span className="pw-img">
+                <Pic n={p.pic} w={600} h={492} />
               </span>
-              <b>{p.name}</b>
-              <span className="sm-row">
-                <i>{p.size}</i>
+              <span className="pw-row">
+                <b>{p.name}</b>
                 <em>{p.price}</em>
               </span>
+              <i>{p.colours}</i>
             </span>
           ))}
         </div>
         {rings && (
-          <span className="sm-ring wx-ring-b">
+          <span className="pw-ring wx-ring-b">
             <em>Selected</em>
           </span>
         )}
@@ -192,7 +188,7 @@ type TreeRow = { name: string; twisty?: boolean; hl?: string }
 const TREE_PAGE: TreeRow[] = [
   { name: "Hero", twisty: true, hl: "wx-hl-a" },
   { name: "Featured products", twisty: true, hl: "wx-hl-b" },
-  { name: "Our studio", twisty: true },
+  { name: "Lookbook", twisty: true },
   { name: "Reviews", twisty: true },
   { name: "FAQ", twisty: true },
   { name: "Newsletter" },
@@ -271,7 +267,7 @@ function WbBar() {
         <span className="wx-key ghost">
           <ArrowLeftToLine />
         </span>
-        <b className="wx-name">Saltmoor</b>
+        <b className="wx-name">Plain Weather</b>
         <i className="wx-live" />
         <span className="wx-key">
           <MoreHorizontal />
@@ -337,7 +333,7 @@ function PublishPanel() {
       <p className="wx-pub-l">Website URL</p>
       <span className="wx-pub-url">
         <Globe />
-        <b>saltmoorcandles.co.uk</b>
+        <b>plainweather.co</b>
         <Copy />
         <ExternalLink />
       </span>
@@ -382,7 +378,7 @@ export function WebsiteBuilderMock() {
       </aside>
       <div className="wx-canvas">
         <MockFrame label="" className="wx-site">
-          <SaltmoorSite rings />
+          <PlainWeatherSite rings />
         </MockFrame>
       </div>
       <PublishPanel />
@@ -809,43 +805,38 @@ export const BUILDER_CSS = u(`
 .bm-frame>.smk{--w:1280}
 .bm-cursor{position:absolute;z-index:30;width:22u!important;height:22u!important;opacity:0;filter:drop-shadow(0 2u 3u rgba(0,0,0,.25));pointer-events:none}
 
-/* ---------- the site: Saltmoor (its own design width). Warm paper, a serif wordmark and headline, photographs that do the talking. */
+/* ---------- the site: Plain Weather (its own design width). Near white, one sans in two weights, a wide tracked wordmark, the photographs carry the colour. */
 .wx-canvas .wx-site{position:absolute;inset:0}
 .wx-site>.smk{--w:1024}
-.sm{position:absolute;inset:0;display:flex;flex-direction:column;background:#f6f2ec;color:#211d19;font-family:var(--font-inter,Inter),Inter,sans-serif}
-.sm-nav{flex:none;height:60u;display:flex;align-items:center;gap:36u;padding:0 40u;border-bottom:1u solid #e7e0d5}
-.sm-logo{font-family:Georgia,"Times New Roman",serif;font-size:22u;letter-spacing:.01em;white-space:nowrap}
-.sm-links{display:flex;gap:22u;font-size:13u;color:#6f665c}
-.sm-links b{color:#211d19;font-weight:500}
-.sm-cart{display:flex;align-items:center;gap:7u;margin-left:auto;font-size:13u;font-weight:500}
-.sm-cart svg{width:15u;height:15u}
-.sm-hero{position:relative;flex:none;display:grid;grid-template-columns:1fr 360u;gap:48u;align-items:center;height:396u;padding:0 40u}
-.sm-eyebrow{font-size:12u;font-weight:500;color:#8a6a4b}
-.sm-copy h3{margin-top:12u!important;max-width:470u;font-family:Georgia,"Times New Roman",serif;font-size:50u;font-weight:400;line-height:1.04;letter-spacing:-.02em}
-.sm-sub{margin-top:16u!important;max-width:400u;font-size:14.5u;line-height:1.55;color:#5b5249}
-.sm-btns{display:flex;gap:10u;margin-top:24u}
-.sm-btns>*{display:flex;align-items:center;height:42u;padding:0 20u;border-radius:8u;font-size:13.5u;font-weight:500;white-space:nowrap}
-.sm-btns b{background:#211d19;color:#f6f2ec}
-.sm-btns span{box-shadow:inset 0 0 0 1u #cfc5b7}
-.sm-note{display:block;margin-top:18u;font-size:12u;color:#8a8076}
-.sm-photo{position:relative;height:340u;border-radius:6u;overflow:hidden;background:#d9cfc2}
-.sm-photo img{object-position:50% 80%}
-.sm-photo em{position:absolute;left:12u;bottom:12u;display:flex;gap:8u;padding:7u 11u;border-radius:6u;background:#f6f2ec;color:#211d19;font-size:12u;font-style:normal;font-weight:500}
-.sm-photo em b{color:#7a7066;font-weight:500}
-.sm-shop{position:relative;flex:1 0 auto;padding:20u 40u 40u;border-top:1u solid #e7e0d5}
-.sm-h{display:flex;justify-content:space-between;align-items:baseline;font-family:Georgia,"Times New Roman",serif;font-size:23u;letter-spacing:-.01em}
-.sm-h span{font-family:var(--font-inter,Inter),Inter,sans-serif;font-size:12.5u;font-weight:500;color:#6f665c}
-.sm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
-.sm-card{display:grid;gap:5u}
-.sm-img{display:block;height:184u;border-radius:6u;background:#e9e2d8;overflow:hidden}
-.sm-img img{width:100%!important;height:100%!important;object-fit:cover}
-.sm-card b{margin-top:5u;font-size:13.5u;font-weight:500}
-.sm-row{display:flex;align-items:baseline;justify-content:space-between;font-size:12.5u}
-.sm-row i{font-style:normal;color:#8a8076}
-.sm-row em{font-style:normal;font-weight:500;color:#211d19}
-.sm-ring{position:absolute;inset:0;border-radius:4u;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
-.sm-ring em{position:absolute;right:8u;bottom:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
-.sm-ring.wx-ring-b{opacity:0}
+.pw{position:absolute;inset:0;display:flex;flex-direction:column;background:#fafaf9;color:#161616;font-family:var(--font-inter,Inter),Inter,sans-serif}
+.pw-nav{flex:none;height:60u;display:flex;align-items:center;gap:40u;padding:0 40u;border-bottom:1u solid #ebebe8}
+.pw-logo{font-size:13.5u;font-weight:600;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
+.pw-links{display:flex;gap:24u;font-size:13u;color:#6b6b6b}
+.pw-links b{color:#161616;font-weight:500}
+.pw-cart{display:flex;align-items:center;gap:7u;margin-left:auto;font-size:13u;font-weight:500}
+.pw-cart svg{width:15u;height:15u}
+.pw-hero{position:relative;flex:none;display:grid;grid-template-columns:1fr 470u;gap:48u;align-items:center;height:368u;padding:0 40u}
+.pw-eyebrow{font-size:12u;font-weight:500;color:#6b6b6b}
+.pw-copy h3{margin-top:12u!important;max-width:400u;font-size:42u;font-weight:500;line-height:1.06;letter-spacing:-.035em}
+.pw-sub{margin-top:16u!important;max-width:340u;font-size:14.5u;line-height:1.55;color:#5c5c5c}
+.pw-btns{display:flex;margin-top:26u}
+.pw-btns b{display:flex;align-items:center;height:42u;padding:0 22u;border-radius:4u;background:#161616;color:#fafaf9;font-size:13.5u;font-weight:500;white-space:nowrap}
+.pw-photo{position:relative;height:316u;border-radius:4u;overflow:hidden;background:#6f7d74}
+.pw-photo img{width:100%!important;height:100%!important;object-fit:cover}
+.pw-shop{position:relative;flex:1 0 auto;padding:22u 40u 40u;border-top:1u solid #ebebe8}
+.pw-h{display:flex;justify-content:space-between;align-items:baseline;font-size:17u;font-weight:500;letter-spacing:-.015em}
+.pw-h span{font-size:12.5u;font-weight:500;color:#6b6b6b;letter-spacing:0}
+.pw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
+.pw-card{display:grid;gap:3u}
+.pw-img{display:block;height:184u;border-radius:4u;background:#efefec;overflow:hidden}
+.pw-img img{width:100%!important;height:100%!important;object-fit:cover}
+.pw-row{display:flex;align-items:baseline;justify-content:space-between;gap:8u;margin-top:7u;font-size:13u}
+.pw-row b{font-weight:500}
+.pw-row em{font-style:normal;font-weight:500}
+.pw-card i{font-size:12u;font-style:normal;color:#8a8a8a}
+.pw-ring{position:absolute;inset:0;border-radius:4u;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
+.pw-ring em{position:absolute;right:8u;bottom:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
+.pw-ring.wx-ring-b{opacity:0}
 
 /* ---------- website builder (app/(storelib)/website-builder/editor, its bar, the sidebar card, the canvas) */
 .wb{background:#eef1f5}

@@ -28,7 +28,6 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_CARDS, EVERYTHING_SLIDES, EVERYTHING_STORES, EVERYTHING_STYLES, EVERYTHING_SUPPORT } from "@/components/marketing/home/everything-in-one-place"
-import { themePresets } from "@/lib/store-builder/defaults"
 import { SHOWCASE_EXAMPLES } from "@/components/marketing/build-showcase"
 import { SHOWCASE_RAIL } from "@/components/marketing/use-showcase-motion"
 import { SHOWCASE_MOTION, chooseSwipeTarget, glideCurve } from "@/lib/ui/rail-motion"
@@ -104,7 +103,8 @@ const tee = EVERYTHING_SLIDES.find((s) => s.tab === "Merch")
 check("the Midnight Studio Tee sits on a light grey, rounded tile", tee?.name === "Midnight Studio Tee" && tee.kind === "tee" && /\.ev-p-media\{[^}]*border-radius:11px;[^}]*background:#ededed[;}]/.test(css))
 const digital = EVERYTHING_SLIDES.find((s) => s.tab === "Digital")
 /* Changed on purpose (landing round 3): the owner did not want a cover with a photograph for the digital product; it is a LUT pack, shown as its frame and looks (tests/home-landing-top3). */
-check("the digital product is a real one: a LUT pack with its looks", digital?.kind === "luts" && /class="ev-lut"/.test(html) && digital.name === "Cine Tones, 12 LUTs")
+/* Changed on purpose (landing round 6): the pack is named without a count (the owner: "just LUT pack"). */
+check("the digital product is a real one: a LUT pack with its looks", digital?.kind === "luts" && /class="ev-lut"/.test(html) && digital.name === "Cine Tones LUT Pack")
 const course = EVERYTHING_SLIDES.find((s) => s.tab === "Course")
 check("the course is a lesson on its video, not a camera", course?.kind === "course" && !/camera|manual/i.test(course.name) && /class="ev-p-lesson"/.test(html))
 const community = EVERYTHING_SLIDES.find((s) => s.tab === "Community")
@@ -121,15 +121,10 @@ check("transform only, written once a frame, the frames stop when it settles, an
 check("the stage holds the centring and the perspective, the card only leans", /\.ev-p-stage\{[^}]*transform:translate\(-50%,-50%\);perspective:\d+px\}/.test(css) && !/\.ev-p-card\{[^}]*translate/.test(css))
 
 console.log("\n── make the work: a store that looks like you ──")
-const storeCss = (scheme: string) => (scheme === "default" ? css.match(/\.ev-st\{[^}]*\}/)?.[0] : css.match(new RegExp(`\\.ev-st-${scheme}\\{[^}]*\\}`))?.[0]) ?? ""
-/* Changed on purpose (landing round 4): four stores between OnePages and a community (the owner: a mix), each a phone's first screen and whole, so the Featured section shows with its title hidden. */
-check("the stores, each a real Storelib creator page's layout (subscribe bar, cover, photo, name, handle, bio, social, tabs)", EVERYTHING_STORES.length >= 4 && (html.match(/class="ev-st ev-st-/g) ?? []).length === EVERYTHING_STORES.length * 2 && /<span class="ev-st-tabs"><span data-on="">Home<\/span><span>Products<\/span><span>Communities<\/span><\/span>/.test(html) && /<span class="ev-st-bar"><img class="ev-st-bar-av"[^>]*><span class="ev-st-email">Your email<\/span><span class="ev-st-sub">Subscribe<\/span><\/span><img class="ev-st-cover"[^>]*><img class="ev-st-av"[^>]*><span class="ev-st-name">/.test(html) && (html.match(/class="ev-st-social"/g) ?? []).length === EVERYTHING_STORES.length * 2)
-check("in Storelib's own colour schemes: each store's ground is its themePresets background", EVERYTHING_STORES.every((st) => { const bg = themePresets[st.scheme].colors.background.toLowerCase(); return storeCss(st.scheme).toLowerCase().includes(`--bg:${bg}`) }), EVERYTHING_STORES.map((st) => [st.scheme, themePresets[st.scheme].colors.background]))
-check("at least four different schemes, light and dark", new Set(EVERYTHING_STORES.map((st) => st.scheme)).size >= 4 && EVERYTHING_STORES.some((st) => st.scheme === "astrid"))
-check("the product card is the explore card: a 16:9 cover, the title with its category badge, the price", /\.ev-st-img\{[^}]*aspect-ratio:16\/9/.test(css) && (html.match(/<span class="ev-st-row"><span class="ev-st-pn">[^<]+<\/span><span class="ev-st-badge">(Physical|Digital|Course|Community)<\/span><\/span><span class="ev-st-pp">\$[\d.,]+(\/month)?<\/span>/g) ?? []).length === EVERYTHING_STORES.length * 4 && /\.ev-st-grid\{[^}]*grid-template-columns:1fr 1fr/.test(css))
-/* Changed on purpose (landing round 4): the card is sized from its height (a phone screen, 390 by 650), so --r comes from the card's width. */
-check("drawn at a phone's 390px and scaled: the photo is the small size (124px) straddling the cover", /--r:calc\(var\(--card-w\) \/ 390\)/.test(css) && /\.ev-st-av\{width:calc\(124 \* var\(--r\)\);height:calc\(124 \* var\(--r\)\);margin-top:calc\(-62 \* var\(--r\)\)/.test(css))
-check("every store picture is local, exists and is small", EVERYTHING_STORES.every((st) => [st.cover, st.avatar, ...st.products.map((p) => p.src)].every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024)))
+/* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
+check("merch stores and link pages, each drawn whole in the markup, twice over", EVERYTHING_STORES.length >= 6 && (html.match(/class="ev-st ev-mc"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "merch").length * 2 && (html.match(/class="ev-st ev-lp"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "link").length * 2)
+check("drawn at a phone's 390px and scaled", /--r:calc\(var\(--card-w\) \/ 390\)/.test(css))
+check("every store picture is local, exists and is small", EVERYTHING_STORES.flatMap((st) => (st.kind === "merch" ? st.products.map((p) => p.src) : [st.ground, ...st.products])).every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024))
 /* Changed on purpose (landing round 4): the owner wants to drag the strip, so its drift is a Web Animation from script that a hand can take over (tests/home-landing-topa4). */
 check("it drifts without a stop, on the compositor: one linear loop of transform", /el\.animate\(\[\{ transform: `translate3d/.test(src) && /iterations: Infinity, easing: "linear"/.test(src) && /class="ev-s-track"/.test(html))
 check("it pauses off screen and stands still under reduced motion", /drift\.pause\(\)/.test(src) && /if \(drift \|\| drag \|\| loop <= 0 \|\| reduce\.matches\) return/.test(src))
@@ -146,7 +141,7 @@ check("the thread compacts wherever the card is narrow, so it always fits", /\.e
 console.log("\n── corners and small print ──")
 /* Changed on purpose (landing round 4): the support thread is the card of before, at 16px. */
 check("the section's cards and models are about a pixel tighter", /\.ev-vis\{[^}]*border-radius:17px/.test(css) && /\.ev-vis\{height:clamp\(320px,32vw,440px\);border-radius:19px\}/.test(css) && /\.ev-p-card\{[^}]*border-radius:17px/.test(css) && /\.ev-c-thread\{[^}]*border-radius:16px/.test(css))
-check("the showcase's pictures too", /margin:0;border-radius:7px;contain:paint/.test(showcase) && /aspect-ratio:auto;border-radius:5px[;}]/.test(showcase)) /* Changed on purpose (landing round 5): the phone card also snaps (scroll-snap-align after the radius). */
+check("the showcase's pictures too", /margin:0;border-radius:7px;contain:paint/.test(showcase) && /aspect-ratio:4\/3;border-radius:8px[;}]/.test(showcase)) /* Changed on purpose (landing round 6): the phone card is 4:3 with an 8px radius. */ /* Changed on purpose (landing round 5): the phone card also snaps (scroll-snap-align after the radius). */
 check("no small print under the section: the grid is the last thing in it", /<\/article><\/div><\/div><\/section>$/.test(html) && !/<small/.test(html))
 
 console.log("\n── words ──")

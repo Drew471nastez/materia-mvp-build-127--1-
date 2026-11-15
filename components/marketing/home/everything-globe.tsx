@@ -40,6 +40,22 @@
   Elsewhere the same engine runs here. It draws only while the section is on
   screen, the tab is visible and the globe itself is in view. Under reduced
   motion it stands still (one frame), and redraws only while dragged.
+
+  LANDING ROUND 6 (the owner: "very laggy", and "the new order notifications
+  should show where the laser landed, where the rocket landed"):
+  - The notification sits on the landing point: when a shot lands the
+    engine says, once, where the buyer's city is on the card and where the
+    slow spin will carry it in the next two seconds. Here it is set just
+    above that point (below it when the point is near the top), kept inside
+    the card, with a small caret pointing at the city, and one compositor
+    animation carries it along with the city (transform only, no layout).
+    If the city turns toward the back of the ball, leaves the card, or a
+    drag takes it away, the engine says so and it fades where it stands.
+  - Where the worker has no requestAnimationFrame of its own (Safari), this
+    page sends it the display's frames while it moves (one tiny message a
+    frame) instead of the worker guessing with a 16ms timer.
+  - Nothing here runs per frame but that message; no React state changes
+    after mount.
 */
 
 import { useEffect, useRef } from "react"
@@ -113,6 +129,44 @@ export function everythingLandPoints(): Float32Array {
 
 const handedOver = new WeakSet<HTMLCanvasElement>()
 
+/** Room kept between a notification and the card's edge, and between its caret and the landing point (CSS px). */
+const NOTICE_EDGE = 8
+const NOTICE_GAP = 13
+
+/** A notification's top left kept inside the card. */
+export function clampNotice(x: number, y: number, w: number, h: number, cardW: number, cardH: number) {
+  return {
+    x: Math.round(Math.max(NOTICE_EDGE, Math.min(cardW - w - NOTICE_EDGE, x))),
+    y: Math.round(Math.max(NOTICE_EDGE, Math.min(cardH - h - NOTICE_EDGE, y))),
+  }
+}
+
+/**
+ * Where a notification of w by h goes for a landing at (px, py) on a card of cardW by cardH: centred just above the
+ * point, or just below it when there is no room above, kept inside the card; `caret` is where along the notification
+ * the point is, so its caret points at the city even when the card's edge has pushed it sideways.
+ */
+export function placeNotice(px: number, py: number, w: number, h: number, cardW: number, cardH: number) {
+  const below = py - NOTICE_GAP - h < NOTICE_EDGE
+  const at = clampNotice(px - w / 2, below ? py + NOTICE_GAP : py - NOTICE_GAP - h, w, h, cardW, cardH)
+  const caret = Math.round(Math.max(14, Math.min(w - 14, px - at.x)))
+  return { ...at, below, caret }
+}
+
+/*
+  The notification on its landing point (round 6). The pin is the part that is placed (a transform, set once per
+  landing and carried by one animation); the notification inside it keeps the section's own look and its fade and
+  short lift (everything-in-one-place.tsx), freed here from the round 5 corner. The caret is a small notch of the
+  same white pointing at the city.
+*/
+const GLOBE_NOTICE_CSS = `
+.ev-globe-pin{position:absolute;left:0;top:0;width:max-content;pointer-events:none}
+.ev-globe .ev-globe-pin>.ev-globe-pill{position:relative;left:auto;bottom:auto;max-width:none}
+.ev-globe-caret{position:absolute;left:var(--ev-caret,50%);top:100%;width:12px;height:6px;margin-left:-6px;margin-top:-1px;background:#fff;clip-path:polygon(0 0,100% 0,50% 100%)}
+.ev-globe-pin[data-below] .ev-globe-caret{top:auto;bottom:100%;margin-top:0;margin-bottom:-1px;clip-path:polygon(50% 0,100% 100%,0 100%)}
+@media (max-width:420px){.ev-globe .ev-globe-pin>.ev-globe-pill{font-size:12.5px;padding:6px 11px 6px 8px}}
+`
+
 /** Device pixels the canvas may use: 2x, or 1.5x on a phone with four cores or 4 GB of memory or less. */
 export function globeDprCap(): number {
   const nav = typeof navigator === "undefined" ? null : (navigator as Navigator & { deviceMemory?: number })
@@ -132,6 +186,9 @@ type Driver = {
 }
 
 function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, onDrawn: () => void): Driver | null {
+  /* The display's frames for a worker without requestAnimationFrame of its own: sent only while it asks (it is moving). */
+  let ticking = false
+  let looping = false
   const pts = everythingLandPoints()
   const cities = EVERYTHING_GLOBE_ORDERS.map((o) => toV(o.lat, o.lng))
   const home = toV(HOME[0], HOME[1])
@@ -145,15 +202,31 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
       const off = canvas.transferControlToOffscreen()
       handedOver.add(canvas)
       worker.postMessage({ type: "init", canvas: off, pts, cities, home }, [off])
+      worker.postMessage({ type: "ticker" })
     } catch {
       worker?.terminate()
       worker = null
     }
     if (worker) {
       const w = worker
-      w.onmessage = (e: MessageEvent<{ type: "pill"; p: GlobePill } | { type: "drawn" }>) => {
+      /* The frame's own time, on the shared clock (the worker's performance.now() starts later than the page's). */
+      const frame = (t: number) => {
+        if (!ticking) {
+          looping = false
+          return
+        }
+        w.postMessage({ type: "frame", t: performance.timeOrigin + t })
+        requestAnimationFrame(frame)
+      }
+      w.onmessage = (e: MessageEvent<{ type: "pill"; p: GlobePill } | { type: "drawn" } | { type: "frames"; on: boolean }>) => {
         if (e.data.type === "pill") onPill(e.data.p)
-        else onDrawn()
+        else if (e.data.type === "frames") {
+          ticking = e.data.on
+          if (ticking && !looping) {
+            looping = true
+            requestAnimationFrame(frame)
+          }
+        } else onDrawn()
       }
       return {
         size: (width, height, dpr) => w.postMessage({ type: "size", w: width, h: height, dpr }),
@@ -161,7 +234,10 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
         reduced: (on) => w.postMessage({ type: "reduced", on }),
         pointer: (e) => w.postMessage({ type: "pointer", e }),
         lean: (x, y) => w.postMessage({ type: "lean", x, y }),
-        stop: () => w.terminate(),
+        stop: () => {
+          ticking = false
+          w.terminate()
+        },
       }
     }
   }
@@ -218,16 +294,46 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       canvas.replaceWith(fresh)
       canvas = fresh
     }
-    const st = { pill: -1, visible: true, shown: true, live: false, reduced: false, dragging: -1 }
+    const st = { pill: -1, visible: true, shown: true, live: false, reduced: false, dragging: -1, w: 0, h: 0 }
 
-    /* The notification: the order that landed comes in, the one before goes. Attributes only, no layout read or position. */
+    /*
+      The notification: the order that landed comes in at its landing point, the one before fades where it is.
+      Each notification's size is read once (a forced layout at most once per notification, and again only after the
+      card is resized or the fonts arrive); placing it is a transform on its pin, and a moving city is followed by one
+      compositor animation from where it landed to where the spin takes it.
+    */
+    const sizes = new Float32Array(EVERYTHING_GLOBE_ORDERS.length * 2)
+    const moving: (Animation | null)[] = EVERYTHING_GLOBE_ORDERS.map(() => null)
+    const pinOf = (i: number) => pills.children[i] as HTMLElement | undefined
+    const pillOf = (i: number) => pinOf(i)?.firstElementChild as HTMLElement | undefined
     const onPill = (p: GlobePill) => {
-      const el = pills.children[p.i] as HTMLElement | undefined
-      if (!el) return
-      if (p.on && st.pill !== p.i) (pills.children[st.pill] as HTMLElement | undefined)?.removeAttribute("data-on")
+      const el = pillOf(p.i)
+      const pin = pinOf(p.i)
+      if (!el || !pin) return
+      if (p.on && st.pill !== p.i) pillOf(st.pill)?.removeAttribute("data-on")
       st.pill = p.i
+      if (p.on && p.x0 !== undefined && p.y0 !== undefined && st.w && st.h) {
+        if (!sizes[p.i * 2]) {
+          sizes[p.i * 2] = el.offsetWidth
+          sizes[p.i * 2 + 1] = el.offsetHeight
+        }
+        const at = placeNotice(p.x0, p.y0, sizes[p.i * 2], sizes[p.i * 2 + 1], st.w, st.h)
+        pin.toggleAttribute("data-below", at.below)
+        el.style.setProperty("--ev-caret", `${at.caret}px`)
+        moving[p.i]?.cancel()
+        moving[p.i] = null
+        pin.style.transform = `translate(${at.x}px,${at.y}px)`
+        const dx = (p.x1 ?? p.x0) - p.x0
+        const dy = (p.y1 ?? p.y0) - p.y0
+        if (p.ms && (dx || dy) && typeof pin.animate === "function") {
+          /* Along with the city, kept inside the card. */
+          const end = clampNotice(at.x + dx, at.y + dy, sizes[p.i * 2], sizes[p.i * 2 + 1], st.w, st.h)
+          moving[p.i] = pin.animate([{ transform: `translate(${at.x}px,${at.y}px)` }, { transform: `translate(${end.x}px,${end.y}px)` }], { duration: p.ms, easing: "linear", fill: "forwards" })
+        }
+      }
       if (el.hasAttribute("data-on") !== p.on) el.toggleAttribute("data-on", p.on)
     }
+    if (typeof document.fonts?.ready?.then === "function") void document.fonts.ready.then(() => sizes.fill(0))
     const driver = startDriver(canvas, onPill, () => {
       if (!canvas.hasAttribute("data-drawn")) canvas.setAttribute("data-drawn", "")
     })
@@ -324,6 +430,9 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
             const w = Math.round(entry.contentRect.width)
             const h = Math.round(entry.contentRect.height)
             if (!w || !h) return
+            if (w !== st.w || h !== st.h) sizes.fill(0)
+            st.w = w
+            st.h = h
             forget()
             driver.size(w, h, Math.min(globeDprCap(), window.devicePixelRatio || 1))
           })
@@ -365,6 +474,7 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       box.removeEventListener("pointercancel", onUp)
       box.removeEventListener("pointerleave", onLeave)
       window.removeEventListener("scroll", forget)
+      for (const a of moving) a?.cancel()
       ctl.current = null
     }
   }, [])
@@ -375,14 +485,20 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
 
   return (
     <div ref={wrap} className="ev-globe" aria-hidden="true">
+      <style href="r6-everything-globe" precedence="w13-home">
+        {GLOBE_NOTICE_CSS}
+      </style>
       <canvas ref={canvasRef} className="ev-globe-canvas" />
       <div ref={pillsRef} className="ev-globe-pills">
         {EVERYTHING_GLOBE_ORDERS.map((o) => (
-          <div key={o.city} className="ev-globe-pill">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="ev-globe-flag" src={`/flags/${o.cc}.svg`} alt="" width={16} height={12} loading="lazy" decoding="async" />
-            <span className="ev-globe-city">New order, {o.city}</span>
-            <span className="ev-globe-price">{o.price}</span>
+          <div key={o.city} className="ev-globe-pin">
+            <div className="ev-globe-pill">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="ev-globe-flag" src={`/flags/${o.cc}.svg`} alt="" width={16} height={12} loading="lazy" decoding="async" />
+              <span className="ev-globe-city">New order, {o.city}</span>
+              <span className="ev-globe-price">{o.price}</span>
+              <span className="ev-globe-caret" />
+            </div>
           </div>
         ))}
       </div>
