@@ -75,7 +75,8 @@ console.log("\n── analytics ──")
   const css = read(`${DIR}/analytics-showcase.module.css`)
   const html = renderToStaticMarkup(createElement(AnalyticsShowcase))
 /* Changed on purpose (landing round 7): another shape than the white pills, nothing purple on the purple sheet. */
-  check("the reports are near-black tiles, no backdrop blur", /\.report \{[^}]*background: #0d0d10;/.test(css) && !/backdrop-filter/.test(css))
+  /* Changed on purpose (landing round 8): white glass, as the owner asked; still no backdrop blur. */
+  check("the reports are white glass tiles, no backdrop blur", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.1[0-9]\)[^}]*inset 0 1px 0 rgba\(255, 255, 255, 0\.3\)[^}]*color: #fff;/.test(css) && !/backdrop-filter/.test(css))
   check("the SEO grid is fainter and slower", /\.dots \{[^}]*rgba\(255, 255, 255, 0\.09\)[^}]*animation: dotsDrift 16s/.test(css))
 /* Changed on purpose (landing round 7): smoother: one strip slides, no slots; the light behind it is neutral, nothing purple on the purple sheet. */
   check("the engine switcher: no buttons, no light per engine, one strip", !/engineTab|\.glow|aria-pressed/.test(html + css) && (html.match(/class="[^"]*strip[^"]*"/g) ?? []).length === 1)
@@ -89,7 +90,8 @@ console.log("\n── the map: physical and digital ──")
   const digital = SELL_COUNTRIES.filter((c) => c.kind === "digital")
   check("three digital and three physical products, alternating", digital.length === 3 && SELL_COUNTRIES.every((c, i) => c.kind === (i % 2 ? "digital" : "physical")))
   check("each says how it arrives", SELL_COUNTRIES.every((c) => html.includes(SELL_KIND_NOTE[c.kind])) && SELL_KIND_NOTE.digital === "Instant download")
-  check("the new pictures are local webp files under 60 KB", ["pines-lut-pack", "drone-course", "wild-camp-ebook"].every((f) => existsSync(join(root, "public/home/sell-map", `${f}.webp`)) && statSync(join(root, "public/home/sell-map", `${f}.webp`)).size < 60_000))
+  /* Changed on purpose (landing round 8): the owner swapped the e-book for a cookbook, the course for another, and the LUT pack for Cine Tones. */
+  check("the new pictures are local webp files under 60 KB", ["cine-tones-lut-pack", "mobility-course", "ancestral-kitchen-cookbook"].every((f) => existsSync(join(root, "public/home/sell-map", `${f}.webp`)) && statSync(join(root, "public/home/sell-map", `${f}.webp`)).size < 60_000))
   check("no Example pill", !/cmm-tag|>Example</.test(src + html))
 }
 

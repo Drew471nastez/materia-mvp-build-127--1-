@@ -141,14 +141,15 @@ console.log("\nCommerce: the sections render on the server")
   check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
   /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
   /* Changed on purpose (landing round 4): the owner asked for the product to change with the country, so each country has its own product and price (USD, EUR, JPY, CAD, AUD). */
-  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "19,00 €", "¥4,800", "C$89.00", "24,00 €", "A$22.00"].every((p) => map.includes(p)) && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))  /* Changed on purpose (landing round 5): three digital products, priced as they are. */
+  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "29,00 €", "¥4,800", "C$79.00", "24,00 €", "A$34.00"].every((p) => map.includes(p)) /* Changed on purpose (landing round 8): the Cine Tones LUT pack, a mobility course and a cookbook, priced as they are. */ && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))  /* Changed on purpose (landing round 5): three digital products, priced as they are. */
   {
     /* Changed on purpose (landing round 4): the owner reversed the first round's ask; the button speaks the country's language (Jetzt kaufen, 今すぐ購入, Acheter). */
     check("map: the button in the buyer's language", ["Buy now", "Jetzt kaufen", "今すぐ購入", "Acheter"].every((w) => map.includes(`>${w}</span>`)))
     check("map: real flags for each country, from the site's own flag files", SELL_COUNTRIES.every((c) => map.includes(`/flags/${c.code}.svg`) && existsSync(join(ROOT, "public/flags", `${c.code}.svg`))))
     /* Changed on purpose (landing round): the owner asked for a little less rounding (32px to 31px). */
     check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:31px/.test(src.map) && /\.cmm-wrap,\[data-landing-story\] \.cmm>\.cmm-wrap\{[^}]*max-width:var\(--home-max,2020px\)/.test(src.map))  /* Changed on purpose (landing round 7): inside the page's one width (--home-max), not the old 1400px. */
-    check("map: the country changes only while the section is on screen, and never under reduced motion", /if \(!live\) return/.test(src.map) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(src.map) && /window\.clearInterval/.test(src.map))
+    /* Changed on purpose (landing round 8): the turn is timed by the lit flag's CSS line, which runs only while live and not at all under reduced motion; no timer in JavaScript. */
+    check("map: the country changes only while the section is on screen, and never under reduced motion", /\.cmm-time\{[^}]*animation-play-state:paused\}/.test(src.map) && /\[data-commerce-live\] \.cmm-time\{animation-play-state:running\}/.test(src.map) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-time\{animation:none\}/.test(src.map) && !/setInterval/.test(src.map))
     /* Changed on purpose (landing round 4): one product photograph per country. */
     check("map: each product photo exists", SELL_COUNTRIES.every((c) => existsSync(join(ROOT, "public/home/sell-map", c.photo)) && map.includes(`/home/sell-map/${c.photo}`)))
   }

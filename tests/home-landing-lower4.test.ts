@@ -92,7 +92,8 @@ console.log("\n── analytics ──")
   check("no part of the card answers the pointer", /\.dark > \* \{\s*pointer-events: none;/.test(css) && !/pointer-events: auto/.test(css))
   check("fewer words around the reports: six chips, one short line", (html.match(/<li class="[^"]*report[^"]*"/g) ?? []).length === 6 && words.includes("Every visit and sale on your page and store, live.") && !/No setup, no extra app/.test(words))
 /* Changed on purpose (landing round 7): not white pills, and nothing purple on the purple sheet. */
-  check("the chips are near-black tiles with a hairline", /\.report \{[^}]*border-radius: 12px;[^}]*background: #0d0d10;/.test(css))  /* Changed on purpose (landing round 5): white pills, as the owner asked. */
+  /* Changed on purpose (landing round 8): white glass tiles on the purple, as the owner asked. */
+  check("the chips are white glass tiles with a hairline", /\.report \{[^}]*border-radius: 12px;[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255,/.test(css))  /* Changed on purpose (landing round 5): white pills, as the owner asked. */
   check("top places show each one's share of the visitors, drawn by a static transform", (html.match(/class="[^"]*share[^"]*"/g) ?? []).length === 3 && /46%/.test(words) && /scaleX\(0\.458\)/.test(html))
   check("the creator is a colorist now, and her globe's arcs land in Oslo", words.includes("@noravik.grade") && /const HOME: \[number, number\] = \[59\.91, 10\.75\]/.test(read(`${DIR}/analytics-globe.tsx`)))
   check("on a phone the globe's cards stack full width", /@media \(max-width: 639px\) \{[\s\S]*?\.overlay \{[^}]*flex-direction: column;/.test(css))

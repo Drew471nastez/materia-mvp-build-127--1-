@@ -59,7 +59,7 @@ const SECTIONS: Array<{ file: string; name: string; C: ComponentType; id: string
   /* Changed on purpose (landing round 4): the owner found "Make the work. Skip the busywork." too broad and vague; the line now says what the four cards show. */
   { file: "everything-in-one-place", name: "EverythingInOnePlace", C: EverythingInOnePlace, id: "everything-in-one-place", heading: "Sell what you make. Get paid worldwide." /* Changed on purpose (landing round 5): the owner's new heading. */ },
   { file: "audience-ownership", name: "AudienceOwnership", C: AudienceOwnership, id: "audience-ownership", heading: "Your audience belongs to you." },
-  { file: "analytics-showcase", name: "AnalyticsShowcase", C: AnalyticsShowcase, id: "analytics-showcase", heading: "Know what's working, as it happens." },
+  { file: "analytics-showcase", name: "AnalyticsShowcase", C: AnalyticsShowcase, id: "analytics-showcase", heading: "Get found, and see who finds you." }, /* Changed on purpose (landing round 8): the owner asked for a clearer, simpler heading. */
   { file: "integrations-section", name: "IntegrationsSection", C: IntegrationsSection, id: "integrations", heading: "Connect your favorite apps" },
   { file: "app-anywhere", name: "AppAnywhere", C: AppAnywhere, id: "app-anywhere", heading: "Run your business from anywhere" },
 ]

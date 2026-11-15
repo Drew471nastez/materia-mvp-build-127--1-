@@ -57,7 +57,8 @@ console.log("\n── analytics: other shapes, nothing purple on the purple ─�
   const html = renderToStaticMarkup(createElement(AnalyticsShowcase))
   const words = text(html)
   check("six reports as even tiles, three across, two on a phone", (html.match(/<li class="[^"]*report[^"]*"/g) ?? []).length === 6 && /\.reports \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[^}]*gap: 8px;/.test(css) && /@media \(max-width: 479px\) \{\s*\.reports \{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/.test(css))
-  check("no white pills: the cells are the cards' near-black, square-ish, no icons", /\.report \{[^}]*border-radius: 12px;[^}]*background: #0d0d10;/.test(css) && !/\.report \{[^}]*border-radius: 999px/.test(css) && !/linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\)/.test(css) && !/lucide-react/.test(src))
+  /* Changed on purpose (landing round 8): the owner asked for the tiles white glass, not black; still square-ish, no icons. */
+  check("no pills: the cells are white glass, square-ish, no icons", /\.report \{[^}]*border-radius: 12px;[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255,/.test(css) && !/\.report \{[^}]*border-radius: 999px/.test(css) && !/linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\)/.test(css) && !/lucide-react/.test(src))
   check("nothing purple in the section's colours", !PURPLE.test(css) && !PURPLE.test(src), (css + src).match(PURPLE))
   check("the heading's accent white and the line under the title neutral here", /\.section :global\(\.story-heading\) \{\s*--story-accent: #fff;/.test(css) && /\.section \{\s*--band-muted: #dddce3;/.test(css) && /\$\{s\.section\}/.test(src))
   check("the engines: one strip, three sets, moved by one custom property, no React state", /const STRIP = \[\.\.\.ENGINES, \.\.\.ENGINES, \.\.\.ENGINES\]/.test(src) && /el\.style\.setProperty\("--pos"/.test(src) && !/useState/.test(src) && (html.match(/class="[^"]*strip[^"]*"/g) ?? []).length === 1)

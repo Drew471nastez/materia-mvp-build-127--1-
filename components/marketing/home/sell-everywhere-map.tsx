@@ -10,9 +10,8 @@
  *
  * LANDING ROUND 5, THE OWNER: "a mix of digital products and physical
  * products, not only physical. And don't add the pill shape there with the
- * example." Three of the six are digital now (a LUT pack, a drone filming
- * course, an e-book), each saying under its name how it arrives, and the
- * Example tag is gone.
+ * example." Three of the six are digital now, each saying under its name
+ * how it arrives, and the Example tag is gone.
  *
  * LANDING ROUND 4, THE OWNER (this reverses the first round's "never the
  * words on the button"): as the country changes, the PRODUCT changes too, a
@@ -30,10 +29,8 @@
  * THE COUNTRIES are ones whose money Storelib's checkout charges in
  * (lib/payments/fees/currency-rules: USD, EUR, JPY, CAD, AUD), each written
  * the way that country writes it, and the button in the words a storefront
- * there uses. The store is Hollow Pines, the fictional outdoor channel of
- * section 10, and its merch: a tee, an enamel camp mug, a steel bottle, a
- * beanie, a canvas tote and a washed cap (Unsplash photographs, cropped 4:5,
- * public/home/sell-map).
+ * there uses. The products are a few creators' own (round 8 below), on
+ * Unsplash photographs or covers drawn from them (public/home/sell-map).
  *
  * THE MAP is a land mask of 240 x 90 cells (1.5 degrees each, latitude 80 to
  * -55), packed into 2,700 bytes of base64 below. It was made once from
@@ -57,6 +54,29 @@
  * The card sits in the page's one width (--home-edge and --home-max,
  * app/globals.css), its heading set in by --home-head-inset; the heading's
  * accent, the markers, the rings and the prices on the map are white.
+ *
+ * LANDING ROUND 8, THE OWNER: smoother, cleaner, more to touch; "the black
+ * card should be more smooth and clean"; the e-book becomes an ancestral
+ * nutrition cookbook, the course is a different one, the Cine Tones LUT
+ * pack comes in, the canvas tote stays. So:
+ *  - the products: the 705 tee, the Cine Tones LUT Pack (the same black
+ *    cover the page shows elsewhere, drawn into its own picture), the steel
+ *    bottle, a mobility course, the canvas tote and Ancestral Kitchen, a
+ *    cookbook. Three physical, three digital, still alternating.
+ *  - the turn is timed by the lit flag itself: a hairline under the flag
+ *    fills in 3.6s (one transform) and when it ends the next country comes.
+ *    No timer in JavaScript, so a paused section, a background tab or a
+ *    pointer resting on the flags or the product simply holds the line where
+ *    it is and the turn carries on from there, with no jump. Under reduced
+ *    motion the line never runs, so the first country stays.
+ *  - the cities on the map can be pressed too (a pointer target; the flags
+ *    stay the switch for the keyboard and screen readers).
+ *  - the product card is one calm surface: a slightly larger picture, the
+ *    name on its own line, the price beside how it arrives, softer corners
+ *    and shadow. Words leave upwards and the next ones arrive from below;
+ *    the next picture fades in over the last one, which stays until it is
+ *    covered (no dark dip between them).
+ *  - the order's ring ripples twice, offset, a softer pulse.
  *
  * MOTION. One small render per country (a few attributes), every 3.6s while
  * the section is on screen and the tab is visible. Everything that moves
@@ -120,15 +140,17 @@ export function sellMapPath(block: 1 | 2 = 1): string {
  */
 export const SELL_COUNTRIES = [
   { code: "US", country: "the United States", city: "New York", cell: [70, 26], total: "$32.00", product: "705 tee", photo: "705-tee.webp", kind: "physical", lang: "en", buy: "Buy now" },
-  { code: "DE", country: "Germany", city: "Berlin", cell: [128, 18], total: "19,00 €", product: "Pines LUT pack", photo: "pines-lut-pack.webp", kind: "digital", lang: "de", buy: "Jetzt kaufen" },
+  { code: "DE", country: "Germany", city: "Berlin", cell: [128, 18], total: "29,00 €", product: "Cine Tones LUT Pack", photo: "cine-tones-lut-pack.webp", kind: "digital", lang: "de", buy: "Jetzt kaufen" },
   { code: "JP", country: "Japan", city: "Tokyo", cell: [213, 29], total: "¥4,800", product: "Steel bottle", photo: "steel-bottle.webp", kind: "physical", lang: "ja", buy: "今すぐ購入" },
-  { code: "CA", country: "Canada", city: "Vancouver", cell: [37, 20], total: "C$89.00", product: "Drone film course", photo: "drone-course.webp", kind: "digital", lang: "en", buy: "Buy now" },
+  { code: "CA", country: "Canada", city: "Vancouver", cell: [37, 20], total: "C$79.00", product: "Mobility course", photo: "mobility-course.webp", kind: "digital", lang: "en", buy: "Buy now" },
   { code: "FR", country: "France", city: "Paris", cell: [121, 20], total: "24,00 €", product: "Canvas tote", photo: "canvas-tote.webp", kind: "physical", lang: "fr", buy: "Acheter" },
-  { code: "AU", country: "Australia", city: "Sydney", cell: [220, 75], total: "A$22.00", product: "Wild Camp e-book", photo: "wild-camp-ebook.webp", kind: "digital", lang: "en", buy: "Buy now" },
+  { code: "AU", country: "Australia", city: "Sydney", cell: [220, 75], total: "A$34.00", product: "Ancestral Kitchen", photo: "ancestral-kitchen-cookbook.webp", kind: "digital", lang: "en", buy: "Buy now" },
 ] as const satisfies ReadonlyArray<{ code: string; country: string; city: string; cell: readonly [number, number]; total: string; product: string; photo: string; kind: "physical" | "digital"; lang: string; buy: string }>
 
 /** What each kind says under its name: a parcel ships, a download is there at once. */
 export const SELL_KIND_NOTE = { physical: "Ships in 2 to 4 days", digital: "Instant download" } as const
+/** A course is watched, not downloaded (landing round 8). */
+export const SELL_NOTE: Partial<Record<string, string>> = { CA: "Instant access" }
 
 /** Earlier orders, quiet dots with no words: São Paulo, Mexico City, Los Angeles, Lagos, Johannesburg, Dubai, Mumbai, Singapore. */
 export const SELL_PAST_ORDERS: ReadonlyArray<readonly [number, number]> = [
@@ -143,7 +165,8 @@ export const SELL_PAST_ORDERS: ReadonlyArray<readonly [number, number]> = [
 ]
 
 const N = SELL_COUNTRIES.length
-const STEP_MS = 3600
+/** How long each country stays: the length of the lit flag's line (MAP_CSS, .cmm-time), which times the turn. */
+export const SELL_STEP_MS = 3600
 
 const pos = ([c, r]: readonly [number, number]): CSSProperties => ({
   left: `${((c + 0.5) / SELL_MAP.cols) * 100}%`,
@@ -175,31 +198,25 @@ export function SellEverywhereMap() {
   const [turn, setTurn] = useState({ active: 0, prev: N - 1 })
   const { active, prev } = turn
   const [moved, setMoved] = useState(false)
-  /* Counts the flags pressed by hand: the turn starts again from the chosen country. */
-  const [picks, setPicks] = useState(0)
 
   /* The dots, once the section is near. */
   useEffect(() => {
     if (live && !dots) setDots(sellMapPath(1))
   }, [live, dots])
 
-  useEffect(() => {
-    if (!live) return
-    if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const id = window.setInterval(() => {
-      setMoved(true)
-      setTurn((t) => ({ active: (t.active + 1) % N, prev: t.active }))
-    }, STEP_MS)
-    return () => window.clearInterval(id)
-  }, [live, picks])
-
+  /* The lit flag's line ran out: the next country. */
+  const next = () => {
+    setMoved(true)
+    setTurn((t) => ({ active: (t.active + 1) % N, prev: t.active }))
+  }
   const choose = (i: number) => {
     if (i === active) return
     setMoved(true)
     setTurn({ active: i, prev: active })
-    setPicks((p) => p + 1)
   }
   const pan = sellMapPan(SELL_COUNTRIES[active].cell)
+  /* Each layer that swaps knows whether it is the one in turn or the one leaving. */
+  const state = (i: number) => ({ "data-on": i === active || undefined, "data-was": (moved && i === prev) || undefined })
 
   return (
     <section ref={ref} className="cmm" data-story-section="sell-everywhere" aria-labelledby="cmm-title">
@@ -226,8 +243,10 @@ export function SellEverywhereMap() {
                 <span key={i} className="cmm-dot" style={pos(cell)} />
               ))}
               {SELL_COUNTRIES.map((c, i) => (
-                <span key={c.code} className="cmm-pin" data-on={i === active || undefined} data-was={(moved && i === prev) || undefined} style={pos(c.cell)}>
+                /* A pointer can press a city as well as its flag; the flags are the switch for the keyboard and screen readers. */
+                <span key={c.code} className="cmm-pin" data-on={i === active || undefined} data-was={(moved && i === prev) || undefined} style={pos(c.cell)} onClick={() => choose(i)}>
                   <i className="cmm-ring" />
+                  <i className="cmm-ring cmm-ring-2" />
                   <i className="cmm-core" />
                   <b className="cmm-say cmm-say-new">
                     <em>New order</em> <span>{c.total}</span>
@@ -240,7 +259,10 @@ export function SellEverywhereMap() {
 
           <div className="cmm-side">
             <div className="cmm-flags" role="group" aria-label="Buyer's country">
-              <span className="cmm-flag-lit" aria-hidden="true" />
+              <span className="cmm-flag-lit" aria-hidden="true">
+                {/* The line that times the turn: it starts again with every country, and its end brings the next. */}
+                <i key={active} className="cmm-time" onAnimationEnd={next} />
+              </span>
               {SELL_COUNTRIES.map((c, i) => (
                 <button key={c.code} type="button" className="cmm-flag" aria-pressed={i === active} aria-label={c.country.replace(/^the /, "")} data-on={i === active || undefined} onClick={() => choose(i)}>
                   <img src={flagSrc(c.code)} alt="" width={24} height={17} loading="lazy" decoding="async" />
@@ -248,39 +270,41 @@ export function SellEverywhereMap() {
               ))}
             </div>
 
-            {/* One product per country: every layer is in the page, the one in turn faded in. */}
+            {/* One product per country: every layer is in the page, the one in turn fading in over the one leaving. */}
             <div className="cmm-prod" aria-hidden="true">
               <span className="cmm-photos">
                 {SELL_COUNTRIES.map((c, i) => (
-                  <img key={c.code} src={`${IMG}/${c.photo}`} alt="" width={480} height={600} loading="lazy" decoding="async" data-on={i === active || undefined} />
+                  <img key={c.code} src={`${IMG}/${c.photo}`} alt="" width={600} height={600} loading="lazy" decoding="async" {...state(i)} />
                 ))}
               </span>
-              <div className="cmm-prod-row">
+              <span className="cmm-prod-info">
                 <span className="cmm-swap cmm-prod-name">
                   {SELL_COUNTRIES.map((c, i) => (
-                    <span key={c.code} data-on={i === active || undefined}>
+                    <span key={c.code} {...state(i)}>
                       {c.product}
                     </span>
                   ))}
                 </span>
-                <span className="cmm-swap cmm-prices">
-                  {SELL_COUNTRIES.map((c, i) => (
-                    <span key={c.code} data-on={i === active || undefined}>
-                      {c.total}
-                    </span>
-                  ))}
-                </span>
-              </div>
-              <span className="cmm-swap cmm-kind">
-                {SELL_COUNTRIES.map((c, i) => (
-                  <span key={c.code} data-on={i === active || undefined}>
-                    {SELL_KIND_NOTE[c.kind]}
+                <span className="cmm-prod-row">
+                  <span className="cmm-swap cmm-prices">
+                    {SELL_COUNTRIES.map((c, i) => (
+                      <span key={c.code} {...state(i)}>
+                        {c.total}
+                      </span>
+                    ))}
                   </span>
-                ))}
+                  <span className="cmm-swap cmm-kind">
+                    {SELL_COUNTRIES.map((c, i) => (
+                      <span key={c.code} {...state(i)}>
+                        {SELL_NOTE[c.code] ?? SELL_KIND_NOTE[c.kind]}
+                      </span>
+                    ))}
+                  </span>
+                </span>
               </span>
               <span className="cmm-buy">
                 {SELL_COUNTRIES.map((c, i) => (
-                  <span key={c.code} lang={c.lang} data-on={i === active || undefined}>
+                  <span key={c.code} lang={c.lang} {...state(i)}>
                     {c.buy}
                   </span>
                 ))}
@@ -299,6 +323,7 @@ export function SellEverywhereMap() {
 }
 
 const EASE = "cubic-bezier(.22,1,.36,1)"
+const STEP = SELL_STEP_MS
 const MAP_CSS = `
 .cmm{position:relative;background:#fff;color:#0f0e13;padding:clamp(72px,9vw,128px) 0}
 .cmm-wrap,[data-landing-story] .cmm>.cmm-wrap{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
@@ -313,13 +338,18 @@ const MAP_CSS = `
 .cmm-map{position:relative;aspect-ratio:240/90}
 .cmm-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .cmm-dot,.cmm-pin{position:absolute;width:0;height:0}
+.cmm-pin{pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cmm-pin::after{content:"";position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%}
+.cmm-pin i,.cmm-pin b{pointer-events:none}
 .cmm-dot::before{content:"";position:absolute;left:-2.5px;top:-2.5px;width:5px;height:5px;border-radius:50%;background:#fff;opacity:.4}
 .cmm-core{position:absolute;left:-3.5px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #0f0f12;opacity:.7;transform:scale(.8);transition:transform .7s ${EASE},opacity .5s ease-out}
 .cmm-pin[data-on] .cmm-core{opacity:1;transform:scale(1.15)}
+@media (hover:hover) and (pointer:fine){.cmm-pin:hover .cmm-core{opacity:1;transform:scale(1.4)}}
 .cmm-ring{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);opacity:0;transform:scale(.4)}
 .cmm-pin[data-on] .cmm-ring{animation:cmm-ring 2.4s ease-out infinite;animation-play-state:paused}
 [data-commerce-live] .cmm-pin[data-on] .cmm-ring{animation-play-state:running}
-@keyframes cmm-ring{0%{opacity:.9;transform:scale(.4)}70%,100%{opacity:0;transform:scale(1.6)}}
+.cmm-pin[data-on] .cmm-ring-2{animation-delay:1.2s}
+@keyframes cmm-ring{0%{opacity:.75;transform:scale(.4)}70%,100%{opacity:0;transform:scale(1.7)}}
 .cmm-say{position:absolute;left:0;bottom:12px;display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:rgba(17,17,20,.92);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);font-size:12.5px;font-weight:500;line-height:1;color:#f4f3f7;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .25s ease-out,transform .7s ${EASE}}
 .cmm-say em{font-style:normal}
 .cmm-say span{color:#c9c7d1;font-variant-numeric:tabular-nums}
@@ -336,20 +366,30 @@ const MAP_CSS = `
 .cmm-flag:focus-visible{outline:2px solid #fff;outline-offset:2px;opacity:1}
 .cmm-flags img{width:24px;height:17px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
 .cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:40px;height:40px;border-radius:12px;pointer-events:none;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--a) * 48px),0);transition:transform .7s ${EASE}}
-.cmm-prod{width:216px;padding:12px;border-radius:15px;background:#18181d;color:#f4f3f7;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 24px 48px -24px rgba(0,0,0,.8)}
-.cmm-photos{position:relative;display:block;aspect-ratio:1/1;border-radius:9px;overflow:hidden;background:#26262c}
-.cmm-photos img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);transition:opacity .7s ease-out,transform 1.1s ${EASE}}
-.cmm-photos img[data-on]{opacity:1;transform:none}
-.cmm-prod-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:11px;font-size:14px;line-height:20px}
+.cmm-flag-lit::after,.cmm-time{position:absolute;left:10px;right:10px;bottom:5px;height:2px;border-radius:2px}
+.cmm-flag-lit::after{content:"";background:rgba(255,255,255,.14)}
+.cmm-time{z-index:1;background:rgba(255,255,255,.88);transform:scaleX(0);transform-origin:0 50%;animation:cmm-time ${STEP}ms linear both;animation-play-state:paused}
+[data-commerce-live] .cmm-time{animation-play-state:running}
+@media (hover:hover) and (pointer:fine){[data-commerce-live] .cmm-side:hover .cmm-time{animation-play-state:paused}}
+@keyframes cmm-time{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.cmm-prod{width:236px;padding:10px;border-radius:20px;background:#141418;background-image:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0) 55%);color:#f4f3f7;box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.07),0 30px 60px -30px rgba(0,0,0,.75)}
+.cmm-photos{position:relative;display:block;aspect-ratio:1/1;border-radius:13px;overflow:hidden;background:#222228;isolation:isolate}
+.cmm-photos img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);transition:opacity .3s linear .3s,transform 1.2s ${EASE}}
+.cmm-photos img[data-was]{z-index:0;opacity:1;transform:none;transition:opacity .2s linear .85s}
+.cmm-photos img[data-on]{opacity:1;z-index:1;transform:none;transition:opacity .75s ease-out,transform 1.2s ${EASE}}
+.cmm-prod-info{display:block;padding:12px 4px 0}
+.cmm-prod-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:3px;font-size:13px;line-height:18px}
 .cmm-swap{display:grid;min-width:0}
-.cmm-swap span{grid-area:1/1;white-space:nowrap;opacity:0;transform:translate3d(0,-4px,0);transition:opacity .2s ease-out,transform .5s ${EASE}}
+.cmm-swap span{grid-area:1/1;white-space:nowrap;opacity:0;transform:translate3d(0,7px,0);transition:opacity .2s ease-out,transform .5s ${EASE}}
+.cmm-swap span[data-was]{transform:translate3d(0,-7px,0)}
 .cmm-swap span[data-on]{opacity:1;transform:none;transition:opacity .4s ease-out .22s,transform .7s ${EASE} .22s}
-.cmm-prod-name{flex:1 1 auto;font-weight:500;overflow:hidden}
+.cmm-prod-name{font-size:15px;line-height:21px;font-weight:600;letter-spacing:-.01em;overflow:hidden}
 .cmm-prod-name span{overflow:hidden;text-overflow:ellipsis}
-.cmm-prices{justify-items:end;font-variant-numeric:tabular-nums;color:#c9c7d1}
-.cmm-kind{margin-top:2px;font-size:12.5px;line-height:18px;color:#8f8d99}
-.cmm-buy{display:grid;place-items:center;height:40px;margin-top:11px;border-radius:9px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:600;overflow:hidden}
-.cmm-buy span{grid-area:1/1;opacity:0;transform:translate3d(0,-6px,0);transition:opacity .2s ease-out,transform .5s ${EASE}}
+.cmm-prices{font-weight:500;font-variant-numeric:tabular-nums;color:#f4f3f7}
+.cmm-kind{justify-items:end;font-size:12.5px;color:#8f8d99}
+.cmm-buy{display:grid;place-items:center;height:40px;margin-top:12px;border-radius:12px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:600;overflow:hidden}
+.cmm-buy span{grid-area:1/1;opacity:0;transform:translate3d(0,9px,0);transition:opacity .2s ease-out,transform .5s ${EASE}}
+.cmm-buy span[data-was]{transform:translate3d(0,-9px,0)}
 .cmm-buy span[data-on]{opacity:1;transform:none;transition:opacity .4s ease-out .26s,transform .7s ${EASE} .26s}
 .cmm-copy{position:absolute;z-index:2;left:clamp(28px,3vw,40px);bottom:36px;max-width:clamp(270px,calc(32vw - 64px),380px)}
 .cmm-copy h3{margin:0;font-size:clamp(20px,1.7vw,24px);font-weight:500;letter-spacing:-.02em;line-height:1.2}
@@ -361,12 +401,12 @@ const MAP_CSS = `
   .cmm-side{position:relative;left:auto;top:auto;order:2;flex-direction:column;align-items:stretch;gap:14px;margin:14px 14px 0}
   .cmm-flags{align-self:center;grid-auto-flow:column;grid-auto-rows:auto;grid-auto-columns:40px;gap:8px}
   .cmm-flags .cmm-flag-lit{transform:translate3d(calc(var(--a) * 48px),0,0)}
-  .cmm-prod{display:grid;grid-template-columns:112px minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:14px;width:auto;padding:10px}
-  .cmm-photos{grid-row:1/4}
-  .cmm-buy{align-self:end}
-  .cmm-prod-row{flex-direction:column;align-items:flex-start;gap:2px;margin-top:4px;font-size:15px}
-  .cmm-prices{justify-items:start}
-  .cmm-buy{margin-top:10px}
+  .cmm-prod{display:grid;grid-template-columns:112px minmax(0,1fr);grid-template-rows:1fr auto;column-gap:14px;width:auto;padding:10px;border-radius:18px}
+  .cmm-photos{grid-row:1/3;border-radius:11px}
+  .cmm-prod-info{padding:4px 2px 0}
+  .cmm-prod-row{flex-direction:column;align-items:flex-start;gap:1px;margin-top:3px;font-size:14px}
+  .cmm-kind{justify-items:start}
+  .cmm-buy{align-self:end;margin-top:10px}
   .cmm-copy{position:relative;left:auto;bottom:auto;order:3;margin:22px 22px 0;max-width:none}
   .cmm-say{height:22px;bottom:10px;padding:0 8px;font-size:11.5px;gap:5px}
   .cmm-core{left:-3px;top:-3px;width:6px;height:6px}
@@ -390,6 +430,8 @@ const MAP_CSS = `
 }
 @media (prefers-reduced-motion:reduce){
   .cmm-ring,.cmm-say-shipped{animation:none!important;opacity:0}
+  .cmm-time{animation:none}
+  .cmm-flag-lit::after{display:none}
   .cmm-grid{animation:none}
   .cmm-core,.cmm-say,.cmm-flag,.cmm-flags .cmm-flag-lit,.cmm-swap span,.cmm-buy span,.cmm-photos img,.cmm-map{transition:none}
 }
