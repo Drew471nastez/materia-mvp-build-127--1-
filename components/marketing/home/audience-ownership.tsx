@@ -50,6 +50,7 @@
 */
 
 import { useEffect, useRef } from "react"
+import { LIVE_AHEAD } from "./platform-motion"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { EMAIL_PLATFORMS } from "./email-platform-logos"
 import m from "./platform.module.css"
@@ -98,7 +99,8 @@ function Contacts() {
         seen = entry.isIntersecting
         apply()
       },
-      { threshold: 0.35 },
+      /* Wave 17: running a screen before it arrives (it started once a share of it was on screen): it came in paused, and on an iPhone its moving parts were drawn frames after the rest. */
+      { rootMargin: LIVE_AHEAD },
     )
     io.observe(el)
     document.addEventListener("visibilitychange", apply)
@@ -133,8 +135,9 @@ function Contacts() {
         <ul className={s.track}>
           {STRIP.map((p, i) => (
             <li key={i} className={s.row}>
+              {/* Wave 17: decoded as drawn (not decoding="async": Safari drew a face blank until it was decoded, again after letting it go). */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`${IMG}/${p.photo}.webp`} alt="" width={44} height={44} decoding="async" className={s.face} />
+              <img src={`${IMG}/${p.photo}.webp`} alt="" width={44} height={44} className={s.face} />
               <span className={s.name}>{p.name}</span>
               <span className={s.via}>{p.via}</span>
             </li>

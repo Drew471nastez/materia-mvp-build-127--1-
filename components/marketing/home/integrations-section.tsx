@@ -187,6 +187,14 @@ function Icon({ app }: { app: App }) {
     )
   }
   const cover = app.fit === "cover"
+  /*
+   * Wave 17: fetched with the section (it mounts screens ahead) and decoded as
+   * it is drawn, not loading="lazy" and decoding="async". Lazy, a tile in the
+   * moving row, or in a box still skipped (content-visibility), was asked for
+   * only once it was near, and on a phone flick the rows came in as empty
+   * tiles; async, Safari paints an icon blank until it has decoded it, again
+   * each time it has let the decoded copy go. 12 small files, 31 kB in all.
+   */
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
@@ -194,8 +202,6 @@ function Icon({ app }: { app: App }) {
       alt=""
       width={90}
       height={90}
-      loading="lazy"
-      decoding="async"
       draggable={false}
       className={cover ? s.cover : s.contain}
       style={cover ? undefined : ({ "--scale": app.scale ?? 0.64 } as CSSProperties)}

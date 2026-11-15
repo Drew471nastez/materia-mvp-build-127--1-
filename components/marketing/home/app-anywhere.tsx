@@ -168,8 +168,9 @@ function Phone() {
           <span className={s.ordersTitle}>Latest orders</span>
           {ORDERS.map((o) => (
             <span key={o.name} className={s.order}>
+              {/* Wave 17: fetched with the section and decoded as drawn (no lazy, no async): 1 to 3 kB, and the phone came in without them on an iPhone flick. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={o.img} alt="" width={96} height={96} loading="lazy" decoding="async" className={s.orderImg} />
+              <img src={o.img} alt="" width={96} height={96} className={s.orderImg} />
               <span className={s.orderName}>{o.name}</span>
               <span className={s.orderPrice}>{o.price}</span>
             </span>
@@ -185,7 +186,7 @@ function Phone() {
           <div key={n.title} className={`${s.notice} ${m.loop}`} data-notice={i} style={{ animationDelay: noticeDelay(i) }}>
             {n.img ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={n.img} alt="" width={96} height={96} loading="lazy" decoding="async" className={s.noticeImg} />
+              <img src={n.img} alt="" width={96} height={96} className={s.noticeImg} />
             ) : (
               <span className={s.noticeMark} data-kind={i === 1 ? "payout" : "live"} />
             )}

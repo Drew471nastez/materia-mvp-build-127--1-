@@ -56,6 +56,7 @@ import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
 import { useEffect, useRef } from "react"
 import { StoryHeading } from "../story-heading"
+import { LIVE_AHEAD } from "./platform-motion"
 
 /** One run of the terminal, in seconds, then it starts again. */
 const LOOP_S = 16
@@ -202,7 +203,8 @@ export function AiToolsSection() {
         seen = entry.isIntersecting
         apply()
       },
-      { threshold: 0.25 },
+      /* Wave 17: running a screen before it arrives (it started once a share of it was on screen): it came in paused, and on an iPhone its moving parts were drawn frames after the rest. */
+      { rootMargin: LIVE_AHEAD },
     )
     io.observe(el)
     document.addEventListener("visibilitychange", apply)

@@ -91,7 +91,8 @@ console.log("\nIdeas, pricing, the questions and the app in the page's one width
   // Changed on purpose (landing round 9): one column at every width; the heading's inset is in the module (.head).
   check("app: the heading at the inset", /className=\{s\.head\}/.test(app) && /\.head \{\s*padding-left: var\(--home-head-inset, 14px\);/.test(read("components/marketing/home/app-anywhere.module.css")))
   // Changed on purpose (landing round 9): the photograph is gone (a drawn stage takes its place); its pictures are two 96px thumbnails at their drawn size.
-  check("app: no large photo; the stage's pictures are small and sized", !/storelib-app-/.test(app.replace(/\/\*[\s\S]*?\*\//g, "")) && /width=\{96\} height=\{96\} loading="lazy" decoding="async"/.test(app))
+  /* Changed on purpose (wave 17): the stage's 96px pictures load with the section and decode as drawn (no lazy, no async): on an iPhone flick the phone came in without them. */
+  check("app: no large photo; the stage's pictures are small and sized", !/storelib-app-/.test(app.replace(/\/\*[\s\S]*?\*\//g, "")) && /width=\{96\} height=\{96\} className/.test(app) && !/loading="lazy"|decoding="async"/.test(app))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

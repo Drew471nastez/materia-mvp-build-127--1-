@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, type ReactNode } from "react"
+import { touchScreen } from "./home/platform-motion"
 
 /*
   ONE ENTRANCE FOR THE WHOLE PAGE (landing round 8, the owner: "the sections
@@ -54,6 +55,19 @@ import { useEffect, useRef, type ReactNode } from "react"
   keys the hidden state on prefers-reduced-motion: no-preference). One
   IntersectionObserver for all of them; each block is let go after it shows.
 
+  WAVE 17, ON A PHONE OR ANY TOUCH SCREEN NOTHING WAITS (the owner's iPhone
+  recording: blocks blank as they scrolled in, then there at once; the
+  apps' rows, the AI card, the app's stage). On a touch screen a block is
+  never hidden by this script, and every section's own entrance is given
+  its mark (data-in, data-platform-in, data-reveal-now) as soon as the
+  section is in the page, which is screens before it arrives: nothing is
+  invisible when it comes on screen, in either direction, however fast.
+  A computer keeps the entrances above. And the loops of a section away
+  from the screen are woken a screen before it arrives (STORY_LIVE_AHEAD,
+  it was 100px): woken at the edge, its animated parts came in still
+  paused, and on iOS each such part (a layer of its own) was drawn a few
+  frames after the rest of the section.
+
   NOT TWICE. A block that already has an entrance of its own is left alone:
   anything inside an AnimateOnScroll ([data-story-reveal]: pricing, the
   questions), the platform sections' own risers ([class*="__reveal"]:
@@ -86,6 +100,9 @@ const OWN_ENTRANCE = "[data-story-reveal],[class*='__reveal']"
 export const FLUNG_OWN = ".ev-card,.cmh-card,[class*='__root'],[data-story-reveal]"
 /** Landing round 9: how far ahead of the screen (and behind it) a flung page shows them. */
 export const FLUNG_AHEAD = "150% 0px 150% 0px"
+
+/** Wave 17: how far from the screen a section's clock-driven animations keep running (they were paused 100px out). */
+export const STORY_LIVE_AHEAD = "100% 0px"
 
 const WATCHED = "section, [data-story-section]"
 
@@ -139,12 +156,14 @@ export function LandingStory({ children }: { children: ReactNode }) {
                 rest(el, !entry.isIntersecting)
               }
             },
-            { rootMargin: "100px 0px" },
+            { rootMargin: STORY_LIVE_AHEAD },
           )
         : null
 
     /* The entrance. First report: wholly below the screen -> hidden ("wait"); anything else is let go as it is. Later: on screen -> "in", or shown at once when flung. */
     const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+    /* Wave 17: a phone or touch screen: nothing is hidden, every own entrance is marked at once (see above). */
+    const touch = touchScreen()
     const seen = new WeakSet<Element>()
     /* How fast the page is moving, from the scroll events themselves (scrollY and a clock: no layout). */
     let lastY = window.scrollY
@@ -260,9 +279,11 @@ export function LandingStory({ children }: { children: ReactNode }) {
         for (const block of own) {
           if (revealed.has(block)) continue
           revealed.add(block)
-          ahead.observe(block)
+          if (touch) showNow(block as HTMLElement)
+          else ahead.observe(block)
         }
       }
+      if (touch) return
       const targets = node.matches(REVEAL_SELECTOR)
         ? [node, ...node.querySelectorAll(REVEAL_SELECTOR)]
         : node.querySelectorAll(REVEAL_SELECTOR)

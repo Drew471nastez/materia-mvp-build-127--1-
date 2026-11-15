@@ -11,9 +11,29 @@
     is visible; CSS pauses every loop under `[data-platform-live="false"]`
     and the JS loops (globe, typing, tickers) stop their timers.
   - prefers-reduced-motion: reveals are instant and loops never start.
+
+  WAVE 17 (the owner's iPhone recording: sections arriving as empty boxes
+  whose insides appeared a few frames later, on every change of direction):
+  - a loop is woken a screen before its section arrives (LIVE_AHEAD), not as
+    it reaches the screen's edge (it was 120px). Paused there, a section came
+    in still paused, and on iOS the animated parts (each its own layer) were
+    drawn only after the page's thread had caught up: the app's phone, the
+    rows of apps, the terminal's lines, the contacts.
+  - on a phone or any touch screen (touchScreen) an entrance never hides
+    what is about to scroll in: `data-platform-in` is set a screen ahead
+    too, so the stage is already there when it arrives. A computer keeps
+    the entrance at the screen's edge as its track wrote it.
 */
 
 import { startTransition, useEffect, useRef, useState, type RefObject } from "react"
+
+/** Wave 17: how far ahead of the screen (either way) a section's loops run: a screen. */
+export const LIVE_AHEAD = "100% 0px"
+
+/** Wave 17: a phone or a touch screen, the same test as the page's phone rules (landing-story.tsx REVEAL_CSS). */
+export const TOUCH_SCREEN_QUERY = "(max-width: 767px), (hover: none) and (pointer: coarse)"
+export const touchScreen = () =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(TOUCH_SCREEN_QUERY).matches
 
 export const platformReducedMotion = () =>
   typeof window !== "undefined" &&
@@ -23,6 +43,10 @@ export const platformReducedMotion = () =>
 /**
  * Watches a section root. Returns whether it is "live" (on screen and the tab
  * is visible) and writes the two data attributes the CSS reads.
+ *
+ * Wave 17: `live` (the script loops: the globe, the tickers) still follows
+ * `rootMargin`; `data-platform-live` (the CSS loops) is "true" a screen ahead
+ * (LIVE_AHEAD), and on a touch screen `data-platform-in` is set there too.
  */
 export function usePlatformSection(
   ref: RefObject<HTMLElement | null>,
@@ -38,11 +62,12 @@ export function usePlatformSection(
         ? window.matchMedia("(prefers-reduced-motion: reduce)")
         : null
     let onScreen = false
+    let near = false
     let seen = false
     const sync = () => {
       const reduced = !!motion?.matches
       const live = onScreen && !document.hidden && !reduced
-      const value = String(live)
+      const value = String((near || onScreen) && !document.hidden && !reduced)
       if (el.dataset.platformLive !== value) el.dataset.platformLive = value
       /* As a transition: the section re-renders in slices between frames, not as one task of up to 100 ms at 4x CPU in the middle of a scroll. The attributes above, which the CSS reads, are already written. */
       startTransition(() => setState((p) => (p.seen === seen && p.live === live && p.reduced === reduced ? p : { seen, live, reduced })))
@@ -54,23 +79,36 @@ export function usePlatformSection(
       sync()
       return
     }
+    const early = touchScreen()
+    const markSeen = () => {
+      if (seen) return
+      seen = true
+      el.setAttribute("data-platform-in", "")
+    }
     const io = new IntersectionObserver(
       ([entry]) => {
         onScreen = entry.isIntersecting
-        if (onScreen && !seen) {
-          seen = true
-          el.setAttribute("data-platform-in", "")
-        }
+        if (onScreen) markSeen()
         sync()
       },
       { rootMargin, threshold: 0 },
     )
+    const ahead = new IntersectionObserver(
+      ([entry]) => {
+        near = entry.isIntersecting
+        if (near && early) markSeen()
+        sync()
+      },
+      { rootMargin: LIVE_AHEAD, threshold: 0 },
+    )
     io.observe(el)
+    ahead.observe(el)
     document.addEventListener("visibilitychange", sync)
     motion?.addEventListener?.("change", sync)
     sync()
     return () => {
       io.disconnect()
+      ahead.disconnect()
       document.removeEventListener("visibilitychange", sync)
       motion?.removeEventListener?.("change", sync)
     }

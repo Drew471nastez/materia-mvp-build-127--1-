@@ -135,7 +135,8 @@ console.log("\n── Run your business from anywhere: white, one black stage �
   check("every loop is paused off screen and in a background tab (platform's .loop)", animated.length >= 7 && animated.every((c) => new RegExp(`\\$\\{s\\.${c}\\} \\$\\{m\\.loop\\}`).test(src)), animated)
   check("no script drives it: no frame loop, no timer, no state, no layout read", !/requestAnimationFrame|setInterval|setTimeout|useState|useEffect|getBoundingClientRect/.test(code))
   check("reduced motion stands still on the order, its chip lit", /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.notice\[data-notice="0"\] \{\s*opacity: 1;\s*transform: none;[\s\S]*\.lit\[data-first\] \{\s*opacity: 1;/.test(css))
-  check("its pictures are 96px thumbnails, sized, lazy and async", ["order-tee", "order-lut"].every((f) => webpWidth(`home/app/${f}.webp`) === 96) && (html.match(/<img[^>]*>/g) ?? []).every((t) => /width="96" height="96"/.test(t) && /loading="lazy"/.test(t) && /decoding="async"/.test(t)))
+  /* Changed on purpose (wave 17): loaded with the section and decoded as drawn, not lazy and async: on an iPhone flick the phone came in without them. */
+  check("its pictures are 96px thumbnails, sized, loaded with the section", ["order-tee", "order-lut"].every((f) => webpWidth(`home/app/${f}.webp`) === 96) && (html.match(/<img[^>]*>/g) ?? []).every((t) => /width="96" height="96"/.test(t) && !/loading="lazy"/.test(t) && !/decoding="async"/.test(t)))
   check("no shadow, filter or blur is animated or laid over the stage", !/backdrop-filter|filter:/.test(bare))
   check("the three points and both badges kept, the Coming soon label edged for white", ["A ping for every sale", "Orders, products and numbers", "Your community, in your pocket", "App Store", "Google Play", "Coming soon"].every((w) => text(html).includes(w)) && /\.soon \{\s*box-shadow: 0 0 0 1px rgba\(24, 24, 27, 0\.14\);/.test(css))
 }

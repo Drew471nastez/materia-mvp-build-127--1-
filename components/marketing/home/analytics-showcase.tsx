@@ -86,7 +86,7 @@ import { useEffect, useRef, type CSSProperties, type ComponentType, type RefObje
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { AnalyticsGlobe } from "./analytics-globe"
 import { ClaudeMark, GeminiMark, GoogleG, OpenAIMark, PerplexityMark } from "./engine-marks"
-import { usePlatformSection } from "./platform-motion"
+import { touchScreen, usePlatformSection } from "./platform-motion"
 import m from "./platform.module.css"
 import s from "./analytics-showcase.module.css"
 
@@ -305,6 +305,8 @@ function useRise(ref: RefObject<HTMLElement | null>) {
     const root = ref.current
     if (!root || typeof IntersectionObserver !== "function") return
     if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    /* Wave 17: on a phone or touch screen nothing waits for an entrance (landing-story.tsx): a block hidden until it is on screen arrived blank on an iPhone flick. */
+    if (touchScreen()) return
     const seen = new WeakSet<Element>()
     const io = new IntersectionObserver(
       (entries) => {
