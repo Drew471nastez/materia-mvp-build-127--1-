@@ -87,7 +87,8 @@ check("no Golden Hour presets, no camera picture, no purple gradient grounds", (
   const css = HOW_IT_WORKS_STYLES[0].css
   /* Changed on purpose (landing round 7, the owner asked for it): the domain's ground is a still black to deep purple gradient; the only other gradient is the shade under the plans' title. */
   // Changed on purpose (landing round 8): four light grounds, each a soft two stop tint, and the LUT cover's shade over its still; no violet anywhere.
-  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*\.cmh-lut::(before|after)$/.test(m[1].split("\n").pop()!), m[1])
+  // Changed on purpose (landing round 10): the domain card's soft turning light and the mask that fades its endings are gradients too.
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*(\.cmh-lut::(before|after)|\.cmh-dm-light|\.cmh-dm-win)$/.test(m[1].split("\n").pop()!), m[1])
   // Changed on purpose (landing round 9): flat grounds, so the only gradient is the LUT cover's shade; violet is the accent again (the owner: "more colorful"), never as a gradient.
   assert.ok(!/gradient\([^)]*#(7c3aed|8b5cf6|a855f7)/.test(css))
 })
@@ -140,7 +141,7 @@ check("the product is a real looking e-book: a local photograph under its title"
 check("reduced motion: nothing pinned, nothing moves", () => {
   const css = CHECKOUT_STYLES.map((s) => s.css).join("\n")
   const still = css.slice(css.lastIndexOf("@media (prefers-reduced-motion:reduce)"))
-  assert.ok(/\.cmc-track\.cmc-track\{height:auto\}/.test(still) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(still))
+  assert.ok(/* Changed on purpose (landing round 10): reduced motion lays the track flat again. */ /\.cmc-track\.cmc-track\{height:auto\}/.test(still) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(still))
 })
 
 console.log("\nThe coordinator's follow ups")

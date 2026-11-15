@@ -347,7 +347,7 @@ export function AnalyticsShowcase() {
       className={`${m.root} ${s.section} bg-white py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#0f0e13]`}
     >
       <div className="home-wrap">
-        <div className={`${s.inset} mb-10 max-w-[920px] sm:mb-14`}>
+        <div className={`${s.inset} mb-10 max-w-[920px] sm:mb-14 [@media(min-width:1024px)_and_(max-height:900px)]:!mb-10`}>
           <StoryHeading id="analytics-showcase-title" text="Get found, and see who finds you." accent={["see", "who", "finds", "you"]} />
         </div>
 

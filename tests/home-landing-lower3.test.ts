@@ -136,7 +136,8 @@ console.log("\n── pricing and the app ──")
 {
   const home = renderToStaticMarkup(createElement(PricingSection, { editorial: true, hideDetailsLink: true }))
   const page = renderToStaticMarkup(createElement(PricingSection, {}))
-  check("pricing is white on the home page, with no rules above and below", /<section data-story-section="pricing" class="bg-white py-20 sm:py-24" id="pricing">/.test(home))
+  // Changed on purpose (landing round 10): on a short laptop (1024px wide or more, 900px high or less) the home section pads 64px, not 96.
+  check("pricing is white on the home page, with no rules above and below", /<section data-story-section="pricing" class="bg-white py-20 sm:py-24 \[@media\(min-width:1024px\)_and_\(max-height:900px\)\]:!py-16" id="pricing">/.test(home))
   check("/pricing keeps its own ground", /<section class="py-20 sm:py-24 bg-\[#f8f9fa\] border-y border-\[#eef0f2\]" id="pricing">/.test(page))
   const app = renderToStaticMarkup(createElement(AppAnywhere))
   check("the app: no white ring on the purple ground, the short line kept", !/ring-white/.test(app) && app.includes("Your sales, orders and visitors on your phone, wherever you are."))

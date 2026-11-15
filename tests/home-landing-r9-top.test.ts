@@ -55,7 +55,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_STORES, EVERYTHING_STYLES, PIECE_SIZES } from "@/components/marketing/home/everything-in-one-place"
 import { SWIPE_CLEAR, SWIPE_SLOP, swipeAxis } from "@/components/marketing/home/everything-globe"
-import { IDEAS_STYLES, IDEAS_SUB, IDEAS_TABS, IdeasComeToLife } from "@/components/marketing/home/ideas-come-to-life"
+import { IDEAS_STYLES, IDEAS_TABS, IdeasComeToLife } from "@/components/marketing/home/ideas-come-to-life"
 import { BUILDER_CSS, CommunityMock, MondoMangoSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
@@ -135,7 +135,8 @@ check("no frosted glass", !/backdrop-filter|filter:blur/.test(css))
 console.log("\n── 5. Ideas: centred ──")
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 check("the heading and its line are centred, in the shared box", /\.ideas-head\{[^}]*padding:0 calc\(var\(--home-edge,[^}]*text-align:center\}/.test(ideasCss) && /\.ideas \.ideas-h\{margin-inline:auto;/.test(ideasCss))
-check("the line under it keeps its measure and stands in the middle", /\.ideas-sub\{max-width:56ch;margin:18px auto 0;/.test(ideasCss) && IDEAS_SUB.length < 100)
+// Changed on purpose (landing round 10): the owner: "Get rid of the subheading"; the line under the heading is gone (tests/home-landing-r10-top.test.ts).
+check("no line under it any more", !/\.ideas-sub\{/.test(ideasCss) && !/class="ideas-sub"/.test(ideas))
 check("the pill tabs are centred", /\.ideas-tabs-row\{box-sizing:border-box;display:flex;justify-content:center;/.test(ideasCss))
 check("on a phone too: nothing sets them left again", !/text-align:left|justify-content:flex-start/.test(ideasCss))
 
@@ -146,7 +147,8 @@ check("the frame has the corners and a hairline, and no shadow", /border:1px sol
 check("no panel has a shadow, a radius or a clip of its own", /\.ideas-panel\{grid-area:1\/1;background:#fff;transition:opacity \.55s cubic-bezier\(\.2,\.7,\.2,1\)\}/.test(ideasCss) && !/\.ideas-panel[^{]*\{[^}]*box-shadow/.test(ideasCss))
 check("nothing in the section has a shadow the lazy box could cut, but the chosen tab's 2px", (ideasCss.match(/box-shadow:/g) ?? []).length === 1 && /\.ideas-tab::before\{[^}]*box-shadow:0 1px 2px/.test(ideasCss))
 check("a switch only cross fades: the new panel over the old, both on white", /\.ideas-panel\[data-pane="active"\]\{z-index:2;animation:ideas-in \.55s/.test(ideasCss) && /\.ideas-panel\[data-pane="leaving"\]\{z-index:1\}/.test(ideasCss) && /@keyframes ideas-in\{from\{opacity:0\}\}/.test(ideasCss))
-check("from 768px the picture is 88% of the shared width, centred", /@media\(min-width:768px\)\{\.ideas-frame\{width:88%\}\}/.test(ideasCss) && /justify-self:center/.test(frame))
+// Changed on purpose (landing round 10): the owner: still "too big", "reduce it a little more"; 78% of the shared width, capped by the screen's height (tests/home-landing-r10-top.test.ts).
+check("from 768px the picture is smaller than the shared width, centred", /@media\(min-width:768px\)\{\.ideas-frame\{width:min\(78%,/.test(ideasCss) && /justify-self:center/.test(frame))
 check("a phone keeps the full width", /width:100%/.test(frame) && !/@media\(max-width:767px\)\{[^}]*\.ideas-frame/.test(ideasCss))
 check("the picture keeps its shape", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss))
 

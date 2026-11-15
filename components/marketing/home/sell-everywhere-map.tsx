@@ -101,6 +101,12 @@
  *  - on a phone the map's faded sides are two small gradients over it, not a
  *    mask over a layer that moves.
  *
+ * LANDING ROUND 10, THE OWNER: on a MacBook Air in Chrome at 100% (about
+ * 1440x800) the heading and the card did not fit in one screen under the
+ * header. On a laptop that short (1024px wide or more, 900px high or less)
+ * the product card is 196px wide (was 224), the copy starts 28px under it
+ * and the card pads 24/28px, so the card is about 470px, not 524.
+ *
  * MOTION. No render per country: a few attributes written every 3s while
  * the section is on screen and the tab is visible. Everything that moves
  * (the highlight, the product, the price, the words, the labels, the ring,
@@ -439,6 +445,12 @@ const MAP_CSS = `
 .cmm-copy{position:relative;z-index:2;margin:44px 0 0 clamp(28px,3vw,40px);max-width:clamp(270px,calc(32vw - 64px),380px)}
 .cmm-copy h3{margin:0;font-size:clamp(20px,1.7vw,24px);font-weight:500;letter-spacing:-.02em;line-height:1.2}
 .cmm-copy p{margin:8px 0 0;font-size:15px;line-height:1.55;color:#a3a1ad}
+@media (min-width:1024px) and (max-height:900px){
+  .cmm-head{margin-bottom:32px}
+  .cmm-card{min-height:0;padding:24px 0 28px}
+  .cmm-prod{width:196px}
+  .cmm-copy{margin-top:28px}
+}
 @media (max-width:1023px){
   .cmm-card{min-height:0;display:flex;flex-direction:column;padding:10px 0 24px;border-radius:25px}
   .cmm-world{position:relative;right:auto;top:auto;width:auto;margin:0 10px;transform:none;order:1;aspect-ratio:1/${VIEW_H};overflow:hidden;border-radius:16px}

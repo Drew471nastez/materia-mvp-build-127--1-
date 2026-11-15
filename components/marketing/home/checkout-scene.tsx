@@ -2,7 +2,7 @@
 
 /**
  * ===========================================================================
- *  CHECKOUT THAT TURNS A TAP INTO A SALE (home, section 9, landing round 9)
+ *  CHECKOUT THAT TURNS A TAP INTO A SALE (home, section 9, landing round 10)
  * ===========================================================================
  * Black, with a dot grid so faint it reads as texture. Round 9, in the
  * owner's order:
@@ -31,6 +31,14 @@
  *                    one after another; on a phone they are a row to swipe
  *                    (native scroll snap). Each card's demo runs only while
  *                    that card is on screen. Then four plain facts under them
+ *   5. behind them   round 10 (the owner: the products "should still be there
+ *                    in the background, blurred and faded, rotating in 3D"):
+ *                    the stage stays held behind the cards while they are on
+ *                    screen. As they come up the phone and the ring step back,
+ *                    fade to 40% and go soft (each one cross fades to a
+ *                    blurred copy baked as a small picture, so nothing is
+ *                    blurred per frame), and keep turning in the gaps between
+ *                    and around the cards, and faintly through them
  *
  * THE PHONE IS THE REAL PAGE. PageCheckout below is
  * app/(storelib)/checkout/checkout-client.tsx as a phone lays it out, at the
@@ -105,6 +113,24 @@ export const FLOATS: readonly Thing[] = [
   { id: "ebook", kind: "digital", ar: 4 / 3, rz: 7, d: { p: 0.77, y: 0.14, s: 0.34 }, m: { p: 0.9, y: 0.12, s: 0.21 } },
   { id: "notion", kind: "digital", ar: 0.84, rz: -4, d: { p: 0.91, y: -0.04, s: 0.42 }, m: null },
 ]
+/*
+ * The blurred copies (round 10): public/home/commerce/soft-<id>.webp, each
+ * object's box (and the phone's) with SOFT_PAD percent of its width spare on
+ * every side, blurred, at a small size; scripts/bake-checkout-soft.mjs makes
+ * them from the scene itself. A blurred picture drawn larger loses nothing.
+ */
+const SOFT_PAD = 20
+const SOFT_W = 100 + 2 * SOFT_PAD
+export const SOFT: Readonly<Record<string, { w: number; h: number }>> = {
+  tee: { w: 112, h: 146 },
+  luts: { w: 112, h: 105 },
+  cap: { w: 112, h: 83 },
+  course: { w: 112, h: 100 },
+  tote: { w: 112, h: 151 },
+  ebook: { w: 112, h: 139 },
+  notion: { w: 112, h: 93 },
+  phone: { w: 168, h: 296 },
+}
 /** One turn of the ring, in seconds. */
 const TURN_S = 44
 /** How far the page's scroll turns the ring over the scene, either way from rest, in degrees. */
@@ -250,7 +276,8 @@ function Orbit() {
       {FLOATS.map((f) => (
         <span key={f.id} className="cmc-o" data-f={f.id} data-kind={f.kind} data-m={f.m ? "" : undefined}>
           <span className="cmc-face">
-            {f.img ? <img className="cmc-pic" src={f.img.src} alt="" width={f.img.w} height={f.img.h} loading="lazy" decoding="async" /> : <DigitalThing id={f.id} />}
+            <span className="cmc-sharp">{f.img ? <img className="cmc-pic" src={f.img.src} alt="" width={f.img.w} height={f.img.h} loading="lazy" decoding="async" /> : <DigitalThing id={f.id} />}</span>
+            <img className="cmc-soft" src={`${IMG}/soft-${f.id}.webp`} alt="" width={SOFT[f.id].w} height={SOFT[f.id].h} loading="lazy" decoding="async" />
           </span>
         </span>
       ))}
@@ -295,27 +322,28 @@ export function CheckoutScene() {
               <Orbit />
               <div className="cmc-rise">
                 <Phone label={`Storelib's checkout page on a phone (an iPhone): ${LUTS.title} by ${SELLER}, ${LUTS.price}, with Apple Pay and Google Pay.`} />
+                <img className="cmc-soft cmc-phone-soft" src={`${IMG}/soft-phone.webp`} alt="" width={SOFT.phone.w} height={SOFT.phone.h} loading="lazy" decoding="async" />
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="cmc-cards">
-        <div className="cmc-cards-in">
-          <div className="cmc-bento">
-            {CARDS.map((c, i) => (
-              <Card key={c.id} id={c.id} i={i} />
-            ))}
+        <div className="cmc-cards">
+          <div className="cmc-cards-in">
+            <div className="cmc-bento">
+              {CARDS.map((c, i) => (
+                <Card key={c.id} id={c.id} i={i} />
+              ))}
+            </div>
+            <ul className="cmc-facts">
+              {FACTS.map(([b, s]) => (
+                <li key={b} className="cmc-fact">
+                  <b>{b}</b>
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="cmc-facts">
-            {FACTS.map(([b, s]) => (
-              <li key={b} className="cmc-fact">
-                <b>{b}</b>
-                <span>{s}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
     </section>
@@ -1226,8 +1254,14 @@ const f3 = (v: number) => String(+v.toFixed(3))
 const DWELL = "100svh"
 const OVERLAP = "56svh"
 const SETTLE = 44
+/* Round 10: where the phone and the ring step back under the cards (svh of scroll into the hold), how faint and how small they end. The cards' top edge comes on screen at 44svh. */
+const RECEDE = [48, 100] as const
+const RECEDE_TO = 0.55
+const RECEDE_SCALE = 0.92
+/* The headline fades before the cards' top edge reaches it. */
+const COPY_OUT = [86, 116] as const
 /* Each word's stretch of the hold: a fifth of it, each starting a little after the one before, the last done as the phone lands. */
-const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{animation-range:contain ${f3(5 + i * 2.6)}% contain ${f3(SETTLE - 18.2 + i * 2.6)}%}`).join("\n    ")
+const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{animation-range:contain ${f3(5 + i * 2.6)}svh contain ${f3(SETTLE - 18.2 + i * 2.6)}svh}`).join("\n    ")
 
 /** An object's place on the ring as custom properties: its start (a turn), its height, its width, its picture's height over its width, its lean. */
 const spotVars = (s: Spot, f: Thing) => `--p:${f3(s.p)};--y:${f3(s.y)};--s:${f3(s.s)};--ar:${f3(f.ar)};--rz:${f3(f.rz)}deg`
@@ -1249,6 +1283,11 @@ ${FLOATS.map((f) => (f.m ? `  .cmc-o[data-f="${f.id}"]{${spotVars(f.m, f)}}` : "
 @keyframes cmc-settle{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,var(--down),0)}}
 @keyframes cmc-shrink{from{transform:scale(1)}to{transform:scale(var(--ps))}}
 @keyframes cmc-word{from{opacity:0;transform:translate3d(0,.55em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes cmc-recede{from{opacity:1;transform:scale(1)}to{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}}
+@keyframes cmc-out{from{opacity:1}to{opacity:0}}
+@keyframes cmc-in{from{opacity:0}to{opacity:1}}
+/* The phone is the brightest thing on the stage: behind the cards its blurred copy comes up to only 30%, so the products lead. */
+@keyframes cmc-in-half{from{opacity:0}to{opacity:.3}}
 `
 
 /* The digital products, drawn as objects. Each is sized in its own container units, so it is the same picture at any size. */
@@ -1295,8 +1334,13 @@ const SCENE_CSS = `
 .cmc{position:relative;background:#000;color:#fff;border-radius:clamp(28px,4vw,56px);overflow:clip;padding-block:0!important;isolation:isolate;--edge:var(--home-edge,clamp(20px,5.15vw,84px))}
 /* The dots (round 7: "very extremely subtle"): 1px at 7% white on a 24px grid, faded out toward the edges. */
 .cmc-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.3px);background-size:24px 24px;background-position:12px 12px;-webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 40%,#000 25%,transparent 80%);mask-image:radial-gradient(ellipse 75% 65% at 50% 40%,#000 25%,transparent 80%)}
-/* Without a scroll timeline nothing is held: the track is one screen and the stage in it shows the finished scene. */
-.cmc[data-story-section] > .cmc-track.cmc-track{position:relative;z-index:1;max-width:none;margin:0;padding:0;height:100svh}
+/*
+ * The track holds the stage and the cards after it (round 10), so the stage
+ * can stay held behind the cards for as long as they are on screen. Without a
+ * scroll timeline nothing is held: the stage is one screen showing the
+ * finished scene, and the cards follow it.
+ */
+.cmc[data-story-section] > .cmc-track.cmc-track{position:relative;z-index:1;max-width:none;margin:0;padding:0}
 /*
  * The stage's numbers, shared by everything in it. --pw is the big phone's
  * width, --ps what it shrinks to once the headline is in, --down how far it
@@ -1316,7 +1360,6 @@ const SCENE_CSS = `
 /* One 3D space: the ring and the phone in it, sorted by depth by the browser. It rests where the scene ends: down on the stage's foot. */
 .cmc-world{position:relative;width:100%;height:100%;transform-style:preserve-3d;transform:translate3d(0,var(--down),0)}
 .cmc-rise{position:relative;transform:scale(var(--ps))}
-.cmc-rise::after{content:"";position:absolute;inset:0;border-radius:calc(var(--pw) * .178);background:#000;opacity:0;pointer-events:none}
 
 /*
  * The ring. Its box (cmc-orbit) leans and takes the scroll's turn; each
@@ -1327,8 +1370,19 @@ const SCENE_CSS = `
  */
 .cmc-orbit{position:absolute;left:50%;top:calc(50% + var(--pw) * var(--oy));width:0;height:0;pointer-events:none;transform-style:preserve-3d;transform:rotateX(var(--tilt))}
 .cmc-o{position:absolute;left:0;top:0;display:block;width:calc(var(--pw) * var(--s));margin-left:calc(var(--pw) * var(--s) / -2);margin-top:calc(var(--pw) * var(--s) * var(--ar) / -2);transform-style:preserve-3d;--a:calc(var(--p) * 360deg);transform:${ringAt(0)}}
-.cmc-face{display:block;transform:rotateX(calc(var(--tilt) * -1))}
+.cmc-face{position:relative;display:block;transform:rotateX(calc(var(--tilt) * -1))}
+.cmc-sharp{display:block}
 .cmc-pic{display:block;width:100%;height:auto;-webkit-user-drag:none}
+/*
+ * Round 10 (the owner: behind the cards the products "blurred and faded",
+ * "not consuming much performance"): each object, and the phone, has a
+ * blurred copy baked into a small picture (soft-*.webp, its box with a fifth
+ * of its width spare on every side). As the cards come up the sharp object
+ * fades out and its copy fades in: opacity only, so nothing is blurred or
+ * painted again while the ring turns. No filter anywhere.
+ */
+.cmc-soft{position:absolute;left:0;top:0;display:block;width:${SOFT_W}%;max-width:none;height:auto;margin:-${SOFT_PAD}% 0 0 -${SOFT_PAD}%;opacity:0;pointer-events:none;-webkit-user-drag:none;transform:rotate(var(--rz))}
+.cmc-phone-soft{transform:none}
 ${ORBIT_CSS}
 ${THINGS_CSS}
 @media (min-width:900px){
@@ -1352,10 +1406,22 @@ ${THINGS_CSS}
    * little further.
    */
   @supports (animation-timeline:view()){
-    .cmc[data-story-section] > .cmc-track.cmc-track{height:calc(100svh + ${DWELL});view-timeline:--cmc-t block}
+    .cmc[data-story-section] > .cmc-track.cmc-track{view-timeline:--cmc-t block}
     .cmc-stage{position:sticky;top:0}
-    .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0% contain ${SETTLE}%}
-    .cmc-rise{animation:cmc-shrink cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0% contain ${SETTLE}%}
+    .cmc-track > .cmc-cards{margin-top:calc(${DWELL} - ${OVERLAP})}
+    .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
+    .cmc-rise{animation:cmc-shrink cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
+    /*
+     * Round 10: the stage stays held behind the cards. As they come up the
+     * phone and the ring step back (a little smaller, faded to ${RECEDE_TO}) and
+     * go soft (each sharp object fades into its blurred copy), the headline
+     * fades before the cards reach it, and the ring keeps turning behind them.
+     */
+    .cmc-phone-wrap{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
+    .cmc-sharp,.cmc-rise > .cmc-phone{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
+    .cmc-soft{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
+    .cmc-phone-soft{animation-name:cmc-in-half}
+    .cmc-copy{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${COPY_OUT[0]}svh contain ${COPY_OUT[1]}svh}
     .cmc-orbit{animation:cmc-spin linear both;animation-timeline:--cmc-t;animation-range:entry 0% exit 100%}
     .cmc-face{animation:cmc-unspin linear both,cmc-depth ${TURN_S}s linear infinite;animation-timeline:--cmc-t,auto;animation-range:entry 0% exit 100%;animation-delay:0s,calc(var(--p) * -${TURN_S}s);animation-play-state:running,paused}
     .cmc-stage[data-commerce-live] .cmc-face{animation-play-state:running,running}
@@ -1364,12 +1430,12 @@ ${THINGS_CSS}
   }
 }
 
-/* The cards: a black ground that fades in from transparent at its top edge, so the cards lie over the phone and it goes under them softly. */
-.cmc[data-story-section] > .cmc-cards.cmc-cards{position:relative;z-index:5;max-width:none;margin:calc(${OVERLAP} * -1) 0 0;padding:0;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.72) clamp(110px,16vh,180px),#000 clamp(220px,30vh,320px))}
-/* Nothing held (no scroll timelines): the cards only lap the stage's foot, so the whole phone is seen first. */
-@supports not (animation-timeline:view()){
-  .cmc[data-story-section] > .cmc-cards.cmc-cards{margin-top:-8svh}
-}
+/*
+ * The cards: no ground of their own (round 10), so the held stage shows
+ * between them and around them. Nothing held (no scroll timelines, reduced
+ * motion): they only lap the stage's foot, so the whole phone is seen first.
+ */
+.cmc-cards{position:relative;z-index:5;margin-top:-8svh}
 .cmc-cards-in{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:clamp(72px,10vh,120px) var(--edge) clamp(64px,8vw,120px)}
 
 /*
@@ -1381,8 +1447,6 @@ ${THINGS_CSS}
   /* The cards slide up over the phone one after another; the phone steps back under them. */
   .cmc-card{transition:opacity .7s ease,transform 1s cubic-bezier(.16,1,.3,1);transition-delay:calc(var(--ci) * .09s)}
   .cmc[data-cmc-over-armed]:not([data-cmc-over]) .cmc-card{opacity:0;transform:translate3d(0,96px,0);transition-duration:0s;transition-delay:0s}
-  .cmc-rise::after{transition:opacity .6s ease}
-  .cmc[data-cmc-over] .cmc-rise::after{opacity:.45}
 }
 `
 
@@ -1601,10 +1665,15 @@ const DESK_CSS = u(`
 .cdx .cmv-cursor{position:absolute;left:62%;top:58%;z-index:2;line-height:0;font-size:22u;opacity:0}
 `)
 
+/* Round 10: the cards a little see-through, so the products going round behind them show faintly through as well as between them. */
+const CARD_ALPHA = 0.66
+/* The tallest a card's picture is drawn (a 1440 x 800 screen shows a whole card with room to spare). */
+const VIS_CAP = "44svh"
+
 /* The cards and their mocks. Each mock is drawn in em of a 48 x 42 box (30 x 34 on a narrow screen), so it scales as one picture. */
 const CARDS_CSS = `
 .cmc-bento{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.cmc-card{position:relative;display:flex;flex-direction:column;gap:clamp(22px,2.4vw,32px);min-width:0;padding:clamp(24px,2.6vw,40px) clamp(24px,2.6vw,40px) clamp(20px,2.2vw,32px);border-radius:28px;background:#111113;border:1px solid rgba(255,255,255,.08);box-sizing:border-box;overflow:hidden}
+.cmc-card{position:relative;display:flex;flex-direction:column;gap:clamp(22px,2.4vw,32px);min-width:0;padding:clamp(24px,2.6vw,40px) clamp(24px,2.6vw,40px) clamp(20px,2.2vw,32px);border-radius:28px;background:rgba(17,17,19,${CARD_ALPHA});border:1px solid rgba(255,255,255,.08);box-sizing:border-box;overflow:hidden;container-type:inline-size;--vis-cap:${VIS_CAP}}
 /* Round 9 (the owner: "some orbs, extremely subtle and barely visible, over the four cards; just a little"): two soft lights per card, a violet and a white, as still gradients (no blur, no motion), each card's in its own corner. */
 .cmc-card::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(52% 44% at var(--ox,12%) var(--oy,0%),rgba(139,92,246,.085),rgba(139,92,246,0) 72%),radial-gradient(40% 34% at var(--px,96%) var(--py,58%),rgba(255,255,255,.035),rgba(255,255,255,0) 70%)}
 .cmc-card[data-k=tap]{--ox:92%;--oy:4%;--px:6%;--py:70%}
@@ -1615,8 +1684,13 @@ const CARDS_CSS = `
 .cmc-card-copy h3{margin:10px 0 0;font-size:clamp(24px,2.3vw,34px);font-weight:400;line-height:1.12;letter-spacing:-.035em;color:#fff;text-wrap:balance}
 .cmc-card-copy p{margin:12px 0 0;max-width:46ch;font-size:clamp(15px,1.1vw,17px);line-height:1.55;color:#a1a1aa}
 /* A demo is a picture: it takes no pointer and nothing in it can be selected. */
-.cmc-vis{position:relative;z-index:1;margin-top:auto;aspect-ratio:48/42;overflow:hidden;border-radius:20px;background:#0b0b0d;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
-.cmc-vis-in{position:absolute;inset:0;font-size:calc(100cqw / 48);color:#fff;line-height:1.35}
+/*
+ * Round 10 (the owner, on a 1440 x 800 screen: not oversized): the picture is
+ * 48 x 42 as before but never taller than --vis-cap; where it is capped its
+ * drawing keeps its shape and sits in the middle of the box.
+ */
+.cmc-vis{position:relative;z-index:1;margin-top:auto;height:min(calc(100cqw * 42 / 48),var(--vis-cap));overflow:hidden;border-radius:20px;background:#0b0b0d;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
+.cmc-vis-in{position:absolute;left:50%;top:0;width:48em;height:42em;margin-left:-24em;font-size:min(calc(100cqw / 48),calc(var(--vis-cap) / 42));color:#fff;line-height:1.35;container-type:inline-size}
 .cmc-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin:clamp(48px,6vw,88px) 0 0;padding:0;list-style:none}
 .cmc-fact{padding:2px 0 2px 18px;border-left:1px solid rgba(255,255,255,.16)}
 .cmc-fact b{display:block;font-size:clamp(28px,3vw,46px);font-weight:300;line-height:1;letter-spacing:-.045em;color:#fff;white-space:nowrap}
@@ -1756,8 +1830,8 @@ const CARDS_CSS = `
    * near the size a computer shows them and the picture is cropped or laid
    * out again instead.
    */
-  .cmc-vis{aspect-ratio:4/3;margin:0 -6px;border-radius:16px}
-  .cmc-vis-in{font-size:calc(100cqw / 32)}
+  .cmc-vis{height:auto;aspect-ratio:4/3;margin:0 -6px;border-radius:16px}
+  .cmc-vis-in{font-size:calc(100cqw / 32);width:32em;height:24em;margin-left:-16em}
   .cmc-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 16px}
   .cmc-fact{padding-left:14px}
   .cmc-fact b{font-size:26px}
@@ -1976,7 +2050,8 @@ const REST_CSS = `
 /* Still: the finished scene, nothing pinned or moving. */
 const STILL_CSS = `
 @media (prefers-reduced-motion:reduce){
-  .cmc[data-story-section] > .cmc-cards.cmc-cards{margin-top:0}
+  .cmc-cards{margin-top:0}
+  .cmc[data-story-section] > .cmc-track.cmc-track{height:auto}
   .cmc-stage *{transition:none!important;animation:none!important}
   .cmc-card{transition:none!important}
 }

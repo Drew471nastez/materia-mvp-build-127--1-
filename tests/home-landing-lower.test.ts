@@ -96,7 +96,8 @@ console.log("\n── analytics ──")
   check("the switcher turns only while live, never under reduced motion, by transform", /if \(!el \|\| !live \|\| reduced\) return/.test(src) && /window\.clearInterval/.test(src) && /\.strip \{[^}]*transition: transform 1000ms/.test(css)) /* Changed on purpose (landing round 5): the switcher is the one from before round 4 again, as the owner asked. */
   check("keyframes animate only transform and opacity", keyframeProps(css).every((p) => p === "transform" || p === "opacity"), keyframeProps(css))
   check("cards a pixel less round (27px, 21px on a phone)", /border-radius: 27px/.test(css) && /border-radius: 21px/.test(css))
-  check("smaller: two fixed rows of 400px, no dashboard, no tabbed cards", /\.globeCard,\s*\.fixed \{\s*height: 400px;/.test(css) && !/Total Revenue|Conversion Rate|Previous period/.test(words))
+  // Changed on purpose (landing round 10): 400px at most, 44svh on a short laptop screen (352px at 800 high), never under 340.
+  check("smaller: two fixed rows of at most 400px, no dashboard, no tabbed cards", /\.globeCard,\s*\.fixed \{\s*height: clamp\(340px, 44svh, 400px\);/.test(css) && !/Total Revenue|Conversion Rate|Previous period/.test(words))
 }
 
 console.log("\n── map ──")
