@@ -71,8 +71,8 @@ check("none of this round's banned samples", () => {
 // Changed on purpose (landing round 5): the owner did not like the cap; How it works sells a signed print of Nadia's photograph instead.
 check("half physical, half digital: the print and the e-book in How it works", () => {
   assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["print", "Physical"], ["ebook", "Digital"]])
-  /* Changed on purpose (landing round 5): the orbit is gone (the owner: it stuttered under a finger); no product rides around the phone. */
-  assert.ok(!/\/home\/commerce\/float-/.test(co))
+  /* Changed on purpose (landing round 7): the owner asked for the products around the phone back ("bring back the axis products how they were before"), with a new set of pictures; tests/home-landing-r7-checkout.test.ts pins the ring. */
+  assert.ok(/\/home\/commerce\/float-/.test(co))
 })
 
 console.log("\nHow it works")
@@ -111,7 +111,8 @@ console.log("\nThe checkout scene")
 /* Changed on purpose (landing round 5): no view timelines and no orbit. The phone is there from the first pixel and slides up once as the section comes in (one observer, a CSS transition); the cards come up over it with plain scroll. tests/home-landing-r5-checkout.test.ts pins the rest. */
 check("the phone is there from the start and slides up once as the section comes in; the words follow", () => {
   assert.ok(!/view-timeline|animation-timeline|timeline-scope/.test(coCss))
-  assert.ok(/\.cmc\[data-cmc-armed\]:not\(\[data-cmc-in\]\) \.cmc-rise\{transform:translate3d\(0,22%,0\)/.test(coCss))
+  /* Changed on purpose (landing round 7): the phone rises from lower (34%) when its own box comes up the screen, so the rise is seen. */
+  assert.ok(/\.cmc\[data-cmc-in-armed\]:not\(\[data-cmc-in\]\) \.cmc-rise\{transform:translate3d\(0,34%,0\)/.test(coCss))
   const n = CHECKOUT_HEADING.split(" ").length
   assert.equal((co.match(/class="cmc-w"/g) ?? []).length, n)
 })
@@ -121,12 +122,14 @@ check("the tab cards come up over the phone with the page", () => {
 check("the scroll never steps through a payment on the phone", () => {
   const phone = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))
   assert.ok(!/Payment complete|Face ID|Double Click|cmc-sheet|data-step/.test(phone))
-  assert.ok(phone.includes("Pay $19.00 with Apple Pay") && phone.includes(GUIDE.title))
+  /* Changed on purpose (landing round 7): the phone is the full page checkout for Maren Holt's pattern, its express Apple Pay button and its Pay. */
+  assert.ok(words(phone).includes("Pay $12.00") && phone.includes(GUIDE.title))
 })
 check("one observer, no scroll listener, no layout read, no orbit", () => {
   const src = read(CO)
   assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 1 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
-  assert.ok(!/cmc-orbit|cmc-lap|filter:\s*blur/.test(src))
+  /* Changed on purpose (landing round 7): the ring is back (cmc-orbit, cmc-lap), still without a blur filter. */
+  assert.ok(!/filter:\s*blur/.test(src))
 })
 check("reduced motion: nothing pinned, no overlap, nothing moving", () => {
   const still = coCss.slice(coCss.lastIndexOf("@media (prefers-reduced-motion:reduce)"))
@@ -145,11 +148,11 @@ check("Built to convert is the website checkout on a computer, and its sums add 
   const w = words(panel)
   for (const t of ["Contact information", "Delivery", "Shipping method", "Payment method", "Powered by Stripe", "Payment complete", "Total due"]) assert.ok(w.includes(t), t)
   assert.ok(read("components/checkout/parts/ui.tsx").includes("Powered by"))
-  /* Changed on purpose (landing round 5, the owner: "I don't like that cap"): a signed A3 print, LaSalle at dusk, $45. */
-  assert.equal(4500 + 1900, 6400)
-  assert.equal(6400 + 600 + Math.round(6400 * 0.08), 7512)
-  assert.ok(w.includes("$64.00") && w.includes("$6.00") && w.includes("$5.12") && w.includes("$75.12"))
-  assert.ok(w.includes("New sale: $75.12") && w.includes("Sam Rivera bought LaSalle at dusk and 1 more for $75.12."))
+  /* Changed on purpose (landing round 7, the owner: not The Loop): Maren Holt's yarn kit ($64) and pattern ($12). */
+  assert.equal(6400 + 1200, 7600)
+  assert.equal(7600 + 600 + Math.round(7600 * 0.08), 8808)
+  assert.ok(w.includes("$76.00") && w.includes("$6.00") && w.includes("$6.08") && w.includes("$88.08"))
+  assert.ok(w.includes("New sale: $88.08") && w.includes("Sam Rivera bought Harbor yarn kit and 1 more for $88.08."))
   const catalog = read("lib/notify/templates/catalog.ts")
   assert.ok(catalog.includes("New sale: ${total}") && catalog.includes("bought ${thing}"))
 })
@@ -158,13 +161,14 @@ check("One-tap payments: just the phone, with Apple Pay, Google Pay and Stripe, 
   assert.equal((panel.match(/class="cmc-phone"/g) ?? []).length, 1)
   assert.ok(!/cdx-/.test(panel))
   const w = words(panel)
-  for (const t of ["Apple Pay", "Google Pay", "Stripe", "Pay $19.00 with Google Pay"]) assert.ok(w.includes(t), t)
-  for (const k of ["cmv-la", "cmv-lg", "cmv-ls", "cmv-ring", "cmv-mwa", "cmv-mwg"]) assert.ok(onlyCompositor(keyframes(coCss, k)), k)
+  /* Changed on purpose (landing round 7, the owner: smoother and cleaner): a tap on the page's Apple Pay, the wallet's sheet, Done, Payment complete, beside the three ways it pays. */
+  for (const t of ["Apple Pay", "Google Pay", "Stripe", "Confirm with Side Button", "Payment complete"]) assert.ok(w.includes(t), t)
+  for (const k of ["pc-press", "ap-sheet", "ap-done", "pc-paid"]) assert.ok(onlyCompositor(keyframes(coCss, k)), k)
 })
 check("Local currencies: a nicer product, the cap, read in five currencies checkout charges in", () => {
   const panel = co.slice(co.indexOf('id="cmc-panel-currency"'), co.indexOf('id="cmc-panel-recover"'))
-  /* Changed on purpose (landing round 5): the print in place of the cap. */
-  assert.ok(panel.includes("/home/commerce/print-lasalle.webp") && words(panel).includes("LaSalle at dusk"))
+  /* Changed on purpose (landing round 7): Maren Holt's yarn kit in place of the print. */
+  assert.ok(panel.includes("/home/commerce/maren-yarn-kit.webp") && words(panel).includes("Harbor yarn kit"))
   for (const code of ["USD", "EUR", "GBP", "JPY", "CAD"]) assert.ok(code in CURRENCY_FEE_RULES && panel.includes(code), code)
 })
 check("Checkout reminders: light, a few layers, the email in within a second and a half, its pictures loaded ahead", () => {

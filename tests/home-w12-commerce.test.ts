@@ -110,22 +110,25 @@ console.log("\nCommerce: the sections render on the server")
   check("checkout: four tabs and one visible panel", (co.match(/role="tab"/g) ?? []).length === 4 && (co.match(/role="tabpanel"/g) ?? []).length === 4 && (co.match(/role="tabpanel"[^>]*inert/g) ?? []).length === 3 && !/role="tabpanel"[^>]*hidden/.test(co) && /\.cmc-panel\{grid-area:1\/1;[^}]*visibility:hidden/.test(src.checkout))
   /* Changed on purpose (wave 13): the real instant checkout heads its fields "Your details" (components/checkout/instant-checkout.tsx), not "Contact". */
 /* Changed on purpose (landing round 4): the phone no longer completes a payment as the page scrolls; Payment complete is the desktop checkout's. */
-  check("checkout: the phone draws the real checkout's words", ["Your details", "Email me news and offers", "Payment method", "Pay $19.00 with Apple Pay", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
+  /* Changed on purpose (landing round 7, the owner: "use the actual Storelib checkout, not the modal checkout"): the phone draws the full page checkout's words. */
+  check("checkout: the phone draws the real checkout's words", ["Contact information", "Email me with news and offers", "Payment method", "Add promotion code", "Total due", "Pay $12.00", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
   /* Added (wave 13). */
   check("checkout: no subheading under the headline, no eyebrow", !/cmc-sub|story-eyebrow/.test(co))
   /* Changed on purpose (landing round 3): the owner wants the wallets tab to be a phone and nothing else, so the second browser (the one with Google Pay) is gone; the tab's words still name both wallets. */
 /* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again, as the owner asked. */
   check("checkout: the website checkout in a desktop browser, once, and both wallets named", (co.match(/class="cdx-win"/g) ?? []).length === 1 && co.includes("Apple Pay and Google Pay, built in"))
-  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$45.00", "€42.00", "£36.00", "¥6,900", "C$62.00"].every((p) => co.includes(p))) /* Changed on purpose (landing round 5): the $45 print in place of the cap. */
+  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$64.00", "€59.00", "£50.00", "¥9,800", "C$88.00"].every((p) => co.includes(p))) /* Changed on purpose (landing round 7): Maren Holt's $64 yarn kit in place of the print. */
   /* Changed on purpose (landing round): the product is Maya Ellis's e-book, Weeknight Pasta, not the Golden Hour presets the owner found AI looking. */
 /* Changed on purpose (landing round 4): new products; the seller's note is the in-app sale notification ("New sale: <total>", "<buyer> bought <thing> for <total>."). */
-  check("checkout: the reminder and the sale note use the real words", co.includes("You left LaSalle at dusk at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $75.12") && co.includes("Sam Rivera bought LaSalle at dusk and 1 more for $75.12.")) /* Changed on purpose (landing round 5): the print in place of the cap. */
+  check("checkout: the reminder and the sale note use the real words", co.includes("You left Harbor yarn kit at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $88.08") && co.includes("Sam Rivera bought Harbor yarn kit and 1 more for $88.08.")) /* Changed on purpose (landing round 7): Maren Holt's yarn kit in place of the print. */
   check("checkout: no Golden Hour presets anywhere, and less fans in the words", !/Golden Hour|golden-cover|Presets/.test(co + src.checkout) && !/\bfans?\b/i.test(co.replace(/<style[\s\S]*?<\/style>/g, "")))
-  check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="A Storelib checkout on a phone/.test(co))
+  /* Changed on purpose (landing round 7): the label names the checkout page. */
+  check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="Storelib&#x27;s checkout page on a phone/.test(co))
   /* Changed on purpose (landing round): the orbiting products (the Golden preset box, the camera course, a purple membership card) are gone with the orbit. */
 /* Changed on purpose (landing round 4): the owner asked for the products orbiting the phone back, none of them the Golden Hour box or the purple membership card, each crossfading to a pre-blurred file (never a live filter). */
   /* Changed on purpose (landing round 5): the orbit is gone, it stuttered under a finger. */
-  check("checkout: no products orbit the phone", !/cmc-orbit|\/home\/commerce\/float-/.test(co + src.checkout))
+  /* Changed on purpose (landing round 7): the owner asked for the products around the phone back ("how they were before"), a new set of plain pictures on one transform loop, no blurred twins. */
+  check("checkout: products ride a ring around the phone again, without blurred twins", /cmc-orbit/.test(co) && /\/home\/commerce\/float-/.test(co) && !/-blur\.webp/.test(co + src.checkout))
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
