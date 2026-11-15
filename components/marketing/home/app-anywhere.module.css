@@ -26,7 +26,8 @@
   fades or moves, so a fast scroll never meets an empty box.
 */
 .card {
-  --h: clamp(440px, 38vw, 620px);
+  /* Landing round 10, the owner (a MacBook Air at 100%, about 1440x800): the stage was 547px there, 68% of the screen. It is held to 62% of the screen's height too (496px at 800, 620 as before at 1920x1080). */
+  --h: clamp(440px, min(38vw, 62svh), 620px);
   --ph: calc(var(--h) - 76px);
   --pw: calc(var(--ph) * 0.487);
   /* Where the chips ride: the second and the fourth ring. */

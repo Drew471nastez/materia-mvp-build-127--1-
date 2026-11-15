@@ -415,6 +415,8 @@ const EARN_CSS = `
 .cme{background:#fff;color:#18181b}
 .cme-wrap,[data-landing-story] .cme>.cme-wrap{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 .cme .story-section-heading{padding-left:var(--home-head-inset,0px)}
+/* Landing round 10, the owner (sections too tall on a MacBook Air): the page's 1000px heading box broke this one line from 1460px wide on, leaving "earn." alone on a second line (82px more at 1470x830). Its box is wider here, so the line stays one line wherever it fits the content width. */
+[data-landing-story] .cme .story-section-heading{max-width:1240px}
 .cme-card{display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(16px,2vw,24px);align-items:stretch}
 .cme-photo{position:relative;height:clamp(240px,30vw,320px);border-radius:clamp(21px,2.4vw,31px);overflow:hidden;background:#141218}
 .cme-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 47%;display:block}
