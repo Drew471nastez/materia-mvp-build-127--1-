@@ -124,7 +124,7 @@ console.log("\n4. The closing call: the dots and the height")
   const dots = read(`${DIR}/dot-field.tsx`)
   renderToStaticMarkup(createElement(FinalCta))
   check("more visible: the dark tone rests at 0.34 and lights to 0.68 (was 0.19 and 0.46), the purple its own (the purple track, same round)", DOT_FIELD_TONES.dark.rest === 0.34 && DOT_FIELD_TONES.dark.lit === 0.68 && DOT_FIELD_TONES.dark.ride === 0 && /const TROUGH = \{ dark: 0\.45, purple: 0\.3 \}/.test(dots))
-  check("clean: a dot stands on its point (no sub-pixel drift), drawn at up to 2 device pixels", DOT_FIELD_MAX_DPR === 2 && /let x = points\[i\]\s*let y = points\[i \+ 1\]/.test(dots) && !/\(flow - 0\.5\) \*/.test(dots))
+  check("clean: a dot stands on its point (no sub-pixel drift), drawn at up to 2 device pixels", DOT_FIELD_MAX_DPR === 2 && DOT_FIELD_TONES.dark.ride === 0 && /\(flow - 0\.5\) \* 0\.8 \* colour\.ride/.test(dots)) // Lead (landing round 11): the purple track keeps a half ride on purple, so the closing call stands still by ride 0, not by dropping the ride
   check("visible to the bottom: only the last 56px fade, the sides still soft", /\.dotf\[data-fade="close"\]\{-webkit-mask-image:linear-gradient\(#000 calc\(100% - 56px\),transparent\),radial-gradient\(120% 135% at 50% 42%,#000 42%,transparent 82%\);-webkit-mask-composite:source-in;[^}]*mask-composite:intersect\}/.test(DOT_FIELD_CSS))
   check("a little shorter: about 15% less padding above and below", /padding:clamp\(76px,8\.4vw,128px\) var\(--home-edge,clamp\(20px,5\.15vw,84px\)\) clamp\(68px,7\.6vw,116px\)/.test(cta))
   check("still paused off screen and in a hidden tab, no CSS animation in the field", /IntersectionObserver/.test(dots) && /visibilitychange/.test(dots) && !/@keyframes/.test(DOT_FIELD_CSS))
