@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useRef, useState, type AnimationEvent, ty
 import { StoryHeading } from "@/components/marketing/story-heading"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
-import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DIGITAL_STEP_S, DigitalScene, TeeScene } from "./showcase-mocks/business-mocks"
+import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DIGITAL_STEP_S, DigitalScene, PHYSICAL_PRODUCTS, PHYSICAL_STEP_S, TeeScene } from "./showcase-mocks/business-mocks"
 import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
 
 /*
@@ -37,7 +37,17 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   taller than 66svh, so on a laptop (1440 x 800) the heading, the index and
   the stage are one screen.
 */
-export const BUSINESS_HEADING = "What will you sell?"
+/*
+  Round 11, the owner: "I don't like the heading 'What will you sell?', and
+  this section should have a subheading, max 10 words." The heading says what
+  the section shows, and one short line under it names the five kinds in
+  plain words, set tight under the heading so the heading, the index and the
+  stage still stand on one laptop screen. Physical products is a row of four
+  things one store ships, turning like the digital covers.
+*/
+export const BUSINESS_HEADING = "Sell what you make"
+/** The line under the heading: at most ten words (the owner). */
+export const BUSINESS_SUB = "Files, merch, courses, memberships and calls, from one store."
 export const BUSINESS_SLIDE_MS = 6500
 /** How long autoplay waits after a finger leaves the stage. */
 export const BUSINESS_TOUCH_RESUME_MS = 2500
@@ -60,19 +70,21 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     id: "digital",
     label: "Digital products",
     tab: "Digital",
-    line: "Templates, presets, e-books",
+    line: "Sample packs, presets, e-books",
     /* Three covers rest in the middle before the next kind comes up. */
     ms: Math.round(DIGITAL_STEP_S * 3 * 1000 + 500),
     Scene: DigitalScene,
-    alt: "Digital products on Storelib: the covers of the Cine Tones LUT Pack, a Content Calendar for Notion, the e-book Slow Sundays, Highland Presets and the font family Orlo Grotesk pass in a slow row. The one in the middle is shown full size and the buy card beside it names it and its price.",
+    alt: "Digital products on Storelib: the covers of the Cine Tones LUT Pack, the Low Room Drums sample pack, the e-book Slow Sundays, Highland Presets and the font family Orlo Grotesk pass in a slow row. The one in the middle is shown full size and the buy card beside it names it and its price.",
   },
   {
     id: "physical",
     label: "Physical products",
     tab: "Physical",
     line: "Merch and prints you ship",
+    /* Each of the four products has its turn; the next kind comes up while the last is still on show, before the row comes round to the first. */
+    ms: Math.round(PHYSICAL_STEP_S * PHYSICAL_PRODUCTS.length * 1000 - 400),
     Scene: TeeScene,
-    alt: "A physical product on Storelib: the Midnight Studio Tee, a black heavyweight cotton t-shirt, $32. Size M is picked, it is added to the cart and ships in 2 days.",
+    alt: "Physical products on Storelib, one after another: the Midnight Studio Tee ($32, size M), the Washed Studio Cap ($28, charcoal), the Market Tote ($24) and the art print Field Study No. 4 ($40, A3). Each is picked, added to the cart, and its buy card says when it ships.",
   },
   {
     id: "courses",
@@ -88,7 +100,7 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     tab: "Communities",
     line: "Members, posts, live events",
     Scene: ClubScene,
-    alt: "A community on Storelib: Applied AI Club, hosted by Sam Adeyemi, $12 a month, 2,480 members, with a live build on Wednesday and new posts arriving in its show-and-tell space.",
+    alt: "A community on Storelib: Applied AI Club, hosted by Sam Adeyemi, under a deep green banner with its own logo and the line Build one AI tool a week. $12 a month, 2,480 members, a live build on Wednesday and new posts arriving in its show-and-tell space.",
   },
   {
     id: "bookings",
@@ -166,7 +178,8 @@ export function BusinessCarousel() {
     >
       <ShowcaseStyles styles={BUSINESS_STYLES} />
       <div className="biz-head">
-        <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={["sell"]} />
+        <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={["make"]} />
+        <p className="biz-sub">{BUSINESS_SUB}</p>
       </div>
       <div className="biz-body">
         <div ref={row} className="biz-tabs" role="tablist" aria-label="What you can sell">
@@ -263,6 +276,7 @@ const CSS = `
 /* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
 [data-landing-story] .biz>.biz-head,.biz-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .biz .biz-h{margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
+.biz-sub{margin:clamp(8px,.9vw,14px) 0 0;max-width:64ch;font-size:clamp(16px,1.25vw,19px);line-height:1.45;letter-spacing:-.005em;color:#65616e}
 [data-landing-story] .biz>.biz-body,.biz-body{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);row-gap:clamp(8px,1.4vw,16px);max-width:var(--home-max,2020px);margin:clamp(20px,3vw,44px) auto 0;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 /* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than a small phone slides under the thumb. */
 .biz-tabs{display:flex;gap:clamp(18px,2.6vw,34px);margin:0 calc(var(--home-edge,20px) * -1);padding:0 calc(var(--home-edge,20px) + var(--home-head-inset,14px));overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}

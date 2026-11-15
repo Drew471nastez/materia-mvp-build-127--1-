@@ -35,9 +35,10 @@ const rule = (sel: string) => desk.match(new RegExp(`(?:^|\\n)${sel.replace(/[.*
 
 console.log("\nNo line under the heading")
 {
-  check("the heading stays the short question", BUSINESS_HEADING === "What will you sell?" && html.includes('id="biz-title"'))
-  check("the subheading is gone: no constant, no paragraph, no style", !("BUSINESS_SUB" in Section) && !/biz-sub/.test(html) && !/biz-sub/.test(css) && !/Each one gets its own page and checkout|Downloads, things you ship/.test(code(SECTION)))
-  check("the heading block holds only the heading", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><\/div><div class="biz-body">/.test(html))
+  // Changed on purpose (landing round 11): the owner asked for a new heading and a subheading of at most ten words; the old round 10 line stays gone.
+  check("the heading is the new short line", BUSINESS_HEADING === "Sell what you make" && html.includes('id="biz-title"'))
+  check("the round 10 line under the heading stays gone; round 11's own line is at most ten words", !/Each one gets its own page and checkout|Downloads, things you ship/.test(code(SECTION)) && String((Section as Record<string, unknown>).BUSINESS_SUB).split(/\s+/).length <= 10)
+  check("the heading block holds the heading and that one line", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><p class="biz-sub">[^<]+<\/p><\/div><div class="biz-body">/.test(html))
 }
 
 console.log("\nA shorter stage, every scene the same picture")
@@ -59,7 +60,7 @@ console.log("\nRound 9 kept as designed")
   check("five words, each a tab with its panel, one ring on the chosen one", (html.match(/role="tab"/g) ?? []).length === 5 && (html.match(/class="biz-ring"/g) ?? []).length === 1 && BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
   check("the ring is still the clock and autoplay still runs", /e\.animationName === "biz-ring-b"\) advance\(\)/.test(code(SECTION)) && /const run = t\.run && !held/.test(code(SECTION)))
   const scenes = [DigitalScene, TeeScene, CourseScene, ClubScene, CoachScene].map((s) => renderToStaticMarkup(createElement(s))).join("")
-  check("the five scenes say the same things", ["Cine Tones LUT Pack", "Midnight Studio Tee", "Mixing in key, for new DJs", "Applied AI Club", "Talia Moreno", "Booked for Thu 19, 17:30"].every((w) => scenes.includes(w)))
+  check("the five scenes say the same things", /* Changed on purpose (landing round 11): Applied AI Club and the tee stay, now among others. */ ["Cine Tones LUT Pack", "Midnight Studio Tee", "Mixing in key, for new DJs", "Applied AI Club", "Talia Moreno", "Booked for Thu 19, 17:30"].every((w) => scenes.includes(w)))
   check("no banned words or em dashes in what changed", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(BUSINESS_HEADING + BUSINESS_SLIDES.map((s) => s.alt).join(" ")))
 }
 
