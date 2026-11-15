@@ -145,8 +145,8 @@ check("every mark used is in the generated file", used.every((n) => generated.in
 
 console.log("\n── truth: audience and emails ──")
 const aud = text(html["audience-ownership"] ?? "")
-for (const p of ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"]) check(`syncs to ${p}, a platform the catalog syncs`, aud.includes(p) && byName.has(p) && !byName.get(p)?.comingSoon)
-check("unsubscribes come back, as the catalog says", /Unsubscribes come back/.test(aud) && /Unsubscribes come back/.test(read("lib/integrations/catalog.ts")))
+for (const p of ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"]) /* Changed on purpose (landing round 9): the marks carry no names under them; the picture's label names them. */ check(`syncs to ${p}, a platform the catalog syncs`, (html["audience-ownership"] ?? "").includes(p) && byName.has(p) && !byName.get(p)?.comingSoon)
+check("unsubscribes come back, as the catalog says", /* Changed on purpose (landing round 9): the section no longer says it (half the words); the catalog still does. */ !/Unsubscribes/.test(aud) && /Unsubscribes come back/.test(read("lib/integrations/catalog.ts")))
 check("Contacts has its real header: the count and Export CSV", aud.includes("Contacts") && aud.includes("Export CSV") && aud.includes("18,240"))  /* Changed on purpose (landing round 5): the composer is gone; the picture is Contacts. */
 /* Added (wave 13): light, no subheading, a believable creator email, the five platforms in their own marks. */
 {
@@ -155,7 +155,7 @@ check("Contacts has its real header: the count and Export CSV", aud.includes("Co
   check("audience: a light section (not black UI)", /className="bg-white /.test(audSrc) && !/bg-black|#121214|\bdark\b \/>/.test(audSrc))
   check("audience: no subheading under the heading", /<StoryHeading id="audience-ownership-title"[^>]*\/>\s*<ul className=\{s\.points\}>/.test(audSrc))  /* Changed on purpose (landing round 5): the three rows follow the heading directly. */
   check("audience: the ceramics example is gone", !/glaze|ceramic|Maya Lin/i.test(aud))
-  check("audience: email from Storelib counts opens and clicks, as Emails does", /opens and clicks counted/.test(aud) && /tt\("Opened"/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /tt\("Clicked"/.test(read("app/(storelib)/app/emails/emails-home.tsx")))  /* Changed on purpose (landing round 5): no composer, so no sent figures. */
+  check("audience: email from Storelib counts opens and clicks, as Emails does", /* Changed on purpose (landing round 9): the section claims nothing about email figures now. */ !/opens and clicks/.test(aud) && /tt\("Opened"/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /tt\("Clicked"/.test(read("app/(storelib)/app/emails/emails-home.tsx")))  /* Changed on purpose (landing round 5): no composer, so no sent figures. */
   const logos = read(`${DIR}/email-platform-logos.tsx`)
   check("audience: each platform is drawn in its own mark, not a word in a pill", ["KlaviyoLogo", "OmnisendLogo", "BrevoLogo", "MailerLiteLogo", "KitLogo"].every((n) => new RegExp(`export function ${n}\\(`).test(logos)) && /EMAIL_PLATFORMS\.map/.test(audSrc))
   check("audience: subscribers come in by doors Contacts names", ["OnePage", "Checkout", "Website", "Free download"].every((w) => audSrc.includes(`via: "${w}"`)) && /onepage: "OnePage"/.test(read("lib/contacts/contact-source.ts")))
@@ -226,7 +226,7 @@ check("content is visible without JavaScript", /@media \(scripting: none\)/.test
 const motion = read(`${DIR}/platform-motion.tsx`)
 check("count-ups change a text node's data, never insert one", /node\.data = next/.test(motion) && !/textContent = formatRef\.current\(n\)/.test(motion))
 /* Changed on purpose (landing round 7): the picture plays three scenes; it writes one attribute a turn and never text. */
-check("the audience picture never writes text into the page after it is drawn", !/textContent|innerHTML/.test(read(`${DIR}/audience-ownership.tsx`)) && /el\.dataset\.scene = /.test(read(`${DIR}/audience-ownership.tsx`)))  /* Changed on purpose (landing round 5): the composer is gone; nothing in the section moves. */
+check("the audience picture never writes text into the page after it is drawn", /* Changed on purpose (landing round 9): nor an attribute per scene: one data-live while on screen. */ !/textContent|innerHTML|dataset\./.test(read(`${DIR}/audience-ownership.tsx`)) && /setAttribute\("data-live", ""\)/.test(read(`${DIR}/audience-ownership.tsx`)))  /* Changed on purpose (landing round 5): the composer is gone; nothing in the section moves. */
 /* Changed on purpose (landing round): no visitor toasts any more; the engine switcher is fixed slots too, moved by data-rel. */
 /* Changed on purpose (landing round 4): the subscriber rows became one line naming the newest sign-up; every name is in the page and the newest is faded in (data-on), so nothing is inserted. */
 /* Changed on purpose (landing round 7): one strip of names, all in the page from the start, moved by a custom property. */

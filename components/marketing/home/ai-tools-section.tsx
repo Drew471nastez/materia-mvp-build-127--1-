@@ -42,6 +42,14 @@
  * LANDING ROUND 7, THE OWNER: every section as wide as the showcase under
  * the hero. The card sits in the page's one width (--home-edge and
  * --home-max, app/globals.css), its edges on the showcase's.
+ *
+ * LANDING ROUND 9, THE OWNER: "on mobile devices the terminal's height is
+ * too big; reduce it a little" and the line under the heading "has too much
+ * text; reduce it by 35%". Under 640px the terminal leaves out one tool call
+ * and its answer (the lines marked `phone: false`) and its lines sit a
+ * little closer (line height 1.62, was 1.75): 16 lines, not 18. The lines
+ * after the gap get their own keyframes there (ait-m*), 1.2s earlier, so
+ * the run keeps its beat. The line is 12 words, was 22.
  */
 import type { CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
@@ -66,6 +74,8 @@ interface Line {
   text: string
   /** When it appears, in seconds from the start of the run. */
   at: number
+  /** false: left out under 640px, where the terminal is shorter (landing round 9). */
+  phone?: false
 }
 
 const PROMPT = "Make a homepage for my print shop"
@@ -83,8 +93,8 @@ export const AI_TOOLS_SCRIPT: readonly Line[] = [
   { kind: "ok", text: "checked and saved as a draft", at: 5.7 },
   { kind: "call", text: "storelib_create_safe_patch(3 ops)", at: 6.4 },
   { kind: "ok", text: "products, story, newsletter", at: 6.9 },
-  { kind: "call", text: "storelib_update_styles(theme)", at: 7.6 },
-  { kind: "ok", text: "cream background, ink buttons", at: 8.1 },
+  { kind: "call", text: "storelib_update_styles(theme)", at: 7.6, phone: false },
+  { kind: "ok", text: "cream background, ink buttons", at: 8.1, phone: false },
   { kind: "call", text: "storelib_run_tests(home)", at: 8.8 },
   { kind: "ok", text: "contrast and limits pass", at: 9.3 },
   { kind: "call", text: "storelib_run_preview(home)", at: 10 },
@@ -99,13 +109,21 @@ const pct = (s: number) => `${Math.min(100, (s / LOOP_S) * 100).toFixed(2)}%`
  * Each line's own keyframes: hidden until its moment, in over IN_S, held,
  * and out with the rest just before the run starts again.
  */
-function lineKeyframes(i: number, at: number) {
+function lineKeyframes(i: number, at: number, name = `ait-l${i}`) {
   const hide = "opacity:0;transform:translate3d(0,5px,0)"
   const show = "opacity:1;transform:translate3d(0,0,0)"
   const start = at === 0 ? "" : `0%,${pct(at)}{${hide}}`
   const first = at === 0 ? `0%,95.5%{${show}}` : `${pct(at + IN_S)},95.5%{${show}}`
-  return `@keyframes ait-l${i}{${start}${first}98.5%,100%{opacity:0;transform:translate3d(0,0,0)}}`
+  return `@keyframes ${name}{${start}${first}98.5%,100%{opacity:0;transform:translate3d(0,0,0)}}`
 }
+
+/** The lines a phone leaves out, and how much earlier each line after them appears there. */
+const PHONE_FIRST = AI_TOOLS_SCRIPT.findIndex((l) => l.phone === false)
+const PHONE_LAST = AI_TOOLS_SCRIPT.map((l) => l.phone === false).lastIndexOf(true)
+const PHONE_EARLIER_S = AI_TOOLS_SCRIPT[PHONE_LAST + 1].at - AI_TOOLS_SCRIPT[PHONE_FIRST].at
+/** How many lines the terminal shows under 640px. */
+export const AI_TOOLS_PHONE_LINES = AI_TOOLS_SCRIPT.filter((l) => l.phone !== false).length
+const PHONE_CSS = AI_TOOLS_SCRIPT.map((l, i) => (i > PHONE_LAST ? `  .ait-l${i}{animation-name:ait-m${i}}\n  ${lineKeyframes(i, +(l.at - PHONE_EARLIER_S).toFixed(2), `ait-m${i}`)}` : "")).filter(Boolean).join("\n")
 
 const AI_CSS = `
 .ait-wrap,[data-landing-story] .ait>.ait-wrap{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
@@ -152,8 +170,11 @@ ${AI_TOOLS_SCRIPT.map((l, i) => `.ait-l${i}{animation-name:ait-l${i}}\n${lineKey
   .ait-card{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)}
 }
 @media (max-width:639px){
-  .ait-body{padding:14px 14px 18px;font-size:11.5px}
+  .ait-body{padding:12px 14px 14px;font-size:11.5px;line-height:1.62}
+  .ait-line{min-height:1.62em}
+  .ait-nophone{display:none}
   .ait-bar{height:32px}
+${PHONE_CSS}
   .ait-cta{align-self:stretch;justify-content:center;width:100%}
 }
 @media (prefers-reduced-motion:reduce){
@@ -209,7 +230,7 @@ export function AiToolsSection() {
               ))}
             </ul>
             <StoryHeading id="ait-title" text="Your AI tools work here too" accent={["AI"]} dark className="ait-h" />
-            <p className="ait-lede">Connect Claude Code, Codex or Cursor to your site and build with them. Every change waits as a draft until you publish.</p>
+            <p className="ait-lede">Connect Claude Code, Codex or Cursor. Changes stay drafts until you publish.</p>
             <Link href="/developers/ai#connect-an-agent-directly" className="ait-cta">
               See how to connect
               <svg aria-hidden viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -227,7 +248,7 @@ export function AiToolsSection() {
             </div>
             <div className="ait-body" aria-hidden="true">
               {AI_TOOLS_SCRIPT.map((l, i) => (
-                <div key={i} className={`ait-line ait-${l.kind} ait-l${i}`} style={{ "--i": i } as CSSProperties}>
+                <div key={i} className={`ait-line ait-${l.kind} ait-l${i}${l.phone === false ? " ait-nophone" : ""}`} style={{ "--i": i } as CSSProperties}>
                   <b>{GLYPH[l.kind]}</b>
                   {l.kind === "prompt" ? (
                     <span className="ait-typed">
