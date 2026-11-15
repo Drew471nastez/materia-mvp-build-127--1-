@@ -131,7 +131,8 @@ async function main() {
     const src = read("components/marketing/footer.tsx")
     const { MarketingFooter, APP_STORE_HREF } = await import("@/components/marketing/footer")
     const html = renderToStaticMarkup(createElement(MarketingFooter))
-    check("dark, with the logo", /class="storelib-footer[^"]*text-white/.test(html) && /<StorelibLogo size=\{40\} \/>/.test(src))
+    // Changed on purpose (landing round 9): the footer wears the white outline mark, not the violet picture.
+    check("dark, with the logo", /class="storelib-footer[^"]*text-white/.test(html) && /<StorelibLogo size=\{40\} variant="outline" \/>/.test(src))
     /* Changed on purpose (landing round 3): four columns, as in the owner's picture; the same links. */
     check("four link groups and the legal row", ["Product", "Sell", "Resources", "Support", "Legal"].every((g) => html.includes(`aria-label="${g}"`)))
     check("the links are the footer's real ones", ["/explore", "/pricing", "/alternatives", "/features", "/developers", "/blog", "/terms", "/privacy", "/faq", "/sell/digital-products"].every((h) => html.includes(`href="${h}"`)))

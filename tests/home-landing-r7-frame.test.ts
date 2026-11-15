@@ -77,11 +77,13 @@ console.log("\nIdeas, pricing, the questions and the app in the page's one width
   check("ideas: the heading, its line and the tabs start at the content edge plus the heading inset", /\.ideas-head\{box-sizing:border-box;max-width:var\(--home-max,2020px\);margin:0 auto;padding:0 calc\(var\(--home-edge,[^)]*\)\) \+ var\(--home-head-inset,14px\)\);text-align:left\}/.test(ideas) && /\.ideas-tabs-row\{box-sizing:border-box;display:flex;justify-content:flex-start;max-width:var\(--home-max/.test(ideas) && /\.ideas-sub\{max-width:56ch;margin:18px 0 0;/.test(ideas))
   const pricing = read("components/marketing/pricing-section.tsx")
   // Changed on purpose (landing round 8): the heading is stated left aligned outright (no auto margins, full width, !text-left).
-  check("pricing: the shared box on the home page, cards edge to edge in it, the pill and heading at the inset", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\] \[&_\[data-plan-cards\]\]:!max-w-none \[&_\[data-plan-interval-row\]\]:justify-start \[&_\[data-plan-interval-row\]\]:pl-\[var\(--home-head-inset\)\]/.test(pricing) && /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
+  // Changed on purpose (landing round 9): the home page has no Monthly and Yearly pill any more (the owner: chosen when paying), so nothing places one.
+  check("pricing: the shared box on the home page, cards edge to edge in it, the heading at the inset", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\] \[&_\[data-plan-cards\]\]:!max-w-none"/.test(pricing) && /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
   check("pricing: /pricing keeps its own centred column", /"max-w-\[1240px\] mx-auto px-4 sm:px-6"/.test(pricing))
   const faq = read("components/marketing/faq-section.tsx")
   // Changed on purpose (landing round 8): no grey box any more; the questions sit in the shared width, the heading at the inset.
-  check("questions: in the shared width, no grey box, the heading at the inset", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /style=\{editorial \? \{ background: "transparent" \} : undefined\}/.test(faq) && /pl-\[var\(--home-head-inset,14px\)\]/.test(faq))
+  // Changed on purpose (landing round 9): the owner's reference is one centred column, so the heading is centred, not at the inset.
+  check("questions: in the shared width, no grey box, one centred column", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /style=\{\{ background: "transparent" \}\}/.test(faq) && /data-faq-column="" className="mx-auto w-full max-w-\[880px\]"/.test(faq))
   const app = read("components/marketing/home/app-anywhere.tsx")
   check("app: the grid is the shared box (no 1400px column, no section gutter)", /className="home-wrap grid items-center gap-10/.test(app) && !/max-w-\[1400px\]/.test(app) && !/px-\[var\(--landing-gutter/.test(app))
   check("app: one column below 1024px, the heading at the inset", /order-first pl-\[var\(--home-head-inset\)\] lg:order-none lg:pl-0/.test(app))
