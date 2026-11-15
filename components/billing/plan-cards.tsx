@@ -117,15 +117,21 @@ export const PLAN_GRAIN = `url("data:image/svg+xml,${encodeURIComponent(GRAIN_SV
  * of what it was (0.2 to 0.05): the picture reads clean and smooth, with
  * only a trace of texture left so the flat areas do not band. The picture is
  * sent at quality 90 (next.config lists it), so its gradients stay crisp.
+ *
+ * LANDING ROUND 9, THE OWNER: "make the covers of the pricing cards more
+ * darkened, and the grain and contrast increased just a little bit". One step
+ * each, on every surface that draws the cards: brightness down about a sixth
+ * (Free 0.9 to 0.76, Pro 0.62 to 0.52, Scale 0.55 to 0.5), contrast up
+ * (1.12 to 1.16 became 1.2 to 1.24), the grain from 0.05 to 0.08.
  */
 export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}`; filter: string; ground: string; fade: string; grain: number; dot: string; button: string; ring: string }> = {
   free: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
     blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
-    filter: "brightness(0.9) contrast(1.12)",
-    ground: "bg-[#151516]",
+    filter: "brightness(0.76) contrast(1.2)",
+    ground: "bg-[#111112]",
     fade: "from-[#0b0b0c]/75",
-    grain: 0.05,
+    grain: 0.08,
     dot: "text-[#111113]",
     button: "bg-[#111113] hover:bg-[#26262b] active:bg-[#000000]",
     ring: "focus-visible:ring-[#111113]/35",
@@ -133,31 +139,32 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
   growth: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "brightness(0.62) contrast(1.16) saturate(1.05)",
-    ground: "bg-[#2a1aa0]",
+    filter: "brightness(0.52) contrast(1.24) saturate(1.05)",
+    ground: "bg-[#231587]",
     fade: "from-[#130b55]/70",
-    grain: 0.05,
+    grain: 0.08,
     dot: "text-[#5a43ee]",
     button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
     ring: "focus-visible:ring-[#5a43ee]/45",
   },
   /*
-    Scale (id `pro`): Pro's picture turned from indigo to a deep teal. It was
-    turned to violet, which read as pink beside Pro (landing round 8, the
-    owner: "the Scale plan should not be pink, come up with something else,
-    smooth and clean"). Teal sits well apart from the indigo, so the three
-    read as three plans: graphite, indigo, teal. No third file to fetch.
+    Scale (id `pro`): Pro's picture turned from indigo to a warm bronze on
+    graphite. It was violet (read as pink beside Pro), then a deep teal;
+    landing round 9, the owner: "I don't like that you made Scale green.
+    Don't make Scale green." Bronze is the far side of the wheel from Pro's
+    indigo and nowhere near green or pink, so the three read as three plans:
+    black, violet, bronze. No third file to fetch.
   */
   pro: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "hue-rotate(-80deg) saturate(0.75) brightness(0.55) contrast(1.14)",
-    ground: "bg-[#0d3b39]",
-    fade: "from-[#042422]/70",
-    grain: 0.05,
-    dot: "text-[#0f6b66]",
-    button: "bg-[#0f6b66] hover:bg-[#0c5c58] active:bg-[#094c49]",
-    ring: "focus-visible:ring-[#0f6b66]/45",
+    filter: "hue-rotate(148deg) saturate(0.6) brightness(0.5) contrast(1.24)",
+    ground: "bg-[#3a2a17]",
+    fade: "from-[#1c130a]/70",
+    grain: 0.08,
+    dot: "text-[#8a5a24]",
+    button: "bg-[#8a5a24] hover:bg-[#784d1e] active:bg-[#664118]",
+    ring: "focus-visible:ring-[#8a5a24]/45",
   },
 }
 
@@ -408,7 +415,14 @@ export function PlanCards({
   pictureLoading,
   lines,
   tick,
+  hideInterval = false,
 }: {
+  /**
+   * No Monthly and Yearly pill, and so monthly prices only. The home page's
+   * section (landing round 9, the owner: "monthly or yearly is chosen when I
+   * pay"); every other surface keeps the pill.
+   */
+  hideInterval?: boolean
   /** The public cards' own plain lines per plan (home page and /pricing); every other surface leaves it out. */
   lines?: Partial<Record<OfferedPlanId, PlanCardLines>>
   /** "ink" for the public cards' quiet tick; the plan coloured check otherwise. */
@@ -440,7 +454,7 @@ export function PlanCards({
   className?: string
 }) {
   const [own, setOwn] = React.useState<BillingInterval>("monthly")
-  const interval = controlled ?? own
+  const interval = hideInterval ? "monthly" : controlled ?? own
   const pick = (next: BillingInterval) => {
     setOwn(next)
     onInterval?.(next)
@@ -448,7 +462,7 @@ export function PlanCards({
   const inSection = heading != null
   return (
     <>
-      {inSection ? (
+      {hideInterval ? null : inSection ? (
         /*
           IN A SECTION THE HEADING HAS ITS OWN ROW, AND THE PILL IS CENTRED
           OVER THE CARDS. It used to sit small at the heading's right and wrap

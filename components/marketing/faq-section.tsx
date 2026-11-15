@@ -2,7 +2,9 @@
 
 import { StoryHeading } from "./story-heading"
 
+import Link from "next/link"
 import { useState } from "react"
+import { publicHelpUrl } from "@/lib/help/paths"
 import { AnimateOnScroll } from "./animate-on-scroll"
 
 const FAQS = [
@@ -63,17 +65,45 @@ const FAQ_CSS = `
 @media (prefers-reduced-motion:reduce){.faq-q,.faq-mark::before,.faq-mark::after,.faq-a,.faq-a p{transition:none}}
 `
 
+/*
+  LANDING ROUND 9, THE HOME PAGE (the owner: "make the FAQ section actually
+  like the reference"). A centred heading, then one centred column of light
+  grey rows with a small gap between them, each a question with a plus at its
+  right, and one small line under them with the two places to read more. The
+  grey that round 8 took off the section is on each row now. The rows open and
+  close the same way as before (the grid row from 0fr to 1fr, the plus turning
+  into a minus), so nothing is measured and only the open row's own height
+  moves. /pricing keeps the hairline list above.
+*/
+const FAQ_ROWS_CSS = `
+.faq-rows{display:grid;gap:6px;border-top:0}
+.faq-rows .faq-item{border-bottom:0;border-radius:10px;background:#f5f5f6}
+.faq-rows .faq-q{gap:20px;padding:20px 18px;border-radius:10px}
+.faq-rows .faq-q:hover{color:#18181b}
+.faq-rows .faq-q:focus-visible{outline-offset:-2px;border-radius:10px}
+.faq-rows .faq-mark{width:16px;height:16px;color:#3f3f46}
+.faq-rows .faq-mark::before,.faq-rows .faq-mark::after{top:7.25px;width:16px}
+.faq-rows .faq-a p{padding:0 44px 22px 18px;max-width:none;color:#55535c}
+.faq-more{margin:28px 0 0;text-align:center;color:#6b6874;font-size:15px;line-height:1.6}
+.faq-more a{color:#18181b;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#c9c9d1}
+.faq-more a:hover{text-decoration-color:#18181b}
+.faq-more a:focus-visible{outline:2px solid #18181b;outline-offset:3px;border-radius:4px}
+@media (hover:hover){.faq-rows .faq-item:hover{background:#efeff1}}
+@media (min-width:640px){.faq-rows .faq-q{padding:25px 30px}.faq-rows .faq-a p{padding:0 76px 26px 30px}.faq-more{margin-top:36px}}
+`
+
 function FaqItem({ faq, index, isOpen, onToggle }: { faq: typeof FAQS[number]; index: number; isOpen: boolean; onToggle: () => void }) {
   const id = `faq-a-${index}`
   return (
     <div className="faq-item" data-open={isOpen ? "" : undefined}>
       <h3 className="m-0">
-        <button type="button" className="faq-q" aria-expanded={isOpen} aria-controls={id} onClick={onToggle}>
+        <button type="button" className="faq-q" aria-expanded={isOpen} aria-controls={id} id={`faq-q-${index}`} onClick={onToggle}>
           <span>{faq.q}</span>
           <span className="faq-mark" aria-hidden="true" />
         </button>
       </h3>
-      <div className="faq-a" id={id} role="region" aria-label={faq.q}>
+      {/* inert while closed: a closed answer is not read out and holds no tab stop. */}
+      <div className="faq-a" id={id} role="region" aria-labelledby={`faq-q-${index}`} inert={!isOpen}>
         <div className="faq-a-in">
           <p>{faq.a}</p>
         </div>
@@ -85,23 +115,46 @@ function FaqItem({ faq, index, isOpen, onToggle }: { faq: typeof FAQS[number]; i
 export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
+  const items = FAQS.map((faq, i) => (
+    <FaqItem key={i} faq={faq} index={i} isOpen={openIndex === i} onToggle={() => setOpenIndex(openIndex === i ? null : i)} />
+  ))
+
+  if (editorial) {
+    return (
+      /*
+        Landing round 7: the questions stand in the page's one width. Round 8:
+        no light grey box behind them; the section is the white sheet itself
+        (the inline background beats the grey ground app/globals.css gives
+        [data-story-section="faq"]). Round 9: inside that width, one centred
+        880px column, as in the owner's reference.
+      */
+      <section
+        data-story-section="faq"
+        data-faq-plain=""
+        className="py-20 sm:py-28 home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] !rounded-none"
+        style={{ background: "transparent" }}
+        id="faq"
+      >
+        <style href="faq-section" precedence="default">{FAQ_CSS}</style>
+        <style href="faq-section-rows" precedence="default">{FAQ_ROWS_CSS}</style>
+        <div data-faq-column="" className="!mx-auto w-full !max-w-[880px] !px-0">
+          <AnimateOnScroll variant="fade-up">
+            <div className="story-section-heading !mx-auto !mb-9 w-full !text-center sm:!mb-12">
+              <StoryHeading text="Frequently asked questions" accent={["questions"]} />
+            </div>
+            <div className="faq-list faq-rows">{items}</div>
+            <p className="faq-more">
+              More questions? Browse <Link href="/faq">all FAQs</Link> or visit the <a href={publicHelpUrl()}>help center</a>.
+            </p>
+          </AnimateOnScroll>
+        </div>
+      </section>
+    )
+  }
+
   return (
-    /*
-      Landing round 7: on the home page the questions stand in the page's one
-      width. Landing round 8, the owner: no light grey box behind them. The
-      section is the white sheet itself (the inline background beats the grey
-      ground app/globals.css gives [data-story-section="faq"]), and with no box
-      to sit in, the heading starts where every other section's does: the
-      content edge plus --home-head-inset, the answers ending on the far edge.
-    */
-    <section
-      data-story-section={editorial ? "faq" : undefined}
-      data-faq-plain={editorial ? "" : undefined}
-      className={`py-20 sm:py-28 ${editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] !rounded-none" : "bg-[#fafafa]"}`}
-      style={editorial ? { background: "transparent" } : undefined}
-      id="faq"
-    >
-      <div className={editorial ? "!max-w-none !pl-[var(--home-head-inset,14px)] !pr-0" : "max-w-[1200px] mx-auto px-6"}>
+    <section className="py-20 sm:py-28 bg-[#fafafa]" id="faq">
+      <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll variant="slide-right">
           {/*
             Wave 13: the heading and its line had a 280 to 320px column, so a
@@ -111,10 +164,10 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
           <div className="flex flex-col lg:flex-row lg:gap-20 xl:gap-24">
             {/* Left: title */}
             <div className="lg:w-[420px] xl:w-[460px] shrink-0 mb-10 lg:mb-0 lg:sticky lg:top-32 lg:self-start max-w-[640px]">
-              {editorial ? <StoryHeading text="Good questions. Clear answers." accent={["answers"]} className="mb-6" /> : (<h2 className="text-[clamp(30px,4vw,42px)] font-bold tracking-tight leading-[1.15] mb-3">
+              <h2 className="text-[clamp(30px,4vw,42px)] font-bold tracking-tight leading-[1.15] mb-3">
                 Faq
-              </h2>)}
-              <p className={`${editorial ? "mt-5 text-[clamp(16px,1.4vw,19px)]" : "text-base"} text-neutral-500 leading-relaxed`}>
+              </h2>
+              <p className="text-base text-neutral-500 leading-relaxed">
                 Everything you need to know about Storelib.
               </p>
             </div>
@@ -122,15 +175,7 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
             {/* Right: accordion */}
             <div className="faq-list flex-1 min-w-0">
               <style href="faq-section" precedence="default">{FAQ_CSS}</style>
-              {FAQS.map((faq, i) => (
-                <FaqItem
-                  key={i}
-                  faq={faq}
-                  index={i}
-                  isOpen={openIndex === i}
-                  onToggle={() => setOpenIndex(openIndex === i ? null : i)}
-                />
-              ))}
+              {items}
             </div>
           </div>
         </AnimateOnScroll>
