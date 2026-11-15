@@ -422,8 +422,9 @@ function main() {
     check("no other offer surface draws its own picture or grain", elsewhere.length === 0, elsewhere.join(", "))
     const free = /free: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]
     const growth = /growth: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]
-    check("Free's picture is what it was with brightness(0.95) at the end: 5% darker", free === "brightness(0.7) contrast(0.94) brightness(0.95)", free)
-    check("Pro's picture is a step darker than 0.52, with its saturation left alone", /^brightness\(0\.4\d\) contrast\(0\.9\)$/.test(growth ?? ""), growth)
+    // Changed on purpose (landing round 8): the owner asked for more contrast in the pictures; lifted and above 1.
+    check("Free's picture lifted with its contrast above 1", free === "brightness(0.9) contrast(1.12)", free)
+    check("Pro's picture lifted with its contrast above 1", growth === "brightness(0.62) contrast(1.16) saturate(1.05)", growth)
   }
 
   console.log("\nThe probe that measures the cards is on disk")

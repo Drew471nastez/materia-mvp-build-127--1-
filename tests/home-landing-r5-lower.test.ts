@@ -114,13 +114,15 @@ console.log("\n── the close and the dot field ──")
   const pts = dotFieldPoints(1200, 600, 18)
   /* Changed on purpose (landing round 7): the owner asked for the pattern "smooth, flowing ... clean": an even grid with a current of light flowing through it. */
   check("an even grid, every point of it", pts.length / 4 === (Math.floor(1200 / 18) + 1) * (Math.floor(600 / 18) + 1), { dots: pts.length / 4 })
-  check("subtle: resting dots at about a seventh, lit under a half", Object.values(DOT_FIELD_TONES).every((t) => t.rest <= 0.16 && t.lit <= 0.45))
+  // Changed on purpose (landing round 8): the closing call's dots a little more visible, still under a fifth at rest and a half lit.
+  check("subtle: resting dots under a fifth, lit under a half", Object.values(DOT_FIELD_TONES).every((t) => t.rest <= 0.2 && t.lit <= 0.48))
   check("the earnings tile drops its icon before its word is cut", /@container \(max-width:136px\)\{\.cme-kind-i\{display:none\}/.test(EARNINGS_STYLES.map((s) => s.css).join("")))
   check("the pointer is followed with a lerp in the loop, a mouse only", /lightX \+= \(tx - lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src))
   check("no React state, no layout read in the loop", !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const draw"), src.indexOf("const resize"))))
   check("paused off screen and in a hidden tab; one still frame under reduced motion", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /cancelAnimationFrame/.test(src) && /&& !reduced/.test(src))
 /* Changed on purpose (landing round 7): the flow moves on every screen: 60 frames a second while a mouse moves the light, 30 when only the slow flow moves. */
-  check("at most 60 frames a second, 30 when only the flow moves", /if \(last && t - last < \(t - movedAt < 1500 \? 12 : 28\)\) return/.test(src))
+  // Changed on purpose (landing round 8): 60 a second whenever it runs; the wandering light stepped at 30.
+  check("at most 60 frames a second", /if \(last && t - last < 12\) return/.test(src))
   check("its props kept: gap, fade, tone, className, style", /gap = 18,\s*fade = "edges",\s*tone = "dark",\s*className,\s*style,/.test(src) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
 }
 

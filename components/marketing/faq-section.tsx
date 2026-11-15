@@ -87,12 +87,21 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
 
   return (
     /*
-      Landing round 7: on the home page the grey box (app/globals.css, the
-      faq section) stands in the page's one width, its sides on the edges of
-      the showcase cards under the hero, and the words sit in from them.
+      Landing round 7: on the home page the questions stand in the page's one
+      width. Landing round 8, the owner: no light grey box behind them. The
+      section is the white sheet itself (the inline background beats the grey
+      ground app/globals.css gives [data-story-section="faq"]), and with no box
+      to sit in, the heading starts where every other section's does: the
+      content edge plus --home-head-inset, the answers ending on the far edge.
     */
-    <section data-story-section={editorial ? "faq" : undefined} className={`py-20 sm:py-28 ${editorial ? "bg-transparent mx-auto w-[min(calc(100%_-_2_*_var(--home-edge)),calc(var(--home-max)_-_2_*_var(--home-edge)))]" : "bg-[#fafafa]"}`} id="faq">
-      <div className={editorial ? "!max-w-none !px-[clamp(20px,4.4vw,80px)]" : "max-w-[1200px] mx-auto px-6"}>
+    <section
+      data-story-section={editorial ? "faq" : undefined}
+      data-faq-plain={editorial ? "" : undefined}
+      className={`py-20 sm:py-28 ${editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] !rounded-none" : "bg-[#fafafa]"}`}
+      style={editorial ? { background: "transparent" } : undefined}
+      id="faq"
+    >
+      <div className={editorial ? "!max-w-none !pl-[var(--home-head-inset,14px)] !pr-0" : "max-w-[1200px] mx-auto px-6"}>
         <AnimateOnScroll variant="slide-right">
           {/*
             Wave 13: the heading and its line had a 280 to 320px column, so a

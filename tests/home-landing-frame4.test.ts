@@ -101,9 +101,10 @@ console.log("\n── The closing call ──")
 {
   const src = code("components/marketing/home/final-cta.tsx")
   /* Changed on purpose (landing round 5): the owner asked to remove the "See creators on Storelib" button, so the close keeps one way in. */
-  check("a new line, one way in, on a dot grid", /Start selling <em>what you make\.<\/em>/.test(src) && /href="\/signup\?intent=sell"/.test(src) && !/href="\/explore"/.test(src) && /<DotField fade="edges" \/>/.test(src))
+  check("a new line, one way in, on a dot grid", /Start selling <em>what you make\.<\/em>/.test(src) && /href="\/signup\?intent=sell"/.test(src) && !/href="\/explore"/.test(src) && /<DotField fade="close" \/>/.test(src)) // Changed on purpose (landing round 8): fade="close"
   check("light on dark, a white button", /\.fcta-title\{[^}]*color:#fafafa/.test(src) && /\.fcta-primary\{background:#fff;color:#18181b\}/.test(src))
-  check("no seam into the footer: no lit top edge or glow under it on the home page", /footer\.storelib-footer\{background-color:#050506;background-image:linear-gradient\(180deg,#050506 0%,#030304 100%\);box-shadow:none\}/.test(src) && /footer\.storelib-footer::before\{content:none\}/.test(src))
+  // Changed on purpose (landing round 8): the footer starts on the call's own black (no seam) but has a top edge again: a hairline faded at both ends and a faint light under it.
+  check("no seam into the footer, but a top edge of its own on the home page", /footer\.storelib-footer\{background-color:#050506;background-image:radial-gradient\(ellipse 60% 140px at 50% 0%,rgba\(255,255,255,\.045\),transparent 100%\),linear-gradient\(180deg,#050506 0%/.test(src) && /footer\.storelib-footer::before\{content:"";background:linear-gradient\(90deg,transparent 4%/.test(src))
   check("no purple glow, no em dash, no banned word", !/124,\s*58,\s*237|#7c3aed|violet/i.test(src) && !/—/.test(read("components/marketing/home/final-cta.tsx")) && !BANNED.test(src.replace(/transform/g, "")))
 }
 

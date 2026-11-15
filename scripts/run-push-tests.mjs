@@ -1477,6 +1477,8 @@ const SUITES = [
   "tests/home-landing-r8-purple.test.ts",
   /* Landing round 8, rails: the showcase on the creators rail's engine for touch and mouse (axis after 8px, 1:1, a 60px flick is a card, a compositor glide), OnePages 9:16 on a phone, new Plainspace cover and three new pages; the creators rail edge to edge with no fade and no frame loop. */
   "tests/home-landing-r8-rails.test.ts",
+  /* Landing round 8, close: grey dots circling out of two corners of the apps section, TikTok and Google Calendar drawn true, the pricing heading left, Scale teal, cleaner pictures, no grey box behind the questions, the closing call's dots moving on their own and after the mouse, and the footer's top edge. */
+  "tests/home-landing-r8-close.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
