@@ -89,10 +89,12 @@ console.log("\nCommerce: the sections render on the server")
   const how = renderToStaticMarkup(createElement(HowItWorks))
   /* Changed on purpose (landing round): the owner asked for less "fans" in the copy. */
   // Changed on purpose (landing round 7, the owner: "another heading, more clean and simple", two tones like section 3).
-  check("how it works: its heading", how.includes("Products, courses and tips.") && HOW_HEADING.lead === "Products, courses and tips." && HOW_HEADING.rest === "On your own domain." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
+  // Changed on purpose (landing round 9): a new heading, the products card being gone.
+  check("how it works: its heading", how.includes("Take tips. See what sells.") && HOW_HEADING.lead === "Take tips. See what sells." && HOW_HEADING.rest === "All on your own domain." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
   /* Changed on purpose (landing round 3): a sixth tile, the creator's own domain, as the owner asked. */
   // Changed on purpose (landing round 7): four cards in section 3's two by two grid; the checkout and files tiles are gone.
-  check("how it works: four cards", (how.match(/class="cmh-card /g) ?? []).length === 4)
+  // Changed on purpose (landing round 9): three cards in one row (tips, the numbers, your own domain); the products and course cards repeated other sections.
+  check("how it works: three cards", (how.match(/class="cmh-card /g) ?? []).length === 3)
   /* Changed on purpose (wave 13): the owner removed the profit picker, the "How it works" pill and the subheading. */
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
   /* Changed on purpose (landing round): the merch tile became one shop's physical and digital products (a tee printed when ordered, an e-book sent when paid), as the owner asked. */
@@ -100,12 +102,14 @@ console.log("\nCommerce: the sections render on the server")
   // Changed on purpose (landing round 5): the owner did not like the cap: a $45 signed print (an example $14 print cost) and the $19 e-book.
   // Changed on purpose (landing round 7): the owner did not like Nadia Brooks's print: a $38 shop apron (an example $16 print cost) and $24 workbench plans.
   // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack: a $32 tee (an example $12.50 print cost) and the $29 pack.
-  check("how it works: a $32 tee and the $29 LUT pack, physical and digital", how.includes("$32.00") && how.includes("$29.00") && how.includes("$12.50") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/tee-white.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
-  check("how it works: what each product leaves is Storelib's fee and the example cost off the price", HOW_PRODUCTS.every((m) => m.keepCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.keepCents > 0))
+  // Changed on purpose (landing round 9): section 3's two products as the shop's top products, with what section 3 says each made.
+  check("how it works: the $29 LUT pack and the $32 tee as top products", how.includes("$11,194") && how.includes("$6,848") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.priceCents).join() === "2900,3200" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/everything/tee.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
+  check("how it works: no You keep figures", !/You keep|Print cost/.test(how) && typeof calculateStorelibFee === "function") // Changed on purpose (landing round 9): they were the products card's.
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
 /* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
   // Changed on purpose (landing round 7): no checkout or files tile any more; the course player keeps its real words.
-  check("how it works: the tiles use the product's real words", ["Lessons", "2 of 7 done", "Selling price", "You keep"].every((w) => how.includes(w)) && !how.includes("op-nadia") && !how.includes("Check out"))
+  // Changed on purpose (landing round 9): the reports' own names (app/(storelib)/app/analytics).
+  check("how it works: the tiles use the product's real words", ["Sales", "Top products", "Orders by country"].every((w) => how.includes(w)) && !how.includes("op-nadia") && !how.includes("Check out"))
   /* Added (landing round): the owner never wants the Golden Hour presets mockups again, nor the camera picture on the course. */
   check("how it works: no Golden Hour presets, no camera course picture, no purple gradient grounds", !/Golden Hour|golden-cover|course-camera|lt-field/i.test(how + src.how) && !/linear-gradient\(160deg,#4c1d95/.test(src.how))
 
@@ -233,7 +237,8 @@ console.log("\nCommerce: images")
   // Changed on purpose (landing round 5): the print instead of the captured OnePage; the cap picture stays for the checkout scene's currencies panel.
   // Changed on purpose (landing round 7): Linde Woodshop's five pictures; the cap and the print stay for the checkout scene; the street course still is gone.
   // Changed on purpose (landing round 8): the tee in place of the apron and the bench (the LUT pack's still is section 3's file).
-  check("public/home/how holds the checkout's cap and print and the woodshop's pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,lesson-plane.webp,linde-avatar.webp,print-lasalle.webp,site-workshop.webp,tee-white.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 9): the white tee and the lesson still are deleted with their cards.
+  check("public/home/how holds the cap and print and the woodshop's two pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,linde-avatar.webp,print-lasalle.webp,site-workshop.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }

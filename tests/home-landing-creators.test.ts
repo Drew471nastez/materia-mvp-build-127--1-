@@ -75,7 +75,8 @@ check("the rail stays endless, on the compositor, and draggable without fighting
 console.log("\nHow it works")
 check("the heading and captions lean less on fans", () => {
   // Changed on purpose (landing round 7, the owner: "another heading, more clean and simple", in section 3's two tones).
-  assert.deepEqual(HOW_HEADING, { lead: "Products, courses and tips.", rest: "On your own domain." })
+  // Changed on purpose (landing round 9): a new heading, the products card being gone.
+  assert.deepEqual(HOW_HEADING, { lead: "Take tips. See what sells.", rest: "All on your own domain." })
   assert.ok(!/\bfans?\b/i.test(words(how)))
 })
 check("no Golden Hour presets, no camera picture, no purple gradient grounds", () => {
@@ -84,21 +85,21 @@ check("no Golden Hour presets, no camera picture, no purple gradient grounds", (
   const css = HOW_IT_WORKS_STYLES[0].css
   /* Changed on purpose (landing round 7, the owner asked for it): the domain's ground is a still black to deep purple gradient; the only other gradient is the shade under the plans' title. */
   // Changed on purpose (landing round 8): four light grounds, each a soft two stop tint, and the LUT cover's shade over its still; no violet anywhere.
-  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*\.cmh-stage\[data-ground=(sand|sage|clay|mist)\]$|^\s*\.cmh-lut::(before|after)$/.test(m[1].split("\n").pop()!), m[1])
-  assert.ok(!/#7c3aed|#8b5cf6|#a855f7/.test(css))
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*\.cmh-lut::(before|after)$/.test(m[1].split("\n").pop()!), m[1])
+  // Changed on purpose (landing round 9): flat grounds, so the only gradient is the LUT cover's shade; violet is the accent again (the owner: "more colorful"), never as a gradient.
+  assert.ok(!/gradient\([^)]*#(7c3aed|8b5cf6|a855f7)/.test(css))
 })
-check("one tile sells physical and digital products, each with what the seller keeps", () => {
-  assert.deepEqual(HOW_PRODUCTS.map((p) => p.kind), ["Physical", "Digital"])
+// Changed on purpose (landing round 9): no products card (the owner: it repeated "Sell anything you make"); the shop's top products are section 3's two.
+check("no products card; the top products are section 3's two", () => {
+  assert.deepEqual(HOW_PRODUCTS.map((p) => p.id), ["luts", "tee"])
   const t = words(how)
-  /* Changed on purpose (landing round 4): one card at a time on a coloured ground, the cap made to order and the e-book delivered at once. */
-  assert.ok(t.includes("Sell physical and digital products.") && t.includes("Print cost") /* Changed on purpose (landing round 7): the apron's print partner price. */ && t.includes("Instant"))
+  assert.ok(!t.includes("Sell physical and digital products.") && !t.includes("Print cost") && t.includes("Top products"))
   assert.ok(!/Sell your own merch, no inventory/.test(t))
-  assert.ok(HOW_PRODUCTS.every((p) => t.includes(`You keep $${(p.keepCents / 100).toFixed(2)}`)))
 })
-check("the course tile is the course player: Lessons, done count, the round marks", () => {
+// Changed on purpose (landing round 9): no course card (the owner: another section shows what you can build).
+check("no course card", () => {
   const t = words(how)
-  /* Changed on purpose (landing round 4): a new course, no pasta. */
-  assert.ok(t.includes("Lessons") && t.includes("2 of 7 done") && /data-state="done"/.test(how) && /data-state="now"/.test(how) && how.includes("/home/how/lesson-plane.webp")) // Changed on purpose (landing round 7): the hand tool course's own still.
+  assert.ok(!t.includes("Lessons") && !t.includes("2 of 7 done") && !how.includes("/home/how/lesson-plane.webp"))
 })
 check("every loop still pauses off screen and holds still for reduced motion", () => {
   const css = HOW_IT_WORKS_STYLES[0].css
@@ -150,7 +151,7 @@ check("no small print under How it works or the checkout tabs", () => {
 check("corners a pixel softer: cards 23px, tiles up to 27px, panels 31px", () => {
   assert.ok(/\.cc-photo\{[^}]*border-radius:23px/.test(CREATORS_CSS))
   // Changed on purpose (landing round 7): How it works takes section 3's corners, 17px on a phone and 19px from 768px.
-  assert.ok(/\.cmh-stage\{[^}]*border-radius:17px/.test(HOW_IT_WORKS_STYLES[0].css) && /\.cmh-stage\{height:clamp\(360px,32vw,440px\);border-radius:19px\}/.test(HOW_IT_WORKS_STYLES[0].css))
+  assert.ok(/\.cmh-stage\{[^}]*border-radius:17px/.test(HOW_IT_WORKS_STYLES[0].css) && /\.cmh-stage,\.cmh-wide \.cmh-stage\{height:420px;border-radius:19px\}/.test(HOW_IT_WORKS_STYLES[0].css)) // Changed on purpose (landing round 9): one row of three taller pictures.
   /* Changed on purpose (landing round 8): the panel became four cards in a grid, 28px corners (24px on a phone). */
   assert.ok(/\.cmc-card\{[^}]*border-radius:28px/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
 })
