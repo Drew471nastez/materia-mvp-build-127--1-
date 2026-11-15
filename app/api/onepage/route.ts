@@ -321,7 +321,7 @@ export async function PUT(request: Request) {
       if (turnsOnPaid) {
         const plan = await paidPlan(ownerId)
         if (plan === "unknown") return refuse("Your plan could not be checked just now. Try again in a moment.")
-        if (plan === "free") return refuse("The verified badge and hiding the Storelib badge are part of Pro")
+        if (plan === "free") return refuse("The verified badge and hiding the Storelib badge are part of Grow")
       }
 
       updates.settings = {

@@ -167,7 +167,8 @@ console.log("\nCritical: getting paid, as checkout decides it")
 
   const late = withCreator({ subscriptionPlan: "growth", subscriptionStatus: "past_due" })
   const pro = proPaymentFailed.evaluate(late)
-  check("the Pro plan's card declined: critical, with what it costs", pro?.[0]?.title === "Your Pro payment did not go through" && pro[0].message === "Update your card in Billing. Until it is paid, your sales are charged Free plan fees." && pro[0].href === "/app/settings/billing", pro)
+  /* Changed on purpose (pricing round 5): either paid plan (Grow or Pro) can fail, so the title names neither. */
+  check("the Pro plan's card declined: critical, with what it costs", pro?.[0]?.title === "Your plan payment did not go through" && pro[0].message === "Update your card in Billing. Until it is paid, your sales are charged Free plan fees." && pro[0].href === "/app/settings/billing", pro)
   check("unpaid too", subjects(proPaymentFailed.evaluate(withCreator({ subscriptionPlan: "pro", subscriptionStatus: "unpaid" }))) === "subscription")
   check("paid again, or back on Free: nothing", subjects(proPaymentFailed.evaluate(withCreator({ subscriptionPlan: "growth", subscriptionStatus: "active" }))) === "" && subjects(proPaymentFailed.evaluate(withCreator({ subscriptionPlan: "free", subscriptionStatus: "past_due" }))) === "")
   check("plan not read: cannot tell", proPaymentFailed.evaluate(base()) === undefined)

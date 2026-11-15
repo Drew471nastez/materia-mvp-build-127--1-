@@ -101,7 +101,7 @@ export function storelibCost(planId: StorelibPlanId, raw: CalcInput): PlanCost {
   return {
     key: `storelib:${planId}`,
     platform: "Storelib",
-    plan: planId === "free" ? "Free" : "Pro",
+    plan: planId === "free" ? "Free" : "Grow",
     isStorelib: true,
     planCents,
     feeCents,

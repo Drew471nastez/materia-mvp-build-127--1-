@@ -4300,14 +4300,14 @@ function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | nu
             description={userHasPaidPlan ? tt("Removes “on Storelib” from the foot of your page") : tt("Preview it here; saving it needs a paid plan")}
             checked={hideBrandingEnabled}
             onChange={handleHideBrandingChange}
-            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Pro"} />}
+            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Grow"} />}
           />
           <SwitchRow
             label={tt("Verified badge")}
             description={userHasPaidPlan ? tt("A check mark beside your name") : tt("A check mark beside your name. Saving it needs a paid plan")}
             checked={verifiedEnabled}
             onChange={handleVerifiedBadgeChange}
-            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Pro"} />}
+            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Grow"} />}
           />
         </div>
       </PanelSection>

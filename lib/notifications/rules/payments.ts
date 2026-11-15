@@ -368,7 +368,7 @@ export const proPaymentFailed: Rule = {
     return [
       {
         subject: "subscription",
-        title: "Your Pro payment did not go through",
+        title: "Your plan payment did not go through",
         message: "Update your card in Billing. Until it is paid, your sales are charged Free plan fees.",
         href: "/app/settings/billing",
         area: "Billing",

@@ -123,7 +123,7 @@ export const NEVER_TRANSLATED = new Set([
   "Mailchimp", "Gelato", "Printful", "Printify", "Zapier", "GitHub", "Facebook", "Instagram", "TikTok", "YouTube", "X", "LinkedIn", "Pinterest",
   "Discord", "Slack", "WhatsApp", "Telegram", "Meta", "Vercel", "Supabase", "Resend", "Airwallex", "Wise", "Revolut", "Visa", "Mastercard",
   "CSV", "PDF", "PNG", "JPG", "JPEG", "GIF", "SVG", "WebP", "MP4", "URL", "HTML", "CSS", "JSON", "API", "SEO", "SKU", "VAT", "ID", "DNS", "SSL",
-  "OK", "AI", "Pro", "Plus", "Free", "Claude", "Anthropic", "OpenAI", "ChatGPT", "Gmail", "Outlook", "iOS", "Android", "Chrome", "Safari",
+  "OK", "AI", "Pro", "Grow", "Plus", "Free", "Claude", "Anthropic", "OpenAI", "ChatGPT", "Gmail", "Outlook", "iOS", "Android", "Chrome", "Safari",
   "Etsy", "Gumroad", "Amazon", "eBay", "Canva", "Figma", "Notion", "Calendly", "Zoom", "Vimeo", "Spotify", "Twitch", "Patreon", "Substack",
   "Cloudflare", "GoDaddy", "Namecheap", "Squarespace", "Wix", "WordPress", "Webflow", "Framer", "Kajabi", "Teachable", "Thinkific",
   "UTC", "GMT", "EUR", "USD", "RON", "GBP", "lei", "Inter", "Markdown", "Liquid", "CJ", "CJdropshipping", "Gemini", "Mistral", "Grok",

@@ -102,7 +102,7 @@ export function AddDomainActions({ canConnect, hidden, onAdd }: { canConnect: bo
   return (
     <span className="flex shrink-0 items-center gap-2" data-publish-add-domain={locked ? "upgrade" : "connect"}>
       {/* Always Website settings › Domains (round 25): a plan without domains is told so there, and the Pro pill says it here. */}
-      <button type="button" onClick={onAdd} className={link} aria-label={locked ? tt("Add domain, available on Pro") : undefined}>
+      <button type="button" onClick={onAdd} className={link} aria-label={locked ? tt("Add domain, available on Grow") : undefined}>
         <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
         {tt("Add domain")}
       </button>

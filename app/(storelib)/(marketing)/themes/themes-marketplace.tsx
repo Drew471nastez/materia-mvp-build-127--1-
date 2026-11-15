@@ -35,7 +35,7 @@ const PRICES: { id: ThemeTier | "all"; label: string }[] = [
   { id: "all", label: "All" },
   { id: "free", label: "Free" },
   { id: "paid", label: "Paid" },
-  { id: "pro", label: "Pro" },
+  { id: "pro", label: "Grow" },
 ]
 
 export function ThemesMarketplace({ listings }: { listings: ThemeListing[] }) {

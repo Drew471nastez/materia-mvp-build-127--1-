@@ -152,9 +152,9 @@ export function formatThemePrice(cents: number): string {
   return `$${cents % 100 === 0 ? d.toFixed(0) : d.toFixed(2)}`
 }
 
-/** "Free", "$49" or "Pro", the one word the card and the badge show. */
+/** "Free", "$49" or "Grow" (included from Grow up), the one word the card and the badge show. */
 export function tierLabel(l: Pick<ThemeListing, "tier" | "priceCents">): string {
-  if (l.tier === "pro") return "Pro"
+  if (l.tier === "pro") return "Grow"
   if (l.tier === "paid") return formatThemePrice(l.priceCents)
   return "Free"
 }
@@ -204,7 +204,7 @@ export function addVerdict(l: Pick<ThemeListing, "tier" | "builtinThemeId" | "ha
 
 export const ADD_REFUSALS: Record<"paid_soon" | "needs_pro" | "no_package", string> = {
   paid_soon: "Paid themes open soon.",
-  needs_pro: "This theme comes with the Pro plan.",
+  needs_pro: "This theme comes with the Grow and Pro plans.",
   no_package: "This theme is not ready to add yet.",
 }
 

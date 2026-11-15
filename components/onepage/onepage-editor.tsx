@@ -309,11 +309,11 @@ function ProUpgradeDialog({
   onKeepEditing: () => void
 }) {
   return (
-    <EditorQuestion open={open} onClose={onClose} label={tt("Upgrade to Pro?")} desktopWidth="md:max-w-[420px]">
+    <EditorQuestion open={open} onClose={onClose} label={tt("Upgrade to Grow?")} desktopWidth="md:max-w-[420px]">
       <div className="px-6 pt-5 pb-5 text-center md:pt-6">
-        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Upgrade to Pro?")}</h2>
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Upgrade to Grow?")}</h2>
         <p className="text-sm text-[#6b7280] leading-relaxed">
-          {tt("The verified badge and hiding Storelib branding are part of Pro. Upgrade to save these changes.")}
+          {tt("The verified badge and hiding Storelib branding are part of Grow. Upgrade to save these changes.")}
         </p>
       </div>
 
@@ -325,7 +325,7 @@ function ProUpgradeDialog({
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg>
-          {tt("Upgrade to Pro")}
+          {tt("Upgrade to Grow")}
         </button>
 
         <button
@@ -441,8 +441,8 @@ function ShareOnePage({
             <Globe className="h-4 w-4 shrink-0 text-[#6b7280]" />
             {tt("Add a custom domain")}
           </span>
-          <span title={hasPro ? tt("Included in your plan") : tt("Custom domains are part of Pro")} className="rounded-full bg-[#f1f2f4] px-2 py-0.5 text-[11.5px] font-semibold text-[#4b5563]">
-            {hasPro ? tt("Included") : "Pro"}
+          <span title={hasPro ? tt("Included in your plan") : tt("Custom domains are part of Grow")} className="rounded-full bg-[#f1f2f4] px-2 py-0.5 text-[11.5px] font-semibold text-[#4b5563]">
+            {hasPro ? tt("Included") : "Grow"}
           </span>
         </button>
       )}

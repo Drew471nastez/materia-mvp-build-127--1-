@@ -41,7 +41,7 @@ export const skool: Competitor = {
     "Skool has two plans with the same features: Hobby at $9 a month with a 10% fee, and Pro at $99 a month with 2.9%. Card processing is included in that fee, and Skool is the merchant of record, so it deals with EU VAT and sales tax for you.",
   ],
   whyStorelib: [
-    { text: "Sell more than a membership. Downloads, courses and a website with a store sit next to your community, with your own domain on Pro.", code: "lib/sites/plan.ts" },
+    { text: "Sell more than a membership. Downloads, courses and a website with a store sit next to your community, with your own domain on Grow.", code: "lib/sites/plan.ts" },
     {
       text: "Your community, your store, email campaigns and a link in bio page in one dashboard, with one set of orders and buyers.",
       code: "app/(storelib)/app/community",
@@ -82,7 +82,7 @@ export const skool: Competitor = {
   ],
   features: [
     { id: "monthly", label: "Monthly fee", storelib: SL.monthlyFee, competitor: { value: "yes", text: "$9 Hobby, $99 Pro", sources: ["skool-pricing"], status: "verified" } },
-    { id: "per-sale", label: "Fee per payment", storelib: { value: "yes", wordless: true, text: `${STORELIB.freeFee} on Free, ${STORELIB.proFee} on Pro, Stripe on top`, code: "lib/payments/fees/defaults.ts" }, competitor: { value: "yes", text: "10% + 30¢ Hobby, 2.9% + 30¢ Pro, processing included", sources: ["skool-payments", "skool-pricing"], status: "conflicting", note: "The pricing page leaves out the 30¢." } },
+    { id: "per-sale", label: "Fee per payment", storelib: { value: "yes", wordless: true, text: `${STORELIB.freeFee} on Free, ${STORELIB.proFee} on Grow, Stripe on top`, code: "lib/payments/fees/defaults.ts" }, competitor: { value: "yes", text: "10% + 30¢ Hobby, 2.9% + 30¢ Pro, processing included", sources: ["skool-payments", "skool-pricing"], status: "conflicting", note: "The pricing page leaves out the 30¢." } },
     { id: "community", label: "Community", storelib: SL.communities, competitor: { value: "yes", text: "Feed, classroom, calendar", sources: ["skool-pricing", "skool-levels"], status: "verified" } },
     { id: "levels", label: "Points and levels", storelib: { value: "yes", text: "Points, levels and a leaderboard", code: "lib/communities/blocks.ts", flag: "communities" }, competitor: { value: "yes", text: "Levels 1 to 9, leaderboards", sources: ["skool-levels"], status: "verified" } },
     { id: "courses", label: "Courses", storelib: SL.courses, competitor: { value: "yes", text: "Inside the group, or bought once", sources: ["skool-courses"], status: "verified" } },
@@ -139,7 +139,7 @@ export const skool: Competitor = {
   moving: {
     products: "Classroom courses are rebuilt as Storelib courses with modules and lessons. Membership plans are recreated as paid community plans, at the price you choose.",
     customers: "Storelib has no member or subscription import. Members join again and pay through Storelib, so give them a date and a reason to move.",
-    domain: "A Skool group lives on a skool.com address. Share your new Storelib link in the group and your bios, and connect your own domain to a Storelib website on Pro if you have one.",
+    domain: "A Skool group lives on a skool.com address. Share your new Storelib link in the group and your bios, and connect your own domain to a Storelib website on Grow if you have one.",
   },
   movingHelp: { products: ["/help/orders-and-payouts/how-payouts-work"] },
   faqs: [
