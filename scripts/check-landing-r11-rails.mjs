@@ -14,6 +14,7 @@ const b = await pw.chromium.launch()
 {
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } })
   await p.goto(URL, { waitUntil: "load", timeout: 240000 })
+  await p.addStyleTag({ content: "[data-cookie-banner]{display:none!important}" })
   await sleep(1500)
   const vp = p.locator(".build-showcase-viewport")
   await vp.scrollIntoViewIfNeeded()
@@ -54,6 +55,7 @@ for (const engine of ["chromium"]) {
   const ctx = await b.newContext(phone)
   const p = await ctx.newPage()
   await p.goto(URL, { waitUntil: "load", timeout: 240000 })
+  await p.addStyleTag({ content: "[data-cookie-banner]{display:none!important}" })
   await sleep(1500)
   /* arrival: scroll down in steps and record when each showcase picture got data-shown vs when it entered the screen */
   await p.evaluate(() => {
