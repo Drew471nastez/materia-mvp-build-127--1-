@@ -558,8 +558,6 @@ const SUITES = [
   "tests/home-landing-creators.test.ts",
   /* Round 60: the showcase rail's motion as numbers: drag, flick, settle, wheel, loop, any frame rate. */
   "tests/rail-motion.test.ts",
-  /* Round 63: a stranger's community page and About held by the CDN under the community's tag, marked by the proxy, cleared by every staff write and take down (lib/communities/stranger-page). */
-  "tests/community-stranger-cache.test.ts",
   /* Round 63: a visitor's OnePage downloads what it draws: the blocks' editors are their own files, the checkout window and the platform header are fetched where used, and the description is one plain text on the server and in the browser (no React 418). */
   "tests/onepage-delivery-r63.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */

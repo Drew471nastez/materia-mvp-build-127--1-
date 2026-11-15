@@ -44,7 +44,6 @@ import "server-only"
 import { AsyncLocalStorage } from "node:async_hooks"
 import { revalidateTag, unstable_cache } from "next/cache"
 import { after } from "next/server"
-import { communitySlugTag } from "@/lib/communities/stranger-page"
 
 /** The backstop, in seconds, for a writer that clears no tag. */
 export const COMMUNITY_PUBLIC_HOLD_SECONDS = 60
@@ -105,13 +104,11 @@ export async function heldCommunityRead<T>(read: () => Promise<T>, key: string[]
  * A community's public page changed: the next visitor reads it afresh, and its creator's page draws its card afresh.
  * Never in the way of the write it follows.
  */
-export function communityPublicChanged(communityId: string | null | undefined, creatorId?: string | null, slug?: string | null): void {
+export function communityPublicChanged(communityId: string | null | undefined, creatorId?: string | null): void {
   if (!communityId) return
   try {
     revalidateTag(communityPublicTag(communityId), { expire: 0 })
     if (creatorId) revalidateTag(communityCardsTag(creatorId), { expire: 0 })
-    /* Round 63: and the copy the CDN holds for strangers under its address (lib/communities/stranger-page.ts). */
-    if (slug) revalidateTag(communitySlugTag(slug), { expire: 0 })
   } catch (e) {
     /* Outside a request (a script, a test) there is no cache to clear. */
     console.warn(`[community-cache] ${communityId} not cleared: ${(e as Error).message}`)
@@ -122,11 +119,11 @@ export function communityPublicChanged(communityId: string | null | undefined, c
  * The same, once the request that wrote has answered (next/server `after`),
  * for a gate that runs before the write. Outside a request it clears now.
  */
-export function communityPublicChangedAfter(communityId: string | null | undefined, creatorId?: string | null, slug?: string | null): void {
+export function communityPublicChangedAfter(communityId: string | null | undefined, creatorId?: string | null): void {
   if (!communityId) return
   try {
-    after(() => communityPublicChanged(communityId, creatorId, slug))
+    after(() => communityPublicChanged(communityId, creatorId))
   } catch {
-    communityPublicChanged(communityId, creatorId, slug)
+    communityPublicChanged(communityId, creatorId)
   }
 }

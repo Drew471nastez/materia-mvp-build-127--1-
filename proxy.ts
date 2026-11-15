@@ -38,7 +38,6 @@ import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
-import { COMMUNITY_STRANGER_CDN, COMMUNITY_STRANGER_HEADER, STRANGER_MARK, communitySlugTag, communityStrangerPage, markedFromOutside } from "@/lib/communities/stranger-page"
 import { cookiePairs, HOST_PREFIX, isGuardedName, outgoingName, plantedExpiries, sessionView, writesHostCookies } from "@/lib/supabase/host-session"
 import { SESSION_COOKIE_MAX_AGE, storedSessionKey } from "@/lib/supabase/session-jar"
 import { CSP_REPORT_PATH, enforcesCsp, keepsCspReport, withEnforcedCsp } from "@/lib/security/csp"
@@ -1708,22 +1707,6 @@ async function routeRequest(request: NextRequest) {
   const learn = pathname.startsWith("/community/") && pathname.includes("/classroom") ? learnAddressFor(pathname) : null
   if (learn) return NextResponse.redirect(new URL(`${learn}${search}`, request.url), 308)
   if (pathname.startsWith("/community/") || pathname.startsWith("/app/community/")) request.headers.set(COMMUNITY_PATH_HEADER, `${pathname}${search}`)
-  /*
-    Round 63: A COMMUNITY'S SHARED COPY IS REACHED ONLY THROUGH THIS PROXY (lib/communities/stranger-page.ts). A marked
-    address arriving from outside goes back to the plain one before anything renders, so nobody signed in can have
-    their own view held under it, and the header that says "this page is shared" is only ever this proxy's.
-  */
-  if (pathname.startsWith("/community/")) {
-    request.headers.delete(COMMUNITY_STRANGER_HEADER)
-    const plain = markedFromOutside(request.nextUrl)
-    if (plain) {
-      /* Never held: the marked address is the shared copy's key, and a redirect kept there would loop every stranger. */
-      const back = NextResponse.redirect(plain, 308)
-      back.headers.set("Cache-Control", "private, no-store")
-      back.headers.set("Vercel-CDN-Cache-Control", "no-store")
-      return back
-    }
-  }
   /* And a profile, for the same reason: a creator's /@handle answers a 308 to their page with the query kept, from its layout (lib/profile/profile-redirect.ts). */
   if (isProfilePath(pathname)) request.headers.set(PROFILE_PATH_HEADER, `${pathname}${search}`)
 
@@ -2739,31 +2722,6 @@ async function routeRequest(request: NextRequest) {
   */
   if (!username && !isCustomDomain && !communityPath && STORELIB_HOST.test(host.split(":")[0]) && isEdgeHeldRequest({ method: request.method, pathname, rsc: request.headers.has("rsc"), search: request.nextUrl.searchParams })) {
     return supabaseResponse
-  }
-  /*
-    Round 63: A STRANGER'S COMMUNITY PAGE, ONE COPY FOR EVERY STRANGER (lib/communities/stranger-page.ts). A whole page
-    load of /community/<slug> or its /about, with no query, by somebody with no sign in cookie, is sent to its marked
-    address, which next.config.mjs has the CDN hold under the community's tag. No session is read or renewed for it
-    and nothing per visitor is added, as for the pages above. Everybody else is drawn per request as before.
-  */
-  const strangerCommunity =
-    !username && !isCustomDomain && !communityPath && STORELIB_HOST.test(host.split(":")[0])
-      ? communityStrangerPage({ method: request.method, pathname, rsc: request.headers.has("rsc"), search: request.nextUrl.searchParams, signedIn: carriesSignIn(request.cookies.getAll().map((c) => c.name)) })
-      : null
-  if (strangerCommunity) {
-    request.headers.set(COMMUNITY_STRANGER_HEADER, "1")
-    const marked = request.nextUrl.clone()
-    marked.searchParams.set(STRANGER_MARK, "1")
-    /*
-      The CDN's instructions ride on this rewrite, not in next.config.mjs: Next matches a config rule against the address
-      the browser asked for, before this proxy, so a rule keyed on the mark would only ever have matched a marked address
-      typed in from outside. Vercel keys the copy on the address rewritten to, and Vercel-CDN-Cache-Control is read by
-      its CDN and never passed on, so the browser still revalidates.
-    */
-    const shared = NextResponse.rewrite(marked, { request })
-    shared.headers.set("Vercel-CDN-Cache-Control", COMMUNITY_STRANGER_CDN)
-    shared.headers.set("Vercel-Cache-Tag", communitySlugTag(strangerCommunity))
-    return shared
   }
 
   /*
