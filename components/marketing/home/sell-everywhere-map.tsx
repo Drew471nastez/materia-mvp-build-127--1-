@@ -358,7 +358,7 @@ const MAP_CSS = `
 .cmm-pin[data-was] .cmm-say-shipped{opacity:0;animation:cmm-shipped 3s ${EASE} .3s both;animation-play-state:paused}
 [data-commerce-live] .cmm-pin[data-was] .cmm-say-shipped{animation-play-state:running}
 @keyframes cmm-shipped{0%{opacity:0;transform:translate3d(-50%,0,0)}12%,62%{opacity:.8;transform:translate3d(-50%,0,0)}100%{opacity:0;transform:translate3d(-50%,0,0)}}
-.cmm-side{position:absolute;z-index:1;left:clamp(28px,3vw,40px);top:36px;display:flex;align-items:flex-start;gap:20px}
+.cmm-side{position:absolute;z-index:1;left:clamp(28px,3vw,40px);top:30px;display:flex;align-items:flex-start;gap:20px}
 .cmm-flags{position:relative;display:grid;grid-auto-rows:40px;gap:8px;margin:0;padding:0;list-style:none}
 .cmm-flag{position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:12px;background:transparent;opacity:.45;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .5s ease-out}
 .cmm-flag[data-on]{opacity:1}
@@ -372,7 +372,7 @@ const MAP_CSS = `
 [data-commerce-live] .cmm-time{animation-play-state:running}
 @media (hover:hover) and (pointer:fine){[data-commerce-live] .cmm-side:hover .cmm-time{animation-play-state:paused}}
 @keyframes cmm-time{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.cmm-prod{width:236px;padding:10px;border-radius:20px;background:#141418;background-image:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0) 55%);color:#f4f3f7;box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.07),0 30px 60px -30px rgba(0,0,0,.75)}
+.cmm-prod{width:224px;padding:10px;border-radius:20px;background:#141418;background-image:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0) 55%);color:#f4f3f7;box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.07),0 30px 60px -30px rgba(0,0,0,.75)}
 .cmm-photos{position:relative;display:block;aspect-ratio:1/1;border-radius:13px;overflow:hidden;background:#222228;isolation:isolate}
 .cmm-photos img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);transition:opacity .3s linear .3s,transform 1.2s ${EASE}}
 .cmm-photos img[data-was]{z-index:0;opacity:1;transform:none;transition:opacity .2s linear .85s}
