@@ -1,101 +1,105 @@
 import type { ComponentType, SVGProps } from "react"
 import {
   Archive,
-  ArrowLeft,
   ArrowLeftToLine,
   BarChart2,
+  Bell,
   Calendar,
-  Check,
   ChevronDown,
   ChevronRight,
   Code2,
   Copy,
+  Download,
   ExternalLink,
   Eye,
   FileText,
   Globe,
   GripVertical,
+  Heart,
   Layers,
   Link2,
   Loader2,
   Mail,
   Maximize2,
+  Menu,
+  MessageCircle,
   Monitor,
-  Moon,
   MoreHorizontal,
   MousePointerClick,
   PanelBottom,
-  PanelRightClose,
   PanelTop,
   Palette,
   Pencil,
+  Pin,
   Play,
   Plus,
   Redo2,
   RefreshCw,
+  Search,
   Settings,
+  Share,
   ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
-  Smartphone,
-  Star,
-  Trash2,
+  Sun,
   Undo2,
+  Users,
 } from "lucide-react"
-import { SiInstagram, SiSpotify, SiTiktok, SiYoutube } from "@/components/icons/brand-icons.generated"
+import { SiInstagram } from "@/components/icons/brand/SiInstagram"
+import { SiTiktok } from "@/components/icons/brand/SiTiktok"
+import { SiVimeo } from "@/components/icons/brand/SiVimeo"
+import { SiYoutube } from "@/components/icons/brand/SiYoutube"
 import { MockFrame, Pic, u } from "./frame"
 
 /*
-  INSIDE STORELIB'S BUILDERS, AS THEY ARE TODAY (landing round).
-  Each mock follows the real editor's own layout, read from its source:
+  INSIDE STORELIB'S BUILDERS, AS THEY ARE TODAY (landing round 4).
+  Three editors, one tab each, each drawn from the real one's source:
 
     Website builder   app/(storelib)/website-builder/editor/[installId]/page.tsx
-                      the dark 48px bar (Back, the theme's name, its live dot
+                      the dark 48px bar (Back, the site's name, its live dot
                       and menu, Preview / Code / Website Settings, the size
                       and full screen keys, the page pill, undo and redo, the
-                      inspector lit violet, the violet Publish; no Ask Storelib
-                      key, the owner's second pass), the white sidebar card on
-                      the #eef1f5 shelf with Sections / Pages / Theme and the
-                      Header / Page / Footer tree on tree-parts.tsx's grid
-                      (sections-list.tsx: chevrons, grips, the dark badges,
-                      Add section in its raised key), the page itself with the
-                      blue ring and its "Selected" chip (sections/_shared.tsx),
-                      and Publish's own panel (publish-panel.tsx) putting the
-                      change live.
-    Design            the same builder with the Hero section open (the tabs,
-                      then PanelBack): its colour scheme picker and the theme's
-                      schemes painted in their own colours (Light, Soft, Dark,
-                      Brand, Accent), as design-panels.tsx draws them; only the
-                      Hero turns dark.
+                      inspector lit violet, the violet Publish), the white
+                      sidebar card on the #eef1f5 shelf with Sections / Pages
+                      / Theme and the Header / Page / Footer tree on
+                      tree-parts.tsx's grid, the page itself with the blue
+                      ring and its "Selected" chip (sections/_shared.tsx), and
+                      Publish's own panel (publish-panel.tsx). The site is a
+                      small apparel label's store, Plain Weather (round 6,
+                      the owner: a simple, clean merch brand in place of
+                      round 5's candle studio).
     OnePage editor    components/onepage/onepage-editor.tsx and tabs/links-tab:
-                      undo and redo keys, the Links / Design / Products pill
-                      row and Settings, Save and Share your OnePage; the Links
-                      tab (profile with its brand coloured social chips, the
-                      violet Add, block cards with their clicks and switch)
+                      undo and redo, the Links / Design / Products pill row
+                      and Settings, Save and Share your OnePage; the Links tab
                       beside the 410px preview column with the 307 x 627
-                      phone, which shows Nina Sato's page on the Air theme
-                      with the Hero header (public-onepage.tsx).
-    Community editor  components/community/creator/page-editor: its own full
-                      screen. The white bar (back, the logo, the name and its
-                      Published badge, Computer or Phone, As a visitor, the
-                      dark look, the save state, the panel key and Save), the
-                      community's About page in the stage card
-                      (components/community/public/sales-page.tsx: the sheet
-                      with the cover, name, tagline, About and What's inside,
-                      the join card beside it) with the picked part outlined
-                      and its name on a tab, and the Edit page panel with its
-                      six groups, Name and introduction open.
+                      phone. The phone shows Desmond Ayo's page on the Ember
+                      theme (components/onepage/themes/r40-themes.ts: deep
+                      brown with grain, a Bodoni title, amber outlined pills)
+                      with the classic header, its Share and Subscribe keys in
+                      the top corners. He sells a pack of film LUTs.
+    Community         inside a community, as a member sees it
+                      (components/community/member/shell-frame.tsx and
+                      top-bar.tsx, wall.tsx, post-card.tsx): the community's
+                      own bar with its mark, name, owner, the menu key, the
+                      search and the bell; the row of places (Community,
+                      Learn, Calendar, Members, Leaderboards, About); on the
+                      left the community card (cover, name, address, about,
+                      Members / Online / Admins, faces) and the next event;
+                      in the middle the space chips, the composer and the
+                      posts. One community: The Strength Room, Rina
+                      Castillo's paid strength coaching group (round 5, the
+                      owner: a community like the ones people really pay for
+                      in 2026, not a made up hobby club).
 
-  One drawing for every screen (the owner: no phone shapes on phones). A
-  phone draws the same editors on a narrower design width (640 instead of
-  1280, taller), the sidebars narrower and the bar's words dropped where the
-  real bar drops them, so a phone sees what a computer sees.
+  One drawing for every screen (the owner, round 4: on a phone, the editors
+  exactly as on a computer). The frame keeps its 1280 design width at every
+  size and is simply smaller on a phone.
 
   Motion is CSS keyframes on transform and opacity only. The resting styles
   ARE the finished state, so with reduced motion (or before the animation
   starts) every mock is a complete, still picture. Animations are attached
-  only under [data-mock-live] (the slide in front, in view), and only to the
-  few elements that move: no universal or relational selectors.
+  only under [data-mock-live] (the tab in front, in view), and only to the
+  few elements that move.
 */
 
 function Cursor({ className }: { className: string }) {
@@ -106,95 +110,77 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-const Stars = () => (
-  <span className="hs-stars" aria-hidden="true">
-    {Array.from({ length: 5 }, (_, i) => (
-      <Star key={i} fill="currentColor" strokeWidth={0} />
-    ))}
-  </span>
-)
-
-/* ================================================================ The site in the website builder: Hearth & Hand */
-const HS_MODULES = [
-  ["hb-dough", "Week 1", "Starter, flour and water"],
-  ["hb-loaf", "Week 2", "Your first loaf"],
-  ["hb-score", "Week 3", "Shaping and scoring"],
-  ["hb-crumb", "Week 4", "Reading the crumb"],
-] as const
+/* ================================================================ The site in the website builder: Plain Weather */
+type Product = { pic: string; name: string; colours: string; price: string }
+const PW_PRODUCTS: Product[] = [
+  { pic: "pw-tee-white", name: "Everyday Tee, White", colours: "4 colours", price: "€35" },
+  { pic: "pw-tee-black", name: "Everyday Tee, Black", colours: "4 colours", price: "€35" },
+  { pic: "pw-hoodie", name: "Loopback Hoodie, Fog", colours: "3 colours", price: "€89" },
+  { pic: "pw-cap", name: "Washed Cap, Slate", colours: "2 colours", price: "€32" },
+]
 
 /**
- * Nora Lind's sourdough course, the site open in the website builder. `top` draws only the bar and the hero (the
- * Design slide lays a dark copy of them over the light page); `ring` outlines the Hero, and `rings` the Hero then
- * Curriculum, the way the builder rings the section it has selected.
+ * Plain Weather, a small apparel label's store, the site open in the website builder. `rings` outlines the Hero,
+ * then the products, the way the builder rings the section it has selected.
  */
-export function HearthSite({ top = false, rings = false, ring = false }: { top?: boolean; rings?: boolean; ring?: boolean }) {
+export function PlainWeatherSite({ rings = false }: { rings?: boolean }) {
   return (
-    <div className="hs">
-      <div className="hs-nav">
-        <span className="hs-logo">Hearth &amp; Hand</span>
-        <span className="hs-links">
-          <b>Courses</b>
-          <span>Live bakes</span>
-          <span>Recipes</span>
-          <span>Journal</span>
+    <div className="pw">
+      <div className="pw-nav">
+        <span className="pw-logo">Plain Weather</span>
+        <span className="pw-links">
+          <b>New in</b>
+          <span>Tees</span>
+          <span>Sweats</span>
+          <span>Caps</span>
+          <span>About</span>
         </span>
-        <span className="hs-login">Log in</span>
-        <span className="hs-enroll">Enroll</span>
+        <span className="pw-cart">
+          <ShoppingBag /> Bag (1)
+        </span>
       </div>
-      <div className="hs-hero">
-        <div className="hs-copy">
-          <p className="hs-eyebrow">Online course · Self-paced</p>
-          <h3>Bake real sourdough at home.</h3>
-          <p className="hs-sub">18 short lessons, a printable baking schedule and a live Q&amp;A with Nora every other Sunday.</p>
-          <span className="hs-btns">
-            <b>Enroll · $79</b>
-            <span>
-              <Play fill="currentColor" strokeWidth={0} /> Watch lesson 1
-            </span>
-          </span>
-          <span className="hs-proof">
-            <span className="hs-faces">
-              <Pic n="av-k" w={96} h={96} />
-              <Pic n="av-l" w={96} h={96} />
-              <Pic n="av-n" w={96} h={96} />
-            </span>
-            <span>
-              <Stars /> <b>4.9</b> · 1,860 bakers
-            </span>
+      <div className="pw-hero">
+        <div className="pw-copy">
+          <p className="pw-eyebrow">Autumn restock</p>
+          <h3>Everyday cotton, cut and sewn in Porto.</h3>
+          <p className="pw-sub">Tees, hoodies and caps in four quiet colours, made in small runs.</p>
+          <span className="pw-btns">
+            <b>Shop new in</b>
           </span>
         </div>
-        <div className="hs-video">
-          <Pic n="hb-hero" w={1000} h={720} />
-          <span className="hs-play">
-            <Play fill="currentColor" strokeWidth={0} />
-          </span>
-          <em>Free lesson · 7:15</em>
+        <div className="pw-photo">
+          <Pic n="pw-hero" w={940} h={680} />
         </div>
-        {(rings || ring) && (
-          <span className={`hs-ring${rings ? " wx-ring-a" : ""}`}>
+        {rings && (
+          <span className="pw-ring wx-ring-a">
             <em>Selected</em>
           </span>
         )}
       </div>
-      {!top && (
-        <div className="hs-mods">
-          <p className="hs-h">What you will learn</p>
-          <div className="hs-grid">
-            {HS_MODULES.map(([n, m, t]) => (
-              <span key={n}>
-                <Pic n={n} w={520} h={400} />
-                <em>{m}</em>
-                <b>{t}</b>
+      <div className="pw-shop">
+        <p className="pw-h">
+          Bestsellers <span>Shop all</span>
+        </p>
+        <div className="pw-grid">
+          {PW_PRODUCTS.map((p) => (
+            <span key={p.name} className="pw-card">
+              <span className="pw-img">
+                <Pic n={p.pic} w={600} h={492} />
               </span>
-            ))}
-          </div>
-          {rings && (
-            <span className="hs-ring wx-ring-b">
-              <em>Selected</em>
+              <span className="pw-row">
+                <b>{p.name}</b>
+                <em>{p.price}</em>
+              </span>
+              <i>{p.colours}</i>
             </span>
-          )}
+          ))}
         </div>
-      )}
+        {rings && (
+          <span className="pw-ring wx-ring-b">
+            <em>Selected</em>
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -204,9 +190,9 @@ export function HearthSite({ top = false, rings = false, ring = false }: { top?:
 type TreeRow = { name: string; twisty?: boolean; hl?: string }
 const TREE_PAGE: TreeRow[] = [
   { name: "Hero", twisty: true, hl: "wx-hl-a" },
-  { name: "Curriculum", twisty: true, hl: "wx-hl-b" },
-  { name: "Testimonials", twisty: true },
-  { name: "Instructor" },
+  { name: "Featured products", twisty: true, hl: "wx-hl-b" },
+  { name: "Lookbook", twisty: true },
+  { name: "Reviews", twisty: true },
   { name: "FAQ", twisty: true },
   { name: "Newsletter" },
 ]
@@ -218,7 +204,6 @@ function Row({ name, twisty, hl }: TreeRow) {
       {hl && (
         <span className="wx-row-on">
           <Eye />
-          <Trash2 />
           <MoreHorizontal />
         </span>
       )}
@@ -277,11 +262,7 @@ function WbTabs() {
   )
 }
 
-/**
- * The builder's dark bar, the same on both website builder slides: Back, the theme's name, its live dot and its
- * menu, the Preview / Code / Website Settings switch; the size, full screen and the page pill in the middle; undo,
- * redo, the inspector and Publish on the right.
- */
+/** The builder's dark bar: Back, the site's name, its live dot and menu, the Preview / Code / Website Settings switch; the size, full screen and the page pill; undo, redo, the inspector and Publish. */
 function WbBar() {
   return (
     <div className="wx-bar">
@@ -289,12 +270,12 @@ function WbBar() {
         <span className="wx-key ghost">
           <ArrowLeftToLine />
         </span>
-        <b className="wx-name">Hearth &amp; Hand</b>
+        <b className="wx-name">Plain Weather</b>
         <i className="wx-live" />
-        <span className="wx-key wx-wide">
+        <span className="wx-key">
           <MoreHorizontal />
         </span>
-        <span className="wx-mode wx-wide">
+        <span className="wx-mode">
           <b>
             <Globe /> Preview
           </b>
@@ -323,10 +304,10 @@ function WbBar() {
         </span>
       </span>
       <span className="wx-right">
-        <span className="wx-key wx-wide">
+        <span className="wx-key">
           <Undo2 />
         </span>
-        <span className="wx-key wx-wide">
+        <span className="wx-key">
           <Redo2 />
         </span>
         <span className="wx-key wx-inspect">
@@ -355,7 +336,7 @@ function PublishPanel() {
       <p className="wx-pub-l">Website URL</p>
       <span className="wx-pub-url">
         <Globe />
-        <b>hearthandhand.com</b>
+        <b>plainweather.co</b>
         <Copy />
         <ExternalLink />
       </span>
@@ -400,7 +381,7 @@ export function WebsiteBuilderMock() {
       </aside>
       <div className="wx-canvas">
         <MockFrame label="" className="wx-site">
-          <HearthSite rings />
+          <PlainWeatherSite rings />
         </MockFrame>
       </div>
       <PublishPanel />
@@ -409,108 +390,25 @@ export function WebsiteBuilderMock() {
   )
 }
 
-/* ================================================================ Design: the Hero's colour scheme */
-const SCHEMES = [
-  ["Light", "#ffffff", "#1c1a17", ""],
-  ["Soft", "#f6f1ea", "#1c1a17", ""],
-  ["Dark", "#1f1c19", "#f4efe7", "wd-pick"],
-  ["Brand", "#2f3d33", "#f4efe7", ""],
-  ["Accent", "#b5532a", "#fff8f1", ""],
-] as const
-
-function Select({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <p className="wd-label">{label}</p>
-      <span className="wd-select">
-        {value} <ChevronDown />
-      </span>
-    </>
-  )
-}
-
-export function DesignMock() {
-  return (
-    <div className="bm wb wd">
-      <WbBar />
-      <aside className="wx-side">
-        <WbTabs />
-        <span className="wd-head">
-          <span className="wd-back">
-            <ArrowLeft />
-          </span>
-          <b>Hero</b>
-          <Eye />
-          <MoreHorizontal />
-        </span>
-        <p className="wd-label">Color scheme</p>
-        <span className="wd-picker">
-          <span className="wd-scheme wd-light">
-            <b>Aa</b> Light
-            <ChevronDown />
-          </span>
-          <span className="wd-scheme wd-dark">
-            <b>Aa</b> Dark
-            <ChevronDown />
-          </span>
-        </span>
-        <span className="wd-list">
-          {SCHEMES.map(([name, bg, ink, cls]) => (
-            <span key={name} className={`wd-row ${cls}`} style={{ background: bg, color: ink }}>
-              <b>Aa</b> {name}
-              {name === "Light" && <Check />}
-            </span>
-          ))}
-        </span>
-        <span className="wd-advanced">
-          Advanced colors <em>Using scheme</em>
-        </span>
-        <Select label="Heading" value="Heading 1" />
-        <Select label="Text" value="Body large" />
-        <Select label="Animation" value="Same as theme (fade up)" />
-        <p className="wd-label">Show on</p>
-        <span className="wd-seg">
-          <b>Both</b>
-          <span>Desktop</span>
-          <span>Phone</span>
-        </span>
-      </aside>
-      <div className="wx-canvas">
-        <MockFrame label="" className="wx-site">
-          <HearthSite ring />
-        </MockFrame>
-        <div className="wd-dark-site">
-          <MockFrame label="" className="wx-site">
-            <div className="hs-darkscheme">
-              <HearthSite top ring />
-            </div>
-          </MockFrame>
-        </div>
-      </div>
-      <Cursor className="wd-cur" />
-    </div>
-  )
-}
-
 /* ================================================================ OnePage editor */
 type Mark = ComponentType<SVGProps<SVGSVGElement>>
 /* Simple Icons' marks, the same ones the OnePage draws (components/onepage/brand-icons.tsx); cast to an SVG component, as integrations-section does. */
 const IG = SiInstagram as unknown as Mark
-const TT = SiTiktok as unknown as Mark
 const YT = SiYoutube as unknown as Mark
-const SP = SiSpotify as unknown as Mark
+const VM = SiVimeo as unknown as Mark
+const TT = SiTiktok as unknown as Mark
 
 /** The social row's platforms, in the page's order. */
 const SOCIALS = [
   ["instagram", IG],
-  ["tiktok", TT],
   ["youtube", YT],
-  ["spotify", SP],
+  ["vimeo", VM],
+  ["tiktok", TT],
 ] as const
 
 /**
  * A mark in its brand's own colour, as the Links tab's social chips draw them (tone "brand"): Instagram in its
- * gradient (the editor's own `bm-ig` gradient, below), TikTok with its cyan and red echo, YouTube red, Spotify green.
+ * gradient (the editor's own `bm-ig` gradient, below), YouTube red, Vimeo blue, TikTok with its cyan and red echo.
  */
 function BrandMark({ k }: { k: (typeof SOCIALS)[number][0] }) {
   if (k === "tiktok")
@@ -522,7 +420,7 @@ function BrandMark({ k }: { k: (typeof SOCIALS)[number][0] }) {
       </span>
     )
   if (k === "instagram") return <IG fill="url(#bm-ig)" />
-  return k === "youtube" ? <YT color="#ff0000" /> : <SP color="#1ed760" />
+  return k === "youtube" ? <YT color="#ff0000" /> : <VM color="#1ab7ea" />
 }
 
 /** Instagram's current colours (components/onepage/brand-icons.tsx INSTAGRAM_STOPS), once for the editor's chips. */
@@ -542,25 +440,13 @@ function BrandDefs() {
   )
 }
 
-/** The record in its sleeve: the EP's cover, and the black disc showing past its edge. */
-function Vinyl({ className = "" }: { className?: string }) {
-  return (
-    <span className={`vy ${className}`}>
-      <i className="vy-disc">
-        <Pic n="op-ep" w={160} h={160} className="vy-label" />
-      </i>
-      <Pic n="op-ep" w={320} h={320} className="vy-sleeve" />
-    </span>
-  )
-}
-
-type Block = { t: string; s: string; pic?: string; vinyl?: boolean; Icon?: typeof Calendar; clicks?: string; off?: boolean }
-const NINA_BLOCKS: Block[] = [
-  { t: "Listen to Small Rooms", s: "open.spotify.com/album/small-rooms", pic: "op-ep", clicks: "3.2k" },
-  { t: "Small Rooms on vinyl", s: "$28.00", vinyl: true, clicks: "1.1k" },
-  { t: "Guitar lessons on video call", s: "Booking form", Icon: Calendar, clicks: "418" },
-  { t: "Letters from the road", s: "Email signup", Icon: Mail, off: true },
-  { t: "Small Rooms, live at home", s: "youtube.com/@ninasato", pic: "op-video", clicks: "5.8k" },
+type Block = { t: string; s: string; pic?: string; Icon?: typeof Calendar; clicks?: string; off?: boolean }
+const DESMOND_BLOCKS: Block[] = [
+  { t: "Night Stock, 14 film LUTs", s: "$24.00", pic: "dr-neon", clicks: "2.4k" },
+  { t: "Free LUT: Tungsten Fade", s: "Free download", Icon: Download, clicks: "6.1k" },
+  { t: "Grade review on video call", s: "Booking form", Icon: Calendar, clicks: "312" },
+  { t: "Grade notes", s: "Email signup", Icon: Mail, off: true },
+  { t: "Before and after: Lisbon at night", s: "youtube.com/@desmondgrades", pic: "lp-f2", clicks: "8.7k" },
 ]
 
 function OpeBlock({ b }: { b: Block }) {
@@ -569,7 +455,7 @@ function OpeBlock({ b }: { b: Block }) {
     <span className={`ope-card${b.off ? " ope-off" : ""}`}>
       <GripVertical className="ope-grip" />
       <span className="ope-face">
-        <span className="ope-tile">{b.vinyl ? <Vinyl /> : b.pic ? <Pic n={b.pic} w={160} h={160} /> : Icon ? <Icon /> : null}</span>
+        <span className="ope-tile">{b.pic ? <Pic n={b.pic} w={160} h={100} /> : Icon ? <Icon /> : null}</span>
         <span className="ope-txt">
           <b>{b.t}</b>
           <i>{b.s}</i>
@@ -591,57 +477,59 @@ function OpeBlock({ b }: { b: Block }) {
 }
 
 /**
- * Nina Sato's OnePage, as components/onepage/public-onepage.tsx draws it on the Air theme (a cool grey page, white
- * buttons rounded 14, DM Sans names, large buttons) with the Hero header: her photo melting into the page (the
- * HERO_FADE_MASK of lib/onepage/poster-video.ts), her name and bio over the faded part, the social row under it.
- * `.np-new` is the email signup the editor turns on.
+ * Desmond Ayo's OnePage, as components/onepage/public-onepage.tsx draws it on the Ember theme (deep brown with a
+ * fine grain, a Bodoni title, Manrope words, amber outlined pills) with the classic header: the round photo, the
+ * name, the bio, the social row, and the Share and Subscribe keys in the top corners. `.dp-new` is the email signup
+ * the editor turns on.
  */
-export function NinaPage() {
+export function DesmondPage() {
   return (
-    <div className="np">
-      <div className="np-hero">
-        <Pic n="op-nina-hero" w={780} h={878} className="np-photo" />
-        <div className="np-title">
-          <h3>Nina Sato</h3>
-          <p>Singer and songwriter from Lisbon. New EP, Small Rooms, out now.</p>
-        </div>
-      </div>
-      <span className="np-socials">
-        {SOCIALS.map(([k, M]) => (
-          <M key={k} />
-        ))}
+    <div className="dp">
+      <span className="dp-corner dp-share">
+        <Share />
       </span>
-      <span className="np-btn">
-        <Pic n="op-ep" w={160} h={160} className="np-thumb" />
-        Listen to Small Rooms
+      <span className="dp-corner dp-bell">
+        <Bell />
       </span>
-      <span className="np-prod">
-        <Vinyl className="np-vinyl" />
-        <span>
-          <b>Small Rooms on vinyl</b>
-          <i>Signed 12 inch, ships in 3 days</i>
+      <div className="dp-head">
+        <Pic n="lp-av" w={240} h={240} className="dp-av" />
+        <h3>Desmond Ayo</h3>
+        <p>Colourist in Lisbon. Film looks for Premiere, Resolve and Final Cut.</p>
+        <span className="dp-socials">
+          {SOCIALS.map(([k, M]) => (
+            <M key={k} />
+          ))}
         </span>
-        <strong>$28</strong>
+      </div>
+      <span className="dp-prod">
+        <span className="dp-pack">
+          <Pic n="dr-neon" w={560} h={700} className="dp-pack-a" />
+          <Pic n="dr-neon" w={560} h={700} className="dp-pack-b" />
+          <i />
+        </span>
+        <span className="dp-prod-t">
+          <b>Night Stock, 14 film LUTs</b>
+          <i>.cube files · Premiere, Resolve, Final Cut</i>
+        </span>
+        <strong>$24</strong>
       </span>
-      <span className="np-btn">
-        <Calendar className="np-ico" />
-        Guitar lessons on video call
-      </span>
-      <span className="np-btn np-new">
-        <span className="np-signup">
-          <b>Letters from the road</b>
-          <span className="np-form">
-            <span className="np-input">Your email</span>
-            <span className="np-sub">Subscribe</span>
+      <span className="dp-btn">Free LUT: Tungsten Fade</span>
+      <span className="dp-btn">Grade review on video call</span>
+      <span className="dp-btn dp-new">
+        <span className="dp-signup">
+          <b>Grade notes, every other Sunday</b>
+          <span className="dp-form">
+            <span className="dp-input">Your email</span>
+            <span className="dp-sub">Subscribe</span>
           </span>
         </span>
       </span>
-      <span className="np-video np-after">
-        <Pic n="op-video" w={800} h={525} />
-        <span className="np-vplay">
+      <span className="dp-video dp-after">
+        <Pic n="lp-f2" w={640} h={400} />
+        <span className="dp-vplay">
           <Play fill="currentColor" strokeWidth={0} />
         </span>
-        <em>Small Rooms, live at home · 4:12</em>
+        <em>Before and after: Lisbon at night · 3:08</em>
       </span>
     </div>
   )
@@ -686,12 +574,12 @@ export function OnePageEditorMock() {
       </div>
       <div className="ope-panel">
         <div className="ope-profile">
-          <Pic n="op-nina-av" w={160} h={160} className="ope-av" />
+          <Pic n="lp-av" w={240} h={240} className="ope-av" />
           <span>
             <b>
-              Nina Sato <Pencil />
+              Desmond Ayo <Pencil />
             </b>
-            <i>Singer and songwriter from Lisbon. New EP, Small Rooms, out now.</i>
+            <i>Colourist in Lisbon. Film looks for Premiere, Resolve and Final Cut.</i>
             <span className="ope-socials">
               {SOCIALS.map(([k]) => (
                 <em key={k}>
@@ -714,7 +602,7 @@ export function OnePageEditorMock() {
           </span>
         </span>
         <div className="ope-list">
-          {NINA_BLOCKS.map((b) => (
+          {DESMOND_BLOCKS.map((b) => (
             <OpeBlock key={b.t} b={b} />
           ))}
         </div>
@@ -722,7 +610,7 @@ export function OnePageEditorMock() {
       <div className="ope-stage">
         <div className="ope-phone">
           <MockFrame w={390} ratio="287/607" label="" className="ope-screen">
-            <NinaPage />
+            <DesmondPage />
           </MockFrame>
         </div>
       </div>
@@ -731,275 +619,227 @@ export function OnePageEditorMock() {
   )
 }
 
-/* ================================================================ Community editor */
-const CE_GROUPS: [string, string][] = [
-  ["Cover and gallery", "1 picture, 3 in the gallery"],
-  ["About", "Description, 4 things inside, 3 questions"],
-  ["Links", "Website, Instagram, YouTube"],
-  ["Join button", "Join for $12 a month"],
-  ["Visibility and search", "Public, listed in Explore"],
-]
+/* ================================================================ Community: inside The Strength Room */
+const ST_CHIPS = [
+  ["All", ""],
+  ["Wins", "🏆"],
+  ["Form checks", "🎥"],
+  ["Programs", "📋"],
+  ["Nutrition", "🥗"],
+  ["Introductions", "👋"],
+] as const
 
-const CE_INSIDE = ["Open studio hours, twice a week", "A glaze night every month, live", "Feedback on your pieces from Mei", "Learn: 4 programs, 38 lessons"]
+const ST_PLACES = ["Community", "Learn", "Calendar", "Members", "Leaderboards", "About"]
+const ST_FACES = ["av-k", "av-l", "av-n", "av-e", "av-g", "av-j"]
+/** What a member types into the composer; the caret steps once per character (its keyframes read the length). */
+export const ST_TYPED = "3 x 5 on squats at 50 kg today. Video is in Form checks."
 
-const CE_OLD = "A ceramics community."
-const CE_NEW = "Learn to throw, glaze and fire, together."
-
-/** The community's About page as the stage shows it, at the editor's computer width. */
-function KilnAbout() {
+export function CommunityMock() {
   return (
-    <div className="ka">
-      <div className="ka-cols">
-        <div className="ka-sheet">
-          <Pic n="cm-cups" w={1200} h={600} className="ka-cover" />
-          <div className="ka-head">
-            <h4>Kiln &amp; Clay Collective</h4>
-            <p className="ka-tag">
-              <span className="ka-tag-new">
-                {CE_NEW}
-                <i className="ce-type" />
-              </span>
-              <span className="ka-tag-old">{CE_OLD}</span>
-              <span className="ka-ring">
-                <em>
-                  <Pencil /> Tagline
-                </em>
-              </span>
-            </p>
-            <p className="ka-row">
-              <span className="ka-stars">
-                <Star fill="currentColor" strokeWidth={0} />
-              </span>
-              <b>4.9</b> (86 reviews) · 1,204 members · $12 a month
-            </p>
-          </div>
-          <div className="ka-sec">
-            <h5>About</h5>
-            <p>
-              A small online studio for people learning wheel throwing at home or in a shared space. Every week there is something to make,
-              a short lesson, and a place to post what came out of the kiln.
-            </p>
-          </div>
-          <div className="ka-sec">
-            <h5>What&apos;s inside</h5>
-            <ul>
-              {CE_INSIDE.map((t) => (
-                <li key={t}>
-                  <i>
-                    <Check />
-                  </i>
-                  {t}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-        <aside className="ka-card">
-          <span className="ka-card-top">
-            <Pic n="cm-vases" w={640} h={480} className="ka-logo" />
-            <b>Kiln &amp; Clay Collective</b>
+    <div className="bm cx">
+      <div className="cx-bar">
+        <span className="cx-lead">
+          <span className="cx-mark">SR</span>
+          <span className="cx-who">
+            <b>The Strength Room</b>
+            <i>By Rina Castillo</i>
           </span>
-          <p className="ka-price">
-            <b>$12</b> a month
-          </p>
-          <span className="ka-join">Join for $12 a month</span>
-          <span className="ka-cancel">Cancel anytime</span>
-          <span className="ka-facts">
-            <span>
-              Posts in the last 30 days <b>318</b>
-            </span>
-            <span>
-              Programs <b>4</b>
-            </span>
-            <span>
-              Since <b>March 2023</b>
-            </span>
-            <span>
-              Run by <b>Mei Lin</b>
-            </span>
-          </span>
-        </aside>
-      </div>
-    </div>
-  )
-}
-
-export function CommunityBuilderMock() {
-  return (
-    <div className="bm ce">
-      <div className="ce-bar">
-        <ArrowLeft className="ce-back" />
-        <Pic n="cm-vases" w={160} h={160} className="ce-logo" />
-        <b className="ce-name">Kiln &amp; Clay Collective</b>
-        <span className="ce-badge">
-          <i /> Published
-        </span>
-        <span className="ce-tools">
-          <span className="ce-device">
-            <b>
-              <Monitor /> <span>Computer</span>
-            </b>
-            <span>
-              <Smartphone /> <span>Phone</span>
-            </span>
-          </span>
-          <span className="ce-icon ce-visitor">
-            <Eye /> <span>As a visitor</span>
-          </span>
-          <span className="ce-icon ce-look">
-            <Moon />
+          <span className="cx-menu">
+            <Menu />
           </span>
         </span>
-        <span className="ce-saverow">
-          <span className="ce-status">
-            <span className="ce-st ce-st-saved">
-              <Check /> Saved
-            </span>
-            <span className="ce-st ce-st-dirty">
-              <i /> Unsaved changes
-            </span>
+        <span className="cx-search">
+          <Search /> Search discussions, members, or content...
+        </span>
+        <span className="cx-icons">
+          <span className="cx-msg">
+            <MessageCircle />
+            <i>3</i>
           </span>
-          <span className="ce-icon ce-panel-key">
-            <PanelRightClose />
-          </span>
-          <span className="ce-save">
-            <span className="ce-save-off">Save</span>
-            <span className="ce-save-on">Save</span>
-          </span>
+          <Sun />
+          <Pic n="av-h" w={96} h={96} className="cx-me" />
         </span>
       </div>
-      <div className="ce-stage">
-        <MockFrame label="" className="ce-preview">
-          <KilnAbout />
-        </MockFrame>
-      </div>
-      <span className="ce-handle">
-        <i />
-      </span>
-      <aside className="ce-side">
-        <span className="ce-side-head">
-          <b>Edit page</b>
-          <PanelRightClose />
-        </span>
-        <div className="ce-group ce-open">
-          <span className="ce-group-h">
-            <b>Name and introduction</b>
-            <ChevronDown />
-          </span>
-          <p className="ce-flabel">Name</p>
-          <span className="ce-input">Kiln &amp; Clay Collective</span>
-          <p className="ce-flabel">Tagline</p>
-          <span className="ce-input ce-focus">
-            <span className="ka-tag-new">
-              {CE_NEW}
-              <i className="ce-type" />
-            </span>
-            <span className="ka-tag-old">{CE_OLD}</span>
-          </span>
-          <p className="ce-flabel">Short description</p>
-          <span className="ce-input ce-area">Weekly lessons, open studio hours and a kind crowd of potters who share what works.</span>
-          <p className="ce-flabel">Logo</p>
-          <span className="ce-logo-row">
-            <Pic n="cm-vases" w={160} h={160} />
-            <span>Change</span>
-          </span>
-        </div>
-        {CE_GROUPS.map(([t, s]) => (
-          <span key={t} className="ce-group">
-            <span className="ce-group-h">
-              <span>
-                <b>{t}</b>
-                <i>{s}</i>
-              </span>
-              <ChevronDown />
-            </span>
+      <div className="cx-tabs">
+        {ST_PLACES.map((p, i) => (
+          <span key={p} className={i === 0 ? "on" : undefined}>
+            {p}
           </span>
         ))}
+      </div>
+      <aside className="cx-left">
+        <div className="cx-card">
+          <Pic n="st-cover" w={960} h={540} className="cx-cover" />
+          <div className="cx-card-in">
+            <b className="cx-name">The Strength Room</b>
+            <p className="cx-addr">storelib.com/community/strengthroom</p>
+            <p className="cx-sum">Strength training for women, coached by Rina. A new four day program every six weeks, form checks on your videos, a live Q&amp;A on Thursdays.</p>
+            <span className="cx-stats">
+              <span>
+                <b>1,284</b>
+                <i>Members</i>
+              </span>
+              <span>
+                <b>37</b>
+                <i>
+                  <em /> Online
+                </i>
+              </span>
+              <span>
+                <b>2</b>
+                <i>Admins</i>
+              </span>
+            </span>
+            <span className="cx-faces">
+              {ST_FACES.map((f) => (
+                <Pic key={f} n={f} w={96} h={96} />
+              ))}
+              <em>+1.2k</em>
+            </span>
+          </div>
+        </div>
+        <div className="cx-card cx-event">
+          <p className="cx-card-h">
+            Upcoming event <span>View all</span>
+          </p>
+          <span className="cx-ev">
+            <span className="cx-date">
+              <i>Nov</i>
+              <b>20</b>
+            </span>
+            <span>
+              <b>Live form check: squat depth</b>
+              <i>Thu, Nov 20, 6:30 PM EST</i>
+              <i>
+                <Users /> 46 going
+              </i>
+            </span>
+          </span>
+        </div>
       </aside>
-      <Cursor className="ce-cur" />
+      <main className="cx-main">
+        <span className="cx-chips">
+          {ST_CHIPS.map(([t, e], i) => (
+            <span key={t} className={i === 0 ? "on" : undefined}>
+              {e && <i>{e}</i>}
+              {t}
+            </span>
+          ))}
+          <span className="cx-sort">
+            <SlidersHorizontal />
+          </span>
+        </span>
+        <div className="cx-compose">
+          <Pic n="av-h" w={96} h={96} className="cx-av" />
+          <span className="cx-field">
+            <span className="cx-ph">Share something...</span>
+            <span className="cx-typed">
+              {ST_TYPED}
+              <i className="cx-type" />
+            </span>
+          </span>
+        </div>
+        <article className="cx-post">
+          <p className="cx-pin">
+            <Pin /> Pinned
+          </p>
+          <span className="cx-ph-head">
+            <Pic n="av-c" w={96} h={96} className="cx-av" />
+            <span>
+              <b>
+                Rina Castillo <em>Owner</em>
+              </b>
+              <i>2h · 📋 Programs</i>
+            </span>
+            <MoreHorizontal className="cx-more" />
+          </span>
+          <h4>Block 4 is up: four days, 45 minutes, a deadlift focus</h4>
+          <p>Warmups are in Learn. Log your top set every Friday and I will set your weights for the week after. Questions go under this post.</p>
+          <span className="cx-foot">
+            <span className="cx-heart">
+              <Heart className="cx-h-off" />
+              <Heart className="cx-h-on" fill="currentColor" strokeWidth={0} />
+              <b className="cx-n">
+                <span className="cx-n-a">63</span>
+                <span className="cx-n-b">64</span>
+              </b>
+            </span>
+            <span>
+              <MessageCircle /> <b>31</b>
+            </span>
+            <span className="cx-faces cx-faces-s">
+              <Pic n="av-l" w={96} h={96} />
+              <Pic n="av-k" w={96} h={96} />
+              <Pic n="av-e" w={96} h={96} />
+            </span>
+            <span className="cx-new">New comment 4m ago</span>
+          </span>
+        </article>
+        <article className="cx-post">
+          <span className="cx-ph-head">
+            <Pic n="av-n" w={96} h={96} className="cx-av" />
+            <span>
+              <b>Dana Whitfield</b>
+              <i>5h · 🏆 Wins</i>
+            </span>
+            <MoreHorizontal className="cx-more" />
+          </span>
+          <h4>Eight months in: 70 kg deadlift</h4>
+          <p>In March I could not pull the bar off the floor without my back rounding. Today&apos;s top set on the left, back squats this morning on the right.</p>
+          <span className="cx-pics">
+            <Pic n="st-pull" w={640} h={480} />
+            <Pic n="st-squat" w={640} h={480} />
+          </span>
+        </article>
+      </main>
+      <Cursor className="cx-cur" />
     </div>
   )
 }
 
 /* ================================================================ styles */
-const T = 8.4 // seconds per scripted moment; the carousel moves on after one
+const T = 8.4 // seconds per scripted moment; the tabs move on after one
 
 export const BUILDER_DURATION_MS = T * 1000
-
-const SERIF = `"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif",serif`
 
 export const BUILDER_CSS = u(`
 .bm{position:absolute;inset:0;background:#fff;color:#1a1a2e;font-family:var(--font-inter,Inter),Inter,sans-serif;font-size:13u;--bm-t:${T}s;--bm-ease:cubic-bezier(.45,0,.2,1)}
 .bm svg{width:16u;height:16u}
 .bm-frame>.smk{--w:1280}
 .bm-cursor{position:absolute;z-index:30;width:22u!important;height:22u!important;opacity:0;filter:drop-shadow(0 2u 3u rgba(0,0,0,.25));pointer-events:none}
-.bm-logo{flex:none;display:block;width:28u;height:28u;border-radius:8u;overflow:hidden}
-@media (max-width:767px){
-  .bm-frame>.smk{--w:640}
-  .bm-cursor{display:none}
-}
 
-/* ---------- the site: Hearth & Hand (its own design width, narrower on a phone) */
+/* ---------- the site: Plain Weather (its own design width). Near white, one sans in two weights, a wide tracked wordmark, the photographs carry the colour. */
 .wx-canvas .wx-site{position:absolute;inset:0}
 .wx-site>.smk{--w:1024}
-.hs{position:absolute;inset:0;display:flex;flex-direction:column;background:#faf8f5;color:#1c1a17}
-.hs-nav{height:64u;display:flex;align-items:center;gap:32u;padding:0 40u;border-bottom:1u solid #ebe6de}
-.hs-logo{font-family:${SERIF};font-size:22u;letter-spacing:-.01em;white-space:nowrap}
-.hs-links{display:flex;gap:24u;font-size:13.5u;color:#6a645b}
-.hs-links b{color:#1c1a17;font-weight:600}
-.hs-login{margin-left:auto;font-size:13.5u}
-.hs-enroll{padding:9u 18u;border-radius:999u;background:#1c1a17;color:#faf8f5;font-size:13.5u;font-weight:600}
-.hs-hero{position:relative;display:grid;grid-template-columns:410u 1fr;gap:40u;align-items:center;height:420u;padding:0 40u}
-.hs-eyebrow{font-size:11.5u;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9a5b34}
-.hs-copy h3{margin-top:12u!important;font-family:${SERIF};font-weight:400;font-size:50u;line-height:1.02;letter-spacing:-.02em}
-.hs-sub{margin-top:16u!important;font-size:14.5u;line-height:1.55;color:#6a645b}
-.hs-btns{display:flex;gap:10u;margin-top:24u}
-.hs-btns>*{display:flex;align-items:center;gap:7u;padding:12u 20u;border-radius:999u;font-size:14u;font-weight:600;white-space:nowrap}
-.hs-btns b{background:#1c1a17;color:#faf8f5}
-.hs-btns span{box-shadow:inset 0 0 0 1.5u #d9d2c6}
-.hs-btns svg{width:12u;height:12u}
-.hs-proof{display:flex;align-items:center;gap:10u;margin-top:20u;font-size:12.5u;color:#6a645b}
-.hs-proof b{color:inherit;font-weight:600}
-.hs-faces{display:flex}
-.hs-faces img{width:26u!important;height:26u!important;border-radius:50%;margin-left:-7u;box-shadow:0 0 0 2u #faf8f5}
-.hs-faces img:first-child{margin-left:0}
-.hs-stars{display:inline-flex;gap:1u;color:#c98a2b;vertical-align:-1u}
-.hs-stars svg{width:12u;height:12u}
-.hs-video{position:relative;height:340u;border-radius:18u;overflow:hidden}
-.hs-play{position:absolute;left:50%;top:50%;width:60u;height:60u;margin:-30u 0 0 -30u;border-radius:50%;background:rgba(255,255,255,.94);color:#1c1a17;display:grid;place-items:center;box-shadow:0 6u 20u rgba(0,0,0,.18)}
-.hs-play svg{width:20u;height:20u;margin-left:3u}
-.hs-video em{position:absolute;left:14u;bottom:14u;padding:6u 11u;border-radius:999u;background:rgba(28,26,23,.66);color:#fff;font-size:12u;font-style:normal;font-weight:600}
-.hs-nav,.hs-hero{flex:none}
-.hs-mods{position:relative;flex:1 0 auto;padding:22u 40u 40u;background:#f3efe8;border-top:1u solid #ebe6de}
-.hs-h{font-family:${SERIF};font-size:24u}
-.hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
-.hs-grid>span{display:grid;gap:3u}
-.hs-grid img{height:150u!important;border-radius:12u;margin-bottom:6u}
-.hs-grid em{font-size:11u;font-style:normal;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9a5b34}
-.hs-grid b{font-size:14.5u;font-weight:600}
-.hs-ring{position:absolute;inset:0;border-radius:4u;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
-.hs-ring em{position:absolute;right:8u;bottom:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
-.hs-ring.wx-ring-b{opacity:0}
-.hs-darkscheme .hs{bottom:auto;background:none;color:#f4efe7}
-.hs-darkscheme .hs-nav{visibility:hidden}
-.hs-darkscheme .hs-hero{background:#1f1c19}
-.hs-darkscheme .hs-sub,.hs-darkscheme .hs-proof{color:#b9b1a5}
-.hs-darkscheme .hs-btns b{background:#f4efe7;color:#1f1c19}
-.hs-darkscheme .hs-btns span{box-shadow:inset 0 0 0 1.5u rgba(255,255,255,.25)}
-.hs-darkscheme .hs-eyebrow{color:#e0a47a}
-.hs-darkscheme .hs-faces img{box-shadow:0 0 0 2u #1f1c19}
-@media (max-width:767px){
-  .wx-site>.smk{--w:600}
-  .hs-nav{gap:20u;padding:0 24u}
-  .hs-links span{display:none}
-  .hs-hero{grid-template-columns:1fr;gap:18u;align-content:start;height:auto;padding:26u 24u 24u}
-  .hs-copy h3{font-size:44u}
-  .hs-proof{display:none}
-  .hs-video{height:230u}
-  .hs-mods{padding:20u 24u 30u}
-  .hs-grid{grid-template-columns:repeat(2,1fr)}
-  .hs-grid img{height:120u!important}
-}
+.pw{position:absolute;inset:0;display:flex;flex-direction:column;background:#fafaf9;color:#161616;font-family:var(--font-inter,Inter),Inter,sans-serif}
+.pw-nav{flex:none;height:60u;display:flex;align-items:center;gap:40u;padding:0 40u;border-bottom:1u solid #ebebe8}
+.pw-logo{font-size:13.5u;font-weight:600;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
+.pw-links{display:flex;gap:24u;font-size:13u;color:#6b6b6b}
+.pw-links b{color:#161616;font-weight:500}
+.pw-cart{display:flex;align-items:center;gap:7u;margin-left:auto;font-size:13u;font-weight:500}
+.pw-cart svg{width:15u;height:15u}
+.pw-hero{position:relative;flex:none;display:grid;grid-template-columns:1fr 470u;gap:48u;align-items:center;height:368u;padding:0 40u}
+.pw-eyebrow{font-size:12u;font-weight:500;color:#6b6b6b}
+.pw-copy h3{margin-top:12u!important;max-width:400u;font-size:42u;font-weight:500;line-height:1.06;letter-spacing:-.035em}
+.pw-sub{margin-top:16u!important;max-width:340u;font-size:14.5u;line-height:1.55;color:#5c5c5c}
+.pw-btns{display:flex;margin-top:26u}
+.pw-btns b{display:flex;align-items:center;height:42u;padding:0 22u;border-radius:4u;background:#161616;color:#fafaf9;font-size:13.5u;font-weight:500;white-space:nowrap}
+.pw-photo{position:relative;height:316u;border-radius:4u;overflow:hidden;background:#6f7d74}
+.pw-photo img{width:100%!important;height:100%!important;object-fit:cover}
+.pw-shop{position:relative;flex:1 0 auto;padding:22u 40u 40u;border-top:1u solid #ebebe8}
+.pw-h{display:flex;justify-content:space-between;align-items:baseline;font-size:17u;font-weight:500;letter-spacing:-.015em}
+.pw-h span{font-size:12.5u;font-weight:500;color:#6b6b6b;letter-spacing:0}
+.pw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
+.pw-card{display:grid;gap:3u}
+.pw-img{display:block;height:184u;border-radius:4u;background:#efefec;overflow:hidden}
+.pw-img img{width:100%!important;height:100%!important;object-fit:cover}
+.pw-row{display:flex;align-items:baseline;justify-content:space-between;gap:8u;margin-top:7u;font-size:13u}
+.pw-row b{font-weight:500}
+.pw-row em{font-style:normal;font-weight:500}
+.pw-card i{font-size:12u;font-style:normal;color:#8a8a8a}
+.pw-ring{position:absolute;inset:0;border-radius:4u;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
+.pw-ring em{position:absolute;right:8u;bottom:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
+.pw-ring.wx-ring-b{opacity:0}
 
 /* ---------- website builder (app/(storelib)/website-builder/editor, its bar, the sidebar card, the canvas) */
 .wb{background:#eef1f5}
@@ -1093,58 +933,6 @@ export const BUILDER_CSS = u(`
 @keyframes sxk-wx-was{0%,69.5%{opacity:1}70%,94%{opacity:0}96%,100%{opacity:1}}
 @keyframes sxk-wx-spin{0%,60%{transform:none}70%,100%{transform:rotate(1080deg)}}
 @keyframes sxk-wx-dot{0%,69.5%{opacity:1}70%,94%{opacity:.5}96%,100%{opacity:1}}
-@media (max-width:767px){
-  .wx-wide,.wx-mid{display:none}
-  .wx-right{margin-left:auto}
-  .wx-side{width:214u;padding:10u 8u 0}
-  .wx-tabs>* svg{display:none}
-  .wx-canvas{left:220u}
-  .wx-pub{right:10u;width:400u}
-  .wx-row-on svg:not(:last-child){display:none}
-}
-
-/* ---------- design: the Hero's scheme */
-.wd-head{display:flex;align-items:center;gap:10u;height:44u;margin:0 -12u 4u;padding:0 14u 0 10u;border-bottom:1u solid #eceef1;color:#6b7280}
-.wd-head b{flex:1;color:#1a1a2e;font-size:14u;font-weight:600}
-.wd-head svg{width:15u;height:15u}
-.wd-back{display:grid;place-items:center;width:32u;height:32u;border-radius:8u;background:#f7f7f8;color:#4b5563;box-shadow:inset 0 0 0 1u rgba(0,0,0,.07),inset 0 -1u 0 rgba(0,0,0,.05)}
-.wd-label{margin:12u 0 6u!important;font-size:12u;font-weight:600;line-height:16u;color:#374151}
-.wd-picker{position:relative;display:grid;height:40u}
-.wd-scheme{grid-area:1/1;display:flex;align-items:center;gap:10u;padding:0 12u;border-radius:12u;font-size:13u;font-weight:500;box-shadow:inset 0 0 0 1u #e5e5e5}
-.wd-scheme b,.wd-row b{font-size:15u;font-weight:700}
-.wd-scheme svg{margin-left:auto;width:15u;height:15u;opacity:.7}
-.wd-light{background:#fff;color:#1c1a17;opacity:0}
-.wd-dark{background:#1f1c19;color:#f4efe7}
-.wd-list{position:absolute;z-index:5;left:12u;right:12u;top:180u;display:grid;gap:4u;padding:6u;border-radius:12u;background:#fff;box-shadow:0 0 0 1u #e5e5e5,0 12u 28u -8u rgba(16,24,40,.22);opacity:0}
-.wd-row{position:relative;display:flex;align-items:center;gap:10u;height:36u;padding:0 12u;border-radius:9u;font-size:13u;font-weight:500;box-shadow:inset 0 0 0 1u rgba(0,0,0,.08)}
-.wd-row svg{margin-left:auto;width:14u;height:14u;opacity:.7}
-.wd-row:first-child{box-shadow:inset 0 0 0 2u #171717}
-.wd-pick::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 2u #a3a3a3;opacity:0}
-.wd-advanced{display:flex;align-items:center;justify-content:space-between;height:36u;margin-top:10u;padding:0 12u;border-radius:10u;background:#f7f7f8;font-size:12.5u;font-weight:500}
-.wd-advanced em{font-style:normal;color:#9ca3af}
-.wd-select{display:flex;align-items:center;justify-content:space-between;height:38u;padding:0 12u;border-radius:10u;box-shadow:inset 0 0 0 1u #e5e5e5;font-size:13u;white-space:nowrap}
-.wd-select svg{width:14u;height:14u;color:#9ca3af}
-.wd-seg{display:grid;grid-template-columns:repeat(3,1fr);padding:2u;border-radius:9u;background:#f5f5f5}
-.wd-seg>*{display:grid;place-items:center;height:30u;border-radius:7u;font-size:12.5u;color:#737373}
-.wd-seg b{background:#fff;color:#1a1a2e;font-weight:500;box-shadow:0 1u 2u rgba(0,0,0,.08)}
-.wd-dark-site{position:absolute;inset:0}
-.wd-cur{left:150u;top:204u}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wd-cur{animation:sxk-wd-cur var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wd-list{animation:sxk-wd-list var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wd-pick::after{animation:sxk-wd-pick var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wd-light{animation:sxk-wd-off var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wd-dark,[data-mock-live] .wd-dark-site{animation:sxk-wd-on var(--bm-t) var(--bm-ease) infinite both}}
-@keyframes sxk-wd-cur{0%{opacity:0;transform:translate(520u,260u)}6%{opacity:1}18%{transform:none}20%{transform:scale(.86)}22%{transform:none}31%{transform:translate(0,130u)}33%{transform:translate(0,130u) scale(.86)}35%,46%{transform:translate(0,130u)}58%{opacity:1;transform:translate(420u,90u)}66%,100%{opacity:0;transform:translate(420u,90u)}}
-@keyframes sxk-wd-list{0%,20%{opacity:0;transform:translateY(-6u)}24%,35%{opacity:1;transform:none}39%,100%{opacity:0;transform:translateY(-4u)}}
-@keyframes sxk-wd-pick{0%,31%{opacity:0}33%,36%{opacity:1}39%,100%{opacity:0}}
-@keyframes sxk-wd-off{0%,36%{opacity:1}40%,94%{opacity:0}100%{opacity:1}}
-@keyframes sxk-wd-on{0%,36%{opacity:0}46%,94%{opacity:1}100%{opacity:0}}
-@media (max-width:767px){
-  .wd-list{top:170u;left:8u;right:8u}
-  .wd-advanced em{display:none}
-  .wd-head{margin:0 -8u 4u}
-  .wd-row{height:32u}
-}
 
 /* ---------- OnePage editor */
 .ope{background:#fff}
@@ -1198,74 +986,24 @@ export const BUILDER_CSS = u(`
 .ope-phone{position:absolute;left:51.5u;top:56u;width:307u;padding:10u;border-radius:46u;background:#1a1a1a;box-shadow:0 25u 50u -12u rgba(0,0,0,.25)}
 .ope-screen{border-radius:36u}
 .ope-cur{left:664u;top:562u}
-.ope-phone .np-new{opacity:0}
-.ope-phone .np-after{transform:translateY(-104u)}
+.ope-phone .dp-new{opacity:0}
+.ope-phone .dp-after{transform:translateY(-104u)}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-cur{animation:sxk-op-cur var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw b{animation:sxk-op-knob var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw-on,[data-mock-live] .ope-phone .np-new{animation:sxk-op-on var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw-on,[data-mock-live] .ope-phone .dp-new{animation:sxk-op-on var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-face{animation:sxk-op-face var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-phone .np-after{animation:sxk-op-after var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-phone .np{animation:sxk-op-scroll var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-phone .dp-after{animation:sxk-op-after var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-phone .dp{animation:sxk-op-scroll var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-saved{animation:sxk-op-saved var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-dirty{animation:sxk-op-dirty var(--bm-t) var(--bm-ease) infinite both}}
 @keyframes sxk-op-cur{0%{opacity:0;transform:translate(-300u,-160u)}6%{opacity:1}24%{transform:none}26%{transform:scale(.86)}28%,34%{transform:none}52%{transform:translate(348u,-535u)}54%{transform:translate(348u,-535u) scale(.86)}56%,66%{opacity:1;transform:translate(348u,-535u)}74%,100%{opacity:0;transform:translate(348u,-535u)}}
 @keyframes sxk-op-knob{0%,25%{transform:none}29%,94%{transform:translateX(16u)}100%{transform:none}}
 @keyframes sxk-op-on{0%,25%{opacity:0}30%,94%{opacity:1}100%{opacity:0}}
 @keyframes sxk-op-face{0%,25%{opacity:.5}30%,94%{opacity:1}100%{opacity:.5}}
-@keyframes sxk-op-scroll{0%,29%{transform:none}40%,90%{transform:translateY(-170u)}98%,100%{transform:none}}
+@keyframes sxk-op-scroll{0%,29%{transform:none}40%,90%{transform:translateY(-130u)}98%,100%{transform:none}}
 @keyframes sxk-op-after{0%,27%{transform:translateY(-104u)}36%,94%{transform:none}100%{transform:translateY(-104u)}}
 @keyframes sxk-op-saved{0%,26%{opacity:.6}28%,54%{opacity:0}57%,100%{opacity:.6}}
 @keyframes sxk-op-dirty{0%,26%{opacity:0}28%,54%{opacity:1}57%,100%{opacity:0}}
-@media (max-width:767px){
-  .ope-bar{height:56u}
-  .ope-bar-l{padding:0 14u;gap:6u}
-  .ope-bar-l>.ope-key,.ope-set,.ope-share>span{display:none}
-  .ope-pills>*{padding:0 12u;font-size:13u}
-  .ope-bar-r{width:auto;padding:0 14u;border:0}
-  .ope-share{padding:0 10u}
-  .ope-panel{left:0;width:360u;top:56u;padding:16u;gap:16u}
-  .ope-profile i{display:none}
-  .ope-stats{display:none}
-  .ope-stage{top:56u;width:280u}
-  .ope-phone{left:22u;top:30u;width:236u;padding:8u;border-radius:36u}
-  .ope-screen{border-radius:28u}
-}
-
-/* ---------- Nina's OnePage, in the editor's phone: the Air theme with the Hero header */
-.np{display:flex;flex-direction:column;align-items:center;min-height:100%;padding:0 20u 30u;background:#eef0f3;color:#111827;font-family:"DM Sans",var(--font-inter,Inter),Inter,sans-serif}
-.np-hero{position:relative;width:calc(100% + 40u);margin:0 -20u 8u}
-.np-photo{height:439u!important;object-position:50% 30%;-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 46%,rgba(0,0,0,.93) 54%,rgba(0,0,0,.79) 62%,rgba(0,0,0,.6) 70%,rgba(0,0,0,.4) 78%,rgba(0,0,0,.21) 86%,rgba(0,0,0,.07) 94%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 46%,rgba(0,0,0,.93) 54%,rgba(0,0,0,.79) 62%,rgba(0,0,0,.6) 70%,rgba(0,0,0,.4) 78%,rgba(0,0,0,.21) 86%,rgba(0,0,0,.07) 94%,transparent 100%);background:none}
-.np-title{position:absolute;left:0;right:0;bottom:12u;padding:0 24u;text-align:center}
-.np-title h3{font-size:30u;font-weight:700;letter-spacing:-.02em;line-height:1.15;text-shadow:0 1u 14u rgba(238,240,243,.72),0 0 2u rgba(238,240,243,.72)}
-.np-title p{max-width:300u;margin:6u auto 0!important;font-size:14u;line-height:1.45;color:#5b6170;text-shadow:0 1u 10u rgba(238,240,243,.72)}
-.np-socials{display:flex;justify-content:center;gap:22u;height:42u;align-items:center;margin-bottom:14u;color:#374151}
-.np-socials svg{width:20u;height:20u}
-.np-btn{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:62u;margin-top:12u;padding:0 60u;border-radius:14u;background:#fff;font-size:15u;font-weight:600;text-align:center;box-shadow:0 2u 4u rgba(0,0,0,.08)}
-.np-thumb{position:absolute;left:8u;top:8u;width:46u!important;height:46u!important;border-radius:10u}
-.np-ico{position:absolute;left:21u;width:20u!important;height:20u!important;color:#111827}
-.np-prod{display:flex;align-items:center;gap:14u;width:100%;margin-top:12u;padding:10u 14u 10u 10u;border-radius:14u;background:#fff;box-shadow:0 2u 4u rgba(0,0,0,.08);text-align:left}
-.np-prod>span{flex:1;display:grid;gap:2u;min-width:0}
-.np-prod b{font-size:15u;font-weight:600}
-.np-prod i{font-size:12.5u;font-style:normal;color:#5b6170}
-.np-prod strong{padding:7u 13u;border-radius:999u;background:#111827;color:#fff;font-size:13.5u;font-weight:600}
-.np-btn.np-new{padding:0 16u}
-.np-signup{display:grid;gap:9u;width:100%;padding:14u 0;text-align:left}
-.np-signup b{font-size:14.5u;font-weight:600}
-.np-form{display:flex;gap:6u}
-.np-input{flex:1;display:flex;align-items:center;height:38u;padding:0 12u;border-radius:10u;background:#eef0f3;font-size:13u;font-weight:400;color:#6b7280}
-.np-sub{display:grid;place-items:center;padding:0 15u;border-radius:10u;background:#111827;color:#fff;font-size:13u}
-.np-video{position:relative;display:block;width:100%;height:196u;margin-top:12u;border-radius:14u;overflow:hidden}
-.np-video>em{position:absolute;left:14u;bottom:12u;color:#fff;font-size:12.5u;font-style:normal;font-weight:600;text-shadow:0 1u 4u rgba(0,0,0,.5)}
-.np-vplay{position:absolute;left:50%;top:50%;width:46u;height:46u;margin:-23u 0 0 -23u;border-radius:50%;display:grid;place-items:center;background:#fff;color:#111827}
-.np-vplay svg{width:16u;height:16u;margin-left:2u}
-
-/* the record in its sleeve: a black disc with grooves and the cover on its label, half out of the sleeve */
-.vy{--s:30u;position:relative;display:block;width:calc(var(--s) * 1.42);height:var(--s)}
-.vy-sleeve{position:absolute;left:0;top:0;z-index:1;width:var(--s)!important;height:var(--s)!important;border-radius:2u;box-shadow:1u 0 3u rgba(0,0,0,.28)}
-.vy-disc{position:absolute;top:4%;left:calc(var(--s) * .5);width:calc(var(--s) * .92);height:calc(var(--s) * .92);border-radius:50%;background:radial-gradient(circle,#0d0d0d 0 17%,transparent 18%),repeating-radial-gradient(circle,#151515 0 1.3%,#262626 1.8% 2.6%);box-shadow:inset 0 0 0 .5u rgba(255,255,255,.08)}
-.vy-label{position:absolute;inset:31%;width:38%!important;height:38%!important;border-radius:50%}
-.np-vinyl{--s:64u}
-.ope-tile .vy{--s:26u}
 
 /* brand marks in the Links tab's chips */
 .bm-defs{position:absolute;width:0;height:0;overflow:hidden}
@@ -1274,127 +1012,142 @@ export const BUILDER_CSS = u(`
 .bm-tt .bm-tt-c{color:#25f4ee;transform:translate(-.8u,-.8u)}
 .bm-tt .bm-tt-r{color:#fe2c55;transform:translate(.8u,.8u)}
 
-/* ---------- community editor: its own screen */
-.ce{background:#f8f9fa}
-.ce-bar{position:absolute;inset:0 0 auto;z-index:2;height:56u;display:flex;align-items:center;gap:8u;padding:0 16u 0 12u;background:#fff;box-shadow:inset 0 -1u 0 #e5e7eb}
-.ce-back{width:20u!important;height:20u!important;margin:0 6u;color:#4b5563}
-.ce-logo{flex:none;width:32u!important;height:32u!important;border-radius:9u;box-shadow:0 0 0 1u rgba(16,24,40,.06)}
-.ce-name{margin-left:2u;font-size:15u;font-weight:600;white-space:nowrap}
-.ce-badge{display:flex;align-items:center;gap:6u;height:22u;padding:0 8u;border-radius:6u;background:#e3f5e9;color:#14532d;font-size:12u;font-weight:500;box-shadow:0 0 0 1u rgba(20,83,45,.12)}
-.ce-badge i{width:6u;height:6u;border-radius:50%;background:#22a06b}
-.ce-tools{display:flex;align-items:center;gap:6u;margin-left:auto}
-.ce-device{display:flex;padding:2u;border-radius:10u;background:#eef0f2}
-.ce-device>*{display:flex;align-items:center;gap:6u;height:32u;padding:0 10u;border-radius:8u;font-size:13u;font-weight:500;color:#4b5563}
-.ce-device b{background:#fff;color:#1a1a2e;box-shadow:0 1u 2u rgba(16,24,40,.08),0 0 0 .5u rgba(16,24,40,.06)}
-.ce-icon{display:flex;align-items:center;justify-content:center;gap:6u;min-width:36u;height:36u;padding:0 8u;border-radius:8u;color:#4b5563;font-size:13u;font-weight:500}
-.ce-saverow{display:flex;align-items:center;gap:6u;margin-left:24u}
-.ce-status{display:grid;min-width:132u;font-size:13u}
-.ce-st{grid-area:1/1;display:flex;align-items:center;justify-content:flex-end;gap:6u;white-space:nowrap}
-.ce-st svg{width:14u;height:14u}
-.ce-st-saved{color:#6b7280}
-.ce-st-dirty{opacity:0;color:#1a1a2e;font-weight:500}
-.ce-st-dirty i{width:8u;height:8u;border-radius:50%;background:#e0a100}
-.ce-save{position:relative;display:grid;min-width:72u;height:36u;border-radius:10u;background:#1a1a2e;color:#fff;font-size:14u;font-weight:500;box-shadow:inset 0 1u 0 rgba(255,255,255,.14),0 1u 2u rgba(16,24,40,.25)}
-.ce-save>span{grid-area:1/1;display:grid;place-items:center}
-.ce-save-off{opacity:.5}
-.ce-save-on{opacity:0}
-.ce-stage{position:absolute;left:12u;top:68u;right:376u;bottom:12u;border-radius:16u;overflow:hidden;background:#f8f9fa;box-shadow:0 0 0 1u rgba(229,231,235,.8),0 1u 3u rgba(0,0,0,.04)}
-.ce-stage .ce-preview{position:absolute;inset:0}
-.ce-preview>.smk{--w:1040}
-.ce-handle{position:absolute;top:56u;bottom:0;right:360u;width:16u;display:grid;place-items:center}
-.ce-handle i{width:5u;height:36u;border-radius:3u;background:#d9dce1}
-.ce-side{position:absolute;right:0;top:56u;bottom:0;width:360u;background:#fff;box-shadow:inset 1u 0 0 #e5e7eb;overflow:hidden}
-.ce-side-head{display:flex;align-items:center;justify-content:space-between;height:49u;padding:0 14u 0 20u;border-bottom:1u solid #f1f2f4;color:#6b7280}
-.ce-side-head b{font-size:15u;font-weight:600;color:#1a1a2e}
-.ce-group{display:block;border-bottom:1u solid #f1f2f4}
-.ce-group-h{display:flex;align-items:center;justify-content:space-between;gap:12u;min-height:56u;padding:0 20u;color:#9ca3af}
-.ce-group-h>span{display:grid;gap:2u;min-width:0}
-.ce-group-h b{font-size:14.5u;font-weight:600;color:#1a1a2e}
-.ce-group-h i{font-size:12.5u;font-style:normal;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ce-open .ce-group-h svg{transform:rotate(180deg)}
-.ce-open{padding-bottom:18u}
-.ce-flabel{margin:10u 20u 6u!important;font-size:13u;font-weight:500;line-height:16u;color:#374151}
-.ce-input{position:relative;display:grid;align-items:center;height:40u;margin:0 20u;padding:0 12u;border-radius:10u;background:#fff;box-shadow:inset 0 0 0 1u #d9dbe0;font-size:13.5u;white-space:nowrap;overflow:hidden}
-.ce-input>span{grid-area:1/1}
-.ce-focus{box-shadow:inset 0 0 0 1u #1a1a2e,0 0 0 3u rgba(26,26,46,.1)}
-.ce-area{height:64u;align-items:start;padding-top:10u;white-space:normal;line-height:1.45;color:#374151}
-.ce-logo-row{display:flex;align-items:center;gap:10u;margin:0 20u}
-.ce-logo-row img{width:40u!important;height:40u!important;border-radius:10u}
-.ce-logo-row span{display:grid;place-items:center;height:34u;padding:0 12u;border-radius:9u;box-shadow:inset 0 0 0 1u #e3e5e9;font-size:13u;font-weight:500}
-.ka-tag-new{position:relative;justify-self:start;overflow:hidden;white-space:nowrap}
-.ka-tag-old{opacity:0;white-space:nowrap}
-.ce-type{position:absolute;inset:0 -2u 0 0;background:#fff;transform:translateX(100%)}
-.ce-type::before{content:"";position:absolute;left:1u;top:3u;bottom:3u;width:1.5u;background:#1a1a2e}
-.ce-cur{left:1100u;top:282u}
 
-/* the About page in the stage, at its own width */
-.ka{position:absolute;inset:0;background:#f8f9fa;color:#1a1a2e;font-size:15u}
-.ka-cols{display:grid;grid-template-columns:minmax(0,1fr) 320u;gap:28u;padding:28u 30u 0}
-.ka-sheet{border-radius:16u;background:#fff;box-shadow:0 0 0 1u #eceef1;overflow:hidden}
-.ka-cover{height:330u!important}
-.ka-head{padding:24u 32u 22u}
-.ka-head h4{margin:0;font-size:30u;font-weight:600;letter-spacing:-.015em}
-.ka-tag{position:relative;display:grid;margin-top:6u!important;font-size:17u;color:#4b5563}
-.ka-tag>span{grid-area:1/1}
-.ka-ring{position:absolute;inset:-5u -8u;border-radius:6u;box-shadow:inset 0 0 0 2u #1a1a2e;opacity:0}
-.ka-ring em{position:absolute;right:-2u;top:-22u;display:flex;align-items:center;gap:5u;height:22u;padding:0 8u;border-radius:5u 5u 0 0;background:#1a1a2e;color:#fff;font-size:12u;font-style:normal;font-weight:600}
-.ka-ring svg{width:12u;height:12u}
-.ka-row{display:flex;align-items:center;gap:5u;margin-top:12u!important;font-size:14u;color:#6b7280}
-.ka-row b{color:#1a1a2e}
-.ka-stars svg{width:15u;height:15u;color:#1a1a2e}
-.ka-sec{padding:24u 32u;border-top:1u solid #eef0f2}
-.ka-sec h5{margin:0;font-size:18u;font-weight:600}
-.ka-sec p{margin-top:10u!important;font-size:15u;line-height:1.6;color:#374151}
-.ka-sec ul{display:grid;gap:10u;margin:12u 0 0;padding:0;list-style:none;font-size:15u;color:#374151}
-.ka-sec li{display:flex;align-items:center;gap:10u}
-.ka-sec li i{display:grid;place-items:center;width:20u;height:20u;border-radius:50%;background:#1a1a2e;color:#fff}
-.ka-sec li svg{width:12u;height:12u}
-.ka-card{align-self:start;display:grid;gap:12u;padding:20u;border-radius:16u;background:#fff;box-shadow:0 0 0 1u #eceef1}
-.ka-card-top{display:flex;align-items:center;gap:12u}
-.ka-card-top b{font-size:16u;font-weight:600;line-height:1.25}
-.ka-logo{flex:none;width:48u!important;height:48u!important;border-radius:12u}
-.ka-price{font-size:14u;color:#6b7280}
-.ka-price b{font-size:26u;font-weight:600;color:#1a1a2e}
-.ka-join{display:grid;place-items:center;height:46u;border-radius:12u;background:#1a1a2e;color:#fff;font-size:15u;font-weight:600}
-.ka-cancel{text-align:center;font-size:12.5u;color:#6b7280}
-.ka-facts{display:grid;gap:10u;padding-top:14u;border-top:1u solid #eef0f2;font-size:13.5u;color:#6b7280}
-.ka-facts>span{display:flex;justify-content:space-between}
-.ka-facts b{color:#1a1a2e;font-weight:500}
+/* ---------- Desmond's OnePage, in the editor's phone: the Ember theme with the classic header */
+.dp{position:relative;display:flex;flex-direction:column;align-items:center;min-height:100%;padding:58u 20u 30u;background:radial-gradient(120% 60% at 50% 0%,#2a211a 0%,#1b1612 60%),#1b1612;color:#f4ece2;font-family:Manrope,var(--font-inter,Inter),Inter,sans-serif}
+.dp::before{content:"";position:absolute;inset:0;opacity:.07;background-image:radial-gradient(rgba(255,255,255,.9) .6u,transparent .7u),radial-gradient(rgba(255,255,255,.7) .5u,transparent .6u);background-size:5u 5u,7u 7u;background-position:0 0,2u 3u;pointer-events:none}
+.dp>*{position:relative}
+.dp-corner{position:absolute!important;top:16u;display:grid;place-items:center;width:38u;height:38u;border-radius:50%;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1u rgba(255,255,255,.16);color:#f4ece2}
+.dp-corner svg{width:16u;height:16u}
+.dp-share{left:16u}
+.dp-bell{right:16u}
+.dp-head{display:flex;flex-direction:column;align-items:center;text-align:center}
+.dp-av{width:96u!important;height:96u!important;border-radius:50%;box-shadow:0 0 0 3u rgba(246,176,98,.35)}
+.dp-head h3{margin-top:14u!important;font-family:"Bodoni Moda","Bodoni 72",Didot,"Playfair Display",Georgia,serif;font-size:31u;font-weight:500;letter-spacing:-.01em;line-height:1.1}
+.dp-head p{max-width:290u;margin-top:7u!important;font-size:13.5u;line-height:1.5;color:#c2b5a6}
+.dp-socials{display:flex;justify-content:center;gap:20u;height:40u;align-items:center;margin:6u 0 10u;color:#f6b062}
+.dp-socials svg{width:19u;height:19u}
+.dp-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:54u;margin-top:12u;padding:0 22u;border-radius:999u;box-shadow:inset 0 0 0 2u #f6b062;color:#f6b062;font-size:14.5u;font-weight:600;text-align:center}
+.dp-prod{display:flex;align-items:center;gap:12u;width:100%;margin-top:6u;padding:9u 10u 9u 9u;border-radius:20u;background:rgba(246,176,98,.07);box-shadow:inset 0 0 0 1u rgba(246,176,98,.4)}
+.dp-pack{position:relative;flex:none;width:76u;height:76u;border-radius:13u;overflow:hidden}
+.dp-pack img{position:absolute;inset:0}
+.dp-pack-a{filter:saturate(.35) contrast(.85) brightness(1.05)}
+.dp-pack-b{clip-path:inset(0 0 0 50%);filter:saturate(1.25) contrast(1.1)}
+.dp-pack i{position:absolute;left:50%;top:0;bottom:0;width:1.5u;background:#fff;opacity:.85}
+.dp-prod-t{flex:1;display:grid;gap:3u;min-width:0;text-align:left}
+.dp-prod-t b{font-size:14.5u;font-weight:700;line-height:1.25}
+.dp-prod-t i{font-size:11.5u;font-style:normal;color:#c2b5a6}
+.dp-prod strong{padding:8u 13u;border-radius:999u;background:#f6b062;color:#1b1612;font-size:13.5u;font-weight:700}
+.dp-btn.dp-new{padding:0 18u;border-radius:24u}
+.dp-signup{display:grid;gap:9u;width:100%;padding:14u 0;text-align:left}
+.dp-signup b{font-size:14u;font-weight:600;color:#f4ece2}
+.dp-form{display:flex;gap:6u}
+.dp-input{flex:1;display:flex;align-items:center;height:38u;padding:0 14u;border-radius:999u;background:rgba(255,255,255,.08);font-size:13u;font-weight:400;color:#c2b5a6}
+.dp-sub{display:grid;place-items:center;padding:0 15u;border-radius:999u;background:#f6b062;color:#1b1612;font-size:13u;font-weight:700}
+.dp-video{position:relative;display:block;width:100%;height:186u;margin-top:12u;border-radius:20u;overflow:hidden}
+.dp-video>em{position:absolute;left:14u;bottom:12u;color:#fff;font-size:12.5u;font-style:normal;font-weight:600;text-shadow:0 1u 4u rgba(0,0,0,.6)}
+.dp-vplay{position:absolute;left:50%;top:50%;width:46u;height:46u;margin:-23u 0 0 -23u;border-radius:50%;display:grid;place-items:center;background:#f6b062;color:#1b1612}
+.dp-vplay svg{width:16u;height:16u;margin-left:2u}
 
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ce-cur{animation:sxk-ce-cur var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ce-type{animation:sxk-ce-type var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ka-tag-old{animation:sxk-ce-old var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ka-ring{animation:sxk-ce-ring var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ce-st-saved,[data-mock-live] .ce-save-off{animation:sxk-ce-saved var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ce-st-dirty,[data-mock-live] .ce-save-on{animation:sxk-ce-dirty var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ce-save{animation:sxk-ce-press var(--bm-t) var(--bm-ease) infinite both}}
-@keyframes sxk-ce-cur{0%{opacity:0;transform:translate(-420u,240u)}6%{opacity:1}18%{transform:none}20%{transform:scale(.86)}22%,44%{transform:none}54%{transform:translate(128u,-254u)}56%{transform:translate(128u,-254u) scale(.86)}58%,68%{opacity:1;transform:translate(128u,-254u)}76%,100%{opacity:0;transform:translate(128u,-254u)}}
-@keyframes sxk-ce-type{0%,23%{transform:none;animation-timing-function:steps(41,end)}45%,100%{transform:translateX(100%)}}
-@keyframes sxk-ce-old{0%,20%{opacity:1}22%,100%{opacity:0}}
-@keyframes sxk-ce-ring{0%,19%{opacity:0}22%,88%{opacity:1}94%,100%{opacity:0}}
-@keyframes sxk-ce-saved{0%,22%{opacity:1}24%,56%{opacity:0}60%,100%{opacity:1}}
-@keyframes sxk-ce-dirty{0%,22%{opacity:0}24%,56%{opacity:1}60%,100%{opacity:0}}
-@keyframes sxk-ce-press{0%,55%{transform:none}56.5%{transform:scale(.94)}58%,100%{transform:none}}
-@media (max-width:767px){
-  .ce-bar{gap:6u;padding:0 10u 0 6u}
-  .ce-back{margin:0 2u}
-  .ce-logo,.ce-badge,.ce-device span,.ce-visitor span,.ce-look,.ce-status,.ce-panel-key{display:none}
-  .ce-name{overflow:hidden;text-overflow:ellipsis}
-  .ce-saverow{margin-left:6u}
-  .ce-stage{left:8u;top:64u;right:258u;bottom:8u;border-radius:12u}
-  .ce-preview>.smk{--w:560}
-  .ka-cols{grid-template-columns:1fr;padding:16u}
-  .ka-card{display:none}
-  .ka-cover{height:220u!important}
-  .ka-head,.ka-sec{padding-inline:20u}
-  .ka-tag{white-space:normal}
-  .ce-handle{right:244u;width:14u}
-  .ce-side{width:244u}
-  .ce-side-head{padding:0 12u 0 14u}
-  .ce-group-h{padding:0 14u}
-  .ce-group-h i{display:none}
-  .ce-flabel{margin-inline:14u!important}
-  .ce-input,.ce-logo-row{margin-inline:14u}
-  .ce-input{font-size:12.5u;padding:0 10u}
-}
+/* ---------- inside a community: The Strength Room (components/community/member) */
+.cx{background:#f8f9fa;color:#1a1a2e}
+.cx svg{width:18u;height:18u}
+.cx-bar{position:absolute;inset:0 0 auto;height:64u;display:flex;align-items:center;gap:24u;padding:0 40u;background:#fff}
+.cx-lead{display:flex;align-items:center;gap:12u;width:278u}
+.cx-mark{display:grid;place-items:center;flex:none;width:40u;height:40u;border-radius:10u;background:#c8743b;color:#fff8ef;font-size:15u;font-weight:800;letter-spacing:-.02em}
+.cx-who{display:grid;min-width:0;line-height:1.25}
+.cx-who b{font-size:16u;font-weight:600;white-space:nowrap}
+.cx-who i{font-size:12.5u;font-style:normal;color:#6b7280}
+.cx-menu{display:grid;place-items:center;flex:none;width:40u;height:40u;margin-left:auto;border-radius:10u;border:1u solid #e6e8eb;background:#f8f9fa;box-shadow:0 1u 1u rgba(16,24,40,.04)}
+.cx-search{display:flex;align-items:center;gap:10u;width:600u;height:40u;padding:0 14u;border-radius:10u;background:#f3f4f6;color:#8a8f98;font-size:14u}
+.cx-search svg{width:16u;height:16u}
+.cx-icons{display:flex;align-items:center;gap:22u;margin-left:auto;color:#4b5563}
+.cx-msg{position:relative;display:grid}
+.cx-msg i{position:absolute;right:-8u;top:-7u;display:grid;place-items:center;min-width:17u;height:17u;border-radius:999u;background:#ef4444;color:#fff;font-size:10u;font-style:normal;font-weight:600;box-shadow:0 0 0 2u #fff}
+.cx-me{width:36u!important;height:36u!important;border-radius:50%}
+.cx-tabs{position:absolute;left:0;right:0;top:64u;height:44u;display:flex;gap:30u;padding:0 40u;background:#fff;border-bottom:1u solid #e6e8ec;font-size:14.5u;font-weight:500;color:#6b7280}
+.cx-tabs span{display:flex;align-items:center}
+.cx-tabs .on{color:#1a1a2e;box-shadow:inset 0 -2u 0 #1a1a2e}
+.cx-left{position:absolute;left:40u;top:132u;width:278u;display:grid;gap:14u}
+.cx-card{border-radius:16u;border:1u solid rgba(229,231,235,.8);background:#fff;overflow:hidden}
+.cx-cover{height:156u!important}
+.cx-card-in{padding:14u 16u 16u}
+.cx-name{display:block;font-size:16u;font-weight:600}
+.cx-addr{margin-top:2u!important;font-size:12.5u;color:#8a8f98}
+.cx-sum{margin-top:10u!important;font-size:13.5u;line-height:1.5;color:#374151}
+.cx-stats{display:flex;margin-top:14u;padding:11u 0;border-top:1u solid #eceef1;border-bottom:1u solid #eceef1}
+.cx-stats>span{flex:1;display:grid;justify-items:center;gap:2u}
+.cx-stats>span+span{border-left:1u solid #eceef1}
+.cx-stats b{font-size:16u;font-weight:600}
+.cx-stats i{display:flex;align-items:center;gap:5u;font-size:12u;font-style:normal;color:#6b7280}
+.cx-stats em{width:7u;height:7u;border-radius:50%;background:#22a06b}
+.cx-faces{display:flex;align-items:center;margin-top:13u}
+.cx-faces img{width:30u!important;height:30u!important;border-radius:50%;margin-right:-7u;box-shadow:0 0 0 2u #fff}
+.cx-faces em{display:grid;place-items:center;height:30u;margin-left:4u;padding:0 9u;border-radius:999u;background:#f1f2f4;font-size:11.5u;font-style:normal;font-weight:600;color:#4b5563;box-shadow:0 0 0 2u #fff}
+.cx-event{padding:14u 16u}
+.cx-card-h{display:flex;justify-content:space-between;font-size:15u;font-weight:600}
+.cx-card-h span{font-size:13u;font-weight:500;color:#4b5563}
+.cx-ev{display:flex;gap:12u;margin-top:12u}
+.cx-date{display:grid;place-items:center;align-content:center;flex:none;width:50u;height:54u;border-radius:12u;border:1u solid #e8e9ec}
+.cx-date i{font-size:10.5u;font-style:normal;font-weight:600;text-transform:uppercase;color:#c4290c}
+.cx-date b{font-size:20u;font-weight:600;line-height:1.1}
+.cx-ev>span:last-child{display:grid;gap:2u}
+.cx-ev>span:last-child b{font-size:14u;font-weight:600}
+.cx-ev>span:last-child i{display:flex;align-items:center;gap:5u;font-size:12u;font-style:normal;color:#6b7280}
+.cx-ev svg{width:13u;height:13u}
+.cx-main{position:absolute;left:342u;right:40u;top:132u;display:grid;gap:14u}
+.cx-chips{display:flex;align-items:center;gap:8u}
+.cx-chips>span{display:flex;align-items:center;gap:7u;height:36u;padding:0 15u;border-radius:999u;border:1u solid #e4e7ec;background:#fff;color:#4b5563;font-size:13.5u;font-weight:500;box-shadow:0 1u 1u rgba(16,24,40,.05)}
+.cx-chips>span i{font-style:normal;font-size:13u}
+.cx-chips>.on{border-color:#1a1a2e;background:#1a1a2e;color:#fff}
+.cx-chips>.cx-sort{width:36u;margin-left:auto;padding:0;justify-content:center}
+.cx-sort svg{width:16u;height:16u}
+.cx-compose{display:flex;align-items:center;gap:12u;padding:12u 18u;border-radius:16u;border:1u solid rgba(229,231,235,.8);background:#fff}
+.cx-av{flex:none;width:40u!important;height:40u!important;border-radius:50%}
+.cx-field{position:relative;display:grid;align-items:center;flex:1;height:40u;padding:0 16u;border-radius:10u;background:#f3f4f6;font-size:14u;overflow:hidden}
+.cx-field>span{grid-area:1/1;white-space:nowrap}
+.cx-ph{color:#9ca3af;opacity:0}
+.cx-typed{position:relative;justify-self:start;color:#1a1a2e;overflow:hidden}
+.cx-type{position:absolute;inset:0 -2u 0 0;background:#f3f4f6;transform:translateX(100%)}
+.cx-type::before{content:"";position:absolute;left:1u;top:2u;bottom:2u;width:1.5u;background:#1a1a2e}
+.cx-post{padding:16u 20u 12u;border-radius:16u;border:1u solid rgba(229,231,235,.8);background:#fff}
+.cx-pin{display:flex;align-items:center;gap:6u;margin-bottom:10u!important;font-size:12.5u;font-weight:600;color:#4b5563}
+.cx-pin svg{width:13u;height:13u;color:#1a1a2e;fill:#1a1a2e}
+.cx-ph-head{display:flex;align-items:flex-start;gap:12u}
+.cx-ph-head>span{flex:1;display:grid;gap:1u}
+.cx-ph-head b{display:flex;align-items:center;gap:6u;font-size:14.5u;font-weight:600}
+.cx-ph-head b em{font-size:12u;font-style:normal;font-weight:500;color:#b7791f}
+.cx-ph-head i{font-size:13u;font-style:normal;color:#6b7280}
+.cx-more{color:#9ca3af}
+.cx-post h4{margin:12u 0 0;font-size:18u;font-weight:600;letter-spacing:-.005em}
+.cx-post>p:not(.cx-pin){margin-top:5u!important;font-size:14.5u;line-height:1.55;color:#4b5563}
+.cx-foot{display:flex;align-items:center;gap:18u;height:44u;margin-top:6u;font-size:14u;color:#4b5563}
+.cx-foot>span{display:flex;align-items:center;gap:7u}
+.cx-foot b{font-weight:500}
+.cx-heart{position:relative}
+.cx-heart svg{grid-area:1/1}
+.cx-h-on{position:absolute;left:0;color:#e5484d}
+.cx-n{display:grid}
+.cx-n>span{grid-area:1/1}
+.cx-n-a{opacity:0}
+.cx-faces-s{margin:0!important;gap:0!important}
+.cx-faces-s img{width:24u!important;height:24u!important;margin-right:-6u}
+.cx-new{margin-left:6u;font-size:13.5u}
+.cx-pics{display:grid;grid-template-columns:1fr 1fr;gap:4u;margin-top:12u;border-radius:12u;overflow:hidden}
+.cx-pics img{height:240u!important}
+.cx-cur{left:366u;top:457u}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cx-cur{animation:sxk-cx-cur var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cx-h-on{animation:sxk-cx-like var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cx-n-a{animation:sxk-cx-na var(--bm-t) linear infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cx-n-b{animation:sxk-cx-nb var(--bm-t) linear infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cx-ph{animation:sxk-cx-ph var(--bm-t) linear infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cx-typed{animation:sxk-cx-typed var(--bm-t) linear infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cx-type{animation:sxk-cx-type var(--bm-t) var(--bm-ease) infinite both}}
+@keyframes sxk-cx-cur{0%{opacity:0;transform:translate(360u,260u)}6%{opacity:1}22%{transform:none}24%{transform:scale(.86)}26%,36%{transform:none}50%{transform:translate(70u,-245u)}52%{transform:translate(70u,-245u) scale(.86)}54%,80%{opacity:1;transform:translate(70u,-245u)}88%,100%{opacity:0;transform:translate(70u,-245u)}}
+@keyframes sxk-cx-like{0%,23%{opacity:0;transform:scale(.6)}26%{opacity:1;transform:scale(1.18)}29%,92%{opacity:1;transform:none}96%,100%{opacity:0;transform:scale(.6)}}
+@keyframes sxk-cx-na{0%,24%{opacity:1}25%,94%{opacity:0}95%,100%{opacity:1}}
+@keyframes sxk-cx-nb{0%,24%{opacity:0}25%,94%{opacity:1}95%,100%{opacity:0}}
+@keyframes sxk-cx-ph{0%,52%{opacity:1}53%,96%{opacity:0}97%,100%{opacity:1}}
+@keyframes sxk-cx-typed{0%,52%{opacity:0}53%,96%{opacity:1}97%,100%{opacity:0}}
+@keyframes sxk-cx-type{0%,53%{transform:none;animation-timing-function:steps(${ST_TYPED.length},end)}80%,100%{transform:translateX(100%)}}
 `)

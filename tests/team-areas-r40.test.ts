@@ -111,7 +111,7 @@ async function main() {
     /* Changed on purpose (OnePage production audit, ED-1): the owner's plan counts as read. */
     check("the editor takes the owner's plan and domain from the page, not the member's account", /if \(team\) \{\s*setConnectedDomain\(team\.domain\)\s*setUserPlan\(team\.plan\)\s*setPlanConfirmed\(true\)\s*return/.test(editor))
     check("  and never opens the first visit's wizard for a member (it writes the signed in account)", /if \(team\) \{\s*setShowOnboarding\(false\)\s*setOnboardingChecked\(true\)/.test(editor))
-    check("the product pickers list the store's products for a member", /teamStoreForProducts\(\)/.test(read("components/onepage/tabs/product-block-editor.tsx")) && /teamStoreForProducts\(\)/.test(read("components/onepage/creator-blocks.tsx")))
+    check("the product pickers list the store's products for a member", /teamStoreForProducts\(\)/.test(read("components/onepage/tabs/product-block-editor.tsx")) && /teamStoreForProducts\(\)/.test((read("components/onepage/creator-blocks.tsx") + "\n" + read("components/onepage/creator-blocks-editor.tsx"))))
     const links = read("components/onepage/tabs/links-tab.tsx")
     const design = read("components/onepage/tabs/design-tab.tsx")
     check("the profile photo is the owner's account photo: a member is told, and never saves it", (links.match(/photoIsOwners\(team\.store\)/g) ?? []).length >= 2 && (design.match(/photoIsOwners\(team\.store\)/g) ?? []).length >= 2 && /if \(team\) throw new SaveError\(photoIsOwners\(team\.store\)\)/.test(design)) // Changed on purpose (round 42 settings): a SaveError (lib/onepage/photo-save), whose words the crop sheet shows

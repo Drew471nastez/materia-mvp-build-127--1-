@@ -42,7 +42,7 @@ const rule = (selector: string) => {
 check("it spans the card, edge to edge, at the top of the window", new RegExp(`md:inset-x-\\[max\\(16px,calc\\(50%_-_${CARD_PX / 2}px\\)\\)\\] md:pt-0`).test(bar) && !/md:top-3/.test(bar) && /max-w-\[550px\]/.test(page) && CARD_PX === 550)
 check("no pill: no ring, no shadow, no inset corner", !/md:rounded-\[28px\]/.test(bar) && !/box-shadow: 0 0 0 1px color-mix\(in srgb, var\(--op-bar-ink/.test(css) && !/BAR_DESKTOP_INSET_PX/.test(read("lib/onepage/feel.ts")))
 check("its top corners are the card's, only where the card is cut to match", new RegExp(`\\.op-topbar \\{ border-radius: ${CARD_RADIUS_PX}px ${CARD_RADIUS_PX}px 0 0; \\}`).test(css) && /@supports \(animation-timeline: scroll\(\)\) \{\s*@media \(min-width: 48rem\) \{\s*\[data-op-card\]/.test(css))
-check("a soft fade of the page's own colour at its foot, not an edge", /\.op-topbar::after \{[^}]*top: 100%;[^}]*background: linear-gradient\(to bottom, var\(--op-bar-bg/.test(css) && /\["--op-bar-bg" as string\]: background/.test(bar))
+check("a soft fade of the page's own colour at its foot, not an edge", /* Changed on purpose (round 17): the foot is the bar's own frosted colour, faded out by a mask. */ /\.op-topbar::after \{[^}]*top: 100%;[^}]*background-color: color-mix\(in srgb, var\(--op-bar-bg[^}]*mask-image: linear-gradient\(to bottom, #000, transparent\)/.test(css) && /\["--op-bar-bg" as string\]: background/.test(bar))
 check("its height on a computer is the one lib/onepage/feel names", BAR_DESKTOP_PX === 56 && /--op-bar-h: 56px;/.test(css))
 
 /* ── Drawn from the scroll, never a frame behind ── */

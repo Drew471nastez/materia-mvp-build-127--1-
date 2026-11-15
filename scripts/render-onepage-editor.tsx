@@ -13,28 +13,6 @@ import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
 import { ViewportVars } from "@/components/viewport-vars"
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { defaultTheme, defaultSettings, type OnePage } from "@/lib/onepage/types"
-import { slotsFor } from "@/components/onepage/themes/theme-preview"
-import { previewAccountOf } from "@/components/onepage/themes/preview-account"
-import { themeProductLayoutOf } from "@/lib/onepage/theme-layout"
-
-/**
- * Round AT (scripts/check-onepage-theme-previews-as1.mjs): ?live&template=x&creator draws the live page the
- * theme's card draws: this page's own name, photo and blocks (components/onepage/themes/preview-account),
- * with the samples a card fills in, in the card's order. A probe can hand its own page (PROBE_ACCOUNT).
- */
-function creatorPage(page: Record<string, any>, theme: Record<string, unknown>) {
-  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
-  const who = previewAccountOf(page as never, money)
-  const products = themeProductLayoutOf(theme)
-  const blocks: any[] = [{ id: "s", type: "social_row", enabled: true, sort_order: 0, data: { platforms: who.socials.map((p) => ({ platform: p, url: `https://example.com/${p}` })) } }]
-  const add = (type: string, data: Record<string, unknown>) => blocks.push({ id: `b${blocks.length}`, type, enabled: true, sort_order: blocks.length, data })
-  for (const s of slotsFor(who)) {
-    if (s.kind === "link") { const l = who.links[s.at]; add("link_button", { label: l.label, url: "https://example.com/l", thumbnail_url: l.picture }) }
-    else if (s.kind === "news") add("email_capture", { headline: who.news.headline, description: who.news.desc, placeholder: "Email", button_preset: "custom", custom_button_text: who.news.button })
-    else for (const p of products === "own" ? who.products.slice(0, 1) : who.products) add("product", { product_id: `p${blocks.length}`, product_slug: `p${blocks.length}`, product_title: p.title, product_price_cents: Math.round(parseFloat(p.price.replace(/[^0-9.]/g, "")) * 100), product_thumbnail: p.picture, cta_text: p.cta, show_description: false })
-  }
-  return { title: who.name, bio: who.bio, avatar_url: who.avatar, blocks }
-}
 
 const px = (n: number) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="hsl(${n * 47},55%,62%)"/></svg>`)}`
@@ -114,7 +92,8 @@ if (location.pathname.startsWith("/onepage-preview")) {
      two would draw the avatar, the name and the bio twice. */
   const header = { id: "h", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } }
   const own = onepage.draft_blocks.filter((b) => !b.schedule && b.type !== "header")
-  const made = template && new URLSearchParams(location.search).has("creator") ? creatorPage((globalThis as any).PROBE_ACCOUNT ?? onepage, live_theme) : null
+  /* The theme cards draw no creator any more (components/onepage/themes/theme-swatch), so there is no page of a card's to make. */
+  const made: { title: string; bio: string; avatar_url: string | null; blocks: any[] } | null = null as { title: string; bio: string; avatar_url: string | null; blocks: any[] } | null
   const live = made
     ? { ...onepage, title: made.title, bio: made.bio, avatar_url: made.avatar_url, theme: live_theme, blocks: [header, ...made.blocks], seller_id: "seller_probe" }
     : { ...onepage, theme: live_theme, blocks: [header, ...own], seller_id: "seller_probe" }

@@ -1,6 +1,7 @@
 import "server-only"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { carriesSignIn } from "@/lib/auth/no-session-paths"
 
 /**
  * THE CREATOR LOOKING AT THEIR OWN PAGE IS NOT A VISITOR.
@@ -21,7 +22,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
  */
 export async function isOwnVisit(cookieNames: string[], ownerUserId: string | null | undefined, creatorId?: string | null): Promise<boolean> {
   if (!ownerUserId && !creatorId) return false
-  const signedIn = cookieNames.some((name) => name.startsWith("sb-") && name.includes("auth-token"))
+  /* Under the old name or the `__Host-` one (lib/supabase/host-session.ts, round AX): the proxy's own test. */
+  const signedIn = carriesSignIn(cookieNames)
   if (!signedIn) return false
   try {
     const supabase = await createClient()

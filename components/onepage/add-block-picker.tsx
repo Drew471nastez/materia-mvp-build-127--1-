@@ -54,7 +54,7 @@ import { ChevronRight, Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppMark, INSTAGRAM_FILL, IntegrationMark, brandColor, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
 import { accentNoActive } from "@/components/ui/depth-button"
-import { EXTRA_BLOCK_CATALOG } from "@/components/onepage/extra-blocks"
+import { EXTRA_BLOCK_CATALOG } from "@/components/onepage/extra-blocks-editor"
 import {
   APP_GLYPHS,
   GlyphBooking,

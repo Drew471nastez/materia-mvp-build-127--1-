@@ -1,4 +1,4 @@
-/* Section 11, analytics (landing round: smaller). Only transform and opacity animate; the globe is one canvas. */
+/* Section 11, analytics (landing round 4). Only transform and opacity animate; the globe is one canvas. */
 
 /* Every card is a dark surface with a hairline: the section sits on the purple sheet (landing round 3). */
 .dark {
@@ -14,19 +14,32 @@
 .dark > * {
   pointer-events: none;
 }
-/* The reports: outlined in the ground's own ink, light on the purple sheet and dark on a white one. */
+/*
+  The reports (landing round 5, the owner: "white with some depth, a bit of
+  glass, cooler and cleaner"). Near white, a cool top-lit gradient, a bright
+  hairline on the top edge and a soft violet shadow under them. No backdrop
+  blur: the glass is in the light, so nothing is sampled while it scrolls.
+*/
 .report {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 14px;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px 0 12px;
   border-radius: 999px;
   font-size: 13.5px;
   font-weight: 500;
-  color: var(--band-ink, #1f1d26);
-  background: color-mix(in srgb, var(--band-ink, #1f1d26) 6%, transparent);
-  box-shadow: inset 0 0 0 1px var(--band-line, rgba(15, 14, 19, 0.08));
+  color: #2a2540;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 244, 255, 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 0 rgba(91, 33, 182, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 1px 2px rgba(30, 10, 80, 0.14),
+    0 10px 22px -12px rgba(30, 10, 80, 0.5);
+}
+.report svg {
+  color: #6d28d9;
 }
 @media (max-width: 639px) {
   .dark {
@@ -44,7 +57,7 @@
 }
 @media (max-width: 639px) {
   .globeCard {
-    height: 400px;
+    height: 470px;
   }
   .fixed {
     height: auto;
@@ -57,6 +70,12 @@
   right: 0;
   top: 5%;
   bottom: -4%;
+}
+@media (max-width: 639px) {
+  .globe {
+    top: 3%;
+    bottom: 34%;
+  }
 }
 .globe canvas {
   opacity: 0;
@@ -109,6 +128,7 @@
   }
 }
 
+/* The profile and the top places: two solid dark chips side by side, stacked full width on a phone. */
 .overlay {
   position: absolute;
   z-index: 1;
@@ -117,10 +137,9 @@
   bottom: 18px;
   display: flex;
   justify-content: center;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 10px;
 }
-/* Solid dark chips, a shade above the card, so nothing white floats on black. */
 .profile,
 .places {
   border-radius: 17px;
@@ -132,39 +151,91 @@
 .profile {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  width: 216px;
+  padding: 14px 16px;
+}
+.who {
+  display: flex;
   align-items: center;
-  width: 196px;
-  padding: 16px 16px 14px;
-  text-align: center;
+  gap: 11px;
+}
+.avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.figures > div + div {
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 .places {
-  width: 236px;
+  width: 252px;
   padding: 14px 16px;
+}
+/* Each place's share of her visitors: a hairline track, filled by a static transform. */
+.share {
+  display: block;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.share > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8b7cf6, #c4b5fd);
+  transform-origin: 0 50%;
 }
 @media (max-width: 639px) {
   .overlay {
     left: 12px;
     right: 12px;
     bottom: 12px;
+    flex-direction: column;
     gap: 8px;
   }
   .profile {
     width: auto;
-    flex: 1 1 0;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 14px;
+  }
+  .who {
     min-width: 0;
-    padding: 14px 10px 12px;
+    flex: 1;
+  }
+  .avatar {
+    width: 38px;
+    height: 38px;
+  }
+  .figures {
+    flex: none;
+    padding-top: 0;
+    border-top: 0;
   }
   .places {
     width: auto;
-    flex: 1.2 1 0;
-    min-width: 0;
-    padding: 12px;
+    padding: 12px 14px;
   }
 }
 
 /* The search results: a night search, one shade above the card, running off its foot. */
 .serp {
   border-radius: 15px 15px 0 0;
+  position: relative;
   background: #15151a;
   padding: 16px 16px 0;
   flex: 1 1 auto;
@@ -181,6 +252,53 @@
   border-radius: 999px;
   background: #1f1f25;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/*
+  The dot grid behind the SEO card (the owner's reference: a fine dot grid on
+  a dark ground). One layer a cell larger than the card, faded towards the
+  results, drifting one cell diagonally and starting again: a transform loop,
+  without a seam because the pattern repeats every cell.
+*/
+.dots {
+  position: absolute;
+  inset: -22px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 0.9px, transparent 1.5px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(90% 70% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.35) 40%, transparent 70%);
+  mask-image: radial-gradient(90% 70% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.35) 40%, transparent 70%);
+  animation: dotsDrift 16s linear infinite;
+}
+@keyframes dotsDrift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(22px, 22px, 0);
+  }
+}
+
+/*
+  The light behind the engines (landing round 5): two soft tints, a cool
+  violet and a blue, on one layer twice the card's size that turns once a
+  minute around the card's middle. One transform, very low contrast.
+*/
+.orbit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 180%;
+  aspect-ratio: 1;
+  margin: -90% 0 0 -90%;
+  background:
+    radial-gradient(22% 22% at 30% 34%, rgba(139, 124, 246, 0.22), transparent 70%),
+    radial-gradient(24% 24% at 70% 66%, rgba(96, 165, 250, 0.14), transparent 70%);
+  animation: orbit 60s linear infinite;
+}
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* The engines take turns in one pill: the one in turn in the middle, its neighbours faint at the sides. */
@@ -265,7 +383,9 @@
   .globe canvas {
     opacity: 1;
   }
-  .liveDot::after {
+  .liveDot::after,
+  .dots,
+  .orbit {
     animation: none;
   }
 }

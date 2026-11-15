@@ -23,13 +23,14 @@
   Klaviyo, MailerLite and Kit; Simple Icons through the trimmed generated
   set; the catalog's SVG files), or the company's own app icon at three
   times the drawn size (public/home/apps). No light follows the pointer any
-  more (it was cut off at the rows' edges and cost a layout read per move):
-  a tile lifts a little under a pointer and turns over once.
+  more (it was cut off at the rows' edges and cost a layout read per move).
+  Landing round 4, the owner: a tile does not bump under the pointer; it
+  turns over once, smoothly, with nothing square behind it.
 
   TWO ROWS THAT NEVER SHOW A TILE TWICE (the owner: two rows, icons a fifth
   smaller). Each row is its set twice over and one loop travels exactly one
-  set. A set (12 or 13 tiles of 90px and a 14px gap) is wider than the most
-  of the rows ever seen (1120px, solid fades past it) plus one tile, so the
+  set. A set (12 or 13 tiles of 90px and a 20px gap) is wider than the most
+  of the rows ever seen (1210px, solid fades past it) plus one tile, so the
   same icon is never on screen twice at once, never side by side. The rows stop under a pointer. Off
   screen, under reduced motion, nothing moves.
 
@@ -40,7 +41,12 @@
 
 import { useEffect, useRef, type CSSProperties, type ComponentType } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
-import { SiAftership, SiBrevo, SiGooglecalendar, SiPinterest, SiPosthog, SiTiktok } from "@/components/icons/brand-icons.generated"
+import { SiAftership } from "@/components/icons/brand/SiAftership"
+import { SiBrevo } from "@/components/icons/brand/SiBrevo"
+import { SiGooglecalendar } from "@/components/icons/brand/SiGooglecalendar"
+import { SiPinterest } from "@/components/icons/brand/SiPinterest"
+import { SiPosthog } from "@/components/icons/brand/SiPosthog"
+import { SiTiktok } from "@/components/icons/brand/SiTiktok"
 import { ApplePayMark, GoogleAdsMark, GooglePayMark, StripeMark } from "./integration-marks"
 import { KitLogo, KlaviyoLogo, MailerLiteLogo } from "./email-platform-logos"
 import { usePlatformSection } from "./platform-motion"
@@ -111,8 +117,8 @@ export const PLATFORM_INTEGRATION_APPS = ROWS.flatMap((r) => r.map((a) => ({ nam
 /** The rows' sets, for tests: no row may be narrow enough to show a tile twice. */
 export const INTEGRATION_ROW_SIZES = ROWS.map((r) => r.length)
 /** What one tile takes on a wide screen (tile and gap) and the most of a row ever seen, for tests. */
-export const INTEGRATION_TILE_STEP = 90 + 14
-export const INTEGRATION_SEEN_MAX = 1120
+export const INTEGRATION_TILE_STEP = 90 + 20
+export const INTEGRATION_SEEN_MAX = 1210
 
 function Icon({ app }: { app: App }) {
   if (app.tile) {
@@ -169,7 +175,7 @@ function Tile({ app, copy }: { app: App; copy: boolean }) {
       data-copy={copy ? "" : undefined}
       title={copy ? undefined : app.name}
     >
-      <span className={s.inner} style={{ background: app.bg }}>
+      <span className={s.inner} style={{ background: app.bg }} data-light={/^#(fff|ffffff|eeefe9)$/i.test(app.bg) || undefined}>
         <Icon app={app} />
         <span className={s.shine} />
       </span>
@@ -177,12 +183,16 @@ function Tile({ app, copy }: { app: App; copy: boolean }) {
   )
 }
 
-/* One turn, landing where it started: edge on at the half, then round from the other side. */
+/*
+  One turn, landing where it started: edge on at the half, then round from
+  the other side, so the mirrored back never shows. The two halves' easings
+  meet at the same speed at the edge, so the turn reads as one smooth motion.
+*/
 const FLIP: Keyframe[] = [
-  { transform: "perspective(600px) rotateY(0deg)", easing: "cubic-bezier(0.5, 0, 0.9, 0.5)" },
-  { transform: "perspective(600px) rotateY(90deg)", offset: 0.5 },
-  { transform: "perspective(600px) rotateY(-90deg)", offset: 0.5, easing: "cubic-bezier(0.1, 0.5, 0.4, 1)" },
-  { transform: "perspective(600px) rotateY(0deg)" },
+  { transform: "perspective(700px) rotateY(0deg)", easing: "cubic-bezier(0.45, 0, 0.75, 0.55)" },
+  { transform: "perspective(700px) rotateY(90deg)", offset: 0.5 },
+  { transform: "perspective(700px) rotateY(-90deg)", offset: 0.5, easing: "cubic-bezier(0.25, 0.45, 0.55, 1)" },
+  { transform: "perspective(700px) rotateY(0deg)" },
 ]
 /* The flash: a band of light across the face as it comes round. */
 const SHINE: Keyframe[] = [
@@ -191,7 +201,7 @@ const SHINE: Keyframe[] = [
   { transform: "translate3d(-10%, 0, 0)", opacity: 1, offset: 0.7 },
   { transform: "translate3d(130%, 0, 0)", opacity: 0 },
 ]
-const TURN_MS = 760
+const TURN_MS = 900
 
 export function IntegrationsSection() {
   const ref = useRef<HTMLElement>(null)

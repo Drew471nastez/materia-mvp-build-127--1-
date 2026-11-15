@@ -2,11 +2,11 @@
   THE "SELL ANYWHERE" GLOBE'S ENGINE.
 
   Everything the globe does per frame: the spin, the drag with its throw,
-  the lean toward the mouse, the order shots, the landing pulses and the
-  pill's place. It runs in a worker that owns the canvas
+  the lean toward the mouse, the order shots, the landing pulses and when the
+  order notification comes and goes. It runs in a worker that owns the canvas
   (everything-globe-worker.ts, shipped as a string built by
   scripts/build-globe-worker.mjs), so the page's own thread does nothing per
-  frame but move one pill; where a canvas cannot be handed to a worker,
+  frame but show or hide one notification; where a canvas cannot be handed to a worker,
   everything-globe.tsx runs this same engine on the page.
 
   Timing: every motion is advanced by the real time between two animation
@@ -16,15 +16,31 @@
   up where it was when the globe scrolls back into view.
 
   Cost: device pixels capped at 2x. Nothing is allocated per frame: the
-  land's projected points, the depth buckets they are drawn in and every
-  order's arc are typed arrays made once. Land is a few thousand dots (small
-  squares: a path of circles cost twice as much to raster) in six batched
-  paths by depth, fading out toward the rim so the
-  foreshortened rows there never clump; the shaded sphere, its rim light and
-  atmosphere are painted once per size. It draws only while the section is
-  on screen, the tab visible and the globe in view, or while the visitor is
-  turning it. Under reduced motion it stands still (one frame) and redraws
-  only while dragged.
+  land points and every order's arc are typed arrays made once. Land is a
+  few thousand dots (small squares: a path of circles cost twice as much to
+  raster) in ONE path and one fill a frame; the fade toward the rim, so the
+  foreshortened rows there never clump, is a picture of the sphere itself
+  with a soft hole in the middle, stamped over the dots (see paintStatic).
+  The shaded sphere, its rim light and atmosphere are painted once per size.
+  It draws only while the section is on screen, the tab visible and the
+  globe in view, or while the visitor is turning it. Under reduced motion it
+  stands still (one frame) and redraws only while dragged.
+
+  LANDING ROUND 6 (the owner: "the whole globe thing is very laggy, make sure
+  it doesn't cause lag on drag and movement"):
+  - The real lag: after every drawn frame the loop started over with a
+    frame that only set its time base, so the globe drew every OTHER
+    display frame (30 a second on a 60Hz phone, dragging included). The
+    tick now asks for its own next frame (see the end of tick).
+  - The land is projected in one tight loop with the rotation inlined and
+    the back of the ball culled before most of the arithmetic (about half
+    the dots never get past three multiplications), straight into one path:
+    no per dot depth buckets, no sorting pass, no scratch arrays.
+  - A drag, and the coast after a throw, draw on every display frame (the
+    ball sits under the finger at 90 or 120Hz); only the idle spin is held
+    to about 60 a second.
+  - The notification is placed where the shot landed (see showPill), told
+    once per landing, never per frame.
 */
 
 export type V3 = [number, number, number]
@@ -39,15 +55,54 @@ const ARC_MS = 1250
 const TAIL_LAG = 380
 const PULSE_MS = 1400
 const ARC_N = 96
-const TRAIL_CHUNKS = 14
-const DEPTH_BUCKETS = 6
-/** The pill only shows while its city faces the viewer this much (z of the unit vector). */
-const PILL_MIN_Z = 0.16
+/** Pieces of a shot's tail, each a little brighter and wider toward the head (14 in round 5; 8 reads the same at this size, at about half the strokes). */
+const TRAIL_CHUNKS = 8
+/*
+  LANDING ROUND 6 (the owner: "the new order notifications should show where the laser landed, where the rocket
+  landed"). Round 5 put the notification in a fixed corner because a pill re-aimed several times a second at a turning
+  city jumped. Now it is told ONCE, when the shot lands: where the buyer's city is on the card (CSS pixels) and where
+  the slow spin will have carried it when the notification leaves, PILL_SHOW_MS later. The page sets it there and lets
+  one compositor animation carry it along that line (nothing re-aims it). Every frame the engine checks the city
+  against that line; if the city turns toward the back of the ball, leaves the card, or a drag or a throw takes it
+  off the line, the notification is told to leave early.
+*/
+const PILL_SHOW_MS = 2100
+/** How far (CSS px) the city may wander from the line the notification travels before it leaves early. */
+const PILL_DRIFT_PX = 16
+/** The city must face the viewer at least this much (z on the unit sphere) for the notification to stay. */
+const PILL_MIN_FACE = 0.18
+/**
+ * Cost on any phone (landing round 5, the owner: "works on any low end device without lag"). The globe draws at most
+ * about 60 times a second, whatever the display's rate (a 120Hz phone does not pay twice for a slow spin). The time a
+ * frame's drawing takes is watched: if it stays heavy, the canvas steps down to fewer device pixels (2x, 1.5x, 1x), and
+ * if it is still heavy at 1x the idle spin draws at 30 frames a second (a drag stays at 60).
+ */
+const FRAME_MIN_MS = 15
+const SLOW_FRAME_MS = 7
+const SLOW_FRAME_IDLE_MS = 30
 
-/** Where the pill should be: the buyer's city in CSS pixels of the card, and whether it faces the viewer. */
-export type GlobePill = { i: number; x: number; y: number; on: boolean }
+/**
+ * The order notification: which order landed, and whether it is showing. When it comes on it also says where the city
+ * is on the card (x0, y0, CSS pixels from the card's top left) and where it will be `ms` later (x1, y1).
+ */
+export type GlobePill = { i: number; on: boolean; x0?: number; y0?: number; x1?: number; y1?: number; ms?: number }
 
 export type GlobePointer = { kind: "down" | "move" | "up"; x: number; y: number; t: number }
+
+/** The land's light before the rim fade, and its fill. */
+const LAND_ALPHA = 0.78
+const LAND_STYLE = `rgba(236,233,255,${LAND_ALPHA})`
+/** Round 5's six depth buckets, by a smoothstep of depth: now the points a smooth curve runs through. */
+const LAND_STEPS = [0.07, 0.16, 0.28, 0.42, 0.58, LAND_ALPHA]
+/** A dot's light at depth z (z of the unit sphere toward the viewer): each old bucket's value at its middle, joined by straight lines. */
+function landFade(z: number): number {
+  const f = z < 0.7 ? z / 0.7 : 1
+  const u = f * f * (3 - 2 * f) * LAND_STEPS.length - 0.5
+  if (u <= 0) return LAND_STEPS[0]
+  if (u >= LAND_STEPS.length - 1) return LAND_ALPHA
+  const b = Math.floor(u)
+  return LAND_STEPS[b] + (LAND_STEPS[b + 1] - LAND_STEPS[b]) * (u - b)
+}
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
@@ -90,16 +145,7 @@ const POINTER_SAMPLES = 8
 
 export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, cities: V3[], home: V3) {
   const { canvas, ctx } = host
-  const nPts = pts.length / 3
-  /* Per frame scratch, made once: each land dot's screen place, size and depth bucket, and the dots sorted by bucket. */
-  const px = new Float32Array(nPts)
-  const py = new Float32Array(nPts)
-  const pr = new Float32Array(nPts)
-  const pb = new Int8Array(nPts)
-  const order = new Int32Array(nPts)
-  const bucketCount = new Int32Array(DEPTH_BUCKETS + 1)
-  const bucketAlpha = [0.07, 0.16, 0.28, 0.42, 0.58, 0.78]
-  const bucketStyle = bucketAlpha.map((a) => `rgba(236,233,255,${a})`)
+  const nPts3 = pts.length - (pts.length % 3)
   /* Every order's arc, made once (the studio and the cities never move). */
   const arcs = cities.map((c) => arcPoints(home, c))
 
@@ -139,9 +185,23 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     order: 0,
     pill: -1,
     pillOn: false,
-    pillX: -1e9,
-    pillY: -1e9,
+    pillOff: 0,
+    /** Where the notification's city was when it landed, and where the spin was to carry it (CSS px), and when. */
+    pillX0: 0,
+    pillY0: 0,
+    pillX1: 0,
+    pillY1: 0,
+    pillT0: 0,
+    /** The display's last frame time that was drawn, a running average of a frame's drawing cost, and the frames it covers. */
+    drawnAt: 0,
+    cost: 0,
+    costN: 0,
+    /** The device pixel ratio asked for, and the one in use after any step down. */
+    askedDpr: 1,
+    dprCeil: 4,
+    slow: false,
     bg: null as AnyCanvas | null,
+    fade: null as AnyCanvas | null,
     glow: null as AnyCanvas | null,
     frame: 0,
     last: 0,
@@ -159,19 +219,8 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     const R = st.R * st.dpr
     const cx = st.cx * st.dpr
     const cy = st.cy * st.dpr
-    const bg = host.makeCanvas(W, H)
-    const g = bg?.getContext("2d") as Ctx2D | null | undefined
-    if (g) {
-      /* Atmosphere: a soft violet haze just outside the rim. */
-      const halo = g.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.14)
-      halo.addColorStop(0, "rgba(139,92,246,0.22)")
-      halo.addColorStop(0.35, "rgba(139,92,246,0.08)")
-      halo.addColorStop(1, "rgba(139,92,246,0)")
-      g.fillStyle = halo
-      g.beginPath()
-      g.arc(cx, cy, R * 1.14, 0, Math.PI * 2)
-      g.fill()
-      /* The body, lit from the upper left. */
+    /* The body, lit from the upper left, with a thin violet rim light along the inside of the edge. */
+    const sphere = (g: Ctx2D) => {
       const body = g.createRadialGradient(cx - R * 0.35, cy - R * 0.42, R * 0.04, cx, cy, R)
       body.addColorStop(0, "#26252e")
       body.addColorStop(0.55, "#121116")
@@ -180,7 +229,6 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
       g.beginPath()
       g.arc(cx, cy, R, 0, Math.PI * 2)
       g.fill()
-      /* Rim light: a thin violet glow along the inside of the edge. */
       const rim = g.createRadialGradient(cx, cy, R * 0.86, cx, cy, R)
       rim.addColorStop(0, "rgba(167,139,250,0)")
       rim.addColorStop(0.8, "rgba(167,139,250,0.05)")
@@ -193,7 +241,43 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
       g.arc(cx, cy, R - st.dpr / 2, 0, Math.PI * 2)
       g.stroke()
     }
+    const bg = host.makeCanvas(W, H)
+    const g = bg?.getContext("2d") as Ctx2D | null | undefined
+    if (g) {
+      /* Atmosphere: a soft violet haze just outside the rim. */
+      const halo = g.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.14)
+      halo.addColorStop(0, "rgba(139,92,246,0.22)")
+      halo.addColorStop(0.35, "rgba(139,92,246,0.08)")
+      halo.addColorStop(1, "rgba(139,92,246,0)")
+      g.fillStyle = halo
+      g.beginPath()
+      g.arc(cx, cy, R * 1.14, 0, Math.PI * 2)
+      g.fill()
+      sphere(g)
+    }
     st.bg = bg
+    /*
+      The rim fade (round 6), in place of six depth buckets drawn one by one: the land is filled at LAND_ALPHA in one
+      path, then this picture of the same sphere is stamped over it, clear in the middle and more and more opaque
+      toward the edge. Over bare sphere it paints the pixels already there, so only the dots change: a dot keeps
+      LAND_ALPHA times (1 - the stamp's alpha) of its light, which is the old buckets' fade as a smooth curve.
+    */
+    const fade = host.makeCanvas(W, H)
+    const f = fade?.getContext("2d") as Ctx2D | null | undefined
+    if (f) {
+      sphere(f)
+      const mask = f.createRadialGradient(cx, cy, 0, cx, cy, R)
+      /* Stops crowd toward the edge, where depth changes fastest across the picture. */
+      for (let k = 0; k <= 24; k++) {
+        const dd = 1 - (1 - k / 24) * (1 - k / 24)
+        mask.addColorStop(dd, `rgba(0,0,0,${(1 - landFade(Math.sqrt(Math.max(0, 1 - dd * dd))) / LAND_ALPHA).toFixed(3)})`)
+      }
+      f.globalCompositeOperation = "destination-in"
+      f.fillStyle = mask
+      f.fillRect(0, 0, W, H)
+      f.globalCompositeOperation = "source-over"
+    }
+    st.fade = fade
     const s = Math.round(32 * st.dpr)
     const glow = host.makeCanvas(s, s)
     const gg = glow?.getContext("2d") as Ctx2D | null | undefined
@@ -235,21 +319,6 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
   }
   /** A point of a shot is hidden while it is behind the ball. */
   const behind = () => rz < 0 && rx * rx + ry * ry < 1
-
-  /* The pill rides on the latest buyer's city every frame (only a transform on the page), and steps aside when the city turns away. */
-  const sendPill = (force: boolean) => {
-    if (st.pill < 0) return
-    const c = cities[st.pill]
-    rot(c[0], c[1], c[2])
-    const on = rz > PILL_MIN_Z
-    const x = st.cx + rx * st.R
-    const y = st.cy - ry * st.R
-    if (!force && on === st.pillOn && (!on || (Math.abs(x - st.pillX) < 0.04 && Math.abs(y - st.pillY) < 0.04))) return
-    st.pillOn = on
-    st.pillX = x
-    st.pillY = y
-    host.onPill({ i: st.pill, x, y, on })
-  }
 
   /* One point along a shot at fractional index f, rotated: sets rx, ry, rz. */
   const arcAt = (a: Float32Array, f: number) => {
@@ -296,45 +365,33 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(st.bg, 0, 0)
 
-    /* Land: project every dot once, bucket by depth, then one path per bucket (squares: as many circles cost twice as much to raster). */
+    /*
+      Land: every dot facing the viewer, in one path and one fill (squares: as many circles cost twice as much to
+      raster). The rotation is inlined with the depth worked out first, so a dot on the back of the ball costs a few
+      multiplications before it is skipped. Dots shrink a little with depth; the fade toward the rim is the stamp
+      drawn right after.
+    */
     const base = Math.max(0.8 * d, R * 0.0046)
-    bucketCount.fill(0)
-    for (let i = 0, k = 0; i < nPts; i++, k += 3) {
-      rot(pts[k], pts[k + 1], pts[k + 2])
-      if (rz <= 0.04) {
-        pb[i] = -1
-        continue
-      }
-      /* Fade toward the rim (where rows crowd together) and shrink a little with depth. */
-      const f = rz < 0.7 ? rz / 0.7 : 1
-      const b = Math.min(DEPTH_BUCKETS - 1, Math.floor(f * f * (3 - 2 * f) * DEPTH_BUCKETS))
-      pb[i] = b
-      px[i] = cx + rx * R
-      py[i] = cy - ry * R
-      pr[i] = base * (0.62 + 0.38 * rz)
-      bucketCount[b + 1]++
+    const qc = cY
+    const qs = sY
+    const pc = cP
+    const ps = sP
+    const s0 = base * 0.62
+    const s1 = base * 0.38
+    ctx.beginPath()
+    for (let k = 0; k < nPts3; k += 3) {
+      const x = pts[k]
+      const z = pts[k + 2]
+      const z1 = z * qc - x * qs
+      const y = pts[k + 1]
+      const depth = y * ps + z1 * pc
+      if (depth <= 0.04) continue
+      const r = s0 + s1 * depth
+      ctx.rect(cx + (x * qc + z * qs) * R - r, cy - (y * pc - z1 * ps) * R - r, 2 * r, 2 * r)
     }
-    for (let b = 1; b <= DEPTH_BUCKETS; b++) bucketCount[b] += bucketCount[b - 1]
-    for (let i = 0; i < nPts; i++) {
-      const b = pb[i]
-      if (b >= 0) order[bucketCount[b]++] = i
-    }
-    /* bucketCount[b] now holds where bucket b ends. */
-    let start = 0
-    for (let b = 0; b < DEPTH_BUCKETS; b++) {
-      const stop = bucketCount[b]
-      if (stop > start) {
-        ctx.beginPath()
-        for (let j = start; j < stop; j++) {
-          const i = order[j]
-          const r = pr[i]
-          ctx.rect(px[i] - r, py[i] - r, 2 * r, 2 * r)
-        }
-        ctx.fillStyle = bucketStyle[b]
-        ctx.fill()
-      }
-      start = stop
-    }
+    ctx.fillStyle = LAND_STYLE
+    ctx.fill()
+    if (st.fade) ctx.drawImage(st.fade, 0, 0)
 
     /* City lights, the studio brightest. */
     const gs = st.glow.width
@@ -430,7 +487,6 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     }
     ctx.globalAlpha = 1
 
-    sendPill(false)
     st.dirty = false
     if (!st.drawn) {
       st.drawn = true
@@ -438,12 +494,66 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     }
   }
 
+  /** Where city i is on the card (CSS px) with the ball turned `ahead` radians further; its depth is left in rz. */
+  let cityX = 0
+  let cityY = 0
+  const cityAt = (i: number, ahead: number) => {
+    setRot(ahead)
+    const c = cities[i]
+    rot(c[0], c[1], c[2])
+    cityX = st.cx + rx * st.R
+    cityY = st.cy - ry * st.R
+  }
+  /*
+    The notification comes on where the shot landed. Told once: the city now, and where the spin carries it by the time
+    the notification leaves (no spin while dragged or under reduced motion: it stays put).
+  */
   const showPill = (i: number) => {
-    if (st.pill === i) return
     st.pill = i
+    st.pillOn = true
+    st.pillT0 = st.clock
+    st.pillOff = st.clock + PILL_SHOW_MS
+    const spin = st.dragging || st.reduced ? 0 : st.vyaw * PILL_SHOW_MS
+    cityAt(i, spin)
+    st.pillX1 = cityX
+    st.pillY1 = cityY
+    cityAt(i, 0)
+    st.pillX0 = cityX
+    st.pillY0 = cityY
+    const r1 = (v: number) => Math.round(v * 10) / 10
+    host.onPill({ i, on: true, x0: r1(st.pillX0), y0: r1(st.pillY0), x1: r1(st.pillX1), y1: r1(st.pillY1), ms: spin ? PILL_SHOW_MS : 0 })
+  }
+  /** Still where the notification says: facing the viewer, on the card, and within PILL_DRIFT_PX of its line. */
+  const pillHolds = () => {
+    cityAt(st.pill, 0)
+    if (rz < PILL_MIN_FACE) return false
+    if (cityX < 0 || cityY < 0 || cityX > st.w || cityY > st.h) return false
+    const k = Math.min(1, (st.clock - st.pillT0) / PILL_SHOW_MS)
+    const ex = st.pillX0 + (st.pillX1 - st.pillX0) * k - cityX
+    const ey = st.pillY0 + (st.pillY1 - st.pillY0) * k - cityY
+    return ex * ex + ey * ey <= PILL_DRIFT_PX * PILL_DRIFT_PX
+  }
+  const hidePill = () => {
+    if (!st.pillOn) return
     st.pillOn = false
-    setRot()
-    sendPill(true)
+    host.onPill({ i: st.pill, on: false })
+  }
+
+  /* Fewer device pixels when drawing stays heavy (see FRAME_MIN_MS). */
+  const resizeCanvas = () => {
+    canvas.width = Math.round(st.w * st.dpr)
+    canvas.height = Math.round(st.h * st.dpr)
+    paintStatic()
+  }
+  const watchCost = (ms: number) => {
+    st.cost = st.costN ? st.cost * 0.9 + ms * 0.1 : ms
+    st.costN++
+    if (st.costN < 24 || st.cost < SLOW_FRAME_MS) return
+    if (st.dpr > 1) {
+      st.dpr = st.dprCeil = Math.max(1, st.dpr - 0.5)
+      resizeCanvas()
+    } else st.slow = true
+    st.costN = 0
   }
 
   /* The next order: the next buyer in the list whose city will face the viewer when the shot lands. */
@@ -468,6 +578,15 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
 
   const tick = (t: number) => {
     st.frame = 0
+    /*
+      The idle spin draws at most about 60 frames a second, 30 on a device that cannot keep up. A drag and the coast
+      after a throw draw every display frame (round 6), so the ball stays under the finger on a 90 or 120Hz screen.
+    */
+    if (!st.dragging && !coasting() && t - st.drawnAt < (st.slow ? SLOW_FRAME_IDLE_MS : FRAME_MIN_MS)) {
+      st.frame = host.raf(tick)
+      return
+    }
+    st.drawnAt = t
     /* Real time since the last frame, capped so a stall never jumps the globe. */
     const dt = Math.max(0, Math.min(50, t - st.last))
     st.last = t
@@ -496,10 +615,23 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
           showPill(shotCity[s])
         }
       }
+      if (st.pillOn && (now >= st.pillOff || !pillHolds())) hidePill()
     }
+    const t0 = performance.now()
     draw()
+    watchCost(performance.now() - t0)
+    /*
+      LANDING ROUND 6: the next frame is asked for here, by the tick itself. Before, a drawn frame left no frame asked
+      for, so sync() started over with its "first frame only sets the time base" frame, and every drawn frame was
+      followed by one that drew nothing: the globe turned at half the display's rate (30 a second on a 60Hz phone,
+      dragging included), which is the lag the owner felt.
+    */
+    if ((st.want && !st.reduced) || interacting()) st.frame = host.raf(tick)
     sync()
   }
+
+  /** Still carried by a throw (or settling back from one), as opposed to the slow spin. */
+  const coasting = () => Math.abs(st.vyaw - (st.reduced ? 0 : AUTO_SPIN)) > 0.00004 || Math.abs(st.vpitch) > 0.00002
 
   const interacting = () => st.dragging || Math.abs(st.leanX - st.targetLeanX) + Math.abs(st.leanY - st.targetLeanY) > 0.002
 
@@ -516,25 +648,30 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
       host.caf(st.frame)
       st.frame = 0
       if (st.dirty) draw()
+      /* Paused off screen: the notification would no longer be where its city is when the globe comes back. */
+      if (!st.reduced) hidePill()
     }
   }
 
   return {
     /** The card's size in CSS pixels and the device pixel ratio (capped by the caller). */
     size(w: number, h: number, dpr: number) {
-      if (!w || !h || (w === st.w && h === st.h && dpr === st.dpr)) return
+      if (!w || !h || (w === st.w && h === st.h && dpr === st.askedDpr)) return
       st.w = w
       st.h = h
-      st.dpr = dpr
+      st.askedDpr = dpr
+      /* A step down already taken holds across a resize. */
+      st.dpr = Math.min(dpr, st.dprCeil)
       st.R = Math.min(w * 0.45, h * 0.57)
       st.cx = w / 2
       st.cy = h * 0.53
-      canvas.width = Math.round(w * dpr)
-      canvas.height = Math.round(h * dpr)
-      paintStatic()
+      resizeCanvas()
       draw()
-      setRot()
-      sendPill(true)
+      /* A new size moves every city: the still notification under reduced motion is placed again, a moving one leaves. */
+      if (st.pillOn) {
+        if (st.reduced) showPill(st.pill)
+        else hidePill()
+      }
     },
     /** On screen, the tab visible, the globe in view, motion allowed. */
     run(want: boolean) {
@@ -615,8 +752,6 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
           st.vyaw = 0
           st.vpitch = 0
         }
-        setRot()
-        sendPill(true)
       }
       sync()
     },

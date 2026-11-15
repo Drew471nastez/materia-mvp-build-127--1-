@@ -85,7 +85,7 @@ check("every one of Paper's settings laid on", Object.entries(PAPER_LOOK).every(
 check("nothing of Editorial's look left: halftone, Abril capitals, the stock cover and its framing, left aligned buttons", moved.background_pattern === "paper" && !/Abril/.test(moved.title_font) && moved.title_case == null && moved.cover_image_url == null && moved.cover_crop == null && moved.button_text_align == null && moved.button_icon_position == null && moved.social_icon_style == null)
 const own = withoutRetiredTheme({ ...stored, button_color: "#0f5132", title_font: "'Lora', serif", cover_image_url: "https://cdn.example.com/mine.jpg", avatar_shape: "square" }) as C
 check("what the creator chose after picking it stays: their colour, their font, their own cover, their picture's frame", own.button_color === "#0f5132" && own.title_font === "'Lora', serif" && own.cover_image_url === "https://cdn.example.com/mine.jpg" && own.avatar_shape === "square" && own.template_id === "paper")
-check("a partial old row (only the id) is drawn as Paper too", (withoutRetiredTheme({ template_id: "editorial" }) as C).background_color === "#f3eee4")
+/* Changed on purpose (round 17): Paper's own colour is its round 17 sheet. */ check("a partial old row (only the id) is drawn as Paper too", (withoutRetiredTheme({ template_id: "editorial" }) as C).background_color === PAPER_LOOK.background_color)
 const air = { ...(THEME_TEMPLATES.find((t) => t.id === "air")!.theme_config as C), template_id: "air" }
 check("any other theme is the same object, untouched", withoutRetiredTheme(air) === air && withoutRetiredTheme(null) === null)
 check("moving twice is moving once", JSON.stringify(withoutRetiredTheme(moved)) === JSON.stringify(moved))
@@ -167,7 +167,9 @@ const KINDS: Record<string, string> = {
   "any other block in the button's look": ':where([style*="background-clip: padding-box"]',
 }
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-const unstyled = Object.entries(KINDS).filter(([, sel]) => !css.includes(`[data-op-skin="renaissance"] ${sel}`) && !new RegExp(`\\[data-op-skin="renaissance"\\] :is\\([^{]*${esc(sel)}`).test(css)).map(([k]) => k)
+/* Changed on purpose (wave 16): its fields are boxed only in the row and stacked forms; Connect's pill and Personal note's line keep their own shape (the owner: the newsletter layout pictures must be accurate). */
+const KIND_ALT: Record<string, string> = { fields: ":is([data-email-form=row],[data-email-form=stacked], [data-onepage-contact] form) :is(input" }
+const unstyled = Object.entries(KINDS).filter(([k, sel]) => !(KIND_ALT[k] && css.includes(`[data-op-skin="renaissance"] ${KIND_ALT[k]}`)) && !css.includes(`[data-op-skin="renaissance"] ${sel}`) && !new RegExp(`\\[data-op-skin="renaissance"\\] :is\\([^{]*${esc(sel)}`).test(css)).map(([k]) => k)
 check(`styles ${Object.keys(KINDS).length} kinds of block`, unstyled.length === 0, unstyled.join(", "))
 const scene = read("components/onepage/themes/theme-skin-scene.tsx")
 const pieces = [...(scene.match(/\n  renaissance: \[(.*)\],/)?.[1] ?? "").matchAll(/\["([a-z-]+)", (\d+)\]/g)].map((m) => m[1])
@@ -188,7 +190,17 @@ check("each file there, the phone's under 120 KB and the wide one under 220 KB",
 const credit = read("scripts/build-renaissance-paintings.mjs")
 check("credited: the painting, the painter, the museum, public domain, and where the photograph is from", /Titian, "Bacchus and Ariadne"/.test(credit) && /The National Gallery, London/.test(credit) && /Public domain/.test(credit) && /commons\.wikimedia\.org\/wiki\/File:Titian_Bacchus_and_Ariadne\.jpg/.test(credit))
 /* Changed on purpose (wave 15): a soft scrim only where words sit on the painting; plaques under everything else. */
-check("words never sit on the bare painting: a soft scrim under the header, headings and paragraphs, plaques under the buttons", ["[data-op-header]:not([data-op-cover])::before", "[data-onepage-heading]", "[data-op-block]:has(> p.whitespace-pre-line)::before", "[data-hero-title]::before"].every((s) => skinCss.includes(s)) && /mask-composite: intersect/.test(skinCss) && /\[data-op-skin="renaissance"\] :is\(a\.op-btn, \[data-tp-link\]\) \{[^}]*background-color: var\(--sk-surface\) !important/.test(css))
+check("words never sit on the bare painting: a soft scrim under the header, headings and paragraphs, plaques under the buttons", ["[data-op-header]:not([data-op-cover])::before", "[data-onepage-heading]", "[data-op-block]:has(> p.whitespace-pre-line)::before"].every((s) => skinCss.includes(s)) && /mask-composite: intersect/.test(skinCss) && /\[data-op-skin="renaissance"\] :is\(a\.op-btn, \[data-tp-link\]\) \{[^}]*background-color: var\(--sk-surface\) !important/.test(css))
+/*
+  Changed on purpose (wave 16): the Hero's name no longer has a scrim of its own (it was a soft rectangle over the
+  photo's faded end, and the photo faded onto the painting, which showed through the face). The photo now fades onto a
+  plate of the painting's night that eases away under the social row, and the name sits on that night, with the
+  quatrefoil rule under it as on the classic header.
+*/
+const heroPlate = /\[data-op-skin="renaissance"\] \[data-hero-header\]::before \{[^}]*z-index: -1;[^}]*inset: 0 0 -\d+px;[^}]*linear-gradient\(180deg, #121a33 calc\(100% - \d+px\),[^}]*#121a3300 100%\)/.exec(skinCss)
+check("the Hero's photo fades onto the painting's night, which eases away below the name and the social row", !!heroPlate && !skinCss.includes("[data-hero-title]::before"))
+check("the Hero's photo box has no light tint of its own on the night (it was the grey band)", /\[data-op-skin="renaissance"\] \[data-hero-media\] \{\s*background-color: transparent !important;/.test(skinCss))
+check("the Hero's name has the quatrefoil rule under it, as the classic header's does", skinCss.includes(':is([data-op-header], [data-hero-title]) > p::before'))
 check("gilt only as hairlines and the small ornament, never a fill", /border: 1px solid #c6a15b !important/.test(skinCss) && !/background(-color)?: #c6a15b/.test(skinCss) && /--rn-q: url\("data:image\/svg\+xml/.test(skinCss))
 let current = true
 try { execFileSync(process.execPath, ["scripts/build-onepage-skins.mjs", "--check"], { stdio: "pipe" }) } catch { current = false }

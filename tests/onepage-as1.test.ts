@@ -15,7 +15,7 @@
  *             the avatar ring on by itself, the Glow animation and hover and
  *             Aero's light are faint.
  *
- * The browser half: scripts/check-onepage-theme-previews-as1.mjs (card beside
+ * The browser half: scripts/check-onepage-theme-swatches.mjs (card beside
  * the live page for every theme, the grid's cost at 390 and 1440) and
  * scripts/check-onepage-glow-as1.mjs (every theme's light glows, by source).
  */
@@ -40,13 +40,10 @@ type T = Record<string, any>
   and Plaster is Stoicism; tests/onepage-at1.test.ts holds both. What stays from round AS is pinned here.
 */
 console.log("\nThe card")
-const preview = read("components/onepage/themes/theme-preview.tsx")
+const preview = read("components/onepage/themes/theme-swatch.tsx")
 check("no grey bars: the Words placeholder is gone", !/function Words|<Words /.test(preview))
-check("the card reads the page's own helpers for every block", ["themeButtonStyle", "cardButtonTheme", "cardRadius", "signupCard", "buttonThemeOn", "blockLayoutOf", "themeProductLayoutOf", "avatarLook", "bioSizeClass", "titleSizeClass", "readableTheme"].every((h) => preview.includes(h)))
-check("a product as the page's callout, rows or tiles; a newsletter as its Classic card", /data-tp-product="callout"/.test(preview) && /data-tp-product="row"/.test(preview) && /data-tp-product="tile"/.test(preview) && /data-email-layout="default"/.test(preview))
-check("the blocks keep the page's width (no -mx-3 px-3 inside a w-full)", /w-\[calc\(100%\+24px\)\] flex-1 flex-col/.test(preview))
+/* Changed on purpose (the theme swatch round): the checks here described the page-sized theme card (the creator's page at a card's scale, components/onepage/themes/theme-preview). The owner asked for that card to go; a card is a swatch now (components/onepage/themes/theme-swatch) and tests/onepage-swatch-themes.test.ts checks it. Removed: "the card reads the page's own helpers..."; "a product as the page's callout..."; "the blocks keep the page's width..."; "the cards' fonts cover the body...". */
 const design = read("components/onepage/tabs/design-tab.tsx")
-check("the cards' fonts cover the body faces and the words' letters", /PREVIEW_LETTERS/.test(design) && /familyOf\(t\.theme_config\.font_family\)/.test(design))
 check("no made-up creators are left", !existsSync(join(root, "components/onepage/themes/preview-content.ts")) && !/preview-content/.test(preview + design))
 
 console.log("\nNo glow nobody chose")

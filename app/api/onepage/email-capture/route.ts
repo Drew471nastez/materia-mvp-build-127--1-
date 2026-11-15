@@ -7,6 +7,7 @@ import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { typedMailAllowed } from "@/lib/api/typed-mail"
 import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
 import { baseFor } from "@/lib/checkout/pricing"
 import { findPageBlock, pageCreatorId, publishedBlocksOf, visibleNow } from "@/lib/onepage/page-block"
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
     */
     const { data: leadRows } = await db.from("onepage_leads").select("id").eq("onepage_id", onepageId).eq("email", normalizedEmail).limit(1)
     const known = Array.isArray(leadRows) && leadRows.length > 0
-    const saved = known ? { ok: true as const, fresh: false } : await saveLead(db, {
+    const saved = known ? { ok: true as const, fresh: !known } : await saveLead(db, {
       onepageId,
       email: normalizedEmail,
       name,
@@ -203,8 +204,10 @@ export async function POST(request: Request) {
 
     /* 4. After the answer: the email with the link, what became of it, and the creator's own tools (lib/onepage/integrations). */
     const product = deliverable
+    /* Round AY: counted per recipient and per network across every store (lib/api/typed-mail.ts). Over it, the link is still on the page (the answer below); only the email is held back. */
+    const mayMail = product && downloadLink ? await typedMailAllowed(request, normalizedEmail) : false
     after(async () => {
-      if (product && downloadLink) {
+      if (product && downloadLink && mayMail) {
         let sellerName = "The Creator"
         try {
           if (creatorId) {

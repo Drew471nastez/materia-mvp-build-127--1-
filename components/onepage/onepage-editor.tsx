@@ -69,9 +69,6 @@ import { AvatarMark } from "@/components/app/app-avatar"
 import { tt } from "@/lib/i18n/text"
 import { formatDateTime } from "@/lib/i18n/format"
 import { EditorPartBoundary } from "@/components/onepage/editor-part-boundary"
-import { SocialIcon } from "./brand-icons"
-import { shareBandBackground } from "./share-sheet"
-import { useStoryShare } from "./use-story-share"
 import { fetchBillingSubscription, planIdOf } from "@/lib/billing/plan-client"
 import { OnePageTeamProvider, useOnePageTeam, useTeamProductsStore, type OnePageTeam } from "@/lib/onepage/team-context"
 
@@ -382,8 +379,6 @@ function ShareOnePage({
       })()
   const hasPro = userPlan === "growth" || userPlan === "pro"
   const address = pageUrl.replace(/^https?:\/\//, "")
-  const storyGround = shareBandBackground({ backgroundType: theme.background_type, backgroundColor: theme.background_color, backgroundGradient: theme.background_gradient, accentColor: theme.button_color })
-  const story = useStoryShare({ open, name: onepage.title || "", address, avatarUrl: onepage.avatar_url, ground: storyGround, fontFamily: theme.font_family })
   const row = "flex h-12 w-full cursor-pointer items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-4 text-left text-[14px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
 
   const body = (
@@ -435,16 +430,7 @@ function ShareOnePage({
         {tt("Open in a new tab")}
       </button>
 
-      {/* Round 3: this page as a 1080 x 1920 story picture, to the phone's share sheet or downloaded (lib/onepage/story-image). */}
-      <button type="button" onClick={story.share} disabled={story.busy} className={row} data-share-story="">
-        {story.busy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#6b7280] motion-reduce:animate-none" /> : <SocialIcon platform="instagram" tone="brand" size={16} className="shrink-0" />}
-        {tt("Share to Instagram Story")}
-      </button>
-      {story.saved ? (
-        <p aria-live="polite" className="px-1 text-[12.5px] leading-[18px] text-[#6b7280]" data-story-hint="">
-          {tt("Image saved and link copied. In your story, add a Link sticker and paste it.")}
-        </p>
-      ) : null}
+      {/* Round 17, the owner: "get rid of the Share to Instagram story option from the share your OnePage modal". */}
 
       {/* Round AR: the steps for an Instagram bio, opening here under the row (components/onepage/instagram-bio-share). */}
       <InstagramBioShare slug={onepage.slug} published={onepage.status === "published" || !!onepage.published_at} phone={isPhone} rowClassName={row} />

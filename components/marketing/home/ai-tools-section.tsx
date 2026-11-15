@@ -31,6 +31,13 @@
  * on one clock. It runs only while the card is on screen and the tab is
  * visible (data-live, set by one IntersectionObserver), and under reduced
  * motion it is drawn finished and still.
+ *
+ * LANDING ROUND 5, THE OWNER: "like how it was before, not with the page
+ * preview. Just the code terminal." This is the card as it was before round
+ * 4 (commit 971429ade), keeping two round 4 details that have nothing to do
+ * with the preview: the terminal starts about a quarter written (every
+ * animation shares a negative delay, AI_TOOLS_START_S), and its words
+ * cannot be selected.
  */
 import type { CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
@@ -42,6 +49,12 @@ import { StoryHeading } from "../story-heading"
 const LOOP_S = 16
 /** How long a line takes to fade in. */
 const IN_S = 0.32
+/**
+ * Where the clock stands when the card first comes on screen (landing round
+ * 4, the owner: the terminal starts about a quarter written, not empty).
+ * Every animation shares this negative delay, so the run stays in step.
+ */
+export const AI_TOOLS_START_S = 3.7
 
 type Kind = "prompt" | "say" | "call" | "ok" | "done" | "rest"
 interface Line {
@@ -103,7 +116,7 @@ const AI_CSS = `
 .ait-cta:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}
 .ait-cta svg{transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .ait-cta:hover svg{transform:translateX(3px)}
-.ait-term{--term-bg:#09080c;min-width:0;pointer-events:none;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
+.ait-term{--term-bg:#09080c;min-width:0;pointer-events:none;-webkit-user-select:none;user-select:none;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
 .ait-bar{display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.06)}
 .ait-bar i{width:10px;height:10px;border-radius:50%;background:#2e2c35}
 .ait-bar span{margin-left:8px;font:500 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#6f6c79}
@@ -127,6 +140,7 @@ const AI_CSS = `
 .ait-caret{position:relative;display:inline-block;top:.28em;vertical-align:top;margin-top:0;animation:ait-blink 1.1s steps(1,end) infinite paused}
 @keyframes ait-type{0%{transform:translate3d(0,0,0)}${pct(TYPED_S)},100%{transform:translate3d(100%,0,0)}}
 @keyframes ait-blink{0%{opacity:1}50%{opacity:0}}
+.ait-line,.ait-cover{animation-delay:-${AI_TOOLS_START_S}s}
 .ait-term[data-live] .ait-line,.ait-term[data-live] .ait-cover,.ait-term[data-live] .ait-caret{animation-play-state:running}
 ${AI_TOOLS_SCRIPT.map((l, i) => `.ait-l${i}{animation-name:ait-l${i}}\n${lineKeyframes(i, l.at)}`).join("\n")}
 @media (min-width:1024px){

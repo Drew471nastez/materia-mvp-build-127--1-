@@ -167,7 +167,7 @@ async function main() {
     /* Changed on purpose (round 11): at the top of the panel nothing is held, so nothing is measured in the press either. */
     check("the rest of the panel is measured before the change, the scroll put back after it",
       /rest: box\.scrollHeight - grid\.offsetHeight/.test(design) && /if \(need > natural\) \{\s*grid\.style\.minHeight = `\$\{need\}px`/.test(design) && /if \(at\.box\.scrollTop !== at\.top\) at\.box\.scrollTop = at\.top/.test(design))
-    check("the grid never stretches its rows to the held height", /grid grid-cols-2 content-start gap-3 sm:grid-cols-3/.test(design))
+    check("the grid never stretches its rows to the held height", /* Changed on purpose (the theme swatch round): the cards are swatches, three across on a phone and four on a computer. */ /grid grid-cols-3 content-start gap-x-3 gap-y-4 sm:grid-cols-4/.test(design))
     /*
       Was: the whole grid faded up from opacity 0 on every pick, over cards
       made anew. That fade blanked every thumbnail, the ones that stayed
@@ -191,7 +191,7 @@ async function main() {
       /const HIDDEN_GRID: React\.CSSProperties = \{ position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" \}/.test(design) &&
       /target\.style\.contentVisibility = "visible"/.test(design) &&
       /* Changed on purpose (round AP): the card's photo is drawn by the page preview the card now is (components/onepage/themes/theme-preview), still decoded before it is shown. */
-      /decoding="sync" data-theme-thumb=""/.test(readFileSync(join(process.cwd(), "components/onepage/themes/theme-preview.tsx"), "utf8")) &&
+      /decoding="sync" data-theme-thumb=""/.test(readFileSync(join(process.cwd(), "components/onepage/themes/theme-swatch.tsx"), "utf8")) &&
       /* Round 12: the effect now returns preloadThemeThumbs' release, so the kept pictures are let go when the Design tab goes (tests/memory-r12.test.ts). */
       /useEffect\(\(\) => preloadThemeThumbs\(\), \[\]\)/.test(design))
   }

@@ -52,6 +52,26 @@ const SUITES = [
   "tests/double-actions-aw.test.ts",
   /* Round AW (lead): a OnePage address never another account's name (part 460), a banned store takes no new payments, an unread products count never says noindex, a handle rename clears both addresses, a course not deleted with the public key (part 461) */
   "tests/lead-fixes-aw.test.ts",
+  /* Round AX (drafts private): a published website's preview token, draft settings and draft sections, and a OnePage's draft blocks, are not readable with the public key (parts 463, 464); no anon or browser reader needs them, and a signed in session reads only its own website. */
+  "tests/drafts-private-ax.test.ts",
+  /* Round AX (address names): a username and a store address move only through the server (lib/profile/move-handle.ts, PATCH /api/profile/username store: true) with every rule on a name; Settings and the seller onboarding no longer write them from the browser; part 462 refuses a browser key write that changes either one. */
+  "tests/address-names-ax.test.ts",
+  /* Round AX (free basket retry): a basket a code makes free names its press (the page's attempt id, an HMAC with the store, the email and the lines), so the same press sent again is the basket already written; a page without an attempt id writes as before; the cart page and the website's checkout send it. */
+  "tests/free-basket-retry-ax.test.ts",
+  /* Round AX (session cookies): the Supabase session under a __Host- name, so a published site cannot plant one */
+  "tests/session-cookies-ax.test.ts",
+  /* Round AX (form relay): visitor and buyer written mail (Contact Form, native forms, bookings, receipt, course, membership and community contact) goes only to an address the store has proven it owns (lib/seller-inbox provenInbox), else the account's own sign in address; the editor says so in tt(). */
+  "tests/form-relay-ax.test.ts",
+  /* Round AX (AY-4 data safety): a deleted website page, its theme settings and its code files are kept in public.deleted_rows like part 66's tables (part 466), so a page deleted in the editor or a deleted website can be put back. */
+  "tests/data-safety-ay.test.ts",
+  /* Round AX (OnePage drafts, round AY): a signed in stranger cannot read another account's draft_blocks or archived_blocks (part 465), the onboarding name check asks /api/onepage/address instead of reading other pages with the browser key. */
+  "tests/onepage-drafts-ay.test.ts",
+  /* Round AX (AY-5 money and integrations): a refunded community program or module never opens again from its own paid session. */
+  "tests/money-integrations-ay.test.ts",
+  /* Round AX (AY-2): a free cart that ships, pressed again after a lost answer, is the order it placed (same key, lib/physical/checkout-server freeOrderOfKey); booking and form emails find the store by its owner's user id (lib/email resolveCreatorIdentityForUser). */
+  "tests/leftovers-commerce-ay.test.ts",
+  /* Round AX (track AY-3): the old session cookie name retired after 2026-12-29; mail to typed addresses limited per recipient and network. */
+  "tests/session-cutoff-relay-ay.test.ts",
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
@@ -540,6 +560,8 @@ const SUITES = [
   "tests/home-landing-creators.test.ts",
   /* Round 60: the showcase rail's motion as numbers: drag, flick, settle, wheel, loop, any frame rate. */
   "tests/rail-motion.test.ts",
+  /* Round 63: a visitor's OnePage downloads what it draws: the blocks' editors are their own files, the checkout window and the platform header are fetched where used, and the description is one plain text on the server and in the browser (no React 418). */
+  "tests/onepage-delivery-r63.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",
@@ -933,6 +955,8 @@ const SUITES = [
   "tests/onepage-as1.test.ts",
   /* Round AT (track 1): every theme card draws the account's own page (its name, photo or monogram, socials, links, products and newsletter, samples for the rest; components/onepage/themes/preview-account), links as the page's .op-btn with the theme's hover, nothing selectable; Plaster is Stoicism (a stone skin, ivory tablets, its cover kept, saved pages moved with their own changes) and Dune is new. scripts/check-onepage-theme-previews-as1.mjs measures the cards against the live page. */
   "tests/onepage-at1.test.ts",
+  /* The theme swatch round: a theme card is a swatch (its wallpaper, "Aa" in its title face, its button), with no account and no hover that moves it, and nineteen themes whose wallpapers are painted in CSS (components/onepage/themes/theme-swatch, mood-themes). */
+  "tests/onepage-swatch-themes.test.ts",
   "tests/onepage-themes-w8.test.ts",
   /* Round W9: six themes with a skin (Aero, Aqua, Messenger, Y2K, Playful, Grunge): every text and button pair and every colour the skin paints read at 4.5:1, the skin carried by both roots and the theme card, the generated stylesheet current and styling every kind of block, motion by transform and opacity only and still for reduced motion and in cards, the skin laid on and taken off with the theme. scripts/shot-onepage-skins.mjs photographs them. */
   "tests/onepage-themes-w9.test.ts",
@@ -1379,6 +1403,8 @@ const SUITES = [
   "tests/own-panel-layer.test.ts",
   /* An inline native form takes the colours of the section it stands in (lib/website-builder/form-islands.ts formSurfaceVars): a booking form on a dark band read 1.1:1, every text now 4.5:1 or better on dark, light and coloured bands; a section naming its own --sheet-ink is left alone. Real Chromium. */
   "tests/form-surface.test.ts",
+  /* Round AZ: the AI source bank (lib/storelib-ai/bank, /admin/ai-bank, part 467). A real Storelib Default store snapshotted with nothing of its account left (pictures, product and collection ids, contact details, outside links, brand settings), its look and code kept; fitted to the business (no shop for a coach who does not sell); a store brief starts from it, a coach brief does not; applied and resumed through the agent's own store; an imported theme shown as worked examples, never poured in. */
+  "tests/ai-template-bank.test.ts",
   /* Round O (O4): the rendered visual critic (lib/ai-builder/visual-critic). The draft drawn from the job's own project with no script in it (stripped, CSP), photographed in REAL Chromium at 1440 and 390 with JavaScript disabled (proven: a page script that would hide its overflow never runs) and a fenced network; measured (sideways scroll at 390, a dead call to action in the first screen and unreadable contrast are hard gates; heading wrap, tap targets, broken or missing pictures, no CTA, instructions to the creator printed in the page); a scripted vision model reviews 4 pictures per page on spec 8.2's seven axes with a bounded JSON repair retry; in the agent loop the defects come back as numbered repair tasks naming the file, two reviews at most, the review's spend in the job's spend, a gate that stays ends partial, and no browser is "Not visually checked", never a pass. Without Chromium the browser sections say so and skip. */
   "tests/ai-visual-critic-o4.test.ts",
   /* Round P (P5): the website agent's own quality. A placement with no blocks gets its schema's filled preset items (fresh ids); a section whose item types have no filled preset is refused at write; finish refuses too few items (min_blocks, 3 for a repeating list, fewer when the store has fewer), placeholder items and copies; template first with a scripted model and a stub template (applied in the brief phase, its components as few-shot, untouched copy and imagery refused, adapting clears it); every picture slot filled when pictures can be made, text-forward otherwise, an empty frame refused; the critic's hard gates for empty slots, empty item lists, empty sections and an empty <img>; models by phase (plan, build on opus high, repair on sonnet) and the cost estimate inside the raised cap. */
@@ -1391,16 +1417,44 @@ const SUITES = [
   "tests/home-landing-lower.test.ts",
   /* Landing round 3: the lower sections on their new grounds (dark cards on purple, the tab family, inert mocks). */
   "tests/home-landing-lower3.test.ts",
+  /* Landing round 4, the lower sections: audience lighter (one card, three plain rows); analytics without sourdough (a LUT pack search), a dot grid on the dark SEO card, an engine switcher that plays and can be pressed with light in each engine's colours, fewer chips with depth; the map's product and Buy now language change with the country, larger on a phone; integrations' fades lighter and narrower, no bump, nothing square behind a turn; earnings without the plan switch or the black card; the AI terminal a quarter written with a preview, words unselectable, the card wider. */
+  "tests/home-landing-lower4.test.ts",
   /* Landing round: the showcase drags and settles on a glide (autoplay kept), and "Make the work" shows real products (no Golden Hour preset), a calm community, the tee on a grey tile and a continuous storefront rail. */
   "tests/home-landing-top.test.ts",
   /* Landing round 3, the top sections: the store strip has real OnePages and no address, and takes no pointer; no support request about a payout; the digital product is a LUT pack (and a sample pack in the business section); the ideas and business tabs are of Make the work's family; the business section reads on white; half of the examples ship. */
   "tests/home-landing-top3.test.ts",
+  /* Landing round 4, the top sections: the showcase without the yoga site, the surf coach, the sample packs or sourdough, with Gia and Bea made again and four new captures of real pages, and a short swipe a whole step; Make the work with a specific heading, colourful grounds that cross fade, a new course and community card, a strip of whole cards (stores, OnePages with share and subscribe, a community on a phone) that drifts and drags, the support card of before without the inbox switch; possibilities pills whose shadow is not cut. */
+  "tests/home-landing-topa4.test.ts",
   /* Landing round (rest): See what you could earn gets one flash photograph and loses its small print; the app's line is short; the public plan cards say plain things, each from the plan tables, with a quiet tick; Your AI tools work here too: the marks, a line true to a connection, the real MCP tools in a terminal on the compositor, paused off screen, still under reduced motion, after the integrations. */
   "tests/home-landing-rest.test.ts",
   /* Landing round 3, commerce: a sixth How it works tile for a creator's own domain (the three things a domain can serve, Pro, the DNS check and HTTPS, each held to the code), six even tiles, checkout demos that start over, a phone alone for one-tap payments, the pill tabs in their dark form, dark cards on black, and mocks that take no pointer. */
   "tests/home-landing-commerce3.test.ts",
+  /* Landing round 4, commerce: no Weeknight Pasta or blue tee, colourful changing grounds under How it works, the live OnePage and product sheet captured, a cleaner domain tile; the checkout phone rises and stays with products orbiting it, the headline comes in, four tab cards rise over the phone on view timelines (observer fallback), the website checkout on a computer, Apple Pay, Google Pay and Stripe, one cap in five currencies, a light reminder demo. */
+  "tests/home-landing-commerce4.test.ts",
   /* Landing round 3 (frame): the page's base is dark and the light sections ride on rounded white and purple sheets that rise by the page's own scroll (no script, no animation, held by position: sticky alone, off for reduced motion); the grounds in the owner's order with One store on white; the footer without the newsletter box, in four columns with the app badges under the logo; a Start now pill, or the person's photo, beside the menu on the home page's phone bar. */
   "tests/home-landing-frame3.test.ts",
+  /* Landing round 4, top B: See your ideas come to life behind thin pill tabs again (Website builder, OnePage editor, Community), a heading that changes by itself, the desktop editors on a phone, a merch store, a LUT pack on the Ember theme, one community drawn as it is inside; One store for everything you sell pinned while the scroll steps through the five kinds (sticky and one IntersectionObserver, a plain list under reduced motion or on a short screen), new examples on coloured grounds; the creators button calm, four new photographs. */
+  "tests/home-landing-topb4.test.ts",
+  /* Landing round 4 (frame): sheets rise like a phone's sheet (a small side inset settling to full width, the held block behind shrinking a little and dimming), CSS scroll-driven, transform and opacity only, off for reduced motion; Make the work on a flat ground, not a drawer; the globe's pill glides on the compositor a few times a second and its move path reads no layout; the app and the closing call on a dark close with no seam into the footer; a calmer FAQ with a neutral plus and grid-row opening; a small dot grid background. */
+  "tests/home-landing-frame4.test.ts",
+  /* Landing round 5 (top): the showcase is the browser's own snapping scroller on a touch screen or phone width (autoplay steps aside for a touch and comes back), its cards bigger and cut a little by the section's bottom edge; Make the work's new heading, no support labels, a Pilates course and a plain LUT pack cover; the globe's order notification stands in one place and only fades in and out, the globe capped at 60fps and 2x (1.5x on a low end phone) and a finger takes it only sideways. */
+  "tests/home-landing-r5-top.test.ts",
+  /* Landing round 5, middle: One store for everything you sell as it was before (no scroll pin, the clock, the grey stage); Ideas behind plain tabs with a candle studio's store and a paid strength coaching community; How it works without the cap, a bold drawn product sheet, calm grey and dark grounds, a simple dark domain card. */
+  "tests/home-landing-r5-middle.test.ts",
+  /* Landing round 5, checkout: the phone shows the real instant checkout (393px wide, scaled whole), there from the start and sliding up once, held by sticky while the tab cards come up over it, no orbit or scroll timelines; tab cards again, not pills; Built to convert's desktop window whole on any screen; The Loop in place of After Dark. */
+  "tests/home-landing-r5-checkout.test.ts",
+  /* Landing round 5, lower: a short audience section with one Contacts picture and nothing moving; the AI terminal alone again; white report pills, a quieter SEO grid and the earlier engine switcher with one quiet turning light; physical and digital products on the map, no Example pill; earnings kinds as even tiles; a canvas dot field whose light follows the mouse, paused off screen. */
+  "tests/home-landing-r5-lower.test.ts",
+  /* Landing round 5 (frame): plain rounded sheets that lap over the block before by their corner, nothing held, no scroll-driven motion, the cover watch gone; the header keeps one height and its Start now / Sign up fades in once the hero's buttons have gone under it. */
+  "tests/home-landing-r5-frame.test.ts",
+  /* Landing round 6 (globe): the globe drew every other display frame (a drawn frame was followed by a time base only frame), now every frame, a drag and a throw at the display's own rate; the land in one path with the rim fade stamped over it; a worker without requestAnimationFrame is sent the page's frames; each new order notification sits on its landing point, told once, carried by one compositor animation, and leaves early when its city turns away. */
+  "tests/home-landing-r6-globe.test.ts",
+  /* Landing round 6, ideas: the editors' tabs are thin pills on a grey track again, the website builder shows Plain Weather (a simple, clean apparel label), and the line under the heading is shorter. */
+  "tests/home-landing-r6-ideas.test.ts",
+  /* Landing round 6 (showcase): captions on a line under each card and the cards inside the section with room below; 4:3 phone cards 78% wide with the next peeking; autoplay waits 6s after the reader's last scroll and never moves a rail in motion. */
+  "tests/home-landing-r6-showcase.test.ts",
+  /* Landing round 6, everything: "Cine Tones LUT Pack" on a bold black cover with no count; the store strip as the owner's reference (merch stores and link pages, tall cards a fixed inset down and cut at the foot); each card rises in once as it scrolls into view. */
+  "tests/home-landing-r6-everything.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
@@ -1612,6 +1666,10 @@ const STRICT_SUITES = [
   "tests/ai-surfaces-o6.test.ts",
   /* Round AW (double actions), through the real routes: Orders > Refund pressed again after its answer was lost is refused (409) and Stripe makes one refund; Get it free and a OnePage's free product sent again with the same attempt id are one order, one receipt email, a one use code used once. Strict: tests/_journey. */
   "tests/double-actions-aw-journey.test.ts",
+  /* Round AX (free basket retry), through the real routes: a built site's cart and the website's checkout a code makes free, pressed again and sent twice at once, are one basket, one receipt email, one sale notice, a one use code used once, a limited copy taken once, nothing held; a page without an attempt id writes as before. Strict: tests/_journey. */
+  "tests/free-basket-retry-ax-journey.test.ts",
+  /* Round AY (AY-2): a free shipped cart through /api/physical/checkout and the website checkout, pressed again: one order, one email, the code once, one stock hold. Strict: tests/_journey. */
+  "tests/free-shipped-retry-ay-journey.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

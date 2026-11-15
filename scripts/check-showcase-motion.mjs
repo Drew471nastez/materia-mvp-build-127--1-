@@ -162,11 +162,15 @@ try {
     const slow = await restAt(p)
     expect(near(slow, pitch, period) < 0.6, "PULL: 150px over a second goes on to the next group", slow)
 
-    /* SHORT: 24px, under the swipe distance, settles back. */
+    /* Changed on purpose (landing round 4): the owner wants a short swipe to be a whole step, so the swipe distance is 10 to 14px (SHOWCASE_RAIL); a 24px pull now goes on, and only an 8px nudge settles back. */
     await home(p)
     await mouseDrag(p, mid, -24, 400, { step: 16 })
+    const nudge = await restAt(p)
+    expect(near(nudge, pitch, period) < 0.6, "SHORT: a slow 24px pull goes on to the next group", nudge)
+    await home(p)
+    await mouseDrag(p, mid, -8, 600, { step: 16 })
     const short = await restAt(p)
-    expect(near(short, 0, period) < 0.6, "SHORT: a 24px pull settles back to its group", short)
+    expect(near(short, 0, period) < 0.6, "SHORT: a slow 8px nudge settles back to its group", short)
     await home(p)
 
     /* FLICK: 350px in 150ms, recorded every frame. */

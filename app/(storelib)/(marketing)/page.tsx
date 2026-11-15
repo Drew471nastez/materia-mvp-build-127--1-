@@ -2,6 +2,7 @@ import dynamic from "next/dynamic"
 import { LandingStory } from "@/components/marketing/landing-story"
 import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/scroll-reveal-panel"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
+import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
 import {
@@ -45,17 +46,19 @@ export const metadata: Metadata = {
     layout and paint until they come near the screen;
 
     the grounds (landing round 3, the owner): the page's base is dark, and
-    the light sections ride on white sheets with rounded corners that rise
-    over it as the page scrolls, two stretches on purple ones
-    (ScrollRevealPanel, components/marketing/scroll-reveal-panel.tsx):
+    the light sections ride on white sheets with rounded corners that lap
+    over it and scroll with the page, one stretch on a purple one
+    (ScrollRevealPanel, components/marketing/scroll-reveal-panel.tsx; round
+    5: plain blocks, no scroll-driven motion and nothing held):
 
-      dark     the hero and the showcase
+      dark     the hero and the showcase, sitting on
       white    Make the work, ideas, possibilities, one store, creators, how it works
+               (a flat ground, round 4: it does not rise as a sheet)
       dark     the checkout scene (it draws its own black)
       white    your audience, your apps, your AI tools
       purple   what is working, the map
       white    what you could earn, pricing, the questions
-      purple   the app and the closing call, then the black footer
+      dark     the app and the closing call, running on into the black footer
 
     the motion sections from the other wave-12 tracks are mounted near the
     screen by lazySection() (components/marketing/home/lazy-section): their
@@ -76,14 +79,14 @@ export default function StorelibLanding() {
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
       <LandingStory>
-        {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). They hold still for their last screen while the first sheet rises over them (from a tablet up: on a phone the showcase is dragged, and scrolls as it did). */}
-        <ScrollRevealBackdrop lift="var(--home-header-height, 0px)" holdOnPhone={false}>
+        {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). The page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). */}
+        <ScrollRevealBackdrop>
           <Hero />
           <BuildShowcase />
         </ScrollRevealBackdrop>
 
-        {/* WHITE SHEET */}
-        <ScrollRevealPanel tone="white">
+        {/* WHITE GROUND: flat, not a sheet that rises. Its top runs straight on under the showcase, whose bottom corners it rounds. */}
+        <ScrollRevealPanel tone="white" arrive="flat">
           {/* 3 EverythingInOnePlace */}
           <LazyEverythingInOnePlace />
 
@@ -105,13 +108,13 @@ export default function StorelibLanding() {
           <LazyHowItWorks />
         </ScrollRevealPanel>
 
-        {/* DARK: 9 CheckoutScene, held for its last screen under the next sheet */}
+        {/* DARK: 9 CheckoutScene. Round 5: nothing is held; the next sheet laps over its foot by its corner and the page scrolls on. */}
         <ScrollRevealBackdrop>
           <LazyCheckoutScene />
         </ScrollRevealBackdrop>
 
         {/* WHITE SHEET */}
-        <ScrollRevealPanel tone="white" hold>
+        <ScrollRevealPanel tone="white">
           {/* 10 AudienceOwnership */}
           <LazyAudienceOwnership />
 
@@ -123,12 +126,14 @@ export default function StorelibLanding() {
         </ScrollRevealPanel>
 
         {/* PURPLE SHEET: 13 AnalyticsShowcase and 14 SellEverywhere world map */}
-        <ScrollRevealPanel tone="purple" hold>
+        <ScrollRevealPanel tone="purple">
+          {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
+          <DotField tone="purple" fade="bottom" style={{ height: "min(100%, 1100px)" }} />
           <LazyAnalyticsShowcase />
           <LazySellEverywhereMap />
         </ScrollRevealPanel>
 
-        {/* WHITE SHEET. Not held: a link to #faq must land on the questions, not under the sheet after them. */}
+        {/* WHITE SHEET: earnings, pricing, the questions */}
         <ScrollRevealPanel tone="white">
           {/* 15 EarningsCalculator */}
           <LazyEarningsCalculator />
@@ -144,11 +149,11 @@ export default function StorelibLanding() {
           </LazySection>
         </ScrollRevealPanel>
 
-        {/* PURPLE CLOSE: 18 RunFromAnywhere and 19 FINAL CTA (frame) */}
-        <ScrollRevealPanel tone="purple">
+        {/* DARK CLOSE (round 4: no purple): 18 RunFromAnywhere and 19 FINAL CTA (frame), running on into the black footer with no seam */}
+        <ScrollRevealBackdrop>
           <LazyAppAnywhere />
           <FinalCta />
-        </ScrollRevealPanel>
+        </ScrollRevealBackdrop>
       </LandingStory>
       {/* 20 FOOTER: components/marketing/footer.tsx, drawn under every marketing page by the layout (ConditionalFooter). */}
     </div>

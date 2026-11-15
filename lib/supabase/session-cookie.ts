@@ -21,7 +21,11 @@ export async function requestMayHaveSession(): Promise<boolean> {
   try {
     const key = storedSessionKey()
     const jar = await cookies()
-    return jar.getAll().some((c) => (key ? c.name === key || c.name.startsWith(`${key}.`) : false) || /^sb-.+-auth-token(\.\d+)?$/.test(c.name))
+    /* Under the old name or the `__Host-` one (lib/supabase/host-session.ts, round AX). */
+    return jar.getAll().some((c) => {
+      const name = c.name.startsWith("__Host-") ? c.name.slice(7) : c.name
+      return (key ? name === key || name.startsWith(`${key}.`) : false) || /^sb-.+-auth-token(\.\d+)?$/.test(name)
+    })
   } catch {
     return true
   }

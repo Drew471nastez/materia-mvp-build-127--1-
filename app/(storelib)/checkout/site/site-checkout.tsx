@@ -77,6 +77,7 @@ import { summaryRows } from "@/lib/checkout/summary-rows"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { displayEmail } from "@/lib/businesses/email-alias"
+import { attemptIdOf, freeKeyFor } from "@/lib/checkout/attempt-id"
 
 export interface SiteCheckoutProps {
   shopId: string
@@ -500,6 +501,10 @@ export function SiteCheckout({
   const secretRef = React.useRef<string | null>(null)
   /* A held checkout's key (a cart that ships): the same while the order is the same, a new one once it changes. */
   const intentKey = React.useRef<{ key: string; sig: string; at: number } | null>(null)
+  /* This page's press of the free order (lib/checkout/attempt-id): sent again after a lost answer, the server answers the basket it already wrote (lib/checkout/free-claim). */
+  const freeAttempt = React.useRef<string | null>(null)
+  /* A free order that ships is placed under a key (lib/physical/checkout-server freeOrderOfKey, round AY): the same key while the order is the same, so a press sent again after a lost answer is the order it placed, not a second one. */
+  const freeKey = React.useRef<{ key: string; sig: string } | null>(null)
 
   const [arriving, setArriving] = React.useState(false)
   const siteHost = (() => {
@@ -781,7 +786,10 @@ export function SiteCheckout({
     setBusy(true)
     try {
       const body = orderBody()
-      const res = await call<{ thanks?: string }>({ action: "free", ...body, business: null, clientKey: newKey() })
+      const key = freeKeyFor(freeKey, JSON.stringify([body.items, body.couponCode, body.address, body.deliveryOptionId, body.email, body.firstName, body.lastName, body.phone, body.buyerNote, body.cartAttributes, body.emailOptIn]), newKey)
+      const res = await call<{ thanks?: string }>({ action: "free", ...body, business: null, clientKey: key, attemptId: attemptIdOf(freeAttempt) })
+      /* The server said no: the next press is a new order. One that never got an answer, or one still being placed, keeps its key. */
+      if ((!res.ok || !res.data.thanks) && res.data.code !== "in_progress") freeKey.current = null
       if (!res.ok || !res.data.thanks) throw new Error(ct(res.data.error || "The order could not be finished. Try again."))
       setPaid({ total: 0, free: true })
       go(res.data.thanks)

@@ -17,7 +17,7 @@
  *
  * It sits where the page's pattern sits (components/onepage/wallpaper-layers
  * WallpaperPattern): in the phone page, in the desktop card and around it,
- * and in the theme card (components/onepage/themes/theme-preview).
+ * and in the theme card (components/onepage/themes/theme-swatch).
  */
 import type * as React from "react"
 /* The skins' stylesheet (scripts/build-onepage-skins.mjs writes it): only a page that can draw a skin loads it. */
@@ -33,7 +33,8 @@ const PIECES: Record<ThemeSkin, ReadonlyArray<readonly [string, number]>> = {
   playful: [["paper", 1], ["blob", 4], ["doodle", 5]],
   grunge: [["copy", 1], ["streaks", 1], ["halftone", 1], ["barbed", 2], ["code", 1], ["edge", 1]],
   /* Round W10: the second versions, and three that stand alone (scripts/onepage-skins/). */
-  aero2: [["rays", 1], ["caustics", 1], ["sand", 1], ["weed", 2], ["fish", 3], ["bubble", 8], ["glint", 2]],
+  /* Round 17: a lit surface, four plants, five fish and ten bubbles (scripts/onepage-skins/aero.mjs aeroAquarium). */
+  aero2: [["surface", 1], ["rays", 1], ["caustics", 1], ["sand", 1], ["weed", 4], ["fish", 5], ["bubble", 10], ["glint", 2]],
   aqua2: [["brush", 1], ["sheen", 1], ["light", 1]],
   messenger2: [["band", 1], ["ribbon", 2], ["glow", 2]],
   y2k2: [["glow", 3], ["floor", 1], ["dots", 1], ["charm", 6], ["spark", 6]],

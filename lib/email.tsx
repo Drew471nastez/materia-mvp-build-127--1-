@@ -22,6 +22,7 @@ import { enrollInFlows } from "@/lib/automations/run"
 import { normalizeSteps as normalizeFlowSteps, waitMs as flowWaitMs } from "@/lib/automations/flow-model"
 import type { ContactSource } from "@/lib/contacts/contact-source"
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { mailSafeName } from "@/lib/api/mail-name"
 import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
@@ -289,6 +290,28 @@ export async function updateOrderEmailStatus(
 // (matches YOUR schema: creators.headline + creators.slug + creators.support_email + creators.user_id)
 // profiles: email + display_name + username
 // -------------------------
+/**
+ * Round AY: the same identity for a store named by its owner's USER id (bookings and native forms keep
+ * owner_id = auth user id). resolveCreatorIdentity reads creators.id, so a user id found no store and the
+ * visitor's email went out from "Storelib" with Storelib's own support inbox as Reply-To. Finds the store by
+ * creators.user_id first; a user with no store gets blank values (the callers' own fallbacks), never a guess.
+ */
+export async function resolveCreatorIdentityForUser(
+  admin: any,
+  userId: string,
+): Promise<{ creatorId: string | null; fromName: string; replyTo: string; sellerEmail: string }> {
+  const blank = { creatorId: null, fromName: "", replyTo: "", sellerEmail: "" }
+  if (!userId) return blank
+  try {
+    const { data } = await admin.from("creators").select("id").eq("user_id", userId).maybeSingle()
+    const creatorId = typeof data?.id === "string" && data.id ? data.id : null
+    if (!creatorId) return blank
+    return { creatorId, ...(await resolveCreatorIdentity(admin, creatorId)) }
+  } catch {
+    return blank
+  }
+}
+
 export async function resolveCreatorIdentity(
   admin: any,
   creatorId: string,
@@ -1626,6 +1649,12 @@ export async function triggerEmailFlows(
   admin: any,
   params: TriggerEmailFlowParams
 ): Promise<{ triggered: number; errors: string[] }> {
+  /*
+    Round AY: the name is the one thing a visitor writes that reached a flow email, which goes to an address
+    they typed. Only a name that reads as a person's is used (lib/api/mail-name.ts); anything else, a link or
+    a sentence, is left out and the email uses its usual greeting.
+  */
+  params = { ...params, recipientName: mailSafeName(params.recipientName) ?? undefined }
   try {
     const result = await enrollInFlows({
       triggerType: params.triggerType,

@@ -42,7 +42,9 @@ const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
 const css = EVERYTHING_STYLES[0]?.css ?? ""
 
 console.log("\n── layout and words ──")
-check("the heading is new, two-tone, and not the old Everything in one place", /<h2 id="everything-in-one-place-title" class="ev-h">Make the work\. <span class="ev-h-mute">Skip the busywork\.<\/span><\/h2>/.test(html) && !/Everything in one place/.test(text(html)) && EVERYTHING_HEADING.lead.endsWith(".") && EVERYTHING_HEADING.rest.endsWith("."))
+/* Changed on purpose (landing round 4): the owner found "Make the work. Skip the busywork." too broad and vague; the same two tones, a specific line. */
+/* Changed on purpose (landing round 5): the owner's new heading. */
+check("the heading is new, two-tone, and not the old Everything in one place", /<h2 id="everything-in-one-place-title" class="ev-h">Sell what you make\. <span class="ev-h-mute">Get paid worldwide\.<\/span><\/h2>/.test(html) && !/Everything in one place/.test(text(html)) && EVERYTHING_HEADING.lead.endsWith(".") && EVERYTHING_HEADING.rest.endsWith("."))
 check("the grey half of the heading is grey, the lead is dark", /\.ev-h\{[^}]*color:#18181b/.test(css) && /\.ev-h-mute\{color:#8e8c96\}/.test(css))
 check("no subheading and no eyebrow pill above the heading", !/<h2[\s\S]*?<\/h2>\s*<p/.test(html) && !/eyebrow|rounded-full[^"]*uppercase/.test(html))
 check("exactly four cards", (html.match(/<article /g) ?? []).length === 4 && EVERYTHING_CARDS.length === 4)
@@ -75,9 +77,13 @@ check("it is drawn off the page's thread where the browser can hand a worker the
   check("the worker's string is up to date (node scripts/build-globe-worker.mjs)", read("components/marketing/home/everything-globe-worker-source.ts") === build.everythingGlobeWorkerModule(await build.everythingGlobeWorkerSource()))
 }
 check("its size comes from the ResizeObserver's entry, never measured as it mounts", /entry\.contentRect\.width/.test(globe) && !/box\.getBoundingClientRect\(\)[\s\S]{0,80}\bfit\(\)/.test(globe))
-check("device pixels capped, the sphere painted once per size", /Math\.min\(2, window\.devicePixelRatio/.test(globe) && /const paintStatic = \(\) =>/.test(engine))
+/* Changed on purpose (landing round 5): the cap is 2x, or 1.5x on a low end phone (globeDprCap). */
+check("device pixels capped, the sphere painted once per size", /Math\.min\(globeDprCap\(\), window\.devicePixelRatio/.test(globe) && /const paintStatic = \(\) =>/.test(engine))
 /* Changed on purpose (land-globe): the pill is placed every frame the city moves (no 100ms glide that trailed the city), so it sits exactly on it. */
-check("the order pill moves by transform only, placed on the city every frame it moves", /el\.style\.transform = `translate\(/.test(globe) && !/style\.(left|top) =/.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i: st\.pill, x, y, on \}\)/.test(engine))
+/* Changed on purpose (landing round 4): the pill is told where the city is and where it will be a moment later a few times a second, and glides there in one compositor animation (a style change every frame made dragging lag); still transform only. */
+/* Changed on purpose (landing round 5): the owner saw the pill flash and jump as it chased the city; it stands in one place and only fades and lifts in and out. */
+/* Changed on purpose (landing round 6): the owner wants the notification where the shot landed; it is placed once per landing by a transform on its pin and carried by one compositor animation, never re-aimed per frame (tests/home-landing-r6-globe). */
+check("the order pill sits where the shot landed, placed once by transform, and comes and goes by opacity", !/style\.(left|top) =/.test(globe) && /pin\.style\.transform = /.test(globe) && !/data-glide/.test(css) && /host\.onPill\(\{ i, on: true, x0: /.test(engine))
 check("the globe survives a second mount (a canvas handed to a worker is swapped for a fresh one)", /handedOver\.has\(canvas\)/.test(globe) && /canvas\.replaceWith\(fresh\)/.test(globe))
 check("its motion runs on the display's frames by real elapsed time, on a clock that stops while paused", /const dt = Math\.max\(0, Math\.min\(50, t - st\.last\)\)/.test(engine) && /st\.clock \+= dt/.test(engine))
 const symbols: Record<string, string> = { "€": "EUR", "£": "GBP", "CA$": "CAD", "A$": "AUD", "¥": "JPY", RON: "RON", $: "USD" }
@@ -87,9 +93,13 @@ check("every order's flag exists", EVERYTHING_GLOBE_ORDERS.every((o) => existsSy
 
 console.log("\n── card 2 and 4 ──")
 /* Changed on purpose (landing round): the owner asked for a continuous carousel, like the creators rail; the stores drift without a stop, the set twice over moved by half its width in one linear loop. */
-check("the storefronts drift past without a stop, the strip seamless (the set twice, half its width a loop)", /* Changed on purpose (landing round 3): the strip is the stores with real OnePages between them, still the set twice. */ /const strip = \[\.\.\.EVERYTHING_STRIP, \.\.\.EVERYTHING_STRIP\]/.test(src) && /@keyframes ev-stores\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(-50%,0,0\)\}\}/.test(css) && /animation:ev-stores \d+s linear infinite/.test(css))
+/* Changed on purpose (landing round 4): the strip can be dragged, so its drift is a Web Animation from script (one set's width a loop) that a hand can take over; tests/home-landing-topa4. */
+/* Changed on purpose (landing round 6): the strip is EVERYTHING_STORES (merch stores and link pages), twice over. */
+check("the storefronts drift past without a stop, the strip seamless (the set twice, one set's width a loop)", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && /loop = copy\.offsetLeft - first\.offsetLeft/.test(src) && /iterations: Infinity, easing: "linear"/.test(src))
 /* Changed on purpose (landing round 2): the support card is the Support page as it reads, its two inboxes (From buyers, Storelib) and threads with no avatars, so the Storelib logo avatar went with them. */
-check("support: a person at Storelib answers the creator, the store answers a buyer", /Storelib support/.test(html) && /<span>From buyers<\/span>/.test(html) && /data-inbox="buyers"/.test(html) && /data-inbox="storelib"/.test(html))
+/* Changed on purpose (landing round 4): the owner wants the support card of before without the From buyers / Storelib switch; the two kinds of request are told by their titles. */
+/* Changed on purpose (landing round 5): the "Storelib support" and "From a buyer" labels are gone (the owner); the thread's subject heads it. */
+check("support: a person at Storelib answers the creator, the store answers a buyer", !/Storelib support/.test(html) && !/From a buyer/.test(html) && /Moving my subscribers over/.test(html) && !/<span>From buyers<\/span>/.test(html))
 const pics = [...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])
 check("every picture is local and exists", pics.length > 20 && pics.every((u) => u.startsWith("/") && existsSync(join(root, "public", u))), pics.filter((u) => !existsSync(join(root, "public", u))))
 /* Changed on purpose (wave 13 integration): the logo goes through next/image (StorelibLogo), whose test stub leaves out `loading`; it is lazy in production. */

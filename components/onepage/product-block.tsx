@@ -66,7 +66,20 @@ import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notic
 import { ProductSheet } from "./product-sheet"
 import { FramedPicture, readPictureShape } from "@/components/ui/framed-picture"
 import { CHECKOUT_HISTORY_KEY, HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer, type PurchaseStep } from "@/lib/onepage/purchase-flow"
-import { InstantCheckout, loadProductFacts } from "@/components/checkout/instant-checkout"
+import dynamic from "next/dynamic"
+import { loadProductFacts as readProductFacts } from "@/components/checkout/product-facts"
+/*
+  Round 63: THE CHECKOUT IS FETCHED, NOT SHIPPED. The checkout window and its words in every language were part of
+  every OnePage's first download, for every visitor, buyer or not. It is now its own file, asked for when the
+  block comes near the screen and the browser is idle (the same moment the product's facts are read, below),
+  so it is there before a tap without weighing on the page's first paint.
+*/
+const InstantCheckout = dynamic(() => import("@/components/checkout/instant-checkout").then((m) => m.InstantCheckout), { ssr: false })
+/* The facts are a small read (./product-facts); asking for them also starts the checkout window's file, so it is ready by the tap. */
+const loadProductFacts = (productId: string) => {
+  void import("@/components/checkout/instant-checkout").catch(() => undefined)
+  return readProductFacts(productId)
+}
 import { sheetPalette } from "@/lib/onepage/sheet-theme"
 
 /** The free product quick checkout made before round 10 (public-onepage's own window), kept for the blocks that use it. */
@@ -359,6 +372,18 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     io.observe(el)
     return () => io.disconnect()
   }, [plan, warm, data.product_id, shipsToCheckout])
+  /*
+    A picture that will not draw (wave 16, the owner's empty navy tiles under Renaissance): the block tries the next
+    one it knows (the creator's own, the cover as uploaded, the card copy), and with none left it is drawn with no
+    picture at all, as a block without one is, never as an empty frame the size of a picture.
+  */
+  const [unloadable, setUnloadable] = React.useState<readonly string[]>([])
+  const dropPicture = React.useCallback((src: string) => setUnloadable((was) => (was.includes(src) ? was : [...was, src])), [])
+  /* Its error, and one that came before the page was hydrated (a picture that is already broken when React finds it). */
+  const pictureFails = (src: string) => ({
+    onError: () => dropPicture(src),
+    ref: (el: HTMLImageElement | null) => { if (el && el.complete && el.naturalWidth === 0 && el.getAttribute("src")) dropPicture(src) },
+  })
 
   if (!data.product_id && !data.product_title) return null
 
@@ -387,7 +412,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const title = data.product_title || "Product"
   const description = data.show_description !== false ? plainText(data.product_description) : ""
   /* The creator's own picture for the block, else the product's cover as uploaded (SQL part 377), else its card copy. */
-  const image = data.custom_thumbnail || data.product_cover || data.product_thumbnail || null
+  const image = [data.custom_thumbnail, data.product_cover, data.product_thumbnail].find((u): u is string => !!u && !unloadable.includes(u)) ?? null
   const planPriced = isPlanPriced({ type: data.product_type })
   const money = (cents: number) => (planPriced ? shopMoneyIn(cents, PLAN_CURRENCY) : pageMoney(cents))
   const parts = productPriceParts(data, money)
@@ -452,10 +477,10 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const picture = (cls: string, ratio?: string) =>
     !image ? null : fit === "full" && ratio ? (
       /* eslint-disable-next-line @next/next/no-img-element */
-      <img src={image} alt={title || ""} loading="lazy" decoding="async" data-picture-fit="full" className={cn("block h-auto shrink-0", cls)} />
+      <img src={image} alt={title || ""} loading="lazy" decoding="async" data-picture-fit="full" className={cn("block h-auto shrink-0", cls)} {...pictureFails(image)} />
     ) : (
       /* Round AK: the editor's grey padding is cut off when the picture carries it (components/ui/framed-picture). */
-      <FramedPicture src={image} alt={title} fit={fit === "cover" ? "cover" : "contain"} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName={fit === "cover" ? "object-cover" : "object-contain"} imgProps={{ loading: "lazy", decoding: "async", ...({ "data-picture-fit": fit } as object) }} />
+      <FramedPicture src={image} alt={title} fit={fit === "cover" ? "cover" : "contain"} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName={fit === "cover" ? "object-cover" : "object-contain"} imgProps={{ loading: "lazy", decoding: "async", ...(pictureFails(image) as object), ...({ "data-picture-fit": fit } as object) }} />
     )
 
   const shell = (children: React.ReactNode, cls: string, style: React.CSSProperties = cardStyle) => (
@@ -488,7 +513,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           data-stays-here={staysHere}
         >
           <span className={cn("flex w-full min-w-0 items-center justify-center gap-2 sm:gap-3", NARROW_STACK)}>
-          {image ? <FramedPicture src={image} alt={title} frame={1} className="relative h-6 w-6 shrink-0 rounded sm:h-7 sm:w-7" imgClassName="object-cover" /> : null}
+          {image ? <FramedPicture src={image} alt={title} frame={1} className="relative h-6 w-6 shrink-0 rounded sm:h-7 sm:w-7" imgClassName="object-cover" imgProps={pictureFails(image) as object} /> : null}
           {/*
             Round AR3: the product's name is on the button too. With button words of the creator's own, they lead and the
             name is the line under them; without, the name is the button (it said "Get My Guide" for every product).

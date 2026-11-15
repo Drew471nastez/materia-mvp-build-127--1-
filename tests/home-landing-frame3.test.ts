@@ -50,26 +50,26 @@ console.log("\n── The sheet ──")
   const src = code("components/marketing/scroll-reveal-panel.tsx")
   const inside = createElement("p", null, "inside")
   const white = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "white", children: inside }))
-  const purple = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "purple", hold: true, radius: "30px", padding: "12px", className: "mine", children: inside }))
-  const dark = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { lift: "10px", children: inside }))
+  const purple = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "purple", radius: "30px", padding: "12px", className: "mine", children: inside }))
+  const dark = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { children: inside }))
   check("a white sheet is one plain block around its children", /<div data-sheet="white"><p>inside<\/p><\/div>/.test(white))
   check("a purple sheet is also the purple band the sections' rules key on", /data-sheet="purple" data-band="purple"/.test(purple))
   check("radius, padding and a class name can be set", /class="mine"/.test(purple) && /--srp-r:30px/.test(purple) && /--srp-pad:12px/.test(purple))
-  check("a held sheet sits in a hold box; a backdrop holds a dark stretch", /<div data-sheet-hold=""[^>]*><div data-sheet="purple"/.test(purple) && /<div data-sheet-hold="" style="--srp-lift:10px"><div data-sheet-backdrop="">/.test(dark))
+  // Changed on purpose (landing round 5): no hold box: a sheet and a dark stretch are each one plain block.
+  check("a sheet and a dark stretch are each one plain block", /^<style[^>]*>[\s\S]*<\/style><div data-sheet="purple"/.test(purple) && /<\/style><div data-sheet-backdrop=""><p>inside<\/p><\/div>$/.test(dark))
   check("its rules are one stylesheet, drawn once however many sheets there are", /<style href="scroll-reveal-panel" precedence="default">/.test(src))
+  /* Changed on purpose (landing round 4): the sheet now rises with a small side inset and the block behind recedes, as CSS scroll-driven animations of transform and opacity (tests/home-landing-frame4.test.ts); still no script. */
   check("no script at all: no client directive, no hook, no listener, no observer", !/"use client"/.test(src) && !/\buse[A-Z]\w*\(/.test(src) && !/addEventListener|IntersectionObserver|ResizeObserver|requestAnimationFrame/.test(src))
-  check("nothing is animated: no animation, transition, keyframes, transform, opacity, scale or filter", !/animation|transition|@keyframes|transform|opacity|scale\(|filter|will-change/.test(SHEET_CSS))
+  check("nothing is animated by a transition, filter or will-change; motion is only scroll-driven", !/transition|filter|will-change/.test(SHEET_CSS) && !/animation-timeline:(?!view\(\)|--srp-box)/.test(SHEET_CSS))
   check("no second scrollbar: the sheet never scrolls or clips by itself", !/overflow/.test(SHEET_CSS))
   check("rounded top and bottom: about 22px on a phone, 32px on a tablet, 48px on a computer", /--srp-r:clamp\(22px,4\.2vw,48px\)/.test(SHEET_CSS) && /\[data-sheet\]\{[^}]*border-radius:var\(--srp-r\)/.test(SHEET_CSS))
-  check("white, and the deep purple with the band's light words", /\[data-sheet="white"\]\{background:#fff;color:#18181b\}/.test(SHEET_CSS) && /\[data-sheet="purple"\]\{--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba\(255,255,255,\.16\);background:[^}]*#24104f;color:#fff\}/.test(SHEET_CSS))
+  /* Changed on purpose (landing round 4): each tone also names its colour (--srp-bg) for the fillets of a flat ground. */
+  check("white, and the deep purple with the band's light words", /\[data-sheet="white"\]\{--srp-bg:#fff;background:#fff;color:#18181b\}/.test(SHEET_CSS) && /\[data-sheet="purple"\]\{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba\(255,255,255,\.16\);background:[^}]*#24104f;color:#fff\}/.test(SHEET_CSS))
   check("above the dark page, under the header (z-index 1 against the header's 40)", /\[data-sheet\]\{position:relative;z-index:1/.test(SHEET_CSS))
-  check("holding still is position: sticky alone, inside a box one screen taller", /\[data-sheet-hold\]::before\{content:"";display:block;height:var\(--srp-cover\)\}/.test(SHEET_CSS) && /\[data-sheet-hold\]>\*\{position:sticky;bottom:0\}/.test(SHEET_CSS) && /--srp-cover:100svh/.test(SHEET_CSS))
-  check("the next block starts one screen higher, so the page is no longer", /\[data-sheet-hold\]\+\[data-sheet\],\[data-sheet-hold\]\+\[data-sheet-hold\]\{margin-top:calc\(var\(--srp-cover\) \* -1\)\}/.test(SHEET_CSS))
-  check("only where it is safe: not for reduced motion, not on a window taller than the block", /@media \(max-height:1400px\) and \(prefers-reduced-motion:no-preference\)\{\s*\[data-sheet-hold\]\{margin-top/.test(SHEET_CSS))
-  const wide = renderToStaticMarkup(createElement(ScrollRevealBackdrop, { holdOnPhone: false, children: inside }))
-  check("a block that ends in something dragged is not held on a phone", /<div data-sheet-hold="wide">/.test(wide) && /@media \(max-width:767px\)\{\s*\[data-sheet-hold="wide"\]\{margin-top:0\}\s*\[data-sheet-hold="wide"\]::before\{content:none\}\s*\[data-sheet-hold="wide"\]>\*\{position:relative;bottom:auto\}/.test(SHEET_CSS))
-  check("otherwise the next sheet laps over the end of this one by its corner", /\[data-sheet-hold\]\+\[data-sheet\],\[data-sheet-hold\]\+\[data-sheet-hold\]\{margin-top:calc\(var\(--srp-r\) \* -1\)\}/.test(SHEET_CSS) && /\[data-sheet\]\+\[data-sheet\]\{margin-top:calc\(var\(--srp-r\) \* -1\)\}/.test(SHEET_CSS))
-  check("a sheet under another loses its bottom corners, so no dark shows between them", /\[data-sheet\]:has\(\+\[data-sheet\]\)\{border-bottom-left-radius:0;border-bottom-right-radius:0/.test(SHEET_CSS) && /\[data-sheet-hold\]>\[data-sheet\]\{border-bottom-left-radius:0;border-bottom-right-radius:0/.test(SHEET_CSS))
+  // Changed on purpose (landing round 5): nothing is held any more (the owner: stutters, black bands, sections that stop the scroll); a sheet laps over the block before by its corner and scrolls with the page (tests/home-landing-r5-frame.test.ts).
+  check("no sticky hold, no screen tall box: the sheet scrolls with the page", !/sticky|data-sheet-hold|--srp-cover/.test(SHEET_CSS))
+  check("the next sheet laps over the end of the block before by its corner", /\[data-sheet\]:not\(\[data-sheet-flat\]\)\{margin-top:calc\(var\(--srp-r\) \* -1\)\}/.test(SHEET_CSS))
+  check("a sheet under another loses its bottom corners, so no dark shows between them", /\[data-sheet\]:has\(\+\[data-sheet\]:not\(\[data-sheet-flat\]\)\)\{border-bottom-left-radius:0;border-bottom-right-radius:0/.test(SHEET_CSS))
 }
 
 console.log("\n── The bands it replaced ──")
@@ -77,8 +77,10 @@ console.log("\n── The bands it replaced ──")
   const story = code("components/marketing/landing-story.tsx")
   check("StoryBand is gone, and the scroll-driven scale with it", !/StoryBand/.test(story) && !/band-rise|animation-timeline|scale\(/.test(BAND_CSS))
   check("no black band, and nothing recolours the business section", !/data-band="black"/.test(BAND_CSS) && !/\.biz/.test(BAND_CSS))
-  check("analytics, the map and the app still read light on purple", /\[data-band\] #analytics-showcase,\[data-band\] #app-anywhere\{background:transparent;color:#fff\}/.test(BAND_CSS) && /\[data-band\] \.cmm\{background:transparent;color:#fff\}/.test(BAND_CSS))
-  check("the closing call reads light on purple, with a white button", /\[data-band\] \.fcta\{background:transparent\}/.test(BAND_CSS) && /\[data-band\] \.fcta-title\{color:#fff\}/.test(BAND_CSS) && /\[data-band\] \.fcta-primary\{background:#fff;color:#18181b\}/.test(BAND_CSS))
+  /* Changed on purpose (landing round 4): the app is on the page's dark close now and draws itself for dark. */
+  check("analytics and the map still read light on purple", /\[data-band\] #analytics-showcase\{background:transparent;color:#fff\}/.test(BAND_CSS) && /\[data-band\] \.cmm\{background:transparent;color:#fff\}/.test(BAND_CSS))
+  /* Changed on purpose (landing round 4): the closing call is on the dark close, light by its own rules, with a white button. */
+  check("the closing call reads light with a white button, by its own rules", !/fcta/.test(BAND_CSS) && /\.fcta-primary\{background:#fff;color:#18181b\}/.test(read("components/marketing/home/final-cta.tsx")))
 }
 
 console.log("\n── The page ──")
@@ -87,14 +89,15 @@ console.log("\n── The page ──")
   const page = code("app/(storelib)/(marketing)/page.tsx").replace(/\{\s*\}/g, "")
   check("the page's base is dark", /<div className="bg-\[#050506\]" data-home-ground="dark">/.test(page) && !/className="bg-white"/.test(page))
   /* Each ground, in the owner's order, with exactly the sections he listed. */
+  /* Changed on purpose (landing round 4): the hero is not held and the first white ground is flat (Make the work must not arrive as a drawer); the close is dark, not purple. */
   const grounds: [string, string[]][] = [
-    ['<ScrollRevealBackdrop lift="var(--home-header-height, 0px)" holdOnPhone={false}>', ["<Hero />", "<BuildShowcase />"]],
-    ['<ScrollRevealPanel tone="white">', ["<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />"]],
+    ["<ScrollRevealBackdrop>", ["<Hero />", "<BuildShowcase />"]], // Changed on purpose (landing round 5): nothing is held, so no hold props.
+    ['<ScrollRevealPanel tone="white" arrive="flat">', ["<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />"]],
     ["<ScrollRevealBackdrop>", ["<LazyCheckoutScene />"]],
-    ['<ScrollRevealPanel tone="white" hold>', ["<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />"]],
-    ['<ScrollRevealPanel tone="purple" hold>', ["<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />"]],
+    ['<ScrollRevealPanel tone="white">', ["<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />"]],
+    ['<ScrollRevealPanel tone="purple">', ["<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />"]],
     ['<ScrollRevealPanel tone="white">', ["<LazyEarningsCalculator />", "<PricingSection", "<FaqSection"]],
-    ['<ScrollRevealPanel tone="purple">', ["<LazyAppAnywhere />", "<FinalCta />"]],
+    ["<ScrollRevealBackdrop>", ["<LazyAppAnywhere />", "<FinalCta />"]],
   ]
   let at = 0
   const wrong: string[] = []
@@ -117,7 +120,7 @@ console.log("\n── The page ──")
     at = end
   }
   check("the grounds and their sections, in the owner's order", wrong.length === 0, wrong)
-  check("everything is inside the one story root, so loops still pause off screen", /<LandingStory>\s*<ScrollRevealBackdrop/.test(page) && /<\/ScrollRevealPanel>\s*<\/LandingStory>/.test(page))
+  check("everything is inside the one story root, so loops still pause off screen", /<LandingStory>\s*<ScrollRevealBackdrop/.test(page) && /<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page))
   check("One store for everything you sell is straight on the white sheet", !/StoryBand|data-band/.test(page) && /<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page))
   check("the questions' sheet is not held, so a link to #faq lands on them", /<ScrollRevealPanel tone="white">\s*<LazyEarningsCalculator \/>/.test(page))
   check("every server-drawn lazy box keeps its name", ["possibilities", "pricing", "faq"].every((n) => page.includes(`<LazySection name="${n}"`)))

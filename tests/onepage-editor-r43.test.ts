@@ -106,7 +106,7 @@ function main() {
   section("7. The picture's frame")
   {
     check("unset: medium, round, a 1px ring in the text colour at an eighth", avatarPx({}, false) === 114 && avatarPx({}, true) === 121 && avatarRadius({}) === "9999px" && AVATAR_BORDER_DEFAULT === 1 && avatarBorderWidth({}) === 1 && avatarBorderColor({ text_color: "#1a1a2e" }) === "#1a1a2e20")
-    check("sizes, shapes and corners", avatarPx({ avatar_size: "large" }, false) === 140 && avatarPx({ avatar_size: "small" }, true) === 94 && avatarRadius({ avatar_shape: "square" }) === "0px" && avatarRadius({ avatar_shape: "rounded", avatar_radius: 20 }) === "20px" && avatarRadius({ avatar_shape: "rounded" }) === "24px")
+    check("sizes, shapes and corners", /* Changed on purpose (round 17): Small is the old Medium and Large the old Large plus 5%. */ avatarPx({ avatar_size: "large" }, false) === 147 && avatarPx({ avatar_size: "small" }, true) === 121 && avatarRadius({ avatar_shape: "square" }) === "0px" && avatarRadius({ avatar_shape: "rounded", avatar_radius: 20 }) === "20px" && avatarRadius({ avatar_shape: "rounded" }) === "24px")
     check("no ring, and a ring of the creator's colour", avatarBorderWidth({ avatar_border_width: 0 }) === 0 && avatarBorderColor({ avatar_border_color: "#ff0000" }) === "#ff0000" && avatarBorderWidth({ avatar_border_width: 40 }) === 8)
     check("a colour that is not one is not written", avatarBorderColor({ avatar_border_color: "red;background:url(x)", text_color: "#000000" }) === "#00000020")
     check("one look for the picture, its glow and its ring", /const look = avatarLook\(theme as never, isDesktop\)/.test(live) && (live.match(/borderRadius: look\.radius/g) ?? []).length >= 5 && avatarLook({}, false).size === 114)

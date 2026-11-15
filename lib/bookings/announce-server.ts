@@ -1,6 +1,7 @@
 import "server-only"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
-import { resolveCreatorIdentity } from "@/lib/email"
+import { resolveCreatorIdentityForUser } from "@/lib/email"
+import { loginEmailFrom, provenInboxForUser } from "@/lib/seller-inbox"
 import { notifyUser } from "@/lib/notifications/user-inbox"
 import { platformOrigin } from "@/lib/onepage/return-address"
 import { syncBookingEvent } from "@/lib/google-calendar/server"
@@ -28,8 +29,13 @@ export function liveDeps(db: Db): AnnounceDeps {
       }),
     sync: (input) => syncBookingEvent(db, input),
     identity: async (ownerId) => {
-      const id = await resolveCreatorIdentity(db, ownerId)
-      return { fromName: id?.fromName || "", sellerEmail: id?.sellerEmail || null, replyTo: id?.replyTo || null }
+      /* Round AY: ownerId is a USER id; the store is found by creators.user_id (lib/email resolveCreatorIdentityForUser). */
+      const id = await resolveCreatorIdentityForUser(db, ownerId).catch(() => null)
+      /* Round AX: the owner's copy of a visitor's change goes to an address the store has proven it owns
+         (lib/seller-inbox provenInbox). ownerId is a USER id, which resolveCreatorIdentity's creators.id
+         read does not find, so its seller address was Storelib's own support inbox. */
+      const inbox = await provenInboxForUser(db as never, ownerId, loginEmailFrom(db)).catch(() => null)
+      return { fromName: id?.fromName || "", sellerEmail: inbox?.to || null, replyTo: id?.replyTo || null }
     },
     manageUrl: (bookingId) => {
       try {

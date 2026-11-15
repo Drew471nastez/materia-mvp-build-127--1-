@@ -4,7 +4,17 @@ import { useRoutePath } from "@/lib/navigation/route-path"
 
 import { useSelectedLayoutSegment } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
-import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
+import dynamic from "next/dynamic"
+/*
+  Round 63: THE HEADER'S CODE IS FETCHED WHERE A HEADER IS DRAWN. This file is in the layout of every page under
+  (marketing), a OnePage on storelib.me among them, and a plain import put the whole platform header (the account
+  menu, the bell, search and the sign in client) in the first download of every OnePage, which never draws it.
+  The server still draws the header wherever it shows (ssr stays on), so storelib.com looks the same; a page
+  without one no longer carries it. While it loads on a move between pages, the same bar holds its place.
+*/
+const PlatformHeaderClient = dynamic(() => import("@/components/platform/platform-header-client").then((m) => m.PlatformHeaderClient), {
+  loading: () => <HeaderPlaceholder />,
+})
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { BUYER_HEADER_DARK_BG, hasConcaveEdge } from "@/lib/platform/header-chrome"

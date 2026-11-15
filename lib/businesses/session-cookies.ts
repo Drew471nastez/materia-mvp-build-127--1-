@@ -1,7 +1,8 @@
 import "server-only"
 import type { NextResponse } from "next/server"
 import { cleanSwitchName, cleanSwitchPhoto, SWITCH_COOKIE, SWITCH_COOKIE_MAX_AGE_S } from "@/lib/businesses/switch-screen"
-import { parseCookieHeader, SESSION_COOKIE_MAX_AGE, sessionCookieChunks, storedSessionJson, storedSessionKey } from "@/lib/supabase/session-jar"
+import { cookiePairs, HOST_PREFIX, holdsHostSession } from "@/lib/supabase/host-session"
+import { SESSION_COOKIE_MAX_AGE, sessionCookieChunks, storedSessionJson, storedSessionKey } from "@/lib/supabase/session-jar"
 
 /**
  * ===========================================================================
@@ -39,10 +40,13 @@ export function setSessionCookies(
   const secure = new URL(request.url).protocol === "https:" || request.headers.get("x-forwarded-proto") === "https"
   const key = storedSessionKey()
   if (key) {
-    const existing = parseCookieHeader(request.headers.get("cookie") || "").keys()
-    const { set, expire } = sessionCookieChunks(key, storedSessionJson(session), existing)
-    for (const c of set) res.cookies.set({ name: c.name, value: c.value, path: "/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure, httpOnly: false })
-    for (const name of expire) res.cookies.set({ name, value: "", path: "/", maxAge: 0, sameSite: "lax", secure, httpOnly: false })
+    const pairs = cookiePairs(request.headers.get("cookie"))
+    /* Under the `__Host-` name on HTTPS, every old-name chunk expired (lib/supabase/host-session.ts, round AX). */
+    const host = secure || holdsHostSession(pairs, key)
+    const { set, expire } = sessionCookieChunks(key, storedSessionJson(session), pairs.map((p) => p.name), host)
+    const isHost = (name: string) => name.startsWith(HOST_PREFIX)
+    for (const c of set) res.cookies.set({ name: c.name, value: c.value, path: "/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure: secure || isHost(c.name), httpOnly: false })
+    for (const name of expire) res.cookies.set({ name, value: "", path: "/", maxAge: 0, sameSite: "lax", secure: secure || isHost(name), httpOnly: false })
   }
   const name = arrival ? cleanSwitchName(arrival.name) : null
   if (name) {

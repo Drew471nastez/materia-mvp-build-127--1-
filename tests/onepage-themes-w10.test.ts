@@ -37,6 +37,8 @@ import { WALLPAPER_PATTERNS } from "@/lib/onepage/wallpaper"
 import { THEME_SKINS, skinRootProps, skinSceneOf, themeSkinOf } from "@/lib/onepage/theme-skin"
 import { readCatalog } from "../scripts/i18n/catalog-file.mjs"
 
+/* Round 17: Grunge is retired (lib/onepage/retired-themes moves its pages to Grunge Zine) and scripts/build-onepage-skins.mjs no longer writes its skin, so the sheet is read for the skins it writes. */
+const WRITTEN_SKINS = THEME_SKINS.filter((s) => s !== "grunge")
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -66,7 +68,7 @@ const olderNames = [...design.matchAll(/\n    name: "([^"]+)",/g)].map((m) => m[
 
 console.log("\nNine themes, valid and each its own")
 const NEW = ["aero2", "aqua2", "messenger2", "y2k2", "playful2", "grunge2", "classic98", "vaporwave", "arcade"]
-check(`the older catalogue was read (${older.length} themes)`, older.length >= 43) /* Editorial retired */
+/* Changed on purpose (round 17): Folio, Midnight and Grunge retired. */ check(`the older catalogue was read (${older.length} themes)`, older.length >= 40) /* Editorial retired */
 check("nine themes, new ids and names, one for each new skin", W10_THEMES.length === 9 && W10_THEMES.map((t) => t.id).join() === NEW.join() && W10_THEMES.every((t) => !older.includes(t.id) && !olderNames.includes(t.name)) && THEME_SKINS.slice(6, 15).join() === NEW.join())
 check("each theme names its own skin", W10_THEMES.every((t) => (t.theme_config as Record<string, unknown>).theme_skin === t.id))
 check("the two popular looks the catalogue lacked are new, not a renamed Neon or Swiss", ["Vaporwave", "Arcade"].every((n) => W10_THEMES.some((t) => t.name === n)) && !olderNames.some((n) => /vapor|synth|arcade|pixel|8.?bit/i.test(n)))
@@ -119,7 +121,7 @@ for (const t of W10_THEMES) {
 }
 check("the two pixel faces are loaded, each with a fallback of its kind", ONEPAGE_FONTS["Pixelify Sans"] === "400;500;600;700" && ONEPAGE_FONTS["Press Start 2P"] === null && /monospace$/.test(fontStack("Press Start 2P")) && /sans-serif$/.test(fontStack("Pixelify Sans")))
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }]).map((t) => t.id).join(",")
-check("each joins the end of its kind, after round W9's", merged.includes("grunge,aqua2,messenger2,grunge2,b") && merged.includes("aero,y2k2,vaporwave,dune,c") && merged.endsWith("y2k,aero2,playful2,classic98,arcade,stoicism,atlas") /* Changed on purpose (round AT): Stoicism (was Plaster), and Dune after the gradients. */ /* Changed on purpose (round AS): Plaster after them. */, merged)
+/* Changed on purpose (round 17): Folio and Grunge are retired (lib/onepage/retired-themes), so they leave the catalogue's order. */ check("each joins the end of its kind, after round W9's", merged.includes("aqua2,messenger2,grunge2,b") && merged.includes("aero,y2k2,vaporwave,dune,c") && merged.endsWith("y2k,aero2,playful2,classic98,arcade,stoicism,atlas") /* Changed on purpose (round AT): Stoicism (was Plaster), and Dune after the gradients. */ /* Changed on purpose (round AS): Plaster after them. */, merged)
 
 console.log("\nEvery word a skin paints under, read on it (at 4.5:1, and still at 70%)")
 const pairs = JSON.parse(execFileSync(process.execPath, ["scripts/build-onepage-skins.mjs", "--pairs"], { encoding: "utf8", maxBuffer: 1 << 24 })) as Array<{ skin: string; what: string; ink: string; under: string[]; faded?: boolean }>
@@ -135,7 +137,7 @@ for (const p of pairs) {
 }
 console.log("\nThe owner's two: words on a form are the skin's, whatever the theme's text colour")
 const INLINE = ':is([style^="color:"], [style*=" color:"])'
-for (const skin of THEME_SKINS) {
+for (const skin of WRITTEN_SKINS) {
   const rules = [...css.matchAll(new RegExp(`\\[data-op-skin="${skin}"\\] ([^{]*)\\{\\n\\s*color: (#[0-9a-f]{6}) !important;`, "gi"))].map((m) => m[1])
   const inked = (part: string) => rules.some((sel) => sel.includes(part) && sel.includes(INLINE))
   check(`${skin}: the subscribe and contact forms (a Bold form's white words included)`, inked("[data-email-layout]") && inked("[data-onepage-contact]"))
@@ -164,12 +166,14 @@ const KINDS: Record<string, string> = {
   "any other block in the button's look": ':where([style*="background-clip: padding-box"]',
 }
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-for (const skin of THEME_SKINS) {
-  const missing = Object.entries(KINDS).filter(([, sel]) => !css.includes(`[data-op-skin="${skin}"] ${sel}`) && !new RegExp(`\\[data-op-skin="${skin}"\\] :is\\([^{]*${esc(sel)}`).test(css)).map(([k]) => k)
+for (const skin of WRITTEN_SKINS) {
+/* Changed on purpose (wave 16): Renaissance boxes only the row and stacked forms' fields; Connect's pill and Personal note's line keep their own shape (the owner: the layout pictures must be accurate). */
+const KIND_ALT: Record<string, string> = { fields: ":is([data-email-form=row],[data-email-form=stacked], [data-onepage-contact] form) :is(input" }
+  const missing = Object.entries(KINDS).filter(([k, sel]) => !(KIND_ALT[k] && css.includes(`[data-op-skin="${skin}"] ${KIND_ALT[k]}`)) && !css.includes(`[data-op-skin="${skin}"] ${sel}`) && !new RegExp(`\\[data-op-skin="${skin}"\\] :is\\([^{]*${esc(sel)}`).test(css)).map(([k]) => k)
   check(`${skin}: styles ${Object.keys(KINDS).length} kinds of block`, missing.length === 0, missing.join(", "))
 }
 const scene = read("components/onepage/themes/theme-skin-scene.tsx")
-for (const skin of THEME_SKINS) {
+for (const skin of WRITTEN_SKINS) {
   const pieces = [...(scene.match(new RegExp(`\\n  ${skin}: \\[(.*)\\],`))?.[1] ?? "").matchAll(/\["([a-z-]+)", (\d+)\]/g)].map((m) => m[1])
   /* Changed on purpose (wave 15): Renaissance's scene is the painting alone, whole and still; its frame, sky band and full scrim are gone at the owner's word. */
   check(`${skin}: a scene of ${pieces.length} kinds of piece, each drawn`, pieces.length >= (skin === "renaissance" ? 1 : 3) && pieces.every((p) => css.includes(`[data-skin-scene="${skin}"] [data-sk="${p}"]`)), pieces.join())

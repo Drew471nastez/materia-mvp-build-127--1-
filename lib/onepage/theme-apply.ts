@@ -45,6 +45,8 @@ export const LOOK_RESET: Record<string, unknown> = {
   image_blur: null,
   video_brightness: null,
   animated_gradient: false,
+  /* Round 17: how an animated gradient moves (components/onepage/wallpaper-layers GradientMotion); a theme that names none drifts. */
+  gradient_motion: null,
   gradient_direction: null,
   gradient_color_1: null,
   gradient_color_2: null,

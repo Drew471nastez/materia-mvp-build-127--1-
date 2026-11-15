@@ -10,16 +10,17 @@
  *
  * What the owner asked, pinned:
  *   audience      the composer smaller; subscribers with real faces, not
- *                 initials; the Storelib logo of the header in the sync card;
+ *                 initials; the email platforms in their own marks;
  *                 "Download every contact, any time" as it was.
  *   analytics     kept and smaller: a dark globe card (section 3's engine,
  *                 read only), an invented creator, top places by country, an
- *                 SEO · GEO · AEO card about sourdough, not vases, and the
+ *                 SEO · GEO · AEO card (a LUT pack since round 4), and the
  *                 engines (Google, ChatGPT, Claude, Perplexity, Gemini)
  *                 taking turns, paused off screen; no "fans".
  *   map           no "fans" in the heading; a shorter card; a finer, accurate
  *                 dotted map; markers on land and apart; the price changes
- *                 with the country, the button never does.
+ *                 with the country (round 4: the product and the button's
+ *                 language change too).
  *   integrations  two rows, tiles a fifth smaller, no tile ever on screen
  *                 twice, no light that follows the pointer, shadows with
  *                 room, crisp marks (vectors or icons at 3x), the current
@@ -33,7 +34,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { AudienceOwnership } from "@/components/marketing/home/audience-ownership"
 import { AnalyticsShowcase } from "@/components/marketing/home/analytics-showcase"
-import { SellEverywhereMap, SELL_COUNTRIES, SELL_PAST_ORDERS, SELL_BUY_LABEL, SELL_MAP, sellMapLand } from "@/components/marketing/home/sell-everywhere-map"
+import { SellEverywhereMap, SELL_COUNTRIES, SELL_PAST_ORDERS, SELL_MAP, sellMapLand } from "@/components/marketing/home/sell-everywhere-map"
 import { IntegrationsSection, INTEGRATION_ROW_SIZES, INTEGRATION_SEEN_MAX, INTEGRATION_TILE_STEP, PLATFORM_INTEGRATION_APPS } from "@/components/marketing/home/integrations-section"
 
 let passed = 0
@@ -60,12 +61,16 @@ console.log("\n── audience ──")
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
   const faces = [...src.matchAll(/photo: "([a-z]+)"/g)].map((m) => m[1])
-  check("every subscriber has a real face, a small webp under public/home/audience/people", faces.length === 8 && faces.every((f) => existsSync(join(root, "public/home/audience/people", `${f}.webp`)) && statSync(join(root, "public/home/audience/people", `${f}.webp`)).size < 12 * 1024), faces)
-  check("no initials in place of a face", !/initials\(|tint:/.test(src) && /\/people\/\$\{r\.photo\}\.webp/.test(src))
-  check("the sync card shows the header's own Storelib logo", /import \{ StorelibLogo \} from "@\/components\/brand\/storelib-logo"/.test(src) && /<StorelibLogo size=\{44\}/.test(src) && !/STORELIB_S_PATH/.test(src) && /data-storelib-logo/.test(html))
-  check("the composer is smaller: a narrower window and a shorter well", /max-w-\[520px\]/.test(src) && /min-height: 380px/.test(css) && !/lg:row-span-2/.test(src))
-  check("Download every contact, any time, as it was", /Download every contact, any time/.test(words) && /Names, emails, tags and where each person came from, as a CSV\. Bring a list in the same way\./.test(words) && /contacts\.csv/.test(words))
-  check("cards a pixel less round (27px, 21px on a phone)", /border-radius: 27px/.test(css) && /border-radius: 21px/.test(css) && !/border-radius: 28px/.test(css))
+  /* Changed on purpose (landing round 5): the section is one Contacts picture now: five people, each a real face. */
+  check("every contact shown has a real face, a small webp under public/home/audience/people", faces.length === 5 && faces.every((f) => existsSync(join(root, "public/home/audience/people", `${f}.webp`)) && statSync(join(root, "public/home/audience/people", `${f}.webp`)).size < 12 * 1024), faces)
+  check("no initials in place of a face", !/initials\(|tint:/.test(src) && /\$\{IMG\}\/\$\{p\.photo\}\.webp/.test(src))
+  /* Changed on purpose (landing round 4): the owner asked for a smaller, lighter audience section; the sync card is a plain row now, the platforms in their own marks without the Storelib logo above them. */
+  check("the sync row shows the email platforms in their own marks, not the old tree", /EMAIL_PLATFORMS\.map/.test(src) && !/STORELIB_S_PATH/.test(src) && !/s\.tree/.test(src))
+  /* Changed on purpose (landing round 5): the owner found the composer too big and asked for one compact picture; the composer is gone. */
+  check("no composer: one compact picture", !/Composer|s\.bleed/.test(src) && !/\.bleed/.test(css))
+  check("Download every contact, any time, as it was", /Download every contact, any time/.test(words) && /Names, emails, tags and where each person came from, as a CSV\./.test(words) && /Export CSV/.test(words))  /* Changed on purpose (landing round 5): the CSV is the picture's Export CSV button now. */
+  /* Changed on purpose (landing round 5): one card, the Contacts picture, at 20px. */
+  check("one card, a 20px corner", /\.mock \{[^}]*border-radius: 20px;/.test(css) && !/border-radius: 28px/.test(css))
   check("no fans in the words", !/\bfans?\b/i.test(words))
 }
 
@@ -81,11 +86,13 @@ console.log("\n── analytics ──")
   check("an invented creator with a real portrait, no celebrity", /Nora Vik/.test(words) && existsSync(join(root, "public/home/analytics/nora.webp")) && !/Ice Spice|icespice|verified/i.test(words))
   check("top places by country (Storelib keeps no cities)", /Top places/.test(words) && !/New York|Los Angeles|\bCities\b/.test(words))
   check("the globe is section 3's engine and worker, its files untouched", /createGlobeEngine/.test(globe) && /EVERYTHING_GLOBE_WORKER_SOURCE/.test(globe) && /const held = new WeakMap/.test(globe))
-  check("SEO · GEO · AEO, a sourdough search, example addresses, no vases, no em dash", /SEO · GEO · AEO/.test(words) && /sourdough starter for beginners/.test(words) && /\.example/.test(words) && !/vase/i.test(words) && !/—/.test(words))
-  check("the search thumbnails are local webp files", ["sourdough-loaf", "sourdough-crumb", "sourdough-rustic"].every((f) => existsSync(join(root, "public/home/analytics", `${f}.webp`)) && html.includes(`/home/analytics/${f}.webp`)))
+  /* Changed on purpose (landing round 4): the owner banned the sourdough example; the search is for a cinematic LUT pack. */
+  check("SEO · GEO · AEO, a LUT pack search, no sourdough, example addresses, no vases, no em dash", /SEO · GEO · AEO/.test(words) && /cinematic LUT pack for Premiere Pro/.test(words) && !/sourdough/i.test(words) && /\.example/.test(words) && !/vase/i.test(words) && !/—/.test(words))
+  /* Changed on purpose (landing round 4): new stills for the LUT pack search. */
+  check("the search thumbnails are local webp files", ["lut-fog", "lut-neon", "lut-autumn"].every((f) => existsSync(join(root, "public/home/analytics", `${f}.webp`)) && html.includes(`/home/analytics/${f}.webp`)))
   const marks = read(`${DIR}/engine-marks.tsx`)
   check("five engines in their own vector marks", ["GoogleG", "OpenAIMark", "ClaudeMark", "PerplexityMark", "GeminiMark"].every((n) => new RegExp(`export function ${n}\\(`).test(marks)) && ["Google", "ChatGPT", "Claude", "Perplexity", "Gemini"].every((e) => src.includes(`name: "${e}"`)))
-  check("the switcher turns only while live, never under reduced motion, by transform and opacity", /if \(!live \|\| reduced\) return/.test(src) && /window\.clearInterval/.test(src) && /\.engine \{[\s\S]*?transition:\s*transform 800ms[^;]*,\s*opacity 600ms/.test(css))
+  check("the switcher turns only while live, never under reduced motion, by transform and opacity", /if \(!live \|\| reduced\) return/.test(src) && /window\.clearInterval/.test(src) && /\.engine \{[\s\S]*?transition:\s*transform 800ms[^;]*,\s*opacity 600ms/.test(css)) /* Changed on purpose (landing round 5): the switcher is the one from before round 4 again, as the owner asked. */
   check("keyframes animate only transform and opacity", keyframeProps(css).every((p) => p === "transform" || p === "opacity"), keyframeProps(css))
   check("cards a pixel less round (27px, 21px on a phone)", /border-radius: 27px/.test(css) && /border-radius: 21px/.test(css))
   check("smaller: two fixed rows of 400px, no dashboard, no tabbed cards", /\.globeCard,\s*\.fixed \{\s*height: 400px;/.test(css) && !/Total Revenue|Conversion Rate|Previous period/.test(words))
@@ -97,7 +104,8 @@ console.log("\n── map ──")
   const html = renderToStaticMarkup(createElement(SellEverywhereMap))
   const words = text(html)
   check("the heading has no fans", words.includes("Your store never closes. Sell anywhere.") && !/\bfans?\b/i.test(words))
-  check("the button says Buy now in every country (never translated)", SELL_BUY_LABEL === "Buy now" && (html.match(/class="cmm-buy">[^<]*</g) ?? []).length === 1 && html.includes('class="cmm-buy">Buy now<') && !/lang="(de|fr|it|es|pt-BR)"/.test(html))
+  /* Changed on purpose (landing round 4): the owner reversed the first round's ask; the button now speaks each country's language (tests/home-landing-lower4.test.ts). */
+  check("one buy button, its words per country", (html.match(/class="cmm-buy">/g) ?? []).length === 1 && SELL_COUNTRIES.every((c) => html.includes(`lang="${c.lang}"`)))
   check("the price changes with the country, one per country", SELL_COUNTRIES.every((c) => html.includes(`>${c.total}</span>`)) && new Set(SELL_COUNTRIES.map((c) => c.total)).size === SELL_COUNTRIES.length)
   check("a shorter card: 500px on a wide screen (it was 680)", /\.cmm-card\{[^}]*height:500px/.test(src) && !/height:680px/.test(src))
   check("a finer map: 240 x 90 cells of 1.5 degrees", SELL_MAP.cols === 240 && SELL_MAP.rows === 90 && SELL_MAP.step === 1.5)

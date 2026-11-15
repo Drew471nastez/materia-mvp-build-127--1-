@@ -4,7 +4,7 @@ import { memo, useEffect, useRef, type ReactNode } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
-import { BUSINESS_MOCK_CSS, BookingPage, CommunityPage, CoursePage, SamplePackPage, TeePage } from "./showcase-mocks/business-mocks"
+import { BUSINESS_MOCK_CSS, BookingPage, CommunityPage, CoursePage, TeePage, TemplatePage } from "./showcase-mocks/business-mocks"
 import { PILLS_CSS } from "./showcase-mocks/pills"
 import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
 
@@ -20,8 +20,17 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   on a phone the same pill row, a grey track with the chosen tab white; on a
   computer the list keeps its lines, the chosen one on that same soft grey.
   No icons in them. Half of what it shows ships in a box: a physical product
-  comes second. The digital product is a real one, a drum sample pack drawn
-  in HTML, not a cover with a photograph on it.
+  comes second. The digital product is a real one, drawn in HTML, not a
+  cover with a photograph on it.
+
+  Landing round 5 (the owner): "just make it how it was before", with no
+  interactiveness that stops the section: "when I swipe it just goes through
+  everything". So this is the round 3 section again (round 4 pinned it with
+  position: sticky while the scroll stepped through the kinds). It scrolls
+  past like any other section; the kinds take turns on the invisible clock
+  while it is on screen, and a tap picks one. The examples are the newer
+  ones (the round 4 banned list keeps the old ones out), on the light grey
+  stage of before, not on coloured grounds.
 */
 export const BUSINESS_HEADING = "One store for everything you sell."
 export const BUSINESS_SLIDE_MS = 5200
@@ -41,9 +50,9 @@ export const BUSINESS_SLIDES: Kind[] = [
     id: "digital",
     label: "Digital products",
     tab: "Digital",
-    line: "Ebooks, templates, music and files, delivered the moment someone pays.",
-    page: <SamplePackPage />,
-    alt: "A digital product page on Storelib: Dust & Tape Drums, Ray Okoye's pack of 140 drum samples as WAV files, $24, downloaded right after paying.",
+    line: "Templates, ebooks, music and files, delivered the moment someone pays.",
+    page: <TemplatePage />,
+    alt: "A digital product page on Storelib: Studio OS for Notion by Priya Raman, $29, a workspace with clients, projects and invoices, duplicated into Notion in one click.",
   },
   {
     id: "physical",
@@ -59,7 +68,7 @@ export const BUSINESS_SLIDES: Kind[] = [
     tab: "Courses",
     line: "Video lessons people take at their own pace, picking up where they left off.",
     page: <CoursePage />,
-    alt: "A course page on Storelib: Wheel throwing, from first centering, by Mei Lin. 12 lessons, $89, the first lesson free to watch.",
+    alt: "A course page on Storelib: Mixing in key, for new DJs, by Tomás Reyes. 16 lessons, $79, the first lesson free to watch.",
   },
   {
     id: "communities",
@@ -67,7 +76,7 @@ export const BUSINESS_SLIDES: Kind[] = [
     tab: "Communities",
     line: "Free or paid spaces with posts, events and chat, on your own page.",
     page: <CommunityPage />,
-    alt: "A community page on Storelib: Saturday Run Club, free, 842 members, the next long run in Prospect Park and its spaces.",
+    alt: "A community page on Storelib: Second Serve, a padel community, $9 a month, 1,960 members, social doubles on Thursday and its spaces.",
   },
   {
     id: "bookings",
@@ -75,7 +84,7 @@ export const BUSINESS_SLIDES: Kind[] = [
     tab: "Bookings",
     line: "Calls and sessions people pick a time for and pay for in one go.",
     page: <BookingPage />,
-    alt: "A booking page on Storelib: a 45 minute Spanish conversation with Elena Ruiz, $35, with open times on Tuesday 18 November.",
+    alt: "A booking page on Storelib: a 30 minute portfolio review on a video call with Ines Duarte, a brand designer, $60, with times on Tuesday to Thursday.",
   },
 ]
 

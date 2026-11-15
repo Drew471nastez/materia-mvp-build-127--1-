@@ -3,7 +3,8 @@ import https from "node:https"
 import type net from "node:net"
 import { publicLookup } from "@/lib/api/public-fetch"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
-import { resolveCreatorIdentity } from "@/lib/email"
+import { resolveCreatorIdentityForUser } from "@/lib/email"
+import { loginEmailFrom, provenInboxForUser } from "@/lib/seller-inbox"
 import { platformEmail } from "@/lib/emails/layout"
 import { openSecret } from "@/lib/physical/secrets"
 import { platformOrigin } from "@/lib/onepage/return-address"
@@ -209,8 +210,16 @@ function answerFacts(answers: Answer[]): { label: string; value: string }[] {
 }
 
 async function ownerEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Booking) {
-  const identity = await resolveCreatorIdentity(db, job.owner_id).catch(() => null)
-  const to = identity?.sellerEmail
+  /*
+    Round AX: a visitor's answers go to an address the store has proven it
+    owns (lib/seller-inbox provenInbox): its support email only when that is
+    the account's or a team member's sign in address, else the account's own.
+    owner_id is the form owner's USER id; resolveCreatorIdentity reads a
+    creators.id, found no store for it, and answered Storelib's own support
+    inbox, so responses never reached the creator.
+  */
+  const inbox = await provenInboxForUser(db, job.owner_id, loginEmailFrom(db)).catch(() => null)
+  const to = inbox?.to
   if (!to || !to.includes("@")) throw permanent("No email address on the account.")
   /* Round 51: the response open in Contacts › Forms (the old Emails › Leads link pointed at a tab that is gone). */
   /* Round AR: a booking opens in Bookings, its time in the creator's own zone (the form's booking settings). */
@@ -241,7 +250,8 @@ async function ownerEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Bookin
 async function visitorEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Booking) {
   if (!s.contact_email) throw permanent("The visitor left no email address.")
   if (!booking) throw permanent("There is no booking on this response.")
-  const identity = await resolveCreatorIdentity(db, job.owner_id).catch(() => null)
+  /* Round AY: job.owner_id is the form owner's USER id; the store is found by creators.user_id. */
+  const identity = await resolveCreatorIdentityForUser(db, job.owner_id).catch(() => null)
   const confirmed = job.provider === "booking_confirmed"
   /*
     Round AR: a confirmation carries the .ics and "Add to Google Calendar",
@@ -299,7 +309,7 @@ async function visitorEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Book
     text: mail.text,
     from: buildFromHeader(name),
     /* From the store's own domain when it has one verified; Storelib's when the store has no name to send as. */
-    store: identity?.fromName ? job.owner_id : null,
+    store: identity?.fromName ? identity.creatorId : null,
     replyTo: identity?.replyTo || identity?.sellerEmail || undefined,
     transactional: true,
     keepBounce: true,

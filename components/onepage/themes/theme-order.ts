@@ -17,18 +17,19 @@
  *                    period: Renaissance, Stoicism's stone, a newspaper, glass, chrome, pixels,
  *                    stickers, a zine
  * The kind pills (Light, Dark, Gradient, Image) keep their own filter, in
- * this same order. A theme added without a line here joins the end of All,
+ * this same order. The nineteen painted wallpapers (./mood-themes) sit near
+ * the top of the group each belongs to. A theme added without a line here joins the end of All,
  * under the last group, until it is given a place.
  */
 
 export const THEME_GROUPS = [
-  { id: "clean", ids: ["default", "air", "gallery", "studio", "paper", "swiss", "folio", "cream", "notebook"] },
-  { id: "dark", ids: ["graphite", "night", "midnight", "ember", "ledger", "olive", "astrid", "space", "blueprint"] },
-  { id: "colour", ids: ["sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "dune", "terrazzo", "riso", "blocks", "neon", "acid"] },
-  { id: "photo", ids: ["nature", "atlas", "haze", "darkroom", "fusion"] },
+  { id: "clean", ids: ["default", "air", "gallery", "studio", "linen", "clay", "mono", "atrium", "graph", "paper", "swiss", "cream", "notebook"] },
+  { id: "dark", ids: ["graphite", "night", "nova", "fjord", "backstage", "umber", "onair", "pop", "doric", "ember", "ledger", "olive", "astrid", "space", "blueprint"] },
+  { id: "colour", ids: ["malachite", "petal", "sorbet", "dawn", "dusk", "pulse", "citrus", "swirl", "ripple", "solstice", "ribbon", "sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "dune", "terrazzo", "riso", "blocks", "neon", "acid"] },
+  { id: "photo", ids: ["mesa", "cosmos", "shore", "nature", "atlas", "haze", "darkroom", "fusion"] },
   {
     id: "styled",
-    ids: ["renaissance", "stoicism", "gazette", "aero", "aero2", "aqua", "aqua2", "vaporwave", "y2k", "y2k2", "messenger", "messenger2", "classic98", "arcade", "playful", "playful2", "grunge", "grunge2"],
+    ids: ["renaissance", "stoicism", "gazette", "aero", "aero2", "aqua", "aqua2", "vaporwave", "y2k", "y2k2", "messenger", "messenger2", "classic98", "arcade", "playful", "playful2", "xerox", "grunge2"],
   },
 ] as const
 

@@ -80,7 +80,7 @@ console.log("\n3. Social icons: one rule for the page, the theme cards and Desig
   check("a photo page is a dark ground", !pageGroundIsLight({ background_type: "image", background_color: "#ffffff" }) && pageGroundIsLight({ background_color: "#fafafa" }) && !pageGroundIsLight({ background_color: "#111111" }))
   const pub = code("components/onepage/public-onepage.tsx")
   check("the social row draws its tile from the rule", /style=\{socialTileStyle\(theme as never, \{ onLight: pageIsLight\(theme as never\) \}\)\}/.test(pub) && !/socialColor\}20|socialColor\}40/.test(pub))
-  check("the theme cards and Design's samples draw it from the rule too", /socialTileStyle\(c as never/.test(code("components/onepage/themes/theme-preview.tsx")) && (code("components/onepage/tabs/design-tab.tsx").match(/socialTileStyle\(/g) || []).length >= 2)
+  /* Changed on purpose (the theme swatch round): a theme card draws no social icons any more (components/onepage/themes/theme-swatch). */ check("Design's samples draw it from the rule too", (code("components/onepage/tabs/design-tab.tsx").match(/socialTileStyle\(/g) || []).length >= 2)
   check("over a skin, the creator's tile is raised whole (shape, ring, blur) and the skin's filter on the mark gives way", /socials: \{ boxes: "\[data-op-social-icon\]", props: \[[^\]]*"border-style"[^\]]*"backdrop-filter"/.test(code("lib/onepage/skin-own.ts")) && /\[data-op-skin\]\[data-sk-own~="socials"\] \[data-op-social-icon\] svg \{ filter: none !important; \}/.test(css))
 }
 
