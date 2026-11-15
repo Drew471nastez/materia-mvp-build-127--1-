@@ -137,9 +137,10 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
 ]
 
-function Img({ src, w, h, className }: { src: string; w: number; h: number; className?: string }) {
+/* eager: the store strip's pictures (landing round 8), so a page coming round the loop never arrives before its photos. */
+function Img({ src, w, h, className, eager }: { src: string; w: number; h: number; className?: string; eager?: boolean }) {
   /* eslint-disable-next-line @next/next/no-img-element */
-  return <img className={className} src={src} alt="" width={w} height={h} loading="lazy" decoding="async" draggable={false} />
+  return <img className={className} src={src} alt="" width={w} height={h} loading={eager ? "eager" : "lazy"} decoding="async" draggable={false} />
 }
 
 /*
@@ -395,6 +396,14 @@ function ProductSlides() {
 
   The cards stand with their tops a fixed inset below the picture's top edge and run off its foot, the middle one
   whole and its neighbours cut by the sides. Fictional names, Unsplash photography (public/home/everything/stores).
+
+  Landing round 8 (the owner): Static Bloom is gone for a store laid out the way a real Storelib store is, a knitwear
+  brand with its menu, centred wordmark and cart, a wide photo of the drop and the pieces as product photos (Fieldwork
+  Knit). Ollie Brandt sells a record and a tape in place of a cup and tees; Remy Vale a journal and a planner in place
+  of a tee and a cap; Kaia Moon a lyric book and a tape, with her photo and a line under her name. Every link page
+  shows its creator's photo. A seventh page is a OnePage in the realistic dark style of a creative director's (Idris
+  Kane): a photo that fades into black, the name with a verified mark, a line about him, round icons and wide link
+  buttons with their icons. The stores never stand side by side.
 */
 type MerchStore = {
   kind: "merch"
@@ -403,11 +412,17 @@ type MerchStore = {
   /** The drop's name, as its two lines: the first sits left, the second right. */
   title: readonly [string, string]
   products: ReadonlyArray<{ src: string; name: string; price: string }>
+  /** Landing round 8: a store laid out like a real Storelib store, its menu and cart around a centred wordmark and a wide photo of the drop. */
+  hero?: string
 }
 type LinkPage = {
   kind: "link"
   key: string
   name: string
+  /** The creator's photo over the name (landing round 8). */
+  avatar: string
+  /** A line under the name (landing round 8). */
+  bio?: string
   /** The name's colour. */
   accent: string
   /** The blurred photo behind the page, and the colour under it while it loads. */
@@ -416,30 +431,43 @@ type LinkPage = {
   buttons: readonly [string, string]
   products: readonly [string, string]
 }
-export type StripPage = MerchStore | LinkPage
+/** Landing round 8: a OnePage in the realistic dark style of a creative director's page. */
+type ProfilePage = {
+  kind: "profile"
+  key: string
+  name: string
+  bio: string
+  photo: string
+  /** The icons' colour. */
+  accent: string
+  links: ReadonlyArray<{ label: string; icon: "camera" | "calendar" | "bag" }>
+}
+export type StripPage = MerchStore | LinkPage | ProfilePage
 
 export const EVERYTHING_STORES: readonly StripPage[] = [
   {
     kind: "merch",
-    key: "static-bloom",
-    brand: "Half Light",
-    title: ["Static", "Bloom"],
+    key: "fieldwork",
+    brand: "Fieldwork",
+    title: ["Cold", "Season"],
+    hero: `${ST}/knit-hero.webp`,
     products: [
-      { src: `${ST}/half-peace.webp`, name: "Bone Hand Tee", price: "$28" },
-      { src: `${ST}/half-trail.webp`, name: "Trail Club", price: "$26" },
-      { src: `${ST}/half-night.webp`, name: "Night Shift", price: "$30" },
-      { src: `${ST}/half-blank.webp`, name: "Studio Blank", price: "$22" },
+      { src: `${ST}/knit-orange.webp`, name: "Signal Beanie", price: "$34" },
+      { src: `${ST}/knit-mustard.webp`, name: "Dock Rib Beanie", price: "$38" },
+      { src: `${ST}/knit-charcoal.webp`, name: "Everyday Cuff", price: "$32" },
+      { src: `${ST}/knit-lilac.webp`, name: "Lilac Fisherman", price: "$38" },
     ],
   },
   {
     kind: "link",
     key: "remy",
     name: "Remy Vale",
+    avatar: `${ST}/remy-av.webp`,
     accent: "#ff9b45",
     ground: `${ST}/remy-bg.webp`,
     tone: "#2b1b12",
     buttons: ["Shop now", "Latest episode"],
-    products: [`${ST}/remy-tee.webp`, `${ST}/remy-cap.webp`],
+    products: [`${ST}/remy-journal.webp`, `${ST}/remy-planner.webp`],
   },
   {
     kind: "merch",
@@ -457,11 +485,13 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
     kind: "link",
     key: "kaia",
     name: "Kaia Moon",
+    avatar: `${ST}/kaia-av.webp`,
+    bio: "Singer and songwriter. New album Low Tide out now.",
     accent: "#9cf0cb",
     ground: `${ST}/kaia-bg.webp`,
     tone: "#0f1a2c",
     buttons: ["Shop merch", "Tour dates"],
-    products: [`${ST}/kaia-hood.webp`, `${ST}/kaia-tee.webp`],
+    products: [`${ST}/kaia-book.webp`, `${ST}/kaia-tape.webp`],
   },
   {
     kind: "merch",
@@ -479,15 +509,53 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
     kind: "link",
     key: "ollie",
     name: "Ollie Brandt",
+    avatar: `${ST}/ollie-av.webp`,
     accent: "#ffd25e",
     ground: `${ST}/ollie-bg.webp`,
     tone: "#1c1a18",
     buttons: ["Shop now", "Watch the live set"],
-    products: [`${ST}/ollie-tees.webp`, `${ST}/ollie-mug.webp`],
+    products: [`${ST}/ollie-vinyl.webp`, `${ST}/ollie-tape.webp`],
+  },
+  {
+    kind: "profile",
+    key: "idris",
+    name: "Idris Kane",
+    bio: "Photographer and film director. Shooting in London and Lisbon.",
+    photo: `${ST}/idris-portrait.webp`,
+    accent: "#f2b35b",
+    links: [
+      { label: "Portfolio", icon: "camera" },
+      { label: "Book a shoot", icon: "calendar" },
+      { label: "Prints and photo books", icon: "bag" },
+    ],
   },
 ]
 
 function MerchCard({ s }: { s: MerchStore }) {
+  if (s.hero)
+    return (
+      <div className="ev-st ev-mc" data-store="">
+        <span className="ev-ms-top">
+          <span className="ev-ms-nav">Shop all</span>
+          <span className="ev-ms-mark">{s.brand}</span>
+          <span className="ev-ms-nav">Cart (0)</span>
+        </span>
+        <Img eager className="ev-ms-hero" src={s.hero} w={720} h={420} />
+        <span className="ev-ms-drop">
+          <b>{s.title.join(" ")}</b>
+          <i>{s.products.length} pieces</i>
+        </span>
+        <span className="ev-mc-grid ev-ms-grid">
+          {s.products.map((p) => (
+            <span key={p.name} className="ev-mc-item">
+              <Img eager className="ev-mc-img" src={p.src} w={360} h={450} />
+              <span className="ev-mc-name">{p.name}</span>
+              <span className="ev-mc-price">{p.price}</span>
+            </span>
+          ))}
+        </span>
+      </div>
+    )
   return (
     <div className="ev-st ev-mc">
       <span className="ev-mc-top">
@@ -504,7 +572,7 @@ function MerchCard({ s }: { s: MerchStore }) {
       <span className="ev-mc-grid">
         {s.products.map((p) => (
           <span key={p.name} className="ev-mc-item">
-            <Img className="ev-mc-img" src={p.src} w={360} h={450} />
+            <Img eager className="ev-mc-img" src={p.src} w={360} h={450} />
             <span className="ev-mc-name">{p.name}</span>
             <span className="ev-mc-price">{p.price}</span>
           </span>
@@ -539,36 +607,116 @@ function LinkCard({ s }: { s: LinkPage }) {
   const [first, ...rest] = s.name.split(" ")
   return (
     <div className="ev-st ev-lp" style={{ background: s.tone, "--accent": s.accent } as CSSProperties}>
-      <Img className="ev-lp-ground" src={s.ground} w={240} h={420} />
+      <Img eager className="ev-lp-ground" src={s.ground} w={240} h={420} />
+      <Img eager className="ev-lp-av" src={s.avatar} w={160} h={160} />
       <span className="ev-lp-name">
         <span>{first}</span>
         <span>{rest.join(" ")}</span>
       </span>
+      {s.bio ? <span className="ev-lp-bio">{s.bio}</span> : null}
       <LinkSocial />
       <span className="ev-lp-btn">{s.buttons[0]}</span>
       <span className="ev-lp-btn">{s.buttons[1]}</span>
       <span className="ev-lp-grid">
         {s.products.map((src) => (
-          <Img key={src} className="ev-lp-img" src={src} w={360} h={450} />
+          <Img eager key={src} className="ev-lp-img" src={src} w={360} h={450} />
         ))}
       </span>
     </div>
   )
 }
 
+/* The profile page's link icons, drawn plain in its accent. */
+const PROFILE_ICONS = {
+  camera: "M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9ZM12 16a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z",
+  calendar: "M5 6.5A1.5 1.5 0 0 1 6.5 5h11A1.5 1.5 0 0 1 19 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 17.5v-11ZM5 9.5h14M9 3.5v3M15 3.5v3",
+  bag: "M6 8h12l-1 11H7L6 8Zm3 0V6.5a3 3 0 0 1 6 0V8",
+} as const
+
+/* His round icons: Instagram, YouTube, email and his website, drawn as lines. */
+const PROFILE_SOCIAL = [
+  "M7.5 3.5h9a4 4 0 0 1 4 4v9a4 4 0 0 1-4 4h-9a4 4 0 0 1-4-4v-9a4 4 0 0 1 4-4ZM12 15.6a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM17.2 6.8h.01",
+  "M3 8.2c0-1.6 1.2-2.9 2.8-3C7.7 5 9.8 5 12 5s4.3 0 6.2.2c1.6.1 2.8 1.4 2.8 3v7.6c0 1.6-1.2 2.9-2.8 3-1.9.2-4 .2-6.2.2s-4.3 0-6.2-.2c-1.6-.1-2.8-1.4-2.8-3V8.2ZM10 9.2v5.6l4.8-2.8L10 9.2Z",
+  "M4 6.5h16v11H4v-11Zm0 .5 8 6 8-6",
+  "M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17ZM3.5 12h17M12 3.5c2.3 2.3 3.4 5.2 3.4 8.5s-1.1 6.2-3.4 8.5c-2.3-2.3-3.4-5.2-3.4-8.5s1.1-6.2 3.4-8.5Z",
+] as const
+
+/*
+  Landing round 8 (the owner: another OnePage "more realistic, not exactly like the other ones", like Satori Studio's):
+  a dark page with the creator's photo across its top fading into black, the name with a verified mark, a line about
+  him, four round icons tinted in the page's colour and three wide link buttons, each with its icon at the left.
+*/
+function ProfileCard({ s }: { s: ProfilePage }) {
+  return (
+    <div className="ev-st ev-pf" style={{ "--accent": s.accent } as CSSProperties}>
+      <Img eager className="ev-pf-photo" src={s.photo} w={600} h={640} />
+      <span className="ev-pf-name">
+        {s.name}
+        <svg className="ev-pf-tick" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2.5l2.4 1.8 3 .1.9 2.8 2.4 1.8-.9 2.9.9 2.9-2.4 1.8-.9 2.8-3 .1L12 21.5l-2.4-1.8-3-.1-.9-2.8-2.4-1.8.9-2.9-.9-2.9 2.4-1.8.9-2.8 3-.1L12 2.5Z" fill="#3b82f6" />
+          <path d="M8.2 12.2l2.5 2.5 5-5.2" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      <span className="ev-pf-bio">{s.bio}</span>
+      <span className="ev-pf-icons">
+        {PROFILE_SOCIAL.map((d, i) => (
+          <svg key={i} viewBox="0 0 24 24" aria-hidden="true">
+            <path d={d} />
+          </svg>
+        ))}
+      </span>
+      {s.links.map((l) => (
+        <span key={l.label} className="ev-pf-link">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d={PROFILE_ICONS[l.icon]} />
+          </svg>
+          <span>{l.label}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 /*
   DRIFTING, AND IT CAN BE TAKEN HOLD OF (landing round 4, the owner: dragged
-  "very smooth and clean by the mouse", like the creators rail). Left alone,
-  the strip drifts left as a Web Animation, which the compositor runs with
-  no script per frame, paused off screen and in a hidden tab. Pressed, it
-  stops under the hand and follows it exactly (a transform, no layout read);
-  let go, it carries the hand's speed and eases back to its drift over about
-  a second, then the Web Animation takes it on from exactly where it is.
+  "very smooth and clean by the mouse", like the creators rail). Pressed, the
+  strip stops under the hand and follows it exactly; let go, it carries the
+  hand's speed and eases back to its drift over about a second.
   touch-action leaves vertical swipes to the page; the axis is decided after
   8px. Nothing inside can be hovered or clicked: the cards take no pointer,
   only the strip does. Landing round 6: it starts with the first page in the
-  middle, whole, and a neighbour cut on each side, as the owner's reference
-  shows it.
+  middle, whole, and a neighbour cut on each side.
+
+  LANDING ROUND 8, A LOOP THAT CANNOT END (the owner, after round 7: "make
+  sure the carousel never ends and it's autoplay looping, because at some
+  point it ends really weird", on real phones). Round 7 kept the whole track,
+  two sets of pages side by side, as one layer a few thousand pixels wide and
+  moved it one set's width per lap. That layer is the weak point: iOS paints
+  a wide composited layer in tiles and only near what it expects to show, and
+  a compositor animation carrying it far past that can show tiles that were
+  never painted (an empty end) until the animation is started again; and the
+  lap was a width read once, so anything that moved the cards after that
+  read (a late layout, a resize iOS does not report, a pause and resume)
+  left the lap ending on a different picture than it started on.
+
+  Now nothing moves far and nothing has an end:
+  - Every page is its own small layer. Where page i stands is one sum, the
+    same everywhere: (i x pitch - x) wrapped into one turn of all the pages,
+    so its left edge is always between one pitch left of the picture and
+    (pages - 1) pitches right of it. A page leaves on the left and comes back
+    on the right while it is out of sight, and the picture is covered as long
+    as all the pages but one are wider than it (14 pages: always, see the
+    test).
+  - x is the only state. While the strip drifts, x grows at DRIFT_PX_S from
+    a time on the document's own clock; each page runs one compositor
+    animation over one turn, from the right end to the left, infinite, all
+    of them given the same start time so they cannot drift apart. Stopping
+    (off screen, a hidden tab, a press, a resize) reads x from the clock and
+    sets each page where that x puts it, so starting again continues from
+    exactly there, never from an animation's own idea of where it was.
+  - The pitch is read from the laid out slots (their widths are CSS, never a
+    picture's: an image that arrives late moves nothing), on every resize of
+    the strip or of a slot, with the transforms taken off for the read.
 */
 const DRIFT_PX_S = 26
 function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObject<HTMLDivElement | null>, live: boolean) {
@@ -581,53 +729,75 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
   useEffect(() => {
     const vp = viewport.current
     const el = track.current
-    if (!vp || !el || typeof el.animate !== "function") return
+    if (!vp || !el) return
+    const slots = Array.from(el.children) as HTMLElement[]
+    const n = slots.length
+    if (!n) return
     const reduce = matchMedia("(prefers-reduced-motion: reduce)")
-    /* One set's width; the track holds the set twice, and the strip only ever shows an offset in [0, loop). */
-    let loop = 0
+    const canAnimate = typeof slots[0].animate === "function"
+    /* Each slot's laid out left (from the first slot's), the distance from one page to the next, and one turn of all of them. */
+    const base = new Float64Array(n)
+    let pitch = 0
+    let turn = 0
     let x = 0
     let placed = false
     let raf = 0
-    let drift: Animation | null = null
-    let period = 0
+    /* The drift: x at `t0` on the document's clock, and the pages' animations. */
+    let anims: Animation[] = []
+    let t0 = 0
+    let x0 = 0
     let drag: { id: number; x0: number; y0: number; at: number; started: boolean; samples: Array<{ t: number; x: number }> } | null = null
-    const wrap = (v: number) => (loop > 0 ? ((v % loop) + loop) % loop : v)
-    const paint = () => {
-      el.style.transform = `translate3d(${(-wrap(x)).toFixed(2)}px,0,0)`
+    const clock = () => {
+      const t = document.timeline?.currentTime
+      return typeof t === "number" ? t : performance.now()
     }
+    const mod = (v: number, m: number) => ((v % m) + m) % m
+    /* Page i's left edge for an offset x: wrapped into [-pitch, turn - pitch). */
+    const leftOf = (i: number, at: number) => mod(i * pitch - at + pitch, turn) - pitch
+    const paint = () => {
+      if (turn <= 0) return
+      for (let i = 0; i < n; i++) slots[i].style.transform = `translate3d(${(leftOf(i, x) - base[i]).toFixed(2)}px,0,0)`
+    }
+    const drifting = () => anims.length > 0
     const shown = () => liveRef.current && !document.hidden
     const stopDrift = () => {
-      if (!drift) return
-      x = (((Number(drift.currentTime) || 0) / period) % 1) * loop
-      drift.cancel()
-      drift = null
+      if (!drifting()) return
+      x = x0 + ((clock() - t0) / 1000) * DRIFT_PX_S
       paint()
+      for (const a of anims) a.cancel()
+      anims = []
     }
-    /*
-      Landing round 7 (the owner: "at some point the carousel ends and gets empty"). The drift ran from wherever the
-      strip stood to one set further, so a start late in the set carried the strip past the end of its second copy and
-      left grey behind it for part of every lap. It now always runs from 0 to one set's width, entered at the point
-      where the strip stands: the shown offset never leaves [0, loop), the second copy always fills the rest of the
-      picture, and the lap's end is the copy's start, the same picture, so there is no jump.
-    */
     const startDrift = () => {
-      if (drift || drag || loop <= 0 || reduce.matches) return
-      x = wrap(x)
-      period = (loop / DRIFT_PX_S) * 1000
-      drift = el.animate([{ transform: "translate3d(0px,0,0)" }, { transform: `translate3d(${-loop}px,0,0)` }], { duration: period, iterations: Infinity, easing: "linear" })
-      drift.currentTime = (x / loop) * period
-      if (!shown()) drift.pause()
+      if (drifting() || drag || raf || turn <= 0 || reduce.matches || !canAnimate || !shown()) return
+      x = mod(x, turn)
+      paint()
+      const period = (turn / DRIFT_PX_S) * 1000
+      const now = clock()
+      t0 = now
+      x0 = x
+      anims = slots.map((slot, i) => {
+        /* One turn: from the right end (turn - pitch) to one pitch off the left, then again, for ever. */
+        const a = slot.animate(
+          [{ transform: `translate3d(${(turn - pitch - base[i]).toFixed(2)}px,0,0)` }, { transform: `translate3d(${(-pitch - base[i]).toFixed(2)}px,0,0)` }],
+          { duration: period, iterations: Infinity, easing: "linear" },
+        )
+        /* How far into its turn page i is at x, given as the start time every page shares the clock of. */
+        const into = ((turn - pitch - leftOf(i, x)) / turn) * period
+        a.startTime = now - into
+        return a
+      })
     }
     const glide = (v0: number) => {
       cancelAnimationFrame(raf)
+      raf = 0
       if (reduce.matches) return
-      const t0 = performance.now()
-      let last = t0
+      const g0 = performance.now()
+      let last = g0
       const target = DRIFT_PX_S
       const step = (now: number) => {
         const dt = Math.min(0.05, (now - last) / 1000)
         last = now
-        const v = target + (v0 - target) * Math.exp(-(now - t0) / 380)
+        const v = target + (v0 - target) * Math.exp(-(now - g0) / 380)
         x += v * dt
         paint()
         if (Math.abs(v - target) > 1.5) raf = requestAnimationFrame(step)
@@ -639,29 +809,28 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
       raf = requestAnimationFrame(step)
     }
     const measure = () => {
-      const first = el.children[0] as HTMLElement | undefined
-      const copy = el.children[el.children.length / 2] as HTMLElement | undefined
-      if (!first || !copy) return
+      const was = drifting()
       stopDrift()
       cancelAnimationFrame(raf)
       raf = 0
-      /*
-        Read from the boxes, not offsetLeft: a card's width is a fraction of the picture's, and offsetLeft rounds it,
-        which would leave the lap a part of a pixel off and the wrap a visible tick. Read on a resize only, never per frame.
-      */
-      const a = first.getBoundingClientRect()
-      const before = loop
-      const at = wrap(x)
-      loop = copy.getBoundingClientRect().left - a.left
-      /* A resize keeps the same page where it was: the offset scales with the set. */
-      if (before > 0 && loop > 0) x = (at / before) * loop
-      /* The first page in the middle, whole: read once, when the strip is first laid out. */
-      if (!placed && loop > 0) {
+      /* The slots where layout puts them: transforms off for this one read (no frame is drawn in between). */
+      for (const s of slots) s.style.transform = "none"
+      const lefts = slots.map((s) => s.getBoundingClientRect().left)
+      const before = turn
+      const at = before > 0 ? mod(x, before) : x
+      for (let i = 0; i < n; i++) base[i] = lefts[i] - lefts[0]
+      pitch = n > 1 ? base[n - 1] / (n - 1) : slots[0].getBoundingClientRect().width
+      turn = pitch * n
+      if (turn <= 0) return
+      /* A resize keeps the same page where it was: the offset scales with the turn. */
+      if (before > 0) x = (at / before) * turn
+      /* The first page in the middle, whole: once, when the strip is first laid out. */
+      if (!placed) {
         placed = true
-        x = a.left - el.getBoundingClientRect().left + a.width / 2 - vp.clientWidth / 2
+        x = pitch / 2 - vp.clientWidth / 2
       }
       paint()
-      startDrift()
+      if (was || !drag) startDrift()
     }
     const down = (e: PointerEvent) => {
       if (e.button !== 0 || !e.isPrimary) return
@@ -706,15 +875,16 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
       }
       glide(Math.max(-3000, Math.min(3000, v)))
     }
+    /* Off screen or in a hidden tab the pages stand where the clock had them; back on, they carry on from there. */
     const setLive = (on: boolean) => {
-      if (!drift) return on ? startDrift() : undefined
-      if (on && !document.hidden) drift.play()
-      else drift.pause()
+      if (on && !document.hidden) startDrift()
+      else stopDrift()
     }
     api.current = { setLive }
     const vis = () => setLive(liveRef.current)
     const ro = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null
     ro?.observe(vp)
+    ro?.observe(slots[0])
     if (!ro) measure()
     vp.addEventListener("pointerdown", down)
     vp.addEventListener("pointermove", move)
@@ -725,7 +895,8 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
     return () => {
       api.current = null
       cancelAnimationFrame(raf)
-      drift?.cancel()
+      for (const a of anims) a.cancel()
+      anims = []
       ro?.disconnect()
       vp.removeEventListener("pointerdown", down)
       vp.removeEventListener("pointermove", move)
@@ -733,7 +904,7 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
       vp.removeEventListener("pointercancel", up)
       document.removeEventListener("visibilitychange", vis)
       reduce.removeEventListener("change", measure)
-      el.style.transform = ""
+      for (const s of slots) s.style.transform = ""
     }
   }, [viewport, track])
 }
@@ -749,7 +920,7 @@ function Storefronts({ live }: { live: boolean }) {
       <div ref={track} className="ev-s-track">
         {strip.map((item, i) => (
           <div key={i} className="ev-s-slot">
-            {item.kind === "merch" ? <MerchCard s={item} /> : <LinkCard s={item} />}
+            {item.kind === "merch" ? <MerchCard s={item} /> : item.kind === "link" ? <LinkCard s={item} /> : <ProfileCard s={item} />}
           </div>
         ))}
       </div>
@@ -1078,8 +1249,9 @@ const CSS = `
 */
 .ev-s{--top:clamp(24px,8cqw,42px);--card-w:clamp(170px,56cqw,max(270px,58cqh));--gap:clamp(12px,2cqw,16px);background:#ebebeb;container-type:size;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .ev-s[data-dragging]{cursor:grabbing}
-.ev-s-track{position:absolute;top:var(--top);left:0;display:flex;height:100cqh;width:max-content;will-change:transform;backface-visibility:hidden}
-.ev-s-slot{flex:none;width:var(--card-w);height:100%;padding:0 calc(var(--gap) / 2);box-sizing:content-box;pointer-events:none}
+/* Landing round 8: the track stands still; each page is its own small layer that wraps round on its own (useDriftStrip). */
+.ev-s-track{position:absolute;top:var(--top);left:0;display:flex;height:100cqh;width:max-content}
+.ev-s-slot{flex:none;width:var(--card-w);height:100%;padding:0 calc(var(--gap) / 2);box-sizing:content-box;pointer-events:none;will-change:transform;backface-visibility:hidden}
 .ev-st{--r:calc(var(--card-w) / 390);position:relative;display:flex;flex-direction:column;height:100%;overflow:hidden;border-radius:${r(30)};font-size:${r(15)};line-height:1.3;box-shadow:0 0 0 1px rgba(20,20,20,.05),0 14px 30px -24px rgba(20,20,20,.35);box-sizing:border-box}
 .ev-st img{display:block;flex:none}
 
@@ -1096,11 +1268,29 @@ const CSS = `
 .ev-mc-name{margin-top:${r(10)};font-size:${r(15)};color:#141414;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev-mc-price{margin-top:${r(2)};font-size:${r(13.5)};color:#6b6b6b}
 
+/*
+  Landing round 8: a store laid out like a real Storelib store. The menu and the cart in small capitals either side of
+  the centred wordmark, a wide photo of the drop, the drop's name with how many pieces, and the pieces on white.
+*/
+.ev-ms-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:${r(22)} ${r(20)} ${r(18)};font-size:${r(11)};letter-spacing:.16em;text-transform:uppercase;color:#2a2a2a}
+.ev-ms-nav:last-child{justify-self:end}
+.ev-ms-mark{font-size:${r(25)};font-weight:800;letter-spacing:-.04em;text-transform:none;color:#111}
+.ev-ms-hero{width:100%;height:auto;aspect-ratio:12/7;object-fit:cover;background:#ececec}
+.ev-ms-drop{display:flex;align-items:baseline;justify-content:space-between;margin:${r(22)} ${r(20)} 0}
+.ev-ms-drop b{font-size:${r(24)};font-weight:700;letter-spacing:-.02em;color:#111}
+.ev-ms-drop i{font-size:${r(13)};font-style:normal;color:#77757d}
+.ev-ms-grid{margin:${r(18)} ${r(20)} 0;gap:${r(22)} ${r(12)}}
+.ev-mc[data-store] .ev-mc-img{border-radius:${r(10)}}
+
 /* A creator's link page: a dark, blurred photo, the name big in the page's colour, the icons, two buttons, the products. */
 .ev-lp{align-items:stretch;padding:${r(48)} ${r(24)} 0;color:#fff;text-align:center}
 .ev-lp-ground{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.08)}
 .ev-lp::before{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.08),rgba(0,0,0,.32) 55%,rgba(0,0,0,.5))}
-.ev-lp-name,.ev-lp-social,.ev-lp-btn,.ev-lp-grid{position:relative}
+.ev-lp-name,.ev-lp-social,.ev-lp-btn,.ev-lp-grid,.ev-lp-av,.ev-lp-bio{position:relative}
+/* Landing round 8: the creator's photo over the name, and a line under it where the page has one. */
+.ev-lp{padding-top:${r(34)}}
+.ev-lp-av{align-self:center;width:${r(84)};height:${r(84)};margin-bottom:${r(18)};border-radius:50%;object-fit:cover;box-shadow:0 0 0 ${r(3)} rgba(255,255,255,.9)}
+.ev-lp-bio{margin:${r(14)} auto 0;max-width:${r(290)};font-size:${r(15.5)};line-height:1.4;color:rgba(255,255,255,.82)}
 .ev-lp-name{display:flex;flex-direction:column;font-size:${r(60)};font-weight:800;line-height:.92;letter-spacing:-.025em;color:var(--accent)}
 .ev-lp-social{display:flex;justify-content:center;gap:${r(22)};margin-top:${r(26)}}
 .ev-lp-social svg{width:${r(24)};height:${r(24)};fill:#fff}
@@ -1109,6 +1299,25 @@ const CSS = `
 .ev-lp-social + .ev-lp-btn{margin-top:${r(30)}}
 .ev-lp-grid{display:grid;grid-template-columns:1fr 1fr;gap:${r(14)};margin-top:${r(26)}}
 .ev-lp-img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;border-radius:${r(14)};background:rgba(255,255,255,.08)}
+
+/*
+  Landing round 8: a OnePage in the dark style of a creative director's. The photo across the top fades into the black,
+  the name sits on that fade with a verified mark, then his line, round icons tinted in the page's colour and wide
+  link buttons, each with its icon at the left and its label centred.
+*/
+.ev-pf{align-items:center;padding:${r(318)} ${r(22)} 0;background:#0a0a0b;color:#fff;text-align:center}
+.ev-pf-photo{position:absolute;left:0;top:0;width:100%;height:${r(420)};object-fit:cover;object-position:50% 20%}
+.ev-pf::before{content:"";z-index:1;position:absolute;left:0;right:0;top:${r(170)};height:${r(252)};background:linear-gradient(rgba(10,10,11,0),rgba(10,10,11,.75) 55%,#0a0a0b)}
+.ev-pf-name,.ev-pf-bio,.ev-pf-icons,.ev-pf-link{position:relative;z-index:2}
+.ev-pf-name{display:flex;align-items:center;gap:${r(8)};font-size:${r(38)};font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.ev-pf-tick{width:${r(26)};height:${r(26)}}
+.ev-pf-bio{margin-top:${r(12)};max-width:${r(300)};font-size:${r(16)};line-height:1.45;color:#a3a1a8}
+.ev-pf-icons{display:flex;justify-content:center;gap:${r(12)};margin-top:${r(22)}}
+.ev-pf-icons svg{box-sizing:border-box;width:${r(52)};height:${r(52)};padding:${r(14)};border-radius:50%;background:color-mix(in srgb,var(--accent) 16%,transparent);fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ev-pf-link{display:flex;align-items:center;width:100%;box-sizing:border-box;height:${r(70)};margin-top:${r(14)};padding:0 ${r(18)};border:1px solid #2a2a2e;border-radius:${r(16)};background:#18181b;font-size:${r(17)};font-weight:500}
+.ev-pf-icons + .ev-pf-link{margin-top:${r(28)}}
+.ev-pf-link svg{flex:none;width:${r(30)};height:${r(30)};fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ev-pf-link span{flex:1;margin-right:${r(30)}}
 
 ${GLOBE_CSS()}
 
@@ -1119,12 +1328,15 @@ ${GLOBE_CSS()}
   arrives, the other side types, the answer arrives; then it fades up and
   out as the next one rises.
   Landing round 7 (the owner: the background "more colorful, cool and clean, simple, bold", like his reference): one
-  still gradient, deep raspberry at the top left through rose to a warm peach at the foot, with a faint lighter glow in
-  the top right so it is not flat. No noise, nothing moving behind the thread. The thread is a plain white card on it,
-  rounder and roomier, and its words grow with the card (container queries below).
+  still gradient with a faint lighter glow in the top right so it is not flat. No noise, nothing moving behind the
+  thread. The thread is a plain white card on it, rounder and roomier, and its words grow with the card (container
+  queries below).
+  Landing round 8 (the owner: he likes the colour and the gradient, not the orange, pink and red): deep teal at the top
+  left through sea green to a clear aqua at the foot, the glow a pale aqua. Still one gradient, no purple, nothing warm;
+  the white thread and its black answer read on every part of it.
 */
-.ev-c{background:radial-gradient(70% 60% at 88% 8%,rgba(255,170,180,.32) 0%,rgba(255,170,180,0) 100%),linear-gradient(168deg,#9d1640 0%,#c03560 36%,#dc6476 64%,#f1a283 100%);container-type:inline-size}
-.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,440px);padding:18px 18px 20px;box-sizing:border-box;border-radius:18px;background:#fff;box-shadow:0 30px 60px -34px rgba(80,8,30,.55);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
+.ev-c{background:radial-gradient(70% 60% at 88% 8%,rgba(160,246,232,.30) 0%,rgba(160,246,232,0) 100%),linear-gradient(168deg,#053c4a 0%,#0a6b78 36%,#12999b 64%,#5fd6c2 100%);container-type:inline-size}
+.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,440px);padding:18px 18px 20px;box-sizing:border-box;border-radius:18px;background:#fff;box-shadow:0 30px 60px -34px rgba(2,40,48,.6);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
 .ev-c-thread .ev-c-q,.ev-c-thread .ev-c-r,.ev-c-thread .ev-c-typing{animation-delay:calc(var(--k,0) * ${TURN}s)}
 .ev-c-head{margin:0 0 14px;font-size:14px;font-weight:500;color:#6b6a72}
 .ev-c-msg{display:flex;align-items:flex-end;gap:8px;margin-top:10px}

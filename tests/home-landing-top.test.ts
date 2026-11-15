@@ -115,11 +115,14 @@ console.log("\n── make the work: a store that looks like you ──")
 /* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
 check("merch stores and link pages, each drawn whole in the markup, twice over", EVERYTHING_STORES.length >= 6 && (html.match(/class="ev-st ev-mc"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "merch").length * 2 && (html.match(/class="ev-st ev-lp"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "link").length * 2)
 check("drawn at a phone's 390px and scaled", /--r:calc\(var\(--card-w\) \/ 390\)/.test(css))
-check("every store picture is local, exists and is small", EVERYTHING_STORES.flatMap((st) => (st.kind === "merch" ? st.products.map((p) => p.src) : [st.ground, ...st.products])).every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024))
+/* Changed on purpose (landing round 8): link pages carry their creator's photo, and a profile OnePage has one photo. */
+check("every store picture is local, exists and is small", EVERYTHING_STORES.flatMap((st) => (st.kind === "merch" ? st.products.map((p) => p.src) : st.kind === "link" ? [st.ground, st.avatar, ...st.products] : [st.photo])).every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024))
 /* Changed on purpose (landing round 4): the owner wants to drag the strip, so its drift is a Web Animation from script that a hand can take over (tests/home-landing-topa4). */
 /* Changed on purpose (landing round 7): the keyframes are a plain string from 0. */
-check("it drifts without a stop, on the compositor: one linear loop of transform", /el\.animate\(\[\{ transform: "translate3d/.test(src) && /iterations: Infinity, easing: "linear"/.test(src) && /class="ev-s-track"/.test(html))
-check("it pauses off screen and stands still under reduced motion", /drift\.pause\(\)/.test(src) && /if \(drift \|\| drag \|\| loop <= 0 \|\| reduce\.matches\) return/.test(src))
+/* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
+check("it drifts without a stop, on the compositor: one linear loop of transform", /slot\.animate\(\s*\[\{ transform: `translate3d/.test(src) && /iterations: Infinity, easing: "linear"/.test(src) && /class="ev-s-track"/.test(html))
+/* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
+check("it pauses off screen and stands still under reduced motion", /else stopDrift\(\)/.test(src) && /if \(drifting\(\) \|\| drag \|\| raf \|\| turn <= 0 \|\| reduce\.matches/.test(src))
 
 console.log("\n── make the work: real support ──")
 /* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2, without the From buyers / Storelib switch and its status pills: one thread at a time, photos and Storelib's mark. tests/home-landing-topa4 pins it. */
