@@ -39,9 +39,16 @@ import { DotField } from "./dot-field"
   in the middle and gone at both sides, a soft light falling a little way
   under it, and a ground that lifts very slightly before it settles. All
   of it is still background (gradients and a 1px line), nothing that moves.
+
+  Landing round 11, the owner: "the pattern dots should be more smooth and
+  clean and more visible at the bottom as well; and that section has too
+  much height, reduce it just a little." The dots are brighter, crisper and
+  still on their points, and run on to the section's foot (dot-field.tsx);
+  the section pads about 15% less above and below (about 600px tall at
+  1440x800, was 646).
 */
 const STYLES = `
-.fcta{position:relative;isolation:isolate;background:transparent;color:#fff;padding:clamp(88px,10vw,152px) var(--home-edge,clamp(20px,5.15vw,84px)) clamp(80px,9vw,136px)}
+.fcta{position:relative;isolation:isolate;background:transparent;color:#fff;padding:clamp(76px,8.4vw,128px) var(--home-edge,clamp(20px,5.15vw,84px)) clamp(68px,7.6vw,116px)}
 .fcta-in{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;max-width:880px;margin:0 auto;text-align:center}
 .fcta-mark{display:block;margin-bottom:28px}
 .fcta-title{margin:0;max-width:15ch;font-size:clamp(38px,5.6vw,80px);font-weight:500;line-height:1.02;letter-spacing:-.05em;color:#fafafa;text-wrap:balance}

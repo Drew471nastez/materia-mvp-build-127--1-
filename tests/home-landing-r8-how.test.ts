@@ -64,15 +64,18 @@ check("the pack's price matches section 3's ($29.00)", HOW_LUTS.priceCents === 2
 console.log("\n2 and 4. Four grounds of one family, none the odd one out")
 const grounds = [...how.matchAll(/class="cmh-stage" data-ground="(\w+)"/g)].map((m) => m[1])
 // Changed on purpose (landing round 9): three cards; the owner found the grounds "too grey". Flat colour: lilac for the tips, a near white for the numbers, peach for the domain.
-check("the three cards are on lilac, paper and peach", grounds.join() === "lilac,paper,peach" && rule(".cmh-stage[data-ground=lilac]") !== "")
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
+check("the three cards are on their own quiet grounds", grounds.join() === "tips,business,domain" && rule(".cmh-stage[data-ground=tips]") !== "")
 const stops = (g: string) => [...rule(`.cmh-stage[data-ground=${g}]`).matchAll(/#([0-9a-f]{6})/g)].map((m) => m[1])
 const lum = (h: string) => { const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
 const chroma = (h: string) => { const v = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); return Math.max(...v) - Math.min(...v) }
 const all = ["sand", "sage", "clay", "mist"].flatMap(stops)
 // Changed on purpose (landing round 9): flat colours, no gradient, each with its own ring line colour.
-check("each ground is one flat colour with its ring colour", ["lilac", "paper", "peach"].every((g) => /^background:#[0-9a-f]{6};--ring:rgba\([\d,.]+\)$/.test(rule(`.cmh-stage[data-ground=${g}]`))))
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). No ring colour.
+check("each ground is one flat colour", ["tips", "business", "domain"].every((g) => /^background:#[0-9a-f]{6}$/.test(rule(`.cmh-stage[data-ground=${g}]`))))
 // Changed on purpose (landing round 9): light, and no longer grey: the lilac and the peach carry colour, the paper between them stays neutral.
-check("all light (luminance over 0.78); lilac and peach coloured, paper neutral", ["lilac", "paper", "peach"].every((g) => stops(g).length === 1 && lum(stops(g)[0]) > 0.78) && chroma(stops("lilac")[0]) > 20 && chroma(stops("peach")[0]) > 20 && chroma(stops("paper")[0]) <= 6 && all.length === 0)
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). Near white, a breath of colour each.
+check("all light (luminance over 0.85), a breath of colour at most", ["tips", "business", "domain"].every((g) => stops(g).length === 1 && lum(stops(g)[0]) > 0.85 && chroma(stops(g)[0]) <= 12) && all.length === 0)
 // Changed on purpose (landing round 9): Storelib's violet is the accent again (the brief: black, white, violet; the owner: "more colorful"), flat, never a gradient of it.
 check("no black ground, no purple gradient, no glass, no green", !/data-ground="night"|ground=night/.test(how + css) && !/gradient\([^)]*(#8b5cf6|#7c3aed|#a855f7)/.test(css) && !/backdrop-filter|blur\(/.test(css) && !/#15803d|#16a34a|#22c55e/.test(css))
 
@@ -80,16 +83,19 @@ console.log("\n3. Your own domain: one browser window, the address typing in")
 check("no www / shop / club banner, no rows of addresses", !/cmh-dm-pill|cmh-dm-row|cmh-dm-rows|cmh-dm-tick/.test(how + css) && !/>(www|shop|club)<\/b>\./.test(how) && !("targets" in HOW_DOMAIN))
 // Changed on purpose (landing round 9): the owner liked the card, not its design. No browser window: one address pill over his website.
 // Changed on purpose (landing round 10): no website under the address: one address band.
-check("no browser window: one address band", !/cmh-br\b|cmh-br-/.test(how + css) && how.includes('class="cmh-dm-band"') && !how.includes("cmh-site"))
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). His website in one browser window.
+check("one browser window, his website in it", how.includes('class="cmh-dm-win"') && how.includes('class="cmh-dm-page"') && !how.includes("cmh-dm-band"))
 // Changed on purpose (landing round 9): the address is not typed letter by letter; his site's storelib.com address rolls over to his own domain (two lines, transform and opacity).
 // Changed on purpose (landing round 10): his name stands and its ending glides, his Storelib address first, then his own domain.
-check("the band holds his name and a reel of endings: his site's on Storelib first, then his own domain", how.includes(`<span class="cmh-dm-name">${HOW_DOMAIN.name}</span>`) && /<span class="cmh-dm-end" data-storelib="">\.storelib\.com<\/span>/.test(how) && HOW_DOMAIN.before === "lindewood.storelib.com")
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
+check("the address holds his name, \".storelib\" that fades and \".com\" that closes over it", how.includes(`<span class="cmh-dm-name">${HOW_DOMAIN.name}</span>`) && /<span class="cmh-a cmh-dm-cut">\.storelib<\/span><span class="cmh-a cmh-dm-com">\.com<\/span>/.test(how) && HOW_DOMAIN.before === "lindewood.storelib.com")
 check("a domain Storelib accepts, serving one of the product's purposes, not a Storelib name", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose) && !/storelib/.test(HOW_DOMAIN.host))
 const at = (k: string, n = 1) => Number((css.match(new RegExp(`@keyframes ${k}\\{0%,([\\d.]+)%`)) ?? [])[n] ?? NaN)
 // Changed on purpose (landing round 9): no typing, so no letter keyframes, carets, veil or load line.
 check("no letter by letter typing left", !/cmh-ch\d|cmh-caret|cmh-br-veil|cmh-load|TYPED_CSS/.test(src))
 // Changed on purpose (landing round 10): no ticks, no lock that turns; the lock on the band is violet throughout.
-check("no DNS and HTTPS ticks, the lock is violet throughout", !/@keyframes cmh-(url1|lock|ok0|ok1)\{/.test(css) && !text.includes("DNS found") && /\.cmh-dm-lock\{[^}]*background:#8b5cf6/.test(css))
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
+check("no DNS and HTTPS ticks; the lock turns violet as the address closes", !/@keyframes cmh-(url1|lock|ok0|ok1)\{/.test(css) && !text.includes("DNS found") && /\.cmh-dm-on\{[^}]*color:#7c4ff0/.test(css))
 // Changed on purpose (landing round 9): a caption is a title and one short line now.
 check("the caption keeps the code's claims in one line", /On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(text) && text.includes("Use your own domain"))
 
@@ -105,11 +111,14 @@ console.log("\nSmooth")
 check("every keyframe moves transform and opacity only", keyframeBodies(css).every(onlyCompositor))
 // Changed on purpose (landing round 9): fewer moving parts (three cards).
 // Changed on purpose (landing round 10): the domain card has two moving parts now, not seven.
-check("every looping part is a .cmh-a, paused unless its card is on screen and the tab visible", (how.match(/class="cmh-a /g) ?? []).length > 20 && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /visibilitychange/.test(src))
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). Fewer moving parts.
+check("every looping part is a .cmh-a, paused unless its card is on screen and the tab visible", (how.match(/class="cmh-a /g) ?? []).length >= 9 && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /visibilitychange/.test(src))
 // Changed on purpose (landing round 10): reduced motion shows his own domain on the band.
-check("reduced motion: nothing loops, his own domain and the lock stand", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(css) && /\.cmh-tb-ok,\.cmh-ch-halo\{opacity:0\}\s*\.cmh-dm-reel\{transform:translate3d\(0,calc\(var\(--dm-step\) \* -1\),0\)\}/.test(css)) // Changed on purpose (landing round 9): the new picture's parts.
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
+check("reduced motion: nothing loops, his own domain and the violet lock stand", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(css) && /\.cmh-dm-cut\{opacity:0\}\s*\.cmh-dm-com\{transform:translate3d\(calc\(var\(--dm-cut,4\.3em\) \* -1\),0,0\)\}\s*\.cmh-dm-on\{opacity:1\}/.test(css))
 // Changed on purpose (landing round 9): the owner asked for interactive pictures. A picture still takes no pointer, except the tip card's amounts and Send (a press) and the chart (a mouse); still no links, buttons or inputs.
-check("a picture takes no pointer but for the tip card's parts and the chart", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/<(a|button|input|select)\b/.test(how) && (css.match(/pointer-events:auto/g) ?? []).length === 3)
+// Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). No part of a picture takes the pointer now.
+check("a picture takes no pointer", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/<(a|button|input|select)\b/.test(how) && !/pointer-events:auto/.test(css))
 
 console.log("\nCopy")
 check("no em dash, none of the banned words, none of the banned samples", !/—/.test(text) && !/unlock|elevate|seamless|powerful|effortless|supercharge|transform(?!:)/i.test(text) && !/Nadia|The Loop|LaSalle|Nails by Bea|Nordline|Charla|Static Bloom|Wildcamp|enthusiast|\bfans?\b/i.test(code + text))

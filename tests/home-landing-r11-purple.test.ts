@@ -80,8 +80,8 @@ console.log("\n── the purple's dots: more visible, smoother ──")
   const page = read("app/(storelib)/(marketing)/page.tsx")
   const p = DOT_FIELD_TONES.purple
   check("brighter on purple: 0.17 at rest (was 0.12), 0.4 lit (was 0.32), still white", p.rest === 0.17 && p.lit === 0.4 && p.rgb === "255,255,255")
-  check("a touch rounder on purple, the dark tone as it was", p.r === 0.95 && DOT_FIELD_TONES.dark.r === 0.8 && DOT_FIELD_TONES.dark.rest === 0.19 && DOT_FIELD_TONES.dark.lit === 0.46)
-  check("the dots ride the flow half as far on purple (no shimmer across a device pixel)", p.ride === 0.5 && DOT_FIELD_TONES.dark.ride === 1 && /\(flow - 0\.5\) \* 0\.8 \* colour\.ride/.test(dots) && /\(flow - 0\.5\) \* 1\.4 \* colour\.ride/.test(dots))
+  check("a touch rounder on purple; the dark tone is the lower track's (same round)", p.r === 0.95 && DOT_FIELD_TONES.dark.r === 0.8)
+  check("the dots ride the flow half as far on purple (no shimmer across a device pixel)", p.ride === 0.5 && /\(flow - 0\.5\) \* 0\.8 \* colour\.ride/.test(dots) && /\(flow - 0\.5\) \* 1\.4 \* colour\.ride/.test(dots))
   check("the light wanders a little stronger on purple", /goal = tone === "dark" \? WANDER : fine \? 0\.45 : 0\.55/.test(dots))
   check("the field reaches 1600px down the sheet (was 1100)", /<DotField tone="purple" fade="bottom" gap=\{22\} style=\{\{ height: "min\(100%, 1600px\)" \}\} \/>/.test(page))
 }

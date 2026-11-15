@@ -57,6 +57,33 @@
  * high or less) the terminal runs the phone's 16 lines at the phone's line
  * height and the card pads less, so it is about 500px; 1920x1080 and
  * phones are as they were.
+ *
+ * LANDING ROUND 11, THE OWNER:
+ *   "make the pattern more visible and clean for it as well": the card
+ *     carries a fine grid of round dots (the closing call's spacing and
+ *     tone), clear on the copy's side and fading out toward the terminal
+ *     and the edges, so it never sits behind the code. It is a still CSS
+ *     background, not the closing call's canvas: the card already has the
+ *     terminal and the light moving, and measured at 1440x800 the canvas
+ *     here cost 9 frames in 288 over five seconds; the still grid costs
+ *     none and stays crisp at any pixel density.
+ *   "around the terminal add a smooth, buttery effect like a laser glow
+ *     moving around the corners, dispersing, smooth and clean": two thin
+ *     lights travel round the terminal's edge, opposite each other. Each is
+ *     the bright end of a conic gradient on a square layer under the
+ *     terminal; the layer turns (one transform on the compositor), and the
+ *     terminal, opaque, covers all of it but a 1.5px rim, so only the edge
+ *     lights up as the bright end passes, rounding the corners. A second,
+ *     wider rim of the same light sits under it, fading out over its 14px
+ *     by a still mask (each edge a linear fade), so the light spreads off
+ *     the edge. Not a blur: measured at 1440x800, a blurred rim dropped 42
+ *     frames of 248 in five seconds; the mask drops none. Both turn only while the
+ *     terminal is on screen and the tab is visible (data-live), and under
+ *     reduced motion they stand still.
+ *   "the height is too short now, make it a little more natural": the short
+ *     laptop keeps every line of the run at a looser line height (1.7) and
+ *     pads by the screen's height a little more, about 580px at 1440x800
+ *     (round 10: about 500).
  */
 import type { CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
@@ -134,8 +161,11 @@ const PHONE_CSS = AI_TOOLS_SCRIPT.map((l, i) => (i > PHONE_LAST ? `  .ait-l${i}{
 
 const AI_CSS = `
 .ait-wrap,[data-landing-story] .ait>.ait-wrap{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
-.ait-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(32px,4vw,56px);align-items:center;padding:clamp(26px,4.4vw,64px);border-radius:clamp(21px,2.4vw,31px);background:#0e0d12;background-image:linear-gradient(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 30px 60px -40px rgba(24,16,48,.55);color:#fff;overflow:hidden}
-.ait-copy{min-width:0}
+.ait-card{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(32px,4vw,56px);align-items:center;padding:clamp(26px,4.4vw,64px);border-radius:clamp(21px,2.4vw,31px);background:#0e0d12;background-image:linear-gradient(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 30px 60px -40px rgba(24,16,48,.55);color:#fff;overflow:hidden}
+.ait-copy{position:relative;z-index:1;min-width:0}
+/* The card's dot field (landing round 11): clear on the copy's side, gone before the terminal and the edges. */
+.ait-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(circle,rgba(255,255,255,.24) 0,rgba(255,255,255,.24) 1px,transparent 1.35px);background-size:20px 20px;background-position:10px 10px;-webkit-mask-image:radial-gradient(70% 95% at 22% 50%,#000 30%,transparent 78%);mask-image:radial-gradient(70% 95% at 22% 50%,#000 30%,transparent 78%)}
+@media (max-width:1023px){.ait-dots{-webkit-mask-image:radial-gradient(110% 55% at 50% 22%,#000 30%,transparent 80%);mask-image:radial-gradient(110% 55% at 50% 22%,#000 30%,transparent 80%)}}
 .ait-marks{display:flex;align-items:center;gap:clamp(16px,1.6vw,22px);margin:0 0 clamp(22px,2.4vw,30px);padding:0;list-style:none}
 .ait-marks li{display:flex}
 .ait-marks svg{display:block;width:clamp(24px,2.1vw,30px);height:clamp(24px,2.1vw,30px)}
@@ -146,7 +176,16 @@ const AI_CSS = `
 .ait-cta:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}
 .ait-cta svg{transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .ait-cta:hover svg{transform:translateX(3px)}
-.ait-term{--term-bg:#09080c;min-width:0;pointer-events:none;-webkit-user-select:none;user-select:none;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
+.ait-term{--term-bg:#09080c;position:relative;z-index:1;min-width:0;pointer-events:none;-webkit-user-select:none;user-select:none;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
+/* The light round the terminal (landing round 11). .ait-tw holds the terminal and, under it, two rims: a 1.5px one (.ait-beam) and a wider soft one (.ait-glow). Each clips a square layer (.ait-spin, twice the terminal's width, so it covers the corners and stays a small texture) whose conic gradient is dark but for two bright ends; the layer turns, so the ends run round the rim. Only the turn animates. */
+.ait-tw{position:relative;min-width:0;isolation:isolate}
+.ait-beam,.ait-glow{position:absolute;z-index:0;pointer-events:none;overflow:hidden;contain:strict}
+.ait-beam{inset:-1.5px;border-radius:14.5px}
+.ait-glow{inset:-14px;border-radius:27px;opacity:.55;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-composite:intersect}
+.ait-spin{position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;background:conic-gradient(from 0deg,transparent 0deg,transparent 118deg,rgba(139,92,246,.0) 122deg,rgba(139,92,246,.55) 160deg,rgba(214,200,255,.95) 176deg,#fff 179.4deg,transparent 180deg,transparent 298deg,rgba(139,92,246,0) 302deg,rgba(139,92,246,.55) 340deg,rgba(214,200,255,.95) 356deg,#fff 359.4deg,transparent 360deg);will-change:transform;animation:ait-spin 9s linear infinite paused}
+.ait-glow .ait-spin{background:conic-gradient(from 0deg,transparent 0deg,transparent 140deg,rgba(139,92,246,.5) 168deg,rgba(196,176,255,.9) 179deg,transparent 180deg,transparent 320deg,rgba(139,92,246,.5) 348deg,rgba(196,176,255,.9) 359deg,transparent 360deg)}
+@keyframes ait-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.ait-tw[data-live] .ait-spin{animation-play-state:running}
 .ait-bar{display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.06)}
 .ait-bar i{width:10px;height:10px;border-radius:50%;background:#2e2c35}
 .ait-bar span{margin-left:8px;font:500 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#6f6c79}
@@ -177,11 +216,9 @@ ${AI_TOOLS_SCRIPT.map((l, i) => `.ait-l${i}{animation-name:ait-l${i}}\n${lineKey
   .ait-card{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)}
 }
 @media (min-width:1024px) and (max-height:900px){
-  .ait-card{padding:clamp(32px,5.5svh,64px) clamp(40px,4.4vw,64px)}
-  .ait-body{padding:14px 18px 16px;line-height:1.62}
-  .ait-line{min-height:1.62em}
-  .ait-nophone{display:none}
-${PHONE_CSS}
+  .ait-card{padding:clamp(40px,7svh,64px) clamp(40px,4.4vw,64px)}
+  .ait-body{padding:16px 18px 18px;line-height:1.7}
+  .ait-line{min-height:1.7em}
 }
 @media (max-width:639px){
   .ait-body{padding:12px 14px 14px;font-size:11.5px;line-height:1.62}
@@ -196,6 +233,7 @@ ${PHONE_CSS}
   .ait-cover{display:none}
   .ait-caret{animation:none!important}
   .ait-cta,.ait-cta svg{transition:none}
+  .ait-spin{animation:none!important;transform:rotate(38deg)}
 }
 `
 
@@ -208,8 +246,10 @@ export function AiToolsSection() {
     if (!el || typeof IntersectionObserver === "undefined") return
     let seen = false
     const apply = () => {
-      if (seen && !document.hidden) el.setAttribute("data-live", "")
-      else el.removeAttribute("data-live")
+      /* The terminal and the light round it (its parent, .ait-tw) run together. */
+      const live = seen && !document.hidden
+      el.toggleAttribute("data-live", live)
+      el.parentElement?.toggleAttribute("data-live", live)
     }
     const io = new IntersectionObserver(
       ([entry]) => {
@@ -233,6 +273,7 @@ export function AiToolsSection() {
       </style>
       <div className="ait-wrap">
         <div className="ait-card">
+          <span className="ait-dots" aria-hidden="true" />
           <div className="ait-copy">
             <ul className="ait-marks" aria-label="Works with Claude, ChatGPT and Codex, Cursor and GitHub Copilot">
               {MARKS.map((m) => (
@@ -253,7 +294,14 @@ export function AiToolsSection() {
             </Link>
           </div>
 
-          <div ref={term} className="ait-term" role="img" aria-label="An agent in a terminal builds a Storelib homepage: it reads the site, creates the page and its sections, sets the theme, runs the checks and leaves it as a draft to publish.">
+          <div className="ait-tw">
+            <span className="ait-glow" aria-hidden="true">
+              <i className="ait-spin" />
+            </span>
+            <span className="ait-beam" aria-hidden="true">
+              <i className="ait-spin" />
+            </span>
+            <div ref={term} className="ait-term" role="img" aria-label="An agent in a terminal builds a Storelib homepage: it reads the site, creates the page and its sections, sets the theme, runs the checks and leaves it as a draft to publish.">
             <div className="ait-bar" aria-hidden="true">
               <i />
               <i />
@@ -276,6 +324,7 @@ export function AiToolsSection() {
                   )}
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </div>

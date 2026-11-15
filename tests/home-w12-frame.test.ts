@@ -116,7 +116,8 @@ async function main() {
     check("no fade, no rise, no animation at all", !/@keyframes|animation|opacity|IntersectionObserver|data-armed/.test(src))
     check("no card, no light, no floating receipts", !/fcta-card|fcta-light|fcta-chip|border-radius:clamp/.test(src) && /<section class="fcta" data-final-cta=""/.test(html))
     /* Changed on purpose (landing round 4): the closing call ends the page's dark close, with room for its mark and dot grid (at most 152px). */
-    check("its padding is bounded: at most 152px top and bottom", /\.fcta\{[^}]*background:transparent;[^}]*padding:clamp\(88px,10vw,152px\)[^}]*clamp\(80px,9vw,136px\)/.test(src))
+    // Changed on purpose (landing round 11): the owner: "too much height, reduce it just a little": at most 128px above and 116px below.
+    check("its padding is bounded: at most 128px top and 116px bottom", /\.fcta\{[^}]*background:transparent;[^}]*padding:clamp\(76px,8\.4vw,128px\)[^}]*clamp\(68px,7\.6vw,116px\)/.test(src))
     check("the buttons are 44px or more on a phone", /\.fcta-btn\{[^}]*height:54px/.test(src))
   }
 
