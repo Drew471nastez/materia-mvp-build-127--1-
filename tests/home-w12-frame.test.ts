@@ -214,7 +214,8 @@ async function main() {
     check("the script keeps only headings inside a scrolling box; the showcase heading inks from the scroll too", !/hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading) && !/data-story-showcase\]\):not/.test(css) && !/"--story-progress": 1/.test(heading))
     const creators = code("components/marketing/home/creators-carousel.tsx")
     /* Changed on purpose (landing round 7): the speed the rail settles at is now `want` (goal is the function that works it out). */
-    check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(want\)/.test(creators))
+    /* Changed on purpose (landing round 8): every leg of the creators rail's motion (in, cruise, out, a throw) is a Web Animation; halt() takes it back. */
+    check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const halt = /.test(creators) && /play\("cruise"/.test(creators))
     /* Changed on purpose (landing round): the sale notification is gone (the owner found it AI looking), so only the rail itself is checked. */
     check("the creators section runs no endless CSS loop of its own", !/infinite/.test(creators) && !existsSync("components/marketing/home/motion/sale-pop.tsx"))
     for (const f of ["how-it-works", "earnings-calculator"]) {

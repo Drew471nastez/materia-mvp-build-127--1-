@@ -27,7 +27,7 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { SHOWCASE_NATIVE, SHOWCASE_RAIL } from "@/components/marketing/use-showcase-motion"
+import { SHOWCASE_AUTOPLAY, SHOWCASE_GESTURE } from "@/components/marketing/use-showcase-motion"
 import { EverythingInOnePlace, EVERYTHING_HEADING, EVERYTHING_SLIDES, EVERYTHING_SUPPORT } from "@/components/marketing/home/everything-in-one-place"
 import { createGlobeEngine, type GlobePill, type V3 } from "@/components/marketing/home/everything-globe-draw"
 
@@ -54,22 +54,23 @@ const draw = read("components/marketing/home/everything-globe-draw.ts")
 const everything = renderToStaticMarkup(createElement(EverythingInOnePlace))
 const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
 
-console.log("\n── The showcase: a native swipe on a touch screen ──")
-check("a touch screen or a phone width gets the browser's own scroller, a mouse from 768px keeps RailMotion", /const NATIVE = "\(max-width: 767px\), \(pointer: coarse\)"/.test(hook) && /\(native\.matches \? startNative : startRail\)/.test(hook) && /new RailMotion\(el, items, snaps, SHOWCASE_RAIL,/.test(hook))
-check("the rail scrolls natively and snaps, with momentum, and a swipe at an end is not the back gesture", /\.build-showcase-track \{[^}]*overflow-x:auto;overflow-y:hidden;[^}]*overscroll-behavior-x:contain;scroll-snap-type:x mandatory/.test(showcase))
-check("both axes stay the browser's on the native rail (it decides the axis itself)", /\.build-showcase-track \{[^}]*touch-action:pan-x pan-y pinch-zoom/.test(showcase))
+console.log("\n── The showcase: one swipe on every screen ──")
+/*
+  Changed on purpose (landing round 8): the owner, on an iPhone and on a desktop: the pull to swipe "doesn't initialize",
+  "I have to make the whole drag too long", make it like the creators rail. Round 5's native scroll snap on touch screens and
+  RailMotion under a mouse are one engine now, the creators rail's (axis after 8px, 1:1, a flick is a card, a compositor
+  glide, autoplay that waits for the reader); tests/home-landing-r8-rails.test.ts pins it. What round 5 kept still holds:
+  before the script the rail is the browser's own scroller, vertical swipes stay the page's, nothing runs per frame.
+*/
+check("before the script the rail scrolls natively and snaps, and a swipe at an end is not the back gesture", /\.build-showcase-track \{[^}]*overflow-x:auto;overflow-y:hidden;[^}]*overscroll-behavior-x:contain;scroll-snap-type:x mandatory/.test(showcase))
+check("before the script both axes stay the browser's", /\.build-showcase-track \{[^}]*touch-action:pan-x pan-y pinch-zoom/.test(showcase))
 check("cards and groups snap at their start, the phone's on the gutter", /\.build-showcase-group \{[^}]*scroll-snap-align:start/.test(showcase) && /scroll-padding-inline:var\(--showcase-gutter\)/.test(showcase) && /\.build-showcase-slide\{flex:0 0 var\(--showcase-card\);width:var\(--showcase-card\);scroll-snap-align:start/.test(showcase)) /* Changed on purpose (landing round 6): the phone card is a 4:3 card 78% of the screen wide, its caption under it. */
-check("the RailMotion rail turns the snapping off", /\.build-showcase-track\[data-rail-ready\] \{[^}]*scroll-snap-type:none/.test(showcase))
-const native = hook.slice(hook.indexOf("function startNative"), hook.indexOf("export function useShowcaseMotion"))
-check("nothing on the native rail runs per frame or holds a touch", !/requestAnimationFrame\(step/.test(native) && /"touchstart", onTouchStart, passive/.test(native) && /"touchend", onTouchEnd, passive/.test(native) && !/"touchmove"/.test(native))
-check("autoplay is one smooth scrollTo a card", /el\.scrollTo\(\{ left: stops\[next\], behavior: "smooth" \}\)/.test(native))
-/* Changed on purpose (landing round 6): autoplay waits idleMs after the reader's last scroll (momentum included), not resumeMs after the finger lifts; tests/home-landing-r6-showcase.test.ts pins it. */
-check("a touch pauses it and it comes back after the reader's last scroll, from where the reader left it", /const onTouchStart = \(\) => \{\s*touching = true\s*hold\(\)/.test(native) && /lastRead \+ SHOWCASE_NATIVE\.idleMs/.test(native) && /if \(Math\.abs\(stops\[i\] - x\) < Math\.abs\(stops\[at\] - x\)\) at = i/.test(native))
-check("it runs only on screen, in a visible tab, with motion allowed", /const canPlay = \(\) => visible && !paused && !document\.hidden && !reduce\.matches/.test(native) && /if \(touching \|\| due > now\)/.test(native) && /"visibilitychange", onVisibility/.test(native))
-/* Changed on purpose (landing round 6): back 6s after the reader's last scroll (it was 4s after the finger lifted). */
-check("the timing: a card every 4.2s, back 6s after the reader's last scroll", SHOWCASE_NATIVE.intervalMs === 4200 && SHOWCASE_NATIVE.idleMs === 6000)
-check("card places are read once per layout change, never during a swipe", /resize\?\.observe\(viewport\)/.test(native) && (native.match(/s\.offsetLeft/g) ?? []).length === 1)
-check("the mouse rail's tuning is unchanged", SHOWCASE_RAIL.swipeMaxSteps === 3 && SHOWCASE_RAIL.swipeVelocity === 110)
+check("the script's rail turns the snapping off and leaves vertical pans to the page", /\.build-showcase-track\[data-rail-ready\] \{[^}]*touch-action:pan-y pinch-zoom;[^}]*scroll-snap-type:none/.test(showcase))
+check("one engine for touch and mouse, no second rail", !/startNative|RailMotion|const NATIVE =/.test(hook) && /el\.addEventListener\("pointerdown", onDown\)/.test(hook))
+check("it runs only on screen, in a visible tab, with motion allowed", /const canPlay = \(\) => visible && !paused && !document\.hidden && !reduce\.matches/.test(hook) && /"visibilitychange", onVisibility/.test(hook))
+check("autoplay: a card every 4.2s, back 5s after the reader's last input", SHOWCASE_AUTOPLAY.intervalMs === 4200 && SHOWCASE_AUTOPLAY.idleMs === 5000)
+check("card places are read once per layout change, never during a swipe", /resize\?\.observe\(viewport\)/.test(hook) && (hook.match(/s\.offsetLeft/g) ?? []).length === 1)
+check("a short flick is a card", SHOWCASE_GESTURE.axisSlop === 8 && SHOWCASE_GESTURE.flickVelocity <= 200 && SHOWCASE_GESTURE.flickDistanceMax <= 30)
 
 console.log("\n── The showcase: the cards inside the section ──")
 /* Changed on purpose (landing round 6): the owner saw the captions cut by the section's edge; the cards now end inside it with room under their captions, and a phone card is a 4:3 card (tests/home-landing-r6-showcase.test.ts). */

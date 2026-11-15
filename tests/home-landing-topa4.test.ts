@@ -28,8 +28,8 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { SHOWCASE_EXAMPLES, SHOWCASE_HEADING } from "@/components/marketing/build-showcase"
-import { SHOWCASE_RAIL } from "@/components/marketing/use-showcase-motion"
-import { chooseSwipeTarget, SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
+import { chooseShowcaseStop, SHOWCASE_GESTURE } from "@/components/marketing/use-showcase-motion"
+import { SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
 import {
   EverythingInOnePlace,
   EVERYTHING_HEADING,
@@ -71,26 +71,25 @@ const all = SHOWCASE_EXAMPLES.map((e) => `${e.src} ${e.label} ${e.alt}`).join(" 
 check("twelve pictures, four groups of a wide, a OnePage and a wide", SHOWCASE_EXAMPLES.length === 12 && SHOWCASE_EXAMPLES.every((e, i) => e.format === (i % 3 === 1 ? "portrait" : "wide")))
 check("Pinch Grip Club stays", /pinchgrip/.test(all))
 check("no yoga, surf coach, sample packs or sourdough", !/stillwater|yoga|hemi|surf|lowtide|slowrise|sourdough/i.test(all))
-check("Gia Romano and Nails by Bea are there, and Gia's ebook is not Weeknight Pasta", /a-gia\.webp/.test(all) && /a-bea\.webp/.test(all) && !/weeknight/i.test(all + showcaseSrc))
-check("the new creators are there: Kai Moreno's prints, Northline Coffee, The Long Draft, Charla Circle", ["kai", "northline", "draft", "charla"].every((k) => all.includes(`/home/showcase/a-${k}.webp`)))
+/* Changed on purpose (landing round 8): the owner did not like the nail artist, the coffee subscription or the language club; Mara Lind's bookings, Luca Brandt's Grade Club and Seed & Soil take their places (tests/home-landing-r8-rails.test.ts). */
+check("Gia Romano is there, and Gia's ebook is not Weeknight Pasta", /a-gia\.webp/.test(all) && !/weeknight/i.test(all + showcaseSrc))
+check("the creators of round 4 that stay are there: Kai Moreno's prints and The Long Draft", ["kai", "draft"].every((k) => all.includes(`/home/showcase/a-${k}.webp`)))
 check("every picture exists at its size's budget", SHOWCASE_EXAMPLES.every((e) => existsSync(join(root, "public", e.src)) && statSync(join(root, "public", e.src)).size < 120_000))
 check("the retired pictures are gone", ["stillwater", "hemi", "lowtide", "slowrise"].every((k) => !existsSync(join(root, `public/home/showcase/a-${k}.webp`))))
 check("captions are three words at most", SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3))
 check("the heading is unchanged", SHOWCASE_HEADING === "Build your page, sell your products, and manage everything in one place.")
 
 console.log("\n── A short swipe is a whole step ──")
-check("the showcase's swipe distance is 10 to 14px (it was 20 to 40px)", SHOWCASE_RAIL.swipeDistanceMin === 10 && SHOWCASE_RAIL.swipeDistanceMax === 14 && SHOWCASE_RAIL.swipeDistanceRatio <= 0.06)
-check("a release at 110px/s is a flick (it was 180px/s)", SHOWCASE_RAIL.swipeVelocity === 110)
+/* Changed on purpose (landing round 8): the showcase has its own engine now (use-showcase-motion.ts, the creators rail's); a short flick is still a whole step: 12 to 28px of drag or a 160px/s release, the axis decided after 8px (tests/home-landing-r8-rails.test.ts). */
 check("the shared tuning is untouched for the other rails", SHOWCASE_MOTION.swipeDistanceMin === 20 && SHOWCASE_MOTION.swipeDistanceMax === 40 && SHOWCASE_MOTION.swipeVelocity === 180)
-check("the press still waits 6px before it is a drag, so a finger going down the page scrolls it", SHOWCASE_RAIL.dragThreshold === 6)
 {
   const desktop = [0, 1316, 2632, 3948]
   const phone = [0, 292, 398, 690, 796]
-  check("desktop: a slow 16px pull goes to the next group", chooseSwipeTarget(0, 16, 0, desktop, 0, SHOWCASE_RAIL) === 1316)
-  check("desktop: an 8px nudge settles back", chooseSwipeTarget(0, 8, 0, desktop, 0, SHOWCASE_RAIL) === 0)
-  check("phone: a short flick at 150px/s goes to the next card", chooseSwipeTarget(0, 9, 150, phone, 0, SHOWCASE_RAIL) === 292)
-  check("phone: a slow 15px drag goes to the next card", chooseSwipeTarget(0, 15, 0, phone, 0, SHOWCASE_RAIL) === 292)
-  check("the glide and momentum are kept", !!SHOWCASE_RAIL.glideSettle && SHOWCASE_RAIL.swipeMaxSteps === 3)
+  check("desktop: a slow 30px pull goes to the next page", chooseShowcaseStop(30, 30, 0, desktop, 0, 1) === 1)
+  check("desktop: an 8px nudge settles back", chooseShowcaseStop(8, 8, 0, desktop, 0, 1) === 0)
+  check("phone: a short flick at 200px/s goes to the next card", chooseShowcaseStop(9, 9, 200, phone, 0) === 1)
+  check("phone: a slow 20px drag goes to the next card", chooseShowcaseStop(20, 20, 0, phone, 0) === 1)
+  check("the axis waits 8px, so a finger going down the page scrolls it", SHOWCASE_GESTURE.axisSlop === 8)
 }
 
 console.log("\n── Make the work: the heading ──")
