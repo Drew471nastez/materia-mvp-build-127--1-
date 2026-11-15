@@ -69,7 +69,8 @@ console.log("\nCommerce: the figures are Storelib's")
   check("downloads and courses have no production cost", commerceSale(1900, "download").baseCents === 0 && commerceSale(12900, "course").baseCents === 0)
   check("Pro's monthly price is lib/billing/plans PRO_PRICE_CENTS", COMMERCE_PRO_MONTHLY_CENTS === PRO_PRICE_CENTS, { COMMERCE_PRO_MONTHLY_CENTS, PRO_PRICE_CENTS })
   check("the currency count is the fee rules'", COMMERCE_CURRENCY_COUNT === Object.keys(CURRENCY_FEE_RULES).length && COMMERCE_CURRENCY_COUNT >= 2, COMMERCE_CURRENCY_COUNT)
-  check("the checkout tab names the count from the code, not a typed number", /stat: `\$\{COMMERCE_CURRENCY_COUNT\} currencies`/.test(src.checkout))
+  // Changed on purpose (landing round 8): the card is titled "Local in 7 currencies" (the owner's words), the count from the code.
+  check("the checkout card names the count from the code, not a typed number", /title: `Local in \$\{COMMERCE_CURRENCY_COUNT\} currencies`/.test(src.checkout) && /`\$\{COMMERCE_CURRENCY_COUNT\} currencies`/.test(src.checkout))
   const m = commerceMonth("download", 19, 5, "free")
   check("a month of $19 downloads, 5 a day: 150 orders, $2,850, $180 fees, $2,670 kept", m.orders === 150 && m.revenue === 285000 && m.fees === 18000 && m.keep === 267000, m)
   const mp = commerceMonth("tee", 30, 10, "pro")
@@ -113,20 +114,24 @@ console.log("\nCommerce: the sections render on the server")
   check("checkout: its own headline, not the reference's", co.replace(/<[^>]*>/g, "").includes("Checkout that turns a tap into a sale") && !/almost cheating/i.test(co))
   /* Changed on purpose (wave 13): a fifth tab, Order paid, as the owner asked; the closed panels are inert and hidden by visibility, not display:none, so all five share one box and switching tabs moves nothing below. */
 /* Changed on purpose (landing round 4): four tabs, as the owner asked; Order paid is the end of Built to convert. */
-  check("checkout: four tabs and one visible panel", (co.match(/role="tab"/g) ?? []).length === 4 && (co.match(/role="tabpanel"/g) ?? []).length === 4 && (co.match(/role="tabpanel"[^>]*inert/g) ?? []).length === 3 && !/role="tabpanel"[^>]*hidden/.test(co) && /\.cmc-panel\{grid-area:1\/1;[^}]*visibility:hidden/.test(src.checkout))
+  // Changed on purpose (landing round 8): a grid of four cards slides up over the phone, as in the owner's recording; no tabs.
+  check("checkout: four cards, no tabs, each demo live only on screen", (co.match(/class="cmc-card"/g) ?? []).length === 4 && !/role="tab/.test(co) && /\.cmc-card\[data-commerce-live\]/.test(src.checkout))
   /* Changed on purpose (wave 13): the real instant checkout heads its fields "Your details" (components/checkout/instant-checkout.tsx), not "Contact". */
 /* Changed on purpose (landing round 4): the phone no longer completes a payment as the page scrolls; Payment complete is the desktop checkout's. */
   /* Changed on purpose (landing round 7, the owner: "use the actual Storelib checkout, not the modal checkout"): the phone draws the full page checkout's words. */
-  check("checkout: the phone draws the real checkout's words", ["Contact information", "Email me with news and offers", "Payment method", "Add promotion code", "Total due", "Pay $12.00", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
+  // Changed on purpose (landing round 8): the phone sells the Cine Tones LUT Pack ($29).
+  check("checkout: the phone draws the real checkout's words", ["Contact information", "Email me with news and offers", "Payment method", "Add promotion code", "Total due", "Pay $29.00", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
   /* Added (wave 13). */
   check("checkout: no subheading under the headline, no eyebrow", !/cmc-sub|story-eyebrow/.test(co))
   /* Changed on purpose (landing round 3): the owner wants the wallets tab to be a phone and nothing else, so the second browser (the one with Google Pay) is gone; the tab's words still name both wallets. */
 /* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again, as the owner asked. */
   check("checkout: the website checkout in a desktop browser, once, and both wallets named", (co.match(/class="cdx-win"/g) ?? []).length === 1 && co.includes("Apple Pay and Google Pay, built in"))
-  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$64.00", "€59.00", "£50.00", "¥9,800", "C$88.00"].every((p) => co.includes(p))) /* Changed on purpose (landing round 7): Maren Holt's $64 yarn kit in place of the print. */
+  // Changed on purpose (landing round 8): the owner: the shared product (the tee and the LUT pack) in all seven currencies.
+  check("checkout: every currency with its real flag, the tee and the LUT pack priced in each", ["US", "EU", "GB", "CA", "AU", "JP", "RO"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$32.00", "€30.00", "£26.00", "C$44.00", "A$49.00", "¥4,900", "149 lei", "$29.00", "¥4,400"].every((p) => co.includes(p)))
   /* Changed on purpose (landing round): the product is Maya Ellis's e-book, Weeknight Pasta, not the Golden Hour presets the owner found AI looking. */
 /* Changed on purpose (landing round 4): new products; the seller's note is the in-app sale notification ("New sale: <total>", "<buyer> bought <thing> for <total>."). */
-  check("checkout: the reminder and the sale note use the real words", co.includes("You left Harbor yarn kit at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $88.08") && co.includes("Sam Rivera bought Harbor yarn kit and 1 more for $88.08.")) /* Changed on purpose (landing round 7): Maren Holt's yarn kit in place of the print. */
+  // Changed on purpose (landing round 8): the LUT pack and the tee.
+  check("checkout: the reminder and the sale note use the real words", co.includes("You left Cine Tones LUT Pack at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $71.88") && co.includes("Sam Rivera bought Midnight Studio Tee and 1 more for $71.88."))
   check("checkout: no Golden Hour presets anywhere, and less fans in the words", !/Golden Hour|golden-cover|Presets/.test(co + src.checkout) && !/\bfans?\b/i.test(co.replace(/<style[\s\S]*?<\/style>/g, "")))
   /* Changed on purpose (landing round 7): the label names the checkout page. */
   check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="Storelib&#x27;s checkout page on a phone/.test(co))
@@ -134,7 +139,8 @@ console.log("\nCommerce: the sections render on the server")
 /* Changed on purpose (landing round 4): the owner asked for the products orbiting the phone back, none of them the Golden Hour box or the purple membership card, each crossfading to a pre-blurred file (never a live filter). */
   /* Changed on purpose (landing round 5): the orbit is gone, it stuttered under a finger. */
   /* Changed on purpose (landing round 7): the owner asked for the products around the phone back ("how they were before"), a new set of plain pictures on one transform loop, no blurred twins. */
-  check("checkout: products ride a ring around the phone again, without blurred twins", /cmc-orbit/.test(co) && /\/home\/commerce\/float-/.test(co) && !/-blur\.webp/.test(co + src.checkout))
+  // Changed on purpose (landing round 8): the owner: "3D products, not images", turning on an axis as the page scrolls.
+  check("checkout: real 3D objects stand around the phone, without blurred twins", /cmc-orbit/.test(co) && /\/home\/commerce\/obj-/.test(co) && !/-blur\.webp/.test(co + src.checkout) && !/filter:\s*blur/.test(src.checkout))
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
@@ -192,7 +198,8 @@ console.log("\nCommerce: motion and performance rules")
   /* Changed on purpose (landing round): the owner found scrolling through the scene "very bad". The scroll no longer scrubs anything frame by frame: an IntersectionObserver sets data-step as bands cross the middle of the screen, and each step plays as a CSS transition of transform and opacity. Stricter than before: no scroll listener at all, no per-frame custom property, no 3D orbit. */
 /* Changed on purpose (landing round 4): the phone rises and stays, the words come in, the tab cards rise over the phone: CSS view timelines (transform and opacity, on the compositor, reversible), and where a browser has none, two IntersectionObservers set two attributes and the same states play as transitions. Still no scroll listener and no layout read. */
   /* Changed on purpose (landing round 5): no scroll timelines; one observer starts a one-shot entrance, plain scroll does the rest. */
-  check("checkout: one observer for the entrance, no scroll timeline, no scroll listener, no layout read", !/view-timeline|animation-timeline/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
+  // Changed on purpose (landing round 8): the objects turn on a scroll timeline (transform, run by the compositor).
+  check("checkout: one observer for the entrance, a scroll timeline for the objects only, no scroll listener, no layout read", /animation-timeline:--cmc-t/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
   check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(\$\{OVERLAP\} \* -1\) 0 0/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))

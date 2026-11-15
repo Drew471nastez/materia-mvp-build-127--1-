@@ -1481,6 +1481,8 @@ const SUITES = [
   "tests/home-landing-r8-close.test.ts",
   /* Landing round 8, everything: the store strip a loop that cannot end (each page its own layer wrapped round one turn from one clock); Fieldwork in place of Static Bloom, new products and photos on the link pages, a dark profile OnePage; the globe lighter on phones; a teal support card. */
   "tests/home-landing-r8-everything.test.ts",
+  /* Landing round 8, checkout: real 3D objects (transparent renders) around the phone at different depths, turning on their own axis on a scroll timeline; four dark cards slide up over the phone (a swipe row on a phone); a t-shirt and the Cine Tones LUT Pack, no Nadia Brooks; the wallets' own buttons; the shared products in every currency; the phone checkout in the One page card on a phone. */
+  "tests/home-landing-r8-checkout.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

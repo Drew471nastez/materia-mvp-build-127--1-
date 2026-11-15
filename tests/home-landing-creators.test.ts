@@ -119,16 +119,19 @@ check("no purple glow, no Golden Hour presets, less fans", () => {
   const src = read(CO)
   assert.ok(!/rgba\(124,58,237/.test(src))
   assert.ok(!/Golden Hour|golden/i.test(src + co))
-  assert.ok(!/\bfans?\b/i.test(words(co)) && co.includes("Prices people read without a calculator"))
+  /* Changed on purpose (landing round 8): the currencies card is titled with the owner's own words, "Local in 7 currencies". */
+  assert.ok(!/\bfans?\b/i.test(words(co)) && co.includes("Local in 7 currencies"))
 })
 check("the product is a real looking e-book: a local photograph under its title", () => {
   /* Changed on purpose (landing round 5, the owner did not like After Dark there): the checkout sells The Loop, its cover a picture file; How it works keeps the e-book below. */
   /* Changed on purpose (landing round 7, the owner: not The Loop there): the checkout sells Maren Holt's knitting pattern, its picture a local photograph file. */
-  assert.ok(co.includes("/home/commerce/maren-pattern.webp") && !co.includes("ebook-night") && existsSync("public/home/commerce/maren-pattern.webp") && statSync("public/home/commerce/maren-pattern.webp").size < 60 * 1024)
+  /* Changed on purpose (landing round 8): the checkout sells the Cine Tones LUT Pack on the cover "Sell what you make" shows (ebook-cover.tsx), built from its graded still. */
+  assert.ok(co.includes("/home/everything/lut-still.webp") && !co.includes("ebook-night") && EBOOK.title === "Cine Tones LUT Pack")
   /* Changed on purpose (landing round 5): After Dark is gone from How it works too; its picture is no longer used. */
   assert.ok(!/ebook-night/.test(readFileSync("components/marketing/home/ebook-cover.tsx", "utf8")))
   /* Changed on purpose (landing round 5): the cover is one picture file with its title printed on it, so it needs no container query. */
-  assert.ok(/guide-loop\.webp/.test(read("components/marketing/home/ebook-cover.tsx")) && !/https?:/.test(EBOOK_COVER_CSS + read("components/marketing/home/ebook-cover.tsx")))
+  /* Changed on purpose (landing round 8): the cover is the LUT pack's: one local still and its words, sized in its own container units. */
+  assert.ok(/lut-still\.webp/.test(read("components/marketing/home/ebook-cover.tsx")) && !/https?:/.test(EBOOK_COVER_CSS + read("components/marketing/home/ebook-cover.tsx")) && /container-type:inline-size/.test(EBOOK_COVER_CSS))
 })
 check("reduced motion: nothing pinned, nothing moves", () => {
   const css = CHECKOUT_STYLES.map((s) => s.css).join("\n")
@@ -148,7 +151,8 @@ check("corners a pixel softer: cards 23px, tiles up to 27px, panels 31px", () =>
   assert.ok(/\.cc-photo\{[^}]*border-radius:23px/.test(CREATORS_CSS))
   // Changed on purpose (landing round 7): How it works takes section 3's corners, 17px on a phone and 19px from 768px.
   assert.ok(/\.cmh-stage\{[^}]*border-radius:17px/.test(HOW_IT_WORKS_STYLES[0].css) && /\.cmh-stage\{height:clamp\(360px,32vw,440px\);border-radius:19px\}/.test(HOW_IT_WORKS_STYLES[0].css))
-  assert.ok(/\.cmc-panel\{[^}]*border-radius:31px/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
+  /* Changed on purpose (landing round 8): the panel became four cards in a grid, 28px corners (24px on a phone). */
+  assert.ok(/\.cmc-card\{[^}]*border-radius:28px/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
 })
 
 check("registered in the push suite", () => {
