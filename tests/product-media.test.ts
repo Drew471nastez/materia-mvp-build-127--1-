@@ -80,7 +80,8 @@ check(
  * writes the srcset from the widths it is configured to serve, so the hero
  * must not hand-build one beside it.
  */
-check("no hand-built srcset in the hero", !/srcSet=/.test(hero))
+// Changed on purpose (landing round 9): the poster is the film's first frame, and a phone gets the phone cut's frame: one <source media> naming one file, not a hand-built list of widths.
+check("no hand-built srcset in the hero", !/srcSet=/.test(hero.replace("<source media={HERO_VIDEO.phoneMedia} srcSet={HERO_VIDEO.phonePoster}", "")) && (hero.match(/srcSet=/g) ?? []).length === 1)
 {
   /* The helper the rest of the site uses still snaps to a served width and quality. */
   // Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
