@@ -22,10 +22,15 @@
  *              the black Midnight Studio Tee of section 3, with section 3's
  *              own numbers) and Orders by country. A mouse over the chart
  *              reads any day.
- *   domain     "I like it but I don't like the design of that card": no
- *              browser window, no list of addresses. One address pill over
- *              his website: the storelib.com address rolls over to his own
- *              domain, the lock turns violet, DNS and HTTPS tick.
+ *   domain     round 10, "more simple and clean, similar to 'Ready for
+ *              Google and AI search'": one address on a white band, his
+ *              name still and its ending gliding up a step at a time
+ *              (storelib.com first, then domains of his own), the endings
+ *              above and below fading through a still mask. CSS only.
+ *
+ * HEIGHT (round 10, a MacBook Air at about 1440x800): on a computer the
+ * pictures stop at half the screen's height, so the heading and the row fit
+ * one screen.
  *
  * One shop throughout: Ruben Linde's Linde Woodshop, a woodworker who films
  * his builds (made up). It sells section 3's two products.
@@ -122,13 +127,18 @@ export const HOW_COUNTRIES = [
 /**
  * Ruben's own domain (made up), serving his website (lib/custom-domains
  * DOMAIN_PURPOSES: a domain serves one thing, here the website), and the
- * address the website has on Storelib before he connects it.
+ * address the website has on Storelib before he connects it. Landing round
+ * 10: "lindewood", short enough for one line on a narrow card.
  */
 export const HOW_DOMAIN = {
-  host: "lindewoodshop.com",
-  before: "lindewoodshop.storelib.com",
+  name: "lindewood",
+  host: "lindewood.com",
+  before: "lindewood.storelib.com",
   purpose: "website" satisfies DomainPurpose,
 } as const
+
+/** The endings the domain card's reel glides through: his Storelib address first, then domains of his own. Each makes a host Storelib accepts. */
+export const HOW_ENDINGS = [".storelib.com", ".com", ".co.uk", ".studio"] as const
 
 /** The three cards, in the row's order: narrow, wide, narrow. A title and one short line each. */
 export const HOW_CARDS = [
@@ -883,74 +893,40 @@ function BusinessScene() {
 }
 
 /*
-  3. Landing round 9 (the owner liked the card, not its design): no browser
-  window. One address pill over his website. The address his site has on
-  Storelib rolls over to his own domain, the lock turns violet, DNS and
-  HTTPS tick, and the site under it comes up a step.
+  3. Landing round 10, the owner: "I don't like the 'Use your own domain'
+  visual. Something more simple and clean, similar to 'Ready for Google and
+  AI search'." So the card is that card's idea on this section's light
+  ground: one address on a white band in the middle, his name standing still
+  and its ending gliding up a step at a time, his Storelib address first and
+  then domains he could own. The endings above and below fade out through a
+  mask that never moves; a soft light turns slowly behind. One transform on
+  the reel, one on the light, both paused off screen. No website, no ticks.
 */
+/** The reel's rows: two before the first ending and two after the last, so a neighbour always shows above and below and the loop ends where it began. */
+const REEL = [...HOW_ENDINGS.slice(-2), ...HOW_ENDINGS, ...HOW_ENDINGS.slice(0, 3)]
 function DomainScene() {
-  const name = HOW_DOMAIN.host.split(".")[0]
   return (
     <div className="cmh-sc cmh-dm">
-      <div className="cmh-dm-in">
-        <div className="cmh-pill">
-          <span className="cmh-pill-lock">
-            <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="5" y="10.5" width="14" height="10" rx="2.4" />
-              <path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" />
-            </svg>
-            <span className="cmh-a cmh-pill-on">
-              <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="5" y="10.5" width="14" height="10" rx="2.4" />
-                <path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" />
-              </svg>
+      <span className="cmh-a cmh-dm-light" />
+      <div className="cmh-dm-band">
+        <span className="cmh-dm-lock">
+          <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="10.5" width="14" height="10" rx="2.4" />
+            <path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" />
+          </svg>
+        </span>
+        <span className="cmh-dm-name">{HOW_DOMAIN.name}</span>
+        <span className="cmh-dm-ends">
+          <span className="cmh-dm-win">
+            <span className="cmh-a cmh-dm-reel">
+              {REEL.map((e, i) => (
+                <span key={i} className="cmh-dm-end" data-storelib={e === HOW_ENDINGS[0] ? "" : undefined}>
+                  {e}
+                </span>
+              ))}
             </span>
           </span>
-          <span className="cmh-pill-url">
-            <span className="cmh-a cmh-url" data-k="0">
-              {name}
-              <span>{HOW_DOMAIN.before.slice(name.length)}</span>
-            </span>
-            <span className="cmh-a cmh-url" data-k="1">
-              {HOW_DOMAIN.host}
-            </span>
-          </span>
-        </div>
-        <div className="cmh-dm-ok">
-          <span className="cmh-a cmh-ok" data-k="0">
-            <i>
-              <Check size=".72em" />
-            </i>
-            DNS found
-          </span>
-          <span className="cmh-a cmh-ok" data-k="1">
-            <i>
-              <Check size=".72em" />
-            </i>
-            HTTPS on
-          </span>
-        </div>
-        <div className="cmh-a cmh-site">
-          <div className="cmh-site-nav">
-            <img src={HOW_SHOP.avatar} alt="" loading="lazy" decoding="async" width={160} height={160} />
-            <b>{HOW_SHOP.name}</b>
-            <span>Shop</span>
-            <span>About</span>
-          </div>
-          <img className="cmh-site-pic" src={`${HOW}/site-workshop.webp`} alt="" loading="lazy" decoding="async" width={720} height={405} />
-          <div className="cmh-site-b">
-            <b>Built by hand, filmed every week</b>
-            <i>Shop</i>
-          </div>
-          <div className="cmh-site-shelf">
-            <span>
-              <img src={HOW_PRODUCTS[1].img} alt="" loading="lazy" decoding="async" width={480} height={480} />
-            </span>
-            <span>
-              <LutCover />
-            </span>
-          </div>
-        </div>
+        </span>
       </div>
     </div>
   )
@@ -982,7 +958,8 @@ const HOW_CSS = `
 .cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;height:430px;border-radius:17px;background:#f4f4f6;overflow:hidden;contain:paint;isolation:isolate;container-type:inline-size;font-family:inherit}
 .cmh-wide .cmh-stage{height:440px}
 @media(min-width:640px){.cmh-stage,.cmh-wide .cmh-stage{height:420px;border-radius:19px}}
-@media(min-width:1100px){.cmh-stage,.cmh-wide .cmh-stage{height:clamp(400px,32vw,560px)}}
+/* Landing round 10, the owner (a MacBook Air, about 1440x800): the heading and the row fit one screen. The pictures stop at half the screen's height, never under 360px. */
+@media(min-width:1100px){.cmh-stage,.cmh-wide .cmh-stage{height:max(360px,min(clamp(400px,32vw,560px),50svh))}}
 /* The grounds (landing round 9, "too grey"): flat colour, one a card. Still, no glow, no glass. */
 .cmh-stage[data-ground=lilac]{background:#ebe4ff;--ring:rgba(109,72,214,.2)}
 .cmh-stage[data-ground=paper]{background:#f4f4f7;--ring:rgba(24,24,27,.085)}
@@ -1146,39 +1123,21 @@ const HOW_CSS = `
   .cmh-geo-rows{gap:.5em}
 }
 
-/* ── your own domain: one address pill over his website ── */
-.cmh-dm .cmh-a{animation-duration:9s}
-.cmh-dm-in{position:absolute;left:50%;top:11.5%;width:18.4em;margin-left:-9.2em}
-.cmh-pill{position:relative;z-index:1;display:flex;align-items:center;gap:.7em;height:3.2em;padding:0 1em 0 .6em;box-sizing:border-box;border-radius:1.6em;background:#fff;box-shadow:0 0 0 1px rgba(120,60,10,.06),0 1.2em 2em -1.2em rgba(120,60,10,.55)}
-.cmh-pill-lock{position:relative;flex:none;display:grid;place-items:center;width:2.05em;height:2.05em;border-radius:50%;background:#f1f1f3;color:#71717a;font-size:1em}
-.cmh-pill-on{position:absolute;inset:0;display:grid;place-items:center;border-radius:50%;background:#8b5cf6;color:#fff;animation-name:cmh-lock;animation-timing-function:cubic-bezier(.3,1.5,.5,1)}
-@keyframes cmh-lock{0%,31%{opacity:0;transform:scale(.5)}35%,91%{opacity:1;transform:scale(1)}94%,100%{opacity:0;transform:scale(.5)}}
-.cmh-pill-url{position:relative;flex:1;min-width:0;height:100%;display:grid;align-items:center;overflow:hidden;white-space:nowrap;font-size:.98em;letter-spacing:-.012em}
-.cmh-url{grid-area:1/1;animation-timing-function:${SOFT}}
-.cmh-url[data-k="0"]{color:#3f3f46;animation-name:cmh-url0}
-.cmh-url[data-k="0"]>span{color:#a1a1aa}
-.cmh-url[data-k="1"]{font-size:1.04em;font-weight:600;animation-name:cmh-url1}
-@keyframes cmh-url0{0%,26%{opacity:1;transform:translate3d(0,0,0)}31%,92%{opacity:0;transform:translate3d(0,-1.5em,0)}92.01%{opacity:0;transform:translate3d(0,1.5em,0)}97%,100%{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmh-url1{0%,26%{opacity:0;transform:translate3d(0,1.5em,0)}31%,92%{opacity:1;transform:translate3d(0,0,0)}97%,100%{opacity:0;transform:translate3d(0,-1.5em,0)}}
-.cmh-dm-ok{display:flex;justify-content:center;gap:1.2em;height:1.4em;margin-top:.95em;font-size:.8em;font-weight:500;color:#6b4a2e}
-.cmh-ok{display:inline-flex;align-items:center;gap:.45em;animation-name:cmh-ok0}
-.cmh-ok[data-k="1"]{animation-name:cmh-ok1}
-.cmh-ok i{flex:none;display:grid;place-items:center;width:1.3em;height:1.3em;border-radius:50%;background:#18181b;color:#fff}
-@keyframes cmh-ok0{0%,36%{opacity:0;transform:translate3d(0,.4em,0) scale(.9)}40%,91%{opacity:1;transform:translate3d(0,0,0) scale(1)}94%,100%{opacity:0;transform:translate3d(0,0,0) scale(1)}}
-@keyframes cmh-ok1{0%,43%{opacity:0;transform:translate3d(0,.4em,0) scale(.9)}47%,91%{opacity:1;transform:translate3d(0,0,0) scale(1)}94%,100%{opacity:0;transform:translate3d(0,0,0) scale(1)}}
-.cmh-site{display:flex;flex-direction:column;width:16.6em;margin:1.25em auto 0;border-radius:1.15em 1.15em 0 0;background:#fff;box-shadow:0 0 0 1px rgba(120,60,10,.06),0 1.8em 3em -1.6em rgba(120,60,10,.5);overflow:hidden;animation-name:cmh-site;animation-timing-function:${SOFT}}
-@keyframes cmh-site{0%,28%{transform:translate3d(0,1.1em,0)}38%,91%{transform:translate3d(0,0,0)}97%,100%{transform:translate3d(0,1.1em,0)}}
-.cmh-site-nav{display:flex;align-items:center;gap:.9em;height:2.7em;padding:0 .9em;font-size:.86em;color:#8b8b94}
-.cmh-site-nav img{flex:none;width:1.5em;height:1.5em;margin-right:-.35em;border-radius:50%;object-fit:cover}
-.cmh-site-nav b{margin-right:auto;font-size:.92em;font-weight:600;color:#18181b;white-space:nowrap}
-.cmh-site-nav span{font-size:.8em}
-.cmh-site-pic{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
-.cmh-site-b{display:flex;align-items:center;justify-content:space-between;gap:1em;padding:.95em .95em .85em}
-.cmh-site-b b{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:1.08em;font-weight:400;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
-.cmh-site-b i{flex:none;padding:.5em 1.1em;border-radius:99px;background:#18181b;color:#fff;font-size:.72em;font-style:normal;font-weight:600}
-.cmh-site-shelf{display:grid;grid-template-columns:1fr 1fr;gap:.7em;padding:0 .95em 14em}
-.cmh-site-shelf>span{display:block;aspect-ratio:1;border-radius:.6em;overflow:hidden;background:#e9e9ec}
-.cmh-site-shelf img{display:block;width:100%;height:100%;object-fit:cover}
+/* ── your own domain (landing round 10): one address on a white band, its ending gliding up a step at a time ── */
+.cmh-dm{display:grid;place-items:center;--dm-step:2.6em}
+/* The soft light: two warm and white tints turning slowly around the middle, one transform on one layer. */
+.cmh-dm-light{position:absolute;left:50%;top:50%;width:150cqw;aspect-ratio:1;margin:-75cqw 0 0 -75cqw;background:radial-gradient(26% 26% at 32% 36%,rgba(255,255,255,.5),rgba(255,255,255,0) 70%),radial-gradient(28% 28% at 68% 64%,rgba(255,170,110,.16),rgba(255,170,110,0) 70%);animation-name:cmh-spin;animation-duration:48s;animation-timing-function:linear}
+@keyframes cmh-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.cmh-dm-band{position:relative;display:flex;align-items:center;width:15.6em;height:3.3em;margin-top:-1.2em;padding:0 .45em;box-sizing:border-box;border-radius:1.65em;background:#fff;box-shadow:0 0 0 1px rgba(120,60,10,.06),0 1.4em 2.4em -1.5em rgba(120,60,10,.5);font-size:1.12em;letter-spacing:-.015em;white-space:nowrap}
+.cmh-dm-lock{flex:none;display:grid;place-items:center;width:2.4em;height:2.4em;margin-right:.6em;border-radius:50%;background:#8b5cf6;color:#fff;font-size:.86em}
+.cmh-dm-name{font-weight:600;color:#18181b}
+/* The endings' window: five steps tall around the band's middle line, faded above and below by a mask on the window, which never moves; only the reel inside it slides. */
+.cmh-dm-ends{position:relative;align-self:stretch;flex:1;min-width:0}
+.cmh-dm-win{position:absolute;left:0;right:0;top:50%;height:calc(var(--dm-step) * 5);margin-top:calc(var(--dm-step) * -2.5);-webkit-mask-image:linear-gradient(transparent,rgba(0,0,0,.2) 26%,#000 40%,#000 60%,rgba(0,0,0,.2) 74%,transparent);mask-image:linear-gradient(transparent,rgba(0,0,0,.2) 26%,#000 40%,#000 60%,rgba(0,0,0,.2) 74%,transparent)}
+.cmh-dm-reel{position:absolute;left:0;right:0;top:0;display:block;animation-name:cmh-reel;animation-duration:10s;animation-timing-function:cubic-bezier(.65,0,.35,1)}
+.cmh-dm-end{display:flex;align-items:center;height:var(--dm-step);font-weight:600;color:#18181b}
+.cmh-dm-end[data-storelib]{font-weight:500;color:#a1a1aa}
+@keyframes cmh-reel{0%,16%{transform:translate3d(0,0,0)}25%,41%{transform:translate3d(0,calc(var(--dm-step) * -1),0)}50%,66%{transform:translate3d(0,calc(var(--dm-step) * -2),0)}75%,91%{transform:translate3d(0,calc(var(--dm-step) * -3),0)}100%{transform:translate3d(0,calc(var(--dm-step) * -4),0)}}
 
 @media (prefers-reduced-motion:reduce){
   .cmh-a{animation:none!important}
@@ -1187,7 +1146,8 @@ const HOW_CSS = `
   .cmh-toast[data-k="1"]{opacity:1}
   .cmh-toast[data-k="0"]{opacity:.6;transform:translate3d(0,-3.25em,0) scale(.93)}
   .cmh-tb[data-k="1"]{opacity:1}
-  .cmh-tb-ok,.cmh-url[data-k="0"],.cmh-ch-halo{opacity:0}
+  .cmh-tb-ok,.cmh-ch-halo{opacity:0}
+  .cmh-dm-reel{transform:translate3d(0,calc(var(--dm-step) * -1),0)}
   .cmh-heart{display:none}
 }
 @media(scripting:none){.cmh-o{animation:none}}

@@ -45,9 +45,11 @@ console.log("\n1. A t-shirt and the Cine Tones LUT pack")
 check("the two products are section 3's LUT pack and black tee", HOW_PRODUCTS.map((p) => `${p.id}:${p.name}`).join() === "luts:Cine Tones LUT Pack,tee:Midnight Studio Tee")
 check("no apron and no workbench plans anywhere in the file or on the page", !/apron|workbench|plans-bench|PlansCover/i.test(code + text) && !existsSync("public/home/how/apron.webp") && !existsSync("public/home/how/plans-bench.webp"))
 // Changed on purpose (landing round 9): the tee is section 3's black Midnight Studio Tee (its file), in Top products and on his website; the white tee's picture is deleted.
-check("the tee is section 3's photograph, drawn in Top products and on his website", !existsSync("public/home/how/tee-white.webp") && existsSync("public/home/everything/tee.webp") && statSync("public/home/everything/tee.webp").size < 120 * 1024 && (how.match(/\/home\/everything\/tee\.webp/g) ?? []).length === 2)
+// Changed on purpose (landing round 10): his website is gone from the domain card, so the tee is drawn once, in Top products.
+check("the tee is section 3's photograph, drawn in Top products", !existsSync("public/home/how/tee-white.webp") && existsSync("public/home/everything/tee.webp") && statSync("public/home/everything/tee.webp").size < 120 * 1024 && (how.match(/\/home\/everything\/tee\.webp/g) ?? []).length === 1)
 check("the pack's cover uses section 3's still, the file, not an import of section 3's component", HOW_LUTS.still === "/home/everything/lut-still.webp" && existsSync(`public${HOW_LUTS.still}`) && !/from "\.\/everything-in-one-place"/.test(src))
-check("the cover is section 3's: LUT Pack small, CINE / TONES big, in the card and on the shelf", (how.match(/<span class="cmh-lut[^"]*"><img src="\/home\/everything\/lut-still\.webp"[^>]*\/><span class="cmh-lut-tag">LUT Pack<\/span><span class="cmh-lut-name"><span>Cine<\/span><span>Tones<\/span><\/span><\/span>/g) ?? []).length === 2)
+// Changed on purpose (landing round 10): his website and its shelf are gone, so the cover is drawn once, in Top products.
+check("the cover is section 3's: LUT Pack small, CINE / TONES big, in Top products", (how.match(/<span class="cmh-lut[^"]*"><img src="\/home\/everything\/lut-still\.webp"[^>]*\/><span class="cmh-lut-tag">LUT Pack<\/span><span class="cmh-lut-name"><span>Cine<\/span><span>Tones<\/span><\/span><\/span>/g) ?? []).length === 1)
 const ev = (sel: string) => (evCss.match(new RegExp(`${sel.replace(/[.[\]()*+?^$|\\/]/g, "\\$&")}\\{([^}]*)\\}`)) ?? [])[1] ?? "x"
 check("the cover's type and shade are section 3's numbers (21cqw heavy name, 7cqw tag, the still over 64%, black #0a0a0b)",
   rule(".cmh-lut-name").endsWith(ev(".ev-lut-name").slice(ev(".ev-lut-name").indexOf("display:flex"))) &&
@@ -77,14 +79,17 @@ check("no black ground, no purple gradient, no glass, no green", !/data-ground="
 console.log("\n3. Your own domain: one browser window, the address typing in")
 check("no www / shop / club banner, no rows of addresses", !/cmh-dm-pill|cmh-dm-row|cmh-dm-rows|cmh-dm-tick/.test(how + css) && !/>(www|shop|club)<\/b>\./.test(how) && !("targets" in HOW_DOMAIN))
 // Changed on purpose (landing round 9): the owner liked the card, not its design. No browser window: one address pill over his website.
-check("no browser window: one address pill over his website", !/cmh-br\b|cmh-br-/.test(how + css) && how.includes('class="cmh-pill"') && how.includes('class="cmh-a cmh-site"') && text.includes("Linde Woodshop"))
+// Changed on purpose (landing round 10): no website under the address: one address band.
+check("no browser window: one address band", !/cmh-br\b|cmh-br-/.test(how + css) && how.includes('class="cmh-dm-band"') && !how.includes("cmh-site"))
 // Changed on purpose (landing round 9): the address is not typed letter by letter; his site's storelib.com address rolls over to his own domain (two lines, transform and opacity).
-check("the pill holds two addresses that swap: his site's on Storelib, then his own domain", how.includes(`<span class="cmh-a cmh-url" data-k="1">${HOW_DOMAIN.host}</span>`) && /<span class="cmh-a cmh-url" data-k="0">lindewoodshop<span>\.storelib\.com<\/span><\/span>/.test(how) && HOW_DOMAIN.before === "lindewoodshop.storelib.com")
+// Changed on purpose (landing round 10): his name stands and its ending glides, his Storelib address first, then his own domain.
+check("the band holds his name and a reel of endings: his site's on Storelib first, then his own domain", how.includes(`<span class="cmh-dm-name">${HOW_DOMAIN.name}</span>`) && /<span class="cmh-dm-end" data-storelib="">\.storelib\.com<\/span>/.test(how) && HOW_DOMAIN.before === "lindewood.storelib.com")
 check("a domain Storelib accepts, serving one of the product's purposes, not a Storelib name", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose) && !/storelib/.test(HOW_DOMAIN.host))
 const at = (k: string, n = 1) => Number((css.match(new RegExp(`@keyframes ${k}\\{0%,([\\d.]+)%`)) ?? [])[n] ?? NaN)
 // Changed on purpose (landing round 9): no typing, so no letter keyframes, carets, veil or load line.
 check("no letter by letter typing left", !/cmh-ch\d|cmh-caret|cmh-br-veil|cmh-load|TYPED_CSS/.test(src))
-check("the lock turns violet after the address swaps, then DNS and HTTPS tick", at("cmh-url1") < at("cmh-lock") && at("cmh-lock") < at("cmh-ok0") && at("cmh-ok0") < at("cmh-ok1") && text.includes("DNS found") && text.includes("HTTPS on"))
+// Changed on purpose (landing round 10): no ticks, no lock that turns; the lock on the band is violet throughout.
+check("no DNS and HTTPS ticks, the lock is violet throughout", !/@keyframes cmh-(url1|lock|ok0|ok1)\{/.test(css) && !text.includes("DNS found") && /\.cmh-dm-lock\{[^}]*background:#8b5cf6/.test(css))
 // Changed on purpose (landing round 9): a caption is a title and one short line now.
 check("the caption keeps the code's claims in one line", /On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(text) && text.includes("Use your own domain"))
 
@@ -93,13 +98,16 @@ console.log("\n5. Structure and width stay")
 check("three cards, narrow, wide, narrow, the wide one twice a narrow one", HOW_CARDS.map((c) => c.wide).join() === "false,true,false" && /\.cmh-grid\{display:grid;grid-template-columns:minmax\(0,1fr\);gap:40px\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,2fr\) minmax\(0,1fr\)/.test(css))
 check("still in the shared box (--home-max, --home-edge)", /\.cmh-in\{box-sizing:border-box;width:100%;max-width:var\(--home-max,2020px\);margin-inline:auto;padding-inline:var\(--home-edge,clamp\(20px,5\.15vw,84px\)\)\}/.test(css) && how.includes('class="cmh-in home-wrap"'))
 // Changed on purpose (landing round 9): three cards in one row are taller pictures; the section is much shorter (reported to the lead for the lazy heights).
-check("the pictures' heights", /\.cmh-stage\{[^}]*height:430px;border-radius:17px/.test(css) && /@media\(min-width:640px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:420px;border-radius:19px\}\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:clamp\(400px,32vw,560px\)\}\}/.test(css))
+// Changed on purpose (landing round 10): the pictures stop at half the screen's height on a computer (the owner: a MacBook Air at 1440x800).
+check("the pictures' heights", /\.cmh-stage\{[^}]*height:430px;border-radius:17px/.test(css) && /@media\(min-width:640px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:420px;border-radius:19px\}\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:max\(360px,min\(clamp\(400px,32vw,560px\),50svh\)\)\}\}/.test(css))
 
 console.log("\nSmooth")
 check("every keyframe moves transform and opacity only", keyframeBodies(css).every(onlyCompositor))
 // Changed on purpose (landing round 9): fewer moving parts (three cards).
-check("every looping part is a .cmh-a, paused unless its card is on screen and the tab visible", (how.match(/class="cmh-a /g) ?? []).length > 25 && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /visibilitychange/.test(src))
-check("reduced motion: nothing loops, his own domain and the lock stand", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(css) && /\.cmh-tb-ok,\.cmh-url\[data-k="0"\],\.cmh-ch-halo\{opacity:0\}/.test(css)) // Changed on purpose (landing round 9): the new picture's parts.
+// Changed on purpose (landing round 10): the domain card has two moving parts now, not seven.
+check("every looping part is a .cmh-a, paused unless its card is on screen and the tab visible", (how.match(/class="cmh-a /g) ?? []).length > 20 && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /visibilitychange/.test(src))
+// Changed on purpose (landing round 10): reduced motion shows his own domain on the band.
+check("reduced motion: nothing loops, his own domain and the lock stand", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(css) && /\.cmh-tb-ok,\.cmh-ch-halo\{opacity:0\}\s*\.cmh-dm-reel\{transform:translate3d\(0,calc\(var\(--dm-step\) \* -1\),0\)\}/.test(css)) // Changed on purpose (landing round 9): the new picture's parts.
 // Changed on purpose (landing round 9): the owner asked for interactive pictures. A picture still takes no pointer, except the tip card's amounts and Send (a press) and the chart (a mouse); still no links, buttons or inputs.
 check("a picture takes no pointer but for the tip card's parts and the chart", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/<(a|button|input|select)\b/.test(how) && (css.match(/pointer-events:auto/g) ?? []).length === 3)
 
