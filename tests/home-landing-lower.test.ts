@@ -105,11 +105,11 @@ console.log("\n── map ──")
   const src = read(`${DIR}/sell-everywhere-map.tsx`)
   const html = renderToStaticMarkup(createElement(SellEverywhereMap))
   const words = text(html)
-  check("the heading has no fans", words.includes("Your store never closes. Sell anywhere.") && !/\bfans?\b/i.test(words))
+  check("the heading has no fans", words.includes("Sell to buyers worldwide.") && !/\bfans?\b/i.test(words)) // Changed on purpose (landing round 11): the owner asked for another heading for the map.
   /* Changed on purpose (landing round 4): the owner reversed the first round's ask; the button now speaks each country's language (tests/home-landing-lower4.test.ts). */
-  check("one buy button, its words per country", (html.match(/class="cmm-buy">/g) ?? []).length === 1 && SELL_COUNTRIES.every((c) => html.includes(`lang="${c.lang}"`)))
+  check("one buy button per country's card, its words in that country's language", (html.match(/class="cmm-buy" lang="/g) ?? []).length === SELL_COUNTRIES.length && SELL_COUNTRIES.every((c) => html.includes(`lang="${c.lang}"`))) // Changed on purpose (landing round 11): every card in the stack carries its own button.
   check("the price changes with the country, one per country", SELL_COUNTRIES.every((c) => html.includes(`>${c.total}</span>`)) && new Set(SELL_COUNTRIES.map((c) => c.total)).size === SELL_COUNTRIES.length)
-  check("a shorter card: 500px on a wide screen (it was 680)", /\.cmm-card\{[^}]*height:500px/.test(src) && !/height:680px/.test(src))
+  check("a modest card: 560px on a wide screen (it was 680, then 500)", /\.cmm-card\{[^}]*min-height:560px/.test(src) && !/height:680px/.test(src)) // Changed on purpose (landing round 11): the owner found it "too short now"; a little taller again.
   check("a finer map: 240 x 90 cells of 1.5 degrees", SELL_MAP.cols === 240 && SELL_MAP.rows === 90 && SELL_MAP.step === 1.5)
   const cells = [...SELL_COUNTRIES.map((c) => c.cell), ...SELL_PAST_ORDERS]
   check("every marker sits on a land dot", cells.every(([c, r]) => sellMapLand(c, r)), cells.filter(([c, r]) => !sellMapLand(c, r)))

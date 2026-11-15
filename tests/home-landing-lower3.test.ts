@@ -83,13 +83,13 @@ console.log("\n── the map, on the purple sheet ──")
   check("the product card is dark, not a white slab", dark(prod.match(/background:(#[0-9a-f]{6})/)?.[1] ?? "") && !/background:#fff/.test(prod))
   /* Changed on purpose (landing round 4): the owner asked for the button in each country's language. */
   /* Changed on purpose (landing round 9): every layer that swaps carries data-i now (a turn writes attributes instead of rendering), so the span has one more attribute. */
-  check("one light buy button, its words in each country's language", (html.match(/class="cmm-buy">/g) ?? []).length === 1 && /lang="de"[^>]*>Jetzt kaufen</.test(html))
+  check("a light buy button on every card, its words in each country's language", (html.match(/class="cmm-buy" lang="/g) ?? []).length === SELL_COUNTRIES.length && /lang="de"[^>]*>Jetzt kaufen</.test(html)) // Changed on purpose (landing round 11): each card in the stack has its own button.
   check("the flags are a real switch: one pressed button per country, named", (html.match(/<button type="button" class="cmm-flag"/g) ?? []).length === SELL_COUNTRIES.length && (html.match(/aria-pressed="true"/g) ?? []).length === 1 && html.includes('aria-label="United States"') && /role="group" aria-label="Buyer&#x27;s country"/.test(html))
   /* Changed on purpose (landing round 8): the lit flag's line times the turn and restarts with every country (keyed by it), so a press starts the turn again from the chosen one with no timer to reset. */
   /* Changed on purpose (landing round 9): no render per turn. show(i) writes the attributes and starts the line again by giving it the same keyframes under the other name (data-lap). */
   check("choosing a country restarts the turn from it", /const show = \(i: number\)/.test(src) && /<i className="cmm-time" data-lap="0" onAnimationEnd=\{next\} \/>/.test(src) && /setAttribute\("data-lap", String\(t\.laps % 2\)\)/.test(src) && /\.cmm-time\[data-lap="1"\]\{animation-name:cmm-time-b\}/.test(src))
   /* Changed on purpose (landing round 5): the Example tag is gone, as the owner asked. */
-  check("the map, the product and the words are inert", /\.cmm-grid,\.cmm-world,\.cmm-prod,\.cmm-copy\{pointer-events:none\}/.test(src))
+  check("the map, the product and the words are inert", /\.cmm-grid,\.cmm-world,\.cmm-stage,\.cmm-copy\{pointer-events:none\}/.test(src)) // Changed on purpose (landing round 11): the products are a stack inside .cmm-stage.
   check("no Example tag on the card at any width", !/cmm-tag|>Example</.test(src))
   check("the switch keeps a reduced motion path and a focus ring", /\.cmm-flag:focus-visible\{outline:2px solid/.test(src) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-flag,/.test(src))
 }

@@ -74,8 +74,8 @@ console.log("\n── the map: heading and card in one screen ──")
   const at = src.indexOf(LAPTOP)
   const block = at < 0 ? "" : src.slice(at, src.indexOf("\n}\n", at))
   check("a short laptop block", block.length > 0)
-  check("a smaller product card, the copy closer, less padding", /\.cmm-prod\{width:196px\}/.test(block) && /\.cmm-copy\{margin-top:28px\}/.test(block) && /\.cmm-card\{min-height:0;padding:24px 0 28px\}/.test(block) && /\.cmm-head\{margin-bottom:32px\}/.test(block))
-  check("elsewhere as before", /\.cmm-prod\{width:224px;/.test(src) && /\.cmm-copy\{position:relative;z-index:2;margin:44px 0 0 /.test(src) && /padding:30px 0 36px;min-height:500px\}/.test(src))
+  check("a smaller product card, the copy closer, less padding", /\.cmm-stage\{--cmm-w:204px;--cmm-peek:72px\}/.test(block) && /\.cmm-copy\{margin-top:32px\}/.test(block) && /\.cmm-card\{min-height:540px;padding:36px 0 34px\}/.test(block)) // Changed on purpose (landing round 11): the owner: the map "too short now"; 540px on a short laptop, the heading on one line.
+  check("elsewhere a 220px card and 560px", /\.cmm-stage\{position:relative;--cmm-w:220px;/.test(src) && /\.cmm-copy\{position:relative;z-index:2;margin:40px 0 0 /.test(src) && /padding:44px 0 40px;min-height:560px/.test(src)) // Changed on purpose (landing round 11): the stack and a taller card.
 }
 
 console.log("\n── pricing and earnings ──")

@@ -149,7 +149,7 @@ console.log("\nCommerce: the sections render on the server")
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
-  check("map: its heading and a labelled map", map.includes("Your store never closes.") && !/\bfans?\b/i.test(map.replace(/<style[\s\S]*?<\/style>/g, "")) && /role="img" aria-label="A world map/.test(map))
+  check("map: its heading and a labelled map", map.includes("Sell to buyers worldwide.") && !/\bfans?\b/i.test(map.replace(/<style[\s\S]*?<\/style>/g, "")) && /role="img" aria-label="A world map/.test(map)) // Changed on purpose (landing round 11): a new heading.
   check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
   /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
   /* Changed on purpose (landing round 4): the owner asked for the product to change with the country, so each country has its own product and price (USD, EUR, JPY, CAD, AUD). */

@@ -96,6 +96,18 @@
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
+  gap: 9px;
+}
+/* Landing round 11, the owner: "smooth, clean icons". One line icon per report, 16px, a step dimmer than its word. */
+.reportIcon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 255, 255, 0.82);
+}
+.reportLabel {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 @media (max-width: 479px) {
@@ -301,6 +313,24 @@
     width: auto;
     padding: 12px 14px;
   }
+}
+
+/* Landing round 11: each result's favicon in a round well, as a search shows it at night. */
+.faviconWell {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #2a2a31;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.favicon {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
 /* The search results: a night search, one shade above the card, running off its foot. */
