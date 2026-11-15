@@ -90,7 +90,7 @@ type Float = { id: string; src: string; w: number; h: number; front: boolean; b:
 export const FLOATS: readonly Float[] = [
   { id: "plant", src: `${IMG}/obj-plant.webp`, w: 453, h: 520, front: false, b: 0.1, d: { x: 2.05, y: 0.3, s: 0.48, z: [-1.3, -0.95], dx: -0.1, dy: 0.3, ry: [20, -24], rz: [-4, 3], rx: 4, o: 0.6 }, m: null },
   { id: "cassette", src: `${IMG}/obj-cassette.webp`, w: 520, h: 421, front: false, b: 0.55, d: { x: -2.05, y: 0.1, s: 0.52, z: [-1.15, -0.75], dx: 0.12, dy: 0.32, ry: [-28, 22], rz: [7, -5], rx: 6, o: 0.66 }, m: null },
-  { id: "vase", src: `${IMG}/obj-vase.webp`, w: 336, h: 520, front: false, b: 0.3, d: { x: 1.55, y: 1.0, s: 0.32, z: [-0.6, -0.2], dx: -0.06, dy: 0.42, ry: [-22, 26], rz: [5, -4], rx: 0, o: 0.82 }, m: { x: -0.7, y: -0.02, s: 0.26, z: [-0.7, -0.35], dx: 0.04, dy: 0.3, ry: [-22, 26], rz: [5, -4], rx: 0, o: 0.8 } },
+  { id: "vase", src: `${IMG}/obj-vase.webp`, w: 336, h: 520, front: false, b: 0.3, d: { x: 1.55, y: 1.0, s: 0.32, z: [-0.6, -0.2], dx: -0.06, dy: 0.42, ry: [-22, 26], rz: [5, -4], rx: 0, o: 0.82 }, m: null },
   { id: "lamp", src: `${IMG}/obj-lamp.webp`, w: 339, h: 520, front: false, b: 0.8, d: { x: -1.38, y: -0.9, s: 0.5, z: [-0.55, -0.15], dx: 0.08, dy: 0.45, ry: [26, -30], rz: [-10, 6], rx: 0, o: 0.9 }, m: { x: -0.64, y: -1.02, s: 0.36, z: [-0.5, -0.2], dx: 0.05, dy: 0.36, ry: [26, -30], rz: [-10, 6], rx: 0, o: 0.88 } },
   { id: "hat", src: `${IMG}/obj-hat.webp`, w: 520, h: 283, front: false, b: 0.45, d: { x: 1.4, y: -0.88, s: 0.7, z: [-0.15, 0.2], dx: -0.1, dy: 0.55, ry: [-34, 24], rz: [12, -6], rx: 14, o: 1 }, m: { x: 0.62, y: -1, s: 0.5, z: [-0.2, 0.1], dx: -0.05, dy: 0.42, ry: [-34, 24], rz: [12, -6], rx: 14, o: 1 } },
   { id: "tee", src: `${IMG}/obj-tee.webp`, w: 363, h: 520, front: true, b: 0.2, d: { x: 0.9, y: 0.02, s: 0.54, z: [0.05, 0.35], dx: -0.06, dy: 0.62, ry: [-26, 18], rz: [8, -3], rx: 0, o: 1 }, m: { x: 0.62, y: 0.3, s: 0.44, z: [0.05, 0.3], dx: -0.04, dy: 0.5, ry: [-26, 18], rz: [8, -3], rx: 0, o: 1 } },
@@ -650,7 +650,9 @@ function CardBrands({ className = "pc-brands" }: { className?: string }) {
           <path d="M15 3.4a8 8 0 0 1 0 13.2 8 8 0 0 1 0-13.2Z" fill="#ff5f00" />
         </svg>
       </i>
-      <i className="cb-amex">AMEX</i>
+      <i className="cb-amex">
+        <b>AMEX</b>
+      </i>
     </span>
   )
 }
@@ -1561,8 +1563,8 @@ const CARDS_CSS = `
 .cmc-bento{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .cmc-card{position:relative;display:flex;flex-direction:column;gap:clamp(22px,2.4vw,32px);min-width:0;padding:clamp(24px,2.6vw,40px) clamp(24px,2.6vw,40px) clamp(20px,2.2vw,32px);border-radius:28px;background:#111113;border:1px solid rgba(255,255,255,.08);box-sizing:border-box}
 .cmc-card-l{display:block;font-size:13.5px;font-weight:500;color:#8b8b94}
-.cmc-card h3{margin:10px 0 0;font-size:clamp(24px,2.3vw,34px);font-weight:400;line-height:1.12;letter-spacing:-.035em;color:#fff;text-wrap:balance}
-.cmc-card p{margin:12px 0 0;max-width:46ch;font-size:clamp(15px,1.1vw,17px);line-height:1.55;color:#a1a1aa}
+.cmc-card-copy h3{margin:10px 0 0;font-size:clamp(24px,2.3vw,34px);font-weight:400;line-height:1.12;letter-spacing:-.035em;color:#fff;text-wrap:balance}
+.cmc-card-copy p{margin:12px 0 0;max-width:46ch;font-size:clamp(15px,1.1vw,17px);line-height:1.55;color:#a1a1aa}
 /* A demo is a picture: it takes no pointer and nothing in it can be selected. */
 .cmc-vis{position:relative;margin-top:auto;aspect-ratio:48/42;overflow:hidden;border-radius:20px;background:#0b0b0d;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
 .cmc-vis-in{position:absolute;inset:0;font-size:calc(100cqw / 48);color:#fff;line-height:1.35}
@@ -1591,7 +1593,8 @@ const CARDS_CSS = `
 .pc-brands,.tp-brands{display:flex;gap:4px;margin-left:auto}
 .pc-brands i,.tp-brands i{display:grid;place-items:center;width:30px;height:20px;border-radius:3px;background:#fff;box-shadow:inset 0 0 0 1px #e1e3e7;font-style:normal}
 .pc-brands svg,.tp-brands svg{display:block}
-.cb-amex{background:#1f72cd!important;box-shadow:none!important;color:#fff;font-size:7.5px;font-weight:800;letter-spacing:.02em}
+.cb-amex{background:#1f72cd!important;box-shadow:none!important;color:#fff}
+.cb-amex b{font-size:7.5px;font-weight:800;letter-spacing:.02em;line-height:1}
 
 /* The seller's notice over the paid window. */
 .cmv-sale{position:absolute;right:1.4em;top:1.1em;z-index:4;width:24em;display:flex;gap:.75em;align-items:flex-start;padding:.85em 1em;border-radius:1.25em;background:#26262b;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 1em 2.5em rgba(0,0,0,.5);color:#f4f4f5;box-sizing:border-box;opacity:0}
@@ -1604,7 +1607,7 @@ const CARDS_CSS = `
 
 /* Built to convert on a phone: the page at 393px, scaled to the card's width in one transform. Hidden on a computer, where the desktop window draws. */
 .mcx{display:none;position:absolute;inset:0;overflow:hidden;background:#fff;color:#1a1a2e;--k:tan(atan2(100cqw,393px))}
-.mcx-ui{position:absolute;left:0;top:0;width:393px;height:calc(100cqh / var(--k));transform-origin:0 0;transform:scale(var(--k));font-size:16px;line-height:1.5;text-align:left;-webkit-font-smoothing:antialiased}
+.mcx-ui{position:absolute;left:0;top:0;width:393px;height:446px;transform-origin:0 0;transform:scale(var(--k));font-size:16px;line-height:1.5;text-align:left;-webkit-font-smoothing:antialiased}
 .mcx-scroll{position:relative}
 .mcx .pc-bar{position:relative}
 .mcx-sum{padding:22px 20px 24px}
@@ -1645,7 +1648,7 @@ const CARDS_CSS = `
 .tp-brands{gap:.25em;margin-right:2.1em}
 .tp-brands i{width:2.1em;height:1.4em;border-radius:.22em}
 .tp-brands svg{width:1.7em;height:auto}
-.tp-brands .cb-amex{font-size:.5em}
+.tp-brands .cb-amex b{font-size:.5em}
 .tp-pow{display:flex;align-items:center;justify-content:center;gap:.35em;margin-top:.2em;font-size:.95em;color:#8b8b94}
 .tp-pow svg{width:2.9em;height:1.2em;color:#d4d4d8;margin-top:.1em}
 .tp-ok{position:absolute;right:.9em;top:50%;width:1.45em;height:1.45em;margin-top:-.725em;border-radius:50%;background:#30d158;transform:scale(0)}
@@ -1705,9 +1708,9 @@ const CARDS_CSS = `
   /* On a phone the cards are a row to swipe: the browser's own scroll snap, which iOS handles natively; a vertical swipe still scrolls the page. */
   .cmc-bento{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;margin:0 calc(var(--edge) * -1);padding:0 var(--edge) 4px;scroll-padding-inline:var(--edge);touch-action:pan-x pan-y}
   .cmc-bento::-webkit-scrollbar{display:none}
-  .cmc-card{flex:none;width:min(86vw,420px);scroll-snap-align:start;padding:22px 20px 20px;border-radius:24px;gap:20px}
-  .cmc-card h3{font-size:24px}
-  .cmc-card p{font-size:15px}
+  .cmc-card{flex:none;width:min(86vw,420px);scroll-snap-align:start;scroll-snap-stop:always;padding:22px 20px 20px;border-radius:24px;gap:20px}
+  .cmc-card-copy h3{font-size:24px}
+  .cmc-card-copy p{font-size:15px}
   .cmc-vis{aspect-ratio:30/34;margin:0 -6px;border-radius:16px}
   .cmc-vis-in{font-size:calc(100cqw / 30)}
   .cmc-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 16px}

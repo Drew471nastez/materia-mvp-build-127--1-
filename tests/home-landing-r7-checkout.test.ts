@@ -93,7 +93,7 @@ console.log("\nThe products ride a ring around the phone again")
 // Changed on purpose (landing round 8): the baked 2D lap became a 3D turn over the scroll.
 const lap = keyframes("cmc-turn")
 // Changed on purpose (landing round 8): seven 3D objects (the owner: "3D products, not images").
-check("seven real objects, five on a phone", FLOATS.length === 7 && FLOATS.filter((f) => f.m).length === 5 && (co.match(/class="cmc-o"/g) ?? []).length === 7 && /\.cmc-o:not\(\[data-m\]\)\{display:none\}/.test(css))
+check("seven real objects, four on a phone", FLOATS.length === 7 && FLOATS.filter((f) => f.m).length === 4 && (co.match(/class="cmc-o"/g) ?? []).length === 7 && /\.cmc-o:not\(\[data-m\]\)\{display:none\}/.test(css))
 // Changed on purpose (landing round 8): the turn is 3D on purpose (perspective, rotateY), still transform only.
 check("one turn, transform only, in 3D", onlyCompositor(lap) && /rotateY/.test(lap) && /translate3d/.test(lap) && !/filter/.test(lap))
 // Changed on purpose (landing round 8): the float is what runs by itself.
