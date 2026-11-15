@@ -1104,11 +1104,11 @@ const HOW_CSS = `
 @keyframes cmh-pt{from{opacity:0;transform:scale(.2)}to{opacity:1;transform:scale(1)}}
 @keyframes cmh-halo{0%{opacity:0;transform:scale(1)}12%{opacity:.34}70%,100%{opacity:0;transform:scale(3.4)}}
 .cmh-card:not([data-seen]) .cmh-ch-halo{visibility:hidden}
-/* A mouse reading a day: a hairline, a dot on the line and the day's sum above it. They sit at the chart's left edge and are moved by transform. */
+/* A mouse reading a day: a hairline, a dot on the line and the day's sum under it, over the two dates. They sit at the chart's left edge and are moved by transform. */
 .cmh-ch-guide,.cmh-ch-dot,.cmh-ch-tip{position:absolute;left:0;top:0;opacity:0;pointer-events:none;transition:opacity .18s ease}
-.cmh-ch-guide{top:-.4em;bottom:0;width:1px;margin-left:-.5px;background:#d9d9e0}
+.cmh-ch-guide{top:0;bottom:0;width:1px;margin-left:-.5px;background:#d9d9e0}
 .cmh-ch-dot{width:.62em;height:.62em;margin:-.31em 0 0 -.31em;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #18181b}
-.cmh-ch-tip{top:-1.9em;width:0;display:grid;justify-items:center}
+.cmh-ch-tip{top:auto;bottom:-1.75em;width:0;display:grid;justify-items:center}
 .cmh-ch-tip>span{display:flex;gap:.5em;padding:.3em .6em;border-radius:.55em;background:#18181b;color:#fff;font-size:.74em;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cmh-ch-tip-d{color:#b9b8c2}
 .cmh-ch-tip b{font-weight:600}
