@@ -27,7 +27,7 @@
 
 import { useRef, type CSSProperties } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
-import { SiApple } from "@/components/icons/brand-icons.generated"
+import { SiApple } from "@/components/icons/brand/SiApple"
 import { usePlatformSection } from "./platform-motion"
 import m from "./platform.module.css"
 import s from "./app-anywhere.module.css"

@@ -45,7 +45,10 @@ import {
   Undo2,
   Users,
 } from "lucide-react"
-import { SiInstagram, SiTiktok, SiVimeo, SiYoutube } from "@/components/icons/brand-icons.generated"
+import { SiInstagram } from "@/components/icons/brand/SiInstagram"
+import { SiTiktok } from "@/components/icons/brand/SiTiktok"
+import { SiVimeo } from "@/components/icons/brand/SiVimeo"
+import { SiYoutube } from "@/components/icons/brand/SiYoutube"
 import { MockFrame, Pic, u } from "./frame"
 
 /*

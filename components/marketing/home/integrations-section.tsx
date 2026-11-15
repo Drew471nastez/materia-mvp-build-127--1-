@@ -41,7 +41,12 @@
 
 import { useEffect, useRef, type CSSProperties, type ComponentType } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
-import { SiAftership, SiBrevo, SiGooglecalendar, SiPinterest, SiPosthog, SiTiktok } from "@/components/icons/brand-icons.generated"
+import { SiAftership } from "@/components/icons/brand/SiAftership"
+import { SiBrevo } from "@/components/icons/brand/SiBrevo"
+import { SiGooglecalendar } from "@/components/icons/brand/SiGooglecalendar"
+import { SiPinterest } from "@/components/icons/brand/SiPinterest"
+import { SiPosthog } from "@/components/icons/brand/SiPosthog"
+import { SiTiktok } from "@/components/icons/brand/SiTiktok"
 import { ApplePayMark, GoogleAdsMark, GooglePayMark, StripeMark } from "./integration-marks"
 import { KitLogo, KlaviyoLogo, MailerLiteLogo } from "./email-platform-logos"
 import { usePlatformSection } from "./platform-motion"
