@@ -3,6 +3,7 @@
 /* Every card is a dark surface with a hairline: the section sits on the purple sheet (landing round 3). */
 .dark {
   position: relative;
+  isolation: isolate;
   overflow: hidden;
   height: 100%;
   border-radius: 27px;
@@ -31,10 +32,13 @@
 }
 
 /*
-  The reports (landing round 7, the owner: "instead of the white pill
-  shapes, some other shape, cleaner, smoother"). Six even tiles in the
-  near-black of the cards beside them, a 12px corner and a hairline: three
-  across, two on a phone. No icons, no pills, nothing violet.
+  The reports (landing round 7: six even tiles, not pills; landing round 8,
+  the owner: "don't make them black. Make them white, glassmorphism with a
+  slight gradient, very nice and smooth and clean"). White at about a
+  seventh over the purple, a little brighter at the top, a light line along
+  the top edge and a hairline all round, white words. Nothing moves, and no
+  backdrop blur: the purple behind is flat, so a blur would add a layer per
+  tile and show nothing.
 */
 .reports {
   display: grid;
@@ -51,14 +55,15 @@
   height: 46px;
   padding: 0 15px;
   border-radius: 12px;
-  background: #0d0d10;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.17) 0%, rgba(255, 255, 255, 0.1) 100%);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 10px 24px -16px rgba(5, 2, 15, 0.8);
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 12px 26px -18px rgba(24, 8, 64, 0.55);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.005em;
-  color: #ececf1;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -174,6 +179,9 @@
 }
 .profile,
 .places {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   border-radius: 17px;
   background: #17171c;
   box-shadow:
@@ -402,6 +410,77 @@
   flex: none;
 }
 
+/*
+  The orbs (landing round 8, the owner: the globe, Nora Vik and top places
+  cards "should have those kind of orbs like 'Ready for Google and AI
+  search' has, but more subtle and clean"; the SEO card too). Each is one
+  small round light, a radial gradient no bigger than its card, drifting
+  slowly between two points by transform alone: no blur filter, no layer
+  larger than the card, paused off screen with the section's other loops
+  (.loop), gone under reduced motion.
+*/
+.orb {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform;
+  animation: orbDrift 22s ease-in-out infinite alternate;
+}
+.orbGlobeA {
+  left: -8%;
+  top: -30%;
+  width: 62%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025) 55%, transparent);
+}
+.orbGlobeB {
+  right: -14%;
+  bottom: -38%;
+  width: 56%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(186, 196, 214, 0.065), rgba(186, 196, 214, 0.02) 55%, transparent);
+  animation-name: orbDriftBack;
+  animation-duration: 26s;
+}
+.orbChip {
+  left: -30%;
+  top: -90%;
+  width: 120%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 55%, transparent);
+  animation-duration: 18s;
+}
+.orbChipLate {
+  left: auto;
+  right: -40%;
+  animation-name: orbDriftBack;
+  animation-duration: 20s;
+}
+.orbSearch {
+  right: -10%;
+  top: -36%;
+  width: 58%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.06), rgba(186, 196, 214, 0.02) 55%, transparent);
+}
+@keyframes orbDrift {
+  from {
+    transform: translate3d(-6%, -4%, 0);
+  }
+  to {
+    transform: translate3d(10%, 8%, 0);
+  }
+}
+@keyframes orbDriftBack {
+  from {
+    transform: translate3d(6%, 5%, 0);
+  }
+  to {
+    transform: translate3d(-10%, -6%, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .globe canvas,
   .strip {
@@ -414,5 +493,9 @@
   .dots,
   .orbit {
     animation: none;
+  }
+  .orb {
+    animation: none;
+    will-change: auto;
   }
 }

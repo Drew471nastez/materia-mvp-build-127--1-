@@ -1,7 +1,7 @@
 "use client"
 
 /*
-  HOME SECTION 11: KNOW WHAT'S WORKING, AS IT HAPPENS.
+  HOME SECTION 11: GET FOUND, AND SEE WHO FINDS YOU.
 
   LANDING ROUND, THE OWNER: smaller, smooth and clean. Two rows.
 
@@ -50,6 +50,16 @@
   The section sits in the page's one width (--home-edge and --home-max,
   app/globals.css), its headings set in by --home-head-inset.
 
+  LANDING ROUND 8, THE OWNER: a clearer heading than "Know what's working,
+  as it happens": "Get found, and see who finds you." says both rows (the
+  search card, then the visitors) in plain words. The reports are white
+  glass now, not black: a soft white gradient at about a seventh, lit along
+  the top edge, a hairline, white words. No backdrop blur (the purple behind
+  is flat, so a blur would cost a layer and show nothing). The globe card,
+  Nora's card, her top places and the SEO card carry the soft orbs the
+  engines card has, quieter: small round lights drifting by transform alone
+  (no layer bigger than its card, no blur filter), paused off screen.
+
   Motion: the globe turns only while the section is live and in view. The
   strip of engines moves by one custom property written every 2.6s (no React
   render); names, lights and dots move by transform and opacity on the
@@ -86,6 +96,8 @@ function GlobeCard({ live, reduced }: { live: boolean; reduced: boolean }) {
       role="img"
       aria-label="A dotted globe with visits arcing in to Nora Vik, a colorist who sells LUT packs, and her top countries: the United States, the United Kingdom and Germany."
     >
+      <span className={`${s.orb} ${s.orbGlobeA} ${m.loop}`} aria-hidden="true" />
+      <span className={`${s.orb} ${s.orbGlobeB} ${m.loop}`} aria-hidden="true" />
       <AnalyticsGlobe live={live} reduced={reduced} className={s.globe} />
       <div className={s.live} aria-hidden="true">
         <span className={`${s.liveDot} ${m.loop}`} />
@@ -94,6 +106,7 @@ function GlobeCard({ live, reduced }: { live: boolean; reduced: boolean }) {
       </div>
       <div className={s.overlay} aria-hidden="true">
         <div className={s.profile}>
+          <span className={`${s.orb} ${s.orbChip} ${m.loop}`} aria-hidden="true" />
           <div className={s.who}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`${IMG}/nora.webp`} alt="" width={56} height={56} loading="lazy" decoding="async" className={s.avatar} />
@@ -114,6 +127,7 @@ function GlobeCard({ live, reduced }: { live: boolean; reduced: boolean }) {
           </div>
         </div>
         <div className={s.places}>
+          <span className={`${s.orb} ${s.orbChip} ${s.orbChipLate} ${m.loop}`} aria-hidden="true" />
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-[13.5px] font-semibold text-white">Top places</span>
             <span className="shrink-0 text-[11.5px] text-[#8f8d99]">30 days</span>
@@ -152,6 +166,7 @@ function SearchCard() {
     <div className={`${s.dark} ${s.fixed} ${m.reveal} flex flex-col px-5 pt-5 sm:px-7 sm:pt-7`} style={{ "--i": 2 } as CSSProperties}>
       {/* A very quiet dot grid, drifting one cell at a time (a transform loop). */}
       <span className={`${s.dots} ${m.loop}`} aria-hidden="true" />
+      <span className={`${s.orb} ${s.orbSearch} ${m.loop}`} aria-hidden="true" />
       <h3 className="relative text-[clamp(24px,2.2vw,30px)] font-medium leading-none tracking-[-0.03em] text-white">SEO · GEO · AEO</h3>
       <p className="relative mt-2.5 max-w-[46ch] text-[15px] leading-[1.55] text-[#a3a1ad]">Show up in Google, ChatGPT and answer engines.</p>
       {/* A search, as it reads at night: the whole card stays dark, nothing in it can be pressed. */}
@@ -273,7 +288,7 @@ export function AnalyticsShowcase() {
     >
       <div className="home-wrap">
         <div className={`${s.inset} mb-10 max-w-[920px] sm:mb-14`}>
-          <StoryHeading id="analytics-showcase-title" text="Know what's working, as it happens." accent={["as", "it", "happens"]} />
+          <StoryHeading id="analytics-showcase-title" text="Get found, and see who finds you." accent={["see", "who", "finds", "you"]} />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
