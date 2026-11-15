@@ -1515,6 +1515,8 @@ const SUITES = [
   "tests/home-landing-r10-heights.test.ts",
   /* Landing round 10 (how): "Use your own domain" as one address on a white band, its ending gliding a step at a time through a still mask (the engines card's idea, light, CSS only); the pictures stop at half the screen's height on a computer. */
   "tests/home-landing-r10-how.test.ts",
+  /* Landing round 10, business: "What will you sell?" without the line under its heading, the stage drawn at 1100 x 570 (a tenth shorter, the scenes unchanged) and never taller than 66svh, so heading, index and stage fit one laptop screen. */
+  "tests/home-landing-r10-business.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -10,7 +10,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { BUSINESS_HEADING, BUSINESS_SLIDES, BUSINESS_STYLES, BUSINESS_SUB, BUSINESS_TOUCH_RESUME_MS, BusinessCarousel } from "@/components/marketing/home/business-carousel"
+import { BUSINESS_HEADING, BUSINESS_SLIDES, BUSINESS_STYLES, BUSINESS_TOUCH_RESUME_MS, BusinessCarousel } from "@/components/marketing/home/business-carousel"
 /* Changed on purpose (landing round 9): the Second Brain tablet and the yellow headphones are gone (the owner: "very bad UI", "get rid of it"); a row of digital covers and the Midnight Studio Tee stand in their places. */
 import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, TeeScene } from "@/components/marketing/home/showcase-mocks/business-mocks"
 
@@ -38,7 +38,8 @@ console.log("\nBack on the page, right after the ideas section")
 console.log("\nA clearer, simpler heading")
 {
   check("the heading is a short question, not the old line", BUSINESS_HEADING === "What will you sell?" && !read(SECTION).includes("One store for everything you sell."))
-  const words = `${BUSINESS_HEADING} ${BUSINESS_SUB} ${BUSINESS_SLIDES.map((s) => s.alt).join(" ")}`
+  // Changed on purpose (landing round 10): the line under the heading is gone ("it doesn't make sense").
+  const words = `${BUSINESS_HEADING} ${BUSINESS_SLIDES.map((s) => s.alt).join(" ")}`
   check("no banned words, no em dash, no 'fans' or 'enthusiasts'", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|\bfans\b|enthusiast/i.test(words) && !/—/.test(words + read(MOCKS)))
   /* Changed on purpose (landing round 9): the words and the stage share one box (.biz-body), two columns from 1280px. */
   check("the heading block and the body use the page's one width and heading inset", /\.biz-head\{[^}]*max-width:var\(--home-max,2020px\)[^}]*calc\(var\(--home-edge[^}]*\+ var\(--home-head-inset,14px\)\)/.test(sectionCss) && /\.biz-body\{[^}]*max-width:var\(--home-max,2020px\)[^}]*padding:0 var\(--home-edge/.test(sectionCss))
@@ -95,7 +96,8 @@ console.log("\nThe five examples")
   check("every picture is sized, and lazy but for the covers in the moving row", !/<img(?![^>]*(?:loading="lazy"|class="bc-still"))[^>]*>/.test(every) && !/<img(?![^>]*width=)[^>]*>/.test(every))
   check("the scenes are pictures: labelled, nothing inside takes the pointer", BUSINESS_SLIDES.every((s) => s.alt.length > 60) && /\.biz-stage \.smk\{pointer-events:none/.test(sectionCss))
   /* Changed on purpose (landing round 9): the stage stands beside the index on a computer, so it is drawn at 1040 x 600. */
-  check("phones get their own layout (400 x 640), computers 1040 x 600", /\.bz-frame\{aspect-ratio:1040\/600/.test(BUSINESS_MOCK_CSS) && /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:400\/640\}\n  \.bz-frame>\.smk\{--w:400\}/.test(BUSINESS_MOCK_CSS))
+  // Changed on purpose (landing round 10): "the height is too big, reduce it just a little, 5 to 10%": 1100 x 570.
+  check("phones get their own layout (400 x 640), computers 1100 x 570", /\.bz-frame\{aspect-ratio:1100\/570/.test(BUSINESS_MOCK_CSS) && /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:400\/640\}\n  \.bz-frame>\.smk\{--w:400\}/.test(BUSINESS_MOCK_CSS))
 }
 
 console.log("\nRegistered")
