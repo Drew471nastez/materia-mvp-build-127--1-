@@ -73,19 +73,25 @@ check("the support thread grows with its card", /@container \(min-width:640px\)\
 
 console.log("\n── 2. The support card's ground ──")
 const ground = rule(".ev-c")
-check("a still raspberry to rose to peach gradient", /linear-gradient\(168deg,#9d1640 0%,#c03560 36%,#dc6476 64%,#f1a283 100%\)/.test(ground) && !/animation/.test(ground))
+/* Changed on purpose (landing round 8): the owner liked the gradient but not the orange, pink and red; deep teal to aqua (tests/home-landing-r8-everything). */
+check("a still bold gradient", /linear-gradient\(168deg,#053c4a 0%,#0a6b78 36%,#12999b 64%,#5fd6c2 100%\)/.test(ground) && !/animation/.test(ground))
 check("no grey, no purple, no noise", !/#eef0f2/.test(ground) && !/#8b5cf6|#a855f7|#7c3aed|violet|purple/i.test(ground) && !/url\(|noise|filter/.test(ground))
 check("the thread a plain white rounded card on it, readable", /background:#fff/.test(rule(".ev-c-thread")) && /border-radius:18px/.test(rule(".ev-c-thread")) && /\.ev-c-dark\{background:#111113;color:#fff\}/.test(css) && /\.ev-c-light\{background:#f0eff2;color:#18181b\}/.test(css))
 
 console.log("\n── 3. The store strip never runs out ──")
 check("the set twice over", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && (html.match(/class="ev-s-slot"/g) ?? []).length === EVERYTHING_STORES.length * 2)
-check("the drift is one compositor loop from 0 to one set's width", /el\.animate\(\[\{ transform: "translate3d\(0px,0,0\)" \}, \{ transform: `translate3d\(\$\{-loop\}px,0,0\)` \}\], \{ duration: period, iterations: Infinity, easing: "linear" \}\)/.test(src))
-check("entered where the strip stands, read back the same way", /drift\.currentTime = \(x \/ loop\) \* period/.test(src) && /x = \(\(\(Number\(drift\.currentTime\) \|\| 0\) \/ period\) % 1\) \* loop/.test(src))
-check("no keyframe starts at the strip's own offset any more (that one ran past the copy)", !/translate3d\(\$\{-\(x \+ loop\)\}px/.test(src))
-check("drag, flick and glide paint the offset wrapped into one set", /const wrap = \(v: number\) => \(loop > 0 \? \(\(v % loop\) \+ loop\) % loop : v\)/.test(src) && /el\.style\.transform = `translate3d\(\$\{\(-wrap\(x\)\)\.toFixed\(2\)\}px,0,0\)`/.test(src))
-check("the lap read from the boxes (no rounding tick at the wrap), on resize only", /loop = copy\.getBoundingClientRect\(\)\.left - a\.left/.test(src) && /new ResizeObserver\(measure\)/.test(src))
-check("a resize keeps the same page in place", /if \(before > 0 && loop > 0\) x = \(at \/ before\) \* loop/.test(src))
-check("paused off screen and in a hidden tab, transform only", /drift\.pause\(\)/.test(src) && /visibilitychange/.test(src) && /will-change:transform/.test(rule(".ev-s-track")))
+/*
+  Changed on purpose (landing round 8): the owner still saw the strip end on real phones. Round 7's one wide track
+  moved one set per lap is gone: each page is its own layer, wrapped round over one turn of all the pages from one
+  offset on the document's clock (tests/home-landing-r8-everything pins it). What stays: one compositor loop a page,
+  linear and infinite, the offset wrapped, read from the laid out boxes on resize only, a resize keeping the page in
+  place, paused off screen and in a hidden tab.
+*/
+check("the drift is one compositor loop a page over one turn", /iterations: Infinity, easing: "linear"/.test(src) && /a\.startTime = now - into/.test(src))
+check("drag, flick and glide paint the offset wrapped into one turn", /const leftOf = \(i: number, at: number\) => mod\(i \* pitch - at \+ pitch, turn\) - pitch/.test(src))
+check("the turn read from the boxes, on resize only", /s\.getBoundingClientRect\(\)\.left/.test(src) && /new ResizeObserver\(measure\)/.test(src))
+check("a resize keeps the same page in place", /if \(before > 0\) x = \(at \/ before\) \* turn/.test(src))
+check("paused off screen and in a hidden tab, transform only", /else stopDrift\(\)/.test(src) && /visibilitychange/.test(src) && /will-change:transform/.test(rule(".ev-s-slot")))
 check("touch leaves vertical swipes to the page, the axis decided after 8px", /touch-action:pan-y/.test(rule(".ev-s")) && /Math\.hypot\(dx, dy\) < 8/.test(src) && /Math\.abs\(dy\) >= Math\.abs\(dx\)/.test(src))
 /* One set is wider than any picture it is shown in, so the second copy always fills the rest: the smallest set (every card 170px plus a 12px gap) against the widest picture (a narrow card at the 2020px cap, and a phone sized tablet's one column at 767px). */
 const minSet = EVERYTHING_STORES.length * (170 + 12)

@@ -127,10 +127,14 @@ check("every card is drawn at a phone's 390px, its width following the picture's
 check("each card is rounded, and runs off the picture's foot as in the reference", /border-radius:calc\(30 \* var\(--r\)\)/.test(rule(evCss, ".ev-st")))
 check("the strip can be dragged: it takes the pointer, leaves vertical swipes to the page", /cursor:grab/.test(rule(evCss, ".ev-s")) && /touch-action:pan-y/.test(rule(evCss, ".ev-s")) && /addEventListener\("pointerdown", down\)/.test(evSrc) && /setPointerCapture/.test(evSrc))
 check("the cards inside take no pointer, and there is no hover anywhere in the strip", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))
-check("it drifts as a Web Animation, paused off screen and in a hidden tab", /el\.animate\(/.test(evSrc) && /drift\.pause\(\)/.test(evSrc) && /visibilitychange/.test(evSrc) && /<Storefronts live=\{live\} \/>/.test(evSrc))
-check("a release glides from the hand's speed back to the drift", /Math\.exp\(-\(now - t0\) \/ 380\)/.test(evSrc))
-check("every picture in the strip exists and is small", EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : [s.ground, ...s.products])).every((u) => existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120_000))
-check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind === (i % 2 === 1 ? "link" : "merch")))
+/* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
+check("it drifts as a Web Animation, paused off screen and in a hidden tab", /slot\.animate\(/.test(evSrc) && /else stopDrift\(\)/.test(evSrc) && /visibilitychange/.test(evSrc) && /<Storefronts live=\{live\} \/>/.test(evSrc))
+/* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
+check("a release glides from the hand's speed back to the drift", /Math\.exp\(-\(now - g0\) \/ 380\)/.test(evSrc))
+/* Changed on purpose (landing round 8): link pages carry their creator's photo, and the strip has a OnePage of a third kind (a profile with one photo). */
+check("every picture in the strip exists and is small", EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [s.ground, s.avatar, ...s.products] : [s.photo])).every((u) => existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120_000))
+/* Changed on purpose (landing round 8): a seventh page, a profile OnePage, so the pages no longer strictly take turns; no two stores ever stand side by side. */
+check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind !== "merch" || EVERYTHING_STORES[(i + 1) % EVERYTHING_STORES.length].kind !== "merch"))
 
 console.log("\n── Make the work: Real support ──")
 check("no inbox switch: no From buyers / Storelib buttons", !/ev-c-tabs|Support inboxes|From buyers<\/span>/.test(everything) && !/<button[^>]*ev-c-tab/.test(everything))
