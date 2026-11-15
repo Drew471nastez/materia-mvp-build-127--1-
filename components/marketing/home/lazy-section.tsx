@@ -589,12 +589,18 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
           committed?.()
         }
       }
-      /* On screen or within a screen of it: now, in one go. */
+      /*
+       * On screen or within a screen of it: now, in one go, if the page is
+       * being scrolled. While it stands still (the first sections under the
+       * hero as the page loads) the box joins the line like any other: it is
+       * the nearest, so it is first, and the load is not held up by it.
+       */
+      hookScroll()
       const soon = new IntersectionObserver(
         (entries) => {
           if (entries.some((e) => e.isIntersecting)) {
             soon.disconnect()
-            void mount(true)
+            void mount(performance.now() - lastScroll < CALM_MS)
           }
         },
         { rootMargin: LAZY_NOW },
