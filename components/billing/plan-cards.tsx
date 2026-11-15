@@ -123,12 +123,19 @@ export const PLAN_GRAIN = `url("data:image/svg+xml,${encodeURIComponent(GRAIN_SV
  * each, on every surface that draws the cards: brightness down about a sixth
  * (Free 0.9 to 0.76, Pro 0.62 to 0.52, Scale 0.55 to 0.5), contrast up
  * (1.12 to 1.16 became 1.2 to 1.24), the grain from 0.05 to 0.08.
+ *
+ * LANDING ROUND 11, THE OWNER: "you increased the contrast of the cover
+ * images too much". The contrast goes back to a hair over 1 (1.04 to 1.05),
+ * so the pictures' gradients look like the pictures again instead of
+ * crushed shadows and hot highlights; brightness stays about where round 9
+ * put it (Free 0.78, Pro 0.54), so the covers are no lighter overall and
+ * the white words keep their contrast.
  */
 export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}`; filter: string; ground: string; fade: string; grain: number; dot: string; button: string; ring: string }> = {
   free: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
     blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
-    filter: "brightness(0.76) contrast(1.2)",
+    filter: "brightness(0.78) contrast(1.04)",
     ground: "bg-[#111112]",
     fade: "from-[#0b0b0c]/75",
     grain: 0.08,
@@ -139,7 +146,7 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
   growth: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "brightness(0.52) contrast(1.24) saturate(1.05)",
+    filter: "brightness(0.54) contrast(1.05) saturate(1.05)",
     ground: "bg-[#231587]",
     fade: "from-[#130b55]/70",
     grain: 0.08,
@@ -148,23 +155,25 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
     ring: "focus-visible:ring-[#5a43ee]/45",
   },
   /*
-    Scale (id `pro`): Pro's picture turned from indigo to a warm bronze on
-    graphite. It was violet (read as pink beside Pro), then a deep teal;
-    landing round 9, the owner: "I don't like that you made Scale green.
-    Don't make Scale green." Bronze is the far side of the wheel from Pro's
-    indigo and nowhere near green or pink, so the three read as three plans:
-    black, violet, bronze. No third file to fetch.
+    Scale (id `pro`): Pro's picture turned from indigo to a deep steel blue.
+    It was violet (read as pink beside Pro), then a deep teal (round 9, the
+    owner: "Don't make Scale green"), then a warm bronze (round 11, the
+    owner: "I don't like the brown one for the Scale card"). Steel blue sits
+    some 40 degrees round from Pro's violet, toward blue and well short of
+    teal, and is quieter (less saturated) than Pro, so beside the black Free
+    card and the violet Pro card the three read as three plans: black,
+    violet, steel blue. No third file to fetch.
   */
   pro: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "hue-rotate(148deg) saturate(0.6) brightness(0.5) contrast(1.24)",
-    ground: "bg-[#3a2a17]",
-    fade: "from-[#1c130a]/70",
+    filter: "hue-rotate(-38deg) saturate(0.62) brightness(0.56) contrast(1.05)",
+    ground: "bg-[#142c49]",
+    fade: "from-[#0b1a2d]/70",
     grain: 0.08,
-    dot: "text-[#8a5a24]",
-    button: "bg-[#8a5a24] hover:bg-[#784d1e] active:bg-[#664118]",
-    ring: "focus-visible:ring-[#8a5a24]/45",
+    dot: "text-[#25588f]",
+    button: "bg-[#25588f] hover:bg-[#1f4c7d] active:bg-[#1a406a]",
+    ring: "focus-visible:ring-[#25588f]/45",
   },
 }
 
@@ -231,17 +240,22 @@ function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: O
 /**
  * THE PUBLIC CARDS' LINES AND TICKS (landing round). The home page and
  * /pricing hand their own plain lines (components/marketing/pricing-lines)
- * and a quiet ink tick in place of the plan coloured check: one short,
- * rounded stroke in the text's own grey, no circle, no colour. Every other
+ * and their own tick in place of the plan coloured check. Every other
  * surface draws the plan's lines and checks as before.
+ *
+ * LANDING ROUND 11, THE OWNER: "they should have actual filled check icons,
+ * smooth and clean". The tick is a filled ink circle (#18181b, the same on
+ * every plan, so no purple check comes back) with a white check in it, one
+ * SVG on a 20 unit grid with round ends, 18px, centred on the first line.
  */
 export type PlanCardLines = { features: string[]; excluded: string[] }
 export type PlanCardTick = "plan" | "ink"
 
 function InkTick() {
   return (
-    <svg viewBox="0 0 16 16" className="mt-[2px] h-4 w-4 shrink-0 text-[#3f3f46]" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-plan-tick="ink">
-      <path d="M3.5 8.4 6.6 11.4 12.5 4.8" />
+    <svg viewBox="0 0 20 20" className="mt-px h-[18px] w-[18px] shrink-0 text-[#18181b]" aria-hidden="true" data-plan-tick="filled">
+      <circle cx="10" cy="10" r="10" fill="currentColor" />
+      <path d="M5.9 10.3 8.6 12.9 14.1 7.3" fill="none" stroke="#ffffff" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -291,11 +305,17 @@ function PlanCard({
   /* The public cards (tick "ink") are a pixel less round, as the owner asked of the landing page's cards. */
   const pick = compact && shown.onClick && !shown.href && !shown.disabled && !shown.settled && !shown.loading ? shown.onClick : undefined
 
+  /*
+    Landing round 11, the owner: "the pricing cards have too much depth". The
+    deep drop (36px down, 72px soft, a third black) is a short, light one
+    now (12px down, 28px soft, a sixth) over a 2px contact shadow, with the
+    same hairline ring: the cards sit on the page instead of floating.
+  */
   return (
     <article
       data-plan-card={plan.id}
       onClick={pick ? (e) => { if (!(e.target as Element).closest("[data-plan-action]")) pick() } : undefined}
-      className={`flex w-full flex-col overflow-hidden ${tick === "ink" ? "rounded-[21px]" : "rounded-[22px]"} bg-white shadow-[0_36px_72px_-30px_rgba(16,24,40,0.34),0_10px_24px_-12px_rgba(16,24,40,0.12),0_1px_3px_rgba(16,24,40,0.06)] ring-1 ring-[#0f172a]/[0.07] ${pick ? "cursor-pointer transition-[box-shadow] duration-200 hover:ring-[#0f172a]/[0.16]" : ""}`}
+      className={`flex w-full flex-col overflow-hidden ${tick === "ink" ? "rounded-[21px]" : "rounded-[22px]"} bg-white shadow-[0_12px_28px_-18px_rgba(16,24,40,0.16),0_2px_6px_-3px_rgba(16,24,40,0.06)] ring-1 ring-[#0f172a]/[0.07] ${pick ? "cursor-pointer transition-[box-shadow] duration-200 hover:ring-[#0f172a]/[0.16]" : ""}`}
     >
       <div
         data-plan-header=""

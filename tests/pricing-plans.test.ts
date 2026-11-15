@@ -424,8 +424,9 @@ function main() {
     const growth = /growth: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]
     // Changed on purpose (landing round 8): the owner asked for more contrast in the pictures; lifted and above 1.
     // Changed on purpose (landing round 9): the owner asked for the covers a step darker with a little more contrast.
-    check("Free's picture a step darker, its contrast above 1", free === "brightness(0.76) contrast(1.2)", free)
-    check("Pro's picture a step darker, its contrast above 1", growth === "brightness(0.52) contrast(1.24) saturate(1.05)", growth)
+    // Changed on purpose (landing round 11): the owner found the contrast too high; back to a hair over 1, brightness about where round 9 put it.
+    check("Free's picture dimmed, its contrast natural", free === "brightness(0.78) contrast(1.04)", free)
+    check("Pro's picture dimmed, its contrast natural", growth === "brightness(0.54) contrast(1.05) saturate(1.05)", growth)
   }
 
   console.log("\nThe probe that measures the cards is on disk")

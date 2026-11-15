@@ -20,7 +20,7 @@
  *                  and lighting up as a notice lands.
  */
 import { createHash } from "node:crypto"
-import { readFileSync, statSync } from "node:fs"
+import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
@@ -76,8 +76,11 @@ console.log("\n── Unlimited possibilities: a little smaller, a hover, six ne
   check("the row still glides to a stop under the mouse", /easeRow\(track, 0, 700\)/.test(src) && !/\.um-row:hover \.um-track/.test(src))
   /* The six the owner called too basic: their round 7 files, by git blob id. */
   const old: Record<string, string> = { totes: "dabd03ed9c42c08e8d95f50c16a9ab4f0efdaa01", courses: "d2bd9a9a45fcd124d264ba4e9cf8db3f29ee02bb", presets: "a3541dd3e70409632a6b619f20737df16742741b", vinyl: "87b619b9a16b737319f15c4775cff9bdc1474064", communities: "945a2d44e0a50b11ec42682dee0028a76fa17b59", templates: "4f5926c590477b50a994ea95d3a740d52427a72c" }
+  // Changed on purpose (landing round 11): tote bags and vinyl records left the list (the owner: more digital, no totes), so a file that is gone counts as replaced.
   const blob = (f: string) => {
-    const b = readFileSync(join(root, "public/home/possibilities", `${f}.webp`))
+    const p = join(root, "public/home/possibilities", `${f}.webp`)
+    if (!existsSync(p)) return "gone"
+    const b = readFileSync(p)
     return createHash("sha1").update(`blob ${b.length}\0`).update(b).digest("hex")
   }
   check("tote bags, courses, presets, vinyl, communities and templates have new photos", Object.entries(old).every(([f, id]) => blob(f) !== id), Object.keys(old).filter((f) => blob(f) === old[f]))

@@ -87,7 +87,8 @@ console.log("\n── pricing: left, teal, clean pictures ──")
   // Changed on purpose (landing round 9): the owner did not want Scale green either, so the teal is gone (tests/home-landing-r9-close.test.ts pins the new colour).
   check("Scale is not teal, violet or pink", !/hue-rotate\(-80deg\)|#0f6b66/.test(Object.values(scale).join(" ")) && !/#7c3aed|#6d28d9|#5b21b6|#2a0f63|#1c0a45/.test(Object.values(scale).join(" ")))
   const contrast = (f: string) => Number(/contrast\(([\d.]+)\)/.exec(f)?.[1] ?? 0)
-  check("every picture's contrast above 1, no longer dimmed below half", Object.values(PLAN_ART).every((a) => contrast(a.filter) > 1.1 && Number(/brightness\(([\d.]+)\)/.exec(a.filter)?.[1]) >= 0.5), Object.values(PLAN_ART).map((a) => a.filter))
+  // Changed on purpose (landing round 11): the owner found the contrast too high, so it is a hair over 1 now (1.04 to 1.05), still not below.
+  check("every picture's contrast above 1, no longer dimmed below half", Object.values(PLAN_ART).every((a) => contrast(a.filter) > 1 && Number(/brightness\(([\d.]+)\)/.exec(a.filter)?.[1]) >= 0.5), Object.values(PLAN_ART).map((a) => a.filter))
   // Changed on purpose (landing round 9): the owner asked for a little more grain (0.05 to 0.08), still under half of the 0.2 it was.
   check("the grain under half of what it was", Object.values(PLAN_ART).every((a) => a.grain <= 0.08))
   check("the pictures sent at quality 90, a quality next.config serves", /quality=\{90\}/.test(cards) && /qualities: \[[^\]]*\b90\b/.test(read("next.config.mjs")))

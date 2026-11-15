@@ -120,7 +120,8 @@ console.log("\n── Pricing ──")
   const section = read("components/marketing/pricing-section.tsx")
   const cards = read("components/billing/plan-cards.tsx")
   check("the public cards (home and /pricing) get these lines and the quiet tick; onboarding keeps its own", /lines=\{PUBLIC_LINES\} tick="ink"/.test(section) && /<PlanCards compact actions=\{actions\} \/>/.test(section))
-  check("the quiet tick is one thin stroke in grey, no plan colour, no circle", /function InkTick\(\)/.test(cards) && /text-\[#3f3f46\]/.test(cards) && /strokeWidth=\{1\.6\}/.test(cards) && !/rounded-full[^"]*data-plan-tick/.test(cards))
+  // Changed on purpose (landing round 11): the owner asked for "actual filled check icons, smooth and clean": a filled ink circle with a white check, still no plan colour.
+  check("the public tick is a filled ink circle with a white check, no plan colour", /function InkTick\(\)/.test(cards) && /text-\[#18181b\]/.test(cards) && /<circle cx="10" cy="10" r="10" fill="currentColor" \/>/.test(cards) && /data-plan-tick="filled"/.test(cards))
   check("every other surface draws the plan's lines and checks as before", /\(lines\?\.features \?\? plan\.features\)/.test(cards) && /tick = "plan"/.test(cards))
   check("/pricing still renders the section", /<PricingSection\b/.test(read("app/(storelib)/(marketing)/pricing/pricing-client.tsx")))
 }

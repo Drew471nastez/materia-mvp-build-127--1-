@@ -83,14 +83,17 @@ console.log("\n── pricing: Scale's colour, the covers ──")
   check("nor pink or violet", hues.every((c) => c.s < 0.12 || c.h < 255 || c.h > 345) && !/hue-rotate\(-80deg\)|#0f6b66|#7c3aed|#6d28d9/.test(all), hexes)
   const [free, pro, sc] = [buttonHex("free"), buttonHex("growth"), buttonHex("pro")].map(hueSat)
   const apart = Math.min(Math.abs(sc.h - pro.h), 360 - Math.abs(sc.h - pro.h))
-  check("Scale's button is a colour of its own: far from Pro's violet on the wheel, not Free's black", apart >= 120 && sc.s > 0.3 && free.s < 0.1 && sc.l > free.l + 0.12, { free, pro, sc })
-  check("Scale is a warm bronze", sc.h >= 20 && sc.h <= 45, sc)
+  // Changed on purpose (landing round 11): the owner did not like the bronze either; Scale is a steel blue now, some 40 degrees from Pro's violet (tests/home-landing-r11-close.test.ts pins it).
+  check("Scale's button is a colour of its own: apart from Pro's violet on the wheel, not Free's black", apart >= 30 && sc.s > 0.3 && free.s < 0.1 && sc.l > free.l + 0.12, { free, pro, sc })
+  check("Scale is not bronze any more", !(sc.h >= 20 && sc.h <= 45), sc)
   check("the three covers are three different pictures of colour", new Set(Object.values(PLAN_ART).map((a) => a.filter)).size === 3 && new Set(Object.values(PLAN_ART).map((a) => a.ground)).size === 3)
   /* Round 8's values: brightness 0.9 / 0.62 / 0.55, contrast 1.12 / 1.16 / 1.14, grain 0.05. */
   const was = { free: [0.9, 1.12], growth: [0.62, 1.16], pro: [0.55, 1.14] } as const
   const step = (Object.keys(was) as (keyof typeof was)[]).map((id) => ({ id, b: num(PLAN_ART[id].filter, "brightness"), c: num(PLAN_ART[id].filter, "contrast"), g: PLAN_ART[id].grain }))
-  check("every cover darker than round 8, by a step and not by half", step.every((s) => s.b < was[s.id][0] && s.b >= was[s.id][0] * 0.8 && s.b >= 0.5), step)
-  check("contrast up a little on each", step.every((s) => s.c > was[s.id][1] && s.c <= was[s.id][1] + 0.12), step)
+  // Changed on purpose (landing round 11): Scale's steel blue picture is held a hair lighter (0.56) than round 8's bronze so the blue still reads; Free and Pro stay darker.
+  check("every cover about as dark as round 8 or darker, not by half", step.every((s) => s.b <= was[s.id][0] + 0.02 && s.b >= was[s.id][0] * 0.8 && s.b >= 0.5), step)
+  // Changed on purpose (landing round 11): the owner found the contrast too high; it is a hair over 1 now, below round 8's.
+  check("contrast natural on each: a hair over 1", step.every((s) => s.c > 1 && s.c <= 1.06), step)
   check("the grain up a little, the same on all three", step.every((s) => s.g > 0.05 && s.g <= 0.1) && new Set(step.map((s) => s.g)).size === 1, step)
 }
 
