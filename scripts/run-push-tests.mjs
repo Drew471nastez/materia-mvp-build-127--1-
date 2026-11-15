@@ -1521,6 +1521,8 @@ const SUITES = [
   "tests/home-landing-r10-top.test.ts",
   /* Landing round 10, checkout: the stage stays held behind the cards, the phone and the ring stepping back and going soft under them (each cross fades to a blurred copy baked as a small webp, opacity only, no filter), the cards a little see-through; a card's picture capped at 44svh for a 1440 x 800 screen. */
   "tests/home-landing-r10-checkout.test.ts",
+  /* Landing round 11, lower: the app section is round 8's photograph and points again on white; a light runs round the AI tools terminal and the card carries the dot field; How it works has new pictures (a tips list, bars and a reading, his website whose address closes to his own domain); the closing call's dots brighter, crisper and down to its foot, the section a little shorter. */
+  "tests/home-landing-r11-lower.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

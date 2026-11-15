@@ -58,7 +58,7 @@ check("no data-story-section, whose global rule would cap it at 1400px; the same
 console.log("\nThe examples")
 check("no Nadia Brooks, no LaSalle at dusk, no The Loop, no checkout tile", !/Nadia|LaSalle|The Loop|Checkout without leaving your page|cmh-sheet|cmh-op-|print-lasalle|creator-nadia|guide-loop/.test(code(FILE) + words(how)))
 check("nothing imported from the checkout track's files", !/from "\.\/(checkout-scene|ebook-cover)"/.test(src))
-check("one made up woodworker's shop: Ruben Linde, Linde Woodshop", HOW_SHOP.creator === "Ruben Linde" && HOW_SHOP.name === "Linde Woodshop" && text.includes("Support Ruben") && !text.includes("Linde Woodshop")) // Changed on purpose (landing round 10): his website is no longer drawn, so the shop's name is not on the card.
+check("one made up woodworker's shop: Ruben Linde, Linde Woodshop", HOW_SHOP.creator === "Ruben Linde" && HOW_SHOP.name === "Linde Woodshop" && text.includes("Linde Woodshop")) // Changed on purpose (landing round 10): his website is no longer drawn, so the shop's name is not on the card. // Changed on purpose (landing round 11): his website is drawn again in the domain card, under its name; the tip card is his list of tips.
 // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack (tests/home-landing-r8-how.test.ts).
 // Changed on purpose (landing round 9): no products card; the shop's two products are section 3's.
 check("section 3's LUT pack and black tee", HOW_PRODUCTS.map((p) => p.id).join() === "luts,tee" && text.includes("Midnight Studio Tee") && text.includes("Cine Tones LUT Pack"))
@@ -74,7 +74,8 @@ console.log("\nYour own domain")
 // Changed on purpose (landing round 8) (the owner: the www, shop and club banner was "too complex", and the black card the odd one out): one browser window on a light ground; tests/home-landing-r8-how.test.ts pins it.
 // Changed on purpose (landing round 9): one address pill over his website, no browser window (tests/home-landing-r9-how.test.ts pins it).
 // Changed on purpose (landing round 10): one address band (tests/home-landing-r10-how.test.ts pins it).
-check("one address band, no rows, no night ground", how.includes('class="cmh-dm-band"') && !how.includes('class="cmh-dm-row"') && !/data-ground="night"/.test(how) && !/night/.test(css))
+// Changed on purpose (landing round 11): one browser window with his website, its address closing to his own domain.
+check("one browser window, no rows, no night ground", how.includes('class="cmh-dm-win"') && !how.includes('class="cmh-dm-row"') && !/data-ground="night"/.test(how) && !/night/.test(css))
 check("the domain is one Storelib accepts and serves one of the product's purposes", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
 check("the caption keeps the code's claims", /On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(text)) // Changed on purpose (landing round 9): one short line.
 

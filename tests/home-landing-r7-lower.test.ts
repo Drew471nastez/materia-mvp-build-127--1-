@@ -83,15 +83,16 @@ console.log("\n── the dot field: even, flowing, following the mouse ──")
   const flows = [0, 4000, 9000].map((t) => dotFieldFlow(300, 200, t))
   check("a current of its own: the flow at a point changes with time, within 0..1", new Set(flows.map((f) => f.toFixed(3))).size === 3 && flows.every((f) => f >= 0 && f <= 1), flows)
   // Changed on purpose (landing round 8): the closing call's dots a little more visible (dark 0.19 / 0.46), the purple unchanged.
-  check("subtle, and neutral white on the purple", DOT_FIELD_TONES.purple.rgb === "255,255,255" && DOT_FIELD_TONES.purple.rest <= 0.12 && DOT_FIELD_TONES.purple.lit <= 0.32 && DOT_FIELD_TONES.dark.rest <= 0.2 && DOT_FIELD_TONES.dark.lit <= 0.48)
+  check("subtle, and neutral white on the purple", DOT_FIELD_TONES.purple.rgb === "255,255,255" && DOT_FIELD_TONES.purple.rest <= 0.12 && DOT_FIELD_TONES.purple.lit <= 0.32 && DOT_FIELD_TONES.dark.rest <= 0.35 && DOT_FIELD_TONES.dark.lit <= 0.7) // Changed on purpose (landing round 11): the dark tone more visible (0.34 / 0.68).
   check("follows the mouse with a lerp, wanders by itself without one", /lightX \+= \(tx - lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src) && /Math\.sin\(t \* 0\.00011\)/.test(src))
-  check("one canvas at no more than 1.5 device pixels per CSS pixel", DOT_FIELD_MAX_DPR === 1.5 && /Math\.min\(DOT_FIELD_MAX_DPR/.test(src) && /<canvas ref=\{canvasRef\}/.test(src))
+  // Changed on purpose (landing round 11): at most 2 device pixels a CSS pixel, so the dots are crisp on a phone.
+  check("one canvas at no more than 2 device pixels per CSS pixel", DOT_FIELD_MAX_DPR === 2 && /Math\.min\(DOT_FIELD_MAX_DPR/.test(src) && /<canvas ref=\{canvasRef\}/.test(src))
   // Changed on purpose (landing round 8): the light wanders on its own now, so it draws at up to 60 a second whenever it runs (at 30 it stepped).
   check("at most 60 frames a second, evenly", /if \(last && t - last < 12\) return/.test(src) && /waves\[j\] = points\[i\] \* 0\.0052/.test(src))
   check("paused off screen and in a hidden tab, one still frame under reduced motion, no state, no layout read in the loop", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /&& !reduced/.test(src) && !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const draw"), src.indexOf("const resize"))))
   check("on the purple sheet, a little sparser there, and under the closing call", /<DotField tone="purple" fade="bottom" gap=\{22\}/.test(page) && /<DotField fade="close" \/>/.test(cta)) // Changed on purpose (landing round 8): the closing call's field fades out before its foot.
   check("the field keeps its CSS: behind, no pointer, no CSS animation", /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS) && !/@keyframes/.test(DOT_FIELD_CSS))
-  check("the closing call in the page's one width", /padding:clamp\(88px,10vw,152px\) var\(--home-edge,/.test(cta))
+  check("the closing call in the page's one width", /padding:clamp\(76px,8\.4vw,128px\) var\(--home-edge,/.test(cta)) // Changed on purpose (landing round 11): a little less height.
 }
 
 console.log("\n── earnings: no fee line, a wider photograph ──")

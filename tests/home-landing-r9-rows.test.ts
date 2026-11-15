@@ -20,13 +20,13 @@
  *                  and lighting up as a notice lands.
  */
 import { createHash } from "node:crypto"
-import { readFileSync, statSync } from "node:fs"
+import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { MARQUEE_ROWS, ProductMarquee } from "@/components/marketing/product-marquee"
 import { IntegrationsSection, CORNER_DOT_ALPHA, cornerLayer } from "@/components/marketing/home/integrations-section"
-import { AppAnywhere, APP_CHIPS, APP_NOTICES, APP_LOOP_S } from "@/components/marketing/home/app-anywhere"
+import { AppAnywhere } from "@/components/marketing/home/app-anywhere"
 
 let passed = 0
 let failed = 0
@@ -108,36 +108,18 @@ console.log("\n── Connect your favorite apps: nothing left to stutter ──
   check("the heading and the two rows are as they were", /aria-label="Connect your favorite apps"/.test(html) && /--tile: clamp\(90px, 5\.6vw, 116px\);/.test(css))
 }
 
-console.log("\n── Run your business from anywhere: white, one black stage ──")
+// Changed on purpose (landing round 11): the owner: "'Run your business from anywhere' should be how it was before, the image and things". The black stage (rings, chips, notices, a drawn phone) is gone; his photograph and round 8's two columns are back on the white. tests/home-landing-r11-lower.test.ts pins the section now; what still holds from round 9 is checked here.
+console.log("\n── Run your business from anywhere: white (the stage gave way to the photograph in round 11) ──")
 {
   const src = read("components/marketing/home/app-anywhere.tsx")
-  const code = noComments(src)
   const css = read("components/marketing/home/app-anywhere.module.css")
   const bare = noComments(css)
   const html = renderToStaticMarkup(createElement(AppAnywhere))
   check("white by its own class, so it reads the same on any sheet", /\.section \{\s*background: #fff;\s*color: #18181b;/.test(css) && /className=\{`\$\{m\.root\} \$\{s\.section\} /.test(src))
   check("the heading in its light form, the same line under it", /aria-label="Run your business from anywhere"/.test(html) && !/data-story-dark/.test(html) && text(html).includes("Your sales, orders and visitors on your phone, wherever you are."))
-  check("in the shared width, the heading at the inset", /<div class="home-wrap">/.test(html) && /\.head \{\s*padding-left: var\(--home-head-inset, 14px\);/.test(css))
-  check("one black stage, named for assistive tech, its insides hidden from it", (html.match(/data-app-stage=""/g) ?? []).length === 1 && /role="img" aria-label="The Storelib app on a phone: [^"]+"/.test(html) && /\.card \{[^}]*background: #09090b/.test(css))
-  const card = bare.slice(bare.indexOf(".card {"), bare.indexOf("}", bare.indexOf(".card {")))
-  check("the stage itself never fades or moves in (no blank box on a fast scroll)", !/opacity|transform|animation|transition/.test(card) && /<div className=\{s\.card\} data-app-stage=""/.test(src))
-  check("only what is in it eases in, once", (html.match(/<div class="[^"]*reveal[^"]*"/g) ?? []).length === 3)
-  // Changed on purpose (landing round 10): the stage is also held to 62svh (a MacBook Air at 100% is about 1440x800). svh is the small viewport, which never moves with the URL bar.
-  check("its height is fixed by the screen's width and its small viewport height, so nothing shifts as it loads", /--h: clamp\(440px, min\(38vw, 62svh\), 620px\);/.test(css) && /@media \(max-width: 899px\) \{\s*\.card \{\s*--h: 580px;/.test(css) && /height: var\(--h\);/.test(card))
-  check("five thin rings round the phone, two with a brighter arc going round", (html.match(/data-ring="[0-4]"/g) ?? []).length === 7 && /border: 1px solid rgba\(255, 255, 255, 0\.085\)/.test(css) && /animation: turn 26s linear infinite;/.test(css))
-  check("Orders, Sales, Payouts and Visitors on the rings", APP_CHIPS.map((c) => c.label).join() === "Orders,Sales,Payouts,Visitors" && APP_CHIPS.every((c) => text(html).includes(c.label)))
-  check("a chip drifts along its ring and stays level: the arm sways, the chip turns back by the same", /@keyframes sway \{\s*from \{\s*transform: rotate\(calc\(var\(--a\) - var\(--sw\)\)\);\s*\}\s*to \{\s*transform: rotate\(calc\(var\(--a\) \+ var\(--sw\)\)\);/.test(css) && /@keyframes unsway \{\s*from \{\s*transform: rotate\(calc\(var\(--sw\) - var\(--a\)\)\);\s*\}\s*to \{\s*transform: rotate\(calc\(-1 \* var\(--a\) - var\(--sw\)\)\);/.test(css))
-  check("beside the phone on a wide stage, above and below it on a narrow one", /\.arm\[data-slot="b"\] \{\s*--a: 194deg;/.test(css) && /@media \(max-width: 899px\) \{[\s\S]*\.arm\[data-slot="a"\] \{\s*--a: -66deg;[\s\S]*\.arm\[data-slot="d"\] \{\s*--a: 114deg;/.test(css))
-  check("three notices a loop, five seconds apart", APP_NOTICES.length === 3 && APP_LOOP_S === 15 && (html.match(/data-notice="[0-2]"/g) ?? []).length === 3 && /animation-delay:0\.6s/.test(html) && /animation-delay:5\.6s/.test(html) && /animation-delay:10\.6s/.test(html))
-  check("each chip lights with the notice it is about, Sales a beat after Orders", /animation-delay:0\.85s/.test(html) && /animation-delay:1\.15s/.test(html) && /animation-delay:5\.85s/.test(html) && /animation-delay:10\.85s/.test(html) && APP_CHIPS.every((c) => c.on < APP_NOTICES.length))
-  check("the order is the shared tee, the list has the shared LUT pack", APP_NOTICES[0].line === "Midnight Studio Tee, $32.00" && text(html).includes("Cine Tones LUT Pack") && text(html).includes("$29.00"))
-  check("every keyframe animates transform and opacity only", keyframeProps(bare).length > 0 && keyframeProps(bare).every((p) => p === "transform" || p === "opacity"), keyframeProps(bare))
-  const animated = [...bare.matchAll(/([^{}]+)\{[^{}]*\banimation: /g)].map((m) => m[1].trim().split(/\s|,|\[/)[0].replace(/^\./, ""))
-  check("every loop is paused off screen and in a background tab (platform's .loop)", animated.length >= 7 && animated.every((c) => new RegExp(`\\$\\{s\\.${c}\\} \\$\\{m\\.loop\\}`).test(src)), animated)
-  check("no script drives it: no frame loop, no timer, no state, no layout read", !/requestAnimationFrame|setInterval|setTimeout|useState|useEffect|getBoundingClientRect/.test(code))
-  check("reduced motion stands still on the order, its chip lit", /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.notice\[data-notice="0"\] \{\s*opacity: 1;\s*transform: none;[\s\S]*\.lit\[data-first\] \{\s*opacity: 1;/.test(css))
-  check("its pictures are 96px thumbnails, sized, lazy and async", ["order-tee", "order-lut"].every((f) => webpWidth(`home/app/${f}.webp`) === 96) && (html.match(/<img[^>]*>/g) ?? []).every((t) => /width="96" height="96"/.test(t) && /loading="lazy"/.test(t) && /decoding="async"/.test(t)))
-  check("no shadow, filter or blur is animated or laid over the stage", !/backdrop-filter|filter:/.test(bare))
+  check("no black stage any more", !/data-app-stage|data-ring|data-notice/.test(html) && !existsSync(join(root, "public/home/app/order-tee.webp")) && !existsSync(join(root, "public/home/app/order-lut.webp")))
+  check("every keyframe animates transform and opacity only (there are none now)", keyframeProps(bare).every((p) => p === "transform" || p === "opacity"))
+  check("no filter or blur laid over the section", !/backdrop-filter|filter:/.test(bare))
   check("the three points and both badges kept, the Coming soon label edged for white", ["A ping for every sale", "Orders, products and numbers", "Your community, in your pocket", "App Store", "Google Play", "Coming soon"].every((w) => text(html).includes(w)) && /\.soon \{\s*box-shadow: 0 0 0 1px rgba\(24, 24, 27, 0\.14\);/.test(css))
 }
 

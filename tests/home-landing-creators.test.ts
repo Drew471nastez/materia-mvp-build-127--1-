@@ -88,7 +88,8 @@ check("no Golden Hour presets, no camera picture, no purple gradient grounds", (
   /* Changed on purpose (landing round 7, the owner asked for it): the domain's ground is a still black to deep purple gradient; the only other gradient is the shade under the plans' title. */
   // Changed on purpose (landing round 8): four light grounds, each a soft two stop tint, and the LUT cover's shade over its still; no violet anywhere.
   // Changed on purpose (landing round 10): the domain card's soft turning light and the mask that fades its endings are gradients too.
-  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*(\.cmh-lut::(before|after)|\.cmh-dm-light|\.cmh-dm-win)$/.test(m[1].split("\n").pop()!), m[1])
+  // Changed on purpose (landing round 11): the gradients are the LUT cover's shade, the tip list's still mask and the shade over his website's photograph.
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*(\.cmh-lut::(before|after)|\.cmh-tip-win|\.cmh-dm-page::after)$/.test(m[1].split("\n").pop()!), m[1])
   // Changed on purpose (landing round 9): flat grounds, so the only gradient is the LUT cover's shade; violet is the accent again (the owner: "more colorful"), never as a gradient.
   assert.ok(!/gradient\([^)]*#(7c3aed|8b5cf6|a855f7)/.test(css))
 })

@@ -87,11 +87,14 @@ console.log("\nIdeas, pricing, the questions and the app in the page's one width
   check("questions: in the shared width, no grey box, one centred column", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /style=\{\{ background: "transparent" \}\}/.test(faq) && /data-faq-column="" className="!mx-auto w-full !max-w-\[880px\] !px-0"/.test(faq))
   const app = read("components/marketing/home/app-anywhere.tsx")
   // Changed on purpose (landing round 9): no two column grid any more; the heading, one wide stage and the points sit in the shared box, one under the other.
-  check("app: everything in the shared box (no 1400px column, no section gutter)", /<div className="home-wrap">/.test(app) && !/max-w-\[1400px\]/.test(app) && !/px-\[var\(--landing-gutter/.test(app))
+  // Changed on purpose (landing round 11): round 8's two columns again (the photograph and the words), in the shared box.
+  check("app: everything in the shared box (no 1400px column, no section gutter)", /<div className=\{`home-wrap \$\{s\.grid\}`\}>/.test(app) && !/max-w-\[1400px\]/.test(app) && !/px-\[var\(--landing-gutter/.test(app))
   // Changed on purpose (landing round 9): one column at every width; the heading's inset is in the module (.head).
-  check("app: the heading at the inset", /className=\{s\.head\}/.test(app) && /\.head \{\s*padding-left: var\(--home-head-inset, 14px\);/.test(read("components/marketing/home/app-anywhere.module.css")))
+  // Changed on purpose (landing round 11): the words' column carries the inset on a phone, where it sits over the photograph's edge.
+  check("app: the heading at the inset", /className=\{s\.copy\}/.test(app) && /\.copy \{[^}]*padding-left: var\(--home-head-inset, 0px\);/.test(read("components/marketing/home/app-anywhere.module.css")))
   // Changed on purpose (landing round 9): the photograph is gone (a drawn stage takes its place); its pictures are two 96px thumbnails at their drawn size.
-  check("app: no large photo; the stage's pictures are small and sized", !/storelib-app-/.test(app.replace(/\/\*[\s\S]*?\*\//g, "")) && /width=\{96\} height=\{96\} loading="lazy" decoding="async"/.test(app))
+  // Changed on purpose (landing round 11): the owner: "how it was before, the image and things": his photograph is back, sized, lazy and async.
+  check("app: the owner's photograph, sized, lazy and async", /src="\/home\/app\/storelib-app-720\.webp"/.test(app) && /width=\{1280\}\s*height=\{960\}/.test(app) && /loading="lazy"\s*decoding="async"/.test(app))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
