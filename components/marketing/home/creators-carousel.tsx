@@ -48,6 +48,8 @@ const MAX_THROW = 3200
 const RESUME_AFTER_MS = 1400
 const RAMP_UP_MS = 1800
 const RAMP_DOWN_MS = 650
+/** Landing round 11: the photos are fetched and decoded from this far ahead of the section, this many at a time. */
+export const CREATORS_PRELOAD = { marginPx: 1600, parallel: 3 } as const
 
 function Card({ c, idx, copy }: { c: CreatorCard; idx: number; copy: boolean }) {
   return (
@@ -144,14 +146,29 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       x = wrap(x)
       track.style.transform = tf(x)
     }
-    /* The rail's place this moment: off the running animation (read once, here), or x. The animation is let go. */
+    /*
+     * The rail's place this moment, and the animation let go. LANDING ROUND 11
+     * (the owner: "with touch, when I put my finger on it, it glitches when I
+     * try to swipe"). Round 8 read the running animation's place off the
+     * style and cancelled it. The compositor, which draws the animation, can
+     * be a frame or more ahead of the main thread's idea of where it is (more
+     * in WebKit, where it runs in another process), and a throw at 2000px a
+     * second is 30px a frame: the finger landed and the rail stepped under
+     * it. Now the animation is paused first, which pins what is drawn and
+     * what is read to one moment; its place is read from that, written as
+     * the rail's own transform in the same task, and only then is the
+     * animation cancelled. One place, drawn once: nothing moves under the
+     * finger.
+     */
     const halt = () => {
       if (!motion) return
+      const { anim } = motion
+      anim.pause()
       const m = getComputedStyle(track).transform
       if (m && m !== "none") x = -new DOMMatrixReadOnly(m).m41
-      motion.anim.cancel()
       motion = null
       paint()
+      anim.cancel()
     }
     /* One leg of motion on the compositor, from x to x + by. The end is written to the style first, so nothing flashes when the animation lets go. */
     const play = (kind: NonNullable<typeof motion>["kind"], by: number, ms: number, easing: string, speed: number, then?: () => void) => {
@@ -322,13 +339,36 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
      * thread, so by the time a finger is on the rail every card is a decoded
      * picture. The second copy of the cards is the same files.
      */
-    const pending = [...track.querySelectorAll<HTMLImageElement>("li:not([aria-hidden]) img")]
+    /*
+     * LANDING ROUND 11 (the owner: "make sure the images are smooth and clean,
+     * don't glitch or take too long to load"): decoding starts two screens
+     * ahead (CREATORS_PRELOAD), three at a time, and a card's photo (and its
+     * copy's, the same file) is shown only once it is decoded, easing in
+     * (data-shown, the stylesheet) over the card's own ground: never half
+     * drawn, never a pop. One already there when the script came is shown at
+     * once.
+     */
+    const all = [...track.querySelectorAll<HTMLImageElement>("img")]
+    const show = (img: HTMLImageElement, now: boolean) => {
+      for (const twin of all) if (twin === img || twin.getAttribute("src") === img.getAttribute("src")) if (!twin.hasAttribute("data-shown")) twin.setAttribute("data-shown", now ? "now" : "")
+    }
+    const pending: HTMLImageElement[] = []
+    for (const img of track.querySelectorAll<HTMLImageElement>("li:not([aria-hidden]) img")) {
+      if (img.complete && img.naturalWidth > 0) show(img, true)
+      else pending.push(img)
+    }
+    track.dataset.ccReady = ""
     const next = (): void => {
       const img = pending.shift()
       if (!img) return
       img.loading = "eager"
-      if (typeof img.decode === "function") img.decode().then(next, next)
-      else next()
+      const done = () => {
+        show(img, false)
+        next()
+      }
+      if (typeof img.decode === "function") img.decode().then(done, done)
+      else if (img.complete) done()
+      else img.addEventListener("load", done, { once: true })
     }
     let warmed = false
     const near =
@@ -337,12 +377,12 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
             (entries) => {
               if (warmed || !entries.some((e) => e.isIntersecting)) return
               warmed = true
-              next()
-              next()
+              for (let i = 0; i < CREATORS_PRELOAD.parallel; i++) next()
             },
-            { rootMargin: "900px 0px" },
+            { rootMargin: `${CREATORS_PRELOAD.marginPx}px 0px` },
           )
         : null
+    if (!near) for (let i = 0; i < CREATORS_PRELOAD.parallel; i++) next()
     near?.observe(section)
 
     const io =
@@ -462,6 +502,10 @@ export const CREATORS_CSS = `
 /* The card as it was before the product tiles: the photo, and on a soft shade at its foot the creator's name, their kind and what they sell. It stays still under the pointer. */
 .cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:23px;background:var(--cc-photo);isolation:isolate}
 .cc-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+/* Landing round 11: once the script is there, a photo waits for its decode, then eases in (opacity and a 2.5% zoom settling, inside the card's clip) over the card's ground. */
+.cc-track[data-cc-ready] .cc-img{opacity:0;transform:scale(1.025);transition:opacity 620ms cubic-bezier(.33,0,.2,1),transform 1100ms cubic-bezier(.22,1,.36,1)}
+.cc-track[data-cc-ready] .cc-img[data-shown]{opacity:1;transform:none}
+.cc-track[data-cc-ready] .cc-img[data-shown="now"]{transition:none}
 .cc-shade{position:absolute;inset:0;background:linear-gradient(to top,rgba(8,8,10,.72),rgba(8,8,10,.28) 34%,rgba(8,8,10,0) 58%);pointer-events:none}
 /* Landing round 9, the owner: "all the card images should have a very subtle cinematic grain". One 192px tile of fine noise (16KB) for every card, drawn at 96px over the photo and under the shade and the words: black and white specks a few percent strong. A still picture in the card's own layer: no filter, no blend mode, nothing per frame. */
 .cc-photo::after{content:"";position:absolute;inset:0;background:url(/home/creators/grain.webp) 0 0/96px 96px;opacity:.55;pointer-events:none}
@@ -481,6 +525,7 @@ export const CREATORS_CSS = `
   @media(min-width:1180px){.cc-track{grid-template-columns:repeat(4,1fr)}}
   .cc-card{width:auto}
   .cc-card[aria-hidden="true"]{display:none}
+  .cc-track[data-cc-ready] .cc-img{opacity:1;transform:none;transition:none}
   .cc-cta,.cc-cta-ic svg{transition:none!important;transform:none!important}
   .cc-meta{left:14px;right:14px;bottom:14px}
   .cc-kind{font-size:clamp(18px,4.6vw,24px)}

@@ -52,11 +52,15 @@ const html = renderToStaticMarkup(createElement(BuildShowcase))
 console.log("\n── The caption never lands on anything ──")
 const figures = html.match(/<figure[^>]*>[\s\S]*?<\/figure>/g) ?? []
 /* Changed on purpose (landing round 9): the box is a <picture>, with a 4:3 source for phones in a store's, website's or community's. */
-check("twelve cards, each a picture box and then its caption", figures.length === 12 && figures.every((f) => /<picture class="build-showcase-pic">(?:<source [^>]*\/>)?<img [^>]*\/><\/picture><figcaption>[^<]+<\/figcaption><\/figure>$/.test(f)), figures.length)
-check("the caption is in the flow under the picture, never laid over it", !/figcaption \{[^}]*position:absolute/.test(css) && /\.build-showcase-slide figcaption \{height:44px;padding-top:14px;box-sizing:border-box;overflow:hidden;white-space:nowrap;text-overflow:ellipsis/.test(css))
-check("it keeps its line whether shown or not, so a hover moves nothing (opacity only)", /\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(css) && !/figcaption\{[^}]*(transform|height|margin)[^}]*\}/.test(css.replace(/\.build-showcase-slide figcaption\{height:38px[^}]*\}/, "")))
+/* Changed on purpose (landing round 11): the owner wants the caption as a fade over the bottom of the card, so it sits in the figure on the picture, its words in a span. */
+check("twelve cards, each a picture box and then its caption", figures.length === 12 && figures.every((f) => /<picture class="build-showcase-pic">(?:<source [^>]*\/>)?<img [^>]*\/><\/picture><figcaption><span>[^<]+<\/span><\/figcaption><\/figure>$/.test(f)), figures.length)
+/* Changed on purpose (landing round 11): "a bottom fade appearing smoothly over the bottom of the card with the text": laid over the picture's bottom, inside the card, taking no room. */
+check("the caption is a scrim over the bottom of the picture, taking no room", /\.build-showcase-slide figcaption \{position:absolute;left:0;right:0;bottom:0;[^}]*background:linear-gradient\(to top,/.test(css))
+/* Changed on purpose (landing round 11): showing it is an opacity and its words rising by a transform: nothing is laid out again. */
+check("showing it moves nothing (opacity, and a transform on its words)", /\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(css) && /figcaption span \{[^}]*transform:translate3d\(0,8px,0\);transition:transform/.test(css) && !/figcaption[^{]*\{[^}]*transition:[^}]*(height|margin|padding)/.test(css))
 check("a mouse shows it on hover, never while dragging", /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(css))
-check("a touch screen has no hover, so there it is simply shown", /@media\(hover:none\),\(pointer:coarse\)\{\.build-showcase-slide figcaption\{opacity:1;transition:none\}\}/.test(css))
+/* Changed on purpose (landing round 11): the scrim and its words, always there. */
+check("a touch screen has no hover, so there it is simply shown", /@media\(hover:none\),\(pointer:coarse\)\{\.build-showcase-slide figcaption\{opacity:1;transition:none\}\.build-showcase-slide figcaption span\{transform:none;transition:none\}\}/.test(css))
 /* Changed on purpose (landing round 9): the box's ground is the page's own tone until its picture has faded in. */
 check("the picture is clipped in its own box, the caption outside it", /\.build-showcase-pic \{[^}]*border-radius:7px;contain:paint;background:var\(--showcase-tone,#151517\);overflow:hidden\}/.test(css) && !/\.build-showcase-slide \{[^}]*overflow:hidden/.test(css))
 
