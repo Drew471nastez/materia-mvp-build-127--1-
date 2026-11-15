@@ -189,14 +189,16 @@ check("the demos are dark cards in a grid, not pills: no coloured chips", () => 
   const grid = rule(coCss, ".cmc-bento")
   assert.ok(/display:grid/.test(grid) && !/999px/.test(grid))
   // Changed on purpose (landing round 10): the same dark, a little see-through, so the products going round behind the cards show faintly.
-  assert.ok(/\.cmc-card\{[^}]*border-radius:28px;background:rgba\(17,17,19,0\.66\)/.test(coCss) && !/\.cmc-card\{[^}]*999px/.test(coCss))
+  // Changed on purpose (landing round 11): the cards are solid (the owner: not transparent).
+  assert.ok(/\.cmc-card\{[^}]*border-radius:28px;background:#111113/.test(coCss) && !/\.cmc-card\{[^}]*999px/.test(coCss))
   assert.equal((co.match(/class="cmc-card"/g) ?? []).length, 4)
   assert.equal((co.match(/role="tab"/g) ?? []).length, 0)
 })
 check("on black the cards are dark surfaces: the panel, the price card, the email, the receipt, the seller's note", () => {
   /* Changed on purpose (landing round 8): the cards are the surfaces (cmc-card), the price tiles (cv-tile) and the email dark on them; the wallet rows became the wallets' own black buttons. */
   // Changed on purpose (landing round 10): see above.
-  assert.ok(/\.cmc-card\{[^}]*background:rgba\(17,17,19,0\.66\);border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
+  // Changed on purpose (landing round 11): the cards are solid.
+  assert.ok(/\.cmc-card\{[^}]*background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
   assert.ok(/\.cmv-mail\{[^}]*background:#1a1a1e/.test(coCss) && /\.cv-tile\{[^}]*background:#1a1a1e/.test(coCss))
   assert.ok(/\.cmv-sale\{[^}]*background:#26262b/.test(coCss))
   for (const sel of [".cv-tile", ".cmv-mail", ".tp-btn", ".cmv-sale", ".cv-chips", ".cmc-vis"]) assert.ok(!/background:(#fff|#f[0-9a-f]{5}|rgba\(24[0-9],)/.test(rule(coCss, sel)), sel)

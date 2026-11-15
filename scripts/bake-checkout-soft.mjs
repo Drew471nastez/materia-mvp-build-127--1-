@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- *  THE CHECKOUT SCENE'S BLURRED COPIES (home, landing round 10)
+ *  THE CHECKOUT SCENE'S BLURRED COPIES (home, landing rounds 10 and 11)
  * ===========================================================================
  * When the four dark cards come up over the checkout scene, the products
  * going round the phone (and the phone) go soft behind them. Blurring them in
@@ -9,7 +9,11 @@
  *
  * The copies are taken from the scene itself, so the drawn digital products
  * (the LUT pack's box, the e-book, the course, the Notion page) and the phone
- * match what the page draws: against a running dev server, at 1440 x 1200,
+ * match what the page draws. Round 11 (the owner: the products "should be
+ * more blurred as they disappear, go behind"): the same copies also take over
+ * from the sharp objects as they go round the back of the ring, so they are
+ * blurred harder (SIGMA.object 0.055 to 0.085 of the object's width).
+ * Against a running dev server, at 1440 x 1200,
  * each object is drawn flat and alone on a transparent ground, cut out with a
  * fifth of its width spare on every side (SOFT_PAD in checkout-scene.tsx),
  * blurred (sharp premultiplies the colour by its alpha, so no fringe),
@@ -26,7 +30,7 @@ const URL = process.argv[2] || "http://localhost:3000/"
 const PAD = 0.2
 /* Output widths, and the blur as a share of the object's own width. */
 const OUT = { object: 112, phone: 168 }
-const SIGMA = { object: 0.055, phone: 0.032 }
+const SIGMA = { object: 0.085, phone: 0.032 }
 const IDS = ["tee", "luts", "cap", "course", "tote", "ebook", "notion"]
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -41,8 +45,11 @@ await page.addStyleTag({
   content: `
 html,body,.cmc,.cmc-stage{background:transparent!important}
 body *{visibility:hidden!important;animation:none!important;transition:none!important}
-.cmc-o,.cmc-face,.cmc-orbit,.cmc-world,.cmc-rise,.cmt,.cmc-pic,.cmc-sharp,.cmc-phone,.cmc-phone-wrap{transform:none!important;opacity:1!important}
-.cmc-soft{display:none!important}
+.cmc-o,.cmc-face,.cmc-orbit,.cmc-ring,.cmc-world,.cmc-rise,.cmt,.cmc-pic,.cmc-sharp,.cmc-near,.cmc-phone,.cmc-phone-wrap{transform:none!important;opacity:1!important}
+.cmc-soft,.cmc-far{display:none!important}
+/* Round 11: the phone starts bigger than a screen; drawn here at a set size, clear of the top, so the whole of it is taken. */
+.cmc-stage{--pe:200px!important}
+.cmc-phone-wrap{top:160px!important}
 .bake-on,.bake-on *{visibility:visible!important}`,
 })
 await page.evaluate(() => document.querySelector(".cmc-stage").scrollIntoView())
