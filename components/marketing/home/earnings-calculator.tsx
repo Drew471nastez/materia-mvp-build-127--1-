@@ -359,6 +359,7 @@ function ScrollSafeSlider({ value, min, max, onChange, children }: { value: numb
     }
     set(g.from + ((e.clientX - g.x) / Math.max(1, g.width - THUMB_PX)) * (max - min))
   }
+  /* Up and cancel only. Not lostpointercapture: a touch is captured by what it landed on, and taking the capture here (a drag) or lifting the finger (a tap) both send it, which would end the gesture they belong to. */
   const end = (e: ReactPointerEvent<HTMLDivElement>) => {
     const g = gesture.current
     if (!g || g.id !== e.pointerId) return
@@ -373,7 +374,7 @@ function ScrollSafeSlider({ value, min, max, onChange, children }: { value: numb
     if (hit) set(valueAt(e.clientX, hit.left, hit.width))
   }
   return (
-    <div className="cme-slide" data-earn-slider="" onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end} onClick={click}>
+    <div className="cme-slide" data-earn-slider="" onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}>
       {children}
     </div>
   )
