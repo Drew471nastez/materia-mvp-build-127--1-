@@ -245,7 +245,9 @@ console.log("\nCommerce: images")
   // Changed on purpose (landing round 10): the workshop picture went with his website on the domain card.
   check("public/home/how holds the cap and print and the woodshop's avatar, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,linde-avatar.webp,print-lasalle.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
-  check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
+  /* Changed on purpose (wave 17): the checkout's two tiny avatars (pc-av, cdx-av) load and decode at once, so they are never blank when the scene scrolls in on an iPhone. */
+  const avatars = (all.match(/<img className="(pc|cdx)-av"[^>]*>/g) ?? []).filter((t) => !/loading=|decoding=/.test(t)).length
+  check("images are lazy (or eager inside a tab demo) and decode off the main thread, but the checkout's two tiny avatars", avatars === 2 && imgs > 10 && imgs - avatars === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs - avatars === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }
 
 /* Added (wave 13): one branch deleted public/home/showcase/lt-field.webp while how-it-works still drew it, and the live page asked for it and got a 404. Every picture or video a marketing component names by a root path is a file under public. */

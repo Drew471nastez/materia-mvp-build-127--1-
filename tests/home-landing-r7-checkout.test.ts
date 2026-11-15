@@ -114,7 +114,8 @@ check("seven products, five on a phone", FLOATS.length === 7 && FLOATS.filter((f
 check("one turn, transform only, in 3D", onlyCompositor(lap) && /rotateY/.test(lap) && /translate3d/.test(lap) && !/filter/.test(lap))
 // Changed on purpose (landing round 8): the float is what runs by itself.
 // Changed on purpose (landing round 9): no float on top; the ring's turn is the loop, paused until the stage is on screen.
-check("the ring's turn paused until the stage is on screen in a visible tab", /\.cmc-o\{animation:cmc-orbit [^}]*animation-play-state:paused\}/.test(css) && /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /useCommerceLive<HTMLDivElement>\("0px 0px", false\)/.test(src))
+/* Changed on purpose (wave 17): the stage wakes a screen ahead (it popped in on an iPhone recording); still paused off screen beyond that and in a hidden tab. */
+check("the ring's turn paused until the stage is on screen in a visible tab", /\.cmc-o\{animation:cmc-orbit [^}]*animation-play-state:paused\}/.test(css) && /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /useCommerceLive<HTMLDivElement>\("100% 0px", false\)/.test(src))
 // Changed on purpose (landing round 9): the ring is in the phone's own 3D space and comes with it.
 check("the ring is in the phone's 3D space and moves with it", /class="cmc-world"><div class="cmc-orbit"/.test(co) && /\.cmc-world\{[^}]*transform-style:preserve-3d/.test(css))
 

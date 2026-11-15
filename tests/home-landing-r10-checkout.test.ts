@@ -70,7 +70,8 @@ console.log("\n2. As the cards come up, the phone and the ring step back")
 check("the wrap round the 3D space gets a little smaller and fades to 55%, on the timeline", /\.cmc-phone-wrap\{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain 48svh contain 100svh\}/.test(tl) && /^from\{opacity:1;transform:scale\(1\)\}to\{opacity:0\.55;transform:scale\(0\.92\)\}$/.test(keyframes("cmc-recede")))
 check("  the 3D space itself is never faded or filtered (that would flatten it)", !/\.cmc-(world|orbit|o)\{[^}]*(opacity|filter|mask|overflow)/.test(css) && !/\.cmc-(world|orbit|o)\{animation:cmc-(recede|out|in)/.test(css))
 check("  the headline fades before the cards reach it", /\.cmc-copy\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 86svh contain 116svh\}/.test(tl))
-check("the ring keeps turning behind the cards: its loop still runs on the stage's own observer, paused off screen", /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /const \[stageRef\] = useCommerceLive<HTMLDivElement>\("0px 0px", false\)/.test(src) && /<div ref=\{stageRef\} className="cmc-stage">/.test(src))
+/* Changed on purpose (wave 17): the stage wakes a screen ahead (it popped in on an iPhone recording); still paused off screen beyond that and in a hidden tab. */
+check("the ring keeps turning behind the cards: its loop still runs on the stage's own observer, paused off screen", /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /const \[stageRef\] = useCommerceLive<HTMLDivElement>\("100% 0px", false\)/.test(src) && /<div ref=\{stageRef\} className="cmc-stage">/.test(src))
 
 console.log("\n3. Blurred, without blurring anything in the browser")
 const stage = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))

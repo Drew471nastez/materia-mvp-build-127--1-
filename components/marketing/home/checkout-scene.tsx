@@ -300,7 +300,8 @@ function Orbit() {
 export function CheckoutScene() {
   const rootRef = useRef<HTMLElement>(null)
   /* The ring turns only while the stage is on screen in a visible tab (no React state: the attribute runs or pauses the CSS). */
-  const [stageRef] = useCommerceLive<HTMLDivElement>("0px 0px", false)
+  /* Wave 17: the ring wakes a screen ahead, so on a phone its layers are painted before it scrolls in (it popped in on an iPhone). */
+  const [stageRef] = useCommerceLive<HTMLDivElement>("100% 0px", false)
   useEntrances(rootRef)
   const words = CHECKOUT_HEADING.split(" ")
 
@@ -485,7 +486,7 @@ function PageBar() {
         </span>
       </span>
       <span className="pc-who">
-        <img className="pc-av" src={AVATAR} alt="" width={28} height={28} loading="lazy" decoding="async" />
+        <img className="pc-av" src={AVATAR} alt="" width={28} height={28} />
         <span>{SELLER}</span>
       </span>
       <span className="pc-cont">Continue shopping</span>
@@ -850,7 +851,7 @@ function VisConvertDesk() {
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </span>
-              <img className="cdx-av" src={AVATAR} alt="" loading="eager" decoding="async" width={56} height={56} />
+              <img className="cdx-av" src={AVATAR} alt="" width={56} height={56} />
               <span className="cdx-shop">{SELLER}</span>
               <span className="cdx-cont">Continue shopping</span>
             </div>
