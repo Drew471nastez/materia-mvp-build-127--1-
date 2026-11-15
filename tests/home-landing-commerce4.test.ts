@@ -118,14 +118,17 @@ console.log("\nThe checkout scene")
 /* Changed on purpose (landing round 5): no view timelines and no orbit. The phone is there from the first pixel and slides up once as the section comes in (one observer, a CSS transition); the cards come up over it with plain scroll. tests/home-landing-r5-checkout.test.ts pins the rest. */
 check("the phone is there from the start and slides up once as the section comes in; the words follow", () => {
   // Changed on purpose (landing round 8): a scroll timeline turns the objects (transform only); the phone, the words and the cards still come in by observer and transition.
-  assert.ok(/\.cmc-o\{animation:cmc-turn linear both;animation-timeline:--cmc-t/.test(coCss) && !/\.cmc-(rise|copy|card)[^{]*\{[^}]*animation-timeline/.test(coCss))
+  // Changed on purpose (landing round 9): the owner's choreography: the phone comes first, big; the stage holds about a screen while the scroll brings it down and reveals the headline (a scroll timeline of transform and opacity); the cards still come in by observer and transition.
+  assert.ok(/\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t/.test(coCss) && /\.cmc-w\{animation:cmc-word [^;]*both;animation-timeline:--cmc-t\}/.test(coCss) && !/\.cmc-card[^{]*\{[^}]*animation-timeline/.test(coCss))
   /* Changed on purpose (landing round 7): the phone rises from lower (34%) when its own box comes up the screen, so the rise is seen. */
-  assert.ok(/\.cmc\[data-cmc-in-armed\]:not\(\[data-cmc-in\]\) \.cmc-rise\{transform:translate3d\(0,34%,0\)/.test(coCss))
+  // Changed on purpose (landing round 9): no rise by observer; the phone is big and centred when the section arrives and comes down with the scroll.
+  assert.ok(/@keyframes cmc-settle\{from\{transform:translate3d\(0,0,0\)\}/.test(coCss) && !/data-cmc-in/.test(coCss))
   const n = CHECKOUT_HEADING.split(" ").length
   assert.equal((co.match(/class="cmc-w"/g) ?? []).length, n)
 })
 check("the cards come up over the phone with the page", () => {
-  assert.ok(/\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(64svh \* -1\) 0 0/.test(coCss) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5/.test(coCss))
+  // Changed on purpose (landing round 9): 56svh, with the one screen hold.
+  assert.ok(/\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(56svh \* -1\) 0 0/.test(coCss) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5/.test(coCss))
 })
 check("the scroll never steps through a payment on the phone", () => {
   const phone = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))

@@ -53,7 +53,8 @@ check("  and those words are in the real components", ["Your details", "Email me
 check("its sizes are the real page's classes: 44px fields with 8px corners, a 48px Pay, the grey order", /h-11 w-full/.test(ui) && /height:44px;padding:0 14px;border-radius:8px/.test(rule(".pc-in")) && /height:48px/.test(rule(".pc-pay")) && /background:#f8f9fa/.test(rule(".pc-sum")))
 // Changed on purpose (landing round 7): the page has no wallet choice ring; its express Apple Pay button is black, 44px, over OR.
 check("the express Apple Pay button is black and 44px, as Stripe draws it on the page", /height:44px;border-radius:8px;background:#000/.test(rule(".pc-ap")))
-check("laid out at the iPhone's width (393 x 852) and scaled whole in one transform, no em rewrite", /width:393px;height:852px;transform-origin:0 0;transform:scale\(var\(--k\)\)/.test(rule(".cmc-ui")) && /--k:tan\(atan2\(calc\(var\(--pw\) \* \.915\),393px\)\)/.test(css))
+// Changed on purpose (landing round 9): the scale divides a registered length (computed to pixels first), which WebKit needs to get the division right.
+check("laid out at the iPhone's width (393 x 852) and scaled whole in one transform, no em rewrite", /width:393px;height:852px;transform-origin:0 0;transform:scale\(var\(--k\)\)/.test(rule(".cmc-ui")) && /--cmc-len:calc\(var\(--pw\) \* \.915\);--k:tan\(atan2\(var\(--cmc-len\),393px\)\)/.test(css))
 check("under Safari's status bar and its floating address bar", stage.includes('class="rc-safari"') && w.includes("storelib.com") && stage.includes('class="cmc-status"'))
 // Changed on purpose (landing round 7): the label names the checkout page.
 check("a picture to a screen reader, nothing in it focusable", /role="img" aria-label="Storelib&#x27;s checkout page on a phone/.test(co) && /class="cmc-screen" aria-hidden="true" inert=""/.test(co))
@@ -65,14 +66,19 @@ console.log("\nSmooth: the phone is there, then the cards come up over it with t
 check("the objects turn with the page on a scroll timeline (transform only); no blurred pictures", /view-timeline:--cmc-t block/.test(src) && /cmc-orbit/.test(src) && !existsSync("public/home/commerce/float-ebook.webp") && !existsSync("public/home/commerce/float-cap-blur.webp") && !/filter:\s*blur/.test(src))
 check("one observer, no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 1 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
 // Changed on purpose (landing round 7): each part (headline, phone, cards) is armed on its own attribute.
-check("armed only while a part is wholly below the screen, so a part mounted on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /if \(root\.hasAttribute\(`\$\{attr\}-armed`\)\) root\.setAttribute\(attr, ""\)/.test(src))
+// Changed on purpose (landing round 9): one part (the cards), so the attribute is named.
+check("armed only while a part is wholly below the screen, so a part mounted on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /if \(root\.hasAttribute\("data-cmc-over-armed"\)\) root\.setAttribute\("data-cmc-over", ""\)/.test(src))
 // Changed on purpose (landing round 7): the phone rises from 34% low as its own box comes up the screen, so the rise is seen.
-check("the rise is a transform transition from below (34%), never from off screen", /\.cmc-rise\{transition:transform 1\.1s/.test(css) && /\.cmc\[data-cmc-in-armed\]:not\(\[data-cmc-in\]\) \.cmc-rise\{transform:translate3d\(0,34%,0\);transition-duration:0s\}/.test(css))
+// Changed on purpose (landing round 9): the owner: the phone comes first and comes down with the scroll; a scroll timeline of transform.
+check("the phone's move is a transform on the scroll timeline, never from off screen", /\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t;animation-range:contain 0% contain \d+%\}/.test(css) && !/data-cmc-in/.test(css))
 // Changed on purpose (landing round 7): the words are armed by the headline's own attribute.
-check("  the words fade and lift, transform and opacity only", /\.cmc\[data-cmc-words-armed\]:not\(\[data-cmc-words\]\) \.cmc-w\{opacity:0;transform:translate3d\(0,\.36em,0\)/.test(css) && /\.cmc-w\{transition:opacity \.55s ease,transform \.8s/.test(css))
-check("the stage is held by sticky for 80svh, the cards pulled up 64svh: 16svh of phone alone, then the cards cover it", /\.cmc-track\.cmc-track\{[^}]*height:calc\(100svh \+ 80svh\)/.test(css) && /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(css) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5;[^}]*margin:calc\(64svh \* -1\) 0 0/.test(css))
+// Changed on purpose (landing round 9): the owner: the heading "should not be there by default", it is revealed as the page scrolls; each word on the scroll timeline.
+check("  the words fade and lift, transform and opacity only", /@keyframes cmc-word\{from\{opacity:0;transform:translate3d\(0,\.55em,0\)\}to\{opacity:1;transform:translate3d\(0,0,0\)\}\}/.test(css) && /\.cmc-w\{animation:cmc-word [^;]*both;animation-timeline:--cmc-t\}/.test(css))
+// Changed on purpose (landing round 9): the owner asked for a short sticky stage here: one screen, the cards pulled up 56svh.
+check("the stage is held by sticky for one screen, the cards pulled up 56svh", /\.cmc-track\.cmc-track\{height:calc\(100svh \+ 100svh\)/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5;[^}]*margin:calc\(56svh \* -1\) 0 0/.test(css))
 // Changed on purpose (landing round 7): the phone is centred under the headline; up to 390px wide on a computer.
-check("the phone is a little bigger on a computer (up to 390px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{--hd:68px;[^}]*--pw:min\(390px,/.test(css))
+// Changed on purpose (landing round 9): the owner: "the phone is bigger".
+check("the phone is a little bigger on a computer (up to 400px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{--hd:68px;[^}]*--pw:min\(400px,/.test(css))
 // Changed on purpose (landing round 7): One-tap is the page's Apple Pay, the wallet's sheet and Payment complete.
 check("the One-tap demo's moves are transform and opacity", ["pc-press", "ap-sheet", "ap-done", "pc-paid"].every((k) => keyframes(k) && onlyCompositor(keyframes(k))))
 // Changed on purpose (landing round 8): no tabs and no autoplay: the four demos are cards, each running while it is on screen.

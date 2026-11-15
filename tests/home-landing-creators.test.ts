@@ -113,7 +113,8 @@ check("the scroll never steps through a payment, and no scroll listener, rAF or 
   assert.ok(!/data-step|cmc-band|Face ID|Payment complete/.test(stage))
   assert.ok(!/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offset(Top|Height)|useState\(0\)/.test(src))
   /* Changed on purpose (landing round 5): no view timelines; the stage is held by the browser's own sticky scrolling and the cards come up over it. */
-  assert.ok(/\.cmc-stage\{position:sticky;top:0;height:100svh/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
+  // Changed on purpose (landing round 9): held only where scroll timelines exist (otherwise the finished scene, nothing held).
+  assert.ok(/\.cmc-stage\{position:sticky;top:0\}/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
 })
 check("no purple glow, no Golden Hour presets, less fans", () => {
   const src = read(CO)
