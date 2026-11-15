@@ -241,7 +241,8 @@ console.log("\nCommerce: images")
   // Changed on purpose (landing round 7): Linde Woodshop's five pictures; the cap and the print stay for the checkout scene; the street course still is gone.
   // Changed on purpose (landing round 8): the tee in place of the apron and the bench (the LUT pack's still is section 3's file).
   // Changed on purpose (landing round 9): the white tee and the lesson still are deleted with their cards.
-  check("public/home/how holds the cap and print and the woodshop's two pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,linde-avatar.webp,print-lasalle.webp,site-workshop.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 10): the workshop picture went with his website on the domain card.
+  check("public/home/how holds the cap and print and the woodshop's avatar, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,linde-avatar.webp,print-lasalle.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }

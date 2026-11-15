@@ -1513,6 +1513,8 @@ const SUITES = [
   "tests/home-landing-r9-purple.test.ts",
   /* Landing round 10 (heights): on a MacBook Air at 100% (about 1440x800) the AI tools card, the app's stage, the analytics cards and the map card are held to the screen's height (svh caps, a short laptop block), pricing pads less there, the earnings heading stays one line. */
   "tests/home-landing-r10-heights.test.ts",
+  /* Landing round 10 (how): "Use your own domain" as one address on a white band, its ending gliding a step at a time through a still mask (the engines card's idea, light, CSS only); the pictures stop at half the screen's height on a computer. */
+  "tests/home-landing-r10-how.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
