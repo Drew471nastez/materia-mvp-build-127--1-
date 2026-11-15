@@ -267,7 +267,7 @@ check("the dot at the end travels with the line, in the same frame, instead of v
   check("the curve never goes under the lowest point, so a day with nothing stays on the axis", controlYs.length === 12 && controlYs.every((y) => y <= floor + 0.05) && monotonePath(xs, ys).startsWith("M0,100C"))
   check("and rises at most a little over the highest", controlYs.every((y) => y >= peak - (floor - peak) * 0.08 - 0.05))
   /* The two equal days at 20 (x 20 to 30): their segment's control points leave the line, a rounded top, not a flat one. */
-  check("two equal days are a rounded hill, not a flat top", nums.slice(14, 20).length === 6 && (nums[15] !== 20 || nums[17] !== 20), nums.slice(14, 20))
+  check("two equal days are a rounded hill, not a flat top", nums.slice(14, 20).length === 6 && (nums[15] !== 20 || nums[17] !== 20), JSON.stringify(nums.slice(14, 20)))
 }
 check("the scale never changes its number of intervals", /export const INTERVALS = 3/.test(MORPH) && /Array\.from\(\{ length: INTERVALS \+ 1 \}/.test(MORPH))
 check("the axis numbers fade in and out in the stylesheet, with reduced motion respected",
