@@ -7,7 +7,10 @@
   not the old "S" icon. Google Ads: its three shapes in Google's colours.
   Paths from the brands' published SVGs (Wikimedia Commons copies of the
   Apple Pay, Google Pay and Stripe marks; Simple Icons for the Ads shapes).
+  Landing round 8: TikTok and Google Calendar drawn here too (below).
 */
+
+import { useId } from "react"
 
 type MarkProps = { className?: string }
 
@@ -62,6 +65,65 @@ export function GoogleAdsMark({ className }: MarkProps) {
       <path fill="#FBBC04" d="M7.5137 4.8438L1.5645 15.1484A4.5 4.5 0 0 1 4 14.4297c2.5597-.0075 4.6248 2.1585 4.4941 4.7148l3.2168-5.5723-3.6094-6.25c-.4499-.7793-.6322-1.6394-.5878-2.4784z" />
       <path fill="#4285F4" d="M23.4641 16.9287L15.4632 3.072C14.3586 1.1587 11.9121.5028 9.9988 1.6074S7.4295 5.1585 8.5341 7.0718l8.0009 13.8567c1.1046 1.9133 3.5511 2.5679 5.4644 1.4646 1.9134-1.1046 2.568-3.5511 1.4647-5.4644z" />
       <path fill="#34A853" d="M3.9998 22.9291C1.7908 22.9291 0 21.1383 0 18.9293s1.7908-3.9998 3.9998-3.9998 3.9998 1.7908 3.9998 3.9998-1.7908 3.9998-3.9998 3.9998z" />
+    </svg>
+  )
+}
+
+/*
+  TIKTOK (landing round 8, the owner: "the TikTok icon is incorrect"). The
+  tile drew the note three times through the icon set's colour prop, and the
+  white one never took its colour, so the note came out red with a cyan
+  edge. TikTok's own mark is two notes, cyan (#25F4EE) nudged up and left
+  and red (#FE2C55) nudged down and right, and white exactly where the two
+  overlap. Drawn that way here: the white is the red note clipped to the
+  cyan one, so every fringe is the width TikTok draws it and no wider. The
+  note is TikTok's glyph (Simple Icons, CC0). The clip's id is per instance
+  (useId), because each tile is drawn twice in its row.
+*/
+const TIKTOK_NOTE =
+  "M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"
+/** How far each colour is nudged, in the note's 24 units (about 2.5% of it, as on TikTok's icon). */
+export const TIKTOK_NUDGE = 0.6
+
+export function TikTokMark({ className }: MarkProps) {
+  const id = `tt${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  const cyan = `translate(${-TIKTOK_NUDGE} ${-TIKTOK_NUDGE})`
+  const red = `translate(${TIKTOK_NUDGE} ${TIKTOK_NUDGE})`
+  return (
+    <svg viewBox="-1 -1 26 26" className={className} aria-hidden="true" focusable="false" data-mark="tiktok">
+      <defs>
+        <clipPath id={id}>
+          <path d={TIKTOK_NOTE} transform={cyan} />
+        </clipPath>
+      </defs>
+      <path fill="#25F4EE" d={TIKTOK_NOTE} transform={cyan} />
+      <path fill="#FE2C55" d={TIKTOK_NOTE} transform={red} />
+      <path fill="#FFFFFF" d={TIKTOK_NOTE} transform={red} clipPath={`url(#${id})`} />
+    </svg>
+  )
+}
+
+/*
+  GOOGLE CALENDAR, the 2020 icon in its own colours: the blue frame with its
+  darker top right corner, yellow down the right, green along the foot, the
+  dark green corner, the folded red corner, and the blue 31 on white. It was
+  the one colour Simple Icons glyph, which is not what the app looks like.
+  Drawn on a 200 unit square from Google's published geometry.
+*/
+export function GoogleCalendarMark({ className }: MarkProps) {
+  return (
+    <svg viewBox="0 0 200 200" className={className} aria-hidden="true" focusable="false" data-mark="google-calendar">
+      <path fill="#FFFFFF" d="M152.63 47.37H47.37v105.26h105.26z" />
+      <path fill="#EA4335" d="M152.63 200 200 152.63h-47.37z" />
+      <path fill="#FBBC04" d="M200 47.37h-47.37v105.26H200z" />
+      <path fill="#34A853" d="M152.63 152.63H47.37V200h105.26z" />
+      <path fill="#188038" d="M0 152.63v31.58C0 192.93 7.07 200 15.79 200h31.58v-47.37z" />
+      <path fill="#1967D2" d="M200 47.37V15.79C200 7.07 192.93 0 184.21 0h-31.58v47.37z" />
+      <path fill="#4285F4" d="M152.63 0H15.79C7.07 0 0 7.07 0 15.79v136.84h47.37V47.37h105.26z" />
+      <path
+        fill="#4285F4"
+        d="M68.96 133.96c-3.93-2.66-6.66-6.54-8.14-11.67l9.13-3.76c.83 3.16 2.28 5.61 4.34 7.34 2.05 1.74 4.55 2.59 7.47 2.59 2.99 0 5.55-.91 7.7-2.72 2.15-1.81 3.22-4.12 3.22-6.92 0-2.86-1.13-5.2-3.39-7.01-2.26-1.81-5.09-2.72-8.47-2.72h-5.28v-9.04h4.74c2.92 0 5.38-.79 7.38-2.37 2-1.58 3-3.74 3-6.49 0-2.45-.9-4.39-2.69-5.85-1.79-1.46-4.06-2.2-6.81-2.2-2.69 0-4.82.71-6.4 2.15a12.62 12.62 0 0 0-3.45 5.3l-9.04-3.76c1.2-3.39 3.4-6.39 6.63-8.98 3.23-2.59 7.36-3.9 12.37-3.9 3.71 0 7.05.71 10.01 2.15 2.96 1.43 5.28 3.42 6.96 5.95 1.68 2.54 2.51 5.38 2.51 8.53 0 3.22-.78 5.93-2.33 8.16-1.55 2.23-3.45 3.93-5.71 5.11v.54a17.35 17.35 0 0 1 7.33 5.71c1.9 2.56 2.86 5.62 2.86 9.19 0 3.57-.91 6.76-2.72 9.56-1.81 2.8-4.32 5-7.49 6.6-3.19 1.6-6.77 2.41-10.75 2.41-4.61.01-8.86-1.31-12.79-3.97zM124.98 88.69l-10.03 7.25-5.01-7.61 17.99-12.97h6.9v61.17h-9.85z"
+      />
     </svg>
   )
 }

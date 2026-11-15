@@ -25,6 +25,20 @@ import { DotField } from "./dot-field"
   even grid again with a slow current of light flowing through it by
   itself, and the pointer's light gliding after the mouse (dot-field.tsx).
   The block sits in the page's one width (--home-edge, app/globals.css).
+
+  Round 8, the owner: the dots "a little more visible, just a little bit",
+  moving by themselves and following the mouse, smoother and cleaner
+  (dot-field.tsx: round dots, a light that wanders on its own and glides
+  after the mouse while it is over the field, 60 frames a second, paused off
+  screen). There are no graphs here; the flowing field is the motion. And
+  "the section should fade very nicely into the footer, but the footer
+  should still have some depth/border": the field fades out well before
+  the section's foot (fade="close"), so the call ends on plain black, and
+  the footer starts on that same black, so nothing cuts across. What marks
+  the footer as the footer is its top edge: one hairline of light, brightest
+  in the middle and gone at both sides, a soft light falling a little way
+  under it, and a ground that lifts very slightly before it settles. All
+  of it is still background (gradients and a 1px line), nothing that moves.
 */
 const STYLES = `
 .fcta{position:relative;isolation:isolate;background:transparent;color:#fff;padding:clamp(88px,10vw,152px) var(--home-edge,clamp(20px,5.15vw,84px)) clamp(80px,9vw,136px)}
@@ -45,9 +59,9 @@ const STYLES = `
 @media(prefers-reduced-motion:reduce){
   .fcta-btn{transition:none}
 }
-/* The footer under it, on the home page only (this sheet of rules is only drawn there): the same near-black, no lit top edge or glow, so there is no seam. */
-footer.storelib-footer{background-color:#050506;background-image:linear-gradient(180deg,#050506 0%,#030304 100%);box-shadow:none}
-footer.storelib-footer::before{content:none}
+/* The footer under it, on the home page only (this sheet of rules is only drawn there). Round 8: it starts on the call's own black, so the call fades into it, and its top edge gives it depth: a hairline faded at both ends, a faint light under it, the ground lifting a touch. */
+footer.storelib-footer{background-color:#050506;background-image:radial-gradient(ellipse 60% 140px at 50% 0%,rgba(255,255,255,.045),transparent 100%),linear-gradient(180deg,#050506 0%,#0a0a0c 140px,#060607 55%,#030304 100%);box-shadow:inset 0 18px 36px -30px rgba(255,255,255,.06)}
+footer.storelib-footer::before{content:"";background:linear-gradient(90deg,transparent 4%,rgba(255,255,255,.07) 22%,rgba(255,255,255,.16) 50%,rgba(255,255,255,.07) 78%,transparent 96%)}
 `
 
 function Arrow() {
@@ -63,7 +77,7 @@ export function FinalCta() {
   return (
     <section className="fcta" data-final-cta="" aria-labelledby="fcta-title">
       <style>{STYLES}</style>
-      <DotField fade="edges" />
+      <DotField fade="close" />
       <div className="fcta-in">
         <span className="fcta-mark" aria-hidden="true">
           <StorelibLogo size={44} />

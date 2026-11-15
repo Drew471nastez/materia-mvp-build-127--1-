@@ -41,6 +41,30 @@
   most twice a second while the mouse moves). Reduced motion: one still
   frame.
 
+  Landing round 8, the owner, of the closing call: the dots "a little more
+  visible, just a little bit", "they can autoplay motion graphics alone,
+  and also follow the mouse", and smoother and cleaner. So:
+
+    visible  the dark tone rests at 0.19 (was 0.15) and lights to 0.46
+             (was 0.4); the purple sheet's tone is unchanged.
+    round    each dot is a small round dot (an arc), not a 1.25px square
+             that read as a pixel, in 32 levels of brightness (was 24), so
+             the bands of the flow shade smoothly.
+    alone    the light wanders through the field by itself at 0.6 of its
+             strength on every device, mouse or not, so the field moves
+             with nobody touching it.
+    mouse    while the mouse is over the field the light glides after it at
+             full strength; when the mouse leaves the field (it is compared
+             with the box's place, already known, never measured in the
+             loop) the light glides back onto its own path. No jump either
+             way: the same dt-timed lerp carries every change.
+    even     it draws at up to 60 frames a second whenever it runs (a 120Hz
+             screen draws every other frame, evenly), not 30 when only the
+             flow moves: at 30 the wandering light stepped.
+    close    fade="close" (the closing call): faded at the sides like
+             "edges" and well before the bottom, so the section's dots are
+             gone by the time the footer starts.
+
   Put <DotField /> as the first child of a dark block that is a stacking
   context (position plus z-index, or isolation: isolate); it fills it,
   behind everything else (z-index -1, pointer-events: none). `style` can
@@ -55,6 +79,7 @@ import { useEffect, useRef, type CSSProperties } from "react"
 export const DOT_FIELD_CSS = `
 .dotf{position:absolute;inset:0;z-index:-1;overflow:clip;pointer-events:none}
 .dotf[data-fade="edges"]{-webkit-mask-image:radial-gradient(120% 90% at 50% 45%,#000 35%,transparent 80%);mask-image:radial-gradient(120% 90% at 50% 45%,#000 35%,transparent 80%)}
+.dotf[data-fade="close"]{-webkit-mask-image:radial-gradient(115% 80% at 50% 38%,#000 32%,transparent 76%);mask-image:radial-gradient(115% 80% at 50% 38%,#000 32%,transparent 76%)}
 .dotf[data-fade="bottom"]{-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 45%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 45%,transparent 100%)}
 .dotf canvas{display:block;width:100%;height:100%;opacity:0;transition:opacity .9s ease-out}
 .dotf[data-drawn] canvas{opacity:1}
@@ -67,7 +92,7 @@ export const DOT_FIELD_CSS = `
  * too (the owner: nothing purple on the purple, not even light purple).
  */
 export const DOT_FIELD_TONES = {
-  dark: { rgb: "255,255,255", rest: 0.15, lit: 0.4 },
+  dark: { rgb: "255,255,255", rest: 0.19, lit: 0.46 },
   purple: { rgb: "255,255,255", rest: 0.12, lit: 0.32 },
 } as const
 
@@ -79,7 +104,11 @@ const RADIUS = 180
 const FOLLOW = 0.075
 /** How far the dots part under the light, in CSS px. */
 const PART = 6
-const LEVELS = 24
+const LEVELS = 32
+/** How strong the light is on its own path, with no mouse over the field. */
+const WANDER = 0.6
+/** A dot's radius, in CSS px. */
+const DOT_R = 0.8
 /** The darkest a dot gets in the trough of the flow, as a share of its crest. */
 const TROUGH = 0.3
 
@@ -132,8 +161,8 @@ export function DotField({
 }: {
   /** Distance between dots in CSS pixels. Default 18. */
   gap?: number
-  /** Where the field fades out: toward every edge, toward the bottom, or not at all. */
-  fade?: "edges" | "bottom" | "none"
+  /** Where the field fades out: toward every edge, toward the bottom, toward the sides and well before the bottom (the closing call), or not at all. */
+  fade?: "edges" | "bottom" | "close" | "none"
   /** "dark" for a near-black ground, "purple" for the brand purple. */
   tone?: "dark" | "purple"
   className?: string
@@ -172,28 +201,30 @@ export function DotField({
     let aimX = 0
     let aimY = 0
     let hasAim = false
-    let movedAt = -1e9
     let lightX = 0
     let lightY = 0
     let strength = 0
     let started = false
 
     const buckets: number[][] = Array.from({ length: LEVELS }, () => [])
-    const size = 1.25
 
     const draw = (t: number, dt: number) => {
       /* Where the light is: the mouse (followed), or a slow wander of its own. */
       let tx: number
       let ty: number
       let goal: number
-      if (hasAim) {
-        tx = aimX - pageX
-        ty = aimY - pageY
+      /* The mouse, while it is over the field (its place is known: no layout read here). */
+      const mx = aimX - pageX
+      const my = aimY - pageY
+      if (hasAim && mx > -40 && my > -40 && mx < w + 40 && my < h + 40) {
+        tx = mx
+        ty = my
         goal = 1
       } else {
         tx = w * (0.5 + 0.32 * Math.sin(t * 0.00011))
         ty = h * (0.42 + 0.26 * Math.sin(t * 0.000083 + 1.3))
-        goal = fine ? 0.35 : 0.5
+        /* The purple sheet keeps its quieter wander (round 7); the closing call's light is out on its own. */
+        goal = tone === "dark" ? WANDER : fine ? 0.35 : 0.5
       }
       const k = 1 - Math.pow(1 - FOLLOW, dt / 16.67)
       if (!started) {
@@ -237,7 +268,10 @@ export function DotField({
         if (!b.length) continue
         ctx.fillStyle = `rgba(${colour.rgb},${((l / (LEVELS - 1)) * colour.lit).toFixed(3)})`
         ctx.beginPath()
-        for (let j = 0; j < b.length; j += 2) ctx.rect(b[j] - size / 2, b[j + 1] - size / 2, size, size)
+        for (let j = 0; j < b.length; j += 2) {
+          ctx.moveTo(b[j] + DOT_R, b[j + 1])
+          ctx.arc(b[j], b[j + 1], DOT_R, 0, Math.PI * 2)
+        }
         ctx.fill()
       }
     }
@@ -268,8 +302,8 @@ export function DotField({
     let near = false
     const frame = (t: number) => {
       raf = requestAnimationFrame(frame)
-      /* At most 60 a second while a mouse moves the light (a 120Hz screen draws every other frame, evenly); 30 when only the flow moves, a second and a half after the mouse rests. The first frame after a start always draws. */
-      if (last && t - last < (t - movedAt < 1500 ? 12 : 28)) return
+      /* At most 60 a second, always (a 120Hz screen draws every other frame, evenly): the light wanders on its own now, and at 30 it stepped. The first frame after a start always draws. */
+      if (last && t - last < 12) return
       const dt = last ? Math.min(64, t - last) : 16.67
       last = t
       draw(t, dt)
@@ -290,7 +324,6 @@ export function DotField({
       aimX = e.clientX + window.scrollX
       aimY = e.clientY + window.scrollY
       hasAim = true
-      movedAt = e.timeStamp
       if (e.timeStamp - placedAt > 500) place()
     }
     const onLeave = () => {

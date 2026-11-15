@@ -41,17 +41,41 @@
   The tiles' shadows have room: each row clips sideways only, with room
   above and below for the shadow and the lift, and the fades at both ends
   run the rows' full height.
+
+  LANDING ROUND 8, THE OWNER:
+    dots     "very subtle, extremely subtle, almost invisible light grey dots
+             dispersing, going around, very smooth and clean, in some
+             corners, fading". <CornerDots> below: one canvas behind the
+             section, two soft clouds of grey dots, one in the top right
+             beside the heading and one in the bottom left under the rows.
+             Each dot circles its corner slowly and drifts outward as it
+             goes, fading in as it leaves and out before it reaches the
+             cloud's edge, then starts again near the corner, so the cloud
+             seems to breathe out and turn. They are at most 16% grey, most far fainter. The
+             loop runs only while the section is on screen and the tab is
+             visible (usePlatformSection's `live`), at up to 60 frames a
+             second, reads no layout, holds no React state; under reduced
+             motion it draws one still frame.
+    TikTok   the tile came out red with a cyan edge (the white note never took
+             its colour). It is TikTok's mark now, drawn as TikTok draws it:
+             a cyan note and a red note, white where they overlap
+             (./integration-marks TikTokMark).
+    accurate the list checked against lib/integrations/catalog.ts again: every
+             app a store can connect today (nothing marked Coming soon, no
+             built in Storelib feature), plus PostHog and Google Calendar,
+             which Send analytics and bookings connect to, and Stripe with
+             the Apple Pay and Google Pay it brings. Google Calendar's tile
+             is its real four colour icon now (GoogleCalendarMark), not the
+             one colour glyph.
 */
 
 import { useEffect, useRef, type CSSProperties, type ComponentType } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { SiAftership } from "@/components/icons/brand/SiAftership"
 import { SiBrevo } from "@/components/icons/brand/SiBrevo"
-import { SiGooglecalendar } from "@/components/icons/brand/SiGooglecalendar"
 import { SiPinterest } from "@/components/icons/brand/SiPinterest"
 import { SiPosthog } from "@/components/icons/brand/SiPosthog"
-import { SiTiktok } from "@/components/icons/brand/SiTiktok"
-import { ApplePayMark, GoogleAdsMark, GooglePayMark, StripeMark } from "./integration-marks"
+import { ApplePayMark, GoogleAdsMark, GoogleCalendarMark, GooglePayMark, StripeMark, TikTokMark } from "./integration-marks"
 import { KitLogo, KlaviyoLogo, MailerLiteLogo } from "./email-platform-logos"
 import { usePlatformSection } from "./platform-motion"
 import m from "./platform.module.css"
@@ -76,8 +100,6 @@ type App = {
   /** "cover" for a file that is already a square app icon; otherwise it is contained at `scale` of the tile. */
   fit?: "cover"
   scale?: number
-  /** TikTok's mark carries its cyan and red echo, as its app icon does. */
-  echo?: boolean
 }
 
 /* Neighbours differ in colour; payments lead. */
@@ -87,7 +109,7 @@ const ROWS: App[][] = [
     { name: "Apple Pay", bg: "#000000", mark: ApplePayMark, scale: 0.6 },
     { name: "Google Pay", bg: "#ffffff", mark: GooglePayMark, scale: 0.64 },
     { name: "Klaviyo", bg: "#ffffff", tile: KlaviyoLogo },
-    { name: "TikTok Pixel", bg: "#000000", icon: SiTiktok, color: "#ffffff", echo: true },
+    { name: "TikTok Pixel", bg: "#000000", mark: TikTokMark, scale: 0.6 },
     { name: "Meta Pixel", bg: "#ffffff", logo: "/integrations/meta.svg", scale: 0.62 },
     { name: "Omnisend", bg: "#83ed80", logo: "/home/apps/omnisend.webp", fit: "cover" },
     { name: "Google Analytics", bg: "#ffffff", logo: "/integrations/google-analytics.svg", scale: 0.54 },
@@ -99,7 +121,7 @@ const ROWS: App[][] = [
   ],
   [
     { name: "Printify", bg: "#a9f86c", logo: "/home/apps/printify.webp", fit: "cover" },
-    { name: "Google Calendar", bg: "#ffffff", icon: SiGooglecalendar, color: "#4285f4" },
+    { name: "Google Calendar", bg: "#ffffff", mark: GoogleCalendarMark, scale: 0.56 },
     { name: "Kit", bg: "#44b1ff", tile: KitLogo },
     { name: "Tag Manager", bg: "#ffffff", logo: "/integrations/google-tag-manager.svg", scale: 0.56 },
     { name: "ShipStation", bg: "#11003a", logo: "/home/apps/shipstation.svg", fit: "cover" },
@@ -140,12 +162,6 @@ function Icon({ app }: { app: App }) {
   if (Glyph) {
     return (
       <span className={s.mark}>
-        {app.echo ? (
-          <>
-            <Glyph className={s.echoA} color="#25f4ee" />
-            <Glyph className={s.echoB} color="#fe2c55" />
-          </>
-        ) : null}
         <Glyph className={s.glyph} color={app.color} />
       </span>
     )
@@ -187,6 +203,122 @@ function Tile({ app, copy }: { app: App; copy: boolean }) {
 }
 
 /*
+  THE CORNER DOTS (landing round 8). Two clouds, each anchored just outside
+  a corner of the section. A dot has an angle round its corner, a distance
+  from it and a speed; each frame it turns a little and moves out a little.
+  Its alpha rises over the first fifth of its way out and falls to nothing
+  well before the cloud's edge, so no dot is ever cut off or pops: a dot
+  that reaches the edge is already invisible when it starts again near the
+  corner. Everything is in CSS px of the section box, which is read only
+  on resize (a ResizeObserver), never in the loop.
+*/
+type Cloud = { ax: number; ay: number; reach: number }
+/** Dots per cloud; fewer on a narrow screen. */
+const CORNER_DOTS = 140
+/** The darkest a dot gets: rgba(24, 24, 27, 0.16), a light grey on white; most are far fainter, on their way in or out. */
+export const CORNER_DOT_ALPHA = 0.16
+const DOT_RGB = "24,24,27"
+const ALPHA_LEVELS = 12
+
+/** Where a dot is and how visible, from its seed and the time (ms). Pure, for tests. */
+export function cornerDot(seed: number, t: number, cloud: Cloud): { x: number; y: number; a: number } {
+  const r1 = fract(Math.sin(seed * 91.7) * 43758.5)
+  const r2 = fract(Math.sin(seed * 12.9 + 4.1) * 24634.6)
+  const r3 = fract(Math.sin(seed * 57.3 + 1.7) * 31415.9)
+  /* One trip out takes 18 to 34 s; each dot starts at its own point of it. */
+  const trip = 18000 + r1 * 16000
+  const p = fract(t / trip + r2)
+  const dist = cloud.reach * (0.06 + 0.94 * p)
+  /* It circles its corner as it goes out, a quarter turn or so per trip, alternate dots the other way. */
+  const turn = (r3 < 0.5 ? 1 : -1) * (0.35 + r1 * 0.5)
+  const angle = r3 * Math.PI * 2 + (t / trip) * turn * Math.PI * 2 * 0.25
+  const x = cloud.ax + Math.cos(angle) * dist
+  const y = cloud.ay + Math.sin(angle) * dist * 0.72
+  const rise = Math.min(1, p / 0.2)
+  const fall = Math.max(0, 1 - p) ** 1.6
+  return { x, y, a: CORNER_DOT_ALPHA * rise * fall * (0.55 + 0.45 * r2) }
+}
+function fract(n: number) {
+  return n - Math.floor(n)
+}
+
+function CornerDots({ live, reduced }: { live: boolean; reduced: boolean }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = ref.current
+    const box = canvas?.parentElement
+    const ctx = canvas?.getContext("2d", { alpha: true })
+    if (!canvas || !box || !ctx) return
+    let w = 0
+    let h = 0
+    let dpr = 1
+    let clouds: Cloud[] = []
+    let count = CORNER_DOTS
+    const buckets: number[][] = Array.from({ length: ALPHA_LEVELS }, () => [])
+    const draw = (t: number) => {
+      for (const b of buckets) b.length = 0
+      for (let c = 0; c < clouds.length; c++) {
+        for (let i = 0; i < count; i++) {
+          const d = cornerDot(c * 997 + i + 1, t, clouds[c])
+          if (d.x < -4 || d.y < -4 || d.x > w + 4 || d.y > h + 4) continue
+          const level = Math.round((d.a / CORNER_DOT_ALPHA) * (ALPHA_LEVELS - 1))
+          if (level > 0) buckets[level].push(d.x, d.y, 0.9 + ((i * 7) % 5) * 0.2)
+        }
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, w, h)
+      for (let l = 1; l < ALPHA_LEVELS; l++) {
+        const b = buckets[l]
+        if (!b.length) continue
+        ctx.fillStyle = `rgba(${DOT_RGB},${((l / (ALPHA_LEVELS - 1)) * CORNER_DOT_ALPHA).toFixed(4)})`
+        ctx.beginPath()
+        for (let j = 0; j < b.length; j += 3) {
+          ctx.moveTo(b[j] + b[j + 2], b[j + 1])
+          ctx.arc(b[j], b[j + 1], b[j + 2], 0, Math.PI * 2)
+        }
+        ctx.fill()
+      }
+    }
+    const resize = () => {
+      const nw = box.clientWidth
+      const nh = box.clientHeight
+      if (!nw || !nh || (nw === w && nh === h)) return
+      w = nw
+      h = nh
+      dpr = Math.min(1.5, window.devicePixelRatio || 1)
+      canvas.width = Math.round(w * dpr)
+      canvas.height = Math.round(h * dpr)
+      const reach = Math.min(560, Math.max(220, w * 0.3))
+      count = w < 640 ? 70 : CORNER_DOTS
+      clouds = [
+        { ax: w + reach * 0.08, ay: -reach * 0.1, reach },
+        { ax: -reach * 0.08, ay: h + reach * 0.12, reach },
+      ]
+      draw(performance.now())
+    }
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null
+    ro?.observe(box)
+    resize()
+    if (!live || reduced) return () => ro?.disconnect()
+    let raf = 0
+    let last = 0
+    const frame = (t: number) => {
+      raf = requestAnimationFrame(frame)
+      /* At most 60 a second: a 120Hz screen draws every other frame, evenly. */
+      if (last && t - last < 12) return
+      last = t
+      draw(t)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro?.disconnect()
+    }
+  }, [live, reduced])
+  return <canvas ref={ref} className={s.dots} aria-hidden="true" data-corner-dots="" />
+}
+
+/*
   One turn, landing where it started: edge on at the half, then round from
   the other side, so the mirrored back never shows. The two halves' easings
   meet at the same speed at the edge, so the turn reads as one smooth motion.
@@ -209,7 +341,7 @@ const TURN_MS = 900
 export function IntegrationsSection() {
   const ref = useRef<HTMLElement>(null)
   const rowsRef = useRef<HTMLDivElement>(null)
-  const { reduced } = usePlatformSection(ref)
+  const { reduced, live } = usePlatformSection(ref)
 
   /* A tile turns once when a pointer reaches it or a finger taps it. Nothing is read from the layout. */
   useEffect(() => {
@@ -246,6 +378,7 @@ export function IntegrationsSection() {
       aria-labelledby="integrations-title"
       className={`${m.root} ${s.clip} bg-white py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#18181b]`}
     >
+      <CornerDots live={live} reduced={reduced} />
       {/* Landing round 7: the shared home width, the heading set in like the showcase's. */}
       <div className="home-wrap">
         <div className="mb-8 ml-[var(--home-head-inset,14px)] max-w-[880px] sm:mb-12">
