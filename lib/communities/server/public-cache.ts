@@ -104,11 +104,16 @@ export async function heldCommunityRead<T>(read: () => Promise<T>, key: string[]
  * A community's public page changed: the next visitor reads it afresh, and its creator's page draws its card afresh.
  * Never in the way of the write it follows.
  */
-export function communityPublicChanged(communityId: string | null | undefined, creatorId?: string | null): void {
+/** Round 66: the CDN's copy of a community's page for strangers (next.config.mjs STRANGER_QUERY). */
+export const communityPageCdnTag = (slug: string) => `community-page:${slug.toLowerCase()}`
+
+export function communityPublicChanged(communityId: string | null | undefined, creatorId?: string | null, slug?: string | null): void {
   if (!communityId) return
   try {
     revalidateTag(communityPublicTag(communityId), { expire: 0 })
     if (creatorId) revalidateTag(communityCardsTag(creatorId), { expire: 0 })
+    /* Round 66: and the copy the CDN holds for strangers. */
+    if (slug) revalidateTag(communityPageCdnTag(slug), { expire: 0 })
   } catch (e) {
     /* Outside a request (a script, a test) there is no cache to clear. */
     console.warn(`[community-cache] ${communityId} not cleared: ${(e as Error).message}`)
@@ -119,11 +124,11 @@ export function communityPublicChanged(communityId: string | null | undefined, c
  * The same, once the request that wrote has answered (next/server `after`),
  * for a gate that runs before the write. Outside a request it clears now.
  */
-export function communityPublicChangedAfter(communityId: string | null | undefined, creatorId?: string | null): void {
+export function communityPublicChangedAfter(communityId: string | null | undefined, creatorId?: string | null, slug?: string | null): void {
   if (!communityId) return
   try {
-    after(() => communityPublicChanged(communityId, creatorId))
+    after(() => communityPublicChanged(communityId, creatorId, slug))
   } catch {
-    communityPublicChanged(communityId, creatorId)
+    communityPublicChanged(communityId, creatorId, slug)
   }
 }
