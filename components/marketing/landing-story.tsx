@@ -122,12 +122,13 @@ export function LandingStory({ children }: { children: ReactNode }) {
       const now = performance.now()
       const y = window.scrollY
       const dt = now - lastAt
-      if (dt > 0) speed = dt > 120 ? 0 : Math.abs(y - lastY) / dt
+      /* A long gap between two events is a busy page in the middle of a fling as often as a new scroll, and that is when this matters most: the distance still counts, up to half a second. */
+      if (dt > 0) speed = dt > 500 ? 0 : Math.abs(y - lastY) / dt
       lastY = y
       lastAt = now
       if (speed > FAST_PX_PER_MS && near.size) for (const el of [...near]) showNow(el)
     }
-    const fast = () => speed > FAST_PX_PER_MS && performance.now() - lastAt < 160
+    const fast = () => speed > FAST_PX_PER_MS && performance.now() - lastAt < 300
     const show = (el: HTMLElement) => {
       delete el.dataset.reveal
       reveal?.unobserve(el)

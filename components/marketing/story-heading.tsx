@@ -68,7 +68,9 @@ function createHeadingInk() {
  * on a touch screen no heading rises, in either path: a phone's scroll runs
  * ahead of the page's own thread, and Safari runs scroll-driven animations on
  * that thread, so a transform tied to the scroll trails it and the heading
- * shakes. The colour may trail by a frame; nobody sees that.
+ * shakes. The colour may trail by a frame; nobody sees that. The rule names
+ * the class alone (three times, for weight), so a heading a section writes
+ * itself (the ideas' turning lines) stands still too.
  */
 export const STORY_CSS = `
 @supports (color:color-mix(in oklab,red 50%,blue)) {
@@ -87,7 +89,7 @@ export const STORY_CSS = `
   .story-heading[data-story-heading][data-story-js] > span {transition:--story-progress 1.1s cubic-bezier(.3,0,.25,1)}
 }
 @media (hover:none) and (pointer:coarse) {
-  .story-heading.story-heading[data-story-heading] {animation:none;transform:none}
+  .story-heading.story-heading.story-heading {animation:none;transform:none}
 }
 `
 let headingInk: ReturnType<typeof createHeadingInk> | undefined

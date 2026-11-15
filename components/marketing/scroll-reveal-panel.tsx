@@ -51,6 +51,15 @@ import type { CSSProperties, ReactNode } from "react"
   its own colour all the way up. Browsers without scroll-driven animations
   and visitors who ask for less motion get the plain lap.
 
+  LANDING ROUND 9: AND SO DOES EVERY TOUCH SCREEN (the owner, on an iPhone:
+  "sometimes when I reach certain sections they stutter"). The rise is a
+  whole sheet, a screen and a half of cards, moved against the scroll. A
+  phone scrolls on its own thread; where the browser runs a scroll-driven
+  animation on the page's thread (Safari), the sheet is placed a frame or
+  more late and trembles as it comes up, and everything inside it with it
+  (measured in WebKit at iPhone 13: the sheet's heading moved 97px against
+  the page in three steps of up to 61px). A computer keeps the rise.
+
   A purple sheet sets the band colours the sections inside read
   (--band-ink, --band-muted, --band-line) and is also [data-band="purple"],
   which the sections' recolouring rules key on (landing-story.tsx BAND_CSS).
@@ -77,7 +86,7 @@ ${BLOCK}+${BLOCK}::before{content:"";position:absolute;z-index:2147483647;left:0
 [data-sheet]:has(+${BLOCK}){padding-bottom:calc(var(--srp-pad) + var(--srp-r) + var(--srp-next-rise))}
 [data-sheet-backdrop]:has(+${BLOCK}){padding-bottom:calc(var(--srp-r) + var(--srp-next-rise))}
 @supports (animation-timeline:view()) {
-  @media (prefers-reduced-motion:no-preference) {
+  @media (prefers-reduced-motion:no-preference) and (hover:hover) and (pointer:fine) {
     ${BLOCK}:has(+[data-sheet-rise]){--srp-next-rise:clamp(96px,14svh,160px)}
     [data-sheet-rise]{--srp-rise:clamp(96px,14svh,160px);animation:srp-rise linear both;animation-timeline:view();animation-range:cover var(--srp-rise) cover calc(var(--srp-rise) + 50svh)}
   }

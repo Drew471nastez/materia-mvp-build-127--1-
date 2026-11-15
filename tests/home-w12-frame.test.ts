@@ -153,7 +153,7 @@ async function main() {
     check("lazySection draws only a box of the section's height on the server", /data-lazy-section="probe"/.test(box) && /min-height:777px/.test(box) && !/loaded/.test(box))
     /* Changed on purpose (wave 14): two and a half screens; at a screen and a half a fling on a phone reached the box before its section. */
     /* Changed on purpose (landing round 9): four screens; a flick on a phone covered two and a half in a third of a second and the owner still saw blank white boxes. */
-    check("it mounts when the box comes within four screens", (LAZY_AHEAD as string) === "400% 0px 400% 0px" && /new IntersectionObserver/.test(src) && /io\.disconnect\(\)\s*mount\(\)/.test(src))
+    check("it mounts when the box comes within four screens", (LAZY_AHEAD as string) === "400% 0px 400% 0px" && /new IntersectionObserver/.test(src) && /* Changed on purpose (landing round 9): the mount is a promise now (it joins the line of sections drawn one at a time), so the call is marked void. */ /io\.disconnect\(\)\s*void mount\(\)/.test(src))
     check("at once for reduced motion, a link into the page, or no observer", /location\.hash\.length > 1/.test(src) && /prefers-reduced-motion: reduce/.test(src) && /typeof IntersectionObserver !== "function"/.test(src))
     check("the code is fetched ahead when idle, after load, not on Save-Data", /requestIdleCallback/.test(src) && /addEventListener\("load"/.test(src) && /saveData/.test(src))
     const kept = renderToStaticMarkup(createElement(LazySection, { name: "faq", minHeight: "900px", children: createElement("h2", null, "Questions") }))

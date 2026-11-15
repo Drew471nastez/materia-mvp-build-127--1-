@@ -16,7 +16,8 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { FAST_PX_PER_MS, FLUNG_AHEAD, FLUNG_OWN, LATE_ABOVE, REVEAL_CSS } from "@/components/marketing/landing-story"
 import { STORY_CSS } from "@/components/marketing/story-heading"
-import { LAZY_AHEAD, LAZY_BUSY_WAIT_MS, LAZY_CODE_LATEST_MS, LAZY_DRAW_AHEAD, LAZY_IDLE_AHEAD, lazySection } from "@/components/marketing/home/lazy-section"
+import { SHEET_CSS } from "@/components/marketing/scroll-reveal-panel"
+import { LAZY_AHEAD, LAZY_BUSY_WAIT_MS, LAZY_CODE_LATEST_MS, LAZY_DRAW_AHEAD, LAZY_DRAW_LATEST_MS, LAZY_IDLE_AHEAD, LAZY_NOW, lazySection } from "@/components/marketing/home/lazy-section"
 import { HERO_VIDEO } from "@/lib/marketing/hero-video"
 import { HERO_MEDIA_BOOT } from "@/lib/marketing/hero-startup"
 import { HeroVideo } from "@/components/marketing/hero-video"
@@ -47,6 +48,9 @@ console.log("\nThe order: the app and the map on white, the questions last, the 
 console.log("\nFlung: no empty box")
 {
   const src = code("components/marketing/home/lazy-section.tsx")
+  check("one section is drawn at a time, the nearest first (transitions asked for together are shown together, when the last is done)", /function drawNext\(\) \{\s*if \(drawing \|\| !jobs\.length\) return\s*jobs\.sort\(\(a, b\) => farness\(a\.box \?\? document\.body\) - farness\(b\.box \?\? document\.body\)\)/.test(src) && /jobs\.push\(job\)\s*drawNext\(\)/.test(src))
+  check("  the line moves on when the section is in the page, or after 1.5s at the latest", LAZY_DRAW_LATEST_MS === 1500 && /committed = drawn\s*window\.setTimeout\(drawn, LAZY_DRAW_LATEST_MS\)\s*startTransition\(\(\) => setSection\(\(\) => c\)\)/.test(src) && /live = false\s*committed\?\.\(\)/.test(src))
+  check("a box on screen or within a screen of it, still empty, is filled now, in one go, out of the line", LAZY_NOW === "100% 0px 100% 0px" && /soon\.disconnect\(\)\s*void mount\(true\)/.test(src) && /\{ rootMargin: LAZY_NOW \}/.test(src) && /if \(i >= 0\) jobs\.splice\(i, 1\)/.test(src) && /if \(live\) setSection\(\(\) => c\)\s*settle\?\.\(\)/.test(src))
   check("a section mounts four screens ahead, is drawn two and a half ahead, and idle work reaches eight", LAZY_AHEAD === "400% 0px 400% 0px" && LAZY_DRAW_AHEAD === "250% 0px 250% 0px" && LAZY_IDLE_AHEAD === "800% 0px 800% 0px")
   check("every section's code is asked for once the page has painted, at the latest 700ms on, without waiting for load or for the scroll to stop", LAZY_CODE_LATEST_MS === 700 && /requestAnimationFrame\(\(\) =>\s*requestAnimationFrame\(\(\) => \{\s*if \(typeof window\.requestIdleCallback === "function"\) window\.requestIdleCallback\(code, \{ timeout: LAZY_CODE_LATEST_MS \}\)/.test(src))
   const codeFn = src.slice(src.indexOf("const code = () => {"), src.indexOf("requestAnimationFrame(() =>\n    requestAnimationFrame"))
@@ -59,6 +63,7 @@ console.log("\nFlung: no empty box")
   check("the box keeps its reserved height before the section arrives, and after (contain-intrinsic-size)", /data-lazy-section="probe9"/.test(box) && /min-height:640px/.test(box) && /containIntrinsicSize: `auto \$\{options\.minHeight\}`/.test(src))
 
   const story = code("components/marketing/landing-story.tsx")
+  check("a busy page in the middle of a fling still reads as fast (a gap of up to half a second counts)", /speed = dt > 500 \? 0 : Math\.abs\(y - lastY\) \/ dt/.test(story) && /performance\.now\(\) - lastAt < 300/.test(story))
   check("the entrance knows how fast the page moves from one passive scroll listener that reads no layout", FAST_PX_PER_MS === 1.4 && /window\.addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(story) && /window\.removeEventListener\("scroll", onScroll\)/.test(story) && !/getBoundingClientRect|getComputedStyle|offsetTop|offsetHeight/.test(story))
   check("a waiting block that comes on screen while flung, late, or from above is simply shown: no transition", LATE_ABOVE === 0.5 && /if \(el\.dataset\.reveal === "wait" && !fast\(\) && entry\.boundingClientRect\.top > innerHeight \* LATE_ABOVE\) el\.dataset\.reveal = "in"\s*else delete el\.dataset\.reveal/.test(story))
   check("one flung past above the screen is let go too", /else if \(el\.dataset\.reveal === "wait" && entry\.boundingClientRect\.height > 0 && entry\.boundingClientRect\.bottom < 0\) show\(el\)/.test(story))
@@ -80,7 +85,9 @@ console.log("\nOn a phone nothing moves with the scroll")
   check("  a block only fades (no translate), 380ms", /\[data-reveal\]\[data-reveal\]\{transition:opacity \.38s ease-out;translate:none\}/.test(phone))
   check("  a heading fades as one piece", /\.story-heading\[data-reveal="wait"\]\{opacity:0\}/.test(phone))
   check("  its words stay where they are, each fully there", /\.story-heading\[data-reveal\] \[data-story-word\]\[data-story-word\]\{transition:none;opacity:1;translate:none\}/.test(phone))
-  check("on a touch screen the heading's rise with the scroll is off (it trails a phone's scroll and shakes)", /@media \(hover:none\) and \(pointer:coarse\) \{\s*\.story-heading\.story-heading\[data-story-heading\] \{animation:none;transform:none\}\s*\}/.test(STORY_CSS))
+  check("on a touch screen the heading's rise with the scroll is off (it trails a phone's scroll and shakes)", /@media \(hover:none\) and \(pointer:coarse\) \{\s*\.story-heading\.story-heading\.story-heading \{animation:none;transform:none\}\s*\}/.test(STORY_CSS))
+  check("  a heading a section writes itself (the ideas') is covered: the rule needs the class alone", /className="story-heading ideas-h"/.test(read("components/marketing/home/ideas-come-to-life.tsx")))
+  check("the purple sheet rises only with a mouse: on a touch screen it laps like every other sheet", /@media \(prefers-reduced-motion:no-preference\) and \(hover:hover\) and \(pointer:fine\) \{\s*:is\(\[data-sheet\],\[data-sheet-backdrop\]\):has\(\+\[data-sheet-rise\]\)\{--srp-next-rise:/.test(SHEET_CSS) && (SHEET_CSS.match(/animation-timeline/g) || []).length === 2)
   const heading = code("components/marketing/story-heading.tsx")
   check("the heading script has no scroll listener, no frame and no layout read left", !/addEventListener\("scroll"|requestAnimationFrame|scrollY|setProperty|getBoundingClientRect\(\)/.test(heading) && !/createHeadingMotion/.test(heading))
   check("without scroll-driven animations a heading inks once, by a transition of the one number, and never moves", /\.story-heading\[data-story-heading\]\[data-story-js\] \{transform:none\}/.test(STORY_CSS) && /\[data-story-js\] > span \{transition:--story-progress 1\.1s /.test(STORY_CSS) && /\[data-story-js\]\[data-story-inked\] > span \{--story-progress:1\}/.test(STORY_CSS))

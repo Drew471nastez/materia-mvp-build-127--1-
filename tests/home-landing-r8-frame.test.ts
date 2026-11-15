@@ -46,7 +46,8 @@ console.log("\nThe purple sheet comes up as a sheet: transform only, tied to the
 {
   const rise = renderToStaticMarkup(createElement(ScrollRevealPanel, { tone: "purple", arrive: "rise", children: createElement("p", null, "x") }))
   check("arrive=rise marks the sheet", /<div data-sheet="purple" data-sheet-rise="" data-band="purple">/.test(rise))
-  check("only where scroll-driven animations exist and motion is welcome", /@supports \(animation-timeline:view\(\)\) \{\s*@media \(prefers-reduced-motion:no-preference\) \{/.test(SHEET_CSS))
+  // Changed on purpose (landing round 9): and only with a mouse; on a touch screen the sheet moved against the scroll trembles (Safari runs it on the page's thread), so phones get the plain lap.
+  check("only where scroll-driven animations exist, motion is welcome and the pointer is a mouse", /@supports \(animation-timeline:view\(\)\) \{\s*@media \(prefers-reduced-motion:no-preference\) and \(hover:hover\) and \(pointer:fine\) \{/.test(SHEET_CSS))
   check("the rise is a stable length (svh, clamped 96 to 160px), the same on both sides of the join", (SHEET_CSS.match(/clamp\(96px,14svh,160px\)/g) || []).length === 2 && SHEET_CSS.includes(`${B}:has(+[data-sheet-rise]){--srp-next-rise:clamp(96px,14svh,160px)}`))
   check("a view timeline from where its top shows to half a screen later", /\[data-sheet-rise\]\{--srp-rise:clamp\(96px,14svh,160px\);animation:srp-rise linear both;animation-timeline:view\(\);animation-range:cover var\(--srp-rise\) cover calc\(var\(--srp-rise\) \+ 50svh\)\}/.test(SHEET_CSS))
   check("one keyframe, transform alone", /@keyframes srp-rise\{from\{transform:translate3d\(0,var\(--srp-rise\),0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(SHEET_CSS) && (SHEET_CSS.match(/@keyframes/g) || []).length === 1)

@@ -107,6 +107,14 @@ export const LAZY_CODE_LATEST_MS = 700
  * screen: the blank boxes and the stutter on reaching a section.
  */
 export const LAZY_BUSY_WAIT_MS = 450
+/**
+ * Landing round 9: a box that is on screen, or within a screen of it, and
+ * still empty is filled at once, in one go, ahead of every other section: an
+ * empty white box on screen is worse than one long frame.
+ */
+export const LAZY_NOW = "100% 0px 100% 0px"
+/** Landing round 9: how long the line waits for one section to be drawn before it moves on (a section that never arrives must not hold the rest). */
+export const LAZY_DRAW_LATEST_MS = 1500
 /** An idle slot shorter than this is passed over: fetching and running a section's code needs room. */
 const IDLE_ROOM_MS = 12
 /**
@@ -212,6 +220,30 @@ function afterLoad() {
     if (document.readyState === "complete") later()
     else window.addEventListener("load", later, { once: true })
   }))
+}
+
+/*
+ * Landing round 9: ONE SECTION IS DRAWN AT A TIME, THE NEAREST FIRST. Every
+ * mount is a React transition, and transitions asked for close together are
+ * rendered as one: a fling that brought five boxes within range at once got
+ * all five sections rendered together and shown together, when the last was
+ * done, so the first box the reader reached was still empty (measured at
+ * 4x CPU: the second section's box on screen empty for 14 frames). In a
+ * line, each is shown as soon as it alone is ready, and the one nearest the
+ * screen goes first (farness, below: no layout is read to choose).
+ */
+type Job = { box: Element | null; start: () => Promise<void> }
+const jobs: Job[] = []
+let drawing = false
+function drawNext() {
+  if (drawing || !jobs.length) return
+  jobs.sort((a, b) => farness(a.box ?? document.body) - farness(b.box ?? document.body))
+  const job = jobs.shift()!
+  drawing = true
+  void job.start().then(() => {
+    drawing = false
+    drawNext()
+  })
 }
 
 /** Sections still showing their box, by box: what mounts each one. */
@@ -487,37 +519,92 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
       let live = true
       let asked = false
       const el = ref.current
-      /* Drawn as a transition: React renders the section in slices between frames, never as one long task. */
-      const mount = () => {
+      let job: Job | null = null
+      let finished: Promise<void> | null = null
+      let settle: (() => void) | null = null
+      /*
+       * Drawn as a transition: React renders the section in slices between
+       * frames, never as one long task. Landing round 9: in a line with the
+       * other sections (drawNext), and the promise settles when the section
+       * is in the page (this effect's cleanup), not when it was asked for.
+       * `urgent` (the box is on screen or about to be, LAZY_NOW): out of the
+       * line and drawn now, in one go.
+       */
+      const mount = (urgent = false) => {
         if (el) waiting.delete(el)
-        if (asked) return Promise.resolve()
+        if (urgent) {
+          if (job) {
+            const i = jobs.indexOf(job)
+            if (i >= 0) jobs.splice(i, 1)
+          }
+          asked = true
+          return get().then(
+            (c) => {
+              if (live) setSection(() => c)
+              settle?.()
+            },
+            () => {
+              asked = false
+              settle?.()
+            },
+          )
+        }
+        if (asked) return finished ?? Promise.resolve()
         asked = true
-        return get().then(
-          (c) => {
-            if (live) startTransition(() => setSection(() => c))
-          },
-          () => {
-            asked = false
-          },
-        )
+        finished = new Promise<void>((done) => {
+          settle = done
+          job = {
+            box: el,
+            start: () =>
+              get()
+                .then(
+                  (c) =>
+                    new Promise<void>((drawn) => {
+                      if (!live) return drawn()
+                      committed = drawn
+                      window.setTimeout(drawn, LAZY_DRAW_LATEST_MS)
+                      startTransition(() => setSection(() => c))
+                    }),
+                  () => {
+                    asked = false
+                  },
+                )
+                .then(done),
+          }
+          jobs.push(job)
+          drawNext()
+        })
+        return finished
       }
+      let committed: (() => void) | null = null
       const now =
         !el ||
         typeof IntersectionObserver !== "function" ||
         location.hash.length > 1 ||
         matchMedia("(prefers-reduced-motion: reduce)").matches
       if (now) {
-        mount()
+        void mount()
         return () => {
           live = false
+          committed?.()
         }
       }
+      /* On screen or within a screen of it: now, in one go. */
+      const soon = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            soon.disconnect()
+            void mount(true)
+          }
+        },
+        { rootMargin: LAZY_NOW },
+      )
       /* Near: mount now. */
       const io = new IntersectionObserver(
         (entries) => {
           if (entries.some((e) => e.isIntersecting)) {
             io.disconnect()
-            mount()
+            void mount()
           }
         },
         { rootMargin: options.rootMargin ?? LAZY_AHEAD },
@@ -534,14 +621,17 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
         { rootMargin: LAZY_IDLE_AHEAD },
       )
       io.observe(el)
+      soon.observe(el)
       if (!options.rootMargin) far.observe(el)
       waiting.set(el, mount)
       loader.box = el
       const unwatch = watchDistance(el)
       return () => {
         live = false
+        committed?.()
         waiting.delete(el)
         io.disconnect()
+        soon.disconnect()
         far.disconnect()
         unwatch()
       }
