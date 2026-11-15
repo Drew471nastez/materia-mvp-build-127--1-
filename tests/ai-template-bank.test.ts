@@ -35,7 +35,7 @@ import { bankTemplateLibrary, preloadBankTemplate, type BankReader } from "@/lib
 import { defaultTemplates } from "@/lib/ai-builder/agent/templates"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import { WRITABLE_PATH } from "@/lib/ai-builder/agent-tools"
-import { SITE_TEMPLATES, TEMPLATE_SETTING, untouchedTemplateParts } from "@/lib/storelib-ai/templates"
+import { SITE_TEMPLATES, TEMPLATE_SETTING, untouchedTemplateParts, type SiteTemplate } from "@/lib/storelib-ai/templates"
 import { CHROME_SOURCES } from "@/lib/storelib-ai/library/examples.generated"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
