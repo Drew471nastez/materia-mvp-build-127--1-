@@ -200,9 +200,10 @@ for (const want of ["Community", "Learn", "Calendar", "Members", "Leaderboards",
 assert.ok(!/react-icons/.test(source))
 /* Changed on purpose (landing round, second pass, the owner: "modern social icons", the official marks): the OnePage's social row draws
    Instagram, TikTok, YouTube and Spotify through the marks the OnePage itself draws (components/icons/brand-icons.generated), and nothing else. */
-const brandImports = [...source.matchAll(/import \{([^}]*)\} from "@\/components\/icons\/brand-icons\.generated"/g)].map((m) => m[1].replace(/\s/g, ""))
+/* Changed on purpose (landing round 8): each brand mark is its own file now (components/icons/brand/<Name>), so the marks are imported one by one. */
+const brandImports = [...source.matchAll(/import \{\s*(\w+)\s*\} from "@\/components\/icons\/brand\/(\w+)"/g)].filter((m) => m[1] === m[2]).map((m) => m[1]).sort()
 /* Changed on purpose (landing round 4): a colourist's page shows Instagram, YouTube, Vimeo and TikTok. */
-assert.deepEqual(brandImports, ["SiInstagram,SiTiktok,SiVimeo,SiYoutube"])
+assert.deepEqual(brandImports, ["SiInstagram", "SiTiktok", "SiVimeo", "SiYoutube"])
 assert.ok(!/\b(Shopify|Nike|Notion Labs|Figma Inc)\b/.test(source))
 
 console.log("home-w12-showcase: ok")
