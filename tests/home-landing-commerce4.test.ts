@@ -123,7 +123,8 @@ check("the phone is there from the start and slides up once as the section comes
   assert.ok(/\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t/.test(coCss) && /\.cmc-w\{animation:cmc-word [^;]*both;animation-timeline:--cmc-t\}/.test(coCss) && !/\.cmc-card[^{]*\{[^}]*animation-timeline/.test(coCss))
   /* Changed on purpose (landing round 7): the phone rises from lower (34%) when its own box comes up the screen, so the rise is seen. */
   // Changed on purpose (landing round 9): no rise by observer; the phone is big and centred when the section arrives and comes down with the scroll.
-  assert.ok(/@keyframes cmc-settle\{from\{transform:translate3d\(0,0,0\)\}/.test(coCss) && !/data-cmc-in/.test(coCss))
+  // Changed on purpose (landing round 11): the phone starts big and low (--y0) and settles smaller.
+  assert.ok(/@keyframes cmc-settle\{from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}/.test(coCss) && !/data-cmc-in/.test(coCss))
   const n = CHECKOUT_HEADING.split(" ").length
   assert.equal((co.match(/class="cmc-w"/g) ?? []).length, n)
 })
@@ -183,7 +184,8 @@ check("One-tap payments: just the phone, with Apple Pay, Google Pay and Stripe, 
   /* Changed on purpose (landing round 7, the owner: smoother and cleaner): a tap on the page's Apple Pay, the wallet's sheet, Done, Payment complete, beside the three ways it pays. */
   for (const t of ["Confirm with Side Button", "Payment complete", "Card", "Payments by"]) assert.ok(w.includes(t), t)
   assert.ok(/class="tp-btn tp-apple"/.test(panel) && /class="tp-btn tp-gpay"/.test(panel) && /aria-label="Stripe"/.test(panel))
-  for (const k of ["pc-press", "ap-sheet", "ap-done", "pc-paid"]) assert.ok(onlyCompositor(keyframes(coCss, k)), k)
+  // Changed on purpose (landing round 11): the One-tap demo is the in-page checkout now; its own moves.
+  for (const k of ["ic-pay", "ic-sheet", "ap-sheet", "ap-done", "ic-done"]) assert.ok(onlyCompositor(keyframes(coCss, k)), k)
 })
 check("Local currencies: the shared products read in every currency checkout charges in", () => {
   /* Changed on purpose (landing round 8, the owner: "change that to the shared product"): the tee and the LUT pack, in all seven currencies. */
@@ -203,7 +205,8 @@ check("Checkout reminders: light, a few layers, the email in within a second and
 check("dark cards on black; the demos take no pointer", () => {
   /* Changed on purpose (landing round 8): the cards are the dark surfaces; the email and the price tiles on them. */
   // Changed on purpose (landing round 10): the same dark, a little see-through, so the products going round behind the cards show faintly.
-  assert.ok(/\.cmc-card\{[^}]*background:rgba\(17,17,19,0\.66\);border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
+  // Changed on purpose (landing round 11): the cards are solid.
+  assert.ok(/\.cmc-card\{[^}]*background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
   assert.ok(/\.cmv-mail\{[^}]*background:#1a1a1e/.test(coCss) && /\.cv-tile\{[^}]*background:#1a1a1e/.test(coCss))
   assert.ok(/\.cmc-vis\{[^}]*pointer-events:none/.test(coCss) && /\.cmc-phone\{[^}]*pointer-events:none/.test(coCss) && /\.cmh-stage\{[^}]*pointer-events:none/.test(howCss))
   const buttons = co.match(/<button\b[^>]*>/g) ?? []

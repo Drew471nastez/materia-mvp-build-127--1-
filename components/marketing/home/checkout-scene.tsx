@@ -174,6 +174,9 @@ const FACTS = [
   ["1 hour", "until the reminder goes out"],
 ] as const
 
+/** Where the finger presses in the One-tap demo's page (px of the 393 x 852 screen): Buy now, then Pay with Apple Pay. */
+const IC_BUY_Y = 420
+const IC_PAY_Y = 652
 /** One demo, start to finish, in seconds. Every card's loop is this long. */
 const LOOP_S = 10
 /** A moment of the loop (seconds) as a keyframe offset. */
@@ -269,28 +272,46 @@ function DigitalThing({ id }: { id: string }) {
   )
 }
 
-/** The ring of products round the phone. Each is one box that carries its place on the ring, and a face that keeps it turned to the viewer and dims it behind the phone. */
+/**
+ * The ring of products, behind the phone (round 11, the owner: "they should
+ * not overlap the phone mockup", "more blurred as they go behind", "the orbit
+ * wider"). The ring is a 3D space of its own, set back so its nearest point
+ * is level with the phone, and drawn under it: a product swings out beside the
+ * phone, sharp, and passes behind it, never across its screen. Each object is
+ * one box that carries its place on the ring and a face that keeps it turned
+ * to the viewer. In the face, the sharp object and its blurred copy cross
+ * fade with depth (cmc-near / cmc-far, opacity only): sharp beside the phone,
+ * soft as it goes round the back. A second copy (cmc-soft) comes up on the
+ * scroll as the cards arrive, so behind them everything is soft.
+ */
 function Orbit() {
   return (
-    <div className="cmc-orbit" aria-hidden="true">
-      {FLOATS.map((f) => (
-        <span key={f.id} className="cmc-o" data-f={f.id} data-kind={f.kind} data-m={f.m ? "" : undefined}>
-          <span className="cmc-face">
-            <span className="cmc-sharp">{f.img ? <img className="cmc-pic" src={f.img.src} alt="" width={f.img.w} height={f.img.h} loading="lazy" decoding="async" /> : <DigitalThing id={f.id} />}</span>
-            <img className="cmc-soft" src={`${IMG}/soft-${f.id}.webp`} alt="" width={SOFT[f.id].w} height={SOFT[f.id].h} loading="lazy" decoding="async" />
+    <div className="cmc-ring" aria-hidden="true">
+      <div className="cmc-orbit">
+        {FLOATS.map((f) => (
+          <span key={f.id} className="cmc-o" data-f={f.id} data-kind={f.kind} data-m={f.m ? "" : undefined}>
+            <span className="cmc-face">
+              <span className="cmc-sharp">
+                <span className="cmc-near">{f.img ? <img className="cmc-pic" src={f.img.src} alt="" width={f.img.w} height={f.img.h} loading="lazy" decoding="async" /> : <DigitalThing id={f.id} />}</span>
+              </span>
+              <img className="cmc-far" src={`${IMG}/soft-${f.id}.webp`} alt="" width={SOFT[f.id].w} height={SOFT[f.id].h} loading="lazy" decoding="async" />
+              <img className="cmc-soft" src={`${IMG}/soft-${f.id}.webp`} alt="" width={SOFT[f.id].w} height={SOFT[f.id].h} loading="lazy" decoding="async" />
+            </span>
           </span>
-        </span>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
+
+/** The headline on two rows, each word its own box so the words can rise in one after another. */
+const HEADING_ROWS = [CHECKOUT_HEADING.split(" ").slice(0, 3), CHECKOUT_HEADING.split(" ").slice(3)] as const
 
 export function CheckoutScene() {
   const rootRef = useRef<HTMLElement>(null)
   /* The ring turns only while the stage is on screen in a visible tab (no React state: the attribute runs or pauses the CSS). */
   const [stageRef] = useCommerceLive<HTMLDivElement>("0px 0px", false)
   useEntrances(rootRef)
-  const words = CHECKOUT_HEADING.split(" ")
 
   return (
     <section ref={rootRef} className="cmc" data-story-section="checkout" aria-labelledby="cmc-title">
@@ -306,20 +327,28 @@ export function CheckoutScene() {
         <div ref={stageRef} className="cmc-stage">
           <div className="cmc-copy">
             <h2 id="cmc-title" className="cmc-title">
-              {words.map((w, i) => (
-                <Fragment key={i}>
-                  <span className="cmc-w" data-w={i}>
-                    {w}
-                  </span>
-                  {i < words.length - 1 ? " " : null}
-                </Fragment>
+              {HEADING_ROWS.map((row, r) => (
+                <span key={r} className="cmc-row">
+                  {row.map((w, i) => {
+                    const n = r === 0 ? i : HEADING_ROWS[0].length + i
+                    return (
+                      <Fragment key={n}>
+                        <span className="cmc-w" data-w={n}>
+                          {w}
+                        </span>
+                        {i < row.length - 1 ? " " : null}
+                      </Fragment>
+                    )
+                  })}
+                  {r === 0 ? " " : null}
+                </span>
               ))}
             </h2>
           </div>
 
+          <Orbit />
           <div className="cmc-phone-wrap">
             <div className="cmc-world">
-              <Orbit />
               <div className="cmc-rise">
                 <Phone label={`Storelib's checkout page on a phone (an iPhone): ${LUTS.title} by ${SELLER}, ${LUTS.price}, with Apple Pay and Google Pay.`} />
                 <img className="cmc-soft cmc-phone-soft" src={`${IMG}/soft-phone.webp`} alt="" width={SOFT.phone.w} height={SOFT.phone.h} loading="lazy" decoding="async" />
@@ -426,7 +455,7 @@ function SafariBar() {
   )
 }
 
-/** The iPhone: titanium band, black border, Dynamic Island, and the checkout page under Safari's bars. With `pay`, the One-tap demo: the page scrolled to its form and Apple Pay's sheet. */
+/** The iPhone: titanium band, black border, Dynamic Island, and the checkout page under Safari's bars. With `pay`, the One-tap demo: a creator's dark page and its checkout sheet (InstantDemo). */
 function Phone({ label, pay = false }: { label?: string; pay?: boolean }) {
   return (
     <div className="cmc-phone" role={label ? "img" : undefined} aria-label={label}>
@@ -436,9 +465,15 @@ function Phone({ label, pay = false }: { label?: string; pay?: boolean }) {
       <span className="cmc-key cmc-key-pw" />
       <div className="cmc-bezel">
         <div className="cmc-screen" aria-hidden="true" inert>
-          <div className="cmc-ui">
-            <PageCheckout pay={pay} />
-            <SafariBar />
+          <div className="cmc-ui" data-dark={pay || undefined}>
+            {pay ? (
+              <InstantDemo />
+            ) : (
+              <>
+                <PageCheckout />
+                <SafariBar />
+              </>
+            )}
             <StatusBar />
           </div>
         </div>
@@ -505,9 +540,9 @@ function PaymentNote() {
  * Payment Element in checkout's appearance) and components/checkout/parts/ui.tsx,
  * one for one. The order shows open, as a phone first draws it.
  */
-function PageCheckout({ pay }: { pay: boolean }) {
+function PageCheckout() {
   return (
-    <div className="pc" data-pay={pay || undefined}>
+    <div className="pc">
       <div className="pc-page">
         <PageBar />
 
@@ -606,22 +641,103 @@ function PageCheckout({ pay }: { pay: boolean }) {
           <PaymentNote />
         </div>
       </div>
-      {pay ? <ApplePay /> : null}
     </div>
   )
 }
 
 /**
- * The One-tap demo's moving parts, over the page: a press on Apple Pay, the
- * wallet's sheet (iOS 26, floating, its words Apple's), Done, the sheet away,
- * and checkout's own paid screen (parts/success.tsx: Payment complete,
- * "<total> paid. Opening your receipt"). Transform and opacity only.
+ * THE ONE-TAP DEMO (round 11, the owner: "make the mockup show the modal
+ * checkout, not the default subpage checkout, and make it dark UI"). A
+ * creator's page, dark, with the LUT pack's block on it, and the checkout
+ * that opens over the page when Buy now is pressed:
+ * components/checkout/instant-checkout.tsx in its window
+ * (components/checkout/checkout-window.tsx), drawn dark as app/theme-dark.css
+ * draws it. The product in the grey head, Your details, the order, Payment
+ * method with the wallet chosen, Pay with Apple Pay, then Apple Pay's sheet,
+ * and the window's own "Payment complete". In the loop the sheet starts and
+ * ends open, so the picture never jumps when its loop starts over.
  */
+function InstantDemo() {
+  return (
+    <div className="ic">
+      <div className="ic-page">
+        <img className="ic-av" src={AVATAR} alt="" width={88} height={88} loading="lazy" decoding="async" />
+        <b className="ic-name">{SELLER}</b>
+        <span className="ic-bio">Colorist. LUTs and lessons for people who shoot.</span>
+        <div className="ic-block">
+          <span className="ic-cover">
+            <EbookCover />
+          </span>
+          <span className="ic-bt">
+            <b>{LUTS.title}</b>
+            <small>{LUTS.kind}</small>
+            <b className="ic-price">{LUTS.price}</b>
+          </span>
+          <span className="ic-buy">Buy now</span>
+        </div>
+        <span className="ic-link">Editing for Story, the course</span>
+        <span className="ic-link">Shoot Planner for Notion</span>
+      </div>
+      <span className="pc-touch ic-t1" />
+      <span className="ic-dim" />
+      <div className="ic-sheet">
+        <div className="ic-head">
+          <span className="ic-x">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </span>
+          <span className="ic-mark">
+            <EbookCover />
+          </span>
+          <b className="ic-title">{LUTS.title}</b>
+          <small>{SELLER}</small>
+        </div>
+        <div className="ic-body">
+          <div className="ic-form">
+            <div className="ic-h">Your details</div>
+            <span className="ic-in">sam.rivera@mail.com</span>
+            <span className="ic-in">Sam Rivera</span>
+            <div className="ic-sum">
+              <span>{LUTS.title}</span>
+              <b>{LUTS.price}</b>
+            </div>
+            <div className="ic-h">Payment method</div>
+            <div className="ic-methods">
+              <span className="ic-m" data-on="">
+                <AppleMark />
+                Pay
+              </span>
+              <span className="ic-m">
+                <CardGlyph />
+                Card
+              </span>
+            </div>
+            <span className="ic-pay">Pay {LUTS.price} with Apple Pay</span>
+            <PaymentNote />
+          </div>
+          <div className="ic-done">
+            <span className="ic-ok">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+            </span>
+            <b>Payment complete</b>
+            <small>We sent your receipt and your access to sam.rivera@mail.com.</small>
+            <span className="ic-open">Open it now</span>
+          </div>
+        </div>
+      </div>
+      <span className="pc-touch ic-t2" />
+      <ApplePay />
+    </div>
+  )
+}
+
+/** Apple Pay's own sheet over the checkout (iOS 26, floating, its words Apple's, dark as the phone is): Confirm with Side Button, then Done. */
 function ApplePay() {
   return (
     <>
-      <span className="pc-touch" />
-      <span className="pc-top" />
       <span className="ap-dim" />
       <div className="ap-sheet">
         <div className="ap-head">
@@ -667,11 +783,6 @@ function ApplePay() {
             Done
           </span>
         </div>
-      </div>
-      <div className="pc-paid">
-        <PaidRing className="pc-paid-ring" />
-        <b>Payment complete</b>
-        <small>{LUTS.price} paid. Opening your receipt</small>
       </div>
     </>
   )
@@ -1254,9 +1365,9 @@ const f3 = (v: number) => String(+v.toFixed(3))
 const DWELL = "100svh"
 const OVERLAP = "56svh"
 const SETTLE = 44
-/* Round 10: where the phone and the ring step back under the cards (svh of scroll into the hold), how faint and how small they end. The cards' top edge comes on screen at 44svh. */
+/* Round 10: where the phone and the ring step back under the cards (svh of scroll into the hold), how faint and how small they end. The cards' top edge comes on screen at 44svh. Round 11: fainter, the cards are solid now and the products show only in the gaps. */
 const RECEDE = [48, 100] as const
-const RECEDE_TO = 0.55
+const RECEDE_TO = 0.45
 const RECEDE_SCALE = 0.92
 /* The headline fades before the cards' top edge reaches it. */
 const COPY_OUT = [86, 116] as const
@@ -1265,9 +1376,21 @@ const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w=
 
 /** An object's place on the ring as custom properties: its start (a turn), its height, its width, its picture's height over its width, its lean. */
 const spotVars = (s: Spot, f: Thing) => `--p:${f3(s.p)};--y:${f3(s.y)};--s:${f3(s.s)};--ar:${f3(f.ar)};--rz:${f3(f.rz)}deg`
-/** Where an object is on the ring after `turn` of a turn: round the phone's axis, out to the ring, and turned back to face the viewer. */
+/** Where an object is on the ring after `turn` of a turn: round the ring's axis, out to the ring, and turned back to face the viewer. At no turn and no start it is at the ring's nearest point. */
 const ringAt = (turn: number) =>
-  `rotateY(calc(var(--a) + ${f3(turn * 360)}deg)) translate3d(0,calc(var(--pw) * var(--y)),var(--r)) rotateY(calc(var(--a) * -1 - ${f3(turn * 360)}deg))`
+  `rotateY(calc(var(--a) + ${f3(turn * 360)}deg)) translate3d(0,calc(var(--iw) * var(--y)),var(--r)) rotateY(calc(var(--a) * -1 - ${f3(turn * 360)}deg))`
+/** The ring's own place: set back by its radius, so its nearest point is level with the phone, and leaning toward the viewer. */
+const ringBox = (deg: number) => `translate3d(0,0,calc(var(--r) * -1)) rotateX(var(--tilt)) rotateY(${deg}deg)`
+
+/*
+ * Depth, over one turn (0% is the ring's nearest point, behind the phone; a
+ * quarter turn either way is beside it; half way is the far side). SHARP_UNTIL
+ * is where the sharp object starts to give way to its blurred copy, SOFT_FROM
+ * where only the copy is left.
+ */
+const SHARP_UNTIL = 26
+const SOFT_FROM = 40
+const DEPTH_FAR = 0.5
 
 const ORBIT_CSS = `
 ${FLOATS.map((f) => `.cmc-o[data-f="${f.id}"]{${spotVars(f.d, f)}}`).join("\n")}
@@ -1276,12 +1399,15 @@ ${FLOATS.map((f) => (f.m ? `  .cmc-o[data-f="${f.id}"]{${spotVars(f.m, f)}}` : "
   .cmc-o:not([data-m]){display:none}
 }
 @keyframes cmc-orbit{from{transform:${ringAt(0)}}to{transform:${ringAt(1)}}}
-/* Nearest at the start of a turn, farthest half way: dimmer behind the phone. */
-@keyframes cmc-depth{0%,100%{opacity:1}22%,78%{opacity:.9}50%{opacity:.38}}
-@keyframes cmc-spin{from{transform:rotateX(var(--tilt)) rotateY(${-SCROLL_TURN}deg)}to{transform:rotateX(var(--tilt)) rotateY(${SCROLL_TURN}deg)}}
+/* Beside the phone at full strength, dimmer round the back. */
+@keyframes cmc-depth{0%,${SHARP_UNTIL}%,${100 - SHARP_UNTIL}%,100%{opacity:1}50%{opacity:${DEPTH_FAR}}}
+/* The sharp object beside the phone, its blurred copy round the back: one cross fade, opacity only. */
+@keyframes cmc-near{0%,${SHARP_UNTIL}%,${100 - SHARP_UNTIL}%,100%{opacity:1}${SOFT_FROM}%,${100 - SOFT_FROM}%{opacity:0}}
+@keyframes cmc-far{0%,${SHARP_UNTIL}%,${100 - SHARP_UNTIL}%,100%{opacity:0}${SOFT_FROM}%,${100 - SOFT_FROM}%{opacity:1}}
+@keyframes cmc-spin{from{transform:${ringBox(-SCROLL_TURN)}}to{transform:${ringBox(SCROLL_TURN)}}}
 @keyframes cmc-unspin{from{transform:rotateY(${SCROLL_TURN}deg) rotateX(calc(var(--tilt) * -1))}to{transform:rotateY(${-SCROLL_TURN}deg) rotateX(calc(var(--tilt) * -1))}}
-@keyframes cmc-settle{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,var(--down),0)}}
-@keyframes cmc-shrink{from{transform:scale(1)}to{transform:scale(var(--ps))}}
+/* Round 11: the phone starts big and low, rising from the stage's foot, and settles smaller under the headline. */
+@keyframes cmc-settle{from{transform:translate3d(0,var(--y0),0) scale(1)}to{transform:translate3d(0,var(--y1),0) scale(var(--ps))}}
 @keyframes cmc-word{from{opacity:0;transform:translate3d(0,.55em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmc-recede{from{opacity:1;transform:scale(1)}to{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}}
 @keyframes cmc-out{from{opacity:1}to{opacity:0}}
@@ -1306,8 +1432,8 @@ const THINGS_CSS = `
 .cmt-book-s{margin-top:6cqw;font-size:5.6cqw;line-height:1.3;color:#4a463d}
 .cmt-book-a{margin-top:auto;padding-top:4cqw;border-top:1px solid rgba(22,21,20,.28);font-size:5cqw;font-weight:600}
 /* A course: its first frame with Play on it, the title, how far along. */
-.cmt-course{padding:4% 4% 5%;border-radius:calc(var(--pw) * .028);background:#fff;color:#16161a}
-.cmt-course-pic{position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:calc(var(--pw) * .018);background:#0a0a0b}
+.cmt-course{padding:4% 4% 5%;border-radius:calc(var(--iw) * .03);background:#fff;color:#16161a}
+.cmt-course-pic{position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:calc(var(--iw) * .02);background:#0a0a0b}
 .cmt-course-pic img{display:block;width:100%;height:100%;object-fit:cover}
 .cmt-play{position:absolute;left:50%;top:50%;display:grid;place-items:center;width:17cqw;height:17cqw;margin:-8.5cqw 0 0 -8.5cqw;border-radius:50%;background:#fff;color:#16161a}
 .cmt-play svg{display:block;width:44%;height:44%;margin-left:6%}
@@ -1316,7 +1442,7 @@ const THINGS_CSS = `
 .cmt-bar{display:block;height:1.6cqw;margin-top:4cqw;border-radius:1cqw;background:#e5e7eb;overflow:hidden}
 .cmt-bar i{display:block;width:38%;height:100%;background:#8b5cf6}
 /* A Notion template: a page with its checklist. */
-.cmt-notion{padding:8% 8% 7%;border-radius:calc(var(--pw) * .024);background:#fbfbfa;color:#1f1f1e}
+.cmt-notion{padding:8% 8% 7%;border-radius:calc(var(--iw) * .026);background:#fbfbfa;color:#1f1f1e}
 .cmt-notion-k{display:block;font-size:4.8cqw;font-weight:500;color:#8a8a84}
 .cmt-notion-t{display:block;margin:1.5cqw 0 5cqw;font-size:10.5cqw;font-weight:700;letter-spacing:-.03em;white-space:nowrap}
 .cmt-row{display:flex;align-items:center;gap:3.2cqw;padding:2.4cqw 0;border-top:1px solid #ecebe7;font-size:5.6cqw;white-space:nowrap}
@@ -1342,82 +1468,94 @@ const SCENE_CSS = `
  */
 .cmc[data-story-section] > .cmc-track.cmc-track{position:relative;z-index:1;max-width:none;margin:0;padding:0}
 /*
- * The stage's numbers, shared by everything in it. --pw is the big phone's
- * width, --ps what it shrinks to once the headline is in, --down how far it
- * comes down to stand on the stage's foot, --r the ring's radius, --tilt its
- * lean, --oy how far under the phone's middle its centre is (of --pw).
+ * The stage's numbers, shared by everything in it (round 11). --fs is the
+ * headline's size, on two rows. --pe is the phone's width once it has
+ * settled under the headline, the room left in one screen; --pw is the big
+ * phone it starts as (--big times that), --ps the scale that takes one to the
+ * other. --y0 is where the big phone's top starts (low, rising from the
+ * stage's foot), --y1 where the settled phone's top ends (under the
+ * headline, its foot on the stage's). --r is the ring's radius, --pp its
+ * perspective, --cy the height of its centre, --tilt its lean, --iw the
+ * products' unit of size.
  */
 .cmc-stage{position:relative;height:100svh;overflow:hidden;
-  --hd:60px;--tt:clamp(14px,2.4svh,28px);--pb:clamp(10px,1.8svh,20px);--ps:.84;--pp:4.2;--oy:.4;--tilt:${-TILT - 2}deg;
-  --pw:min(72vw,300px,calc((100svh - var(--hd) - 40px) / 2.07));
-  --r:min(calc(var(--pw) * .66),37vw);
-  --down:calc(50svh - var(--pb) - var(--hd) / 2 - var(--pw) * 1.035 * var(--ps))}
+  --hd:60px;--tt:clamp(12px,2.2svh,24px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(12px,2svh,20px);
+  --fs:clamp(27px,8.2vw,40px);
+  --pe:min(68vw,300px,calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
+  --big:1.36;--ps:${f3(1 / 1.36)};--pw:calc(var(--pe) * var(--big));
+  --y0:38svh;--y1:calc(var(--hd) + var(--tt) + var(--fs) * 2.1 + var(--gap));
+  --r:min(60vw,320px);--pp:calc(var(--r) * 3);--cy:58svh;--tilt:-14deg;--iw:var(--pe)}
 .cmc-copy{position:absolute;z-index:4;left:var(--edge);right:var(--edge);top:calc(var(--hd) + var(--tt));text-align:center}
-.cmc-title{margin:0 auto;max-width:15em;font-size:clamp(30px,8.4vw,46px);font-weight:300;line-height:1.04;letter-spacing:-.045em;text-wrap:balance;color:#fff}
+.cmc-title{margin:0 auto;font-size:var(--fs);font-weight:300;line-height:1.04;letter-spacing:-.045em;color:#fff}
+.cmc-row{display:block;white-space:nowrap}
 .cmc-w{display:inline-block}
-/* The big phone's box: centred in the stage under the site's bar. One perspective for the phone and the ring. */
-.cmc-phone-wrap{position:absolute;z-index:3;left:50%;top:calc(50svh + var(--hd) / 2);width:var(--pw);height:calc(var(--pw) * 2.07);margin:calc(var(--pw) * -1.035) 0 0 calc(var(--pw) / -2);perspective:calc(var(--pw) * var(--pp))}
-/* One 3D space: the ring and the phone in it, sorted by depth by the browser. It rests where the scene ends: down on the stage's foot. */
-.cmc-world{position:relative;width:100%;height:100%;transform-style:preserve-3d;transform:translate3d(0,var(--down),0)}
-.cmc-rise{position:relative;transform:scale(var(--ps))}
+/* The phone's box, the big phone's size, centred; the world inside it carries the phone from big and low to settled. */
+.cmc-phone-wrap{position:absolute;z-index:3;left:50%;top:0;width:var(--pw);height:calc(var(--pw) * 2.07);margin-left:calc(var(--pw) / -2)}
+.cmc-world{position:relative;width:100%;height:100%;transform-origin:50% 0;transform:translate3d(0,var(--y1),0) scale(var(--ps))}
+.cmc-rise{position:relative}
 
 /*
- * The ring. Its box (cmc-orbit) leans and takes the scroll's turn; each
- * object's box (cmc-o) carries its place on the ring; its face (cmc-face)
- * undoes the lean and the scroll's turn so the object always faces the
+ * The ring, under the phone (z 2 to the phone's 3). Its box (cmc-ring) gives
+ * the perspective; cmc-orbit is set back, leans and takes the scroll's turn;
+ * each object's box (cmc-o) carries its place on the ring; its face
+ * (cmc-face) undoes the lean and the turn so the object always faces the
  * viewer, and dims with depth. Transform and opacity only, no shadow, no
  * filter.
  */
-.cmc-orbit{position:absolute;left:50%;top:calc(50% + var(--pw) * var(--oy));width:0;height:0;pointer-events:none;transform-style:preserve-3d;transform:rotateX(var(--tilt))}
-.cmc-o{position:absolute;left:0;top:0;display:block;width:calc(var(--pw) * var(--s));margin-left:calc(var(--pw) * var(--s) / -2);margin-top:calc(var(--pw) * var(--s) * var(--ar) / -2);transform-style:preserve-3d;--a:calc(var(--p) * 360deg);transform:${ringAt(0)}}
+.cmc-ring{position:absolute;z-index:2;inset:0;pointer-events:none;perspective:var(--pp);perspective-origin:50% var(--cy)}
+.cmc-orbit{position:absolute;left:50%;top:var(--cy);width:0;height:0;transform-style:preserve-3d;transform:${ringBox(0)}}
+.cmc-o{position:absolute;left:0;top:0;display:block;width:calc(var(--iw) * var(--s));margin-left:calc(var(--iw) * var(--s) / -2);margin-top:calc(var(--iw) * var(--s) * var(--ar) / -2);transform-style:preserve-3d;--a:calc(var(--p) * 360deg);transform:${ringAt(0)}}
 .cmc-face{position:relative;display:block;transform:rotateX(calc(var(--tilt) * -1))}
-.cmc-sharp{display:block}
+.cmc-sharp,.cmc-near{display:block}
 .cmc-pic{display:block;width:100%;height:auto;-webkit-user-drag:none}
 /*
  * Round 10 (the owner: behind the cards the products "blurred and faded",
  * "not consuming much performance"): each object, and the phone, has a
  * blurred copy baked into a small picture (soft-*.webp, its box with a fifth
- * of its width spare on every side). As the cards come up the sharp object
- * fades out and its copy fades in: opacity only, so nothing is blurred or
- * painted again while the ring turns. No filter anywhere.
+ * of its width spare on every side). Nothing is blurred in the browser: the
+ * sharp object and its copy cross fade, opacity only. Round 11: the copy
+ * (cmc-far) also takes over as an object goes round the back, and a second
+ * one (cmc-soft) comes up as the cards arrive.
  */
-.cmc-soft{position:absolute;left:0;top:0;display:block;width:${SOFT_W}%;max-width:none;height:auto;margin:-${SOFT_PAD}% 0 0 -${SOFT_PAD}%;opacity:0;pointer-events:none;-webkit-user-drag:none;transform:rotate(var(--rz))}
+.cmc-soft,.cmc-far{position:absolute;left:0;top:0;display:block;width:${SOFT_W}%;max-width:none;height:auto;margin:-${SOFT_PAD}% 0 0 -${SOFT_PAD}%;opacity:0;pointer-events:none;-webkit-user-drag:none;transform:rotate(var(--rz))}
 .cmc-phone-soft{transform:none}
 ${ORBIT_CSS}
 ${THINGS_CSS}
 @media (min-width:900px){
-  .cmc-stage{--hd:68px;--tt:clamp(18px,3.4svh,40px);--pb:clamp(14px,2.2svh,28px);--ps:.86;--pp:5.2;--oy:.34;--tilt:${-TILT}deg;
-    --pw:min(400px,calc((100svh - var(--hd) - 56px) / 2.07));
-    --r:min(calc(var(--pw) * 1.22),39vw)}
-  .cmc-title{max-width:none;font-size:clamp(40px,4.3vw,68px)}
+  .cmc-stage{--hd:68px;--tt:clamp(14px,2.8svh,36px);--pb:clamp(14px,2.2svh,28px);--gap:clamp(16px,2.6svh,32px);
+    --fs:clamp(36px,min(4.3vw,7.2svh),68px);
+    --pe:min(400px,calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
+    --big:1.72;--ps:${f3(1 / 1.72)};--y0:40svh;
+    --r:min(44vw,880px);--cy:60svh;--tilt:-12deg;--iw:calc(var(--pe) * 1.5)}
 }
 
 @media (prefers-reduced-motion:no-preference){
-  /* The ring turns by itself, slowly, while the stage is on screen; will-change only then. */
+  /* The ring turns by itself, slowly, while the stage is on screen; will-change only then. Each object's depth runs on the same clock, from its own place on the ring. */
   .cmc-o{animation:cmc-orbit ${TURN_S}s linear infinite;animation-play-state:paused}
   .cmc-face{animation:cmc-depth ${TURN_S}s linear infinite;animation-delay:calc(var(--p) * -${TURN_S}s);animation-play-state:paused}
+  .cmc-near{animation:cmc-near ${TURN_S}s linear infinite;animation-delay:calc(var(--p) * -${TURN_S}s);animation-play-state:paused}
+  .cmc-far{animation:cmc-far ${TURN_S}s linear infinite;animation-delay:calc(var(--p) * -${TURN_S}s);animation-play-state:paused}
   .cmc-stage[data-commerce-live] .cmc-o{animation-play-state:running;will-change:transform}
-  .cmc-stage[data-commerce-live] .cmc-face{animation-play-state:running}
+  .cmc-stage[data-commerce-live] :is(.cmc-face,.cmc-near,.cmc-far){animation-play-state:running}
 
   /*
    * With scroll timelines (the compositor runs them, nothing per frame in
-   * script): the stage holds for DWELL; the phone starts big and centred and
-   * comes down as the headline's words rise in; the scroll turns the ring a
-   * little further.
+   * script): the stage holds for DWELL; the phone starts big and low and
+   * settles smaller under the headline as its words rise in; the scroll turns
+   * the ring a little further.
    */
   @supports (animation-timeline:view()){
     .cmc[data-story-section] > .cmc-track.cmc-track{view-timeline:--cmc-t block}
     .cmc-stage{position:sticky;top:0}
     .cmc-track > .cmc-cards{margin-top:calc(${DWELL} - ${OVERLAP})}
     .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
-    .cmc-rise{animation:cmc-shrink cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
     /*
      * Round 10: the stage stays held behind the cards. As they come up the
      * phone and the ring step back (a little smaller, faded to ${RECEDE_TO}) and
      * go soft (each sharp object fades into its blurred copy), the headline
      * fades before the cards reach it, and the ring keeps turning behind them.
      */
-    .cmc-phone-wrap{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
+    .cmc-phone-wrap,.cmc-ring{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
     .cmc-sharp,.cmc-rise > .cmc-phone{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
     .cmc-soft{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
     .cmc-phone-soft{animation-name:cmc-in-half}
@@ -1541,10 +1679,61 @@ const PHONE_CSS = `
 .rc-pow-s svg{margin-top:1px}
 .rc-pow i{font-style:normal;color:#c4c8ce;padding:0 4px}
 
-/* The One-tap demo: the page scrolled down to its form (a still transform), a white strip under the status bar. */
-.pc[data-pay] .pc-page{transform:translate3d(0,-410px,0)}
-.pc-top{position:absolute;left:0;right:0;top:0;z-index:2;height:54px;background:#fff}
-.pc-touch{position:absolute;left:106px;top:128px;z-index:2;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:rgba(26,26,46,.18);opacity:0}
+/*
+ * The One-tap demo (InstantDemo): a creator's dark page and the instant
+ * checkout's window over it, in app/theme-dark.css's colours (the window
+ * #18181b, its head #111113, hairlines 7% white, fields 11%, Pay #2d2d33).
+ */
+.cmc-ui[data-dark] .cmc-status{color:#fff}
+.cmc-ui[data-dark] .cmc-batt{border-color:rgba(255,255,255,.45)}
+.cmc-ui[data-dark] .cmc-batt::after{background:rgba(255,255,255,.45)}
+.cmc-ui[data-dark] .cmc-batt span{background:#fff}
+.cmc-ui[data-dark] .cmc-home{z-index:10;background:#f4f4f5}
+.ic{position:absolute;inset:0;overflow:hidden;background:#111113;color:#ececee}
+.ic-page{display:flex;flex-direction:column;align-items:center;padding:92px 22px 0;text-align:center}
+.ic-av{width:88px;height:88px;border-radius:50%;object-fit:cover}
+.ic-name{margin-top:14px;font-size:22px;font-weight:600;letter-spacing:-.01em}
+.ic-bio{margin-top:4px;font-size:15px;line-height:1.4;color:#9c9da4}
+.ic-block{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;width:100%;margin-top:24px;padding:14px;border-radius:20px;background:#1c1c20;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);box-sizing:border-box;text-align:left}
+.ic-cover{display:block;width:96px;height:96px;border-radius:12px;overflow:hidden}
+.ic-cover .ebc,.ic-mark .ebc{width:100%;height:100%}
+.ic-bt{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.ic-bt b{font-size:16px;font-weight:600;line-height:1.3}
+.ic-bt small{margin-top:2px;font-size:13.5px;color:#9c9da4}
+.ic-bt .ic-price{margin-top:8px;font-size:18px;font-variant-numeric:tabular-nums}
+.ic-buy{grid-column:1/-1;display:flex;align-items:center;justify-content:center;height:48px;border-radius:12px;background:#ececee;color:#111113;font-size:16px;font-weight:600}
+.ic-link{display:flex;align-items:center;justify-content:center;width:100%;height:56px;margin-top:12px;border-radius:16px;background:#1c1c20;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);box-sizing:border-box;font-size:15px;font-weight:500}
+.ic-dim{position:absolute;inset:0;z-index:3;background:#000;opacity:.6}
+.ic-sheet{position:absolute;left:0;right:0;top:104px;bottom:0;z-index:4;overflow:hidden;border-radius:28px 28px 0 0;background:#18181b;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.ic-head{position:relative;display:flex;flex-direction:column;align-items:center;padding:22px 20px 20px;background:#111113;border-bottom:1px solid rgba(255,255,255,.07)}
+.ic-x{position:absolute;right:10px;top:10px;display:grid;place-items:center;width:44px;height:44px;color:#9c9da4}
+.ic-mark{display:block;width:76px;height:76px;margin-top:6px;border-radius:12px;overflow:hidden}
+.ic-title{margin-top:10px;font-size:21px;font-weight:600;letter-spacing:-.01em}
+.ic-head small{margin-top:2px;font-size:13.5px;color:#9c9da4}
+.ic-body{position:relative;padding:20px}
+.ic-form{display:flex;flex-direction:column}
+.ic-h{margin-bottom:10px;font-size:14.5px;font-weight:600}
+.ic-in{display:flex;align-items:center;height:48px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.11);font-size:16px;box-sizing:border-box}
+.ic-in+.ic-in{margin-top:10px}
+.ic-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;height:48px;margin:20px 0;padding:0 16px;border-radius:12px;border:1px solid rgba(255,255,255,.07);font-size:14px;color:#9c9da4}
+.ic-sum b{font-weight:600;color:#ececee;font-variant-numeric:tabular-nums}
+.ic-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ic-m{display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:12px;border:1px solid rgba(255,255,255,.11);font-size:15px;font-weight:500;box-sizing:border-box}
+.ic-m[data-on]{border-color:#e4e4e7;box-shadow:0 0 0 1px #e4e4e7}
+.ic-m .mk-apple{width:17px;height:17px;margin-top:-3px}
+.ic-m svg:not(.mk-apple){width:20px;height:20px;color:#9c9da4}
+.ic-pay{display:flex;align-items:center;justify-content:center;height:52px;margin-top:16px;border-radius:12px;background:#2d2d33;color:#fff;font-size:16px;font-weight:600}
+.ic .rc-pow{color:#8b8b94}
+.ic .rc-pow i{color:#4b4b52}
+.ic-done{position:absolute;left:20px;right:20px;top:20px;display:flex;flex-direction:column;align-items:center;padding:26px 20px 24px;border-radius:16px;border:1px solid rgba(255,255,255,.07);text-align:center;opacity:0}
+.ic-ok{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:rgba(167,139,250,.16);color:#c4b5fd}
+.ic-done b{margin-top:14px;font-size:18px;font-weight:600}
+.ic-done small{margin-top:4px;font-size:14px;line-height:1.45;color:#9c9da4}
+.ic-open{display:inline-flex;align-items:center;height:44px;margin-top:18px;padding:0 18px;border-radius:12px;background:#2d2d33;font-size:14px;font-weight:600}
+/* The finger's press: on Buy now, then on Pay. */
+.pc-touch{position:absolute;z-index:6;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:rgba(255,255,255,.24);opacity:0}
+.ic-t1{left:196px;top:${IC_BUY_Y}px}
+.ic-t2{left:196px;top:${IC_PAY_Y}px}
 .ap-dim{position:absolute;inset:0;z-index:7;background:#000;opacity:0}
 /* Apple Pay's sheet on iOS 26: floating, inset, round. */
 .ap-sheet{position:absolute;left:8px;right:8px;bottom:8px;z-index:8;padding:22px 22px 24px;border-radius:44px;background:#fff;box-shadow:0 -10px 40px rgba(0,0,0,.2);transform:translate3d(0,110%,0);font-size:16px;color:#000}
@@ -1566,12 +1755,13 @@ const PHONE_CSS = `
 .ap-btn{width:46px;height:46px;border-radius:12px;border:2.5px solid #0a84ff;box-sizing:border-box;position:relative}
 .ap-btn::after{content:"";position:absolute;right:-9px;top:8px;width:4px;height:24px;border-radius:2px;background:#0a84ff}
 .ap-done{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:15px;font-weight:500;color:#0a84ff;opacity:0}
-/* checkout's paid screen (parts/success.tsx). */
-.pc-paid{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 32px 40px;text-align:center;background:#fff;opacity:0}
-.pc-paid-ring{display:block;width:64px;height:64px}
-.pc-paid-ring svg{display:block}
-.pc-paid b{margin-top:20px;font-size:20px;font-weight:600;letter-spacing:-.01em}
-.pc-paid small{margin-top:4px;font-size:14px;color:#6b7280}
+/* In dark mode, as iOS draws it on a phone set dark. */
+.ic .ap-sheet{background:#1c1c1e;color:#fff;box-shadow:0 -10px 40px rgba(0,0,0,.5)}
+.ic .ap-x{background:#2c2c2e;color:#98989f}
+.ic .ap-row{border-color:#38383a}
+.ic .ap-t small,.ic .ap-sum{color:#98989f}
+.ic .ap-sum b{color:#fff}
+.ic .ap-side{color:#d1d1d6}
 `
 
 const DESK_CSS = u(`
@@ -1665,15 +1855,19 @@ const DESK_CSS = u(`
 .cdx .cmv-cursor{position:absolute;left:62%;top:58%;z-index:2;line-height:0;font-size:22u;opacity:0}
 `)
 
-/* Round 10: the cards a little see-through, so the products going round behind them show faintly through as well as between them. */
-const CARD_ALPHA = 0.66
+/* Round 11 (the owner: "you should not see the phone mockup through them; the cards should not be transparent"): the cards and the facts are solid; the products behind show only in the gaps between them. */
+const CARD_GROUND = "#111113"
+/* Built to convert on a phone: the window's design width (u), and how far its page scrolls to the shipping and to Pay (measured in the window, in u). */
+const CDX_NARROW = 380
+const CDX_S1 = 760
+const CDX_S2 = 1030
 /* The tallest a card's picture is drawn (a 1440 x 800 screen shows a whole card with room to spare). */
 const VIS_CAP = "44svh"
 
 /* The cards and their mocks. Each mock is drawn in em of a 48 x 42 box (30 x 34 on a narrow screen), so it scales as one picture. */
-const CARDS_CSS = `
+const CARDS_CSS = u(`
 .cmc-bento{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.cmc-card{position:relative;display:flex;flex-direction:column;gap:clamp(22px,2.4vw,32px);min-width:0;padding:clamp(24px,2.6vw,40px) clamp(24px,2.6vw,40px) clamp(20px,2.2vw,32px);border-radius:28px;background:rgba(17,17,19,${CARD_ALPHA});border:1px solid rgba(255,255,255,.08);box-sizing:border-box;overflow:hidden;container-type:inline-size;--vis-cap:${VIS_CAP}}
+.cmc-card{position:relative;display:flex;flex-direction:column;gap:clamp(22px,2.4vw,32px);min-width:0;padding:clamp(24px,2.6vw,40px) clamp(24px,2.6vw,40px) clamp(20px,2.2vw,32px);border-radius:28px;background:${CARD_GROUND};border:1px solid rgba(255,255,255,.08);box-sizing:border-box;overflow:hidden;container-type:inline-size;--vis-cap:${VIS_CAP}}
 /* Round 9 (the owner: "some orbs, extremely subtle and barely visible, over the four cards; just a little"): two soft lights per card, a violet and a white, as still gradients (no blur, no motion), each card's in its own corner. */
 .cmc-card::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(52% 44% at var(--ox,12%) var(--oy,0%),rgba(139,92,246,.085),rgba(139,92,246,0) 72%),radial-gradient(40% 34% at var(--px,96%) var(--py,58%),rgba(255,255,255,.035),rgba(255,255,255,0) 70%)}
 .cmc-card[data-k=tap]{--ox:92%;--oy:4%;--px:6%;--py:70%}
@@ -1691,7 +1885,8 @@ const CARDS_CSS = `
  */
 .cmc-vis{position:relative;z-index:1;margin-top:auto;height:min(calc(100cqw * 42 / 48),var(--vis-cap));overflow:hidden;border-radius:20px;background:#0b0b0d;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
 .cmc-vis-in{position:absolute;left:50%;top:0;width:48em;height:42em;margin-left:-24em;font-size:min(calc(100cqw / 48),calc(var(--vis-cap) / 42));color:#fff;line-height:1.35;container-type:inline-size}
-.cmc-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin:clamp(48px,6vw,88px) 0 0;padding:0;list-style:none}
+/* The four facts on one solid strip, the cards' own ground and hairline, so nothing shows through them. */
+.cmc-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin:16px 0 0;padding:clamp(28px,3vw,44px) clamp(24px,2.6vw,40px);list-style:none;border-radius:28px;background:${CARD_GROUND};border:1px solid rgba(255,255,255,.08)}
 .cmc-fact{padding:2px 0 2px 18px;border-left:1px solid rgba(255,255,255,.16)}
 .cmc-fact b{display:block;font-size:clamp(28px,3vw,46px);font-weight:300;line-height:1;letter-spacing:-.045em;color:#fff;white-space:nowrap}
 .cmc-fact span{display:block;margin-top:10px;font-size:14px;line-height:1.4;color:#8b8b94}
@@ -1817,48 +2012,47 @@ const CARDS_CSS = `
 .cmv-got-f b{font-weight:600;color:#f4f4f5}
 
 @media (max-width:899px){
-  /* On a phone the cards are a row to swipe: the browser's own scroll snap, which iOS handles natively; a vertical swipe still scrolls the page. */
-  .cmc-bento{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;margin:0 calc(var(--edge) * -1);padding:0 var(--edge) 4px;scroll-padding-inline:var(--edge);touch-action:pan-x pan-y}
-  .cmc-bento::-webkit-scrollbar{display:none}
-  .cmc-card{flex:none;width:min(86vw,420px);scroll-snap-align:start;scroll-snap-stop:always;padding:22px 20px 20px;border-radius:24px;gap:20px}
+  /*
+   * Round 11 (the owner: on a phone the pictures were "broken and cut", "they
+   * should not be a carousel: just normal stacked cards on phones"): one card
+   * under another, each picture whole. The picture is square, drawn in em of a
+   * 32 x 32 grid (a computer's is 48 x 42), and every demo is laid out again
+   * to fit inside it, nothing running off its edges.
+   */
+  .cmc-bento{grid-template-columns:minmax(0,1fr);gap:12px}
+  .cmc-card{padding:22px 20px 20px;border-radius:24px;gap:20px}
   .cmc-card-copy h3{font-size:24px}
   .cmc-card-copy p{font-size:15px}
-  /*
-   * Round 9 (the owner: on a phone the cards' pictures "should be like they
-   * are on desktop, adapted, not shrunk", "4:3"): a 4:3 picture box, drawn in
-   * em of a 32 x 24 grid (a computer's is 48 x 42), so type and marks stay
-   * near the size a computer shows them and the picture is cropped or laid
-   * out again instead.
-   */
-  .cmc-vis{height:auto;aspect-ratio:4/3;margin:0 -6px;border-radius:16px}
-  .cmc-vis-in{font-size:calc(100cqw / 32);width:32em;height:24em;margin-left:-16em}
-  .cmc-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 16px}
+  .cmc-vis{height:auto;aspect-ratio:1;margin:0 -6px;border-radius:16px}
+  .cmc-vis-in{font-size:calc(100cqw / 32);width:32em;height:32em;margin-left:-16em}
+  .cmc-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 16px;margin-top:12px;padding:24px 20px;border-radius:24px}
   .cmc-fact{padding-left:14px}
   .cmc-fact b{font-size:26px}
   .cmc-fact span{font-size:13.5px}
-  /* Built to convert: the same window, drawn at a design width of 640 (the order's column narrower) and 132% of the box, running off its right and bottom edges. */
-  .cdx{left:5%;right:auto;top:8%;bottom:-12%;width:132%;aspect-ratio:auto;transform:none}
-  .cdx-win{--u:calc(100cqw / 640);border-radius:10u 10u 0 0}
+  /*
+   * Built to convert: the same website checkout in a narrower window, whole in
+   * the square: the order on grey above the form, as checkout lays itself out
+   * at this width, and the page scrolled down through the form to Pay.
+   */
+  .cdx{left:1em;right:1em;top:1em;bottom:1em;aspect-ratio:auto;transform:none}
+  .cdx-win{--u:calc(100cqw / ${CDX_NARROW});--s1:${CDX_S1}u;--s2:${CDX_S2}u;font-size:14u}
   .cdx-url{width:250u}
   .cdx-head{padding:0 20u 0 18u}
   .cdx-cont{display:none}
-  .cdx-grid{grid-template-columns:230u 1fr}
-  .cdx-white{width:auto;left:230u}
-  .cdx-sum{padding:28u 18u 0 20u}
-  .cdx-form{padding:28u 24u 60u 22u}
+  .cdx-white{display:none}
+  .cdx-view{background:#fff}
+  .cdx-grid{grid-template-columns:minmax(0,1fr)}
+  .cdx-sum{padding:26u 24u 22u;background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.06)}
+  .cdx-form{padding:26u 24u 60u}
   .cdx-big{font-size:28u}
-  .cdx-lines{margin-top:22u;gap:14u}
-  .cdx-lines li{gap:10u}
+  .cdx-lines{margin-top:18u;gap:12u}
+  .cdx-lines li{gap:12u}
   .cdx-thumb{width:40u;height:40u}
-  .cdx-ctl{display:none}
-  .cdx-promo{display:none}
-  /* Paid, and the seller's notice, centred on the part of the window the box shows. */
-  .cdx-paid{right:auto;width:calc(95% / 1.32)}
-  .cmv-sale{right:auto;left:calc(95% / 1.32 - 24.6em);top:.9em}
-  .cdx .cmv-cursor{left:34%}
-  /* One-tap: the phone at a computer's scale, taller than the box; it is moved through the box as the payment goes (the loop below). */
-  .cmv-phone{left:1.5em;top:1.4em;--pw:calc(100cqw * 14.4 / 32);--pan:calc(100cqw * -8.4 / 32)}
-  .tp{left:17.6em;right:1.4em;gap:.75em;--tp-step:3.75em}
+  .cdx-ctl,.cdx-tot{display:none}
+  .cmv-sale{right:1em;width:26em;top:1em;font-size:1.05em}
+  /* One-tap: the whole phone at the left, the three ways to pay beside it. */
+  .cmv-phone{left:1.4em;top:1.4em;--pw:calc(100cqw * 14 / 32)}
+  .tp{left:17.4em;right:1.4em;gap:.75em;--tp-step:3.75em}
   .tp-btn{height:3em;border-radius:.6em}
   .tp-ring{height:3.7em;border-radius:.9em}
   .tp-apple .mk-apple{width:1.15em;height:1.15em}
@@ -1873,30 +2067,29 @@ const CARDS_CSS = `
   .tp-ok{right:.55em;width:1.25em;height:1.25em;margin-top:-.625em}
   .tp-ok::after{left:.42em;top:.24em;width:.32em;height:.55em}
   .tp-pow{font-size:.8em}
-  /* Currencies: the same card, the pictures wider than tall so both tiles and the seven chips fit a 4:3 box. */
-  .cv{padding:0 1.4em;gap:.85em}
+  /* Currencies: both tiles and the seven currencies, whole. */
+  .cv{padding:0 1.4em;gap:1.1em}
   .cv-head{font-size:.95em}
   .cv-tiles{gap:.8em}
-  .cv-tile{padding:.55em .55em .7em;border-radius:1em}
-  .cv-pic{aspect-ratio:4/3}
-  .cv-pic img{object-position:50% 30%}
-  .cv-name{font-size:.9em;margin-top:.55em}
+  .cv-tile{padding:.55em .55em .75em;border-radius:1em}
+  .cv-name{font-size:.9em;margin-top:.6em}
   .cv-tee,.cv-luts{font-size:1.6em}
   .cv-chip{gap:.3em;height:2.5em;font-size:.74em}
   .cv-chip .cmv-flag{width:1.3em;height:.87em}
-  /* The reminder: the rail, the email without its paragraph, the Recovered tile beside it. */
+  /* The reminder: the rail, the email under it, the Recovered tile beside the email, its chart full height. */
   .cmv-rec{font-size:1em}
-  .cmv-tl{left:1.5em;right:.6em;top:1.3em}
-  .cmv-mail{left:1.2em;width:19em;top:6.3em;padding:1.1em 1.2em}
-  .cmv-mail p,.cmv-mail-subj{display:none}
-  .cmv-mail-h{font-size:1.35em}
-  .cmv-got{left:21em;right:1.2em;top:6.3em;bottom:1.3em;padding:1em 1em .9em;border-radius:1.2em}
-  .cmv-got-n{font-size:1.55em}
-  .cmv-chart{margin:.7em -1em 0}
-  .cmv-got-s{font-size:.72em}
-  .cmv-got-f{font-size:.72em}
+  .cmv-tl{left:1.5em;right:.6em;top:1.5em}
+  .cmv-mail{left:1.2em;width:18.6em;top:6.2em;padding:1.1em 1.2em}
+  .cmv-mail-subj{display:none}
+  .cmv-mail-h{font-size:1.3em}
+  .cmv-mail p{font-size:.86em}
+  .cmv-got{left:20.6em;right:1.2em;top:6.2em;bottom:1.4em;padding:1em .9em .9em;border-radius:1.2em}
+  .cmv-got-n{font-size:1.4em}
+  .cmv-chart{margin:.7em -.9em 0}
+  .cmv-got-s{flex-direction:column;align-items:flex-start;gap:.25em;font-size:.72em}
+  .cmv-got-f{font-size:.72em;white-space:normal}
 }
-`
+`)
 
 /*
  * THE DEMOS LOOP. Each card's demo is one ${LOOP_S}s cycle of transform and
@@ -1935,10 +2128,14 @@ const cycKeyframes = `@keyframes cv-cyc{0%{opacity:0;transform:translate3d(0,.32
 /* The marker rests under each currency and glides to the next while the readings cross fade; from the last back to the first it glides across the loop's seam, half before it and half after. */
 const hlKeyframes = `@keyframes cv-hl{0%{transform:translate3d(${(N_CUR - 1) * 50}%,0,0)}${PRICES.map((_, i) => `${pct(i * SLOT + FADE)},${pct((i + 1) * SLOT - (i === N_CUR - 1 ? FADE : 0))}{transform:translate3d(${i * 100}%,0,0)}`).join("")}100%{transform:translate3d(${(N_CUR - 1) * 50}%,0,0)}}`
 
+/** A finger's press at `t`: a soft ring that comes and spreads. */
+const touch = (t: number) => `0%,${at(t - 0.05)}{opacity:0;transform:scale(.4)}${at(t + 0.08)}{opacity:1;transform:scale(1)}${at(t + 0.5)},100%{opacity:0;transform:scale(1.4)}`
+/** A button pressed at `t`, down to `k`. */
+const press = (t: number, k: number) => `0%,${at(t)}{transform:scale(1)}${at(t + 0.12)}{transform:scale(${k})}${at(t + 0.34)},100%{transform:scale(1)}`
 /* Built to convert: the form fills, the page scrolls to the shipping, it is chosen and the totals settle, on down to the card, Pay, paid, the seller's notice, and back to the top under the paid screen. */
 const LOOP_CSS = u(`
 @media (prefers-reduced-motion:no-preference){
-  ${ON} :where(.cdx-v,.cdx-scroll,.cdx-sum-in,.cdx-radio i,.cdx-s0,.cdx-s1,.cdx-t0,.cdx-t1,.cdx-box-terms,.cmv-cursor,.cdx-pay,.cdx-paid,.cdx-ring,.cdx-paid b,.cdx-paid small,.cmv-sale,.pc-ap-a,.cmv-phone,.pc-touch,.ap-dim,.ap-sheet,.ap-side,.ap-done,.pc-paid,.pc-paid-ring,.pc-paid b,.pc-paid small,.tp-ring,.tp-btn,.tp-ok,.tp-shine,.cv-cyc,.cv-hl,.cmv-rec,.cmv-fill,.cmv-st,.cmv-mail,.cmv-mail-btn,.cmv-n0,.cmv-n1,.cmv-got-up,.cmv-wipe){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1)}
+  ${ON} :where(.cdx-v,.cdx-scroll,.cdx-sum-in,.cdx-radio i,.cdx-s0,.cdx-s1,.cdx-t0,.cdx-t1,.cdx-box-terms,.cmv-cursor,.cdx-pay,.cdx-paid,.cdx-ring,.cdx-paid b,.cdx-paid small,.cmv-sale,.pc-touch,.ic-dim,.ic-sheet,.ic-form,.ic-done,.ic-pay,.ic-buy,.ap-dim,.ap-sheet,.ap-side,.ap-done,.tp-ring,.tp-btn,.tp-ok,.tp-shine,.cv-cyc,.cv-hl,.cmv-rec,.cmv-fill,.cmv-st,.cmv-mail,.cmv-mail-btn,.cmv-n0,.cmv-n1,.cmv-got-up,.cmv-wipe){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1)}
   ${ON} .cdx-v-country,${ON} .cdx-v-state{animation-name:none}
   ${FIELDS.map(([k, t]) => typed(k, t)).join("\n  ")}
   ${ON} .cdx-scroll{animation-name:cdx-scroll}
@@ -1956,15 +2153,18 @@ const LOOP_CSS = u(`
   ${ON} .cdx-paid b,${ON} .cdx-paid small{animation-name:cdx-paidt}
   ${ON} .cmv-sale{animation-name:cmv-sale}
 
-  ${ON} .pc-ap-a{animation-name:pc-press}
-  ${ON} .pc-touch{animation-name:pc-touch}
+  ${ON} .ic-t1{animation-name:ic-t1}
+  ${ON} .ic-t2{animation-name:ic-t2}
+  ${ON} .ic-buy{animation-name:ic-buy}
+  ${ON} .ic-pay{animation-name:ic-pay}
+  ${ON} .ic-dim{animation-name:ic-dim}
+  ${ON} .ic-sheet{animation-name:ic-sheet;animation-timing-function:linear}
+  ${ON} .ic-form{animation-name:ic-form}
+  ${ON} .ic-done{animation-name:ic-done}
   ${ON} .ap-dim{animation-name:ap-dim}
   ${ON} .ap-sheet{animation-name:ap-sheet}
   ${ON} .ap-side{animation-name:ap-side}
   ${ON} .ap-done{animation-name:ap-done}
-  ${ON} .cmv-tap .pc-paid{animation-name:pc-paid}
-  ${ON} .cmv-tap .pc-paid-ring{animation-name:pc-ring}
-  ${ON} .cmv-tap .pc-paid b,${ON} .cmv-tap .pc-paid small{animation-name:pc-paidt}
   ${ON} .tp-ring{animation-name:tp-ring;animation-timing-function:cubic-bezier(.65,0,.35,1)}
   ${ON} .tp-shine{animation-name:tp-shine;animation-timing-function:ease-in-out}
   ${ON} .tp-apple{animation-name:tp-press1}
@@ -1984,12 +2184,13 @@ const LOOP_CSS = u(`
   ${ON} .cmv-st3{animation-name:cmv-st3}
   ${ON} .cmv-mail{animation-name:cmv-mail;animation-timing-function:cubic-bezier(.16,1,.3,1)}
   ${ON} .cmv-mail-btn{animation-name:cmv-btn}
-  @media (max-width:899px){
-    ${ON} .cmv-phone{animation-name:cmv-pan;animation-timing-function:cubic-bezier(.65,0,.35,1)}
-  }
   ${ON} .cmv-n0{animation-name:cmv-n0}
   ${ON} .cmv-n1,${ON} .cmv-got-up{animation-name:cmv-n1}
   ${ON} .cmv-wipe{animation-name:cmv-wipe;animation-timing-function:cubic-bezier(.45,0,.2,1)}
+  /* On a phone the order sits above the form, so it scrolls away with the page instead of staying beside it. */
+  @media (max-width:899px){
+    ${ON} .cdx-sum-in{animation-name:none}
+  }
 }
 @keyframes cdx-scroll{0%,${at(1.95)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.65,0,.35,1)}${at(2.95)},${at(3.45)}{transform:translate3d(0,calc(var(--s1) * -1),0);animation-timing-function:cubic-bezier(.65,0,.35,1)}${at(4.4)},${at(RESET)}{transform:translate3d(0,calc(var(--s2) * -1),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
 @keyframes cdx-stick{0%,${at(1.95)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.65,0,.35,1)}${at(2.95)},${at(3.45)}{transform:translate3d(0,max(0px,calc(var(--s1) - 62u)),0);animation-timing-function:cubic-bezier(.65,0,.35,1)}${at(4.4)},${at(RESET)}{transform:translate3d(0,max(0px,calc(var(--s2) - 62u)),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
@@ -2003,26 +2204,33 @@ const LOOP_CSS = u(`
 @keyframes cdx-ring{0%,${at(6.2)}{opacity:0;transform:scale(.5)}${at(6.6)},100%{opacity:1;transform:scale(1)}}
 @keyframes cdx-paidt{0%,${at(6.35)}{opacity:0;transform:translate3d(0,8u,0)}${at(6.75)},100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmv-sale{0%,${at(6.9)}{opacity:0;transform:translate3d(0,-1em,0)}${at(7.4)},${at(9.2)}{opacity:1;transform:translate3d(0,0,0)}${at(9.6)},100%{opacity:0;transform:translate3d(0,-.4em,0)}}
-/* One-tap payments: a tap on Apple Pay, the wallet's sheet up, Done, the sheet away, Payment complete, and back. */
-@keyframes cmv-pan{0%,${at(1.2)}{transform:translate3d(0,0,0)}${at(2)},${at(4.3)}{transform:translate3d(0,var(--pan),0)}${at(5)},${at(9.1)}{transform:translate3d(0,calc(var(--pan) / 2),0)}${at(9.8)},100%{transform:translate3d(0,0,0)}}
-@keyframes pc-press{0%,${at(1)}{transform:scale(1)}${at(1.12)}{transform:scale(.96)}${at(1.34)},100%{transform:scale(1)}}
-@keyframes pc-touch{0%,${at(0.95)}{opacity:0;transform:scale(.4)}${at(1.08)}{opacity:1;transform:scale(1)}${at(1.5)},100%{opacity:0;transform:scale(1.4)}}
-@keyframes ap-dim{0%,${at(1.25)}{opacity:0}${at(1.75)},${at(4.25)}{opacity:.32}${at(4.75)},100%{opacity:0}}
-@keyframes ap-sheet{0%,${at(1.25)}{transform:translate3d(0,110%,0)}${at(1.9)},${at(4.25)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.5,0,.75,0)}${at(4.7)},100%{transform:translate3d(0,110%,0)}}
-@keyframes ap-side{0%,${at(2.9)}{opacity:1}${at(3.1)},${at(4.8)}{opacity:0}${at(5)},100%{opacity:1}}
-@keyframes ap-done{0%,${at(3)}{opacity:0;transform:scale(.7)}${at(3.4)},${at(4.8)}{opacity:1;transform:scale(1)}${at(5)},100%{opacity:0;transform:scale(.7)}}
-@keyframes pc-paid{0%,${at(4.35)}{opacity:0}${at(4.8)},${at(8.9)}{opacity:1}${at(9.4)},100%{opacity:0}}
-@keyframes pc-ring{0%,${at(4.45)}{opacity:0;transform:scale(.6)}${at(4.95)},100%{opacity:1;transform:scale(1)}}
-@keyframes pc-paidt{0%,${at(4.6)}{opacity:0;transform:translate3d(0,8px,0)}${at(5)},100%{opacity:1;transform:translate3d(0,0,0)}}
+/*
+ * One-tap payments. The loop starts and ends with the checkout open, so it
+ * never jumps as it starts over: a tap on Pay with Apple Pay, Apple Pay's
+ * sheet up, Done, the sheet away, the window's Payment complete; the window
+ * goes down to the page, a tap on Buy now, and it comes up again.
+ */
+@keyframes ic-t2{${touch(0.7)}}
+@keyframes ic-t1{${touch(7.9)}}
+@keyframes ic-pay{${press(0.75, 0.97)}}
+@keyframes ic-buy{${press(7.95, 0.97)}}
+@keyframes ap-dim{0%,${at(1)}{opacity:0}${at(1.5)},${at(3.2)}{opacity:.32}${at(3.65)},100%{opacity:0}}
+@keyframes ap-sheet{0%,${at(1)}{transform:translate3d(0,110%,0)}${at(1.6)},${at(3.2)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.5,0,.75,0)}${at(3.65)},100%{transform:translate3d(0,110%,0)}}
+@keyframes ap-side{0%,${at(2.2)}{opacity:1}${at(2.4)},${at(3.7)}{opacity:0}${at(3.9)},100%{opacity:1}}
+@keyframes ap-done{0%,${at(2.3)}{opacity:0;transform:scale(.7)}${at(2.7)},${at(3.7)}{opacity:1;transform:scale(1)}${at(3.9)},100%{opacity:0;transform:scale(.7)}}
+@keyframes ic-form{0%,${at(3.3)}{opacity:1}${at(3.6)},${at(6.95)}{opacity:0}${at(7)},100%{opacity:1}}
+@keyframes ic-done{0%,${at(3.5)}{opacity:0;transform:translate3d(0,10px,0)}${at(3.95)},${at(6.95)}{opacity:1;transform:translate3d(0,0,0)}${at(7)},100%{opacity:0;transform:translate3d(0,10px,0)}}
+@keyframes ic-sheet{0%,${at(6.35)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.55,0,.8,.2)}${at(6.9)},${at(8.15)}{transform:translate3d(0,105%,0);animation-timing-function:cubic-bezier(.16,1,.3,1)}${at(8.9)},100%{transform:translate3d(0,0,0)}}
+@keyframes ic-dim{0%,${at(6.35)}{opacity:.6}${at(6.9)},${at(8.15)}{opacity:0}${at(8.7)},100%{opacity:.6}}
 /* The three buttons: a light passes over Apple Pay, it is pressed with the phone's tap and checked once paid; the ring moves on to Google Pay and the card, each pressed and checked; all back for the next loop. */
-@keyframes tp-shine{0%,${at(0.25)}{transform:translate3d(-110%,0,0)}${at(0.95)},100%{transform:translate3d(240%,0,0)}}
-@keyframes tp-ring{0%,${at(5.6)}{transform:translate3d(0,0,0)}${at(6.1)},${at(7.4)}{transform:translate3d(0,var(--tp-step),0)}${at(7.9)},${at(9.2)}{transform:translate3d(0,calc(var(--tp-step) * 2),0)}${at(9.75)},100%{transform:translate3d(0,0,0)}}
-@keyframes tp-press1{0%,${at(1)}{transform:scale(1)}${at(1.12)}{transform:scale(.96)}${at(1.34)},100%{transform:scale(1)}}
-@keyframes tp-press2{0%,${at(6.3)}{transform:scale(1)}${at(6.42)}{transform:scale(.96)}${at(6.64)},100%{transform:scale(1)}}
-@keyframes tp-press3{0%,${at(8.1)}{transform:scale(1)}${at(8.22)}{transform:scale(.96)}${at(8.44)},100%{transform:scale(1)}}
-@keyframes tp-ok1{0%,${at(4.85)}{transform:scale(0)}${at(5.2)},${at(9.3)}{transform:scale(1)}${at(9.6)},100%{transform:scale(0)}}
-@keyframes tp-ok2{0%,${at(6.65)}{transform:scale(0)}${at(7)},${at(9.3)}{transform:scale(1)}${at(9.6)},100%{transform:scale(0)}}
-@keyframes tp-ok3{0%,${at(8.45)}{transform:scale(0)}${at(8.8)},${at(9.3)}{transform:scale(1)}${at(9.6)},100%{transform:scale(0)}}
+@keyframes tp-shine{0%,${at(0.1)}{transform:translate3d(-110%,0,0)}${at(0.65)},100%{transform:translate3d(240%,0,0)}}
+@keyframes tp-ring{0%,${at(4.4)}{transform:translate3d(0,0,0)}${at(4.9)},${at(5.7)}{transform:translate3d(0,var(--tp-step),0)}${at(6.2)},${at(8.3)}{transform:translate3d(0,calc(var(--tp-step) * 2),0)}${at(8.85)},100%{transform:translate3d(0,0,0)}}
+@keyframes tp-press1{${press(0.75, 0.96)}}
+@keyframes tp-press2{${press(5, 0.96)}}
+@keyframes tp-press3{${press(6.45, 0.96)}}
+@keyframes tp-ok1{0%,${at(3.6)}{transform:scale(0)}${at(3.95)},${at(8.3)}{transform:scale(1)}${at(8.6)},100%{transform:scale(0)}}
+@keyframes tp-ok2{0%,${at(5.25)}{transform:scale(0)}${at(5.6)},${at(8.3)}{transform:scale(1)}${at(8.6)},100%{transform:scale(0)}}
+@keyframes tp-ok3{0%,${at(6.7)}{transform:scale(0)}${at(7.05)},${at(8.3)}{transform:scale(1)}${at(8.6)},100%{transform:scale(0)}}
 /* Local currencies: each reading in turn, the marker stepping along under it. */
 ${cycKeyframes}
 ${hlKeyframes}
