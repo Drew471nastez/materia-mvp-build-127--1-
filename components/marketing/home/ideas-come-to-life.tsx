@@ -24,6 +24,12 @@ export const IDEAS_HEADING = "See your ideas come to life."
   settles in (transform and opacity), the same 38px row, so the section
   keeps its height. The website builder shows a simple, clean merch brand,
   Plain Weather, and the line under the heading is shorter.
+
+  Landing round 8 (the owner): the merch brand "more bold, more colorful,
+  more funky, like a real Storelib store": Mondo Mango, a fat wordmark over
+  a wall of colour photographs and the drop on white, the wordmark printed
+  on each piece. The Strength Room gets a real emblem and a cover with its
+  name in heavy yellow. The tabs and the autoplay are as they were.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
 export const IDEAS_SUB = "No code, nothing to install. Drag sections in, edit on the page, publish when it looks right."
@@ -41,7 +47,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Plain Weather's home page in the sidebar, and the page itself, a small apparel label's store with tees, a hoodie and a cap. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Mondo Mango's home page in the sidebar, and the page itself, a bright merch label's store: its orange wordmark, a wall of colour photographs, and a crewneck, a trucker cap, a tee and a tote with the wordmark printed on them. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
   },
   {
@@ -53,7 +59,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "community",
     title: "Community",
-    alt: "Inside The Strength Room, a paid Storelib community where coach Rina Castillo runs strength training for women: the community card, the next live form check, the space chips, and the pinned post with the new program getting a like while a member writes a new post.",
+    alt: "Inside The Strength Room, a paid Storelib community where coach Rina Castillo runs strength training for women: its barbell emblem, the community card with the name in heavy yellow on the cover, the next live form check, the space chips, and the pinned post with the new program getting a like while a member writes a new post.",
     Mock: CommunityMock,
   },
 ]
@@ -184,10 +190,11 @@ const CSS = `
 .ideas-line:first-child{opacity:1;transform:none}
 .ideas-line em{font-style:normal;color:var(--story-accent,#7c3aed)}
 @media(prefers-reduced-motion:no-preference){
-  .ideas-line{animation:ideas-flip ${IDEAS_HEADINGS.length * IDEAS_HEADING_S}s cubic-bezier(.2,.8,.2,1) infinite both paused}
+  .ideas-line{animation:ideas-flip ${IDEAS_HEADINGS.length * IDEAS_HEADING_S}s cubic-bezier(.22,1,.36,1) infinite both paused}
   .ideas[data-live] .ideas-line{animation-play-state:running}
 }
-@keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}6%,29%{opacity:1;transform:none}34%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
+/* Landing round 8 (the owner: "the flip thing is delayed"): the old line left from 29% (of the 10.8s loop, each line's turn is 33.3%) and the next came in only from 33.3%, so for a moment the heading was empty and every change read as late. Now the old line leaves (31% to 35%) while the next comes in (0 to 4.5% of its own turn, 486ms, was 648ms): one line hands over to the next in about 0.75s instead of 1.1s, with no empty moment. */
+@keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}4.5%,31%{opacity:1;transform:none}35%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
 .ideas-sub{max-width:56ch;margin:18px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
 [data-landing-story] .ideas>.ideas-tabs-row,.ideas-tabs-row{box-sizing:border-box;display:flex;justify-content:flex-start;max-width:var(--home-max,2020px);margin:clamp(24px,3vw,36px) auto clamp(18px,2.2vw,28px);padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .ideas-tabs{display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#f1f1f2}

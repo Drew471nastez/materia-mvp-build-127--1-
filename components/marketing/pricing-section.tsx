@@ -93,8 +93,9 @@ export function PricingSection({
     [SCALE_CHECKOUT_PLAN_ID]: actionFor(SCALE_CHECKOUT_PLAN_ID),
   }
 
+  /* Landing round 8: on the home page the small print starts at the heading's left edge too, nothing centred. */
   const footnote = (
-    <p className={`text-center text-[13px] leading-[1.5] text-[#6b7280] ${compact ? "mt-3" : "mt-6"}`}>{PLAN_FOOTNOTE}</p>
+    <p className={`${editorial ? "pl-[var(--home-head-inset)] text-left" : "text-center"} text-[13px] leading-[1.5] text-[#6b7280] ${compact ? "mt-3" : "mt-6"}`}>{PLAN_FOOTNOTE}</p>
   )
 
   // Compact (onboarding) layout: no outer padding, no scroll animations.
@@ -122,7 +123,15 @@ export function PricingSection({
     <section data-story-section={editorial ? "pricing" : undefined} className={editorial ? "bg-white py-20 sm:py-24" : "py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]"} id="pricing">
       <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [&_[data-plan-cards]]:!max-w-none [&_[data-plan-interval-row]]:justify-start [&_[data-plan-interval-row]]:pl-[var(--home-head-inset)]" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
         <AnimateOnScroll variant="blur-in">
-          <div className={editorial ? "story-section-heading !mb-10 pl-[var(--home-head-inset)]" : "text-center max-w-[640px] mx-auto mb-10 sm:mb-12"}>
+          {/*
+            Landing round 8, the owner: "make the heading left aligned like all
+            the other sections". Stated outright on the home page (text-left,
+            no auto margins, the AnimateOnScroll wrapper full width) so no
+            inherited centring can move it: the heading, its line and the pill
+            start at the content edge plus --home-head-inset, as every other
+            section's heading does.
+          */}
+          <div data-pricing-head="" className={editorial ? "story-section-heading !mx-0 !mb-10 w-full pl-[var(--home-head-inset)] !text-left" : "text-center max-w-[640px] mx-auto mb-10 sm:mb-12"}>
             {editorial ? <StoryHeading text={headingOverride || "Pricing & Plans"} accent={["Plans"]} /> : (
             <Heading className="text-[clamp(28px,4vw,40px)] font-semibold leading-[1.15] tracking-tight text-[#1a1a2e]">
               {headingOverride || "Pricing & Plans"}

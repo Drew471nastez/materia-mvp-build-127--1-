@@ -16,14 +16,11 @@ import { StoryHeading } from "./story-heading"
   Satori Studio is a real OnePage, storelib.me/satori-studio, as a phone
   shows it. Photographs are Unsplash.
 
-  LANDING ROUND 4 (the owner): Gia Romano's and Bea's pages made again,
-  higher quality and truer to the real thing, and Kai Moreno (prints, the
-  Gallery theme) and Northline Coffee (a subscription, the Terrazzo theme,
-  as a laptop shows it) are new. All four are PublicOnePage itself, rendered
-  with fixture data in a dev-only route that is not committed, captured at
-  the sizes below. The yoga website, the surf coach, the sample pack store
-  and the sourdough community are gone; The Long Draft (ThemePage) and
-  Charla Circle (the member frame), round 2's captures, take two places.
+  LANDING ROUND 4 (the owner): Gia Romano's page made again, higher quality
+  and truer to the real thing, and Kai Moreno (prints, the Gallery theme)
+  new, PublicOnePage itself, rendered with fixture data in a dev-only route
+  that is not committed, captured at the sizes below. The Long Draft
+  (ThemePage) is round 2's capture.
 
   EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
   pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
@@ -42,6 +39,17 @@ import { StoryHeading } from "./story-heading"
   the section with room under it: nothing can land on anything. With a mouse
   it still waits for the hover; on a touch screen, where there is no hover,
   it is simply there, under its card.
+
+  LANDING ROUND 8, THE OWNER: Plainspace's store has a new cover, bold and
+  clean (black, its line in heavy type, the Life OS planner beside it). The
+  nail artist, the coffee subscription and the language club are gone (the
+  owner did not like them). In their places, Mara
+  Lind (a Pilates teacher's bookings, the Sage theme) and Luca Brandt (a
+  colourist's Grade Club subscription and the Cine Tones LUT Pack, Graphite,
+  as a laptop shows it) are PublicOnePage itself, and Seed & Soil (growing
+  food in small spaces) is Storelib's own member frame and feed, each
+  rendered with fixture data from a scratch entry that is not committed and
+  photographed at the sizes below. Photographs are Unsplash.
 */
 const wide = (brand: string, label: string, alt: string) => ({
   src: `/home/showcase/a-${brand}.webp`,
@@ -65,9 +73,9 @@ const portrait = (brand: string, label: string, alt: string, tone: string) => ({
 /* Every caption is three words at most (the owner, waves 13 and 14). */
 const GROUPS = [
   [
-    wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates with dashboard previews"),
+    wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store under a black cover, Your whole week. One calm page.: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn", "#1a1a1d"),
-    wide("charla", "Run a community", "Charla Circle, a conversation club on Storelib: a pinned post for Thursday's call, a member's small win and the next online meetup"),
+    wide("seedsoil", "Run a community", "Seed & Soil, a community for growing food in small spaces on Storelib: a pinned sowing guide for November, a member's tray of pea shoots and the winter seed swap"),
   ],
   [
     wide("hale", "Sell training programs", "Hale Strength, coach Marcus Hale's website with a lifter at the squat rack, a workout log and four strength programs"),
@@ -80,8 +88,8 @@ const GROUPS = [
     wide("nightshift", "Build a club", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
-    wide("northline", "Sell subscriptions", "Northline Coffee's OnePage on a wide screen: a coffee subscription for $18 a month and two bags of beans"),
-    portrait("bea", "Fill your bookings", "Nails by Bea, a nail artist's OnePage: Book an appointment, her work and two press-on sets", "#f9b48c"),
+    wide("luca", "Sell subscriptions", "Luca Brandt's OnePage on a wide screen, a colourist in Berlin: Grade Club for $9 a month, the Cine Tones LUT Pack and a guide to grading night exteriors"),
+    portrait("mara", "Fill your bookings", "Mara Lind's OnePage, a Pilates teacher in Brooklyn: book a private session, photos of her classes, a home program and a class pack", "#b9c6ad"),
     wide("shift", "Drop new merch", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
   ],
 ]
@@ -190,23 +198,19 @@ const CSS = `
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .build-showcase-viewport {position:relative;overflow:hidden;margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px));mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
 /*
-  THE RAIL. It is the browser's own horizontal scroller with snapping: before
-  the script, and for good on a touch screen or under 768px
-  (data-showcase-native, use-showcase-motion.ts, landing round 5), where the
-  browser's gesture recogniser and momentum move it and the script only
-  plays autoplay. With a mouse from 768px lib/ui/rail-motion takes it
-  (data-rail-ready): nothing scrolls natively and each group is moved by a
-  transform. overscroll-behavior keeps a sideways swipe at either end from
-  turning into the browser's back gesture. scroll-snap-stop:normal lets a
-  throw run on past a card and land where its momentum ends (round 6).
+  THE RAIL. Before the script it is the browser's own horizontal scroller
+  with snapping, so it scrolls with no script at all. Once the script is
+  there (data-rail-ready, use-showcase-motion.ts) the rail is one transform
+  on every screen, moved by the finger and the mouse alike (landing round 8:
+  round 5's native snap on phones needed a long swipe before a card let go).
+  touch-action: pan-y leaves a vertical swipe to the page. overscroll-behavior
+  keeps a sideways swipe at either end from turning into the back gesture.
 */
 .build-showcase-track {--showcase-gap:16px;position:relative;display:flex;gap:24px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;cursor:grab;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.build-showcase-track[data-rail-ready] {overflow:visible;touch-action:pan-y pinch-zoom;overscroll-behavior-x:none;scroll-snap-type:none}
+.build-showcase-track[data-rail-ready] {overflow:visible;touch-action:pan-y pinch-zoom;overscroll-behavior-x:none;scroll-snap-type:none;will-change:transform;backface-visibility:hidden}
 .build-showcase-track:focus-visible {outline:2px solid #bca3ff;outline-offset:4px}
 .build-showcase-track::-webkit-scrollbar {display:none}
 .build-showcase-track[data-dragging] {cursor:grabbing}
-/* The moving boxes keep their own GPU layers for as long as the rail runs (round 61), and the Web Animations that move them (wave 13) run on those same layers: nothing is promoted or dropped at a step. The native rail needs none: the browser scrolls it as one layer. */
-.build-showcase-track[data-rail-ready] .build-showcase-group {will-change:transform;backface-visibility:hidden}
 .build-showcase-group {display:grid;grid-template-columns:256fr 90fr 256fr;gap:var(--showcase-gap);align-items:start;flex:0 0 100%;width:100%;padding:10px var(--landing-card-inset,14px) 0;min-width:0;box-sizing:border-box;scroll-snap-align:start;scroll-snap-stop:normal}
 .build-showcase-slide {position:relative;min-width:0;width:100%;margin:0}
 .build-showcase-pic {position:relative;width:100%;aspect-ratio:1440/990;margin:0;border-radius:7px;contain:paint;isolation:isolate;background:#151517;overflow:hidden}
@@ -225,17 +229,18 @@ const CSS = `
 @media(hover:hover) and (pointer:fine){.build-showcase-track:not([data-dragging]) .build-showcase-slide:hover figcaption{opacity:1;transition-duration:460ms}}
 @media(hover:none),(pointer:coarse){.build-showcase-slide figcaption{opacity:1;transition:none}}
 /* Round 61: the pictures appear where they are, a fade and nothing else. Hidden only once the script is there to show them. */
-.build-showcase-track[data-rail-ready],.build-showcase-track[data-showcase-native] {opacity:0;transition:opacity 650ms cubic-bezier(.25,.1,.25,1)}
+.build-showcase-track[data-rail-ready] {opacity:0;transition:opacity 650ms cubic-bezier(.25,.1,.25,1)}
 .build-showcase-viewport[data-showcase-entered] .build-showcase-track {opacity:1}
 /*
   ON A PHONE, LANDING ROUND 6 (the owner's reference, a store showcase in a
-  phone's browser): every card is a 4:3 landscape card, 78% of the screen
-  wide, its left edge on the heading's gutter, the next one peeking in on
-  the right, 10px apart. The rail has hard edges: no fading mask, which also
-  keeps the scroll on the compositor in WebKit. A wide page fills its card
-  from the top; a OnePage stands in its card as a phone screen does, on its
-  own page colour a shade deeper, rising from the bottom edge.
+  phone's browser): a store or website is a 4:3 landscape card, 78% of the
+  screen wide, its left edge on the heading's gutter, the next one peeking in
+  on the right, 10px apart. The rail has hard edges: no fading mask.
+  LANDING ROUND 8, THE OWNER: a OnePage is a phone page, so on a phone it is a
+  tall 9:16 card, as a short video is shown, not a phone screen stood inside
+  a landscape card: half again as tall as the 4:3 cards (1.125 of the card
+  width), its top on theirs, the page filling it from the top.
 */
-@media(max-width:767px){.build-showcase{--showcase-card:min(78vw,440px)}.build-showcase-card{padding:64px 0 clamp(44px,12vw,64px)}.build-showcase-top{margin-inline:var(--showcase-gutter)}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:none;-webkit-mask-image:none}.build-showcase-track{--showcase-gap:10px;gap:var(--showcase-gap);padding-inline:var(--showcase-gutter);scroll-padding-inline:var(--showcase-gutter)}.build-showcase-group{display:contents}.build-showcase-slide{flex:0 0 var(--showcase-card);width:var(--showcase-card);scroll-snap-align:start;scroll-snap-stop:normal}.build-showcase-pic,.build-showcase-slide[data-format="portrait"] .build-showcase-pic{aspect-ratio:4/3;border-radius:8px}.build-showcase-pic img{object-position:50% 0}.build-showcase-slide[data-format="portrait"] .build-showcase-pic{background:var(--showcase-tone,#151517)}.build-showcase-slide[data-format="portrait"] .build-showcase-pic img{position:absolute;left:27%;top:9%;width:46%;height:auto;aspect-ratio:540/1056;border-radius:9px 9px 0 0;box-shadow:0 0 0 1px rgba(0,0,0,.07)}.build-showcase-slide figcaption{height:38px;padding-top:12px;font-size:14px;line-height:18px;color:#a1a1aa}}
+@media(max-width:767px){.build-showcase{--showcase-card:min(78vw,440px)}.build-showcase-card{padding:64px 0 clamp(44px,12vw,64px)}.build-showcase-top{margin-inline:var(--showcase-gutter)}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:none;-webkit-mask-image:none}.build-showcase-track{--showcase-gap:10px;gap:var(--showcase-gap);align-items:flex-start;padding-inline:var(--showcase-gutter);scroll-padding-inline:var(--showcase-gutter)}.build-showcase-group{display:contents}.build-showcase-slide{flex:0 0 var(--showcase-card);width:var(--showcase-card);scroll-snap-align:start;scroll-snap-stop:normal}.build-showcase-pic{aspect-ratio:4/3;border-radius:8px}.build-showcase-pic img{object-position:50% 0}.build-showcase-slide[data-format="portrait"]{flex-basis:calc(var(--showcase-card)*.6328);width:calc(var(--showcase-card)*.6328)}.build-showcase-slide[data-format="portrait"] .build-showcase-pic{aspect-ratio:9/16;background:var(--showcase-tone,#151517)}.build-showcase-slide figcaption{height:38px;padding-top:12px;font-size:14px;line-height:18px;color:#a1a1aa}}
 @media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready]{opacity:1;transition:none}.build-showcase-slide figcaption{transition:none}}
 `

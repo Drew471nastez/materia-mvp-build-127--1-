@@ -1,0 +1,111 @@
+/**
+ * Landing round 8, rails: the showcase under the hero and the creators rail.
+ *
+ * The owner, after round 7:
+ *   - The showcase's pull to swipe "doesn't initialize", on a phone and on a desktop, and needs "the whole drag too
+ *     long". Make it like the creators rail: one engine for touch and mouse, a short flick is a card.
+ *   - Keep the caption on hover exactly as it is.
+ *   - On a phone a OnePage is a tall 9:16 card, like a short video; stores and websites stay 4:3.
+ *   - A bolder, cleaner cover for Plainspace; the nail artist, the coffee subscription and the language club replaced.
+ *   - "Storelib is for creators": full width, no fade, and smoother under the finger and the mouse.
+ *
+ * Measured in a browser by scripts/check-landing-r8-rails.mjs (CDP touch and mouse at 390 and 1440, 4x CPU).
+ */
+import { existsSync, readFileSync, statSync } from "node:fs"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { BuildShowcase, SHOWCASE_EXAMPLES } from "@/components/marketing/build-showcase"
+import { chooseShowcaseStop, glideEasing, SHOWCASE_AUTOPLAY, SHOWCASE_GESTURE } from "@/components/marketing/use-showcase-motion"
+import { AXIS_SLOP, CREATORS_CSS } from "@/components/marketing/home/creators-carousel"
+
+let failed = 0
+let passed = 0
+function check(name: string, ok: boolean, detail?: unknown) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    console.log(`  FAIL  ${name}${detail === undefined ? "" : `  (${JSON.stringify(detail)})`}`)
+  }
+}
+const read = (p: string) => readFileSync(p, "utf8")
+/** The source without its comments: what runs. */
+const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+const hook = code("components/marketing/use-showcase-motion.ts")
+const showcase = read("components/marketing/build-showcase.tsx")
+const css = showcase.slice(showcase.indexOf("const CSS = `"))
+const phone = css.slice(css.indexOf("@media(max-width:767px)"))
+const creators = code("components/marketing/home/creators-carousel.tsx")
+
+console.log("\nThe showcase: one engine, touch and mouse, the creators rail's gesture")
+check("no native scroller rail and no lib/ui/rail-motion: one startRail for every screen", !/startNative|RailMotion|scrollTo\(/.test(hook) && /const stop = startRail\(el, viewport, hooks\)/.test(hook))
+check("the axis is decided after 8px, across only when more across than down, the same as the creators rail", SHOWCASE_GESTURE.axisSlop === 8 && SHOWCASE_GESTURE.axisSlop === AXIS_SLOP && /if \(Math\.hypot\(dx, dy\) < g\.axisSlop\) return/.test(hook) && /drag\.axis = Math\.abs\(dx\) > Math\.abs\(dy\) \? "x" : "y"/.test(hook))
+check("down is the page's: the rail lets go at once, and vertical pans are the browser's", /if \(drag\.axis === "y"\) return letGo\(e, false\)/.test(hook) && /\.build-showcase-track\[data-rail-ready\] \{overflow:visible;touch-action:pan-y pinch-zoom/.test(css))
+check("pointer capture only once the rail has the gesture", hook.indexOf("el.setPointerCapture") > hook.indexOf('drag.axis = Math.abs(dx)'))
+check("1:1 from where the axis was decided, no jump for the slop", /drag\.startX = e\.clientX\s*drag\.fromX = x/.test(hook) && /x = resist\(drag\.fromX - \(e\.clientX - drag\.startX\)\)/.test(hook))
+check("drawn once a frame, only in a frame the pointer moved, as a transform", /if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(hook) && /el\.style\.transform = `translate3d\(/.test(hook))
+check("nothing reads layout while the rail moves: card places once per resize", (hook.match(/offsetLeft/g) ?? []).length === 2 && /resize\?\.observe\(viewport\)/.test(hook) && !/getBoundingClientRect/.test(hook))
+check("the touch and the mouse take the same path (pointer events, no touch or mouse listeners)", /el\.addEventListener\("pointerdown", onDown\)/.test(hook) && !/"touchstart"|"touchmove"|"mousedown"/.test(hook))
+{
+  const phoneStops = [0, 314, 520, 834, 1040, 1354]
+  const desk = [0, 1296, 2592, 3888]
+  check("a 60px flick moves one card on a phone", chooseShowcaseStop(60, 60, 900, phoneStops, 0) === 1)
+  check("and one page of three from 768px", chooseShowcaseStop(60, 60, 900, desk, 0, 1) === 1)
+  check("a slow pull of 20px is enough on a phone, 28px on a desktop", chooseShowcaseStop(20, 20, 0, phoneStops, 0) === 1 && chooseShowcaseStop(28, 28, 0, desk, 0, 1) === 1)
+  check("a nudge settles back", chooseShowcaseStop(9, 9, 40, phoneStops, 0) === 0 && chooseShowcaseStop(10, 10, 0, desk, 0, 1) === 0)
+  check("backwards the same", chooseShowcaseStop(254, -60, -900, phoneStops, 1) === 0)
+  check("a hard throw on a phone carries through up to three cards, no further", chooseShowcaseStop(80, 80, 4000, phoneStops, 0) === 3)
+  check("never past either end", chooseShowcaseStop(1400, 60, 4000, phoneStops, 5) === 5 && chooseShowcaseStop(-40, -40, -900, phoneStops, 0) === 0)
+}
+{
+  const bez = (e: string) => e.match(/cubic-bezier\(([^)]+)\)/)![1].split(",").map(Number)
+  const [x1, y1, , y2] = bez(glideEasing(254, 900, 440))
+  check("the glide leaves at the hand's own speed and ends at rest, never past its card", Math.abs((y1 / x1) * (254 / 0.44) - 900) < 1 && y1 <= 1 && y2 === 1, { x1, y1 })
+  check("the glide plays on the compositor (a Web Animation), its end written first so nothing flashes", /el\.animate\(\[\{ transform: `translate3d\(/.test(hook) && /x = to\s*paint\(\)\s*anim\.onfinish/.test(hook))
+}
+check("a sideways trackpad swipe or wheel moves it too, and is not the back gesture", /el\.addEventListener\("wheel", onWheel, \{ passive: false \}\)/.test(hook) && /if \(Math\.abs\(e\.deltaX\) <= Math\.abs\(e\.deltaY\)\) return\s*e\.preventDefault\(\)/.test(hook))
+check("autoplay: a card every 4.2s, 5s after the reader's last input, a slow soft step, never into a held or moving rail", SHOWCASE_AUTOPLAY.intervalMs === 4200 && SHOWCASE_AUTOPLAY.idleMs === 5000 && SHOWCASE_AUTOPLAY.stepMs >= 800 && /if \(holding \|\| drag \|\| moving\(\) \|\| due > now\) return schedule/.test(hook))
+check("autoplay only on screen, in a visible tab, with motion allowed", /const canPlay = \(\) => visible && !paused && !document\.hidden && !reduce\.matches/.test(hook))
+check("arrow keys, Home and End move it; Space pauses autoplay", /e\.key === "ArrowRight" \? index \+ 1/.test(hook) && /e\.key === "Home" \? 0/.test(hook) && /if \(e\.key === " "\)/.test(hook))
+
+console.log("\nThe showcase: the caption on hover, as it was")
+check("a mouse shows it on hover, never while dragging", /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1;transition-duration:460ms\}\}/.test(css))
+check("the caption line under the picture is unchanged", /\.build-showcase-slide figcaption \{height:44px;padding-top:14px;box-sizing:border-box;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:15px;font-weight:500;line-height:20px;letter-spacing:-\.005em;color:#d4d4d8;opacity:0;pointer-events:none;transition:opacity 380ms cubic-bezier\(\.33,0,\.2,1\)\}/.test(css))
+check("dragging marks the rail, so the caption stays away under a moving pointer", /el\.dataset\.dragging = "true"/.test(hook) && /delete el\.dataset\.dragging/.test(hook))
+
+console.log("\nThe showcase on a phone: OnePages 9:16, stores 4:3")
+check("a store or website card is 4:3", /\.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone))
+check("a OnePage card is 9:16, 0.6328 of a 4:3 card's width: half again as tall", /\.build-showcase-slide\[data-format="portrait"\]\{flex-basis:calc\(var\(--showcase-card\)\*\.6328\);width:calc\(var\(--showcase-card\)\*\.6328\)\}/.test(phone) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:9\/16;/.test(phone) && Math.abs(((0.6328 * 16) / 9) / 0.75 - 1.5) < 0.01)
+check("the cards stand on one top line", /\.build-showcase-track\{--showcase-gap:10px;gap:var\(--showcase-gap\);align-items:flex-start;/.test(phone))
+check("the page fills its 9:16 card from the top, no phone screen stood inside a card", /\.build-showcase-pic img\{object-position:50% 0\}/.test(phone) && !/left:27%;top:9%;width:46%/.test(phone))
+check("desktop keeps its groups", /grid-template-columns:256fr 90fr 256fr/.test(css) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic \{aspect-ratio:540\/1056\}/.test(css))
+
+console.log("\nThe showcase's pages")
+const all = SHOWCASE_EXAMPLES.map((e) => `${e.src} ${e.label} ${e.alt}`).join(" ")
+const html = renderToStaticMarkup(createElement(BuildShowcase))
+check("the nail artist, the coffee subscription and the language club are gone, pictures too", !/nails by bea|northline|nordline|charla/i.test(all + showcase + html) && ["bea", "northline", "charla"].every((k) => !existsSync(`public/home/showcase/a-${k}.webp`)))
+check("Mara Lind's bookings, a 9:16 OnePage", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-mara.webp" && e.format === "portrait" && e.label === "Fill your bookings"))
+check("Luca Brandt's Grade Club subscription with the Cine Tones LUT Pack", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-luca.webp" && e.label === "Sell subscriptions" && /Cine Tones LUT Pack/.test(e.alt)))
+check("Seed & Soil, a community for growing food in small spaces", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-seedsoil.webp" && e.label === "Run a community"))
+check("Plainspace's store under its new black cover", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-plainspace.webp" && /black cover/.test(e.alt)))
+check("every picture is a webp at its size, under 120 KB", SHOWCASE_EXAMPLES.every((e) => existsSync(`public${e.src}`) && e.src.endsWith(".webp") && statSync(`public${e.src}`).size < 120_000))
+check("twelve different pictures, captions three words at most", new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size === 12 && SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3))
+check("no banned names, words or em dashes", !/nadia brooks|the loop\b|lasalle|static bloom|wildcamp|enthusiasts|\bfans?\b/i.test(all) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(all) && !/—/.test(all))
+
+console.log("\nStorelib is for creators: full width, no fade, nothing per frame")
+check("the rail runs edge to edge at every width, with no mask", !/mask-image/.test(CREATORS_CSS) && !/\.cc-viewport,\.cc-viewport\{margin-inline/.test(CREATORS_CSS))
+check("at rest its first card is on the content edge (the shared box's gutter)", /--cc-start:max\(var\(--cc-gutter\),calc\(\(100% - var\(--home-max,2020px\)\) \/ 2 \+ var\(--cc-gutter\)\)\)/.test(CREATORS_CSS) && /\.cc-track\{[^}]*padding:10px var\(--cc-start\) 8px/.test(CREATORS_CSS))
+check("no frame loop: every leg of motion is a Web Animation (in, cruise, out, a throw, a nudge)", !/const frame = \(t: number\)/.test(creators) && ["in", "cruise", "out", "coast", "nudge"].every((k) => creators.includes(`play("${k}"`)) && /track\.animate\(/.test(creators))
+check("the speeds join: in leaves at 0 and arrives at cruising, out the other way, a throw leaves at the finger's speed", /"cubic-bezier\(\.5,0,\.75,\.5\)"/.test(creators) && /"cubic-bezier\(\.25,\.5,\.5,1\)"/.test(creators) && /const x1 = Math\.min\(0\.33, 1 \/ slope\)/.test(creators))
+check("the rail's place is read once when motion is taken back, never per frame", (creators.match(/getComputedStyle\(track\)/g) ?? []).length === 1 && /const halt = \(\) => \{/.test(creators))
+check("the finger is drawn once a frame, only when it moved", /if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(creators))
+check("round 7's axis lock is kept", AXIS_SLOP === 8 && /if \(Math\.hypot\(dx, dy\) < AXIS_SLOP\) return/.test(creators) && /if \(drag\.axis === "y"\) return letGo\(/.test(creators) && CREATORS_CSS.includes("touch-action:pan-y"))
+check("off screen or in a hidden tab whatever moves pauses", /if \(live\(\)\) motion\.anim\.play\(\)\s*else motion\.anim\.pause\(\)/.test(creators) && /document\.addEventListener\("visibilitychange", resume\)/.test(creators))
+
+console.log("\nThe browser check")
+const probe = read("scripts/check-landing-r8-rails.mjs")
+check("touch and mouse, 390 and 1440, 4x CPU, vertical swipes", /Input\.dispatchTouchEvent/.test(probe) && /page\.mouse\.down/.test(probe) && /setCPUThrottlingRate", \{ rate: 4 \}/.test(probe) && /devices\["iPhone 13"\]/.test(probe) && /width: 1440/.test(probe))
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed) process.exit(1)

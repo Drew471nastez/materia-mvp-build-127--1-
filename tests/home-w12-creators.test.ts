@@ -158,11 +158,12 @@ check("keyframes animate only transform and opacity", () => {
 
 check("engine: one rAF, transform only, IO and visibility pause, drag with capture, pan-y", () => {
   const src = read(SRC)
-  assert.ok(src.includes("track.style.transform = `translate3d("))
+  /* Changed on purpose (landing round 8): the transform string is made in one place (tf), the same translate3d. */
+  assert.ok(src.includes("track.style.transform = tf(x)") && src.includes("`translate3d(${(-v).toFixed(2)}px,0,0)`"))
   assert.ok(!/style\.(left|width|marginLeft|scrollLeft)\s*=/.test(src))
   assert.ok(src.includes("new IntersectionObserver") && src.includes('"visibilitychange"'))
   assert.ok(src.includes("setPointerCapture") && CREATORS_CSS.includes("touch-action:pan-y"))
-  assert.ok(src.includes("cancelAnimationFrame(raf)"))
+  assert.ok(src.includes("cancelAnimationFrame(paintFrame)"))
   // the measuring reads happen only in measure(), never per frame
   const frame = src.slice(src.indexOf("const frame = "), src.indexOf("const schedule = "))
   assert.ok(!/offset(Left|Width)|getBoundingClientRect|clientWidth/.test(frame))

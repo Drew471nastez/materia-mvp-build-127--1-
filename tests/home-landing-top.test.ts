@@ -29,8 +29,8 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_CARDS, EVERYTHING_SLIDES, EVERYTHING_STORES, EVERYTHING_STYLES, EVERYTHING_SUPPORT } from "@/components/marketing/home/everything-in-one-place"
 import { SHOWCASE_EXAMPLES } from "@/components/marketing/build-showcase"
-import { SHOWCASE_RAIL } from "@/components/marketing/use-showcase-motion"
-import { SHOWCASE_MOTION, chooseSwipeTarget, glideCurve } from "@/lib/ui/rail-motion"
+import { chooseShowcaseStop, glideEasing } from "@/components/marketing/use-showcase-motion"
+import { SHOWCASE_MOTION } from "@/lib/ui/rail-motion"
 
 let passed = 0
 let failed = 0
@@ -55,42 +55,31 @@ const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
 const css = EVERYTHING_STYLES[0]?.css ?? ""
 
 console.log("\n── the showcase: pull to drag and swipe, butter smooth ──")
-check("the showcase rail runs on its own tuning, with the glide and momentum", /new RailMotion\(el, items, snaps, SHOWCASE_RAIL,/.test(hook) && !!SHOWCASE_RAIL.glideSettle && SHOWCASE_RAIL.swipeMaxSteps === 3)
+/*
+  Changed on purpose (landing round 8): the owner still found the showcase's swipe slow to start and long to drag, so it no
+  longer runs on lib/ui/rail-motion: one engine in use-showcase-motion.ts, the creators rail's, for touch and mouse alike
+  (tests/home-landing-r8-rails.test.ts). What this round asked for still holds: the hand holds the rail exactly, the glide
+  leaves at the hand's speed and never passes its place, and a hard flick on a phone carries through up to three cards.
+*/
 check("the shared tuning is untouched: no glide, one step a gesture (the possibilities rail reads it)", SHOWCASE_MOTION.glideSettle === undefined && SHOWCASE_MOTION.swipeMaxSteps === undefined && SHOWCASE_MOTION.dragThreshold === 6 && SHOWCASE_MOTION.maxFlickVelocity === 6000)
-check("the hand still holds the rail exactly, and autoplay is kept", SHOWCASE_RAIL.dragSensitivity === 1 && SHOWCASE_RAIL.autoplayStepMs > 0 && SHOWCASE_RAIL.autoplayIntervalMs > 0 && SHOWCASE_RAIL.compositor === true)
-check("a release settles on the glide when it is configured", /if \(this\.config\.glideSettle\) \{\s*const g = glideCurve\(this\.x, to, limited, this\.config\.glideSettle\)/.test(rail))
-check("vertical swipes stay the page's on a phone, and the rail has the pointer events", /\.build-showcase-track\[data-rail-ready\] \{overflow:visible;touch-action:pan-y pinch-zoom/.test(showcase) && /"pointerdown"/.test(rail) && /setPointerCapture/.test(rail))
+check("the hand holds the rail exactly, and autoplay is kept", /x = resist\(drag\.fromX - \(e\.clientX - drag\.startX\)\)/.test(hook) && /SHOWCASE_AUTOPLAY\.intervalMs/.test(hook))
+check("vertical swipes stay the page's, and the rail has the pointer events", /\.build-showcase-track\[data-rail-ready\] \{overflow:visible;touch-action:pan-y pinch-zoom/.test(showcase) && /"pointerdown", onDown/.test(hook) && /setPointerCapture/.test(hook))
 {
-  const g = SHOWCASE_RAIL.glideSettle!
-  /* A whole desktop group (1316px) after a 300px pull released at 400px/s. */
-  const from = 300
-  const to = 1316
-  const curve = glideCurve(from, to, 400, g)
-  const xs: number[] = []
-  for (let t = 0; t <= curve.duration; t += 1000 / 120) xs.push(curve.at(t))
-  check("the glide starts where the hand let go and ends on the group", Math.abs(curve.at(0) - from) < 1e-9 && Math.abs(curve.at(curve.duration) - to) < 1e-9)
-  check("it only ever moves forward and never passes its place (no overshoot, no bounce)", xs.every((x, i) => i === 0 || x >= xs[i - 1] - 1e-9) && Math.max(...xs) <= to + 1e-9)
-  check("a whole group takes about half a second, not a long float", curve.duration >= 400 && curve.duration <= 560, curve.duration)
-  const slope0 = (curve.at(1) - curve.at(0)) * 1000
-  check("it leaves without a jolt: far under the old launch of half the spring's top speed", slope0 < 0.5 * Math.sqrt(360) * (to - from) * 0.4, Math.round(slope0))
-  const fast = glideCurve(0, 900, 2400, g)
-  const fastStart = (fast.at(0.5) - fast.at(0)) * 2000
-  check("a flick is carried on at the hand's own speed (no jump either way)", Math.abs(fastStart - 2400) < 60, Math.round(fastStart))
-  const huge = glideCurve(0, 300, 6000, g)
-  const hugeXs = Array.from({ length: 200 }, (_, i) => huge.at((huge.duration * i) / 199))
-  check("a very hard flick shortens the glide rather than passing its place", huge.duration < g.maxMs && Math.max(...hugeXs) <= 300 + 1e-9, huge.duration)
-  const at60 = Array.from({ length: 30 }, (_, i) => curve.at(i * (1000 / 60)))
-  const at120 = Array.from({ length: 30 }, (_, i) => curve.at(2 * i * (1000 / 120)))
-  check("a function of time, the same at 60 and 120Hz", at60.every((x, i) => Math.abs(x - at120[i]) < 1e-9))
+  const bez = (e: string) => e.match(/cubic-bezier\(([^)]+)\)/)![1].split(",").map(Number)
+  const [x1, y1, , y2] = bez(glideEasing(1016, 400, 600))
+  check("the glide leaves at the hand's own speed", Math.abs((y1 / x1) * (1016 / 0.6) - 400) < 1, { x1, y1 })
+  check("and ends at rest on its place, never past it", y2 === 1 && y1 <= 1)
+  const [hx1, hy1] = bez(glideEasing(300, 6000, 500))
+  check("a very hard flick is matched without overshooting", hy1 <= 1 && hx1 > 0)
 }
 {
   const snaps = [0, 286, 392, 678, 784, 1070]
-  const one = chooseSwipeTarget(0, 60, 3000, snaps, 0, SHOWCASE_MOTION)
-  const many = chooseSwipeTarget(0, 60, 3000, snaps, 0, SHOWCASE_RAIL)
-  const soft = chooseSwipeTarget(0, 60, 300, snaps, 0, SHOWCASE_RAIL)
-  check("without momentum a flick is one step, as before", one === 286, one)
-  check("with it a hard flick on a phone carries through up to three cards, and no further", many > 286 && many <= 678, many)
-  check("a soft swipe is still one card", soft === 286, soft)
+  const many = chooseShowcaseStop(60, 60, 3000, snaps, 0)
+  const soft = chooseShowcaseStop(60, 60, 300, snaps, 0)
+  const one = chooseShowcaseStop(60, 60, 3000, snaps, 0, 1)
+  check("a hard flick on a phone carries through up to three cards, and no further", many > 1 && many <= 3, many)
+  check("a soft swipe is one card", soft === 1, soft)
+  check("from 768px a flick is one page", one === 1, one)
 }
 check("no showcase caption leans on fans", SHOWCASE_EXAMPLES.every((e) => !/\bfans?\b/i.test(e.label + " " + e.alt)))
 
@@ -126,11 +115,14 @@ console.log("\n── make the work: a store that looks like you ──")
 /* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
 check("merch stores and link pages, each drawn whole in the markup, twice over", EVERYTHING_STORES.length >= 6 && (html.match(/class="ev-st ev-mc"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "merch").length * 2 && (html.match(/class="ev-st ev-lp"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "link").length * 2)
 check("drawn at a phone's 390px and scaled", /--r:calc\(var\(--card-w\) \/ 390\)/.test(css))
-check("every store picture is local, exists and is small", EVERYTHING_STORES.flatMap((st) => (st.kind === "merch" ? st.products.map((p) => p.src) : [st.ground, ...st.products])).every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024))
+/* Changed on purpose (landing round 8): link pages carry their creator's photo, and a profile OnePage has one photo. */
+check("every store picture is local, exists and is small", EVERYTHING_STORES.flatMap((st) => (st.kind === "merch" ? st.products.map((p) => p.src) : st.kind === "link" ? [st.ground, st.avatar, ...st.products] : [st.photo])).every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024))
 /* Changed on purpose (landing round 4): the owner wants to drag the strip, so its drift is a Web Animation from script that a hand can take over (tests/home-landing-topa4). */
 /* Changed on purpose (landing round 7): the keyframes are a plain string from 0. */
-check("it drifts without a stop, on the compositor: one linear loop of transform", /el\.animate\(\[\{ transform: "translate3d/.test(src) && /iterations: Infinity, easing: "linear"/.test(src) && /class="ev-s-track"/.test(html))
-check("it pauses off screen and stands still under reduced motion", /drift\.pause\(\)/.test(src) && /if \(drift \|\| drag \|\| loop <= 0 \|\| reduce\.matches\) return/.test(src))
+/* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
+check("it drifts without a stop, on the compositor: one linear loop of transform", /slot\.animate\(\s*\[\{ transform: `translate3d/.test(src) && /iterations: Infinity, easing: "linear"/.test(src) && /class="ev-s-track"/.test(html))
+/* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
+check("it pauses off screen and stands still under reduced motion", /else stopDrift\(\)/.test(src) && /if \(drifting\(\) \|\| drag \|\| raf \|\| turn <= 0 \|\| reduce\.matches/.test(src))
 
 console.log("\n── make the work: real support ──")
 /* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2, without the From buyers / Storelib switch and its status pills: one thread at a time, photos and Storelib's mark. tests/home-landing-topa4 pins it. */

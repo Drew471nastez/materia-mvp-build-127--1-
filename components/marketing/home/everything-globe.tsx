@@ -60,7 +60,7 @@
 
 import { useEffect, useRef } from "react"
 import { EVERYTHING_LAND_B64, EVERYTHING_LAND_COUNT, EVERYTHING_LAND_NORTH, EVERYTHING_LAND_SOUTH, EVERYTHING_LAND_STEP } from "./everything-globe-land"
-import { createGlobeEngine, type GlobeEngine, type GlobePill, type GlobePointer, type V3 } from "./everything-globe-draw"
+import { createGlobeEngine, type GlobeEngine, type GlobeLand, type GlobePill, type GlobePointer, type V3 } from "./everything-globe-draw"
 import { EVERYTHING_GLOBE_WORKER_SOURCE } from "./everything-globe-worker-source"
 
 type Order = { city: string; cc: string; lat: number; lng: number; price: string }
@@ -127,6 +127,14 @@ export function everythingLandPoints(): Float32Array {
   return landCache
 }
 
+/*
+  Landing round 8: the land goes to the engine as its bitmask (a kilobyte, not 95KB of points), and the engine lays it
+  out for the size it draws at: a phone's small ball gets fewer, larger dots (LAND_MIN_GAP_PX in the engine).
+*/
+export const EVERYTHING_LAND_MASK: GlobeLand = { b64: EVERYTHING_LAND_B64, step: EVERYTHING_LAND_STEP, north: EVERYTHING_LAND_NORTH, south: EVERYTHING_LAND_SOUTH }
+/** The card's ground (everything-in-one-place.tsx, .ev-g): the canvas is drawn opaque on it. */
+export const EVERYTHING_GLOBE_GROUND = "#060608"
+
 const handedOver = new WeakSet<HTMLCanvasElement>()
 
 /** Room kept between a notification and the card's edge, and between its caret and the landing point (CSS px). */
@@ -167,12 +175,20 @@ const GLOBE_NOTICE_CSS = `
 @media (max-width:420px){.ev-globe .ev-globe-pin>.ev-globe-pill{font-size:12.5px;padding:6px 11px 6px 8px}}
 `
 
-/** Device pixels the canvas may use: 2x, or 1.5x on a phone with four cores or 4 GB of memory or less. */
+/*
+  Device pixels the canvas may use. Landing round 8 (the owner: the globe must not cause lag): on a phone (a coarse
+  pointer and a screen under 600px on its short side) 1.5x, or 1.25x on one with four cores or 4 GB or less; the dots
+  are small squares on a dark ball and read the same, at a little over half the pixels of 2x. Elsewhere 2x, or 1.5x on
+  a low end machine.
+*/
 export function globeDprCap(): number {
   const nav = typeof navigator === "undefined" ? null : (navigator as Navigator & { deviceMemory?: number })
   const cores = nav?.hardwareConcurrency ?? 8
   const memory = nav?.deviceMemory ?? 8
-  return cores <= 4 || memory <= 4 ? 1.5 : 2
+  const lowEnd = cores <= 4 || memory <= 4
+  const phone = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches && typeof screen !== "undefined" && Math.min(screen.width, screen.height) < 600
+  if (phone) return lowEnd ? 1.25 : 1.5
+  return lowEnd ? 1.5 : 2
 }
 
 /** What drives the globe: a worker holding the canvas, or the engine on this thread. */
@@ -189,7 +205,10 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
   /* The display's frames for a worker without requestAnimationFrame of its own: sent only while it asks (it is moving). */
   let ticking = false
   let looping = false
-  const pts = everythingLandPoints()
+  /* The engine lays the land out from the bitmask; no points are made or sent here (round 8). */
+  const pts = new Float32Array(0)
+  const land = EVERYTHING_LAND_MASK
+  const ground = EVERYTHING_GLOBE_GROUND
   const cities = EVERYTHING_GLOBE_ORDERS.map((o) => toV(o.lat, o.lng))
   const home = toV(HOME[0], HOME[1])
   if (typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof canvas.transferControlToOffscreen === "function") {
@@ -201,7 +220,7 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
       const off = canvas.transferControlToOffscreen()
       handedOver.add(canvas)
-      worker.postMessage({ type: "init", canvas: off, pts, cities, home }, [off])
+      worker.postMessage({ type: "init", canvas: off, pts, cities, home, land, ground }, [off])
       worker.postMessage({ type: "ticker" })
     } catch {
       worker?.terminate()
@@ -243,7 +262,7 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
   }
   let ctx: CanvasRenderingContext2D | null = null
   try {
-    ctx = canvas.getContext("2d")
+    ctx = canvas.getContext("2d", { alpha: false })
   } catch {
     /* A canvas already handed to a worker: no globe rather than a broken page. */
   }
@@ -262,10 +281,12 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
       caf: (id) => cancelAnimationFrame(id),
       onPill,
       onDrawn,
+      ground,
     },
     pts,
     cities,
     home,
+    land,
   )
   return engine
 }
@@ -446,7 +467,8 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
               st.visible = e.isIntersecting
               sync()
             },
-            { rootMargin: "60px 0px" },
+            /* Round 8: drawn only while some of it is on screen, not 60px ahead of it. */
+            { rootMargin: "0px" },
           )
         : null
     io?.observe(box)

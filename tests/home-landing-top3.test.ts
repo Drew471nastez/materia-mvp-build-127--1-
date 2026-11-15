@@ -71,20 +71,22 @@ check("no address of any kind in the strip (no URL bar over a page)", !/https?:|
 /* Changed on purpose (landing round 4): the owner asked for stores, communities on a phone and OnePages with their share and subscribe buttons, each card whole, and a strip that can be dragged. So the pictures between the stores are OnePages and a community at a phone's first screen (EVERYTHING_SHOTS, public/home/everything/strip), and the strip takes the pointer (only the strip: the cards inside take none) and drifts as a Web Animation from script. tests/home-landing-topa4.test.ts pins the rest. */
 /* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
 check("link pages stand between the stores", EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3)
-check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind === (i % 2 === 1 ? "link" : "merch")))
+/* Changed on purpose (landing round 8): a seventh page, a profile OnePage, so the pages no longer strictly take turns; no two stores ever stand side by side. */
+check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind !== "merch" || EVERYTHING_STORES[(i + 1) % EVERYTHING_STORES.length].kind !== "merch"))
 check(
   "each picture is local, exists and is small",
-  EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : [s.ground, ...s.products])).every((u) => {
+  EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [s.ground, s.avatar, ...s.products] : [s.photo])).every((u) => {
     const file = join(root, "public", u)
     return u.startsWith("/home/everything/stores/") && existsSync(file) && statSync(file).size < 120_000
   }),
 )
-check("the strip draws every page twice over (one set's width a loop)", (strip.match(/class="ev-st ev-(mc|lp)"/g) ?? []).length === EVERYTHING_STORES.length * 2)
+check("the strip draws every page twice over (one set's width a loop)", (strip.match(/class="ev-st ev-(mc|lp|pf)"/g) ?? []).length === EVERYTHING_STORES.length * 2)
 check("the cards in the strip take no pointer, and nothing is selectable", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && /user-select:none/.test(rule(evCss, ".ev-s")))
 check("the strip is hidden from assistive tech and holds nothing that takes focus", /class="ev-vis ev-s" aria-hidden="true"/.test(everything) && !/<(a|button|input|select|textarea)\b|tabindex/i.test(strip))
 check("no hover style on anything in the strip", !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))
 /* Changed on purpose (landing round 7): the loop runs 0 to one set and is entered at the strip's offset, so it never runs past the second copy. */
-check("the strip still drifts in one loop, by one set's width", /el\.animate\(\[\{ transform: "translate3d\(0px,0,0\)" \}, \{ transform: `translate3d\(\$\{-loop\}px,0,0\)` \}\]/.test(src.everything) && /class="ev-s-track"/.test(everything))
+/* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
+check("the strip still drifts in one loop, by one turn of all the pages", /\[\{ transform: `translate3d\(\$\{\(turn - pitch - base\[i\]\)\.toFixed\(2\)\}px,0,0\)` \}, \{ transform: `translate3d\(\$\{\(-pitch - base\[i\]\)\.toFixed\(2\)\}px,0,0\)` \}\]/.test(src.everything) && /class="ev-s-track"/.test(everything))
 
 console.log("\n── Support: three requests, none about missing money ──")
 /* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2 (one thread at a time, photos and Storelib's mark), without the From buyers / Storelib switch. Three true requests still take turns, none about money. */
@@ -121,8 +123,9 @@ check("ideas: one tab an editor, each named in full", (ideas.match(/class="ideas
 /* Changed on purpose (landing round 4): the ideas tabs now sit above the picture, so only the tab row is read. */
 check("no icons and no coloured chips in the tabs", !/<svg|<img/.test(ideas.slice(ideas.indexOf('class="ideas-tabs"'), ideas.indexOf('class="ideas-stage"'))))
 
-console.log("\n── One store for everything you sell: gone (landing round 7) ──")
-check("the section and its product pages are deleted", !existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && !existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
+console.log("\n── One store for everything you sell: back (landing round 8) ──")
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+check("the section and its product pages are back", existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
 check("the editors' previews take no pointer either", /\.ideas-mock\{[^}]*pointer-events:none/.test(src.ideas))
 check("no hover style inside any mock", !/:hover/.test(read("components/marketing/home/showcase-mocks/builder-mocks.tsx")))
 

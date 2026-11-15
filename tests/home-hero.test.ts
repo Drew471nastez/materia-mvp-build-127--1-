@@ -121,8 +121,9 @@ const showcase = read("components/marketing/build-showcase.tsx")
 /* Changed on purpose (wave 13): the owner's new showcase line, read from the showcase itself (not the Hero), below. */
 assert.equal(SHOWCASE_HEADING, "Build your page, sell your products, and manage everything in one place.")
 assert.ok(
-  /* Round 60: the showcase's own rail motion (lib/ui/rail-motion, tests/rail-motion.test.ts), no slider library. */
-  read("components/marketing/use-showcase-motion.ts").includes("new RailMotion(") &&
+  /* Round 60: the showcase's own rail motion, no slider library. */
+  /* Changed on purpose (landing round 8): one engine of its own for touch and mouse (use-showcase-motion.ts startRail, the creators rail's gesture), not lib/ui/rail-motion. */
+  read("components/marketing/use-showcase-motion.ts").includes("function startRail(") &&
     !read("components/marketing/use-showcase-motion.ts").includes("keen-slider") &&
     showcase.includes('loading="lazy"'),
 )

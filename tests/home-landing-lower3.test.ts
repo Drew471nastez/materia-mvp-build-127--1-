@@ -65,7 +65,8 @@ console.log("\n── analytics, on the purple sheet ──")
   /* Changed on purpose (landing round 4): fewer reports (six), lit from above with a soft white gradient for depth, as the owner asked; still the ground's ink and a hairline. */
   /* Changed on purpose (landing round 5): the owner asked for the report pills white, with some depth and a bit of glass. */
 /* Changed on purpose (landing round 7): the owner asked for another shape than the white pills and nothing purple on the purple sheet: six near-black tiles (tests/home-landing-r7-lower.test.ts). */
-  check("the reports are six near-black tiles with a hairline, no backdrop blur", /\.report \{[^}]*background: #0d0d10;/.test(css) && /\.report \{[^}]*inset 0 0 0 1px rgba\(255, 255, 255, 0\.08\)/.test(css) && !/backdrop-filter/.test(css) && (html.match(/<li class="[^"]*report[^"]*"/g) ?? []).length === 6)
+  /* Changed on purpose (landing round 8): the owner asked for the reports white, glass with a slight gradient, not black; still six, a hairline, no backdrop blur. */
+  check("the reports are six white glass tiles with a hairline, no backdrop blur", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.1[0-9]\)[^}]*inset 0 1px 0 rgba\(255, 255, 255, 0\.3\)[^}]*color: #fff;/.test(css) && /\.report \{[^}]*inset 0 0 0 1px rgba\(255, 255, 255, 0\.16\)/.test(css) && !/backdrop-filter/.test(css) && (html.match(/<li class="[^"]*report[^"]*"/g) ?? []).length === 6)
   /* Changed on purpose (landing round 4): the owner asked for the engine switcher to be pressable; its buttons are the one real control, and only they have a hover. */
   /* Changed on purpose (landing round 5): the engine switcher is the earlier one again, with no buttons, so nothing in a card answers the pointer. */
   check("nothing in a card answers the pointer", /\.dark > \* \{\s*pointer-events: none;/.test(css) && !/:hover/.test(css))
@@ -83,7 +84,8 @@ console.log("\n── the map, on the purple sheet ──")
   /* Changed on purpose (landing round 4): the owner asked for the button in each country's language. */
   check("one light buy button, its words in each country's language", (html.match(/class="cmm-buy">/g) ?? []).length === 1 && html.includes('lang="de">Jetzt kaufen<'))
   check("the flags are a real switch: one pressed button per country, named", (html.match(/<button type="button" class="cmm-flag"/g) ?? []).length === SELL_COUNTRIES.length && (html.match(/aria-pressed="true"/g) ?? []).length === 1 && html.includes('aria-label="United States"') && /role="group" aria-label="Buyer&#x27;s country"/.test(html))
-  check("choosing a country restarts the turn from it", /const choose = \(i: number\)/.test(src) && /\}, \[live, picks\]\)/.test(src))
+  /* Changed on purpose (landing round 8): the lit flag's line times the turn and restarts with every country (keyed by it), so a press starts the turn again from the chosen one with no timer to reset. */
+  check("choosing a country restarts the turn from it", /const choose = \(i: number\)/.test(src) && /<i key=\{active\} className="cmm-time" onAnimationEnd=\{next\} \/>/.test(src))
   /* Changed on purpose (landing round 5): the Example tag is gone, as the owner asked. */
   check("the map, the product and the words are inert", /\.cmm-grid,\.cmm-world,\.cmm-prod,\.cmm-copy\{pointer-events:none\}/.test(src))
   check("no Example tag on the card at any width", !/cmm-tag|>Example</.test(src))

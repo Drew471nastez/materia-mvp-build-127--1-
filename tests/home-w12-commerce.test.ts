@@ -69,7 +69,8 @@ console.log("\nCommerce: the figures are Storelib's")
   check("downloads and courses have no production cost", commerceSale(1900, "download").baseCents === 0 && commerceSale(12900, "course").baseCents === 0)
   check("Pro's monthly price is lib/billing/plans PRO_PRICE_CENTS", COMMERCE_PRO_MONTHLY_CENTS === PRO_PRICE_CENTS, { COMMERCE_PRO_MONTHLY_CENTS, PRO_PRICE_CENTS })
   check("the currency count is the fee rules'", COMMERCE_CURRENCY_COUNT === Object.keys(CURRENCY_FEE_RULES).length && COMMERCE_CURRENCY_COUNT >= 2, COMMERCE_CURRENCY_COUNT)
-  check("the checkout tab names the count from the code, not a typed number", /stat: `\$\{COMMERCE_CURRENCY_COUNT\} currencies`/.test(src.checkout))
+  // Changed on purpose (landing round 8): the card is titled "Local in 7 currencies" (the owner's words), the count from the code.
+  check("the checkout card names the count from the code, not a typed number", /title: `Local in \$\{COMMERCE_CURRENCY_COUNT\} currencies`/.test(src.checkout) && /`\$\{COMMERCE_CURRENCY_COUNT\} currencies`/.test(src.checkout))
   const m = commerceMonth("download", 19, 5, "free")
   check("a month of $19 downloads, 5 a day: 150 orders, $2,850, $180 fees, $2,670 kept", m.orders === 150 && m.revenue === 285000 && m.fees === 18000 && m.keep === 267000, m)
   const mp = commerceMonth("tee", 30, 10, "pro")
@@ -98,7 +99,8 @@ console.log("\nCommerce: the sections render on the server")
 /* Changed on purpose (landing round 4): the owner wanted the blue tee and Weeknight Pasta gone: an embroidered cap and a night photography e-book. */
   // Changed on purpose (landing round 5): the owner did not like the cap: a $45 signed print (an example $14 print cost) and the $19 e-book.
   // Changed on purpose (landing round 7): the owner did not like Nadia Brooks's print: a $38 shop apron (an example $16 print cost) and $24 workbench plans.
-  check("how it works: a $38 apron and $24 plans, physical and digital", how.includes("$38.00") && how.includes("$24.00") && how.includes("$16.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/apron.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
+  // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack: a $32 tee (an example $12.50 print cost) and the $29 pack.
+  check("how it works: a $32 tee and the $29 LUT pack, physical and digital", how.includes("$32.00") && how.includes("$29.00") && how.includes("$12.50") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/tee-white.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
   check("how it works: what each product leaves is Storelib's fee and the example cost off the price", HOW_PRODUCTS.every((m) => m.keepCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.keepCents > 0))
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
 /* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
@@ -112,20 +114,24 @@ console.log("\nCommerce: the sections render on the server")
   check("checkout: its own headline, not the reference's", co.replace(/<[^>]*>/g, "").includes("Checkout that turns a tap into a sale") && !/almost cheating/i.test(co))
   /* Changed on purpose (wave 13): a fifth tab, Order paid, as the owner asked; the closed panels are inert and hidden by visibility, not display:none, so all five share one box and switching tabs moves nothing below. */
 /* Changed on purpose (landing round 4): four tabs, as the owner asked; Order paid is the end of Built to convert. */
-  check("checkout: four tabs and one visible panel", (co.match(/role="tab"/g) ?? []).length === 4 && (co.match(/role="tabpanel"/g) ?? []).length === 4 && (co.match(/role="tabpanel"[^>]*inert/g) ?? []).length === 3 && !/role="tabpanel"[^>]*hidden/.test(co) && /\.cmc-panel\{grid-area:1\/1;[^}]*visibility:hidden/.test(src.checkout))
+  // Changed on purpose (landing round 8): a grid of four cards slides up over the phone, as in the owner's recording; no tabs.
+  check("checkout: four cards, no tabs, each demo live only on screen", (co.match(/class="cmc-card"/g) ?? []).length === 4 && !/role="tab/.test(co) && /\.cmc-card\[data-commerce-live\]/.test(src.checkout))
   /* Changed on purpose (wave 13): the real instant checkout heads its fields "Your details" (components/checkout/instant-checkout.tsx), not "Contact". */
 /* Changed on purpose (landing round 4): the phone no longer completes a payment as the page scrolls; Payment complete is the desktop checkout's. */
   /* Changed on purpose (landing round 7, the owner: "use the actual Storelib checkout, not the modal checkout"): the phone draws the full page checkout's words. */
-  check("checkout: the phone draws the real checkout's words", ["Contact information", "Email me with news and offers", "Payment method", "Add promotion code", "Total due", "Pay $12.00", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
+  // Changed on purpose (landing round 8): the phone sells the Cine Tones LUT Pack ($29).
+  check("checkout: the phone draws the real checkout's words", ["Contact information", "Email me with news and offers", "Payment method", "Add promotion code", "Total due", "Pay $29.00", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
   /* Added (wave 13). */
   check("checkout: no subheading under the headline, no eyebrow", !/cmc-sub|story-eyebrow/.test(co))
   /* Changed on purpose (landing round 3): the owner wants the wallets tab to be a phone and nothing else, so the second browser (the one with Google Pay) is gone; the tab's words still name both wallets. */
 /* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again, as the owner asked. */
   check("checkout: the website checkout in a desktop browser, once, and both wallets named", (co.match(/class="cdx-win"/g) ?? []).length === 1 && co.includes("Apple Pay and Google Pay, built in"))
-  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$64.00", "€59.00", "£50.00", "¥9,800", "C$88.00"].every((p) => co.includes(p))) /* Changed on purpose (landing round 7): Maren Holt's $64 yarn kit in place of the print. */
+  // Changed on purpose (landing round 8): the owner: the shared product (the tee and the LUT pack) in all seven currencies.
+  check("checkout: every currency with its real flag, the tee and the LUT pack priced in each", ["US", "EU", "GB", "CA", "AU", "JP", "RO"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$32.00", "€30.00", "£26.00", "C$44.00", "A$49.00", "¥4,900", "149 lei", "$29.00", "¥4,400"].every((p) => co.includes(p)))
   /* Changed on purpose (landing round): the product is Maya Ellis's e-book, Weeknight Pasta, not the Golden Hour presets the owner found AI looking. */
 /* Changed on purpose (landing round 4): new products; the seller's note is the in-app sale notification ("New sale: <total>", "<buyer> bought <thing> for <total>."). */
-  check("checkout: the reminder and the sale note use the real words", co.includes("You left Harbor yarn kit at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $88.08") && co.includes("Sam Rivera bought Harbor yarn kit and 1 more for $88.08.")) /* Changed on purpose (landing round 7): Maren Holt's yarn kit in place of the print. */
+  // Changed on purpose (landing round 8): the LUT pack and the tee.
+  check("checkout: the reminder and the sale note use the real words", co.includes("You left Cine Tones LUT Pack at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $71.88") && co.includes("Sam Rivera bought Midnight Studio Tee and 1 more for $71.88."))
   check("checkout: no Golden Hour presets anywhere, and less fans in the words", !/Golden Hour|golden-cover|Presets/.test(co + src.checkout) && !/\bfans?\b/i.test(co.replace(/<style[\s\S]*?<\/style>/g, "")))
   /* Changed on purpose (landing round 7): the label names the checkout page. */
   check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="Storelib&#x27;s checkout page on a phone/.test(co))
@@ -133,7 +139,8 @@ console.log("\nCommerce: the sections render on the server")
 /* Changed on purpose (landing round 4): the owner asked for the products orbiting the phone back, none of them the Golden Hour box or the purple membership card, each crossfading to a pre-blurred file (never a live filter). */
   /* Changed on purpose (landing round 5): the orbit is gone, it stuttered under a finger. */
   /* Changed on purpose (landing round 7): the owner asked for the products around the phone back ("how they were before"), a new set of plain pictures on one transform loop, no blurred twins. */
-  check("checkout: products ride a ring around the phone again, without blurred twins", /cmc-orbit/.test(co) && /\/home\/commerce\/float-/.test(co) && !/-blur\.webp/.test(co + src.checkout))
+  // Changed on purpose (landing round 8): the owner: "3D products, not images", turning on an axis as the page scrolls.
+  check("checkout: real 3D objects stand around the phone, without blurred twins", /cmc-orbit/.test(co) && /\/home\/commerce\/obj-/.test(co) && !/-blur\.webp/.test(co + src.checkout) && !/filter:\s*blur/.test(src.checkout))
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
@@ -141,14 +148,15 @@ console.log("\nCommerce: the sections render on the server")
   check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
   /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
   /* Changed on purpose (landing round 4): the owner asked for the product to change with the country, so each country has its own product and price (USD, EUR, JPY, CAD, AUD). */
-  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "19,00 €", "¥4,800", "C$89.00", "24,00 €", "A$22.00"].every((p) => map.includes(p)) && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))  /* Changed on purpose (landing round 5): three digital products, priced as they are. */
+  check("map: orders in the buyers' money, as checkout charges it", ["$32.00", "29,00 €", "¥4,800", "C$79.00", "24,00 €", "A$34.00"].every((p) => map.includes(p)) /* Changed on purpose (landing round 8): the Cine Tones LUT pack, a mobility course and a cookbook, priced as they are. */ && ["USD", "JPY", "CAD", "EUR", "AUD"].every((cur) => cur in CURRENCY_FEE_RULES))  /* Changed on purpose (landing round 5): three digital products, priced as they are. */
   {
     /* Changed on purpose (landing round 4): the owner reversed the first round's ask; the button speaks the country's language (Jetzt kaufen, 今すぐ購入, Acheter). */
     check("map: the button in the buyer's language", ["Buy now", "Jetzt kaufen", "今すぐ購入", "Acheter"].every((w) => map.includes(`>${w}</span>`)))
     check("map: real flags for each country, from the site's own flag files", SELL_COUNTRIES.every((c) => map.includes(`/flags/${c.code}.svg`) && existsSync(join(ROOT, "public/flags", `${c.code}.svg`))))
     /* Changed on purpose (landing round): the owner asked for a little less rounding (32px to 31px). */
     check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:31px/.test(src.map) && /\.cmm-wrap,\[data-landing-story\] \.cmm>\.cmm-wrap\{[^}]*max-width:var\(--home-max,2020px\)/.test(src.map))  /* Changed on purpose (landing round 7): inside the page's one width (--home-max), not the old 1400px. */
-    check("map: the country changes only while the section is on screen, and never under reduced motion", /if \(!live\) return/.test(src.map) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(src.map) && /window\.clearInterval/.test(src.map))
+    /* Changed on purpose (landing round 8): the turn is timed by the lit flag's CSS line, which runs only while live and not at all under reduced motion; no timer in JavaScript. */
+    check("map: the country changes only while the section is on screen, and never under reduced motion", /\.cmm-time\{[^}]*animation-play-state:paused\}/.test(src.map) && /\[data-commerce-live\] \.cmm-time\{animation-play-state:running\}/.test(src.map) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-time\{animation:none\}/.test(src.map) && !/setInterval/.test(src.map))
     /* Changed on purpose (landing round 4): one product photograph per country. */
     check("map: each product photo exists", SELL_COUNTRIES.every((c) => existsSync(join(ROOT, "public/home/sell-map", c.photo)) && map.includes(`/home/sell-map/${c.photo}`)))
   }
@@ -190,7 +198,8 @@ console.log("\nCommerce: motion and performance rules")
   /* Changed on purpose (landing round): the owner found scrolling through the scene "very bad". The scroll no longer scrubs anything frame by frame: an IntersectionObserver sets data-step as bands cross the middle of the screen, and each step plays as a CSS transition of transform and opacity. Stricter than before: no scroll listener at all, no per-frame custom property, no 3D orbit. */
 /* Changed on purpose (landing round 4): the phone rises and stays, the words come in, the tab cards rise over the phone: CSS view timelines (transform and opacity, on the compositor, reversible), and where a browser has none, two IntersectionObservers set two attributes and the same states play as transitions. Still no scroll listener and no layout read. */
   /* Changed on purpose (landing round 5): no scroll timelines; one observer starts a one-shot entrance, plain scroll does the rest. */
-  check("checkout: one observer for the entrance, no scroll timeline, no scroll listener, no layout read", !/view-timeline|animation-timeline/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
+  // Changed on purpose (landing round 8): the objects turn on a scroll timeline (transform, run by the compositor).
+  check("checkout: one observer for the entrance, a scroll timeline for the objects only, no scroll listener, no layout read", /animation-timeline:--cmc-t/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
   check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(\$\{OVERLAP\} \* -1\) 0 0/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
@@ -223,7 +232,8 @@ console.log("\nCommerce: images")
 /* Changed on purpose (landing round 4): the cap, the course's street still, and the captured OnePage and its sheet. */
   // Changed on purpose (landing round 5): the print instead of the captured OnePage; the cap picture stays for the checkout scene's currencies panel.
   // Changed on purpose (landing round 7): Linde Woodshop's five pictures; the cap and the print stay for the checkout scene; the street course still is gone.
-  check("public/home/how holds the checkout's cap and print and the woodshop's pictures, webp, each under 30 KB", howFiles.sort().join() === "apron.webp,cap-yellow.webp,lesson-plane.webp,linde-avatar.webp,plans-bench.webp,print-lasalle.webp,site-workshop.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 8): the tee in place of the apron and the bench (the LUT pack's still is section 3's file).
+  check("public/home/how holds the checkout's cap and print and the woodshop's pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,lesson-plane.webp,linde-avatar.webp,print-lasalle.webp,site-workshop.webp,tee-white.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }

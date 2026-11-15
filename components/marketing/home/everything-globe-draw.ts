@@ -41,6 +41,21 @@
     to about 60 a second.
   - The notification is placed where the shot landed (see showPill), told
     once per landing, never per frame.
+
+  LANDING ROUND 8 (the owner: "make sure the globe is more performance
+  optimized and doesn't cause lag; smooth and clean"). Measured with the
+  engine alone at 4x CPU (a drawn frame, raster included): 23 to 26ms on a
+  phone sized card at 2x and 30 to 32ms on a 1440 card, before. Now:
+  - The land is laid out again for the size the ball is drawn at (landFor):
+    dots never closer than LAND_MIN_GAP_PX on the screen, so a phone's
+    small ball draws about half as many, each a touch larger, and a big
+    ball keeps the full 1.15 degree grid. Read from the land bitmask the
+    page sends (GlobeLand), once per size step, never per frame.
+  - The canvas is opaque where the card's ground is given (ground): the
+    sphere picture covers every pixel, so there is no clear and the
+    browser composites an opaque layer.
+  - The rim fade is stamped over the ball's own square only.
+  - Device pixels on a phone are 1.5x (everything-globe.tsx, globeDprCap).
 */
 
 export type V3 = [number, number, number]
@@ -88,6 +103,57 @@ const SLOW_FRAME_IDLE_MS = 30
 export type GlobePill = { i: number; on: boolean; x0?: number; y0?: number; x1?: number; y1?: number; ms?: number }
 
 export type GlobePointer = { kind: "down" | "move" | "up"; x: number; y: number; t: number }
+
+/**
+ * The land as its bitmask (everything-globe-land.ts): rows of latitude from north to south `step` degrees apart, each
+ * row round(360 cos(lat) / step) dots with odd rows shifted half a dot, bit k the k-th dot. Given it, the engine lays
+ * the dots out again for the size it draws at (landFor); without it, it draws the points it was given.
+ */
+export type GlobeLand = { b64: string; step: number; north: number; south: number }
+
+/** On screen, land dots are never laid out closer than this (CSS px): a small ball draws fewer, larger dots. */
+export const LAND_MIN_GAP_PX = 4.6
+
+const DEG = Math.PI / 180
+
+/** One land row's dot count at latitude `lat`, for a grid `step` degrees apart (the bitmask's own rule). */
+const rowCount = (lat: number, step: number) => Math.max(1, Math.round((360 * Math.cos(lat * DEG)) / step))
+
+/**
+ * The land dots for a grid `step` degrees apart (never finer than the bitmask's own), as unit vectors: every dot of the
+ * new grid that falls on a land dot of the bitmask's. Made once per step; the engine keeps the last one.
+ */
+export function landFor(land: GlobeLand, step: number): Float32Array {
+  const bin = typeof atob === "function" ? atob(land.b64) : ""
+  const S = land.step
+  const rows = Math.floor((land.north - land.south) / S) + 1
+  const rowStart = new Int32Array(rows + 1)
+  for (let r = 0; r < rows; r++) rowStart[r + 1] = rowStart[r] + rowCount(land.north - r * S, S)
+  const isLand = (lat: number, lng: number) => {
+    const r = Math.round((land.north - lat) / S)
+    if (r < 0 || r >= rows) return false
+    const n = rowStart[r + 1] - rowStart[r]
+    let i = Math.round(((lng + 180) / 360) * n - (r % 2) * 0.5)
+    i = ((i % n) + n) % n
+    const k = rowStart[r] + i
+    return ((bin.charCodeAt(k >> 3) >> (k & 7)) & 1) === 1
+  }
+  const st = Math.max(S, step)
+  const out: number[] = []
+  const newRows = Math.floor((land.north - land.south) / st) + 1
+  for (let r = 0; r < newRows; r++) {
+    const lat = land.north - r * st
+    const n = rowCount(lat, st)
+    const cl = Math.cos(lat * DEG)
+    const sl = Math.sin(lat * DEG)
+    for (let i = 0; i < n; i++) {
+      const lng = -180 + ((i + (r % 2) * 0.5) * 360) / n
+      if (!isLand(lat, lng)) continue
+      out.push(cl * Math.sin(lng * DEG), sl, cl * Math.cos(lng * DEG))
+    }
+  }
+  return new Float32Array(out)
+}
 
 /** The land's light before the rim fade, and its fill. */
 const LAND_ALPHA = 0.78
@@ -138,14 +204,19 @@ export type GlobeEngineHost = {
   onPill: (p: GlobePill) => void
   /** The first frame is on the canvas. */
   onDrawn: () => void
+  /** The card's ground behind the globe: given, the canvas is drawn opaque (made with alpha: false) and never cleared. */
+  ground?: string
 }
 
 const MAX_SHOTS = 3
 const POINTER_SAMPLES = 8
 
-export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, cities: V3[], home: V3) {
+export function createGlobeEngine(host: GlobeEngineHost, given: Float32Array, cities: V3[], home: V3, land?: GlobeLand | null) {
   const { canvas, ctx } = host
-  const nPts3 = pts.length - (pts.length % 3)
+  /* The dots drawn: the ones given, or the land laid out for the ball's size (resizeCanvas), kept per step. */
+  let pts = given
+  let nPts3 = pts.length - (pts.length % 3)
+  let landStep = 0
   /* Every order's arc, made once (the studio and the cities never move). */
   const arcs = cities.map((c) => arcPoints(home, c))
 
@@ -200,6 +271,8 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     askedDpr: 1,
     dprCeil: 4,
     slow: false,
+    /** How much larger a dot is drawn than on the bitmask's own grid (round 8, landFor). */
+    dotScale: 1,
     bg: null as AnyCanvas | null,
     fade: null as AnyCanvas | null,
     glow: null as AnyCanvas | null,
@@ -244,6 +317,11 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     const bg = host.makeCanvas(W, H)
     const g = bg?.getContext("2d") as Ctx2D | null | undefined
     if (g) {
+      /* Round 8: an opaque canvas is never cleared, so its picture starts with the card's own ground. */
+      if (host.ground) {
+        g.fillStyle = host.ground
+        g.fillRect(0, 0, W, H)
+      }
       /* Atmosphere: a soft violet haze just outside the rim. */
       const halo = g.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.14)
       halo.addColorStop(0, "rgba(139,92,246,0.22)")
@@ -362,7 +440,7 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = "source-over"
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (!host.ground) ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(st.bg, 0, 0)
 
     /*
@@ -371,7 +449,8 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
       multiplications before it is skipped. Dots shrink a little with depth; the fade toward the rim is the stamp
       drawn right after.
     */
-    const base = Math.max(0.8 * d, R * 0.0046)
+    /* Round 8: dots laid out further apart (landFor) are a little larger, so the land keeps its weight. */
+    const base = Math.max(0.8 * d, R * 0.0046) * st.dotScale
     const qc = cY
     const qs = sY
     const pc = cP
@@ -391,7 +470,14 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
     }
     ctx.fillStyle = LAND_STYLE
     ctx.fill()
-    if (st.fade) ctx.drawImage(st.fade, 0, 0)
+    /* The rim fade, over the ball's own square only (round 8): outside it the stamp is clear. */
+    if (st.fade) {
+      const x0 = Math.max(0, Math.floor(cx - R - 1))
+      const y0 = Math.max(0, Math.floor(cy - R - 1))
+      const x1 = Math.min(canvas.width, Math.ceil(cx + R + 1))
+      const y1 = Math.min(canvas.height, Math.ceil(cy + R + 1))
+      if (x1 > x0 && y1 > y0) ctx.drawImage(st.fade, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0)
+    }
 
     /* City lights, the studio brightest. */
     const gs = st.glow.width
@@ -541,6 +627,16 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
 
   /* Fewer device pixels when drawing stays heavy (see FRAME_MIN_MS). */
   const resizeCanvas = () => {
+    if (land && st.R > 0) {
+      /* The grid for this size, in steps of 0.05 degrees so a small resize does not lay the land out again. */
+      const want = Math.max(land.step, Math.ceil(((LAND_MIN_GAP_PX / st.R) / DEG) * 20) / 20)
+      if (want !== landStep) {
+        landStep = want
+        pts = landFor(land, want)
+        nPts3 = pts.length - (pts.length % 3)
+        st.dotScale = Math.sqrt(want / land.step)
+      }
+    }
     canvas.width = Math.round(st.w * st.dpr)
     canvas.height = Math.round(st.h * st.dpr)
     paintStatic()
@@ -761,6 +857,10 @@ export function createGlobeEngine(host: GlobeEngineHost, pts: Float32Array, citi
       st.targetLeanX = fx * 0.26
       st.targetLeanY = fy * 0.2
       sync()
+    },
+    /** How many land dots the ball is drawn with at its size. */
+    dots() {
+      return nPts3 / 3
     },
     stop() {
       if (st.frame) host.caf(st.frame)

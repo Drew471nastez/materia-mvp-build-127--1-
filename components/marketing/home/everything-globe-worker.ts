@@ -22,10 +22,10 @@
   per frame it is sent. The timer stays only for a page that never said so.
 */
 
-import { createGlobeEngine, type GlobeEngine, type GlobePointer, type V3 } from "./everything-globe-draw"
+import { createGlobeEngine, type GlobeEngine, type GlobeLand, type GlobePointer, type V3 } from "./everything-globe-draw"
 
 type In =
-  | { type: "init"; canvas: OffscreenCanvas; pts: Float32Array; cities: V3[]; home: V3 }
+  | { type: "init"; canvas: OffscreenCanvas; pts: Float32Array; cities: V3[]; home: V3; land?: GlobeLand; ground?: string }
   | { type: "size"; w: number; h: number; dpr: number }
   | { type: "run"; on: boolean }
   | { type: "reduced"; on: boolean }
@@ -89,7 +89,8 @@ scope.onmessage = (e) => {
     return
   }
   if (m.type === "init") {
-    const ctx = m.canvas.getContext("2d")
+    /* Round 8: with the card's ground given, an opaque canvas (nothing to clear, cheaper to composite). */
+    const ctx = m.canvas.getContext("2d", { alpha: !m.ground })
     if (!ctx) return
     engine = createGlobeEngine(
       {
@@ -100,10 +101,12 @@ scope.onmessage = (e) => {
         caf,
         onPill: (p) => scope.postMessage({ type: "pill", p }),
         onDrawn: () => scope.postMessage({ type: "drawn" }),
+        ground: m.ground,
       },
       m.pts,
       m.cities,
       m.home,
+      m.land,
     )
     return
   }

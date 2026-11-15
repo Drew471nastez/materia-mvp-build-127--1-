@@ -1471,6 +1471,24 @@ const SUITES = [
   "tests/home-landing-r7-checkout.test.ts",
   /* Landing round 7, lower: the reports one near-black panel and nothing purple on the purple; the engines one sliding strip; the dot field even and flowing, after the mouse; no fee line under the earnings; Contacts plays growth, synced with, export with new faces; every lower section in the one width. */
   "tests/home-landing-r7-lower.test.ts",
+  /* Landing round 8, ideas: Mondo Mango, a bold colourful merch label, in the website builder (wordmark, a wall of colour, the drop with the wordmark printed on it); The Strength Room's barbell emblem and its yellow banner cover; tabs and autoplay as they were. */
+  "tests/home-landing-r8-ideas.test.ts",
+  /* Landing round 8, how: a plain tee and the Cine Tones LUT pack on section 3's cover, the domain as one browser window with the address typing in, four light grounds of one family. */
+  "tests/home-landing-r8-how.test.ts",
+  /* Landing round 8, purple: "Get found, and see who finds you."; white glass reports; quiet drifting orbs on the globe, Nora, top places and SEO cards; the map's products (Cine Tones LUT Pack, a mobility course, an Ancestral Kitchen cookbook), its turn timed by the lit flag's CSS line, pressable cities and a calmer product card. */
+  "tests/home-landing-r8-purple.test.ts",
+  /* Landing round 8, rails: the showcase on the creators rail's engine for touch and mouse (axis after 8px, 1:1, a 60px flick is a card, a compositor glide), OnePages 9:16 on a phone, new Plainspace cover and three new pages; the creators rail edge to edge with no fade and no frame loop. */
+  "tests/home-landing-r8-rails.test.ts",
+  /* Landing round 8, close: grey dots circling out of two corners of the apps section, TikTok and Google Calendar drawn true, the pricing heading left, Scale teal, cleaner pictures, no grey box behind the questions, the closing call's dots moving on their own and after the mouse, and the footer's top edge. */
+  "tests/home-landing-r8-close.test.ts",
+  /* Landing round 8, everything: the store strip a loop that cannot end (each page its own layer wrapped round one turn from one clock); Fieldwork in place of Static Bloom, new products and photos on the link pages, a dark profile OnePage; the globe lighter on phones; a teal support card. */
+  "tests/home-landing-r8-everything.test.ts",
+  /* Landing round 8, checkout: real 3D objects (transparent renders) around the phone at different depths, turning on their own axis on a scroll timeline; four dark cards slide up over the phone (a swipe row on a phone); a t-shirt and the Cine Tones LUT Pack, no Nadia Brooks; the wallets' own buttons; the shared products in every currency; the phone checkout in the One page card on a phone. */
+  "tests/home-landing-r8-checkout.test.ts",
+  /* Landing round 8, business: One store for everything you sell back after the ideas, as "What will you sell?": the ideas pills on autoplay with a filling line (held on hover, touch, off screen), one stage in the page width, five moving scenes (Second Brain, headphones on yellow, the DJ course, Applied AI Club, a strength coach). */
+  "tests/home-landing-r8-business.test.ts",
+  /* Landing round 8 (frame): every join rounded on the lower block over the upper's square foot, nothing but the upper's colour behind a corner; the purple sheet rises over the white by a scroll-driven transform, nothing held; the possibilities before the earnings; one entrance for headings (word by word) and bodies; the tile turn and the ideas heading quicker. */
+  "tests/home-landing-r8-frame.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

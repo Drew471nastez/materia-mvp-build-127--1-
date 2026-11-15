@@ -91,14 +91,18 @@ console.log("\n── Storelib is for creators: a finger on the rail ──")
   check("down is the page's: the rail lets go at once", /if \(drag\.axis === "y"\) return letGo\(/.test(src) && CREATORS_CSS.includes("touch-action:pan-y"))
   check("pointer capture only once the rail has the gesture", src.indexOf("setPointerCapture") > src.indexOf('drag.axis = Math.abs(dx)'))
   check("the rail follows the finger 1:1 from where the axis was decided, with no jump for the slop", /drag\.startX = e\.clientX\s*drag\.fromX = x/.test(src) && /x = drag\.fromX - \(e\.clientX - drag\.startX\)/.test(src))
-  check("drawn once a frame, not once an event", /if \(drag\) \{\s*paint\(\)\s*schedule\(\)\s*return\s*\}/.test(src))
-  check("a throw coasts and slows smoothly (exponential decay)", /v \*= Math\.exp\(-dt \/ COAST_TAU\)/.test(src) && /const COAST_TAU = 0\.42/.test(read("components/marketing/home/creators-carousel.tsx")))
+  /* Changed on purpose (landing round 8): the owner: "smooth, butterish, optimized, no lag or stutter". The finger's moves are drawn once a frame, and only in a frame the finger moved (no loop while it holds still). */
+  check("drawn once a frame, not once an event", /if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(src) && !/const frame = \(t: number\)/.test(src))
+  /* Changed on purpose (landing round 8): the throw is the same decay, e every COAST_TAU, played as a Web Animation on the compositor instead of a frame loop. */
+  check("a throw coasts and slows smoothly (exponential decay)", /const by = v \* COAST_TAU \* \(1 - Math\.exp\(-ms \/ tauMs\)\)/.test(src) && /play\("coast"/.test(src) && /const COAST_TAU = 0\.42/.test(read("components/marketing/home/creators-carousel.tsx")))
   check("the throw's speed is the finger's over its last moves; a finger that stopped throws nothing", /VELOCITY_WINDOW_MS/.test(src) && /now - b\.t > 60\) return 0/.test(src))
-  check("touching holds the rail; autoplay waits, then eases back in from a standstill (smootherstep), no jump", /holdUntil = performance\.now\(\) \+ RESUME_AFTER_MS/.test(src) && /p \* p \* p \* \(p \* \(p \* 6 - 15\) \+ 10\)/.test(src) && /RAMP_UP_MS/.test(src))
-  check("waiting out a hold costs no frames (one timer)", /holdTimer = window\.setTimeout\(schedule, holdUntil - t \+ 1\)/.test(src) && /clearTimeout\(holdTimer\)/.test(src))
-  check("cruising is still handed to the compositor", /track\.animate\(/.test(src) && /startCruise\(want\)/.test(src))
+  /* Changed on purpose (landing round 8): easing back in is a compositor curve with the smootherstep's end slopes (0, then twice the average), not a frame loop. */
+  check("touching holds the rail; autoplay waits, then eases back in from a standstill, no jump", /holdUntil = performance\.now\(\) \+ RESUME_AFTER_MS/.test(src) && /play\("in", \(want \* RAMP_UP_MS\) \/ 2000, RAMP_UP_MS, "cubic-bezier\(\.5,0,\.75,\.5\)"/.test(src))
+  check("waiting out a hold costs no frames (one timer)", /holdTimer = window\.setTimeout\(update, wait \+ 1\)/.test(src) && /clearTimeout\(holdTimer\)/.test(src))
+  check("cruising is still handed to the compositor", /track\.animate\(/.test(src) && /play\("cruise", loop, \(loop \/ want\) \* 1000/.test(src))
   check("the heading on the shared width, set in like the showcase's", /\.cc-section \.cc-head\{[^}]*max-width:var\(--home-max,2020px\)[^}]*padding-inline:calc\(var\(--cc-gutter\) \+ var\(--home-head-inset,14px\)\)/.test(CREATORS_CSS) && /--cc-gutter:var\(--home-edge,/.test(CREATORS_CSS))
-  check("from 768px the rail sits in the shared box with the showcase's 14px fade", /@media\(min-width:768px\)\{\s*\[data-landing-story\] \[data-story-section="creators"\] > \.cc-viewport,\.cc-viewport\{margin-inline:max\(var\(--cc-gutter\),calc\(\(100% - var\(--home-max,2020px\)\) \/ 2 \+ var\(--cc-gutter\)\)\);mask-image:linear-gradient\(90deg,transparent,#000 14px/.test(CREATORS_CSS))
+  /* Changed on purpose (landing round 8): the owner: "full width, not with a fade". The rail runs edge to edge at every width, no mask; at rest its first card is on the content edge (tests/home-landing-r8-rails.test.ts). */
+  check("the rail runs edge to edge with no fade, its first card on the content edge", !/mask-image/.test(CREATORS_CSS) && /padding:10px var\(--cc-start\) 8px/.test(CREATORS_CSS))
   check("the browser check is there", /Input\.dispatchTouchEvent/.test(read("scripts/check-creators-swipe.mjs")))
 }
 

@@ -65,9 +65,12 @@ import { MockFrame, Pic, u } from "./frame"
                       tree-parts.tsx's grid, the page itself with the blue
                       ring and its "Selected" chip (sections/_shared.tsx), and
                       Publish's own panel (publish-panel.tsx). The site is a
-                      small apparel label's store, Plain Weather (round 6,
-                      the owner: a simple, clean merch brand in place of
-                      round 5's candle studio).
+                      loud little merch label's store, Mondo Mango (round 8,
+                      the owner: "more bold, more colorful, more funky, like
+                      a real Storelib store", in place of round 6's Plain
+                      Weather): a fat wordmark, a wall of colour photographs
+                      for a hero, the drop on white with the wordmark
+                      printed on each piece.
     OnePage editor    components/onepage/onepage-editor.tsx and tabs/links-tab:
                       undo and redo, the Links / Design / Products pill row
                       and Settings, Save and Share your OnePage; the Links tab
@@ -89,7 +92,11 @@ import { MockFrame, Pic, u } from "./frame"
                       posts. One community: The Strength Room, Rina
                       Castillo's paid strength coaching group (round 5, the
                       owner: a community like the ones people really pay for
-                      in 2026, not a made up hobby club).
+                      in 2026, not a made up hobby club). Round 8 (the
+                      owner): a real emblem in place of the "SR" letters, a
+                      barbell in black on yellow, and a cover that reads
+                      like a banner, the name in heavy yellow on the
+                      photograph (baked into st-banner.webp).
 
   One drawing for every screen (the owner, round 4: on a phone, the editors
   exactly as on a computer). The frame keeps its 1280 design width at every
@@ -110,73 +117,71 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-/* ================================================================ The site in the website builder: Plain Weather */
-type Product = { pic: string; name: string; colours: string; price: string }
-const PW_PRODUCTS: Product[] = [
-  { pic: "pw-tee-white", name: "Everyday Tee, White", colours: "4 colours", price: "€35" },
-  { pic: "pw-tee-black", name: "Everyday Tee, Black", colours: "4 colours", price: "€35" },
-  { pic: "pw-hoodie", name: "Loopback Hoodie, Fog", colours: "3 colours", price: "€89" },
-  { pic: "pw-cap", name: "Washed Cap, Slate", colours: "2 colours", price: "€32" },
+/* ================================================================ The site in the website builder: Mondo Mango */
+type Product = { pic: string; name: string; price: string; swatches: string[] }
+const MM_PRODUCTS: Product[] = [
+  { pic: "mm-crew", name: "Logo Crewneck", price: "€68", swatches: ["#f4f1ea", "#ff5b14", "#2338e8"] },
+  { pic: "mm-cap", name: "Trucker Cap", price: "€34", swatches: ["#f4f1ea", "#ffc928"] },
+  { pic: "mm-tee", name: "Logo Tee", price: "€36", swatches: ["#f4f1ea", "#ff5b14", "#16a36b", "#ff8fc6"] },
+  { pic: "mm-tote", name: "Market Tote", price: "€24", swatches: ["#c99a63"] },
 ]
 
 /**
- * Plain Weather, a small apparel label's store, the site open in the website builder. `rings` outlines the Hero,
- * then the products, the way the builder rings the section it has selected.
+ * Mondo Mango, a loud little merch label's store, the site open in the website builder: the wordmark in the
+ * middle of the header, a wall of colour for a hero, then the drop on white with the wordmark printed on every
+ * piece. `rings` outlines the Hero, then the products, the way the builder rings the section it has selected.
  */
-export function PlainWeatherSite({ rings = false }: { rings?: boolean }) {
+export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
   return (
-    <div className="pw">
-      <div className="pw-nav">
-        <span className="pw-logo">Plain Weather</span>
-        <span className="pw-links">
-          <b>New in</b>
-          <span>Tees</span>
-          <span>Sweats</span>
-          <span>Caps</span>
+    <div className="mg">
+      <div className="mg-nav">
+        <span className="mg-links">
+          <b>Shop all</b>
+          <span>Drop 03</span>
           <span>About</span>
         </span>
-        <span className="pw-cart">
-          <ShoppingBag /> Bag (1)
+        <Pic n="mm-logo" w={520} h={120} className="mg-logo" />
+        <span className="mg-links mg-right">
+          <span>Search</span>
+          <b>Bag (2)</b>
         </span>
       </div>
-      <div className="pw-hero">
-        <div className="pw-copy">
-          <p className="pw-eyebrow">Autumn restock</p>
-          <h3>Everyday cotton, cut and sewn in Porto.</h3>
-          <p className="pw-sub">Tees, hoodies and caps in four quiet colours, made in small runs.</p>
-          <span className="pw-btns">
-            <b>Shop new in</b>
-          </span>
-        </div>
-        <div className="pw-photo">
-          <Pic n="pw-hero" w={940} h={680} />
-        </div>
+      <div className="mg-hero">
+        <Pic n="mm-hero" w={1600} h={540} className="mg-wall" />
+        <span className="mg-sticker">
+          <b>Drop 03</b>
+          <i>out now</i>
+        </span>
         {rings && (
-          <span className="pw-ring wx-ring-a">
+          <span className="mg-ring wx-ring-a">
             <em>Selected</em>
           </span>
         )}
       </div>
-      <div className="pw-shop">
-        <p className="pw-h">
-          Bestsellers <span>Shop all</span>
+      <div className="mg-shop">
+        <p className="mg-h">
+          <b>Drop 03</b> <span>Shop all</span>
         </p>
-        <div className="pw-grid">
-          {PW_PRODUCTS.map((p) => (
-            <span key={p.name} className="pw-card">
-              <span className="pw-img">
-                <Pic n={p.pic} w={600} h={492} />
+        <div className="mg-grid">
+          {MM_PRODUCTS.map((p) => (
+            <span key={p.name} className="mg-card">
+              <span className="mg-img">
+                <Pic n={p.pic} w={600} h={600} />
               </span>
-              <span className="pw-row">
+              <span className="mg-row">
                 <b>{p.name}</b>
                 <em>{p.price}</em>
               </span>
-              <i>{p.colours}</i>
+              <span className="mg-dots">
+                {p.swatches.map((c) => (
+                  <i key={c} style={{ background: c }} />
+                ))}
+              </span>
             </span>
           ))}
         </div>
         {rings && (
-          <span className="pw-ring wx-ring-b">
+          <span className="mg-ring wx-ring-b">
             <em>Selected</em>
           </span>
         )}
@@ -270,7 +275,7 @@ function WbBar() {
         <span className="wx-key ghost">
           <ArrowLeftToLine />
         </span>
-        <b className="wx-name">Plain Weather</b>
+        <b className="wx-name">Mondo Mango</b>
         <i className="wx-live" />
         <span className="wx-key">
           <MoreHorizontal />
@@ -336,7 +341,7 @@ function PublishPanel() {
       <p className="wx-pub-l">Website URL</p>
       <span className="wx-pub-url">
         <Globe />
-        <b>plainweather.co</b>
+        <b>mondomango.shop</b>
         <Copy />
         <ExternalLink />
       </span>
@@ -381,7 +386,7 @@ export function WebsiteBuilderMock() {
       </aside>
       <div className="wx-canvas">
         <MockFrame label="" className="wx-site">
-          <PlainWeatherSite rings />
+          <MondoMangoSite rings />
         </MockFrame>
       </div>
       <PublishPanel />
@@ -634,12 +639,26 @@ const ST_FACES = ["av-k", "av-l", "av-n", "av-e", "av-g", "av-j"]
 /** What a member types into the composer; the caret steps once per character (its keyframes read the length). */
 export const ST_TYPED = "3 x 5 on squats at 50 kg today. Video is in Form checks."
 
+/** The Strength Room's emblem: a loaded barbell in black on the cover's yellow, like a gym's own badge. */
+function StrengthMark() {
+  return (
+    <svg className="cx-mark" viewBox="0 0 40 40" aria-hidden="true">
+      <rect width="40" height="40" rx="10" fill="#ffd400" />
+      <rect x="5" y="18.9" width="30" height="2.2" rx="1.1" fill="#111" />
+      <rect x="9" y="10.5" width="3.6" height="19" rx="1.4" fill="#111" />
+      <rect x="27.4" y="10.5" width="3.6" height="19" rx="1.4" fill="#111" />
+      <rect x="13.4" y="13.5" width="2.6" height="13" rx="1.1" fill="#111" />
+      <rect x="24" y="13.5" width="2.6" height="13" rx="1.1" fill="#111" />
+    </svg>
+  )
+}
+
 export function CommunityMock() {
   return (
     <div className="bm cx">
       <div className="cx-bar">
         <span className="cx-lead">
-          <span className="cx-mark">SR</span>
+          <StrengthMark />
           <span className="cx-who">
             <b>The Strength Room</b>
             <i>By Rina Castillo</i>
@@ -669,7 +688,7 @@ export function CommunityMock() {
       </div>
       <aside className="cx-left">
         <div className="cx-card">
-          <Pic n="st-cover" w={960} h={540} className="cx-cover" />
+          <Pic n="st-banner" w={960} h={540} className="cx-cover" />
           <div className="cx-card-in">
             <b className="cx-name">The Strength Room</b>
             <p className="cx-addr">storelib.com/community/strengthroom</p>
@@ -808,38 +827,33 @@ export const BUILDER_CSS = u(`
 .bm-frame>.smk{--w:1280}
 .bm-cursor{position:absolute;z-index:30;width:22u!important;height:22u!important;opacity:0;filter:drop-shadow(0 2u 3u rgba(0,0,0,.25));pointer-events:none}
 
-/* ---------- the site: Plain Weather (its own design width). Near white, one sans in two weights, a wide tracked wordmark, the photographs carry the colour. */
+/* ---------- the site: Mondo Mango (its own design width). Landing round 8 (the owner: "more bold, more colorful, more funky, like a real Storelib store"): a fat 70s wordmark, a wall of colour, the drop on white. */
 .wx-canvas .wx-site{position:absolute;inset:0}
 .wx-site>.smk{--w:1024}
-.pw{position:absolute;inset:0;display:flex;flex-direction:column;background:#fafaf9;color:#161616;font-family:var(--font-inter,Inter),Inter,sans-serif}
-.pw-nav{flex:none;height:60u;display:flex;align-items:center;gap:40u;padding:0 40u;border-bottom:1u solid #ebebe8}
-.pw-logo{font-size:13.5u;font-weight:600;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
-.pw-links{display:flex;gap:24u;font-size:13u;color:#6b6b6b}
-.pw-links b{color:#161616;font-weight:500}
-.pw-cart{display:flex;align-items:center;gap:7u;margin-left:auto;font-size:13u;font-weight:500}
-.pw-cart svg{width:15u;height:15u}
-.pw-hero{position:relative;flex:none;display:grid;grid-template-columns:1fr 470u;gap:48u;align-items:center;height:368u;padding:0 40u}
-.pw-eyebrow{font-size:12u;font-weight:500;color:#6b6b6b}
-.pw-copy h3{margin-top:12u!important;max-width:400u;font-size:42u;font-weight:500;line-height:1.06;letter-spacing:-.035em}
-.pw-sub{margin-top:16u!important;max-width:340u;font-size:14.5u;line-height:1.55;color:#5c5c5c}
-.pw-btns{display:flex;margin-top:26u}
-.pw-btns b{display:flex;align-items:center;height:42u;padding:0 22u;border-radius:4u;background:#161616;color:#fafaf9;font-size:13.5u;font-weight:500;white-space:nowrap}
-.pw-photo{position:relative;height:316u;border-radius:4u;overflow:hidden;background:#6f7d74}
-.pw-photo img{width:100%!important;height:100%!important;object-fit:cover}
-.pw-shop{position:relative;flex:1 0 auto;padding:22u 40u 40u;border-top:1u solid #ebebe8}
-.pw-h{display:flex;justify-content:space-between;align-items:baseline;font-size:17u;font-weight:500;letter-spacing:-.015em}
-.pw-h span{font-size:12.5u;font-weight:500;color:#6b6b6b;letter-spacing:0}
-.pw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16u;margin-top:14u}
-.pw-card{display:grid;gap:3u}
-.pw-img{display:block;height:184u;border-radius:4u;background:#efefec;overflow:hidden}
-.pw-img img{width:100%!important;height:100%!important;object-fit:cover}
-.pw-row{display:flex;align-items:baseline;justify-content:space-between;gap:8u;margin-top:7u;font-size:13u}
-.pw-row b{font-weight:500}
-.pw-row em{font-style:normal;font-weight:500}
-.pw-card i{font-size:12u;font-style:normal;color:#8a8a8a}
-.pw-ring{position:absolute;inset:0;border-radius:4u;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
-.pw-ring em{position:absolute;right:8u;bottom:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
-.pw-ring.wx-ring-b{opacity:0}
+.mg{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#141414;font-family:var(--font-inter,Inter),Inter,sans-serif}
+.mg-nav{flex:none;position:relative;height:62u;display:flex;align-items:center;justify-content:space-between;padding:0 24u}
+.mg-links{display:flex;gap:18u;font-size:10.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#141414}
+.mg-links b{font-weight:600;box-shadow:inset 0 -1.5u 0 #ff5b14}
+.mg-logo{position:absolute;left:50%;top:50%;width:156u!important;height:36u!important;background:none!important;transform:translate(-50%,-50%)}
+.mg-hero{position:relative;flex:none;height:326u;margin:0 24u}
+.mg-wall{width:100%!important;height:100%!important;object-fit:cover}
+.mg-sticker{position:absolute;z-index:3;right:22u;top:20u;display:grid;place-items:center;align-content:center;width:96u;height:96u;border-radius:50%;background:#ffc928;color:#2338e8;transform:rotate(-12deg);box-shadow:0 6u 16u -8u rgba(0,0,0,.4)}
+.mg-sticker b{font-size:18u;font-weight:900;line-height:1;letter-spacing:-.03em}
+.mg-sticker i{margin-top:3u;font-size:9.5u;font-style:normal;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.mg-shop{position:relative;flex:1 0 auto;padding:20u 24u 30u}
+.mg-h{display:flex;justify-content:space-between;align-items:baseline;font-size:10.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase}
+.mg-h b{font-size:21u;font-weight:800;letter-spacing:-.02em;text-transform:none}
+.mg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14u;margin-top:12u}
+.mg-card{display:grid;gap:4u}
+.mg-img{display:block;height:200u;background:#f3f3f1;overflow:hidden}
+.mg-img img{width:100%!important;height:100%!important;object-fit:cover}
+.mg-row{display:flex;align-items:baseline;justify-content:space-between;gap:8u;margin-top:6u;font-size:12u;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.mg-row em{font-style:normal;font-weight:600;letter-spacing:0}
+.mg-dots{display:flex;gap:5u}
+.mg-dots i{width:11u;height:11u;border-radius:50%;box-shadow:inset 0 0 0 1u rgba(0,0,0,.14)}
+.mg-ring{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
+.mg-ring em{position:absolute;left:8u;top:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
+.mg-ring.wx-ring-b{opacity:0}
 
 /* ---------- website builder (app/(storelib)/website-builder/editor, its bar, the sidebar card, the canvas) */
 .wb{background:#eef1f5}
@@ -1054,7 +1068,7 @@ export const BUILDER_CSS = u(`
 .cx svg{width:18u;height:18u}
 .cx-bar{position:absolute;inset:0 0 auto;height:64u;display:flex;align-items:center;gap:24u;padding:0 40u;background:#fff}
 .cx-lead{display:flex;align-items:center;gap:12u;width:278u}
-.cx-mark{display:grid;place-items:center;flex:none;width:40u;height:40u;border-radius:10u;background:#c8743b;color:#fff8ef;font-size:15u;font-weight:800;letter-spacing:-.02em}
+.cx .cx-mark{display:block;flex:none;width:40u;height:40u;border-radius:10u}
 .cx-who{display:grid;min-width:0;line-height:1.25}
 .cx-who b{font-size:16u;font-weight:600;white-space:nowrap}
 .cx-who i{font-size:12.5u;font-style:normal;color:#6b7280}

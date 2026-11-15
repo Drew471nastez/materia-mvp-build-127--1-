@@ -107,15 +107,25 @@ export const PLAN_GRAIN = `url("data:image/svg+xml,${encodeURIComponent(GRAIN_SV
  * the picture. `blur` is a 24px copy of the picture inlined in the markup,
  * shown blurred until the real one arrives, so the header never pops from
  * flat colour to picture. `grain` is the grain layer's opacity.
+ *
+ * LANDING ROUND 8, THE OWNER: "increase the contrast of the images, and the
+ * grain: make it more clean and smooth". The pictures were dimmed to between
+ * 36% and 70% and their contrast taken below 1, which left them murky; now
+ * they are lifted (Free 0.9, Pro 0.62, Scale 0.55) with their contrast above
+ * 1 (1.12 to 1.16), and the darkening at the foot is lighter (70 to 75%),
+ * which is still what keeps the white words readable. The grain is a quarter
+ * of what it was (0.2 to 0.05): the picture reads clean and smooth, with
+ * only a trace of texture left so the flat areas do not band. The picture is
+ * sent at quality 90 (next.config lists it), so its gradients stay crisp.
  */
 export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}`; filter: string; ground: string; fade: string; grain: number; dot: string; button: string; ring: string }> = {
   free: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
     blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
-    filter: "brightness(0.7) contrast(0.94) brightness(0.95)",
+    filter: "brightness(0.9) contrast(1.12)",
     ground: "bg-[#151516]",
-    fade: "from-[#0b0b0c]/85",
-    grain: 0.2,
+    fade: "from-[#0b0b0c]/75",
+    grain: 0.05,
     dot: "text-[#111113]",
     button: "bg-[#111113] hover:bg-[#26262b] active:bg-[#000000]",
     ring: "focus-visible:ring-[#111113]/35",
@@ -123,29 +133,31 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
   growth: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "brightness(0.42) contrast(0.9)",
-    ground: "bg-[#1d1270]",
-    fade: "from-[#130b55]/85",
-    grain: 0.2,
+    filter: "brightness(0.62) contrast(1.16) saturate(1.05)",
+    ground: "bg-[#2a1aa0]",
+    fade: "from-[#130b55]/70",
+    grain: 0.05,
     dot: "text-[#5a43ee]",
     button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
     ring: "focus-visible:ring-[#5a43ee]/45",
   },
   /*
-    Scale (id `pro`): Pro's picture turned from indigo to Storelib's violet
-    (#7c3aed) and taken a step deeper, so the three read as a ladder: black,
-    indigo, violet. No third file to fetch.
+    Scale (id `pro`): Pro's picture turned from indigo to a deep teal. It was
+    turned to violet, which read as pink beside Pro (landing round 8, the
+    owner: "the Scale plan should not be pink, come up with something else,
+    smooth and clean"). Teal sits well apart from the indigo, so the three
+    read as three plans: graphite, indigo, teal. No third file to fetch.
   */
   pro: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "hue-rotate(22deg) saturate(1.05) brightness(0.36) contrast(0.92)",
-    ground: "bg-[#2a0f63]",
-    fade: "from-[#1c0a45]/85",
-    grain: 0.2,
-    dot: "text-[#7c3aed]",
-    button: "bg-[#7c3aed] hover:bg-[#6d28d9] active:bg-[#5b21b6]",
-    ring: "focus-visible:ring-[#7c3aed]/45",
+    filter: "hue-rotate(-80deg) saturate(0.75) brightness(0.55) contrast(1.14)",
+    ground: "bg-[#0d3b39]",
+    fade: "from-[#042422]/70",
+    grain: 0.05,
+    dot: "text-[#0f6b66]",
+    button: "bg-[#0f6b66] hover:bg-[#0c5c58] active:bg-[#094c49]",
+    ring: "focus-visible:ring-[#0f6b66]/45",
   },
 }
 
@@ -292,6 +304,7 @@ function PlanCard({
           sizes={sizes}
           loading={pictureLoading}
           placeholder={look.blur}
+          quality={90}
           draggable={false}
           className="-z-10 object-cover object-right select-none pointer-events-none"
           style={{ filter: look.filter }}

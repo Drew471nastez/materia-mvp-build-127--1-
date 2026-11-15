@@ -142,7 +142,8 @@ console.log("\n── integrations ──")
   const marks = read(`${DIR}/integration-marks.tsx`)
   check("Apple Pay is Apple's mark (the Apple logo and Pay), Google Pay has the four colour G", /export function ApplePayMark/.test(marks) && /export function GooglePayMark/.test(marks) && /#EA4335/.test(marks) && /mark: ApplePayMark/.test(src) && /mark: GooglePayMark/.test(src))
   check("Stripe is the current wordmark, not the old S icon", /mark: StripeMark/.test(src) && !/SiStripe/.test(src))
-  check("TikTok is its own mark with its cyan and red", /icon: SiTiktok[^}]*echo: true/.test(src) && /#25f4ee/.test(src) && /#fe2c55/.test(src))
+  // Changed on purpose (landing round 8): TikTok drawn as TikTok draws it (integration-marks TikTokMark): cyan and red notes, white where they overlap.
+  check("TikTok is its own mark with its cyan and red", /mark: TikTokMark/.test(src) && /#25F4EE/.test(read("components/marketing/home/integration-marks.tsx")) && /#FE2C55/.test(read("components/marketing/home/integration-marks.tsx")))
   const files = PLATFORM_INTEGRATION_APPS.map((a) => a.logo).filter((l): l is string => !!l)
   check("no small raster mark: each file is a vector or an icon under public/home/apps", files.every((f) => f.endsWith(".svg") || f.startsWith("/home/apps/")), files)
   check("the app icons are at three times the tile or more (336px webp)", files.filter((f) => f.endsWith(".webp")).every((f) => {

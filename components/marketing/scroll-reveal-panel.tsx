@@ -2,48 +2,54 @@ import type { CSSProperties, ReactNode } from "react"
 
 /*
   ===========================================================================
-   A ROUNDED SHEET OVER THE DARK PAGE (landing rounds 3 to 5)
+   ROUNDED SHEETS DOWN THE PAGE (landing rounds 3 to 8)
   ===========================================================================
-  The page's base is dark. A light or purple stretch of sections is a full
-  width surface with rounded corners that laps over the block before it by
-  its corner, scrolls with the page like everything else, and leaves by its
-  rounded bottom edge.
+  The page is a stack of grounds: dark stretches (<ScrollRevealBackdrop>)
+  and white or purple sheets (<ScrollRevealPanel>), one after the other.
 
     <ScrollRevealPanel tone="white">…sections…</ScrollRevealPanel>
 
-  ROUND 5: PLAIN, ON PURPOSE. Round 4 made a sheet rise with a side inset
-  (a scroll-driven scale) while the block behind held still (sticky, in a
-  box one screen taller) and dimmed under a layer. On a phone that is what
-  the owner saw as "glitches with black, shows containers, stutters and
-  flashes": the scaled sheet's corners and edges read as cut, the empty
-  screen of the hold box showed as a black band whenever the real screen
-  was not exactly 100svh (Safari's bars), and every held block was a
-  section sized box the compositor redrew under the sheet. So none of that
-  is left: no transform, no animation, no sticky, no script. A sheet is an
-  ordinary block, it moves with the page's own scroll, and nothing about it
-  can be late, clipped or out of step with the scroll.
+  ROUND 8, THE OWNER: "the roundness should come as the section under, not
+  the section above". So every join is drawn the same way, whatever the two
+  grounds are:
 
-  THE CORNERS. A sheet's top corners show what is behind them, so a sheet
-  pulls itself up over the block before it by its radius (a negative
-  margin) and that block leaves the same room at its foot (a padding), so
-  nothing of its content sits under the corner. A dark block is its own
-  stacking context below the sheet (z-index 0 against 1), so nothing inside
-  it, however it is layered, can draw over the sheet's corner. A sheet
-  that is followed by another sheet squares its bottom corners (the next
-  one's rounded top laps over its colour, not over dark).
+    the upper block    square at its foot, and it runs on for one radius
+                       more than its content (a padding), so its own colour
+                       is what sits behind the corners of the block below;
+    the lower block    pulled up over that room by its radius (a negative
+                       margin), its top corners rounded, and over its own
+                       content two small fillets in the upper block's colour
+                       (--srp-above, a ::before as tall as the radius, on
+                       top of everything inside the block), so a section's
+                       own square background inside can never draw over the
+                       corner.
 
-  A SECTION ON THE DARK GROUND DRAWS NO ROUNDED BOX OF ITS OWN. The checkout
-  scene (.cmc) is a black box with its own large radius; on the dark ground
-  its corners showed as a second rounded edge right under the white sheet's,
-  the "black band with a rounded corner" in the owner's screenshot. On a
-  backdrop it sits flush: the sheets' corners are the only ones.
+  Why fillets and not overflow: clip with the radius: a rounded clip on a
+  block that holds composited layers (the marquees, the globe, the
+  carousels) costs the compositor a mask on every frame. Measured on a
+  scripted scroll at 1440: frames over 25ms went from about 20 to about 75
+  with the clip, and back to 20 without it.
 
-  A FLAT GROUND. With `arrive="flat"` the sheet does not lap over anything:
-  its top is square and it continues straight under the dark block before
-  it, whose bottom corners it rounds (two fillets in the sheet's own colour,
-  drawn above the dark). The page reads as a dark block sitting on the
-  light ground, which is how the first section after the showcase arrives
-  (the owner: Make the work must not come up as a drawer).
+  The colours behind a corner are therefore named, and each is the upper
+  block's real colour at its foot: white #fff, the purple's flat #24104f
+  (its lower glow ends above its foot), the dark ground #050506 and the
+  checkout's black #000. No third colour, no hairline.
+
+  Every block is position: relative with isolation, and none sets a
+  z-index, so they paint in the page's order: the lower block is always over
+  the upper one, and nothing inside either, however it is layered, can climb
+  out over its neighbour.
+
+  THE PURPLE SHEET RISES (round 8, the owner: "it needs to come up as a
+  sheet like we had it before"). With `arrive="rise"` the sheet starts a
+  little lower than where it lies and comes up over the block above faster
+  than the page scrolls, settling by the time its top is about a third of
+  the way down the screen. It is a CSS scroll-driven animation of transform
+  alone, on the compositor, with no script and nothing held: the page never
+  stops, and the block above is not sticky. The block above runs on by the
+  rise as well as the radius, so behind the sheet's corners there is only
+  its own colour all the way up. Browsers without scroll-driven animations
+  and visitors who ask for less motion get the plain lap.
 
   A purple sheet sets the band colours the sections inside read
   (--band-ink, --band-muted, --band-line) and is also [data-band="purple"],
@@ -52,18 +58,31 @@ import type { CSSProperties, ReactNode } from "react"
 */
 export type SheetTone = "white" | "purple"
 
+const BLOCK = ":is([data-sheet],[data-sheet-backdrop])"
+
 export const SHEET_CSS = `
-[data-sheet],[data-sheet-backdrop]{--srp-r:clamp(22px,4.2vw,48px);--srp-pad:clamp(10px,1.8vw,28px)}
-[data-sheet]{position:relative;z-index:1;border-radius:var(--srp-r);padding-block:var(--srp-pad)}
+${BLOCK}{--srp-r:clamp(22px,4.2vw,48px);--srp-pad:clamp(10px,1.8vw,28px);--srp-rise:0px;--srp-next-rise:0px;position:relative;isolation:isolate}
+[data-sheet]{padding-block:var(--srp-pad)}
 [data-sheet="white"]{--srp-bg:#fff;background:#fff;color:#18181b}
-[data-sheet="purple"]{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba(255,255,255,.16);background:radial-gradient(70% 45% at 85% 0%,rgba(124,58,237,.42) 0%,rgba(124,58,237,0) 70%),radial-gradient(60% 40% at 0% 100%,rgba(91,33,182,.35) 0%,rgba(91,33,182,0) 70%),#24104f;color:#fff}
-[data-sheet-backdrop]{position:relative;z-index:0}
+[data-sheet="purple"]{--srp-bg:#24104f;--band-ink:#fff;--band-muted:#cdc2f7;--band-line:rgba(255,255,255,.16);background:radial-gradient(70% 45% at 85% 0%,rgba(124,58,237,.42) 0%,rgba(124,58,237,0) 70%),radial-gradient(60% 25% at 0% 60%,rgba(91,33,182,.35) 0%,rgba(91,33,182,0) 70%),#24104f;color:#fff}
+[data-sheet-backdrop]{--srp-bg:#050506;background:#050506}
 [data-sheet-backdrop] .cmc{border-radius:0}
-[data-sheet]:not([data-sheet-flat]){margin-top:calc(var(--srp-r) * -1)}
-[data-sheet-backdrop]:has(+[data-sheet]:not([data-sheet-flat])){padding-bottom:var(--srp-r)}
-[data-sheet]:has(+[data-sheet]:not([data-sheet-flat])){border-bottom-left-radius:0;border-bottom-right-radius:0;padding-bottom:calc(var(--srp-pad) + var(--srp-r))}
-[data-sheet][data-sheet-flat]{border-top-left-radius:0;border-top-right-radius:0}
-[data-sheet][data-sheet-flat]::before{content:"";position:absolute;left:0;right:0;top:calc(var(--srp-r) * -1);height:var(--srp-r);pointer-events:none;background:radial-gradient(circle at 100% 0,transparent calc(var(--srp-r) - .5px),var(--srp-bg) var(--srp-r)) left bottom/var(--srp-r) var(--srp-r) no-repeat,radial-gradient(circle at 0 0,transparent calc(var(--srp-r) - .5px),var(--srp-bg) var(--srp-r)) right bottom/var(--srp-r) var(--srp-r) no-repeat}
+[data-sheet-backdrop]:has(.cmc){--srp-bg:#000;background:#000}
+${BLOCK}+${BLOCK}{margin-top:calc((var(--srp-r) + var(--srp-rise)) * -1);border-top-left-radius:var(--srp-r);border-top-right-radius:var(--srp-r)}
+${BLOCK}+${BLOCK}::before{content:"";position:absolute;z-index:2147483647;left:0;right:0;top:0;height:var(--srp-r);pointer-events:none;background:radial-gradient(circle at 100% 100%,transparent calc(var(--srp-r) - .5px),var(--srp-above) var(--srp-r)) left top/var(--srp-r) var(--srp-r) no-repeat,radial-gradient(circle at 0 100%,transparent calc(var(--srp-r) - .5px),var(--srp-above) var(--srp-r)) right top/var(--srp-r) var(--srp-r) no-repeat}
+[data-sheet="white"]+${BLOCK}{--srp-above:#fff}
+[data-sheet="purple"]+${BLOCK}{--srp-above:#24104f}
+[data-sheet-backdrop]+${BLOCK}{--srp-above:#050506}
+[data-sheet-backdrop]:has(.cmc)+${BLOCK}{--srp-above:#000}
+[data-sheet]:has(+${BLOCK}){padding-bottom:calc(var(--srp-pad) + var(--srp-r) + var(--srp-next-rise))}
+[data-sheet-backdrop]:has(+${BLOCK}){padding-bottom:calc(var(--srp-r) + var(--srp-next-rise))}
+@supports (animation-timeline:view()) {
+  @media (prefers-reduced-motion:no-preference) {
+    ${BLOCK}:has(+[data-sheet-rise]){--srp-next-rise:clamp(96px,14svh,160px)}
+    [data-sheet-rise]{--srp-rise:clamp(96px,14svh,160px);animation:srp-rise linear both;animation-timeline:view();animation-range:cover var(--srp-rise) cover calc(var(--srp-rise) + 50svh)}
+  }
+}
+@keyframes srp-rise{from{transform:translate3d(0,var(--srp-rise),0)}to{transform:translate3d(0,0,0)}}
 `
 
 function SheetStyle() {
@@ -78,7 +97,7 @@ export function ScrollRevealPanel({
   tone = "white",
   radius,
   padding,
-  arrive = "rise",
+  arrive = "lap",
   className,
   children,
 }: {
@@ -88,8 +107,8 @@ export function ScrollRevealPanel({
   radius?: string
   /** Room above and below the sections inside, any CSS length. */
   padding?: string
-  /** "rise": lap over the block before by its rounded corners. "flat": a ground the page continues on, under the dark block before it. */
-  arrive?: "rise" | "flat"
+  /** "lap": lie over the block before by its rounded top. "rise": the same, and come up over it as the page scrolls. */
+  arrive?: "lap" | "rise"
   className?: string
   children: ReactNode
 }) {
@@ -100,14 +119,14 @@ export function ScrollRevealPanel({
   return (
     <>
       <SheetStyle />
-      <div data-sheet={tone} data-sheet-flat={arrive === "flat" ? "" : undefined} data-band={tone === "purple" ? "purple" : undefined} className={className} style={style}>
+      <div data-sheet={tone} data-sheet-rise={arrive === "rise" ? "" : undefined} data-band={tone === "purple" ? "purple" : undefined} className={className} style={style}>
         {children}
       </div>
     </>
   )
 }
 
-/** A dark stretch of the page: the ground the sheet after it laps over. */
+/** A dark stretch of the page. It laps over the block before it like a sheet does, and the block after laps over it. */
 export function ScrollRevealBackdrop({ className, children }: { className?: string; children: ReactNode }) {
   return (
     <>

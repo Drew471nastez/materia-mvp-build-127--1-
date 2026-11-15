@@ -96,7 +96,8 @@ console.log("\n── card 2 and 4 ──")
 /* Changed on purpose (landing round 4): the strip can be dragged, so its drift is a Web Animation from script (one set's width a loop) that a hand can take over; tests/home-landing-topa4. */
 /* Changed on purpose (landing round 6): the strip is EVERYTHING_STORES (merch stores and link pages), twice over. */
 /* Changed on purpose (landing round 7): the lap is read from the boxes, so a fractional card width leaves no tick at the wrap. */
-check("the storefronts drift past without a stop, the strip seamless (the set twice, one set's width a loop)", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && /loop = copy\.getBoundingClientRect\(\)\.left - a\.left/.test(src) && /iterations: Infinity, easing: "linear"/.test(src))
+/* Changed on purpose (landing round 8): each page wraps round on its own over one turn of all of them, read from the laid out slots (tests/home-landing-r8-everything). */
+check("the storefronts drift past without a stop, the strip seamless (the set twice, one set's width a loop)", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && /turn = pitch \* n/.test(src) && /iterations: Infinity, easing: "linear"/.test(src))
 /* Changed on purpose (landing round 2): the support card is the Support page as it reads, its two inboxes (From buyers, Storelib) and threads with no avatars, so the Storelib logo avatar went with them. */
 /* Changed on purpose (landing round 4): the owner wants the support card of before without the From buyers / Storelib switch; the two kinds of request are told by their titles. */
 /* Changed on purpose (landing round 5): the "Storelib support" and "From a buyer" labels are gone (the owner); the thread's subject heads it. */
@@ -104,7 +105,8 @@ check("support: a person at Storelib answers the creator, the store answers a bu
 const pics = [...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])
 check("every picture is local and exists", pics.length > 20 && pics.every((u) => u.startsWith("/") && existsSync(join(root, "public", u))), pics.filter((u) => !existsSync(join(root, "public", u))))
 /* Changed on purpose (wave 13 integration): the logo goes through next/image (StorelibLogo), whose test stub leaves out `loading`; it is lazy in production. */
-check("every picture is lazy and sized", [...html.matchAll(/<img [^>]*>/g)].filter((m) => !/data-storelib-logo/.test(m[0])).every((m) => /loading="lazy"/.test(m[0]) && /width="\d+"/.test(m[0]) && /height="\d+"/.test(m[0])))
+/* Changed on purpose (landing round 8): the store strip's pictures load with the section (eager), so a page coming round the loop never shows before its photos; every other picture stays lazy. */
+check("every picture is lazy and sized", [...html.matchAll(/<img [^>]*>/g)].filter((m) => !/data-storelib-logo/.test(m[0])).every((m) => (/loading="lazy"/.test(m[0]) || /\/home\/everything\/stores\//.test(m[0])) && /loading="(lazy|eager)"/.test(m[0]) && /width="\d+"/.test(m[0]) && /height="\d+"/.test(m[0])))
 
 console.log("\n── motion and loading ──")
 check("the stylesheet is a React stylesheet, listed for idle preloading", /<style href="w13-everything" precedence="w13-home">/.test(src) && /styles: \(\) => import\("\.\/everything-in-one-place"\)\.then\(\(m\) => m\.EVERYTHING_STYLES\)/.test(read("components/marketing/home/lazy-sections.tsx")))

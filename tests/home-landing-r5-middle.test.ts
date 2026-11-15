@@ -20,7 +20,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { IdeasComeToLife, IDEAS_STYLES } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, PlainWeatherSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, MondoMangoSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
 import { CNAME_TARGET, DEFAULT_A } from "@/lib/custom-domains/hostname"
 import { sheetButtonLabel } from "@/lib/onepage/product-block"
@@ -48,11 +48,13 @@ const F = {
 const ideasCss = IDEAS_STYLES.find((s) => s.href === "w12-ideas")?.css ?? ""
 const howCss = HOW_IT_WORKS_STYLES.map((s) => s.css).join("\n")
 
-console.log("\nOne store for everything you sell: gone from the page (landing round 7)")
+console.log("\nOne store for everything you sell: back on the page (landing round 8)")
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
-check("the section, its product pages and the tee photograph are deleted", !existsSync("components/marketing/home/business-carousel.tsx") && !existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx") && !existsSync("public/home/showcase/hp-tee.webp"))
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+check("the section and its product pages are back, the old tee photograph still gone", existsSync("components/marketing/home/business-carousel.tsx") && existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx") && !existsSync("public/home/showcase/hp-tee.webp"))
 const lazy = read("components/marketing/home/lazy-sections.tsx")
-check("its placeholder box and measured heights are gone", !/data-lazy-section="business"|LazyBusinessCarousel/.test(lazy))
+/* Changed on purpose (landing round 8): its placeholder box is back (the lead measures its heights again). */
+check("its placeholder box is back", /export const LazyBusinessCarousel = lazySection\(/.test(lazy) && /name: "business"/.test(lazy))
 
 console.log("\nSee your ideas come to life: three tabs above the picture")
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
@@ -65,11 +67,12 @@ check("the row keeps round 4's height (30px pills in a 4px track, 38px), so the 
 
 console.log("\nThe website builder: a real small store")
 // Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
-const site = renderToStaticMarkup(createElement(PlainWeatherSite))
+const site = renderToStaticMarkup(createElement(MondoMangoSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-check("Plain Weather, a small apparel label, in the builder with its own address", site.includes("Everyday cotton, cut and sewn in Porto.") && wb.includes("Plain Weather") && wb.includes("plainweather.co"))
-check("its five photographs exist, are webp and small", ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
-check("calm: no gradient, a neutral page", !/\.pw[^{]*\{[^}]*gradient/.test(BUILDER_CSS) && /\.pw\{[^}]*background:#fafaf9/.test(BUILDER_CSS))
+// Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
+check("Mondo Mango, a merch label, in the builder with its own address", site.includes("Drop 03") && wb.includes("Mondo Mango") && wb.includes("mondomango.shop"))
+check("its five photographs exist, are webp and small", ["mm-hero", "mm-logo", "mm-crew", "mm-cap", "mm-tee", "mm-tote"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
+check("no gradient, the drop on white", !/\.mg[^{]*\{[^}]*gradient/.test(BUILDER_CSS) && /\.mg\{[^}]*background:#fff/.test(BUILDER_CSS)) // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
 check("no Saltmoor left", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/sm-hero.webp"))
 check("no Field Day, no caps left", !/Field Day|FIELD|fielddaysupply|fd-cap|Marigold/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/fd-hero.webp"))
 
@@ -79,7 +82,8 @@ check("The Strength Room by Rina Castillo, with its own address", cm.includes("T
 const members = Number((cm.match(/<b>([\d,]+)<\/b><i>Members<\/i>/) ?? [])[1]?.replace(/,/g, ""))
 check("a modest, believable size (a thousand or so members, a few dozen online)", members > 300 && members < 5000 && /<b>37<\/b>/.test(cm))
 check("believable posts: a program block from the coach, a member's win with two photographs", cm.includes("Block 4 is up") && cm.includes("70 kg deadlift") && cm.includes("/home/showcase/st-pull.webp") && cm.includes("/home/showcase/st-squat.webp"))
-check("its photographs exist and are small", ["st-cover", "st-pull", "st-squat"].every((n) => small(`public/home/showcase/${n}.webp`, 120)))
+// Changed on purpose (landing round 8): the cover is st-banner, the photograph with the name in heavy yellow on it.
+check("its photographs exist and are small", ["st-banner", "st-pull", "st-squat"].every((n) => small(`public/home/showcase/${n}.webp`, 120)))
 check("the caret steps once per typed character", BUILDER_CSS.includes(`steps(${ST_TYPED.length},end)`))
 check("no Crema Club left", !/Crema|cremaclub|Joana Reis|cc-cover/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/cc-cover.webp"))
 
@@ -87,12 +91,14 @@ console.log("\nHow it works: no cap, calm grounds, the domain as it was in round
 // Changed on purpose (landing round 7): the owner removed Nadia Brooks, LaSalle at dusk and the checkout tile (with its drawn sheet), and asked for
 // the round 3 domain tile back on a black to deep purple ground. tests/home-landing-r7-how.test.ts pins the new section.
 const how = renderToStaticMarkup(createElement(HowItWorks))
-check("the physical product is the shop apron, not a cap and not the print", HOW_PRODUCTS[0].id === "apron" && how.includes(HOW_PRODUCTS[0].name) && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle/.test(how) && small("public/home/how/apron.webp", 120))
-check("what he keeps is the price less the fee and the apron's example cost", HOW_PRODUCTS[0].priceCents === 3800 && HOW_PRODUCTS[0].baseCents === 1600 && HOW_PRODUCTS[0].keepCents < 3800 - 1600)
-check("three light grounds and one night ground, all still", (how.match(/data-ground="light"/g) ?? []).length === 3 && (how.match(/data-ground="night"/g) ?? []).length === 1 && !/gradient/.test(rule(howCss, ".cmh-stage")) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
-check("no rainbow in the section; the one violet is round 3's .com in the pill", !/#ff5f5a|#2bb3a3|#f2689f|#5cbf6a/.test(howCss) && (howCss.match(/#7c3aed/g) ?? []).length === 1 && /\.cmh-dm-addr b\{[^}]*color:#7c3aed/.test(howCss))
+// Changed on purpose (landing round 8): the owner asked for "just a t-shirt" (a plain tee), four light grounds of one family instead of three grey and one black, and no violet .com pill.
+check("the physical product is a plain tee, not a cap, an apron or the print", HOW_PRODUCTS[0].id === "tee" && how.includes(HOW_PRODUCTS[0].name) && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle|apron/i.test(how) && small("public/home/how/tee-white.webp", 120))
+check("what he keeps is the price less the fee and the tee's example cost", HOW_PRODUCTS[0].priceCents === 3200 && HOW_PRODUCTS[0].baseCents === 1250 && HOW_PRODUCTS[0].keepCents < 3200 - 1250)
+check("four light grounds, all still", [...how.matchAll(/data-ground="(\w+)"/g)].map((m) => m[1]).join() === "sand,sage,clay,mist" && !/gradient/.test(rule(howCss, ".cmh-stage")) && !/night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
+check("no rainbow and no violet in the section", !/#ff5f5a|#2bb3a3|#f2689f|#5cbf6a|#7c3aed/.test(howCss))
 check("no checkout tile: no sheet, no drawn phone", !how.includes("cmh-sheet") && !/cmh-ph-scr|cmh-op-/.test(howCss) && sheetButtonLabel("Check out", "$45.00", true) === "Check out · $45.00")
-check("the domain: the drawn website, the address pill and the three addresses Storelib serves", how.includes('class="cmh-dm-site"') && how.includes('class="cmh-dm-pill"') && HOW_DOMAIN.targets.length === 3 && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
+// Changed on purpose (landing round 8): one browser window with the domain typing in, no address pill and no three rows.
+check("the domain: his website in one browser window, his domain in its address bar", how.includes('class="cmh-br"') && how.includes('class="cmh-br-page"') && HOW_DOMAIN.host === "lindewoodshop.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
 check("every loop in the section is transform and opacity only", keyframeBodies(howCss).every(onlyCompositor))
 
 console.log("\nCopy and banned samples")

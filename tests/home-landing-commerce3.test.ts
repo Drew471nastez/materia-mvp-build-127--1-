@@ -59,7 +59,8 @@ check("the first tile still sells a physical and a digital product, and there ar
   /* Changed on purpose (landing round 4): no blue tee, no Weeknight Pasta. */
   // Changed on purpose (landing round 5): no cap either (the owner); the physical product is Nadia's signed print.
   // Changed on purpose (landing round 7): the owner did not like Nadia Brooks or LaSalle at dusk; the shop is Linde Woodshop, an apron and workbench plans.
-  assert.ok(/Sell physical and digital products\./.test(w) && /Linde Shop Apron/.test(w) && /Weekend Workbench Plans/.test(w) && !/LaSalle|Nadia|The Loop|Darkroom cap/.test(w))
+  // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack in place of the apron and the plans.
+  assert.ok(/Sell physical and digital products\./.test(w) && /Linde Shop Tee/.test(w) && /Cine Tones LUT Pack/.test(w) && !/LaSalle|Nadia|The Loop|Darkroom cap|Apron|Workbench/.test(w))
   for (const f of [HOW, CO, "components/marketing/home/ebook-cover.tsx", "components/marketing/home/commerce-kit.tsx"]) assert.ok(!/golden hour|preset/i.test(read(f)), f)
 })
 
@@ -67,36 +68,28 @@ console.log("\nYour own domain")
 /* Changed on purpose (landing round 4): a cleaner design: the pill over the domain's own card (Pro, the three addresses, DNS checked, HTTPS on), no drawn website. */
 // Changed on purpose (landing round 5): the owner found the tile "too colorful": one dark card, the address bar with its lock on top, the two records Storelib asks for, no purple TLD, no green pill.
 // Changed on purpose (landing round 7, the owner: "bring back the design how it was before", on black to purple): the round 3 tile again, his website under the address pill and the three addresses checked, on a dark ground that turns deep purple.
-check("the tile: the drawn website under the address pill, the three addresses checked, on the night ground", () => {
-  assert.ok(how.includes('class="cmh-dm-site"') && how.includes('class="cmh-dm-pill"') && !how.includes("cmh-dm-card") && !how.includes("cmh-dm-bar"))
-  assert.ok(how.replace(/<!-- -->/g, "").includes(`${HOW_DOMAIN.name}<b>${HOW_DOMAIN.tld}</b>`))
-  assert.ok(/data-ground="night"/.test(how) && /\.cmh-stage\[data-ground=night\]\{background:radial-gradient\([^}]*#3a1c6b[^}]*linear-gradient\(160deg,#050507/.test(howCss), "black to deep purple")
+// Changed on purpose (landing round 8) (the owner: the www, shop and club banner was "too complex", and the black card the odd one out): one browser window on a light ground, his domain typing into the address bar over his website.
+check("the tile: one browser window, the domain in its address bar over his website, on a light ground", () => {
+  assert.ok(how.includes('class="cmh-br"') && how.includes('class="cmh-br-bar"') && how.includes('class="cmh-br-page"') && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
+  const typed = [...how.matchAll(/<span class="cmh-a cmh-ch" data-k="\d+">([^<]*)/g)].map((m) => m[1]).join("")
+  assert.equal(typed, HOW_DOMAIN.host)
+  assert.ok(/data-ground="mist"/.test(how) && !/data-ground="night"/.test(how))
   assert.ok(!/backdrop-filter|blur\(/.test(howCss), "no glass")
   assert.ok(/Use your own domain\./.test(words(how)))
 })
 check("the address is one Storelib would accept, and is not a Storelib name", () => {
-  const host = `${HOW_DOMAIN.name}${HOW_DOMAIN.tld}`
-  const apex = cleanHostname(host)
+  const apex = cleanHostname(HOW_DOMAIN.host)
+  assert.equal(apex, HOW_DOMAIN.host)
   assert.equal(hostnameProblem(apex), null)
-  /* A bare domain is served at its www, which is the address the pill shows. */
-  assert.equal(servingHost(apex), host)
-  assert.ok(!/storelib/.test(host))
-  // Changed on purpose (landing round 5): the tile shows the apex and its two records, not three subdomains; the subdomains are still addresses Storelib would accept.
-  for (const t of HOW_DOMAIN.targets.slice(1)) {
-    const sub = `${t.sub}.${apex}`
-    assert.equal(hostnameProblem(cleanHostname(sub)), null, sub)
-    assert.equal(servingHost(sub), sub)
-  }
+  /* A bare domain is served at its www; the bar shows it the way a buyer types it. */
+  assert.equal(servingHost(apex), `www.${apex}`)
+  assert.ok(!/storelib/.test(apex))
 })
-check("it shows exactly what a domain can serve in the product: the website, the creator page (with the OnePage), a community", () => {
-  assert.deepEqual(HOW_DOMAIN.targets.map((t) => t.purpose), [...DOMAIN_PURPOSES])
+check("it serves one of the things a domain can serve in the product, and the caption names all three", () => {
+  assert.ok((DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
   const w = words(how)
-  // Changed on purpose (landing round 5): a short name per purpose in the tile's switch.
-  // Changed on purpose (landing round 7): the round 3 rows again, each address with what it serves.
-  for (const t of HOW_DOMAIN.targets) assert.ok(how.replace(/<!-- -->/g, "").includes(`<b>${t.sub}</b>.lindewoodshop.com`) && w.includes(t.what), t.what)
   /* The creator page's domain serves the OnePage too (at /links). */
   assert.ok(/OnePage at \/links/.test(read("components/app/settings/domains-panel.tsx")) && /OnePage at \/links/.test(read("lib/custom-domains/store.ts")))
-  assert.ok(HOW_DOMAIN.targets.find((t) => t.purpose === "creator_page")!.what.includes("OnePage"))
   /* One community per domain. */
   assert.ok(/purpose 'community'/.test(read("lib/custom-domains/store.ts")))
   /* Nothing else is claimed: no store, checkout, email or app on the domain. */
@@ -119,17 +112,17 @@ check("the caption's claims are the code's: Pro, a domain you own, the DNS is ch
   assert.ok(existsSync("components/app/settings/domains-panel.tsx") && /slowingPoll/.test(read("components/app/settings/domains-panel.tsx")), "and it is asked again without the creator pressing anything")
 })
 check("its motion: the ticks come one after another, transform and opacity only, paused off screen, still when motion is reduced", () => {
-  // Changed on purpose (landing round 5): two records to check (A on @, CNAME on www), then DNS checked and HTTPS on; no tick in a pill.
-  // Changed on purpose (landing round 7): the round 3 design again: the pill's tick, then the three addresses, one after another.
-  for (const k of ["cmh-dok", "cmh-dt0", "cmh-dt1", "cmh-dt2"]) {
+  // Changed on purpose (landing round 8): the letters come one after another, then the lock; no ticks.
+  const keys = [...Array(HOW_DOMAIN.host.length).keys()].map((i) => `cmh-ch${i}`).concat(["cmh-lk"])
+  for (const k of keys) {
     const m = howCss.match(new RegExp(`@keyframes ${k}\\{([\\s\\S]*?\\})\\}`))
     assert.ok(m, k)
     const props = [...m![1].matchAll(/([a-z-]+):/g)].map((x) => x[1])
     assert.ok(props.every((p) => p === "opacity" || p === "transform"), `${k}: ${props.join(",")}`)
   }
-  const starts = ["cmh-dok", "cmh-dt0", "cmh-dt1", "cmh-dt2"].map((k) => Number(howCss.match(new RegExp(`@keyframes ${k}\\{0%,(\\d+)%`))![1]))
-  assert.ok(starts[0] < starts[1] && starts[1] < starts[2] && starts[2] < starts[3], starts.join(","))
-  assert.ok((how.match(/class="cmh-a cmh-dm-tick"/g) ?? []).length === 3 && /cmh-a cmh-dm-ok/.test(how))
+  const starts = keys.map((k) => Number(howCss.match(new RegExp(`@keyframes ${k}\\{0%,([\\d.]+)%`))![1]))
+  assert.ok(starts.every((t, i) => i === 0 || t > starts[i - 1]), starts.join(","))
+  assert.ok((how.match(/class="cmh-a cmh-ch"/g) ?? []).length === HOW_DOMAIN.host.length && /cmh-a cmh-br-lk/.test(how))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss))
   assert.ok(/\[data-commerce-live\] \.cmh-a\{animation-play-state:running!important\}/.test(howCss))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss)) /* Changed on purpose (landing round 4): no spinner any more. */
@@ -140,12 +133,13 @@ const loopS = Number(read(CO).match(/const LOOP_S = (\d+)/)![1])
 check("every demo loops: one cycle that repeats for as long as its panel is open and on screen", () => {
   assert.ok(new RegExp(`animation-duration:${loopS}s;animation-iteration-count:infinite`).test(coCss))
   /* Changed on purpose (landing round 4): the scene's own scroll-driven block comes first now; the demos' loops are the block keyed on the open panel. */
-  const live = [...coCss.matchAll(/@media \(prefers-reduced-motion:no-preference\)\{([\s\S]*?)\n\}/g)].map((m) => m[1]).find((b) => b.includes(".cmc-panel[data-on]"))!
+  // Changed on purpose (landing round 8): the demos are cards, each keyed on its own live attribute.
+  const live = [...coCss.matchAll(/@media \(prefers-reduced-motion:no-preference\)\{([\s\S]*?)\n\}/g)].map((m) => m[1]).find((b) => b.includes(".cmc-card[data-commerce-live]"))!
   const names = [...live.matchAll(/animation-name:([a-z0-9-]+)/g)].map((m) => m[1])
   assert.ok(names.length >= 30, String(names.length))
-  for (const line of live.split("\n").filter((l) => /animation-name/.test(l))) assert.ok(/^\s*\[data-commerce-live\] \.cmc-panel\[data-on\] /.test(line), line)
+  for (const line of live.split("\n").filter((l) => /animation-name/.test(l))) assert.ok(/^\s*\.cmc-card\[data-commerce-live\] /.test(line), line)
   /* Nothing in a demo plays once and stops. */
-  assert.ok(!/\.cmc-panel\[data-on\] [^{]*\{animation:[^}]* both [\d.]+s\}/.test(coCss))
+  assert.ok(!/\.cmc-card\[data-commerce-live\] [^{]*\{animation:[^}]* both [\d.]+s\}/.test(coCss))
   assert.ok(!/\.cmv-[a-z0-9-]+[^{}]*\{[^}]*animation:[^}]*forwards/.test(coCss))
 })
 /* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again (the owner's ask); its loop fills the form, pays, and goes back to the top under the paid screen before it fades. */
@@ -161,7 +155,8 @@ check("Built to convert starts over: the paid screen and the seller's note leave
     assert.ok(/,100%\{opacity:0/.test(k), `${name} ends hidden`)
   }
   assert.ok(/100%\{transform:translate3d\(0,0,0\)\}/.test(kf("cdx-scroll")), "the page is back at its top")
-  assert.ok(/const AUTO_MS = LOOP_S \* 1000/.test(read(CO)))
+  // Changed on purpose (landing round 8): no autoplay: every card runs its own loop while it is on screen.
+  assert.ok(!/AUTO_MS|setTimeout/.test(read(CO)))
 })
 check("the demos move by transform and opacity only", () => {
   for (const m of coCss.matchAll(/@keyframes (cmv-[a-z0-9-]+)\{([\s\S]*?\})\}/g)) {
@@ -170,29 +165,31 @@ check("the demos move by transform and opacity only", () => {
   }
 })
 check("One-tap payments is a phone and nothing else", () => {
-  const panel = co.slice(co.indexOf('id="cmc-panel-tap"'), co.indexOf('id="cmc-panel-currency"'))
+  /* Changed on purpose (landing round 8): the demos are cards (data-k), not tab panels. */
+  const panel = co.slice(co.indexOf('data-k="tap"'), co.indexOf('data-k="currency"'))
   assert.equal((panel.match(/class="cmc-phone"/g) ?? []).length, 1)
   assert.ok(!/cmv-br|cmv-bar|cmv-url|cmv-page/.test(panel), "no browser")
   /* Changed on purpose (landing round 7): the phone is the full page checkout, its express Apple Pay button and then Apple Pay's own sheet. */
-  assert.ok(/Pay \$12\.00/.test(words(panel)) && /Confirm with Side Button/.test(words(panel)))
-  const convert = co.slice(co.indexOf('id="cmc-panel-convert"'), co.indexOf('id="cmc-panel-tap"'))
+  // Changed on purpose (landing round 8): the phone sells the Cine Tones LUT Pack ($29).
+  assert.ok(/Pay \$29\.00/.test(words(panel)) && /Confirm with Side Button/.test(words(panel)))
+  const convert = co.slice(co.indexOf('class="cdx"'), co.indexOf('class="mcx"'))
   assert.ok(/cdx-win/.test(convert) && !/class="cmc-phone"/.test(convert), "the browser is Built to convert's") /* Changed on purpose (landing round 4): the website checkout's window. */
 })
 /* Changed on purpose (landing round 5, the owner: "not pill shapes, should be tabs, how they were before"): the dark tab cards of 0724a74c1, no pills. */
-check("the tabs are dark tab cards, not pills: no coloured chips", () => {
-  const list = rule(coCss, ".cmc-tablist")
-  assert.ok(/display:grid/.test(list) && !/999px/.test(list))
-  assert.ok(/\.cmc-tab\{[^}]*border-radius:21px[^}]*background:rgba\(24,24,27,\.94\)/.test(coCss) && !/\.cmc-tab\{[^}]*999px/.test(coCss))
-  assert.equal((co.match(/role="tab"/g) ?? []).length, 4) /* Changed on purpose (landing round 4): four tabs. */
-  const tabs = co.slice(co.indexOf('role="tablist"'), co.indexOf('class="cmc-panels"'))
-  assert.ok(!/<svg|<img/.test(tabs))
+/* Changed on purpose (landing round 8): the tabs became four dark cards in a grid that slides up over the phone (the owner's recording); still no pills. */
+check("the demos are dark cards in a grid, not pills: no coloured chips", () => {
+  const grid = rule(coCss, ".cmc-bento")
+  assert.ok(/display:grid/.test(grid) && !/999px/.test(grid))
+  assert.ok(/\.cmc-card\{[^}]*border-radius:28px;background:#111113/.test(coCss) && !/\.cmc-card\{[^}]*999px/.test(coCss))
+  assert.equal((co.match(/class="cmc-card"/g) ?? []).length, 4)
+  assert.equal((co.match(/role="tab"/g) ?? []).length, 0)
 })
 check("on black the cards are dark surfaces: the panel, the price card, the email, the receipt, the seller's note", () => {
-  assert.ok(/\.cmc-panel\{[^}]*background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
-  /* Changed on purpose (landing round 4): the receipt card went with the fifth tab; the wallet rows of One-tap payments are dark cards too. */
-  assert.ok(/\.cmv-cc,\.cmv-mail,\.cmv-link\{[^}]*background:#1a1a1e/.test(coCss))
+  /* Changed on purpose (landing round 8): the cards are the surfaces (cmc-card), the price tiles (cv-tile) and the email dark on them; the wallet rows became the wallets' own black buttons. */
+  assert.ok(/\.cmc-card\{[^}]*background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
+  assert.ok(/\.cmv-mail\{[^}]*background:#1a1a1e/.test(coCss) && /\.cv-tile\{[^}]*background:#1a1a1e/.test(coCss))
   assert.ok(/\.cmv-sale\{[^}]*background:#26262b/.test(coCss))
-  for (const sel of [".cmv-cc", ".cmv-mail", ".cmv-link", ".cmv-sale", ".cmv-chips", ".cmc-vis"]) assert.ok(!/background:(#fff|#f[0-9a-f]{5}|rgba\(24[0-9],)/.test(rule(coCss, sel)), sel)
+  for (const sel of [".cv-tile", ".cmv-mail", ".tp-btn", ".cmv-sale", ".cv-chips", ".cmc-vis"]) assert.ok(!/background:(#fff|#f[0-9a-f]{5}|rgba\(24[0-9],)/.test(rule(coCss, sel)), sel)
 })
 check("the words in the reminder are the email's own, and the currencies are ones checkout charges in", () => {
   const tpl = read("lib/physical/email-templates.ts")
@@ -212,10 +209,11 @@ check("a mock takes no pointer and has no hover state; only the tabs are control
   /* The checkout's own stylesheet (the kit's, shared with the calculator's real chips, is not this section's). */
   const own = CHECKOUT_STYLES.find((x) => x.href === "w12-commerce-checkout")!.css.replace(/@media \(hover:hover\)\{/g, "")
   const hovers = [...own.matchAll(/([^{}]*):hover[^{]*\{/g)].map((m) => m[0])
-  assert.ok(hovers.length > 0 && hovers.every((h) => /^\.cmc-tab/.test(h.trim())), hovers.join(" | "))
+  /* Changed on purpose (landing round 8): no tabs, so nothing in the checkout has a hover state. */
+  assert.ok(hovers.length === 0, hovers.join(" | "))
   assert.ok(!/<(a|button|input|select)\b/.test(how), "no control in How it works")
   const buttons = co.match(/<button\b[^>]*>/g) ?? []
-  assert.ok(buttons.length === 4 && buttons.every((b) => /role="tab"/.test(b))) /* Changed on purpose (landing round 4): four tabs. */
+  assert.ok(buttons.length === 0) /* Changed on purpose (landing round 8): no tabs, no buttons; the cards are read and swiped, not pressed. */
   assert.ok(!/<(a|input|select)\b/.test(co))
 })
 

@@ -100,7 +100,8 @@ console.log("\nUnlimited possibilities: two rows")
 console.log("\nWhat a store sells: gone from the page (landing round 7)")
 {
   /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
-  check("the section and its product pages are deleted", !existsSync("components/marketing/home/business-carousel.tsx") && !existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx"))
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+  check("the section and its product pages are back", existsSync("components/marketing/home/business-carousel.tsx") && existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx"))
 }
 
 /* Changed on purpose (landing round 4, the owner: a merch store with tees and caps, no sourdough; the Design slide went with the carousel). */
@@ -110,9 +111,10 @@ console.log("\nSecond pass: the website builder as it really is, without Ask Sto
   const words = Object.values(src).map(visible).join("\n")
   check("no Loose florals, no Brush and Bloom, anywhere in these sections", !/loose florals|brush (&amp;|&|and) bloom|\bbloom\b/i.test(words))
   // Changed on purpose (landing round 6): "a more simple and clean merch brand": Plain Weather, a small apparel label.
-  check("the site is a real looking brand (Plain Weather, an apparel label)", html.includes("Plain Weather") && html.includes("Everyday cotton, cut and sewn in Porto."))
+  // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
+  check("the site is a real looking brand (Mondo Mango, a merch label)", html.includes("Mondo Mango") && html.includes("Drop 03"))
   check("no Storelib AI key beside Publish (no logo, no Ask Storelib)", !/data-storelib-logo|bm-logo|wx-ask|Ask Storelib/.test(html) && !/StorelibLogo|StorelibTile/.test(visible(src.builders)))
-  check("the bar: Back, the name, Preview, the page pill, undo, redo, the inspector, Publish", ["Plain Weather", "Preview", "Home", "Publish"].every((w) => html.includes(w)) && /class="wx-key wx-inspect"/.test(html))
+  check("the bar: Back, the name, Preview, the page pill, undo, redo, the inspector, Publish", ["Mondo Mango", "Preview", "Home", "Publish"].every((w) => html.includes(w)) && /class="wx-key wx-inspect"/.test(html))
   check("the sidebar's Header, Page and Footer groups with Add section in its raised key (tree-parts.tsx)", /Header<\/p>[\s\S]*Page<\/p>[\s\S]*Footer<\/p>/.test(html) && (html.match(/class="wx-add-key"/g) ?? []).length === 3 && (html.match(/class="wx-badge"/g) ?? []).length === 2)
   check("Theme's tab wears the Settings icon, as the editor's does", /<span>[^<]*<svg[^>]*lucide-settings[^>]*>[\s\S]*?<\/svg> Theme<\/span>/.test(html))
   check("the selected section's chip says Selected (sections/_shared.tsx)", (html.match(/<em>Selected<\/em>/g) ?? []).length === 2)

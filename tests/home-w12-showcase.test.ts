@@ -155,7 +155,8 @@ for (const block of builders.matchAll(/@keyframes [\w-]+\{(.*?)\}\}/g)) {
 }
 
 /* ---- section 6. Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
-assert.ok(!existsSync("components/marketing/home/business-carousel.tsx") && !existsSync(`${MOCKS}/business-mocks.tsx`))
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+assert.ok(existsSync("components/marketing/home/business-carousel.tsx") && existsSync(`${MOCKS}/business-mocks.tsx`))
 for (const html of [ideas].map((h) => h.replace(/<img[^>]*data-storelib-logo[^>]*>/g, ""))) {
   assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(html), "every mock image is lazy")
   assert.ok(!/<img(?![^>]*width=)[^>]*>/.test(html), "every mock image is sized")
@@ -200,9 +201,10 @@ for (const want of ["Community", "Learn", "Calendar", "Members", "Leaderboards",
 assert.ok(!/react-icons/.test(source))
 /* Changed on purpose (landing round, second pass, the owner: "modern social icons", the official marks): the OnePage's social row draws
    Instagram, TikTok, YouTube and Spotify through the marks the OnePage itself draws (components/icons/brand-icons.generated), and nothing else. */
-const brandImports = [...source.matchAll(/import \{([^}]*)\} from "@\/components\/icons\/brand-icons\.generated"/g)].map((m) => m[1].replace(/\s/g, ""))
+/* Changed on purpose (landing round 8): each brand mark is its own file now (components/icons/brand/<Name>), so the marks are imported one by one. */
+const brandImports = [...source.matchAll(/import \{\s*(\w+)\s*\} from "@\/components\/icons\/brand\/(\w+)"/g)].filter((m) => m[1] === m[2]).map((m) => m[1]).sort()
 /* Changed on purpose (landing round 4): a colourist's page shows Instagram, YouTube, Vimeo and TikTok. */
-assert.deepEqual(brandImports, ["SiInstagram,SiTiktok,SiVimeo,SiYoutube"])
+assert.deepEqual(brandImports, ["SiInstagram", "SiTiktok", "SiVimeo", "SiYoutube"])
 assert.ok(!/\b(Shopify|Nike|Notion Labs|Figma Inc)\b/.test(source))
 
 console.log("home-w12-showcase: ok")
