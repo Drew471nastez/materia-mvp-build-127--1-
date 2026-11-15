@@ -8,6 +8,7 @@ import { LazySection } from "@/components/marketing/home/lazy-section"
 import {
   LazyEverythingInOnePlace,
   LazyIdeasComeToLife,
+  LazyBusinessCarousel,
   LazyCreatorsCarousel,
   LazyHowItWorks,
   LazyCheckoutScene,
@@ -51,7 +52,7 @@ export const metadata: Metadata = {
     5: plain blocks, no scroll-driven motion and nothing held):
 
       dark     the hero and the showcase, sitting on
-      white    Make the work, ideas, possibilities, creators, how it works (landing round 7: no one store)
+      white    Make the work, ideas, what you can sell (landing round 8), possibilities, creators, how it works
                (a flat ground, round 4: it does not rise as a sheet)
       dark     the checkout scene (it draws its own black)
       white    your audience, your apps, your AI tools
@@ -91,6 +92,9 @@ export default function StorelibLanding() {
 
           {/* 4 IdeasToLife */}
           <LazyIdeasComeToLife />
+
+          {/* 4b What you can sell (landing round 8: back after round 7 took it off, redesigned) */}
+          <LazyBusinessCarousel />
 
           {/* 5 UNLIMITED POSSIBILITIES (frame). Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
           <LazySection name="possibilities" minHeight="clamp(380px, 23vw + 254px, 720px)">

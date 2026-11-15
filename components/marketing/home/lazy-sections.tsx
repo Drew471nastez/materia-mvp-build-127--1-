@@ -25,7 +25,13 @@ export const LazyIdeasComeToLife = lazySection(() => import("./ideas-come-to-lif
   styles: () => import("./ideas-come-to-life").then((m) => m.IDEAS_STYLES),
 })
 
-/* Landing round 7, the owner: "One store for everything you sell" (business) is off the home page, its box and its measured heights with it. */
+/* Landing round 8, the owner: "Keep the One store for everything you sell section, of course." Back, redesigned (business-carousel.tsx). A guess until the heights are measured again: about 1066px at 390, 1140 at 1440. */
+export const LazyBusinessCarousel = lazySection(() => import("./business-carousel").then((m) => m.BusinessCarousel), {
+  name: "business",
+  minHeight: "var(--lz, max(calc(150vw + 480px - clamp(0px, (100vw - 767px) * 100000, 100000px)), min(46vw + 470px, 1320px)))",
+  styles: () => import("./business-carousel").then((m) => m.BUSINESS_STYLES),
+})
+
 export const LazyCreatorsCarousel = lazySection(() => import("./creators-carousel").then((m) => m.CreatorsCarousel), {
   name: "creators",
   /* Wave 13 perf: measured 812px at 390, 798 at 768, 784 at 1024, 959 at 1440 and 1920. */
