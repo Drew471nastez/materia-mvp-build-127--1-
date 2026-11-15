@@ -501,8 +501,8 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/45:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/60:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.6); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#111\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#111112\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#111113\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#151516\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#16161a\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#16161a\]\/85:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.85); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#18181b\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
@@ -977,7 +977,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#067647\]:not([data-own-look], [data-own-look] *) { color: hsla(155,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#0a0a0a\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#0f0e13\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#0f6b66\]:not([data-own-look], [data-own-look] *) { color: hsla(177,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#111113\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#111827\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#14532d\]:not([data-own-look], [data-own-look] *) { color: hsla(144,61%,72%,1); }
@@ -1024,6 +1023,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8a1c0f\]:not([data-own-look], [data-own-look] *) { color: hsla(6,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8a5212\]:not([data-own-look], [data-own-look] *) { color: hsla(32,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8a5a00\]:not([data-own-look], [data-own-look] *) { color: hsla(39,75%,72%,1); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8a5a24\]:not([data-own-look], [data-own-look] *) { color: hsla(32,59%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8b8b94\]:not([data-own-look], [data-own-look] *) { color: #9c9da4; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#912018\]:not([data-own-look], [data-own-look] *) { color: hsla(4,72%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#92400e\]:not([data-own-look], [data-own-look] *) { color: hsla(23,75%,72%,1); }

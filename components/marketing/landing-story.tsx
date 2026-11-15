@@ -87,6 +87,8 @@ export const FLUNG_OWN = ".ev-card,.cmh-card,[class*='__root'],[data-story-revea
 /** Landing round 9: how far ahead of the screen (and behind it) a flung page shows them. */
 export const FLUNG_AHEAD = "150% 0px 150% 0px"
 
+const WATCHED = "section, [data-story-section]"
+
 /** Pause decorative loops outside the viewport and in background tabs; give each section its entrance. */
 export function LandingStory({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -98,14 +100,44 @@ export function LandingStory({ children }: { children: ReactNode }) {
     sync()
     document.addEventListener("visibilitychange", sync)
     const watched = new Set<HTMLElement>()
+    /* Landing round 9 (the owner: lag; the frame pass counted 58 animations running off screen in one section): a section away from the screen keeps none of its clock-driven animations running. Only the animations themselves are touched (no attribute selector restyling the whole section); scroll-driven ones are left to the scroll, and only those this paused are played again. */
+    const resting = new WeakMap<HTMLElement, Animation[]>()
+    const rest = (section: HTMLElement, away: boolean) => {
+      if (typeof section.getAnimations !== "function") return
+      if (away) {
+        const running = section
+          .getAnimations({ subtree: true })
+          .filter((a) => a.playState === "running" && a.timeline === document.timeline)
+        for (const a of running) a.pause()
+        if (running.length) resting.set(section, running)
+      } else {
+        const paused = resting.get(section)
+        if (!paused) return
+        resting.delete(section)
+        for (const a of paused) {
+          if (a.playState !== "paused") continue
+          /* One inside a nested section that is still away stays paused, handed to that section. */
+          const target = (a.effect as KeyframeEffect | null)?.target as Element | null | undefined
+          const inner = target?.closest?.(WATCHED) as HTMLElement | null | undefined
+          if (inner && inner !== section && inner.dataset.storyInView === "false") {
+            const list = resting.get(inner) ?? []
+            list.push(a)
+            resting.set(inner, list)
+            continue
+          }
+          a.play()
+        }
+      }
+    }
     const observer =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(
             (entries) => {
-              for (const entry of entries)
-                (entry.target as HTMLElement).dataset.storyInView = String(
-                  entry.isIntersecting,
-                )
+              for (const entry of entries) {
+                const el = entry.target as HTMLElement
+                el.dataset.storyInView = String(entry.isIntersecting)
+                rest(el, !entry.isIntersecting)
+              }
             },
             { rootMargin: "100px 0px" },
           )
@@ -211,9 +243,10 @@ export function LandingStory({ children }: { children: ReactNode }) {
 
     const discover = (node: Node) => {
       if (!(node instanceof Element)) return
-      const candidates = node.matches("[data-story-section]")
-        ? [node, ...node.querySelectorAll("[data-story-section]")]
-        : node.querySelectorAll("[data-story-section]")
+      /* Landing round 9 (the owner: lag; the frame pass counted 58 animations running off screen in one section): every section is watched, not only the ones marked, so every animation in it rests while it is away. */
+      const candidates = node.matches(WATCHED)
+        ? [node, ...node.querySelectorAll(WATCHED)]
+        : node.querySelectorAll(WATCHED)
       for (const candidate of candidates) {
         const section = candidate as HTMLElement
         if (!watched.has(section)) {
