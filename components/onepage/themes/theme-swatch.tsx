@@ -94,7 +94,8 @@ export function swatchButtonStyle(theme: ButtonThemeLike): React.CSSProperties {
 }
 
 /** The portrait every Hero card shows, in place of the creator's photo (the same picture on every card, so the themes are what differs). */
-export const HERO_SAMPLE_PHOTO = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=900&q=80"
+/* Unsplash photo-1544005313-94ddf0286df2 (Unsplash License), kept in public/images so it is served with the app. */
+export const HERO_SAMPLE_PHOTO = "/images/onepage/hero-sample.jpg"
 
 /** `thumb` is the address of a theme's own picture (its wallpaper photo or cover) at a card's size. `hero` draws the Hero layout. */
 export function ThemeSwatch({ c: given, thumb, hero = false }: { c: Look; thumb: (url: string) => string; hero?: boolean }) {
