@@ -24,6 +24,12 @@ export const IDEAS_HEADING = "See your ideas come to life."
   settles in (transform and opacity), the same 38px row, so the section
   keeps its height. The website builder shows a simple, clean merch brand,
   Plain Weather, and the line under the heading is shorter.
+
+  Landing round 8 (the owner): the merch brand "more bold, more colorful,
+  more funky, like a real Storelib store": Mondo Mango, a fat wordmark over
+  a wall of colour photographs and the drop on white, the wordmark printed
+  on each piece. The Strength Room gets a real emblem and a cover with its
+  name in heavy yellow. The tabs and the autoplay are as they were.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
 export const IDEAS_SUB = "No code, nothing to install. Drag sections in, edit on the page, publish when it looks right."
@@ -41,7 +47,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Plain Weather's home page in the sidebar, and the page itself, a small apparel label's store with tees, a hoodie and a cap. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Mondo Mango's home page in the sidebar, and the page itself, a bright merch label's store: its orange wordmark, a wall of colour photographs, and a crewneck, a trucker cap, a tee and a tote with the wordmark printed on them. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
   },
   {
@@ -53,7 +59,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "community",
     title: "Community",
-    alt: "Inside The Strength Room, a paid Storelib community where coach Rina Castillo runs strength training for women: the community card, the next live form check, the space chips, and the pinned post with the new program getting a like while a member writes a new post.",
+    alt: "Inside The Strength Room, a paid Storelib community where coach Rina Castillo runs strength training for women: its barbell emblem, the community card with the name in heavy yellow on the cover, the next live form check, the space chips, and the pinned post with the new program getting a like while a member writes a new post.",
     Mock: CommunityMock,
   },
 ]

@@ -14,11 +14,11 @@
  *     label, in place of Saltmoor's candles.
  *   - A shorter line under the heading.
  */
-import { existsSync, readFileSync, statSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { IdeasComeToLife, IDEAS_STYLES, IDEAS_SUB, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, PlainWeatherSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { MondoMangoSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let failed = 0
 let passed = 0
@@ -31,7 +31,6 @@ const rule = (css: string, selector: string) => {
   const at = css.indexOf(`${selector}{`)
   return at < 0 ? "" : css.slice(at, css.indexOf("}", at) + 1)
 }
-const small = (p: string, kb: number) => existsSync(p) && statSync(p).size < kb * 1024
 const F = {
   ideas: "components/marketing/home/ideas-come-to-life.tsx",
   builders: "components/marketing/home/showcase-mocks/builder-mocks.tsx",
@@ -63,17 +62,13 @@ const words = IDEAS_SUB.split(/\s+/).length
 check("about five words shorter than round 5's 21", words <= 17 && words >= 12)
 check("it still says no code and nothing to install", /^No code, nothing to install\./.test(IDEAS_SUB) && ideas.includes(IDEAS_SUB))
 
-console.log("\nThe website builder shows Plain Weather, a simple, clean merch brand")
-const site = renderToStaticMarkup(createElement(PlainWeatherSite))
+console.log("\nThe website builder's merch brand")
+// Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
+const site = renderToStaticMarkup(createElement(MondoMangoSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-check("its name in the bar, its own address in Publish", wb.includes('<b class="wx-name">Plain Weather</b>') && wb.includes("<b>plainweather.co</b>"))
-check("a plain header: wordmark, five links, the bag", site.includes('<span class="pw-logo">Plain Weather</span>') && (site.match(/<span class="pw-links">([\s\S]*?)<\/span><span class="pw-cart">/)?.[1].match(/<(b|span)>/g) ?? []).length === 5 && site.includes("Bag (1)"))
-check("one hero photograph, one button", (site.match(/class="pw-photo"/g) ?? []).length === 1 && (site.match(/<b>Shop new in<\/b>/g) ?? []).length === 1)
-const prices = [...site.matchAll(/<em>(€\d+)<\/em>/g)].map((m) => m[1])
-check("four products, tees, a hoodie and a cap, priced in euros", prices.length === 4 && /Tee/.test(site) && /Hoodie/.test(site) && /Cap/.test(site) && prices.every((p) => Number(p.slice(1)) >= 20 && Number(p.slice(1)) <= 120))
-check("real photographs, webp, each under 120 KB", ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
-check("a neutral page: near white, near black, greys; no gradient, no serif", /\.pw\{[^}]*background:#fafaf9;color:#161616/.test(BUILDER_CSS) && !/\.pw[^{]*\{[^}]*(gradient|Georgia)/.test(BUILDER_CSS))
-check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2 && /class="pw-ring wx-ring-a"/.test(wb) && /class="pw-ring wx-ring-b"/.test(wb))
+check("Plain Weather is gone, Mondo Mango is in the bar and in Publish", !/Plain Weather|plainweather|pw-/.test(code(F.builders)) && wb.includes('<b class="wx-name">Mondo Mango</b>') && wb.includes("<b>mondomango.shop</b>"))
+check("four products priced in euros", [...site.matchAll(/<em>(€\d+)<\/em>/g)].length === 4)
+check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2 && /class="mg-ring wx-ring-a"/.test(wb) && /class="mg-ring wx-ring-b"/.test(wb))
 check("the Saltmoor store and its pictures are gone", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && ["sm-hero", "sm-bergamot", "sm-glass", "sm-votive", "sm-pillar"].every((n) => !existsSync(`public/home/showcase/${n}.webp`)))
 
 console.log("\nCopy")

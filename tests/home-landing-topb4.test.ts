@@ -24,7 +24,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { IdeasComeToLife, IDEAS_HEADING, IDEAS_HEADINGS, IDEAS_STYLES, IDEAS_SUB, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, DesmondPage, PlainWeatherSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, DesmondPage, MondoMangoSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { CreatorsCarousel, CREATORS, CREATORS_CSS } from "@/components/marketing/home/creators-carousel"
 
@@ -81,15 +81,16 @@ check("one design width for every screen, no phone layout in the editors", /\.bm
 check("the picture keeps the computer's shape on a phone", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss) && !/aspect-ratio:640\/836/.test(ideasCss))
 
 console.log("\n── The website builder: a real small store, no sourdough ──")
-const site = renderToStaticMarkup(createElement(PlainWeatherSite))
+const site = renderToStaticMarkup(createElement(MondoMangoSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
-check("Plain Weather, a small apparel label's store", site.includes("Everyday cotton, cut and sewn in Porto.") && wb.includes("Plain Weather"))
-check("its products are photographs that exist and are small", ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => {
+// Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
+check("Mondo Mango, a merch label's store", site.includes("Drop 03") && wb.includes("Mondo Mango"))
+check("its products are photographs that exist and are small", ["mm-hero", "mm-logo", "mm-crew", "mm-cap", "mm-tee", "mm-tote"].every((n) => {
   const f = join(root, `public/home/showcase/${n}.webp`)
   return existsSync(f) && statSync(f).size < 120_000 && site.includes(`/home/showcase/${n}.webp`)
 }))
-check("Publish puts plainweather.co live, the selected sections outlined", wb.includes("plainweather.co") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
+check("Publish puts mondomango.shop live, the selected sections outlined", wb.includes("mondomango.shop") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
 
 console.log("\n── The OnePage editor: a LUT pack on a real theme ──")
 const page = renderToStaticMarkup(createElement(DesmondPage))

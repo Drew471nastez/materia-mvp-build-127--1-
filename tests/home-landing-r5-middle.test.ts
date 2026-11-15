@@ -20,7 +20,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { IdeasComeToLife, IDEAS_STYLES } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, PlainWeatherSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, MondoMangoSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
 import { CNAME_TARGET, DEFAULT_A } from "@/lib/custom-domains/hostname"
 import { sheetButtonLabel } from "@/lib/onepage/product-block"
@@ -65,11 +65,12 @@ check("the row keeps round 4's height (30px pills in a 4px track, 38px), so the 
 
 console.log("\nThe website builder: a real small store")
 // Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
-const site = renderToStaticMarkup(createElement(PlainWeatherSite))
+const site = renderToStaticMarkup(createElement(MondoMangoSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-check("Plain Weather, a small apparel label, in the builder with its own address", site.includes("Everyday cotton, cut and sewn in Porto.") && wb.includes("Plain Weather") && wb.includes("plainweather.co"))
-check("its five photographs exist, are webp and small", ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
-check("calm: no gradient, a neutral page", !/\.pw[^{]*\{[^}]*gradient/.test(BUILDER_CSS) && /\.pw\{[^}]*background:#fafaf9/.test(BUILDER_CSS))
+// Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
+check("Mondo Mango, a merch label, in the builder with its own address", site.includes("Drop 03") && wb.includes("Mondo Mango") && wb.includes("mondomango.shop"))
+check("its five photographs exist, are webp and small", ["mm-hero", "mm-logo", "mm-crew", "mm-cap", "mm-tee", "mm-tote"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
+check("no gradient, the drop on white", !/\.mg[^{]*\{[^}]*gradient/.test(BUILDER_CSS) && /\.mg\{[^}]*background:#fff/.test(BUILDER_CSS)) // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
 check("no Saltmoor left", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/sm-hero.webp"))
 check("no Field Day, no caps left", !/Field Day|FIELD|fielddaysupply|fd-cap|Marigold/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/fd-hero.webp"))
 
@@ -79,7 +80,8 @@ check("The Strength Room by Rina Castillo, with its own address", cm.includes("T
 const members = Number((cm.match(/<b>([\d,]+)<\/b><i>Members<\/i>/) ?? [])[1]?.replace(/,/g, ""))
 check("a modest, believable size (a thousand or so members, a few dozen online)", members > 300 && members < 5000 && /<b>37<\/b>/.test(cm))
 check("believable posts: a program block from the coach, a member's win with two photographs", cm.includes("Block 4 is up") && cm.includes("70 kg deadlift") && cm.includes("/home/showcase/st-pull.webp") && cm.includes("/home/showcase/st-squat.webp"))
-check("its photographs exist and are small", ["st-cover", "st-pull", "st-squat"].every((n) => small(`public/home/showcase/${n}.webp`, 120)))
+// Changed on purpose (landing round 8): the cover is st-banner, the photograph with the name in heavy yellow on it.
+check("its photographs exist and are small", ["st-banner", "st-pull", "st-squat"].every((n) => small(`public/home/showcase/${n}.webp`, 120)))
 check("the caret steps once per typed character", BUILDER_CSS.includes(`steps(${ST_TYPED.length},end)`))
 check("no Crema Club left", !/Crema|cremaclub|Joana Reis|cc-cover/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/cc-cover.webp"))
 
