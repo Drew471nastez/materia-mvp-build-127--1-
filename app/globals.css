@@ -10168,6 +10168,10 @@ html[data-op-press] [data-op-letgo] {
 }
 /* Wave 13: one vertical rhythm for the home page. Every section's top and bottom padding is --home-pad, so two sections meet with the same gap everywhere (it was 120 to 128px a side, and 240px where a section and its inner box both padded). */
 [data-landing-story] {--landing-gutter:clamp(22px,6vw,96px);--home-pad:clamp(48px,5.6vw,80px);background:#fff;color:#18181b}
+/* Landing round 7: one width for every home section, taken from the showcase under the hero (build-showcase.tsx): the same side edge, the same cap, and headings set in by the same inset. */
+:root {--home-edge:clamp(20px,5.15vw,84px);--home-max:2020px;--home-head-inset:14px}
+@media (max-width:767px) {:root {--home-head-inset:0px}}
+.home-wrap {box-sizing:border-box;width:100%;max-width:var(--home-max);margin-inline:auto;padding-inline:var(--home-edge)}
 [data-landing-story] [data-story-section] {padding-block:var(--home-pad)}
 [data-landing-story] .story-section-heading {max-width:1000px;margin:0 0 48px;text-align:left}
 [data-landing-story] .story-section-heading > p {max-width:62ch;margin:24px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.65;text-wrap:pretty}

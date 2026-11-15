@@ -166,7 +166,7 @@ export function IdeasComeToLife() {
 }
 
 /*
-  White, centred. The heading's three lines stand in one grid cell and take
+  White. The heading's three lines stand in one grid cell and take
   turns on one CSS loop (transform and opacity only), running only while the
   section is on screen and the tab visible; with reduced motion the first
   line stands still. The tabs are pills on a grey track above the picture, and
@@ -175,8 +175,10 @@ export function IdeasComeToLife() {
 */
 const CSS = `
 .ideas{position:relative;background:#fff;color:#18181b;overflow-x:clip}
-.ideas-head{max-width:1120px;margin:0 auto;padding:0 var(--landing-gutter,clamp(22px,6vw,96px));text-align:center}
-.ideas .ideas-h{margin-inline:auto;font-size:clamp(36px,5vw,72px)}
+/* Landing round 7: the page's one width (app/globals.css, .home-wrap): the editor as wide as the showcase cards under the hero, the heading, its line and the tabs from the same left edge, set in by the heading inset. */
+/* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
+[data-landing-story] .ideas>.ideas-head,.ideas-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px));text-align:left}
+.ideas .ideas-h{margin-inline:0;font-size:clamp(36px,5vw,72px)}
 .ideas-stack{display:grid}
 .ideas-line{grid-area:1/1;align-self:center;opacity:0;transform:translate3d(0,.45em,0)}
 .ideas-line:first-child{opacity:1;transform:none}
@@ -186,8 +188,8 @@ const CSS = `
   .ideas[data-live] .ideas-line{animation-play-state:running}
 }
 @keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}6%,29%{opacity:1;transform:none}34%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
-.ideas-sub{max-width:56ch;margin:18px auto 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
-.ideas-tabs-row{display:flex;justify-content:center;margin:clamp(24px,3vw,36px) var(--landing-gutter,16px) clamp(18px,2.2vw,28px)}
+.ideas-sub{max-width:56ch;margin:18px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
+[data-landing-story] .ideas>.ideas-tabs-row,.ideas-tabs-row{box-sizing:border-box;display:flex;justify-content:flex-start;max-width:var(--home-max,2020px);margin:clamp(24px,3vw,36px) auto clamp(18px,2.2vw,28px);padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .ideas-tabs{display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#f1f1f2}
 .ideas-tab{position:relative;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
 .ideas-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08);opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s cubic-bezier(.22,1,.36,1)}
@@ -199,7 +201,7 @@ const CSS = `
 @media(max-width:379px){.ideas-tab{padding:0 10px;font-size:12.5px}}
 @media(max-width:359px){.ideas-tab{padding:0 8px;font-size:12px}}
 .ideas[data-run] .smk-clock[data-on]{animation-play-state:running}
-.ideas-stage{position:relative;display:grid;max-width:1180px;margin:0 auto;padding:0 var(--landing-gutter,clamp(16px,6vw,96px));box-sizing:content-box}
+[data-landing-story] .ideas>.ideas-stage,.ideas-stage{position:relative;display:grid;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px));box-sizing:border-box}
 .ideas-panel{grid-area:1/1;border-radius:clamp(9px,1.3vw,17px);overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05),0 28px 60px -30px rgba(16,24,40,.35);transition:opacity .55s cubic-bezier(.2,.7,.2,1)}
 .ideas-panel[data-pane="active"]{z-index:2;animation:ideas-in .55s cubic-bezier(.2,.7,.2,1) both}
 .ideas-panel[data-pane="leaving"]{z-index:1}

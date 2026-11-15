@@ -2,76 +2,45 @@
 
 import { useEffect, useRef, type CSSProperties } from "react"
 
-// All editorial headings share one passive listener and one scheduled frame.
-// Offscreen headings do no scroll work; there is no continuous animation loop.
+/*
+ * THE SCRIPTED FALLBACK (landing round 7, the owner: "make the filling as you
+ * scroll into the headings feel more smooth and clean"). Only browsers
+ * without scroll-driven animations, and a heading inside a box that clips by
+ * scrolling, come here. One passive scroll listener and one frame for all of
+ * them, and nothing is measured on a frame: where a heading sits on the page
+ * is read from the IntersectionObserver's own entries (handed over after the
+ * browser has laid out, so free) and kept, and each frame works the progress
+ * out from scrollY alone and writes one number, --story-progress. The words'
+ * colour and the rise are worked out from it by the stylesheet (STORY_CSS).
+ */
 function createHeadingMotion() {
   const nodes = new Set<HTMLElement>()
   const active = new Set<HTMLElement>()
-  const details = new WeakMap<
-    HTMLElement,
-    {
-      section: HTMLElement | null
-      gallery: Element | null
-      progress: string
-      reveal: string
-    }
-  >()
+  const state = new WeakMap<HTMLElement, { top: number; height: number; progress: string }>()
   const motion = matchMedia("(prefers-reduced-motion: reduce)")
   let frame = 0
   let viewportWidth = document.documentElement.clientWidth
   let viewportHeight = innerHeight
+  const write = (node: HTMLElement, value: number) => {
+    const entry = state.get(node)
+    const progress = value.toFixed(3)
+    if (!entry || entry.progress === progress) return
+    node.style.setProperty("--story-progress", progress)
+    entry.progress = progress
+  }
   const paint = () => {
     frame = 0
     if (document.hidden) return
-    const updates = Array.from(motion.matches ? nodes : active, (node) => {
-      const rect = node.getBoundingClientRect()
-      const progress = motion.matches
-        ? 1
-        : Math.max(
-            0,
-            Math.min(
-              1,
-              (viewportHeight - rect.top - 64) /
-                (viewportHeight * 0.68 + rect.height * 0.25),
-            ),
-          )
-      const entry = details.get(node)!
-      const { section, gallery } = entry
-      const reveal = gallery
-        ? motion.matches
-          ? 1
-          : Math.max(
-              0,
-              Math.min(
-                1,
-                (viewportHeight - gallery.getBoundingClientRect().top) /
-                  Math.min(260, viewportHeight * 0.55),
-              ),
-            )
-        : 1
-      return {
+    const y = scrollY
+    for (const node of motion.matches ? nodes : active) {
+      const entry = state.get(node)
+      if (!entry || entry.top < 0) continue
+      write(
         node,
-        entry,
-        section,
-        reveal: reveal.toFixed(3),
-        progress: progress.toFixed(3),
-      }
-    })
-    // Read all geometry before any writes, avoiding layout thrashing.
-    for (const { node, entry, section, reveal, progress } of updates) {
-      if (entry.progress !== progress) {
-        node.style.setProperty("--story-progress", progress)
-        entry.progress = progress
-      }
-      /*
-        On the gallery itself, the only thing that reads it. Set on the whole
-        section it was inherited by every card, picture and caption in it, so
-        each scroll frame restyled all of them to fade one box.
-      */
-      if (section && entry.gallery && entry.reveal !== reveal) {
-        ;(entry.gallery as HTMLElement).style.setProperty("--showcase-reveal", reveal)
-        entry.reveal = reveal
-      }
+        motion.matches
+          ? 1
+          : Math.max(0, Math.min(1, (viewportHeight - (entry.top - y) - 64) / (viewportHeight * 0.68 + entry.height * 0.25))),
+      )
     }
   }
   const schedule = () => {
@@ -79,34 +48,34 @@ function createHeadingMotion() {
   }
   const resize = () => {
     const width = document.documentElement.clientWidth
-    if (
-      width !== viewportWidth ||
-      (!matchMedia("(pointer:coarse)").matches && width >= 1024)
-    ) {
+    if (width !== viewportWidth || (!matchMedia("(pointer:coarse)").matches && width >= 1024)) {
       viewportWidth = width
       viewportHeight = innerHeight
       schedule()
     }
   }
+  /* Several thresholds, so a heading's kept position is refreshed as it crosses the screen (a section mounting above it moves it). */
   const observer =
     typeof IntersectionObserver === "function"
       ? new IntersectionObserver(
           (entries) => {
+            const y = scrollY
             for (const entry of entries) {
               const node = entry.target as HTMLElement
+              const kept = state.get(node)
+              if (kept) {
+                kept.top = entry.boundingClientRect.top + y
+                kept.height = entry.boundingClientRect.height
+              }
               if (entry.isIntersecting) active.add(node)
               else {
                 active.delete(node)
-                if (entry.boundingClientRect.bottom < 0) {
-                  node.style.setProperty("--story-progress", "1")
-                  const cached = details.get(node)
-                  if (cached) cached.progress = "1"
-                }
+                if (entry.boundingClientRect.bottom < 0) write(node, 1)
               }
             }
             schedule()
           },
-          { rootMargin: "80px 0px", threshold: 0 },
+          { rootMargin: "80px 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },
         )
       : null
   window.addEventListener("scroll", schedule, { passive: true })
@@ -115,20 +84,10 @@ function createHeadingMotion() {
   motion.addEventListener("change", schedule)
   return {
     add(node: HTMLElement) {
-      const section = node.hasAttribute("data-story-showcase")
-        ? node.closest<HTMLElement>("[data-build-showcase]")
-        : null
-      details.set(node, {
-        section,
-        /* Round 61: the gallery fades in once on entry (build-showcase.tsx); nothing reads a scroll-linked reveal any more. */
-        gallery: null,
-        progress: "",
-        reveal: "",
-      })
+      /* top -1 until the observer reports where the heading is: nothing is painted from a guess. */
+      state.set(node, { top: -1, height: 0, progress: "" })
       nodes.add(node)
-      active.add(node)
       observer?.observe(node)
-      schedule()
       return () => {
         nodes.delete(node)
         active.delete(node)
@@ -146,6 +105,29 @@ function createHeadingMotion() {
     },
   }
 }
+
+/*
+ * HOW A WORD FILLS (landing round 7). It was a hard edge wiped across each
+ * word in turn (a background-clip:text gradient), so the heading filled in
+ * visible steps, one word at a time, and every frame repainted a gradient
+ * per word. Now each word only changes colour, from the muted grey to its
+ * ink, along a smoothstep, and the next two or so words are already on their
+ * way while one finishes, so the fill runs through the line as one soft wave.
+ * Everything is derived from the single number --story-progress (the
+ * scroll-driven animation in app/globals.css, or the fallback above), and
+ * only colour and the heading's rise (a transform) move.
+ */
+export const STORY_CSS = `
+@supports (color:color-mix(in oklab,red 50%,blue)) {
+  .story-heading[data-story-heading] [data-story-word][data-story-word] {
+    --word-on:clamp(0,(var(--story-progress,0) * (var(--word-count) + 2.4) - var(--word-index)) / 2.4,1);
+    --word-mix:calc(var(--word-on) * var(--word-on) * (3 - 2 * var(--word-on)) * 100%);
+    background:none;-webkit-background-clip:border-box;background-clip:border-box;
+    color:color-mix(in oklab,var(--word-target) var(--word-mix),var(--story-muted));
+  }
+}
+@media (forced-colors:active) {.story-heading[data-story-heading] [data-story-word][data-story-word] {color:CanvasText}}
+`
 let headingMotion: ReturnType<typeof createHeadingMotion> | undefined
 
 /*
@@ -255,6 +237,9 @@ export function StoryHeading({
       data-story-dark={dark || undefined}
       aria-label={text}
     >
+      <style href="story-heading" precedence="default">
+        {STORY_CSS}
+      </style>
       <span aria-hidden="true">
         {words.map((word, i) => (
           <span key={`${word}-${i}`}>

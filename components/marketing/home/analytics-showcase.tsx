@@ -36,16 +36,28 @@
      with three results, hers first (example addresses; the stills are
      Unsplash photographs), and beside it the engines a store is read by,
      Google, ChatGPT, Claude, Perplexity and Gemini, in their own marks
-     (./engine-marks), taking turns in a pill.
+     (./engine-marks), sliding by one at a time.
+
+  LANDING ROUND 7, THE OWNER: "instead of the white pill shapes, some other
+  shape, cleaner, smoother", and nothing purple on the purple sheet, not even
+  light purple. The reports are one near-black panel of six even cells with
+  hairlines between them (no icons, no pills); the heading's accent, the
+  line under the title and the share bars are white or neutral grey, and
+  the light behind the engines is neutral. "Ready for Google and AI search"
+  is smoother: the five names sit on ONE strip that slides a step every turn
+  (one transform on one layer, no per-name changes, no scaling of text), the
+  names brightening as they pass the middle through a mask that never moves.
+  The section sits in the page's one width (--home-edge and --home-max,
+  app/globals.css), its headings set in by --home-head-inset.
 
   Motion: the globe turns only while the section is live and in view. The
-  switcher is one small render per turn; names, lights and dots move by
-  transform and opacity on the compositor. Off screen, in a background tab
+  strip of engines moves by one custom property written every 2.6s (no React
+  render); names, lights and dots move by transform and opacity on the
+  compositor. Off screen, in a background tab
   and under reduced motion, nothing runs.
 */
 
-import { useEffect, useRef, useState, type CSSProperties, type ComponentType } from "react"
-import { ArrowUpRight, Eye, Globe2, Link2, ShoppingBag, Smartphone } from "lucide-react"
+import { useEffect, useRef, type CSSProperties, type ComponentType } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { AnalyticsGlobe } from "./analytics-globe"
 import { ClaudeMark, GeminiMark, GoogleG, OpenAIMark, PerplexityMark } from "./engine-marks"
@@ -56,14 +68,7 @@ import s from "./analytics-showcase.module.css"
 const IMG = "/home/analytics"
 
 /** The reports, in Analytics' own words, as few as say it. */
-const REPORTS: Array<{ label: string; Icon: ComponentType<{ className?: string; strokeWidth?: number }> }> = [
-  { label: "Views", Icon: Eye },
-  { label: "Traffic sources", Icon: ArrowUpRight },
-  { label: "Countries", Icon: Globe2 },
-  { label: "Top links", Icon: Link2 },
-  { label: "Devices", Icon: Smartphone },
-  { label: "Sales", Icon: ShoppingBag },
-]
+const REPORTS = ["Views", "Traffic sources", "Countries", "Top links", "Devices", "Sales"] as const
 
 const VISITORS = 21480
 /** Her top places, each with its visitors: the share is of VISITORS. */
@@ -206,12 +211,27 @@ const ENGINES: Array<{ name: string; Mark: ComponentType<{ className?: string }>
 ]
 const EN = ENGINES.length
 const TURN_MS = 2600
+/** The names three times over, so the strip can always slide one more step; it jumps back by one set, unseen, before it runs out. */
+const STRIP = [...ENGINES, ...ENGINES, ...ENGINES]
 
 function EnginesCard({ live, reduced }: { live: boolean; reduced: boolean }) {
-  const [active, setActive] = useState(0)
+  const strip = useRef<HTMLDivElement>(null)
+  const pos = useRef(EN)
   useEffect(() => {
-    if (!live || reduced) return
-    const id = window.setInterval(() => setActive((a) => (a + 1) % EN), TURN_MS)
+    const el = strip.current
+    if (!el || !live || reduced) return
+    const id = window.setInterval(() => {
+      if (pos.current >= 2 * EN) {
+        /* The same names one set back: jump there with no transition, settle the style once, then slide on. */
+        pos.current -= EN
+        el.setAttribute("data-snap", "")
+        el.style.setProperty("--pos", String(pos.current))
+        void getComputedStyle(el).transform
+        el.removeAttribute("data-snap")
+      }
+      pos.current += 1
+      el.style.setProperty("--pos", String(pos.current))
+    }, TURN_MS)
     return () => window.clearInterval(id)
   }, [live, reduced])
   return (
@@ -220,15 +240,14 @@ function EnginesCard({ live, reduced }: { live: boolean; reduced: boolean }) {
       <div className="relative flex min-h-[150px] flex-1 items-center">
         <div className={`${s.engines} w-full`} aria-hidden="true">
           <span className={s.enginePill} />
-          {ENGINES.map((e, i) => {
-            const rel = ((i - active + EN + 2) % EN) - 2
-            return (
-              <span key={e.name} className={s.engine} data-rel={rel}>
+          <div ref={strip} className={s.strip} style={{ "--pos": EN } as CSSProperties}>
+            {STRIP.map((e, i) => (
+              <span key={i} className={s.engine}>
                 <e.Mark className={s.engineMark} />
                 {e.name}
               </span>
-            )
-          })}
+            ))}
+          </div>
         </div>
       </div>
       <div className="relative">
@@ -250,21 +269,20 @@ export function AnalyticsShowcase() {
       ref={ref}
       id="analytics-showcase"
       aria-labelledby="analytics-showcase-title"
-      className={`${m.root} bg-white py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#0f0e13]`}
+      className={`${m.root} ${s.section} bg-white py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#0f0e13]`}
     >
-      <div className="mx-auto max-w-[1400px] px-[var(--landing-gutter,22px)]">
-        <div className="mb-10 max-w-[920px] sm:mb-14">
+      <div className="home-wrap">
+        <div className={`${s.inset} mb-10 max-w-[920px] sm:mb-14`}>
           <StoryHeading id="analytics-showcase-title" text="Know what's working, as it happens." accent={["as", "it", "happens"]} />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div className={`${m.reveal} flex flex-col justify-center pb-4 lg:col-span-5 lg:pb-0 lg:pr-8`} style={{ "--i": 0 } as CSSProperties}>
+          <div className={`${m.reveal} ${s.inset} flex flex-col justify-center pb-4 lg:col-span-5 lg:pb-0 lg:pr-8`} style={{ "--i": 0 } as CSSProperties}>
             <h3 className="text-[clamp(26px,2.6vw,36px)] font-medium leading-[1.1] tracking-[-0.035em] text-[var(--band-ink,#0f0e13)]">See where your visitors are</h3>
             <p className="mt-3 max-w-[40ch] text-[15.5px] leading-[1.6] text-[var(--band-muted,#55525e)]">Every visit and sale on your page and store, live.</p>
-            <ul className="mt-6 flex flex-wrap gap-2">
-              {REPORTS.map(({ label, Icon }) => (
+            <ul className={`${s.reports} mt-6`} aria-label="Reports">
+              {REPORTS.map((label) => (
                 <li key={label} className={s.report}>
-                  <Icon className="h-[14px] w-[14px] opacity-80" strokeWidth={1.9} aria-hidden="true" />
                   {label}
                 </li>
               ))}

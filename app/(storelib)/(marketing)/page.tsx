@@ -8,7 +8,6 @@ import { LazySection } from "@/components/marketing/home/lazy-section"
 import {
   LazyEverythingInOnePlace,
   LazyIdeasComeToLife,
-  LazyBusinessCarousel,
   LazyCreatorsCarousel,
   LazyHowItWorks,
   LazyCheckoutScene,
@@ -52,7 +51,7 @@ export const metadata: Metadata = {
     5: plain blocks, no scroll-driven motion and nothing held):
 
       dark     the hero and the showcase, sitting on
-      white    Make the work, ideas, possibilities, one store, creators, how it works
+      white    Make the work, ideas, possibilities, creators, how it works (landing round 7: no one store)
                (a flat ground, round 4: it does not rise as a sheet)
       dark     the checkout scene (it draws its own black)
       white    your audience, your apps, your AI tools
@@ -94,12 +93,9 @@ export default function StorelibLanding() {
           <LazyIdeasComeToLife />
 
           {/* 5 UNLIMITED POSSIBILITIES (frame). Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
-          <LazySection name="possibilities" minHeight="clamp(442px, 21vw + 290px, 600px)">
+          <LazySection name="possibilities" minHeight="clamp(380px, 23vw + 254px, 720px)">
             <ProductMarquee />
           </LazySection>
-
-          {/* 6 One store for everything you sell, on white (round 3: no black band) */}
-          <LazyBusinessCarousel />
 
           {/* 7 CreatorsCarousel */}
           <LazyCreatorsCarousel />
@@ -128,7 +124,7 @@ export default function StorelibLanding() {
         {/* PURPLE SHEET: 13 AnalyticsShowcase and 14 SellEverywhere world map */}
         <ScrollRevealPanel tone="purple">
           {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
-          <DotField tone="purple" fade="bottom" style={{ height: "min(100%, 1100px)" }} />
+          <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1100px)" }} />
           <LazyAnalyticsShowcase />
           <LazySellEverywhereMap />
         </ScrollRevealPanel>

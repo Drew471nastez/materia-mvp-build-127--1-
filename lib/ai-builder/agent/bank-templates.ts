@@ -19,7 +19,7 @@
  * A bank that cannot be read (part 467 not run, the database slow) is no
  * bank: every call falls back to the built-in library, quietly.
  */
-import { chooseBankEntry, fitTemplate, refitTemplate, referenceEntries, scoreBankEntry, type BankListing, type BankProfile, type BriefLike, type Removed } from "@/lib/storelib-ai/bank"
+import { chooseBankEntry, fitTemplate, isPourable, refitTemplate, referenceEntries, scoreBankEntry, type BankListing, type BankProfile, type BriefLike, type Removed } from "@/lib/storelib-ai/bank"
 import { TEMPLATE_SETTING, type SiteTemplate } from "@/lib/storelib-ai/templates"
 import type { TemplateLibrary } from "./ports"
 import { defaultTemplates } from "./templates"
@@ -60,8 +60,8 @@ export function compositionOf(template: SiteTemplate, profile: BankProfile): str
 export function bankNotes(template: SiteTemplate, notes: string[]): string {
   const native = [...new Set(template.pages.flatMap((p) => p.sections.filter((s) => !template.files[`sections/${s.type}.storelib`]).map((s) => s.type)))]
   return [
-    `This starting site is ${template.source?.name ?? template.name}, a real website from the Storelib library: its composition, its product page and its sections are a proven arrangement. Keep what works; nothing of the source business may stay (its words are drafts to rewrite, its pictures and products are already gone).`,
-    native.length ? `Its sections built from Storelib's own section types (${native.slice(0, 14).join(", ")}${native.length > 14 ? ", ..." : ""}) are edited through their settings and blocks (set_section_settings, set_page_sections); restyle them through Theme settings colour schemes and fonts. Write your own ai_ component where the brand needs a moment the site lacks, at least the opening, so the site is its own.` : "",
+    `This starting site is ${template.source?.name ?? template.name}, a real website from the Storelib library, written as its own code: its composition, its product page and its components are a proven arrangement. Keep what works; nothing of the source business may stay (its words are drafts to rewrite, its pictures and products are already gone).`,
+    native.length ? `A few of its sections are Storelib's built-in ones (${native.slice(0, 10).join(", ")}): replace each with your own component in the site's design, so nothing on the page is the theme's.` : "Make at least the opening your own component in this brand, so the site is its own.",
     ...notes,
   ].filter(Boolean).join("\n")
 }
@@ -70,6 +70,8 @@ export function bankTemplateLibrary(reader: BankReader, opts: { base?: TemplateL
   const base = opts.base ?? defaultTemplates
   const fitted = new Map<string, { template: SiteTemplate; profile: BankProfile; removed: Removed; notes: string[] }>()
   for (const t of opts.preloaded ?? []) fitted.set(t.id, { template: t, profile: { kind: "starting", features: [], industries: [], keywords: [], sections: [], counts: { pages: 0, sections: 0, files: 0, imageSlots: 0, bindings: 0, removed: 0 }, examples: [] }, removed: { sections: [], pages: [] }, notes: [] })
+  /* A bank site built of Storelib's own sections that suited the brief: its plan, for patterns (never poured). */
+  let plan: { name: string; template: SiteTemplate; profile: BankProfile; why: string[] } | null = null
   let listings: BankListing[] | null = null
   const list = async () => {
     if (listings) return listings
@@ -84,7 +86,10 @@ export function bankTemplateLibrary(reader: BankReader, opts: { base?: TemplateL
         const loaded = await reader.load(pick.entry.id).catch(() => null)
         if (loaded && loaded.template.pages.length) {
           const fit = fitTemplate(loaded.template, loaded.profile, brief)
-          if (fit.template.pages.some((p) => p.sections.length)) {
+          if (!isPourable(loaded.profile)) {
+            /* Built of Storelib's own sections: its structure is the plan, the code is the agent's own (a built-in template may still start it). */
+            plan = { name: pick.entry.name, template: fit.template, profile: loaded.profile, why: pick.why }
+          } else if (fit.template.pages.some((p) => p.sections.length)) {
             fitted.set(fit.template.id, { template: fit.template, profile: loaded.profile, removed: fit.removed, notes: [`Chosen from the bank: ${pick.why.join("; ")}.`, ...fit.notes] })
             return fit.template
           }
@@ -115,7 +120,10 @@ export function bankTemplateLibrary(reader: BankReader, opts: { base?: TemplateL
         if (!paths.length) continue
         blocks.push(`From ${ref.name} (an imported theme: read it for how the parts work together, write Storelib's own syntax, never copy its words):\n${paths.map((p) => `--- ${p} ---\n${compact(loaded.template.files[p])}`).join("\n\n")}`)
       }
-      if (!chosen || chosen.source?.kind !== "bank") {
+      if (plan && (!chosen || chosen.source?.kind !== "bank")) {
+        const comp = compositionOf(plan.template, plan.profile)
+        if (comp) blocks.unshift(`THE PLAN FROM THE OWNER'S LIBRARY: ${plan.name} (${plan.why.join("; ")}). Build this site on its structure, page by page and in this order, every section your OWN component written for this business (never Storelib's built-in sections, header or footer).${plan.template.pages.some((p) => p.key === "product") ? " Keep its product page's order (gallery and buy box first, then what answers the buyer's questions)." : ""}\n${comp}`)
+      } else if (!chosen || chosen.source?.kind !== "bank") {
         /* No bank site poured in: the closest bank store's composition, as a structure that works. */
         const near = all
           .filter((e) => e.kind === "starting")

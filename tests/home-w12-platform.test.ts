@@ -151,7 +151,8 @@ check("Contacts has its real header: the count and Export CSV", aud.includes("Co
 /* Added (wave 13): light, no subheading, a believable creator email, the five platforms in their own marks. */
 {
   const audSrc = read(`${DIR}/audience-ownership.tsx`)
-  check("audience: a light section (not black UI)", /className=\{`\$\{m\.root\} bg-white /.test(audSrc) && !/bg-black|#121214|\bdark\b \/>/.test(audSrc))
+  /* Changed on purpose (landing round 7): the motion root is the Contacts picture now; the section itself is still plain white. */
+  check("audience: a light section (not black UI)", /className="bg-white /.test(audSrc) && !/bg-black|#121214|\bdark\b \/>/.test(audSrc))
   check("audience: no subheading under the heading", /<StoryHeading id="audience-ownership-title"[^>]*\/>\s*<ul className=\{s\.points\}>/.test(audSrc))  /* Changed on purpose (landing round 5): the three rows follow the heading directly. */
   check("audience: the ceramics example is gone", !/glaze|ceramic|Maya Lin/i.test(aud))
   check("audience: email from Storelib counts opens and clicks, as Emails does", /opens and clicks counted/.test(aud) && /tt\("Opened"/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /tt\("Clicked"/.test(read("app/(storelib)/app/emails/emails-home.tsx")))  /* Changed on purpose (landing round 5): no composer, so no sent figures. */
@@ -224,10 +225,12 @@ check("loops stop under reduced motion", /prefers-reduced-motion: reduce\)[\s\S]
 check("content is visible without JavaScript", /@media \(scripting: none\)/.test(shared))
 const motion = read(`${DIR}/platform-motion.tsx`)
 check("count-ups change a text node's data, never insert one", /node\.data = next/.test(motion) && !/textContent = formatRef\.current\(n\)/.test(motion))
-check("the audience picture writes nothing into the page after it is drawn", !/textContent|useEffect|setInterval/.test(read(`${DIR}/audience-ownership.tsx`)))  /* Changed on purpose (landing round 5): the composer is gone; nothing in the section moves. */
+/* Changed on purpose (landing round 7): the picture plays three scenes; it writes one attribute a turn and never text. */
+check("the audience picture never writes text into the page after it is drawn", !/textContent|innerHTML/.test(read(`${DIR}/audience-ownership.tsx`)) && /el\.dataset\.scene = /.test(read(`${DIR}/audience-ownership.tsx`)))  /* Changed on purpose (landing round 5): the composer is gone; nothing in the section moves. */
 /* Changed on purpose (landing round): no visitor toasts any more; the engine switcher is fixed slots too, moved by data-rel. */
 /* Changed on purpose (landing round 4): the subscriber rows became one line naming the newest sign-up; every name is in the page and the newest is faded in (data-on), so nothing is inserted. */
-check("the engine switcher is fixed slots, never inserted", /data-rel=\{rel\}/.test(read(`${DIR}/analytics-showcase.tsx`)))  /* Changed on purpose (landing round 5): the newest sign-up line went with the audience redesign. */
+/* Changed on purpose (landing round 7): one strip of names, all in the page from the start, moved by a custom property. */
+check("the engine switcher is one strip, never inserted", /const STRIP = \[\.\.\.ENGINES, \.\.\.ENGINES, \.\.\.ENGINES\]/.test(read(`${DIR}/analytics-showcase.tsx`)))  /* Changed on purpose (landing round 5): the newest sign-up line went with the audience redesign. */
 const globe = read(`${DIR}/platform-globe.tsx`)
 check("the globe runs only while on screen, and draws once under reduced motion", /if \(!running \|\| !inView\) return/.test(globe) && /if \(reduced\)/.test(globe) && /cancelAnimationFrame/.test(globe))
 check("the globe caps device pixels", /Math\.min\(1\.5, window\.devicePixelRatio/.test(globe))

@@ -14,13 +14,13 @@
  * Unlimited possibilities in two rows, not three; "every business one home
  * at all, please look at something else"; less "fans".
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 /* Changed on purpose (landing round 4): the editors are behind thin pill tabs again (no carousel), the heading takes turns on its own clock, one community drawn inside, a merch store and a LUT pack (tests/home-landing-topb4.test.ts pins the rest). */
 import { IdeasComeToLife, IDEAS_HEADING, IDEAS_HEADINGS, IDEAS_TABS, IDEAS_STYLES } from "@/components/marketing/home/ideas-come-to-life"
 import { BUILDER_CSS, BUILDER_DURATION_MS, CommunityMock, DesmondPage, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
-import { BusinessCarousel, BUSINESS_HEADING, BUSINESS_SLIDES } from "@/components/marketing/home/business-carousel"
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { MARQUEE_ROWS, ProductMarquee } from "@/components/marketing/product-marquee"
 
 let passed = 0
@@ -40,8 +40,6 @@ const read = (p: string) => readFileSync(p, "utf8")
 const FILES = {
   ideas: "components/marketing/home/ideas-come-to-life.tsx",
   builders: "components/marketing/home/showcase-mocks/builder-mocks.tsx",
-  business: "components/marketing/home/business-carousel.tsx",
-  pages: "components/marketing/home/showcase-mocks/business-mocks.tsx",
   marquee: "components/marketing/product-marquee.tsx",
 }
 const src = Object.fromEntries(Object.entries(FILES).map(([k, f]) => [k, read(f)])) as Record<keyof typeof FILES, string>
@@ -78,7 +76,7 @@ console.log("\nThe community as it really is inside (components/community/member
   for (const want of ["Community", "Learn", "Calendar", "Members", "Leaderboards", "About", "Online", "Admins", "Upcoming event", "Share something...", "Pinned"])
     check(`it shows ${want}`, html.includes(want))
   check("no admin shell around it", !/Dashboard|Creator Page|Save draft/.test(html))
-  const words = visible(src.builders + src.pages + src.ideas + src.business)
+  const words = visible(src.builders + src.ideas)
   check("no misspellings the owner saw (bisqued and friends)", !/\bbisqued\b|\brecieve|\bseperate|\boccured|\bdefinately/i.test(words))
 }
 
@@ -99,17 +97,10 @@ console.log("\nUnlimited possibilities: two rows")
   check("no third row in the source", !/ROW_3/.test(src.marquee))
 }
 
-console.log("\nWhat a store sells (was: Every business, one home)")
+console.log("\nWhat a store sells: gone from the page (landing round 7)")
 {
-  const html = renderToStaticMarkup(createElement(BusinessCarousel))
-  check("a new heading", (BUSINESS_HEADING as string) !== "Every business, one home." && !/one home/i.test(BUSINESS_HEADING) && new RegExp(`aria-label="${BUSINESS_HEADING}"`).test(html))
-  check("the kinds of things a store sells, a line each", BUSINESS_SLIDES.length === 5 && BUSINESS_SLIDES.every((s) => s.line.length > 20 && s.line.length < 90))
-  check("a vertical list of tabs, not a row of pills", /role="tablist" aria-orientation="vertical"/.test(html) && !/className="[^"]*smk-pills/.test(src.business))
-  /* Changed on purpose (landing round 4): the scroll steps through the kinds while the section is pinned, so every page is drawn and one is shown at a time. */
-  check("one product page shown at a time, drawn at one size for every screen", (html.match(/class="biz-slide" data-pane="active"/g) ?? []).length === 1 && html.includes("aspect-ratio:640/520") && !/Mobile|Desktop/.test(src.pages.replace(/\/\*[\s\S]*?\*\//g, "")))
-  // Changed on purpose (landing round 5): the round 3 section again: a crossfade between pages, none under reduced motion.
-  check("pages change by a crossfade, still under reduced motion", /@keyframes biz-in\{from\{opacity:0\}\}/.test(src.business) && /\.biz-slide\{animation:none!important;transition:none!important\}/.test(src.business))
-  check("nothing moves inside the pages", !/@keyframes|animation:/.test(src.pages))
+  /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
+  check("the section and its product pages are deleted", !existsSync("components/marketing/home/business-carousel.tsx") && !existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx"))
 }
 
 /* Changed on purpose (landing round 4, the owner: a merch store with tees and caps, no sourdough; the Design slide went with the carousel). */
@@ -147,8 +138,8 @@ console.log("\nSecond pass: a little less height, a pixel less rounding")
   /* Changed on purpose (landing round 4): the computer's shape on every screen, and the panel of the tabs in place of the carousel's slide. */
   check("the previews are a little shorter: 1280/752 (was 16/10), on every screen", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(src.ideas))
   check("the panels' corners one pixel less (up to 17, was 18)", /\.ideas-panel\{[^}]*border-radius:clamp\(9px,1\.3vw,17px\)/.test(src.ideas))
-  check("the product page's stage and card one pixel less", /\.biz-stage\{[^}]*border-radius:clamp\(15px,1\.8vw,23px\)/.test(src.business) && /\.bp-card\{[^}]*border-radius:17u/.test(src.pages))
-  check("no small print under these sections", !/class(Name)?="[^"]*(fine-?print|small-?print|-note|-foot)"/.test(src.ideas + src.business + src.marquee))
+  /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
+  check("no small print under these sections", !/class(Name)?="[^"]*(fine-?print|small-?print|-note|-foot)"/.test(src.ideas + src.marquee))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

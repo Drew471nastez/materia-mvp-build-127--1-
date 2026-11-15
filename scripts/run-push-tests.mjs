@@ -1405,6 +1405,10 @@ const SUITES = [
   "tests/form-surface.test.ts",
   /* Round AZ: the AI source bank (lib/storelib-ai/bank, /admin/ai-bank, part 467). A real Storelib Default store snapshotted with nothing of its account left (pictures, product and collection ids, contact details, outside links, brand settings), its look and code kept; fitted to the business (no shop for a coach who does not sell); a store brief starts from it, a coach brief does not; applied and resumed through the agent's own store; an imported theme shown as worked examples, never poured in. */
   "tests/ai-template-bank.test.ts",
+  /* Round BA: every chrome kit drawer, cart and search window in the builder's phone preview, scrolled down the page: inside the phone, filling it where it is a sheet, gone when shut. Real Chromium. */
+  "tests/kit-panels-canvas.test.ts",
+  /* Round BA: a product page draws the product once. A free site's own product section wins over the built-in one; the agent's finish gate refuses a page with both (site.product_twice). */
+  "tests/product-page-once-ba.test.ts",
   /* Round O (O4): the rendered visual critic (lib/ai-builder/visual-critic). The draft drawn from the job's own project with no script in it (stripped, CSP), photographed in REAL Chromium at 1440 and 390 with JavaScript disabled (proven: a page script that would hide its overflow never runs) and a fenced network; measured (sideways scroll at 390, a dead call to action in the first screen and unreadable contrast are hard gates; heading wrap, tap targets, broken or missing pictures, no CTA, instructions to the creator printed in the page); a scripted vision model reviews 4 pictures per page on spec 8.2's seven axes with a bounded JSON repair retry; in the agent loop the defects come back as numbered repair tasks naming the file, two reviews at most, the review's spend in the job's spend, a gate that stays ends partial, and no browser is "Not visually checked", never a pass. Without Chromium the browser sections say so and skip. */
   "tests/ai-visual-critic-o4.test.ts",
   /* Round P (P5): the website agent's own quality. A placement with no blocks gets its schema's filled preset items (fresh ids); a section whose item types have no filled preset is refused at write; finish refuses too few items (min_blocks, 3 for a repeating list, fewer when the store has fewer), placeholder items and copies; template first with a scripted model and a stub template (applied in the brief phase, its components as few-shot, untouched copy and imagery refused, adapting clears it); every picture slot filled when pictures can be made, text-forward otherwise, an empty frame refused; the critic's hard gates for empty slots, empty item lists, empty sections and an empty <img>; models by phase (plan, build on opus high, repair on sonnet) and the cost estimate inside the raised cap. */
@@ -1455,6 +1459,18 @@ const SUITES = [
   "tests/home-landing-r6-showcase.test.ts",
   /* Landing round 6, everything: "Cine Tones LUT Pack" on a bold black cover with no count; the store strip as the owner's reference (merch stores and link pages, tall cards a fixed inset down and cut at the foot); each card rises in once as it scrolls into view. */
   "tests/home-landing-r6-everything.test.ts",
+  /* Landing round 7, everything: the section in the page's shared box with taller pictures, the support thread on a still raspberry to peach gradient, the store strip a true endless loop, and the AI Builders Masterclass in place of the book club. */
+  "tests/home-landing-r7-everything.test.ts",
+  /* Landing round 7 (frame): the header's links plain white and a size up, the headings' scroll fill one soft colour wave from one number (no measuring on a frame), One store for everything you sell off the page, room under the showcase's cards, ideas, pricing, the questions and the app in the page's one width. */
+  "tests/home-landing-r7-frame.test.ts",
+  /* Landing round 7, how: How it works in section 3's shape (two tone heading, wide and narrow cards), Linde Woodshop in place of Nadia Brooks, no checkout tile, round 3's domain tile on black to deep purple, in the shared page box. */
+  "tests/home-landing-r7-how.test.ts",
+  /* Landing round 7 (marquee): Unlimited possibilities is two full-width rows of tilted photos and words; the app icons run edge to edge; the creators rail decides the axis after 8px, follows the finger 1:1, coasts and eases back into its drift; headings on the shared home width. */
+  "tests/home-landing-r7-marquee.test.ts",
+  /* Landing round 7, checkout: the phone shows Storelib's full page checkout (not the in page sheet) for Maren Holt's knitting pattern, centred under a centred headline and rising as it comes up the screen; product pictures ride a ring around it again; the tab cards fade in over it; a fainter dot grid; One-tap and reminder demos on fewer transform and opacity layers; the cards in the shared content box. */
+  "tests/home-landing-r7-checkout.test.ts",
+  /* Landing round 7, lower: the reports one near-black panel and nothing purple on the purple; the engines one sliding strip; the dot field even and flowing, after the mouse; no fee line under the earnings; Contacts plays growth, synced with, export with new faces; every lower section in the one width. */
+  "tests/home-landing-r7-lower.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -129,6 +129,9 @@ function useBelowMd(): boolean {
  * `contentKey` still resets the scroll when the menu swaps its category list
  * for a sub-list, through the sheet's own `scrollKey`.
  */
+/* The phone menu's page links (landing round 7, the owner): plain full ink a size up, dimmed only while pressed or hovered. */
+const MENU_LINK = "flex items-center justify-between px-4 py-3.5 rounded-xl text-[17px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:text-[#1a1a2e]/60 active:text-[#1a1a2e]/60 cursor-pointer [-webkit-tap-highlight-color:transparent]"
+
 function MobileBottomSheet({
   isOpen,
   onClose,
@@ -2369,9 +2372,10 @@ export function PlatformHeaderClient({
                       href={item.href}
                       onClick={(e) => onCanonicalNav(e, item.href)}
                       className={cn(
-                        "px-3 lg:px-4 py-2 text-[14px] lg:text-[15px] font-medium transition-colors duration-200 ease-out motion-reduce:transition-none outline-none focus-visible:underline focus-visible:underline-offset-4",
+                        /* Landing round 7, the owner: every link plain and full strength, a size up; only a hover dims one. */
+                        "px-3 lg:px-4 py-2 text-[15px] lg:text-[16px] font-medium transition-colors duration-150 ease-out motion-reduce:transition-none outline-none focus-visible:underline focus-visible:underline-offset-4",
                         "wide" in item && item.wide && "hidden lg:inline",
-                        item.active ? (buyerHeaderLight ? "text-[#1a1a2e]" : "text-white") : (buyerHeaderLight ? "text-neutral-500 hover:text-[#1a1a2e]" : "text-white/65 hover:text-white"),
+                        buyerHeaderLight ? "text-[#1a1a2e] hover:text-[#1a1a2e]/60" : "text-white hover:text-white/65",
                       )}
                     >
                       {item.label}
@@ -2941,7 +2945,7 @@ export function PlatformHeaderClient({
                 <Link
                   href="/"
                   onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  className={MENU_LINK}
                 >
                   <span>Home</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -2950,7 +2954,7 @@ export function PlatformHeaderClient({
                   <Link
                     href="/explore"
                     onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
-                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                    className={MENU_LINK}
                   >
                     <span>Discover</span>
                     <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -2959,7 +2963,7 @@ export function PlatformHeaderClient({
                 <Link
                   href="/blog"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  className={MENU_LINK}
                 >
                   <span>Blog</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -2967,7 +2971,7 @@ export function PlatformHeaderClient({
                 <Link
                   href="/pricing"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  className={MENU_LINK}
                 >
                   <span>Pricing</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -2975,7 +2979,7 @@ export function PlatformHeaderClient({
                 <Link
                   href="/faq"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  className={MENU_LINK}
                 >
                   <span>FAQ</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />

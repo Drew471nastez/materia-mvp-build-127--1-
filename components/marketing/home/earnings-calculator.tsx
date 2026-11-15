@@ -15,7 +15,7 @@
  * look like".
  *
  * A month is 30 days. Every figure is labelled an example. Stripe's card fee
- * is named and not taken off: it depends on the card and the country.
+ * is not taken off: it depends on the card and the country.
  *
  * Wave 13, the owner: no "Earnings calculator" pill and no subheading, and
  * both sides smoother and cleaner. The controls sit on one white panel with
@@ -53,6 +53,14 @@
  * shape at every width, and no label is ever cut (checked from 320 to
  * 1440): a tile too narrow for its icon and its word drops the icon (a
  * container query on the tile). "Example" is a quiet word, not a pill.
+ *
+ * Landing round 7, the owner: do not show the line under the figures that
+ * named Storelib's fee and Stripe's card fee. The line is gone; the
+ * figures are still worked out after Storelib's Free plan fee (and printing
+ * for merch), as before. The photograph is a little wider (from 1280px its
+ * column is .82 of the panel's 2, was .62), and the section sits in the
+ * page's one width (--home-edge and --home-max, app/globals.css), its
+ * heading set in by --home-head-inset like the showcase's.
  */
 import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
@@ -88,9 +96,6 @@ export const EARN_KINDS = [
   { id: "cap", label: "Cap", as: "cap", price: 28, min: 18, max: 55, unit: "orders" },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; as: CommerceKind; price: number; min: number; max: number; unit: string }>
 type EarnKind = (typeof EARN_KINDS)[number]["id"]
-
-/** The figures are worked out on the Free plan: no monthly price, this fee a sale. */
-const FREE_TERMS = "5% + $0.25 a sale"
 
 function KindIcon({ id, as }: { id: EarnKind; as: CommerceKind }) {
   if (id !== "community") return <CommerceKindIcon kind={as} className="cme-kind-i" />
@@ -174,7 +179,7 @@ export function EarningsCalculator() {
             <img
               src="/home/earnings/night-flash-tee-640.webp"
               srcSet="/home/earnings/night-flash-tee-640.webp 640w, /home/earnings/night-flash-tee-960.webp 960w"
-              sizes="(min-width: 1280px) 400px, (min-width: 900px) 100vw, calc(100vw - 40px)"
+              sizes="(min-width: 1280px) 28vw, (min-width: 900px) 100vw, calc(100vw - 40px)"
               width={960}
               height={1448}
               alt="A seller in a printed tee and cap, photographed at night with a flash"
@@ -246,10 +251,6 @@ export function EarningsCalculator() {
                   <dd>{m.orders.toLocaleString("en-US")}</dd>
                 </div>
               </dl>
-              <p className="cme-note">
-                After Storelib&apos;s {FREE_TERMS}
-                {m.production ? " and printing" : ""}. Stripe&apos;s card processing fee is separate.
-              </p>
               <Link href="/signup" className="cme-cta" data-earnings-cta="">
                 Start earning
                 <svg aria-hidden viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -297,7 +298,8 @@ function NumberField({ label, value, min, max, prefix, onChange }: { label: stri
 
 const EARN_CSS = `
 .cme{background:#fff;color:#18181b}
-.cme-wrap{max-width:1400px;margin:0 auto;padding:0 var(--landing-gutter,clamp(20px,5vw,72px))}
+.cme-wrap,[data-landing-story] .cme>.cme-wrap{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
+.cme .story-section-heading{padding-left:var(--home-head-inset,0px)}
 .cme-card{display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(16px,2vw,24px);align-items:stretch}
 .cme-photo{position:relative;height:clamp(240px,30vw,320px);border-radius:clamp(21px,2.4vw,31px);overflow:hidden;background:#141218}
 .cme-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 47%;display:block}
@@ -322,19 +324,18 @@ const EARN_CSS = `
 .cme-out-top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:15px;color:#71717a}
 .cme-example{font-size:13px;color:#a1a1aa}
 .cme-big{display:block;margin-top:12px;font-size:clamp(46px,5vw,76px);font-weight:400;letter-spacing:-.055em;line-height:1;color:#0f0e13;font-variant-numeric:tabular-nums}
-.cme-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:clamp(22px,2.4vw,30px) 0 0;padding-top:18px;border-top:1px solid #ececf0}
+.cme-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:clamp(22px,2.4vw,30px) 0 28px;padding-top:18px;border-top:1px solid #ececf0}
 .cme-stats div{min-width:0}
 .cme-stats div+div{padding-left:14px;border-left:1px solid #ececf0}
 .cme-stats dt{font-size:13px;color:#71717a}
 .cme-stats dd{margin:4px 0 0;font-size:clamp(16px,1.4vw,19px);font-weight:500;color:#18181b;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cme-note{margin:16px 0 24px;font-size:12.5px;line-height:1.5;color:#8a8a93}
 .cme-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:52px;margin-top:auto;padding:0 26px;border-radius:999px;background:#0f0e13;color:#fff;font-size:16px;font-weight:600;align-self:flex-start;transition:background-color .2s}
 .cme-cta:hover{background:#2a2833}
 .cme-cta:focus-visible{outline:2px solid #7c3aed;outline-offset:3px}
 .cme-cta svg{transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .cme-cta:hover svg{transform:translateX(3px)}
 @media (min-width:1280px){
-  .cme-card{grid-template-columns:minmax(0,.62fr) minmax(0,2fr)}
+  .cme-card{grid-template-columns:minmax(0,.82fr) minmax(0,2fr)}
   .cme-photo{height:auto;min-height:100%}
   .cme-photo img{object-position:54% 50%}
 }

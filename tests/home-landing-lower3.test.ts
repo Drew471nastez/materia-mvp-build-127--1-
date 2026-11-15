@@ -64,7 +64,8 @@ console.log("\n── analytics, on the purple sheet ──")
   check("no white or light grey slab in the cards' markup", !/bg-white(?![\/\w])|bg-\[#f[0-9a-f]{5}\]|bg-\[#fff\]/.test(html.replace(/<section[^>]*>/, "")))
   /* Changed on purpose (landing round 4): fewer reports (six), lit from above with a soft white gradient for depth, as the owner asked; still the ground's ink and a hairline. */
   /* Changed on purpose (landing round 5): the owner asked for the report pills white, with some depth and a bit of glass. */
-  check("the reports are white pills with depth: a lit top edge and a soft shadow, no backdrop blur", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\)/.test(css) && /\.report \{[^}]*inset 0 1px 0 #fff/.test(css) && !/backdrop-filter/.test(css) && (html.match(new RegExp(`class="[^"]*report[^"]*"`, "g")) ?? []).length === 6)
+/* Changed on purpose (landing round 7): the owner asked for another shape than the white pills and nothing purple on the purple sheet: six near-black tiles (tests/home-landing-r7-lower.test.ts). */
+  check("the reports are six near-black tiles with a hairline, no backdrop blur", /\.report \{[^}]*background: #0d0d10;/.test(css) && /\.report \{[^}]*inset 0 0 0 1px rgba\(255, 255, 255, 0\.08\)/.test(css) && !/backdrop-filter/.test(css) && (html.match(/<li class="[^"]*report[^"]*"/g) ?? []).length === 6)
   /* Changed on purpose (landing round 4): the owner asked for the engine switcher to be pressable; its buttons are the one real control, and only they have a hover. */
   /* Changed on purpose (landing round 5): the engine switcher is the earlier one again, with no buttons, so nothing in a card answers the pointer. */
   check("nothing in a card answers the pointer", /\.dark > \* \{\s*pointer-events: none;/.test(css) && !/:hover/.test(css))
@@ -98,9 +99,9 @@ console.log("\n── audience, on the white sheet ──")
   check("one white card with a hairline: no violet light, no lilac card", /\.mock \{[^}]*background: #fff;/.test(css) && !/radial-gradient|\.violet|\.stage/.test(css) && !/s\.violet|s\.stage/.test(src))
   /* Changed on purpose (landing round 4): the owner asked for a lighter structure; what stays yours is one plain line under three plain rows, no pills. */
   check("what stays yours is a plain line, not pills", html.includes("No lock-in: if you ever leave, your list leaves with you.") && !/rounded-full bg-white px-3 py-1\.5/.test(src))  /* Changed on purpose (landing round 5): the line closes the Download row. */
-  check("the picture is inert", /\.mock \{[^}]*pointer-events: none;/.test(css) && /className=\{s\.mock\}/.test(src))  /* Changed on purpose (landing round 5): one picture now. */
+  check("the picture is inert", /\.mock \{[^}]*pointer-events: none;/.test(css) && /\$\{s\.mock\}/.test(src))  /* Changed on purpose (landing round 7): the picture is also a motion root now (it plays three scenes). */  /* Changed on purpose (landing round 5): one picture now. */
   /* Changed on purpose (landing round 4): the Storelib logo above the platforms went with the tree. */
-  check("still as the owner left it: Download every contact, real faces", html.includes("Download every contact, any time") && /people\/sofia\.webp/.test(html))
+  check("still as the owner left it: Download every contact, real faces", html.includes("Download every contact, any time") && /people\/niamh\.webp/.test(html))  /* Changed on purpose (landing round 7): new faces, the owner asked for different, realistic people. */
   check("no tabs in the section", !/role="tab"/.test(html))
 }
 
@@ -122,7 +123,8 @@ console.log("\n── earnings, on the white sheet ──")
   check("the chosen kind: white with an ink outline", /background:#fff/.test(on) && /inset 0 0 0 1\.5px #18181b/.test(on))
   check("no grey track around them; two across on a narrow phone", !/\.cme-kinds\{[^}]*background/.test(css) && /@media \(max-width:479px\)\{\.cme-kinds\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/.test(css))
   /* Changed on purpose (landing round 4): no plan switch; the fee the figures use is said once under them. */
-  check("no plan switch; the fee is one line under the figures", !/cme-plan/.test(html) && html.includes("5% + $0.25 a sale"))
+/* Changed on purpose (landing round 7): the owner asked for the fee line under the figures to go. */
+  check("no plan switch, and no fee line under the figures", !/cme-plan/.test(html) && !html.includes("5% + $0.25 a sale"))
   check("hover only where a pointer hovers; a focus ring; a reduced motion path", /@media \(hover:hover\) and \(pointer:fine\)\{\.cme-kind:hover/.test(css) && /\.cme-kind:focus-visible\{outline:2px solid/.test(css) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cme-kind,/.test(css)) /* Changed on purpose (landing round 4): the plan switch is gone. */
 }
 
