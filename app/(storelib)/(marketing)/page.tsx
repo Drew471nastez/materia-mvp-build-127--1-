@@ -128,7 +128,7 @@ export default function StorelibLanding() {
         {/* PURPLE SHEET: 13 AnalyticsShowcase and 14 SellEverywhere world map */}
         <ScrollRevealPanel tone="purple">
           {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
-          <DotField tone="purple" fade="bottom" style={{ height: "min(100%, 1100px)" }} />
+          <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1100px)" }} />
           <LazyAnalyticsShowcase />
           <LazySellEverywhereMap />
         </ScrollRevealPanel>

@@ -52,6 +52,12 @@
  * the turn carries on from there. Nothing else in the card answers the
  * pointer.
  *
+ * LANDING ROUND 7, THE OWNER: every section as wide as the showcase under
+ * the hero, and nothing purple on the purple sheet, not even light purple.
+ * The card sits in the page's one width (--home-edge and --home-max,
+ * app/globals.css), its heading set in by --home-head-inset; the heading's
+ * accent, the markers, the rings and the prices on the map are white.
+ *
  * MOTION. One small render per country (a few attributes), every 3.6s while
  * the section is on screen and the tab is visible. Everything that moves
  * (the highlight, the product, the price, the words, the labels, the ring,
@@ -295,8 +301,9 @@ export function SellEverywhereMap() {
 const EASE = "cubic-bezier(.22,1,.36,1)"
 const MAP_CSS = `
 .cmm{position:relative;background:#fff;color:#0f0e13;padding:clamp(72px,9vw,128px) 0}
-.cmm-wrap{max-width:1400px;margin:0 auto;padding:0 var(--landing-gutter,22px)}
-.cmm-head{max-width:920px;margin-bottom:clamp(32px,4vw,52px)}
+.cmm-wrap,[data-landing-story] .cmm>.cmm-wrap{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
+.cmm-head{max-width:920px;margin-bottom:clamp(32px,4vw,52px);padding-left:var(--home-head-inset,0px)}
+[data-band] .cmm .story-heading{--story-accent:#fff}
 .cmm-card{position:relative;isolation:isolate;overflow:hidden;border-radius:31px;color:#fff;background:#0f0f12;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);height:500px}
 .cmm-grid,.cmm-world,.cmm-prod,.cmm-copy{pointer-events:none}
 .cmm-grid{position:absolute;z-index:0;inset:-24px;background-image:radial-gradient(rgba(255,255,255,.13) 1px,transparent 1.6px);background-size:24px 24px;-webkit-mask-image:radial-gradient(90% 90% at 0% 0%,#000 0%,rgba(0,0,0,.45) 45%,transparent 80%);mask-image:radial-gradient(90% 90% at 0% 0%,#000 0%,rgba(0,0,0,.45) 45%,transparent 80%);animation:cmm-grid 10s linear infinite;animation-play-state:paused}
@@ -306,16 +313,16 @@ const MAP_CSS = `
 .cmm-map{position:relative;aspect-ratio:240/90}
 .cmm-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .cmm-dot,.cmm-pin{position:absolute;width:0;height:0}
-.cmm-dot::before{content:"";position:absolute;left:-2.5px;top:-2.5px;width:5px;height:5px;border-radius:50%;background:#a78bfa;opacity:.55}
-.cmm-core{position:absolute;left:-3.5px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:#c4b5fd;box-shadow:0 0 0 2px #0f0f12;opacity:.7;transform:scale(.8);transition:transform .7s ${EASE},opacity .5s ease-out}
+.cmm-dot::before{content:"";position:absolute;left:-2.5px;top:-2.5px;width:5px;height:5px;border-radius:50%;background:#fff;opacity:.4}
+.cmm-core{position:absolute;left:-3.5px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #0f0f12;opacity:.7;transform:scale(.8);transition:transform .7s ${EASE},opacity .5s ease-out}
 .cmm-pin[data-on] .cmm-core{opacity:1;transform:scale(1.15)}
-.cmm-ring{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(196,181,253,.8);opacity:0;transform:scale(.4)}
+.cmm-ring{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);opacity:0;transform:scale(.4)}
 .cmm-pin[data-on] .cmm-ring{animation:cmm-ring 2.4s ease-out infinite;animation-play-state:paused}
 [data-commerce-live] .cmm-pin[data-on] .cmm-ring{animation-play-state:running}
 @keyframes cmm-ring{0%{opacity:.9;transform:scale(.4)}70%,100%{opacity:0;transform:scale(1.6)}}
 .cmm-say{position:absolute;left:0;bottom:12px;display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:rgba(17,17,20,.92);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);font-size:12.5px;font-weight:500;line-height:1;color:#f4f3f7;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .25s ease-out,transform .7s ${EASE}}
 .cmm-say em{font-style:normal}
-.cmm-say span{color:#c4b5fd;font-variant-numeric:tabular-nums}
+.cmm-say span{color:#c9c7d1;font-variant-numeric:tabular-nums}
 .cmm-say{transform:translate3d(-50%,4px,0)}
 .cmm-pin[data-on] .cmm-say-new{opacity:1;transform:translate3d(-50%,0,0);transition:opacity .45s ease-out .2s,transform .7s ${EASE} .2s}
 .cmm-pin[data-was] .cmm-say-shipped{opacity:0;animation:cmm-shipped 3s ${EASE} .3s both;animation-play-state:paused}
@@ -326,7 +333,7 @@ const MAP_CSS = `
 .cmm-flag{position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:12px;background:transparent;opacity:.45;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .5s ease-out}
 .cmm-flag[data-on]{opacity:1}
 @media (hover:hover) and (pointer:fine){.cmm-flag:hover{opacity:1}}
-.cmm-flag:focus-visible{outline:2px solid #c4b5fd;outline-offset:2px;opacity:1}
+.cmm-flag:focus-visible{outline:2px solid #fff;outline-offset:2px;opacity:1}
 .cmm-flags img{width:24px;height:17px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
 .cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:40px;height:40px;border-radius:12px;pointer-events:none;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--a) * 48px),0);transition:transform .7s ${EASE}}
 .cmm-prod{width:216px;padding:12px;border-radius:15px;background:#18181d;color:#f4f3f7;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 24px 48px -24px rgba(0,0,0,.8)}

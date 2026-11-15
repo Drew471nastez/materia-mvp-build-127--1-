@@ -92,7 +92,8 @@ console.log("\n── analytics ──")
   check("the search thumbnails are local webp files", ["lut-fog", "lut-neon", "lut-autumn"].every((f) => existsSync(join(root, "public/home/analytics", `${f}.webp`)) && html.includes(`/home/analytics/${f}.webp`)))
   const marks = read(`${DIR}/engine-marks.tsx`)
   check("five engines in their own vector marks", ["GoogleG", "OpenAIMark", "ClaudeMark", "PerplexityMark", "GeminiMark"].every((n) => new RegExp(`export function ${n}\\(`).test(marks)) && ["Google", "ChatGPT", "Claude", "Perplexity", "Gemini"].every((e) => src.includes(`name: "${e}"`)))
-  check("the switcher turns only while live, never under reduced motion, by transform and opacity", /if \(!live \|\| reduced\) return/.test(src) && /window\.clearInterval/.test(src) && /\.engine \{[\s\S]*?transition:\s*transform 800ms[^;]*,\s*opacity 600ms/.test(css)) /* Changed on purpose (landing round 5): the switcher is the one from before round 4 again, as the owner asked. */
+/* Changed on purpose (landing round 7): smoother: one strip slides by one transform, the names fade through a still mask. */
+  check("the switcher turns only while live, never under reduced motion, by transform", /if \(!el \|\| !live \|\| reduced\) return/.test(src) && /window\.clearInterval/.test(src) && /\.strip \{[^}]*transition: transform 1000ms/.test(css)) /* Changed on purpose (landing round 5): the switcher is the one from before round 4 again, as the owner asked. */
   check("keyframes animate only transform and opacity", keyframeProps(css).every((p) => p === "transform" || p === "opacity"), keyframeProps(css))
   check("cards a pixel less round (27px, 21px on a phone)", /border-radius: 27px/.test(css) && /border-radius: 21px/.test(css))
   check("smaller: two fixed rows of 400px, no dashboard, no tabbed cards", /\.globeCard,\s*\.fixed \{\s*height: 400px;/.test(css) && !/Total Revenue|Conversion Rate|Previous period/.test(words))

@@ -67,7 +67,8 @@ console.log("\n── The page ──")
   // Changed on purpose (landing round 5): nothing is held anywhere, so no hold props.
   check("the hero and showcase are not held, and Make the work sits on a flat ground", /<ScrollRevealBackdrop>\s*<Hero \/>\s*<BuildShowcase \/>\s*<\/ScrollRevealBackdrop>\s*<ScrollRevealPanel tone="white" arrive="flat">\s*<LazyEverythingInOnePlace \/>/.test(page))
   check("the later grounds are sheets over plain blocks, nothing held", /<ScrollRevealBackdrop>\s*<LazyCheckoutScene \/>/.test(page) && /<ScrollRevealPanel tone="white">\s*<LazyAudienceOwnership \/>/.test(page) && /<ScrollRevealPanel tone="purple">/.test(page) && !/\bhold\b/.test(page))
-  check("a dot grid over the top of the purple, limited to about a screen", /<ScrollRevealPanel tone="purple">\s*<DotField tone="purple" fade="bottom" style=\{\{ height: "min\(100%, 1100px\)" \}\} \/>/.test(page))
+  /* Changed on purpose (landing round 7): the owner asked for the purple's dots more subtle and clean, so they are a little sparser there (gap 22). */
+  check("a dot grid over the top of the purple, limited to about a screen", /<ScrollRevealPanel tone="purple">\s*<DotField tone="purple" fade="bottom"(?: gap=\{\d+\})? style=\{\{ height: "min\(100%, 1100px\)" \}\} \/>/.test(page))
   check("the close is dark (no purple): the app, then the closing call", /<ScrollRevealBackdrop>\s*<LazyAppAnywhere \/>\s*<FinalCta \/>\s*<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page) && (page.match(/<ScrollRevealPanel tone="purple"/g) || []).length === 1)
   check("the measured lazy heights are still written in", /LAZY_SECTION_HEIGHTS_CSS/.test(page))
 }
