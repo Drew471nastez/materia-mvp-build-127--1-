@@ -14,7 +14,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { FAST_PX_PER_MS, LATE_ABOVE, REVEAL_CSS } from "@/components/marketing/landing-story"
+import { FAST_PX_PER_MS, FLUNG_AHEAD, FLUNG_OWN, LATE_ABOVE, REVEAL_CSS } from "@/components/marketing/landing-story"
 import { STORY_CSS } from "@/components/marketing/story-heading"
 import { LAZY_AHEAD, LAZY_BUSY_WAIT_MS, LAZY_CODE_LATEST_MS, LAZY_DRAW_AHEAD, LAZY_IDLE_AHEAD, lazySection } from "@/components/marketing/home/lazy-section"
 import { HERO_VIDEO } from "@/lib/marketing/hero-video"
@@ -63,6 +63,12 @@ console.log("\nFlung: no empty box")
   check("a waiting block that comes on screen while flung, late, or from above is simply shown: no transition", LATE_ABOVE === 0.5 && /if \(el\.dataset\.reveal === "wait" && !fast\(\) && entry\.boundingClientRect\.top > innerHeight \* LATE_ABOVE\) el\.dataset\.reveal = "in"\s*else delete el\.dataset\.reveal/.test(story))
   check("one flung past above the screen is let go too", /else if \(el\.dataset\.reveal === "wait" && entry\.boundingClientRect\.height > 0 && entry\.boundingClientRect\.bottom < 0\) show\(el\)/.test(story))
   check("while the page is flung nothing new is hidden", /if \(!entry\.isIntersecting && \(skipped \|\| box\.top > innerHeight\) && !fast\(\)\) \{\s*el\.dataset\.reveal = "wait"/.test(story))
+  check("the sections' own waiting blocks are watched a screen and a half out: the two card grids, the platform roots, AnimateOnScroll", FLUNG_OWN === ".ev-card,.cmh-card,[class*='__root'],[data-story-reveal]" && FLUNG_AHEAD === "150% 0px 150% 0px" && /\{ rootMargin: FLUNG_AHEAD \}/.test(story) && /ahead\.observe\(block\)/.test(story))
+  check("  those are really how the sections hide and show them", /\.ev-card\{[^}]*opacity:0/.test(read("components/marketing/home/everything-in-one-place.tsx")) && /\.ev-card\[data-in\]\{opacity:1;transform:none\}/.test(read("components/marketing/home/everything-in-one-place.tsx")) && /\.cmh-card\[data-in\]\{opacity:1;transform:none\}/.test(read("components/marketing/home/how-it-works.tsx")) && /\.root\[data-platform-in\] \.reveal \{\s*opacity: 1;/.test(read("components/marketing/home/platform.module.css")) && /data-story-reveal=""/.test(read("components/marketing/animate-on-scroll.tsx")))
+  check("  flung, each gets its own mark at once, with its transition off for two frames", /if \(card\) el\.dataset\.in = ""\s*else el\.setAttribute\("data-platform-in", ""\)\s*requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => el\.removeAttribute\("data-reveal-now"\)\)\)/.test(story) && /\[data-landing-story\] \[data-reveal-now\],\[data-landing-story\] \[data-reveal-now\] \[class\*="__reveal"\]\{transition:none!important\}/.test(REVEAL_CSS))
+  check("  when the fling starts (the scroll listener) and as each comes near during it (the observer)", /if \(speed > FAST_PX_PER_MS && near\.size\) for \(const el of \[\.\.\.near\]\) showNow\(el\)/.test(story) && /else if \(flung\) showNow\(el\)\s*else near\.add\(el\)/.test(story))
+  check("  this script's own waiting blocks are shown the same way", /el\.dataset\.reveal = "wait"\s*ahead\?\.observe\(el\)/.test(story) && /if \(el\.dataset\.reveal === "wait"\) return show\(el\)/.test(story))
+  check("  at reading speed nothing is marked: the sections' entrances play as written", /if \(!entry\.isIntersecting\) near\.delete\(el\)\s*else if \(flung\) showNow\(el\)/.test(story) && !/setInterval|setTimeout/.test(story))
   check("shown means the attribute is gone, so no transition rule matches", /\[data-landing-story\] \[data-reveal\]\{transition:/.test(REVEAL_CSS) && !/\[data-landing-story\] \.[\w-]+\{transition/.test(REVEAL_CSS))
   check("the entrance is shorter: 500ms, lead lines 60ms and blocks 120ms behind", /transition:opacity \.5s [^;]*,translate \.5s/.test(REVEAL_CSS) && /--reveal-delay:60ms/.test(REVEAL_CSS) && /--reveal-delay:120ms/.test(REVEAL_CSS) && !/\.65s|170ms/.test(REVEAL_CSS))
 }
