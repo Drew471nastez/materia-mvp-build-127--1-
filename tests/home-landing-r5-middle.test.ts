@@ -48,11 +48,13 @@ const F = {
 const ideasCss = IDEAS_STYLES.find((s) => s.href === "w12-ideas")?.css ?? ""
 const howCss = HOW_IT_WORKS_STYLES.map((s) => s.css).join("\n")
 
-console.log("\nOne store for everything you sell: gone from the page (landing round 7)")
+console.log("\nOne store for everything you sell: back on the page (landing round 8)")
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
-check("the section, its product pages and the tee photograph are deleted", !existsSync("components/marketing/home/business-carousel.tsx") && !existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx") && !existsSync("public/home/showcase/hp-tee.webp"))
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+check("the section and its product pages are back, the old tee photograph still gone", existsSync("components/marketing/home/business-carousel.tsx") && existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx") && !existsSync("public/home/showcase/hp-tee.webp"))
 const lazy = read("components/marketing/home/lazy-sections.tsx")
-check("its placeholder box and measured heights are gone", !/data-lazy-section="business"|LazyBusinessCarousel/.test(lazy))
+/* Changed on purpose (landing round 8): its placeholder box is back (the lead measures its heights again). */
+check("its placeholder box is back", /export const LazyBusinessCarousel = lazySection\(/.test(lazy) && /name: "business"/.test(lazy))
 
 console.log("\nSee your ideas come to life: three tabs above the picture")
 const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))

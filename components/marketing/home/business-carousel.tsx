@@ -1,185 +1,210 @@
 "use client"
 
-import { memo, useEffect, useRef, type ReactNode } from "react"
+import { memo, useCallback, useEffect, useRef, useState, type ComponentType, type PointerEvent } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
-import { BUSINESS_MOCK_CSS, BookingPage, CommunityPage, CoursePage, TeePage, TemplatePage } from "./showcase-mocks/business-mocks"
-import { PILLS_CSS } from "./showcase-mocks/pills"
+import { BUSINESS_MOCK_CSS, BrainScene, ClubScene, CoachScene, CourseScene, HeadphonesScene } from "./showcase-mocks/business-mocks"
 import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
 
 /*
-  Landing round, the owner: "every business one home at all. Please look at
-  something else." So the section is no longer five made-up storefronts
-  behind five pills. It is what a Storelib store sells, as a quiet list
-  beside one real product page for the line that is chosen.
+  WHAT YOU CAN SELL (landing round 8).
+  Round 7 took "One store for everything you sell" off the page; the owner:
+  "Keep the One store for everything you sell section, of course", with a
+  clearer, simpler heading, a cleaner and wider structure, and pictures that
+  move.
 
-  Landing round 3 (the owner): the section stands on the white sheet, not a
-  black band, so its text is dark and its stage is the soft grey of "Make
-  the work". Its tabs are of that section's family (the owner likes those):
-  on a phone the same pill row, a grey track with the chosen tab white; on a
-  computer the list keeps its lines, the chosen one on that same soft grey.
-  No icons in them. Half of what it shows ships in a box: a physical product
-  comes second. The digital product is a real one, drawn in HTML, not a
-  cover with a photograph on it.
+  So: the heading and one line at the page's one left edge (home-wrap plus
+  the heading inset, like the showcase), the pill tabs of the ideas section,
+  and under them one stage as wide as the showcase cards. Each tab is a
+  scene on its own ground (showcase-mocks/business-mocks.tsx) with a short
+  moment playing in it.
 
-  Landing round 5 (the owner): "just make it how it was before", with no
-  interactiveness that stops the section: "when I swipe it just goes through
-  everything". So this is the round 3 section again (round 4 pinned it with
-  position: sticky while the scroll stepped through the kinds). It scrolls
-  past like any other section; the kinds take turns on the invisible clock
-  while it is on screen, and a tap picks one. The examples are the newer
-  ones (the round 4 banned list keeps the old ones out), on the light grey
-  stage of before, not on coloured grounds.
+  Autoplay: the chosen pill fills with a thin line as its turn runs, and that
+  line is the clock (when its animation ends, the next tab comes up). It
+  pauses while a mouse rests on the stage, while a finger is on it (and for
+  a moment after), while the section is off screen and while the browser tab
+  is hidden, and carries on from where it stopped. Picking a tab shows it
+  and starts its turn again; autoplay keeps going. With reduced motion
+  nothing turns by itself and the scenes stand finished.
 */
-export const BUSINESS_HEADING = "One store for everything you sell."
-export const BUSINESS_SLIDE_MS = 5200
+export const BUSINESS_HEADING = "What will you sell?"
+export const BUSINESS_SUB = "Downloads, things you ship, courses, paid communities and booked calls. Each one gets its own page and checkout."
+export const BUSINESS_SLIDE_MS = 6500
+/** How long autoplay waits after a finger leaves the stage. */
+export const BUSINESS_TOUCH_RESUME_MS = 2500
 
 type Kind = {
   id: string
   label: string
-  /** The label in the phone's pill row. */
+  /** The shorter label on a phone. */
   tab: string
-  line: string
-  page: ReactNode
+  Scene: ComponentType
   alt: string
 }
 
-export const BUSINESS_SLIDES: Kind[] = [
+export const BUSINESS_SLIDES: readonly Kind[] = [
   {
     id: "digital",
     label: "Digital products",
     tab: "Digital",
-    line: "Templates, ebooks, music and files, delivered the moment someone pays.",
-    page: <TemplatePage />,
-    alt: "A digital product page on Storelib: Studio OS for Notion by Priya Raman, $29, a workspace with clients, projects and invoices, duplicated into Notion in one click.",
+    Scene: BrainScene,
+    alt: "A digital product on Storelib: Second Brain, a dark Notion dashboard by Jun Park for $24, shown on a tablet with its cover, four areas and a task list being ticked off, then duplicated into the buyer's Notion.",
   },
   {
     id: "physical",
     label: "Physical products",
     tab: "Physical",
-    line: "Your own stock, or printed on demand and shipped for you.",
-    page: <TeePage />,
-    alt: "A product page on Storelib: the Pines Tour Tee by Hollow Pines in black, $32, sizes S to XXL, printed and shipped in 3 to 5 days.",
+    Scene: HeadphonesScene,
+    alt: "A physical product on Storelib: HN1 Studio Headphones by Halfnote Audio, $189, black headphones shot on a yellow backdrop, added to the cart and shipped from the studio in 2 days.",
   },
   {
     id: "courses",
     label: "Courses",
     tab: "Courses",
-    line: "Video lessons people take at their own pace, picking up where they left off.",
-    page: <CoursePage />,
-    alt: "A course page on Storelib: Mixing in key, for new DJs, by Tomás Reyes. 16 lessons, $79, the first lesson free to watch.",
+    Scene: CourseScene,
+    alt: "A course on Storelib: Mixing in key, for new DJs, by Tomás Reyes. 16 lessons, $79. Lesson 3 plays to the end and the next lesson comes up.",
   },
   {
     id: "communities",
     label: "Communities",
     tab: "Communities",
-    line: "Free or paid spaces with posts, events and chat, on your own page.",
-    page: <CommunityPage />,
-    alt: "A community page on Storelib: Second Serve, a padel community, $9 a month, 1,960 members, social doubles on Thursday and its spaces.",
+    Scene: ClubScene,
+    alt: "A community on Storelib: Applied AI Club, $12 a month, 2,480 members, with a live build on Wednesday and new posts arriving in its show-and-tell space.",
   },
   {
     id: "bookings",
     label: "Bookings",
     tab: "Bookings",
-    line: "Calls and sessions people pick a time for and pay for in one go.",
-    page: <BookingPage />,
-    alt: "A booking page on Storelib: a 30 minute portfolio review on a video call with Ines Duarte, a brand designer, $60, with times on Tuesday to Thursday.",
+    Scene: CoachScene,
+    alt: "A booking on Storelib: a 45 minute training plan call with Talia Moreno, a strength coach, $75. Thursday at 17:30 is picked and booked.",
   },
 ]
 
-/* A page never changes once drawn; switching re-renders only the frame around it. */
-const KindPage = memo(function KindPage({ i }: { i: number }) {
-  const s = BUSINESS_SLIDES[i]
+/* A scene never changes once drawn; switching changes only attributes on the panels around it. */
+const KindScene = memo(function KindScene({ i }: { i: number }) {
+  const { Scene, alt } = BUSINESS_SLIDES[i]
   return (
-    <MockFrame w={640} ratio="640/520" label={s.alt}>
-      {s.page}
+    <MockFrame label={alt} className="bz-frame">
+      <Scene />
     </MockFrame>
   )
 })
 
-/** Section 6: the kinds of things a Storelib store sells, a list beside the product page of the one chosen. */
+/** Section 4b: the kinds of things a Storelib store sells, one moving scene each, on autoplay. */
 export function BusinessCarousel() {
   const t = useAutoTabs(BUSINESS_SLIDES.length)
   const n = BUSINESS_SLIDES.length
-  /* On a phone the tabs are one row that may be wider than the screen: the chosen tab is brought into view inside the row (the page itself never scrolls for it). */
-  const list = useRef<HTMLDivElement>(null)
+  const { go } = t
+
+  /* A finger on the stage holds the turn; it carries on a moment after the finger lifts (or the browser takes the touch for a scroll). */
+  const [held, setHeld] = useState(false)
+  const release = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(release.current), [])
+  const hold = useCallback((e: PointerEvent) => {
+    if (e.pointerType === "mouse") return
+    clearTimeout(release.current)
+    setHeld(true)
+  }, [])
+  const letGo = useCallback((e: PointerEvent) => {
+    if (e.pointerType === "mouse") return
+    clearTimeout(release.current)
+    release.current = setTimeout(() => setHeld(false), BUSINESS_TOUCH_RESUME_MS)
+  }, [])
+
+  /* On a phone the pills are one row that may be wider than the screen: the chosen one is brought into view inside the row (the page itself never scrolls for it). */
+  const row = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const row = list.current
-    if (!row || row.scrollWidth <= row.clientWidth) return
-    const tab = row.children[t.index] as HTMLElement | undefined
+    const r = row.current
+    if (!r || r.scrollWidth <= r.clientWidth) return
+    const tab = r.children[t.index] as HTMLElement | undefined
     if (!tab) return
-    const left = tab.offsetLeft - (row.clientWidth - tab.offsetWidth) / 2
-    row.scrollTo({ left, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
-  }, [t.index])
+    r.scrollTo({ left: tab.offsetLeft - (r.clientWidth - tab.offsetWidth) / 2, behavior: t.reduce ? "auto" : "smooth" })
+  }, [t.index, t.reduce])
+
+  const run = t.run && !held
   return (
     <section
       ref={t.rootRef}
       className="biz"
       data-story-section="business"
       data-business=""
-      data-run={t.run || undefined}
+      data-run={run || undefined}
+      data-live={t.live || undefined}
+      data-auto={t.playing || undefined}
       aria-labelledby="biz-title"
     >
       <ShowcaseStyles styles={BUSINESS_STYLES} />
-      <div className="biz-in">
-        <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={["everything"]} />
-        <div className="biz-grid">
-          <div ref={list} className="biz-list" role="tablist" aria-orientation="vertical" aria-label="What you can sell">
-            {BUSINESS_SLIDES.map((s, i) => (
+      <div className="biz-head">
+        <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={["sell"]} />
+        <p className="biz-sub">{BUSINESS_SUB}</p>
+      </div>
+      <div className="biz-tabs-row">
+        <div ref={row} className="biz-tabs" role="tablist" aria-label="What you can sell">
+          {BUSINESS_SLIDES.map((s, i) => {
+            const on = i === t.index
+            return (
               <button
                 key={s.id}
                 type="button"
                 role="tab"
                 id={`biz-tab-${s.id}`}
                 aria-controls={`biz-slide-${s.id}`}
-                aria-selected={i === t.index}
-                tabIndex={i === t.index ? 0 : -1}
-                className="biz-kind"
-                onClick={() => t.select(i)}
+                aria-selected={on}
+                tabIndex={on ? 0 : -1}
+                className="biz-tab"
+                onClick={() => go(i)}
                 onKeyDown={(e) => {
-                  const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0
-                  if (!step) return
+                  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return
                   e.preventDefault()
-                  const to = (i + step + n) % n
-                  t.select(to)
+                  const to = (i + (e.key === "ArrowRight" ? 1 : -1) + n) % n
+                  go(to)
                   document.getElementById(`biz-tab-${BUSINESS_SLIDES[to].id}`)?.focus()
                 }}
               >
-                <b className="biz-kind-l">{s.label}</b>
-                <b className="biz-kind-s">{s.tab}</b>
-                <span className="biz-kind-d">{s.line}</span>
+                <span className="biz-tab-l">{s.label}</span>
+                <span className="biz-tab-s">{s.tab}</span>
+                {/* The turn's clock, drawn: a line that fills under the label. A CSS animation, so nothing ticks while it is paused or off screen. */}
+                {on && t.playing && (
+                  <i
+                    key={t.index}
+                    className="biz-prog"
+                    style={{ animationDuration: `${BUSINESS_SLIDE_MS}ms` }}
+                    onAnimationEnd={t.advance}
+                    aria-hidden="true"
+                  />
+                )}
               </button>
-            ))}
-          </div>
-          {/* The autoplay clock: an invisible CSS animation, so nothing ticks while it is paused or off screen (use-auto-tabs.ts). */}
-          <span
-            key={t.index}
-            className="smk-clock"
-            data-on={t.playing || undefined}
-            style={{ animationDuration: `${BUSINESS_SLIDE_MS}ms` }}
-            onAnimationEnd={t.advance}
-            aria-hidden="true"
-          />
-          <div className="biz-stage" {...t.hoverProps}>
-            {BUSINESS_SLIDES.map((s, i) => {
-              const state = t.states.get(i)
-              if (!state) return null
-              return (
-                <div
-                  key={s.id}
-                  id={`biz-slide-${s.id}`}
-                  role="tabpanel"
-                  aria-labelledby={`biz-tab-${s.id}`}
-                  aria-hidden={state !== "active" || undefined}
-                  className="biz-slide"
-                  data-pane={state}
-                >
-                  <KindPage i={i} />
-                </div>
-              )
-            })}
-          </div>
+            )
+          })}
+        </div>
+      </div>
+      <div className="biz-stage-wrap">
+        <div
+          className="biz-stage"
+          {...t.hoverProps}
+          onPointerDown={hold}
+          onPointerUp={letGo}
+          onPointerCancel={letGo}
+        >
+          {BUSINESS_SLIDES.map((s, i) => {
+            const state = t.states.get(i)
+            if (!state) return null
+            const on = state === "active" || state === "leaving"
+            return (
+              <div
+                key={s.id}
+                id={`biz-slide-${s.id}`}
+                role="tabpanel"
+                aria-labelledby={`biz-tab-${s.id}`}
+                aria-hidden={state !== "active" || undefined}
+                className={on ? "biz-slide bz-on" : "biz-slide"}
+                data-pane={state}
+              >
+                <KindScene i={i} />
+              </div>
+            )
+          })}
         </div>
       </div>
     </section>
@@ -187,67 +212,63 @@ export function BusinessCarousel() {
 }
 
 /*
-  A list on the left, the page on the right. The chosen line stands on a soft
-  grey, the others are quiet. On a phone the list is the pill row of "Make
-  the work" above the page: a grey track, the chosen tab white. No line that
-  fills: autoplay is the invisible clock, and a page changes by a crossfade
-  only. The page is a picture: it takes no pointer and no selection.
+  White, like the ideas section above it. The heading block, the pills and
+  the stage share one left edge: the page's (app/globals.css, --home-edge,
+  --home-max), the words set in by the heading inset. A scene changes by a
+  crossfade over the one before; nothing in here animates layout.
 */
 const CSS = `
-.biz{position:relative;background:#fff;color:#18181b}
-.biz-in{max-width:1400px;margin:0 auto;padding:0 var(--landing-gutter,clamp(22px,6vw,96px))}
-.biz .biz-h{max-width:900px;font-size:clamp(36px,5vw,72px)}
-.biz[data-run] .smk-clock[data-on]{animation-play-state:running}
-.biz-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,8fr);gap:clamp(32px,5vw,80px);align-items:center;margin-top:clamp(32px,4vw,56px)}
-.biz-list{display:grid;gap:4px}
-.biz-kind{position:relative;display:grid;gap:4px;padding:14px 20px;border:0;border-radius:17px;background:none;text-align:left;font:inherit;color:#8e8c96;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
-.biz-kind::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#f2f2f3;opacity:0;transition:opacity .35s ease}
-.biz-kind > *{position:relative}
-.biz-kind-l{font-size:clamp(18px,1.6vw,22px);font-weight:600;letter-spacing:-.01em;color:#55525c;transition:color .35s ease}
-.biz-kind-s{display:none}
-.biz-kind-d{font-size:15px;line-height:1.5;max-width:40ch}
-@media(hover:hover) and (pointer:fine){.biz-kind:not([aria-selected="true"]):hover .biz-kind-l{color:#18181b}}
-.biz-kind[aria-selected="true"]{color:#55525c}
-.biz-kind[aria-selected="true"] .biz-kind-l{color:#18181b}
-.biz-kind[aria-selected="true"]::before{opacity:1}
-.biz-kind:focus-visible{outline:2px solid #18181b;outline-offset:2px}
-.biz-stage{position:relative;display:grid;border-radius:clamp(15px,1.8vw,23px);overflow:hidden;background:#eef0f2}
+.biz{position:relative;background:#fff;color:#18181b;overflow-x:clip}
+/* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
+[data-landing-story] .biz>.biz-head,.biz-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
+.biz .biz-h{margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
+.biz-sub{max-width:52ch;margin:18px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
+[data-landing-story] .biz>.biz-tabs-row,.biz-tabs-row{box-sizing:border-box;display:flex;max-width:var(--home-max,2020px);margin:clamp(24px,3vw,36px) auto clamp(18px,2.2vw,28px);padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
+.biz-tabs{display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#f1f1f2;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.biz-tabs::-webkit-scrollbar{display:none}
+.biz-tab{position:relative;flex:none;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
+.biz-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08);opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s cubic-bezier(.22,1,.36,1)}
+.biz-tab>span{position:relative}
+.biz-tab-s{display:none}
+.biz-tab[aria-selected="true"]{color:#18181b}
+.biz-tab[aria-selected="true"]::before{opacity:1;transform:none}
+@media(hover:hover){.biz-tab:not([aria-selected="true"]):hover{color:#18181b}}
+.biz-tab:focus-visible{outline:2px solid #18181b;outline-offset:-2px}
+/* The turn, filling: a 2px line inside the white pill, from its left. Transform only, paused unless the section runs. */
+.biz-prog{position:absolute;left:13px;right:13px;bottom:4px;height:2px;border-radius:2px;background:#18181b;opacity:.75;transform:scaleX(0);transform-origin:0 50%;animation:biz-prog 1s linear both paused}
+.biz[data-run] .biz-prog{animation-play-state:running}
+@keyframes biz-prog{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media(max-width:767px){
+  .biz-tab-l{display:none}
+  .biz-tab-s{display:inline}
+  /* The row reaches the screen's edges, so a row wider than a small phone slides under the thumb. */
+  [data-landing-story] .biz>.biz-tabs-row,.biz-tabs-row{padding:0 var(--home-edge,20px)}
+  .biz .biz-h{font-size:clamp(32px,9vw,40px)}
+  .biz-sub{font-size:16px}
+}
+@media(max-width:379px){.biz-tab{padding:0 10px;font-size:12.5px}.biz-prog{left:10px;right:10px}}
+[data-landing-story] .biz>.biz-stage-wrap,.biz-stage-wrap{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
+.biz-stage{position:relative;display:grid;border-radius:clamp(16px,1.6vw,26px);overflow:hidden;isolation:isolate;background:#f1f1f2;-webkit-tap-highlight-color:transparent}
 .biz-stage .smk{pointer-events:none;user-select:none;-webkit-user-select:none}
-.biz-slide{grid-area:1/1;contain-intrinsic-block-size:auto 0px;transition:opacity .55s cubic-bezier(.2,.7,.2,1)}
-.biz-slide[data-pane="active"]{z-index:2;animation:biz-in .55s cubic-bezier(.2,.7,.2,1) both}
+.biz-slide{grid-area:1/1;border-radius:inherit;overflow:hidden;transition:opacity .6s cubic-bezier(.2,.7,.2,1)}
+.biz-slide[data-pane="active"]{z-index:2;animation:biz-in .6s cubic-bezier(.2,.7,.2,1) both}
 .biz-slide[data-pane="leaving"]{z-index:1}
 .biz-slide[data-pane="next"]{z-index:0;opacity:0;pointer-events:none;transition:none}
-.biz-slide[data-pane="rest"]{z-index:0;opacity:0;content-visibility:hidden;pointer-events:none;transition:none}
+/* A scene put away is hidden, not content-visibility:hidden: Chrome does not restart the moments of a subtree that comes back from being skipped, so a scene shown a second time stood empty. */
+.biz-slide[data-pane="rest"]{z-index:0;opacity:0;visibility:hidden;pointer-events:none;transition:none}
 @keyframes biz-in{from{opacity:0}}
-@media(max-width:899px){
-  .biz-grid{grid-template-columns:minmax(0,1fr);gap:16px;margin-top:24px}
-  /* The pill row of "Make the work": same track, same 30px tabs, the chosen one white. It reaches the screen's edges, so a row wider than a small phone slides under the thumb. */
-  .biz-list{display:flex;gap:0;margin-inline:calc(-1 * var(--landing-gutter,22px));padding-inline:var(--landing-gutter,22px);overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
-  .biz-list::-webkit-scrollbar{display:none}
-  .biz-kind{flex:none;display:block;height:38px;padding:4px 0;border-radius:0;color:#55525c;background:#f1f1f2}
-  .biz-kind:first-child{padding-left:4px;border-radius:999px 0 0 999px}
-  .biz-kind:last-child{padding-right:4px;border-radius:0 999px 999px 0}
-  .biz-kind::before{display:none}
-  .biz-kind-l,.biz-kind-d{display:none}
-  .biz-kind-s{display:block;height:30px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;transition:color .35s ease,background-color .35s ease}
-  .biz-kind[aria-selected="true"]{color:#18181b}
-  .biz-kind[aria-selected="true"] .biz-kind-s{background:#fff}
-  .biz-kind:focus-visible{outline-offset:-2px}
-}
-@media(max-width:479px){.biz-kind-s{padding:0 8px;font-size:12.5px}}
-@media(max-width:767px){
-  .biz .biz-h{font-size:clamp(32px,9vw,40px)}
-}
+/* Off screen, or the browser tab hidden: every moment in the scenes waits where it is. */
+.biz:not([data-live]) .bz-on *,.biz:not([data-live]) .bz-on *::after{animation-play-state:paused!important}
 @media(prefers-reduced-motion:reduce){
   .biz-slide{animation:none!important;transition:none!important}
-  .biz-kind,.biz-kind::before,.biz-kind-l,.biz-kind-s{transition:none}
+  .biz-tab,.biz-tab::before{transition:none}
+  .biz-prog{display:none}
 }
 `
 
 /** This section's stylesheets (the frame it shares with the ideas section under the same name, so it is added once): put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
 export const BUSINESS_STYLES: readonly SectionStyle[] = [
   { href: "w12-smk-frame", precedence: SHOWCASE_PRECEDENCE, css: FRAME_CSS },
-  { href: "w12-smk-pills", precedence: SHOWCASE_PRECEDENCE, css: PILLS_CSS },
   { href: "w12-smk-business", precedence: SHOWCASE_PRECEDENCE, css: BUSINESS_MOCK_CSS },
   { href: "w12-biz", precedence: SHOWCASE_PRECEDENCE, css: CSS },
 ]

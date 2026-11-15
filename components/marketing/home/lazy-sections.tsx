@@ -25,10 +25,10 @@ export const LazyIdeasComeToLife = lazySection(() => import("./ideas-come-to-lif
   styles: () => import("./ideas-come-to-life").then((m) => m.IDEAS_STYLES),
 })
 
-/* Landing round 8, the owner: "Keep the One store for everything you sell section, of course." Back, redesigned (business-carousel.tsx). A guess until the heights are measured again: about 1066px at 390, 1140 at 1440. */
+/* Landing round 8, the owner: "Keep the One store for everything you sell section, of course." Back, redesigned (business-carousel.tsx). Measured in dev: 869px at 390, 965 at 1280, 1065 at 1440, 1137 at 1600, 1295 at 1920 (the stage is 400:640 below 768px, 2:1 from 768). Not yet in LAZY_SECTION_HEIGHTS_CSS. */
 export const LazyBusinessCarousel = lazySection(() => import("./business-carousel").then((m) => m.BusinessCarousel), {
   name: "business",
-  minHeight: "var(--lz, max(calc(150vw + 480px - clamp(0px, (100vw - 767px) * 100000, 100000px)), min(46vw + 470px, 1320px)))",
+  minHeight: "var(--lz, max(calc(160vw + 245px - clamp(0px, (100vw - 767px) * 100000, 100000px)), min(55vw + 270px, 1300px)))",
   styles: () => import("./business-carousel").then((m) => m.BUSINESS_STYLES),
 })
 

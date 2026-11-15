@@ -155,7 +155,8 @@ for (const block of builders.matchAll(/@keyframes [\w-]+\{(.*?)\}\}/g)) {
 }
 
 /* ---- section 6. Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
-assert.ok(!existsSync("components/marketing/home/business-carousel.tsx") && !existsSync(`${MOCKS}/business-mocks.tsx`))
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+assert.ok(existsSync("components/marketing/home/business-carousel.tsx") && existsSync(`${MOCKS}/business-mocks.tsx`))
 for (const html of [ideas].map((h) => h.replace(/<img[^>]*data-storelib-logo[^>]*>/g, ""))) {
   assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(html), "every mock image is lazy")
   assert.ok(!/<img(?![^>]*width=)[^>]*>/.test(html), "every mock image is sized")

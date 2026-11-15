@@ -52,11 +52,12 @@ console.log("\nThe headings fill as one soft wave of colour, from one number")
 console.log("\n\"One store for everything you sell\" is off the home page")
 {
   const page = read("app/(storelib)/(marketing)/page.tsx")
-  check("the page draws no business carousel", !/LazyBusinessCarousel|BusinessCarousel/.test(page))
+  /* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+  check("the page draws the business carousel again", /<LazyBusinessCarousel \/>/.test(page))
   const lazy = read("components/marketing/home/lazy-sections.tsx")
-  check("its lazy box is gone", !/LazyBusinessCarousel|"\.\/business-carousel"/.test(lazy))
-  check("its measured heights are gone", !/data-lazy-section="business"/.test(LAZY_SECTION_HEIGHTS_CSS))
-  check("its files are deleted, and the photographs only it showed", ["components/marketing/home/business-carousel.tsx", "components/marketing/home/showcase-mocks/business-mocks.tsx", "public/home/showcase/hp-tee.webp", "public/home/showcase/bz-dj.webp", "public/home/showcase/bz-padel.webp", "public/home/showcase/bz-host.webp"].every((f) => !existsSync(f)))
+  check("its lazy box is back", /LazyBusinessCarousel/.test(lazy) && /"\.\/business-carousel"/.test(lazy))
+  check("its measured heights are not written yet (the lead measures them again)", !/data-lazy-section="business"/.test(LAZY_SECTION_HEIGHTS_CSS))
+  check("its files are back with the course photograph; the old tee, padel and host photographs stay deleted", ["components/marketing/home/business-carousel.tsx", "components/marketing/home/showcase-mocks/business-mocks.tsx", "public/home/showcase/bz-dj.webp"].every((f) => existsSync(f)) && ["public/home/showcase/hp-tee.webp", "public/home/showcase/bz-padel.webp", "public/home/showcase/bz-host.webp"].every((f) => !existsSync(f)))
   check("the mocks the ideas section still uses are kept", ["frame.tsx", "pills.ts", "use-auto-tabs.ts", "builder-mocks.tsx"].every((f) => existsSync(`components/marketing/home/showcase-mocks/${f}`)))
   check("the height script no longer speaks of it", !/business/.test(read("scripts/measure-home-lazy-heights.mjs")))
 }
