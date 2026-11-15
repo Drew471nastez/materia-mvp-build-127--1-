@@ -176,7 +176,7 @@ export const PHYSICAL_STEP_S = 2.8
 */
 export const PHYSICAL_PRODUCTS = [
   { id: "tee", pic: "bz-tee", ground: "#efedec", name: "Midnight Studio Tee", sub: "Heavyweight cotton, black", price: "$32", label: "Size", options: ["XS", "S", "M", "L", "XL"], pick: 2, ship: "Ships in 2 days" },
-  { id: "cap", pic: "bz-cap", ground: "#ededec", name: "Washed Studio Cap", sub: "Washed cotton twill, one size", price: "$28", label: "Colour", options: ["Charcoal", "Sand", "Black"], pick: 0, ship: "Ships in 2 days" },
+  { id: "cap", pic: "bz-cap", ground: "#f0f0ef", name: "Washed Studio Cap", sub: "Washed cotton twill, one size", price: "$28", label: "Colour", options: ["Charcoal", "Sand", "Black"], pick: 0, ship: "Ships in 2 days" },
   { id: "tote", pic: "bz-tote", ground: "#bec5cb", name: "Market Tote", sub: "Heavy canvas, natural", price: "$24", label: "Size", options: ["Standard", "Large"], pick: 0, ship: "Ships in 3 days" },
   { id: "print", pic: "bz-print", ground: "#e7e2da", name: "Field Study No. 4", sub: "Art print on cotton rag paper", price: "$40", label: "Size", options: ["A4", "A3", "A2"], pick: 1, ship: "Printed to order, ships in 4 days" },
 ] as const
