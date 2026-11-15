@@ -1,161 +1,180 @@
-import { Brain, CalendarDays, Check, CheckCircle2, Copy, Heart, LayoutGrid, MessageCircle, Moon, Play, ShoppingBag, Truck, Users, Video } from "lucide-react"
+import { CalendarDays, Check, CheckCircle2, Download, Heart, MessageCircle, Play, ShoppingBag, Truck, Users, Video } from "lucide-react"
 import type { CSSProperties } from "react"
 import { Pic, u } from "./frame"
 
 /*
-  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing round 8).
-  The owner: keep the section, but "more motion graphic, changing,
-  interactive", and a cleaner structure. So each kind of thing sold is one
-  scene on its own ground, as wide as the showcase cards: the thing itself
-  (a template on a tablet, a product shot, a course, a community, a coach)
-  and the page that sells it, and a short moment plays while it is shown: a
-  task ticks off, a cart fills, a lesson finishes, posts arrive, a time is
-  picked and booked.
+  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 and 9).
+  Each kind of thing sold is one scene on its own calm ground: the thing
+  itself and the page that sells it, with a short moment playing while it is
+  shown.
 
-    Digital product   Second Brain, a dark Notion dashboard by Jun Park
-    Physical product  HN1 Studio Headphones by Halfnote Audio, shot on yellow
+    Digital products  five covers passing in a slow row (the Cine Tones LUT
+                      Pack, a Notion template, an e-book, a preset pack, a
+                      font family); the one in the middle is drawn full size
+                      and the buy card beside it is that product's
+    Physical product  the Midnight Studio Tee: a size is picked, it goes in
+                      the cart
     Course            Mixing in key, Tomás Reyes's course for new DJs (kept)
-    Community         Applied AI Club, people building with AI
-    Booking           A 1:1 training plan call with Talia Moreno, a strength coach
+    Community         Applied AI Club, under a real banner: photo, mark, name
+    Booking           A 1:1 training plan call with Talia Moreno (kept)
 
-  Drawn at one design size per layout (1200 x 600 from 768px, 400 x 640
+  Round 9, the owner: the Second Brain tablet "looks like very bad UI,
+  inconsistent with the frame and the product card", and "I don't like the
+  yellow headphones thing, get rid of it"; both are gone. Courses and
+  bookings: "I love it", untouched but for where they stand on the narrower
+  stage.
+
+  Drawn at one design size per layout (1040 x 600 from 768px, 400 x 640
   below; `--u` in frame.tsx), so a picture is the same at any width. Every
   moment is a CSS animation on transform and opacity, started when the scene
   becomes the chosen one and paused while the section is off screen
-  (business-carousel.tsx). The resting style of everything is its last
-  frame, so with reduced motion a scene simply stands finished.
+  (business-carousel.tsx). Without motion every scene stands at its resting
+  style: the finished moment, and for the covers the first one in the middle.
 
   Photographs: Unsplash (free licence), re-encoded small in public/home/showcase.
 */
 
-/* ================================================================ Digital product */
-const TILES = [
-  ["brain-daily", "Daily", ["Today", "Journal"]],
-  ["brain-work", "Projects", ["Board", "Notes"]],
-  ["brain-health", "Health", ["Workouts", "Sleep"]],
-  ["brain-goals", "Goals", ["This year", "Vision"]],
+/* ================================================================ Digital products */
+/** One step of the row: a cover rests in the middle, then the next slides in. */
+export const DIGITAL_STEP_S = 2.6
+const DIGITAL_HOLD_S = 1.7
+
+export const DIGITAL_PRODUCTS = [
+  { id: "lut", kind: "LUT pack", name: "Cine Tones LUT Pack", by: "Mara Quinn", price: "$29", note: ".cube files for Resolve, Premiere and Final Cut" },
+  { id: "notion", kind: "Notion template", name: "Content Calendar", by: "Jun Park", price: "$19", note: "Duplicate into your Notion in one click" },
+  { id: "book", kind: "E-book", name: "Slow Sundays", by: "Ana Folau", price: "$16", note: "PDF and EPUB, 112 pages, 40 recipes" },
+  { id: "presets", kind: "Preset pack", name: "Highland Presets", by: "Kofi Mensah", price: "$18", note: "12 presets for Lightroom on desktop and phone" },
+  { id: "font", kind: "Font family", name: "Orlo Grotesk", by: "Vane Type", price: "$45", note: "8 weights, desktop and web licence" },
 ] as const
 
-const TODOS = [
-  ["Send the client brief", "Work", "Mon"],
-  ["Upper body, 40 min", "Health", "Mon"],
-  ["Plan the March trip", "Life", "Tue"],
-  ["Read 20 pages", "Habit", "Daily"],
-] as const
+/* A month of posts on the template's cover: which days carry something, and in which colour. */
+const DAYS_ON: Record<number, string> = { 1: "a", 3: "b", 4: "c", 8: "b", 10: "a", 12: "d", 15: "c", 16: "a", 19: "b", 22: "d", 24: "a", 26: "c" }
 
-export function BrainScene() {
+function Cover({ id }: { id: (typeof DIGITAL_PRODUCTS)[number]["id"] }) {
+  if (id === "lut")
+    return (
+      <span className="bc bc-lut">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/home/everything/lut-still.webp" alt="" width={720} height={405} loading="lazy" decoding="async" draggable={false} />
+        <span className="bc-tag">LUT Pack</span>
+        <span className="bc-big">
+          <span>Cine</span>
+          <span>Tones</span>
+        </span>
+      </span>
+    )
+  if (id === "notion")
+    return (
+      <span className="bc bc-notion">
+        <span className="bc-tag">Notion template</span>
+        <span className="bc-title">
+          Content
+          <br />
+          Calendar
+        </span>
+        <span className="bc-month">
+          {Array.from({ length: 28 }, (_, d) => (
+            <i key={d} className={DAYS_ON[d]} />
+          ))}
+        </span>
+      </span>
+    )
+  if (id === "book")
+    return (
+      <span className="bc bc-book">
+        <Pic n="bz-ebook" w={640} h={800} />
+        <span className="bc-title">
+          Slow
+          <br />
+          Sundays
+        </span>
+        <span className="bc-line">40 recipes for long lunches</span>
+        <span className="bc-foot">Ana Folau</span>
+      </span>
+    )
+  if (id === "presets")
+    return (
+      <span className="bc bc-presets">
+        <Pic n="bz-presets" w={640} h={800} />
+        <span className="bc-tag">12 Lightroom presets</span>
+        <span className="bc-title">Highland</span>
+      </span>
+    )
   return (
-    <div className="bs bs-brain">
-      <div className="bs-tablet">
-        <div className="bs-screen">
-          <div className="bn">
-            <div className="bn-cover">
-              <Pic n="bz-brain-cover" w={1200} h={340} className="bn-cover-pic" />
-            </div>
-            <span className="bn-icon">
-              <Brain />
-            </span>
-            <b className="bn-title">Second Brain</b>
-            <p className="bn-quote">Everything you are working on, in one calm place.</p>
-            <div className="bn-tiles">
-              {TILES.map(([pic, name, links], i) => (
-                <span key={name} className="bn-tile" style={{ "--i": i } as CSSProperties}>
-                  <span className="bn-tile-pic">
-                    <Pic n={`bz-${pic}`} w={320} h={220} />
-                    <b>{name}</b>
-                  </span>
-                  {links.map((l) => (
-                    <i key={l}>{l}</i>
-                  ))}
-                </span>
-              ))}
-            </div>
-            <div className="bn-over">
-              <span className="bn-over-h">
-                <b>Overview</b>
-                <em>Today</em>
-                <i>Projects</i>
-                <i>Habits</i>
+    <span className="bc bc-font">
+      <span className="bc-tag">Font family</span>
+      <span className="bc-glyph">Rg</span>
+      <span className="bc-title">Orlo Grotesk</span>
+      <span className="bc-line">8 weights, Light to Black</span>
+    </span>
+  )
+}
+
+/* The row holds one set of covers and the three that stand around its ends, so it can start again where it looks the same. */
+const SLOTS = [4, 0, 1, 2, 3, 4, 0, 1] as const
+
+export function DigitalScene() {
+  return (
+    <div className="bs bs-digital">
+      <div className="bd-rail">
+        <div className="bd-track">
+          {SLOTS.map((p, k) => (
+            <span key={k} className="bd-slot" data-p={p} style={{ "--p": p } as CSSProperties}>
+              <span className="bd-cover">
+                <Cover id={DIGITAL_PRODUCTS[p].id} />
               </span>
-              {TODOS.map(([task, tag, when], i) => (
-                <span key={task} className="bn-row" style={{ "--i": i } as CSSProperties}>
-                  <span className="bn-box">
-                    {i < 3 && (
-                      <i className="bn-fill">
-                        <Check />
-                      </i>
-                    )}
-                  </span>
-                  <span className="bn-task">
-                    {task}
-                    {i < 3 && <s />}
-                  </span>
-                  <span className={`bn-tag t${i}`}>{tag}</span>
-                  <span className="bn-when">{when}</span>
-                </span>
-              ))}
-            </div>
-          </div>
+            </span>
+          ))}
         </div>
       </div>
-      <div className="bs-card">
-        <p className="bs-kicker">Notion template</p>
-        <h4>Second Brain</h4>
-        <p className="bs-by">by Jun Park</p>
-        <p className="bs-price">$24</p>
-        <ul className="bs-facts">
-          <li>
-            <Copy /> Duplicate into Notion in one click
-          </li>
-          <li>
-            <LayoutGrid /> Tasks, notes, habits and goals
-          </li>
-          <li>
-            <Moon /> Dark and light versions
-          </li>
-        </ul>
-        <span className="bs-btn bs-press">Get the template</span>
+      <div className="bs-card bd-card">
+        <div className="bd-infos">
+          {DIGITAL_PRODUCTS.map((d, p) => (
+            <div key={d.id} className="bd-info" data-p={p} style={{ "--p": p } as CSSProperties}>
+              <p className="bs-kicker">{d.kind}</p>
+              <h4>{d.name}</h4>
+              <p className="bs-by">by {d.by}</p>
+              <p className="bs-price">{d.price}</p>
+              <p className="bs-desc">{d.note}</p>
+            </div>
+          ))}
+        </div>
+        <p className="bd-instant">
+          <Download /> Instant download after checkout
+        </p>
+        <span className="bs-btn">Buy now</span>
       </div>
-      <span className="bs-toast">
-        <CheckCircle2 /> Duplicated into your Notion
-      </span>
     </div>
   )
 }
 
 /* ================================================================ Physical product */
-export function HeadphonesScene() {
+const SIZES = ["XS", "S", "M", "L", "XL"] as const
+
+export function TeeScene() {
   return (
-    <div className="bs bs-phones">
-      <div className="bs-photo">
-        <Pic n="bz-headphones" w={1600} h={1067} className="bs-photo-pic" />
+    <div className="bs bs-tee">
+      <div className="bt-photo">
+        <Pic n="bz-tee" w={960} h={960} className="bt-pic" />
       </div>
-      <span className="bs-spot s1">
-        <i />
-        <b>40 mm drivers</b>
-      </span>
-      <span className="bs-spot s2">
-        <i />
-        <b>32 hours a charge</b>
-      </span>
-      <div className="bs-card">
+      <div className="bs-card bt-card">
         <span className="bs-cart">
           <ShoppingBag />
           <b>1</b>
         </span>
         <p className="bs-kicker">Physical product</p>
-        <h4>HN1 Studio Headphones</h4>
-        <p className="bs-by">Halfnote Audio</p>
-        <p className="bs-price">$189</p>
-        <p className="bs-desc">Closed-back studio headphones, tuned for long mixing sessions.</p>
-        <p className="bs-label">Colour: Black</p>
-        <span className="bs-swatches">
-          <i className="on" />
-          <i className="sand" />
-          <i className="olive" />
+        <h4>Midnight Studio Tee</h4>
+        <p className="bs-by">Heavyweight cotton, black</p>
+        <p className="bs-price">$32</p>
+        <p className="bs-label">Size</p>
+        <span className="bt-sizes">
+          <span className="bs-ring bt-ring" />
+          {SIZES.map((s) => (
+            <i key={s}>{s}</i>
+          ))}
         </span>
         <p className="bs-ship">
-          <Truck /> Ships from our studio in 2 days
+          <Truck /> Ships in 2 days
         </p>
         <span className="bs-btn bs-press bs-swap">
           <span className="a">Add to cart</span>
@@ -164,6 +183,14 @@ export function HeadphonesScene() {
           </span>
         </span>
       </div>
+      <span className="bt-added">
+        <Pic n="bz-tee" w={960} h={960} />
+        <span>
+          <b>Midnight Studio Tee</b>
+          <i>Size M · $32</i>
+        </span>
+        <CheckCircle2 />
+      </span>
     </div>
   )
 }
@@ -240,7 +267,18 @@ export function ClubScene() {
     <div className="bs bs-club">
       <div className="bs-com">
         <div className="bs-com-cover">
-          <Pic n="bz-ai-club" w={960} h={520} />
+          <Pic n="bz-ai-club" w={900} h={520} className="bs-com-pic" />
+          <span className="bs-com-mark">
+            A<i />
+          </span>
+          <span className="bs-com-word">
+            <b>Applied AI Club</b>
+            <i>Build something real with AI, every week</i>
+          </span>
+          <span className="bs-com-host">
+            <Pic n="av-h" w={96} h={96} />
+            <em>Hosted by Sam Adeyemi</em>
+          </span>
         </div>
         <div className="bs-com-body">
           <div className="bs-com-head">
@@ -362,38 +400,47 @@ export function CoachScene() {
 }
 
 /*
-  The moments. Each is a delay into the scene's turn (business-carousel.tsx,
-  BUSINESS_SLIDE_MS), and the resting style of every element is its end.
-  `.bz-on` is set on the scene's frame while it is the chosen one (or fading
-  out under the next), so these run from the start each time it comes back.
+  The moments. Each is a delay into the scene's turn (business-carousel.tsx),
+  and the resting style of every element is its end. `.bz-on` is set on the
+  scene's frame while it is the chosen one (or fading out under the next), so
+  these run from the start each time it comes back.
+
+  The digital row is the one loop: a cover rests in the middle for
+  DIGITAL_HOLD_S, then the row glides one cover along; after the last it is
+  back where it began (the row carries the first covers again at its end).
+  Each cover and each buy card run the same clock, set back by their place in
+  the row, so the cover in the middle is the one drawn full size and the one
+  the card names. Three kinds of animation, all on the compositor.
 */
 const E = "cubic-bezier(.22,1,.36,1)"
+const GLIDE = "cubic-bezier(.65,0,.25,1)"
+const COUNT = DIGITAL_PRODUCTS.length
+const CYCLE_S = +(COUNT * DIGITAL_STEP_S).toFixed(2)
+const pct = (s: number) => `${+((s / CYCLE_S) * 100).toFixed(2)}%`
+const rowAt = (n: number) => `transform:translate3d(calc(var(--pitch) * ${-(1.5 + n)}),0,0)`
+const SMALL = "transform:scale(.78);opacity:.5"
+const FULL = "transform:none;opacity:1"
+const DIGITAL_FRAMES = `
+@keyframes bd-run{${Array.from({ length: COUNT }, (_, n) => `${pct(n * DIGITAL_STEP_S)},${pct(n * DIGITAL_STEP_S + DIGITAL_HOLD_S)}{${rowAt(n)};animation-timing-function:${GLIDE}}`).join("")}100%{${rowAt(COUNT)}}}
+@keyframes bd-focus{0%,${pct(DIGITAL_HOLD_S)}{${FULL};animation-timing-function:${GLIDE}}${pct(DIGITAL_STEP_S)}{${SMALL}}${pct(CYCLE_S - DIGITAL_STEP_S + DIGITAL_HOLD_S)}{${SMALL};animation-timing-function:${GLIDE}}100%{${FULL}}}
+@keyframes bd-info{0%,${pct(DIGITAL_HOLD_S - 0.15)}{opacity:1;transform:none}${pct(DIGITAL_HOLD_S + 0.25)}{opacity:0;transform:translate3d(0,-8u,0)}${pct(CYCLE_S - 0.5)}{opacity:0;transform:translate3d(0,10u,0)}100%{opacity:1;transform:none}}
+`
+const LOOP = `${CYCLE_S}s linear calc(var(--p) * ${DIGITAL_STEP_S}s - ${CYCLE_S}s) infinite`
 const MOTION = `
 @media(prefers-reduced-motion:no-preference){
 .bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s both}
-.bz-on .bs-tablet{animation:bz-float .9s ${E} both}
-.bz-on .bn-cover-pic,.bz-on .bs-photo-pic,.bz-on .bs-coach-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
-.bz-on .bn-tile{animation:bz-rise .6s ${E} calc(.35s + var(--i) * .08s) both}
-.bz-on .bn-row{animation:bz-rise .5s ${E} calc(.7s + var(--i) * .07s) both}
-.bz-on .bn-row:nth-child(2) .bn-fill{animation:bz-tick .35s ${E} 1.6s both}
-.bz-on .bn-row:nth-child(3) .bn-fill{animation:bz-tick .35s ${E} 2.3s both}
-.bz-on .bn-row:nth-child(4) .bn-fill{animation:bz-tick .35s ${E} 3s both}
-.bz-on .bn-row:nth-child(2) s{animation:bz-strike .4s ${E} 1.7s both}
-.bz-on .bn-row:nth-child(3) s{animation:bz-strike .4s ${E} 2.4s both}
-.bz-on .bn-row:nth-child(4) s{animation:bz-strike .4s ${E} 3.1s both}
-.bz-on .bn-row:nth-child(2) .bn-task{animation:bz-dim .4s ease 1.7s both}
-.bz-on .bn-row:nth-child(3) .bn-task{animation:bz-dim .4s ease 2.4s both}
-.bz-on .bn-row:nth-child(4) .bn-task{animation:bz-dim .4s ease 3.1s both}
-.bz-on .bs-brain .bs-press{animation:bz-press .36s ease 3.9s both}
-.bz-on .bs-toast{animation:bz-toast .6s ${E} 4.15s both}
+.bz-on .bt-pic,.bz-on .bs-coach-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
 
-.bz-on .bs-spot{animation:bz-pop .55s ${E} 1.1s both}
-.bz-on .bs-spot.s2{animation-delay:1.7s}
-.bz-on .bs-spot i::after{animation:bz-ping 1.8s ease-out 1.6s 3 both}
-.bz-on .bs-phones .bs-press{animation:bz-press .36s ease 3.1s both}
+.bz-on .bd-track{animation:bd-run ${CYCLE_S}s linear infinite}
+.bz-on .bd-cover{animation:bd-focus ${LOOP}}
+.bz-on .bd-info{animation:bd-info ${LOOP}}
+
+.bz-on .bt-ring{animation:bt-size 1.6s ${E} 1s both}
+.bz-on .bs-tee .bs-press{animation:bz-press .36s ease 3.1s both}
 .bz-on .bs-swap .a{animation:bz-out .3s ease 3.3s both}
 .bz-on .bs-swap .b{animation:bz-in .4s ${E} 3.4s both}
 .bz-on .bs-cart b{animation:bz-pop .45s ${E} 3.5s both}
+.bz-on .bt-added{animation:bz-rise .6s ${E} 3.8s both}
 
 .bz-on .bp-bar i{animation:bz-play 4.2s linear .6s both}
 .bz-on .bp-play{animation:bz-pop .5s ${E} .3s both}
@@ -413,13 +460,9 @@ const MOTION = `
 .bz-on .bs-booked{animation:bz-rise .6s ${E} 4.2s both}
 }
 @keyframes bz-rise{from{opacity:0;transform:translate3d(0,18u,0)}}
-@keyframes bz-float{from{opacity:0;transform:translate3d(0,26u,0) scale(.97)}}
-@keyframes bz-push{from{transform:scale(1.07)}}
+@keyframes bz-push{from{transform:scale(1.05)}}
 @keyframes bz-tick{from{opacity:0;transform:scale(.3)}}
-@keyframes bz-strike{from{transform:scaleX(0)}}
-@keyframes bz-dim{from{opacity:1}}
 @keyframes bz-press{50%{transform:scale(.95)}}
-@keyframes bz-toast{from{opacity:0;transform:translate3d(-50%,16u,0) scale(.96)}}
 @keyframes bz-pop{from{opacity:0;transform:scale(.6)}}
 @keyframes bz-ping{from{opacity:.55;transform:scale(1)}to{opacity:0;transform:scale(2.6)}}
 @keyframes bz-out{from{opacity:1;transform:none}to{opacity:0;transform:translate3d(0,-10u,0)}}
@@ -430,56 +473,16 @@ const MOTION = `
 @keyframes bz-up-in{from{opacity:0;transform:translate3d(0,8u,0)}}
 @keyframes bz-day{0%{opacity:0;transform:translate3d(calc(var(--day) * 1),0,0) scale(.8)}18%,42%{opacity:1;transform:translate3d(calc(var(--day) * 1),0,0)}}
 @keyframes bz-time{0%{opacity:0;transform:translate3d(calc(100% + 8u),-48u,0) scale(.8)}25%,45%{opacity:1;transform:translate3d(calc(100% + 8u),-48u,0)}}
-`
-
-/* The tablet's screen is drawn at 626 design pixels wide in its own unit, `--t`, so the same Notion page fits the large and the small tablet. */
-const t = (css: string) => css.replace(/(^|[\s(,:/*])(-?\d*\.?\d+)t\b/g, (_, pre: string, n: string) => `${pre}calc(${n}*var(--t))`)
-
-const SCREEN = t(`
-.bs-screen{position:absolute;inset:0;container-type:inline-size;border-radius:inherit;overflow:hidden;background:#191919}
-.bn{--t:calc(100cqw / 626);position:absolute;inset:0;color:#e9e9e7;font-size:11t;line-height:1.35}
-.bs .bn svg{width:12t;height:12t}
-.bn-cover{height:100t;overflow:hidden}
-.bn-cover-pic{transform-origin:50% 60%}
-.bn-icon{position:absolute;left:34t;top:76t;display:grid;place-items:center;width:46t;height:46t;border-radius:12t;background:#efe9df;color:#191919;box-shadow:0 0 0 3t #191919}
-.bs .bn-icon svg{width:26t;height:26t;stroke-width:1.8}
-.bn-title{display:block;margin:30t 34t 0;font-size:25t;font-weight:700;letter-spacing:-.02em;color:#fff}
-.bn-quote{margin:6t 34t 0!important;padding-left:9t;border-left:2t solid #8f8a80;font-size:10.5t;color:#a3a29e}
-.bn-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12t;margin:14t 34t 0}
-.bn-tile{display:grid;gap:4t;align-content:start}
-.bn-tile-pic{position:relative;display:block;height:64t;margin-bottom:3t;border-radius:7t;overflow:hidden}
-.bn-tile-pic::after{content:"";position:absolute;inset:0;background:rgba(10,10,12,.38)}
-.bn-tile-pic b{position:absolute;inset:0;z-index:1;display:grid;place-items:center;font-size:14t;font-weight:700;color:#fff;letter-spacing:-.01em}
-.bn-tile i{font-style:normal;font-size:10t;color:#b4b3ae;padding-left:2t}
-.bn-tile i::before{content:"";display:inline-block;width:5t;height:5t;margin:0 6t 1t 0;border-radius:50%;background:#6f6c66}
-.bn-over{margin:12t 34t 0;padding-top:10t;border-top:1t solid #2f2f2f}
-.bn-over-h{display:flex;align-items:baseline;gap:12t;margin-bottom:6t;color:#8b8a86;font-size:10t}
-.bn-over-h b{margin-right:6t;font-size:13t;color:#fff}
-.bn-over-h em{font-style:normal;color:#fff;box-shadow:0 6t 0 -4.5t #fff}
-.bn-over-h i{font-style:normal}
-.bn-row{display:grid;grid-template-columns:16t 1fr 62t 40t;align-items:center;gap:9t;height:26t;border-bottom:1t solid #262626}
-.bn-box{position:relative;display:grid;place-items:center;width:14t;height:14t;border-radius:4t;box-shadow:inset 0 0 0 1.3t #5d5c58}
-.bn-fill{position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;background:#2e6fd1}
-.bs .bn-fill svg{width:10t;height:10t;stroke-width:3.2;color:#fff}
-.bn-task{position:relative;justify-self:start;color:#e9e9e7;opacity:.5;white-space:nowrap}
-.bn-row:last-child .bn-task{opacity:1}
-.bn-task s{position:absolute;left:0;right:0;top:52%;height:1t;background:#bdbcb8;transform-origin:0 50%}
-.bn-tag{justify-self:start;padding:1.5t 6t;border-radius:4t;font-size:9.5t}
-.bn-tag.t0{background:#28456c;color:#cfe1fa}
-.bn-tag.t1{background:#2b4a36;color:#cdebd6}
-.bn-tag.t2{background:#5a3f24;color:#f6dcc1}
-.bn-tag.t3{background:#3d3a52;color:#dcd8f4}
-.bn-when{color:#8b8a86;font-size:10t;text-align:right}
-`)
+@keyframes bt-size{0%{opacity:0;transform:translate3d(calc(100% + 8u),0,0) scale(.8)}25%,45%{opacity:1;transform:translate3d(calc(100% + 8u),0,0)}}
+${DIGITAL_FRAMES}`
 
 export const BUSINESS_MOCK_CSS =
-  SCREEN +
   u(`
-.bz-frame{aspect-ratio:1200/600;border-radius:inherit}
-.bz-frame>.smk{--w:1200}
+.bz-frame{aspect-ratio:1040/600;border-radius:inherit}
+.bz-frame>.smk{--w:1040}
 .bs{position:absolute;inset:0;overflow:hidden;color:#18181b;font-size:14u;line-height:1.4}
 .bs svg{width:15u;height:15u;flex:none}
-.bs-card{position:absolute;display:flex;flex-direction:column;width:372u;padding:28u 28u 26u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -28u rgba(16,24,40,.4)}
+.bs-card{position:absolute;display:flex;flex-direction:column;width:360u;padding:28u 28u 26u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -28u rgba(16,24,40,.4)}
 .bs-kicker{font-size:11.5u;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#71717a}
 .bs h4{margin:6u 0 0;font-size:25u;font-weight:650;line-height:1.12;letter-spacing:-.02em}
 .bs-by{display:flex;align-items:center;gap:6u;margin-top:5u!important;font-size:13.5u;color:#71717a}
@@ -487,43 +490,75 @@ export const BUSINESS_MOCK_CSS =
 .bs-price{margin-top:14u!important;font-size:23u;font-weight:650;letter-spacing:-.01em}
 .bs-desc{margin-top:8u!important;font-size:13.5u;line-height:1.5;color:#52525b}
 .bs-label{margin-top:16u!important;font-size:12.5u;font-weight:500;color:#52525b}
-.bs-facts{display:grid;gap:11u;margin:18u 0 22u;padding:16u 0 0;border-top:1u solid #f0f0f1;list-style:none;font-size:13.5u;color:#3f3f46}
-.bs-facts li{display:flex;align-items:center;gap:10u}
-.bs-facts svg{color:#71717a}
 .bs-btn{position:relative;display:grid;place-items:center;height:46u;margin-top:auto;padding:0 20u;border-radius:13u;background:#18181b;color:#fff;font-size:14.5u;font-weight:600;white-space:nowrap}
 
-/* digital: the tablet on warm sand, the page that sells it beside */
-.bs-brain{background:#e8e2d7}
-.bs-tablet{position:absolute;left:64u;top:44u;width:676u;height:512u;padding:13u;border-radius:34u;background:#0d0d0e;box-shadow:inset 0 0 0 1.5u #2a2a2c,0 2u 4u rgba(30,20,10,.12),0 40u 70u -30u rgba(40,28,12,.55)}
-.bs-tablet>.bs-screen{inset:13u;border-radius:22u}
-.bs-brain .bs-card{right:64u;top:50%;margin-top:-196u;height:392u}
-.bs-toast{position:absolute;left:402u;bottom:30u;display:flex;align-items:center;gap:9u;padding:12u 18u 12u 14u;border-radius:999u;background:#18181b;color:#fff;font-size:13.5u;font-weight:600;white-space:nowrap;transform:translate3d(-50%,0,0);box-shadow:0 14u 30u -12u rgba(0,0,0,.45)}
-.bs-toast svg{color:#4ade80}
+/* digital: covers pass in a slow row; the one in the middle is full size and the card is its page */
+.bs-digital{background:#f0eff1}
+.bd-rail{position:absolute;left:0;top:0;bottom:0;width:700u;overflow:hidden}
+.bd-track{--pitch:292u;position:absolute;left:330u;top:50%;display:flex;margin-top:-175u;transform:translate3d(calc(var(--pitch) * -1.5),0,0)}
+.bd-slot{flex:none;display:grid;place-items:center;width:var(--pitch)}
+.bd-cover{position:relative;display:block;width:280u;height:350u;border-radius:14u;overflow:hidden;container-type:inline-size;transform:scale(.78);opacity:.5;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 26u 44u -26u rgba(16,24,40,.5)}
+.bd-slot[data-p="0"] .bd-cover{transform:none;opacity:1}
+.bd-card{right:56u;top:50%;width:340u;height:368u;margin-top:-184u}
+.bd-infos{display:grid}
+.bd-info{grid-area:1/1;opacity:0}
+.bd-info[data-p="0"]{opacity:1}
+.bd-instant{display:flex;align-items:center;gap:9u;margin-top:16u!important;padding-top:15u;border-top:1u solid #f0f0f1;font-size:13u;color:#52525b}
+.bd-instant svg{color:#71717a}
 
-/* physical: the product shot fills the stage; the page stands on the yellow */
-.bs-phones{background:#f5c518}
-.bs-photo{position:absolute;inset:0;overflow:hidden}
-.bs-photo-pic{object-position:62% 50%;transform-origin:62% 50%}
-.bs-phones .bs-card{left:64u;top:50%;margin-top:-210u;height:420u}
+/* the five covers, each sized in its own width (cqw), so one drawing serves the computer's row and the phone's */
+.bc{position:absolute;inset:0;display:block;overflow:hidden;color:#fff}
+.bc>img{position:absolute;left:0;top:0}
+.bc-tag{position:absolute;z-index:2;left:7cqw;top:7cqw;font-size:4.8cqw;font-weight:600;line-height:1;letter-spacing:.14em;text-transform:uppercase}
+.bc-title,.bc-line,.bc-foot,.bc-big,.bc-glyph{position:absolute;z-index:2}
+.bc-lut{background:#0a0a0b}
+.bc-lut>img{display:block;width:100%;height:58%;object-fit:cover;object-position:50% 60%}
+.bc-lut::before{content:"";position:absolute;z-index:1;left:0;right:0;top:0;height:26%;background:linear-gradient(rgba(10,10,11,.5),rgba(10,10,11,0))}
+.bc-lut::after{content:"";position:absolute;z-index:1;left:0;right:0;top:22%;height:37%;background:linear-gradient(rgba(10,10,11,0),rgba(10,10,11,.55) 50%,#0a0a0b)}
+.bc-big{left:6.4cqw;bottom:6.4cqw;display:flex;flex-direction:column;font-size:21cqw;font-weight:800;line-height:.84;letter-spacing:-.05em;text-transform:uppercase}
+.bc-notion{background:#f2efe8;color:#1c1b19}
+.bc-notion .bc-tag{color:#8a8477}
+.bc-notion .bc-title{left:7cqw;top:17cqw;font-size:15.5cqw;font-weight:700;line-height:.98;letter-spacing:-.045em}
+.bc-month{position:absolute;left:7cqw;right:7cqw;bottom:7cqw;display:grid;grid-template-columns:repeat(7,1fr);gap:1.8cqw}
+.bc-month i{aspect-ratio:1;border-radius:2.2cqw;background:#e4dfd3}
+.bc-month .a{background:#1c1b19}
+.bc-month .b{background:#e2603a}
+.bc-month .c{background:#3b6ef0}
+.bc-month .d{background:#e9b84a}
+.bc-book::before,.bc-presets::before{content:"";position:absolute;z-index:1;inset:0}
+.bc-book::before{background:linear-gradient(rgba(24,16,8,.78),rgba(24,16,8,.3) 46%,rgba(24,16,8,0) 62%,rgba(24,16,8,0) 76%,rgba(24,16,8,.62))}
+.bc-book .bc-title{left:7cqw;top:8cqw;font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:20cqw;font-weight:500;line-height:.94;letter-spacing:-.02em}
+.bc-book .bc-line{left:7cqw;top:49cqw;font-size:5cqw;line-height:1.2}
+.bc-foot{left:7cqw;bottom:6.5cqw;font-size:4.8cqw;font-weight:600;line-height:1;letter-spacing:.14em;text-transform:uppercase}
+.bc-presets::before{background:linear-gradient(rgba(12,16,10,.45),rgba(12,16,10,0) 30%,rgba(12,16,10,0) 60%,rgba(12,16,10,.6))}
+.bc-presets .bc-tag{left:0;right:0;text-align:center}
+.bc-presets .bc-title{left:0;right:0;bottom:9cqw;text-align:center;font-size:11cqw;font-weight:500;line-height:1;letter-spacing:.3em;text-indent:.3em;text-transform:uppercase}
+.bc-font{background:#8b5cf6}
+.bc-glyph{left:5cqw;top:19cqw;font-size:64cqw;font-weight:700;line-height:.8;letter-spacing:-.06em}
+.bc-font .bc-title{left:7cqw;bottom:14.5cqw;font-size:9.5cqw;font-weight:700;line-height:1;letter-spacing:-.03em}
+.bc-font .bc-line{left:7cqw;bottom:7cqw;font-size:5cqw;line-height:1;opacity:.88}
+
+/* physical: the tee on its own ground (the photograph's backdrop is this colour), a size picked, into the cart */
+.bs-tee{background:#eeedea}
+.bt-photo{position:absolute;left:36u;top:12u;width:576u;height:576u;overflow:hidden}
+.bt-pic{background:none;transform-origin:50% 55%}
+.bt-card{right:56u;top:50%;height:388u;margin-top:-194u}
 .bs-cart{position:absolute;right:22u;top:22u;display:grid;place-items:center;width:38u;height:38u;border-radius:50%;background:#f4f4f5}
 .bs-cart svg{width:17u;height:17u}
 .bs-cart b{position:absolute;right:-3u;top:-3u;display:grid;place-items:center;min-width:18u;height:18u;border-radius:9u;background:#18181b;color:#fff;font-size:10.5u;font-weight:700}
-.bs-swatches{display:flex;gap:9u;margin-top:8u}
-.bs-swatches i{width:24u;height:24u;border-radius:50%;background:#1c1c1e;box-shadow:inset 0 0 0 1u rgba(0,0,0,.1)}
-.bs-swatches i.sand{background:#d9ccb4}
-.bs-swatches i.olive{background:#6b6f4e}
-.bs-swatches i.on{box-shadow:0 0 0 2u #fff,0 0 0 3.5u #18181b}
+.bt-sizes{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:8u;margin-top:8u}
+.bt-sizes i{display:grid;place-items:center;height:42u;border-radius:11u;font-size:13.5u;font-style:normal;font-weight:500;box-shadow:inset 0 0 0 1u #e4e4e7}
+.bt-ring{left:0;top:0;width:calc((100% - 32u) / 5);height:42u;border-radius:11u;transform:translate3d(calc((100% + 8u) * 2),0,0)}
 .bs-ship{display:flex;align-items:center;gap:8u;margin:18u 0 16u!important;font-size:13u;color:#52525b}
 .bs-swap{display:grid}
 .bs-swap>span{grid-area:1/1;display:flex;align-items:center;gap:7u}
 .bs-swap .a{opacity:0}
-.bs-swap .b svg{width:15u;height:15u;color:#4ade80}
-.bs-spot{position:absolute;display:flex;align-items:center;gap:10u;transform-origin:10u 50%}
-.bs-spot i{position:relative;width:14u;height:14u;border-radius:50%;background:#fff;box-shadow:0 0 0 4u rgba(255,255,255,.35)}
-.bs-spot i::after{content:"";position:absolute;inset:0;border-radius:50%;background:#fff;opacity:0}
-.bs-spot b{padding:8u 13u;border-radius:999u;background:rgba(24,24,27,.86);color:#fff;font-size:13u;font-weight:600;white-space:nowrap}
-.bs-spot.s1{left:640u;top:300u}
-.bs-spot.s2{left:900u;top:452u}
+.bt-added{position:absolute;left:56u;top:44u;display:flex;align-items:center;gap:12u;padding:10u 16u 10u 10u;border-radius:16u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 18u 36u -18u rgba(16,24,40,.4)}
+.bt-added .smk-pic{width:44u;height:44u;border-radius:10u}
+.bt-added>span{display:grid;gap:1u}
+.bt-added b{font-size:13.5u}
+.bt-added i{font-size:12.5u;font-style:normal;color:#71717a}
+.bt-added svg{width:20u;height:20u;margin-left:10u}
 
 /* course: as it was, a white card on a soft grey, now with its lesson playing */
 .bs-course{background:#e9ecf0}
@@ -553,10 +588,20 @@ export const BUSINESS_MOCK_CSS =
 .bp-lessons em{font-style:normal;font-size:12.5u;color:#71717a}
 .bp-done-tick{position:absolute;inset:0;display:grid;place-items:center;border-radius:50%;background:#18181b;color:#fff}
 
-/* community: the club's page on a dark ground, its feed coming in beside it */
+/* community: the club's page on a dark ground, its feed coming in beside it. The banner is a club's own: its photograph running into black, its mark, its name and who hosts it. */
 .bs-club{background:#111214}
-.bs-com{position:absolute;left:64u;top:40u;bottom:40u;width:556u;display:flex;flex-direction:column;border-radius:22u;background:#fff;overflow:hidden}
-.bs-com-cover{height:236u;flex:none;overflow:hidden}
+.bs-com{position:absolute;left:48u;top:40u;bottom:40u;width:500u;display:flex;flex-direction:column;border-radius:22u;background:#fff;overflow:hidden}
+.bs-com-cover{position:relative;height:236u;flex:none;overflow:hidden;background:#0c0d10;color:#fff}
+.bs-com-pic{position:absolute;right:0;top:0;width:72%!important;background:none}
+.bs-com-cover::after{content:"";position:absolute;inset:0;background:linear-gradient(to right,#0c0d10 28%,rgba(12,13,16,.6) 58%,rgba(12,13,16,.25)),linear-gradient(to top,rgba(12,13,16,.5),rgba(12,13,16,0) 45%)}
+.bs-com-mark{position:absolute;z-index:1;left:24u;top:22u;display:flex;align-items:baseline;justify-content:center;width:42u;height:42u;border-radius:12u;background:#fff;color:#0c0d10;font-size:24u;font-weight:800;line-height:42u;letter-spacing:-.04em}
+.bs-com-mark i{width:6u;height:6u;margin-left:1.5u;border-radius:50%;background:#8b5cf6}
+.bs-com-word{position:absolute;z-index:1;left:24u;bottom:22u;display:grid;gap:6u}
+.bs-com-word b{font-size:32u;font-weight:750;line-height:1;letter-spacing:-.035em}
+.bs-com-word i{font-size:13.5u;font-style:normal;color:rgba(255,255,255,.76)}
+.bs-com-host{position:absolute;z-index:1;right:20u;top:28u;display:flex;align-items:center;gap:8u}
+.bs-com-host .smk-pic{width:28u;height:28u;border-radius:50%;box-shadow:0 0 0 1.5u rgba(255,255,255,.85)}
+.bs-com-host em{font-size:12.5u;font-style:normal;font-weight:600}
 .bs-com-body{padding:20u 24u 0}
 .bs-com-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16u}
 .bs-com-head .bs-btn{height:42u;margin:0}
@@ -571,7 +616,7 @@ export const BUSINESS_MOCK_CSS =
 .bs-spaces{display:flex;flex-wrap:wrap;gap:8u;margin-top:14u}
 .bs-spaces i{padding:6u 11u;border-radius:999u;background:#f4f4f5;font-size:12.5u;font-style:normal;font-weight:500;color:#3f3f46}
 .bs-spaces i::before{content:"#";margin-right:3u;color:#a1a1aa}
-.bs-feed{position:absolute;left:656u;right:64u;top:40u;display:grid;gap:12u}
+.bs-feed{position:absolute;left:576u;right:48u;top:40u;display:grid;gap:12u}
 .bs-feed-h{display:flex;align-items:center;gap:9u;margin-bottom:4u!important;font-size:13u;font-weight:600;color:#a1a1aa}
 .bs-feed-h i{position:relative;width:8u;height:8u;border-radius:50%;background:#4ade80}
 .bs-feed-h i::after{content:"";position:absolute;inset:0;border-radius:50%;background:#4ade80;opacity:0}
@@ -590,13 +635,13 @@ export const BUSINESS_MOCK_CSS =
 
 /* booking: the coach first, then a day and a time picked and booked */
 .bs-coach{background:#0f1012}
-.bs-coach-photo{position:absolute;left:0;top:0;bottom:0;width:560u;overflow:hidden}
+.bs-coach-photo{position:absolute;left:0;top:0;bottom:0;width:500u;overflow:hidden}
 .bs-coach-pic{object-position:50% 30%;transform-origin:40% 40%}
 .bs-coach-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(15,16,18,.72),rgba(15,16,18,0) 40%),linear-gradient(to left,#0f1012,rgba(15,16,18,0) 22%)}
 .bs-coach-name{position:absolute;left:32u;bottom:30u;z-index:1;display:grid;gap:3u;color:#fff}
 .bs-coach-name b{font-size:20u;font-weight:650}
 .bs-coach-name i{font-size:13u;font-style:normal;opacity:.8}
-.bs-book{--day:66u;right:84u;top:50%;width:470u;height:460u;margin-top:-230u}
+.bs-book{--day:66u;right:56u;top:50%;width:440u;height:460u;margin-top:-230u}
 .bs-meta{display:flex;align-items:center;gap:14u;margin-top:10u!important;font-size:13u;color:#52525b}
 .bs-meta span{display:flex;align-items:center;gap:6u}
 .bs-meta svg{width:14u;height:14u;color:#71717a}
@@ -621,20 +666,19 @@ export const BUSINESS_MOCK_CSS =
 @media(max-width:767px){
   .bz-frame{aspect-ratio:400/640}
   .bz-frame>.smk{--w:400}
-  .bs-card,.bs-brain .bs-card,.bs-phones .bs-card,.bs-book{left:16u;right:16u;width:auto;padding:20u 20u 18u;border-radius:18u}
+  .bs-card,.bd-card,.bt-card,.bs-book{left:16u;right:16u;width:auto;padding:20u 20u 18u;border-radius:18u}
   .bs h4{font-size:21u}
   .bs-price{margin-top:8u!important;font-size:20u}
-  .bs-facts{display:none}
-  .bs-tablet{left:22u;top:20u;width:356u;height:340u;padding:8u;border-radius:22u}
-  .bs-tablet>.bs-screen{inset:8u;border-radius:15u}
-  .bs-brain .bs-card{top:auto;bottom:16u;margin:0;height:236u}
-  .bs-toast{left:200u;bottom:auto;top:318u;font-size:12.5u}
-  .bs-photo{bottom:auto;height:340u}
-  .bs-photo-pic{object-position:72% 50%}
-  .bs-phones .bs-card{top:auto;bottom:16u;margin:0;height:330u}
-  .bs-desc{display:none}
-  .bs-spot.s1{left:150u;top:118u}
-  .bs-spot.s2{left:210u;top:220u}
+  .bd-rail{right:0;bottom:auto;width:auto;height:380u}
+  .bd-track{--pitch:206u;left:200u;top:68u;margin:0}
+  .bd-cover{width:200u;height:250u;border-radius:12u}
+  .bd-card{top:auto;bottom:16u;margin:0;height:236u}
+  .bd-instant{display:none}
+  .bt-photo{left:24u;top:30u;width:352u;height:352u}
+  .bt-card{top:auto;bottom:16u;margin:0;height:292u}
+  .bs-ship{display:none}
+  .bt-sizes{margin-bottom:18u}
+  .bt-added{left:16u;top:14u}
   .bs-ccard{left:14u;right:14u;top:14u;bottom:14u;width:auto;margin:0;border-radius:18u}
   .bp-player{height:178u}
   .bp-course-body{padding:16u 16u 0}
@@ -646,9 +690,14 @@ export const BUSINESS_MOCK_CSS =
   .bp-now{--row:40u;top:122u;height:38u}
   .bs-com{left:14u;right:14u;top:14u;bottom:auto;width:auto;height:410u}
   .bs-com-cover{height:130u}
+  .bs-com-mark{left:16u;top:14u;width:32u;height:32u;border-radius:9u;font-size:18u;line-height:32u}
+  .bs-com-word{left:16u;bottom:14u;gap:4u}
+  .bs-com-word b{font-size:23u}
+  .bs-com-word i{font-size:12.5u}
+  .bs-com-host{right:14u;top:16u}
   .bs-com-body{padding:16u 16u 0}
   .bs-com-head{display:grid;gap:12u;align-items:start}
-  .bs-event em{display:none}
+  .bs-event em,.bs-spaces i:nth-child(n+3){display:none}
   .bs-feed{left:14u;right:14u;top:438u}
   .bs-feed-h{display:none}
   .bs-post:nth-of-type(n+3){display:none}
@@ -666,5 +715,4 @@ export const BUSINESS_MOCK_CSS =
   .bs-ring-day{width:calc((100% - 28u) / 5);height:52u}
   .bs-ring-time{top:52u}
 }
-`) +
-  u(MOTION)
+`) + u(MOTION)
