@@ -83,9 +83,12 @@ console.log("\nIdeas, pricing, the questions and the app in the page's one width
   // Changed on purpose (landing round 8): no grey box any more; the questions sit in the shared width, the heading at the inset.
   check("questions: in the shared width, no grey box, the heading at the inset", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /style=\{editorial \? \{ background: "transparent" \} : undefined\}/.test(faq) && /pl-\[var\(--home-head-inset,14px\)\]/.test(faq))
   const app = read("components/marketing/home/app-anywhere.tsx")
-  check("app: the grid is the shared box (no 1400px column, no section gutter)", /className="home-wrap grid items-center gap-10/.test(app) && !/max-w-\[1400px\]/.test(app) && !/px-\[var\(--landing-gutter/.test(app))
-  check("app: one column below 1024px, the heading at the inset", /order-first pl-\[var\(--home-head-inset\)\] lg:order-none lg:pl-0/.test(app))
-  check("app: the photo is fetched for its new width", /sizes="\(min-width: 2020px\) 980px, \(min-width: 1024px\) 52vw, calc\(100vw - 40px\)"/.test(app))
+  // Changed on purpose (landing round 9): no two column grid any more; the heading, one wide stage and the points sit in the shared box, one under the other.
+  check("app: everything in the shared box (no 1400px column, no section gutter)", /<div className="home-wrap">/.test(app) && !/max-w-\[1400px\]/.test(app) && !/px-\[var\(--landing-gutter/.test(app))
+  // Changed on purpose (landing round 9): one column at every width; the heading's inset is in the module (.head).
+  check("app: the heading at the inset", /className=\{s\.head\}/.test(app) && /\.head \{\s*padding-left: var\(--home-head-inset, 14px\);/.test(read("components/marketing/home/app-anywhere.module.css")))
+  // Changed on purpose (landing round 9): the photograph is gone (a drawn stage takes its place); its pictures are two 96px thumbnails at their drawn size.
+  check("app: no large photo; the stage's pictures are small and sized", !/storelib-app-/.test(app.replace(/\/\*[\s\S]*?\*\//g, "")) && /width=\{96\} height=\{96\} loading="lazy" decoding="async"/.test(app))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

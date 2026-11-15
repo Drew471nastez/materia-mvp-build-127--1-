@@ -70,9 +70,11 @@ console.log("\n── apps: the real list, true marks, corner dots ──")
   const a = cornerDot(3, 1000, cloud)
   const b = cornerDot(3, 1016, cloud)
   check("a dot moves smoothly: under a pixel a frame", Math.hypot(a.x - b.x, a.y - b.y) < 1 && Math.hypot(a.x - b.x, a.y - b.y) > 0)
-  check("one canvas behind the section, no pointer, no state", /<canvas ref=\{ref\} className=\{s\.dots\} aria-hidden="true" data-corner-dots="" \/>/.test(src) && /\.dots \{\s*position: absolute;\s*inset: 0;\s*z-index: -1;[^}]*pointer-events: none;/.test(css))
+  // Changed on purpose (landing round 9): the canvas was redrawn on the page's thread every frame and made the heading and the rows stutter; the dots are still SVG layers now, moved by CSS.
+  check("one box behind the section, no canvas, no pointer, no state", /<div className=\{s\.dots\} aria-hidden="true" data-corner-dots="">/.test(src) && !/<canvas|getContext/.test(src) && /\.dots \{\s*position: absolute;\s*inset: 0;\s*z-index: -1;[^}]*pointer-events: none;/.test(css))
   const loop = src.slice(src.indexOf("function CornerDots"), src.indexOf("One turn, landing"))
-  check("the loop runs only while live (on screen, tab visible), still under reduced motion, at most 60 a second, no layout read", /if \(!live \|\| reduced\) return/.test(loop) && /const \{ reduced, live \} = usePlatformSection\(ref\)/.test(src) && /if \(last && t - last < 12\) return/.test(loop) && !/getBoundingClientRect|useState/.test(loop) && /ResizeObserver/.test(loop))
+  // Changed on purpose (landing round 9): no script loop at all; the layers carry platform's .loop, which pauses them off screen and in a background tab and stills them under reduced motion.
+  check("no frame loop: the layers move by CSS, paused off screen with every other loop, no layout read", !/requestAnimationFrame|getBoundingClientRect|useState|useEffect|ResizeObserver/.test(loop) && /className=\{`\$\{s\.cloud\} \$\{m\.loop\}`\}/.test(loop) && /\.cloud \{[^}]*animation: breathe 28s linear infinite;/.test(css))
 }
 
 console.log("\n── pricing: left, teal, clean pictures ──")

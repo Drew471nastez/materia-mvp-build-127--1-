@@ -17,6 +17,23 @@ type Item = { label: string; photo: string }
   opposite directions and fading to white at both sides. The photos are from
   Unsplash (free licence), cropped square, 256px WebP under
   public/home/possibilities.
+
+  Landing round 9, the owner:
+    smaller  "the texts and icons are too big; reduce them a little, not
+             much": the photos, the words and the room between them are
+             about an eighth smaller.
+    hover    "on hover over the images there should be something smooth
+             going on around them": under a mouse a photo straightens (a
+             diamond turns square, its picture staying upright), lifts a
+             few pixels and two thin rings open round it, the outer one a
+             beat later, while its row glides to a stop. Only transform and
+             opacity move; nothing is transitioned on a phone.
+    photos   tote bags, online courses, presets, vinyl records, communities
+             and templates were too plain (a blank bag, a hand ticking a
+             list). New ones from Pexels (free licence), each showing the
+             thing: printed totes on a rack, a lesson on a laptop, colour
+             scopes on a screen, a record on a deck, friends out together,
+             site layouts on a monitor.
 */
 const ROW_1: Item[] = [
   { label: "Merch", photo: "merch" },
@@ -73,18 +90,30 @@ const CSS = `
 .um-head{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto clamp(30px,3.4vw,52px);padding-inline:calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .um-sub{margin:18px 0 0;max-width:46ch;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#6b6874;text-wrap:pretty}
 [data-landing-story] [data-story-section] > .um-rows,.um-rows{max-width:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(10px,1.6vw,28px)}
-.um-row{--pic:clamp(60px,6.4vw,124px);position:relative;width:100%;overflow:hidden;overflow:clip visible;padding-block:calc(var(--pic) * .1)}
+.um-row{--pic:clamp(54px,5.6vw,108px);position:relative;width:100%;overflow:hidden;overflow:clip visible;padding-block:calc(var(--pic) * .1)}
 .um-row::before,.um-row::after{content:"";position:absolute;top:-30px;bottom:-30px;z-index:1;width:clamp(44px,13vw,260px);pointer-events:none}
 .um-row::before{left:0;background:linear-gradient(90deg,#fff,rgba(255,255,255,.82) 30%,rgba(255,255,255,.4) 64%,rgba(255,255,255,0))}
 .um-row::after{right:0;background:linear-gradient(270deg,#fff,rgba(255,255,255,.82) 30%,rgba(255,255,255,.4) 64%,rgba(255,255,255,0))}
 .um-track{display:flex;width:max-content;will-change:transform;backface-visibility:hidden;animation:um-left var(--um-s,64s) linear infinite}
 .um-row[data-dir="right"] .um-track{animation-name:um-right}
 .um-copy{display:flex;align-items:center;margin:0;padding:0;list-style:none;flex:none}
-.um-item{flex:none;display:flex;align-items:center;gap:clamp(16px,1.5vw,28px);margin-right:clamp(44px,5.4vw,104px);white-space:nowrap;font-size:clamp(20px,2vw,36px);font-weight:500;line-height:1;letter-spacing:-.025em;color:#18181b}
-.um-pic{position:relative;flex:none;width:var(--pic);height:var(--pic);border-radius:24%;overflow:hidden;background:#ecebf0;transform:rotate(var(--tilt,0deg));box-shadow:0 10px 22px -14px rgba(24,24,27,.34)}
+.um-item{flex:none;display:flex;align-items:center;gap:clamp(14px,1.35vw,25px);margin-right:clamp(40px,4.8vw,92px);white-space:nowrap;font-size:clamp(18px,1.75vw,31px);font-weight:500;line-height:1;letter-spacing:-.025em;color:#18181b}
+.um-pic{position:relative;flex:none;width:var(--pic);height:var(--pic);border-radius:24%;transform:rotate(var(--tilt,0deg))}
 .um-pic[data-diamond]{width:calc(var(--pic) * .84);height:calc(var(--pic) * .84);margin-inline:calc(var(--pic) * .08)}
+.um-face{position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:#ecebf0;box-shadow:0 10px 22px -14px rgba(24,24,27,.34)}
 .um-pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;-webkit-user-drag:none;user-select:none}
 .um-pic[data-diamond] img{transform:rotate(-45deg) scale(1.42)}
+.um-pic::before,.um-pic::after{content:"";position:absolute;border-radius:27%;border:1px solid rgba(24,24,27,.2);opacity:0;pointer-events:none}
+.um-pic::before{inset:-7px;transform:scale(.88)}
+.um-pic::after{inset:-15px;border-color:rgba(24,24,27,.09);border-radius:29%;transform:scale(.84)}
+@media(hover:hover) and (pointer:fine){
+  .um-pic,.um-pic img{transition:transform .6s cubic-bezier(.22,1,.36,1)}
+  .um-pic::before,.um-pic::after{transition:opacity .45s ease,transform .7s cubic-bezier(.22,1,.36,1)}
+  .um-pic::after{transition-delay:.07s}
+  .um-item:hover .um-pic{transform:translate3d(0,-4px,0) rotate(0deg) scale(1.06)}
+  .um-item:hover .um-pic[data-diamond] img{transform:rotate(0deg) scale(1.42)}
+  .um-item:hover .um-pic::before,.um-item:hover .um-pic::after{opacity:1;transform:scale(1)}
+}
 .um[data-um-paused] .um-track,[data-story-paused] .um-track{animation-play-state:paused}
 @keyframes um-left{from{transform:translate3d(0,0,0)}to{transform:translate3d(calc(-100% / 3),0,0)}}
 @keyframes um-right{from{transform:translate3d(calc(-100% / 3),0,0)}to{transform:translate3d(0,0,0)}}
@@ -95,6 +124,7 @@ const CSS = `
   .um-copy[aria-hidden]{display:none}
   .um-item{margin:0}
   .um-row::before,.um-row::after{display:none}
+  .um-pic,.um-pic img,.um-pic::before,.um-pic::after{transition:none}
 }
 `
 
@@ -106,8 +136,10 @@ function Row({ items, direction, seconds, shift }: (typeof MARQUEE_ROWS)[number]
         return (
           <li key={label} className="um-item">
             <span className="um-pic" data-diamond={tilt === 45 ? "" : undefined} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/home/possibilities/${photo}.webp`} alt="" width={256} height={256} decoding="async" fetchPriority="low" draggable={false} />
+              <span className="um-face">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/home/possibilities/${photo}.webp`} alt="" width={256} height={256} decoding="async" fetchPriority="low" draggable={false} />
+              </span>
             </span>
             {label}
           </li>

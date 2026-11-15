@@ -59,8 +59,10 @@ console.log("\n── Unlimited possibilities: photos and words ──")
   check("no photo twice", new Set(items.map((i) => i.photo)).size === items.length)
   check("the photos are tilted a few degrees, both ways, and some are diamonds", MARQUEE_TILTS.some((t) => t < 0) && MARQUEE_TILTS.some((t) => t > 0 && t < 15) && MARQUEE_TILTS.filter((t) => t === 45).length >= 2 && MARQUEE_TILTS.every((t) => t === 45 || Math.abs(t) <= 12))
   check("a diamond's photo stands upright inside it", /\.um-pic\[data-diamond\] img\{transform:rotate\(-45deg\) scale\(1\.42\)\}/.test(src) && /data-diamond=""/.test(html))
-  check("rounded squares, the word large and dark", /\.um-pic\{[^}]*border-radius:24%/.test(src) && /\.um-item\{[^}]*font-size:clamp\(20px,2vw,36px\)[^}]*color:#18181b/.test(src))
-  check("generous spacing between items", /\.um-item\{[^}]*margin-right:clamp\(44px,5\.4vw,104px\)/.test(src))
+  // Changed on purpose (landing round 9): the owner found the words and photos too big; about an eighth smaller.
+  check("rounded squares, the word large and dark", /\.um-pic\{[^}]*border-radius:24%/.test(src) && /\.um-item\{[^}]*font-size:clamp\(18px,1\.75vw,31px\)[^}]*color:#18181b/.test(src))
+  // Changed on purpose (landing round 9): the room between items shrank with them.
+  check("generous spacing between items", /\.um-item\{[^}]*margin-right:clamp\(40px,4\.8vw,92px\)/.test(src))
   check("both ends fade to white, standing still over the moving track", /\.um-row::before\{left:0;background:linear-gradient\(90deg,#fff/.test(src) && /\.um-row::after\{right:0;background:linear-gradient\(270deg,#fff/.test(src) && !/mask-image/.test(src))
   check("endless: three equal copies, one copy per lap, transform only", (html.match(/<ul class="um-copy"/g) ?? []).length === 6 && /to\{transform:translate3d\(calc\(-100% \/ 3\),0,0\)\}/.test(src))
   check("paused off screen and in a background tab", /\.um\[data-um-paused\] \.um-track[^{]*\{animation-play-state:paused\}/.test(src) && /document\.hidden/.test(src))

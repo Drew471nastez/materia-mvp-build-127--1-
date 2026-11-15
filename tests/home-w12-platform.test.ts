@@ -100,7 +100,8 @@ const ownBytes = own.reduce((n, f) => n + statSync(join(root, "public/home/platf
 check("the track's photos are .webp", own.length > 0 && own.every((f) => f.endsWith(".webp")), own)
 check("the track's photos stay under 6 MB together, 400 KB each", ownBytes <= 6 * 1024 * 1024 && own.every((f) => statSync(join(root, "public/home/platform", f)).size <= 400 * 1024), ownBytes)
 /* Changed on purpose (wave 13): the section's visual is the owner's own photograph of the app, in public/home/app. */
-check("the app photo is lazy, async, sized and has sizes", /<img[^>]*storelib-app-720\.webp[^>]*/.test(html["app-anywhere"] ?? "") && /<img[^>]*storelib-app[^>]*loading="lazy"[^>]*decoding="async"/.test(html["app-anywhere"] ?? "") && /sizes="[^"]+"/.test(html["app-anywhere"] ?? ""))
+/* Changed on purpose (landing round 9): the photograph gave way to a drawn stage; its pictures are 96px thumbnails, lazy, async and sized. */
+check("the app's pictures are lazy, async and sized", ((html["app-anywhere"] ?? "").match(/<img[^>]*src="\/home\/app\/order-(tee|lut)\.webp"[^>]*>/g) ?? []).length >= 3 && ((html["app-anywhere"] ?? "").match(/<img[^>]*>/g) ?? []).every((t) => /width="96" height="96"/.test(t) && /loading="lazy"/.test(t) && /decoding="async"/.test(t)))
 {
   const appFiles = readdirSync(join(root, "public/home/app"))
   check("the app photo is .webp, each file under 120 KB", appFiles.length >= 2 && appFiles.every((f) => f.endsWith(".webp") && statSync(join(root, "public/home/app", f)).size <= 120 * 1024), appFiles)

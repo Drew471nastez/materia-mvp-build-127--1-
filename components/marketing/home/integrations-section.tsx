@@ -67,9 +67,29 @@
              the Apple Pay and Google Pay it brings. Google Calendar's tile
              is its real four colour icon now (GoogleCalendarMark), not the
              one colour glyph.
+
+  LANDING ROUND 9, THE OWNER: "when I interact with it and scroll, the
+  heading moves and stutters and the icons sometimes stutter." Three causes,
+  all in this file:
+    the dots  were one canvas the size of the section, cleared and redrawn
+             on the page's thread 60 times a second for as long as the
+             section was on screen. The heading's rise and its ink are
+             worked out on that same thread as the page scrolls, and the
+             canvas was sent to the screen again every frame beside the
+             moving rows. They are drawn once now, as four small SVG layers
+             the server sends (two per corner), and they move by CSS alone
+             (a slow scale, turn and fade on the compositor): no script, no
+             frame loop, no canvas.
+    the flip  set off on pointerdown, so every swipe of the page that began
+             on an icon turned it over under the finger. A finger turns an
+             icon with a tap now (click); a swipe turns nothing.
+    the stop  under a mouse was animation-play-state: paused, a dead stop
+             and a dead start each time a wheel scroll carried a row under
+             the pointer. A row glides to a stop and back now (its playback
+             rate eased, as the possibilities' rows do).
 */
 
-import { useEffect, useRef, type CSSProperties, type ComponentType } from "react"
+import { useEffect, useMemo, useRef, type CSSProperties, type ComponentType } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { SiAftership } from "@/components/icons/brand/SiAftership"
 import { SiBrevo } from "@/components/icons/brand/SiBrevo"
@@ -203,18 +223,19 @@ function Tile({ app, copy }: { app: App; copy: boolean }) {
 }
 
 /*
-  THE CORNER DOTS (landing round 8). Two clouds, each anchored just outside
-  a corner of the section. A dot has an angle round its corner, a distance
-  from it and a speed; each frame it turns a little and moves out a little.
-  Its alpha rises over the first fifth of its way out and falls to nothing
-  well before the cloud's edge, so no dot is ever cut off or pops: a dot
-  that reaches the edge is already invisible when it starts again near the
-  corner. Everything is in CSS px of the section box, which is read only
-  on resize (a ResizeObserver), never in the loop.
+  THE CORNER DOTS (landing round 8, redrawn in round 9). Two clouds, each
+  anchored just outside a corner of the section. cornerDot() below says
+  where a dot is on its way out from the corner and how visible: its alpha
+  rises over the first fifth of the way and falls to nothing well before
+  the cloud's edge, so no dot is ever cut off. Round 8 asked it for every
+  dot on every frame and drew them on a canvas; round 9 asks it once per
+  dot, for a still picture of each cloud in two layers, and the layers
+  themselves drift: each grows slowly out from its corner, turns a few
+  degrees and fades, the second half a lap behind the first, so the cloud
+  still seems to breathe out and turn. That motion is two CSS animations
+  per corner, on the compositor.
 */
 type Cloud = { ax: number; ay: number; reach: number }
-/** Dots per cloud; fewer on a narrow screen. */
-const CORNER_DOTS = 140
 /** The darkest a dot gets: rgba(24, 24, 27, 0.16), a light grey on white; most are far fainter, on their way in or out. */
 export const CORNER_DOT_ALPHA = 0.16
 const DOT_RGB = "24,24,27"
@@ -242,80 +263,60 @@ function fract(n: number) {
   return n - Math.floor(n)
 }
 
-function CornerDots({ live, reduced }: { live: boolean; reduced: boolean }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-  useEffect(() => {
-    const canvas = ref.current
-    const box = canvas?.parentElement
-    const ctx = canvas?.getContext("2d", { alpha: true })
-    if (!canvas || !box || !ctx) return
-    let w = 0
-    let h = 0
-    let dpr = 1
-    let clouds: Cloud[] = []
-    let count = CORNER_DOTS
-    const buckets: number[][] = Array.from({ length: ALPHA_LEVELS }, () => [])
-    const draw = (t: number) => {
-      for (const b of buckets) b.length = 0
-      for (let c = 0; c < clouds.length; c++) {
-        for (let i = 0; i < count; i++) {
-          const d = cornerDot(c * 997 + i + 1, t, clouds[c])
-          if (d.x < -4 || d.y < -4 || d.x > w + 4 || d.y > h + 4) continue
-          const level = Math.round((d.a / CORNER_DOT_ALPHA) * (ALPHA_LEVELS - 1))
-          if (level > 0) buckets[level].push(d.x, d.y, 0.9 + ((i * 7) % 5) * 0.2)
-        }
-      }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, w, h)
-      for (let l = 1; l < ALPHA_LEVELS; l++) {
-        const b = buckets[l]
-        if (!b.length) continue
-        ctx.fillStyle = `rgba(${DOT_RGB},${((l / (ALPHA_LEVELS - 1)) * CORNER_DOT_ALPHA).toFixed(4)})`
-        ctx.beginPath()
-        for (let j = 0; j < b.length; j += 3) {
-          ctx.moveTo(b[j] + b[j + 2], b[j + 1])
-          ctx.arc(b[j], b[j + 1], b[j + 2], 0, Math.PI * 2)
-        }
-        ctx.fill()
-      }
-    }
-    const resize = () => {
-      const nw = box.clientWidth
-      const nh = box.clientHeight
-      if (!nw || !nh || (nw === w && nh === h)) return
-      w = nw
-      h = nh
-      dpr = Math.min(1.5, window.devicePixelRatio || 1)
-      canvas.width = Math.round(w * dpr)
-      canvas.height = Math.round(h * dpr)
-      const reach = Math.min(560, Math.max(220, w * 0.3))
-      count = w < 640 ? 70 : CORNER_DOTS
-      clouds = [
-        { ax: w + reach * 0.08, ay: -reach * 0.1, reach },
-        { ax: -reach * 0.08, ay: h + reach * 0.12, reach },
-      ]
-      draw(performance.now())
-    }
-    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null
-    ro?.observe(box)
-    resize()
-    if (!live || reduced) return () => ro?.disconnect()
-    let raf = 0
-    let last = 0
-    const frame = (t: number) => {
-      raf = requestAnimationFrame(frame)
-      /* At most 60 a second: a 120Hz screen draws every other frame, evenly. */
-      if (last && t - last < 12) return
-      last = t
-      draw(t)
-    }
-    raf = requestAnimationFrame(frame)
-    return () => {
-      cancelAnimationFrame(raf)
-      ro?.disconnect()
-    }
-  }, [live, reduced])
-  return <canvas ref={ref} className={s.dots} aria-hidden="true" data-corner-dots="" />
+/** Dots drawn in each layer of a cloud. */
+const LAYER_DOTS = 44
+/** A layer's box, in its own units: the cloud's reach across, 0.72 of it down (cornerDot squashes the cloud by that). */
+const LAYER_W = 100
+const LAYER_H = 72
+
+/**
+ * One layer of one corner's cloud as SVG paths: the dots that fall inside the
+ * section's quarter of the cloud, grouped by how visible they are and by
+ * size, each a zero length stroke with a round cap. `corner` 0 is the top
+ * right (the anchor is the box's top right corner), 1 the bottom left.
+ * Pure, the same on the server and in the browser.
+ */
+export function cornerLayer(corner: 0 | 1, layer: 0 | 1): { d: string; alpha: number; width: number }[] {
+  const cloud: Cloud = { ax: 0, ay: 0, reach: LAYER_W }
+  const groups = new Map<string, { d: string; alpha: number; width: number }>()
+  let kept = 0
+  for (let i = 1; kept < LAYER_DOTS && i < 4000; i++) {
+    const seed = corner * 997 + layer * 4831 + i
+    const dot = cornerDot(seed, seed * 7919, cloud)
+    const inside = corner === 0 ? dot.x < -1 && dot.y > 1 : dot.x > 1 && dot.y < -1
+    const level = Math.round((dot.a / CORNER_DOT_ALPHA) * (ALPHA_LEVELS - 1))
+    if (!inside || level < 2) continue
+    kept++
+    const width = 1.8 + ((i * 7) % 3) * 0.7
+    const key = `${level}:${width}`
+    const group = groups.get(key) ?? { d: "", alpha: +((level / (ALPHA_LEVELS - 1)) * CORNER_DOT_ALPHA).toFixed(3), width }
+    group.d += `M${dot.x.toFixed(1)} ${dot.y.toFixed(1)}h.01`
+    groups.set(key, group)
+  }
+  return [...groups.values()]
+}
+
+function CornerDots() {
+  const layers = useMemo(() => ([0, 1] as const).flatMap((corner) => ([0, 1] as const).map((layer) => ({ corner, layer, paths: cornerLayer(corner, layer) }))), [])
+  return (
+    <div className={s.dots} aria-hidden="true" data-corner-dots="">
+      {layers.map(({ corner, layer, paths }) => (
+        <svg
+          key={`${corner}-${layer}`}
+          className={`${s.cloud} ${m.loop}`}
+          data-corner={corner}
+          data-layer={layer}
+          viewBox={corner === 0 ? `${-LAYER_W} 0 ${LAYER_W} ${LAYER_H}` : `0 ${-LAYER_H} ${LAYER_W} ${LAYER_H}`}
+          fill="none"
+          focusable="false"
+        >
+          {paths.map((p) => (
+            <path key={`${p.alpha}-${p.width}`} d={p.d} stroke={`rgba(${DOT_RGB},${p.alpha})`} strokeWidth={p.width} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          ))}
+        </svg>
+      ))}
+    </div>
+  )
 }
 
 /*
@@ -343,12 +344,35 @@ const SHINE: Keyframe[] = [
 ]
 const TURN_MS = 680
 
+/**
+ * Eases a row's loop to a new speed (0 stopped, 1 full) over `ms`, by the
+ * playback rate of its CSS animation: the row stays on the compositor and
+ * only a handful of rate changes are sent while it eases. Returns a cancel.
+ */
+function easeRow(track: HTMLElement, to: number, ms: number): () => void {
+  const anim = typeof track.getAnimations === "function" ? track.getAnimations()[0] : undefined
+  if (!anim) return () => {}
+  const from = anim.playbackRate
+  const t0 = performance.now()
+  let frame = 0
+  const step = (now: number) => {
+    const p = Math.min(1, (now - t0) / ms)
+    /* Never exactly zero: a zero rate could not be eased out of on every engine. */
+    const rate = Math.max(0.0001, from + (to - from) * (1 - Math.pow(1 - p, 3)))
+    if (typeof anim.updatePlaybackRate === "function") anim.updatePlaybackRate(rate)
+    else anim.playbackRate = rate
+    if (p < 1) frame = requestAnimationFrame(step)
+  }
+  frame = requestAnimationFrame(step)
+  return () => cancelAnimationFrame(frame)
+}
+
 export function IntegrationsSection() {
   const ref = useRef<HTMLElement>(null)
   const rowsRef = useRef<HTMLDivElement>(null)
-  const { reduced, live } = usePlatformSection(ref)
+  const { reduced } = usePlatformSection(ref)
 
-  /* A tile turns once when a pointer reaches it or a finger taps it. Nothing is read from the layout. */
+  /* A tile turns once when a mouse reaches it or a finger taps it (a tap, not a touch: a swipe of the page that starts on an icon turns nothing). Nothing is read from the layout. */
   useEffect(() => {
     const rows = rowsRef.current
     if (!rows || reduced) return
@@ -365,15 +389,51 @@ export function IntegrationsSection() {
     const over = (e: PointerEvent) => {
       if (fine(e)) flip((e.target as Element).closest("[data-tile]"))
     }
+    let touch = false
     const down = (e: PointerEvent) => {
-      if (!fine(e)) flip((e.target as Element).closest("[data-tile]"))
+      touch = !fine(e)
+    }
+    const tap = (e: MouseEvent) => {
+      if (touch) flip((e.target as Element).closest("[data-tile]"))
     }
     rows.addEventListener("pointerover", over, { passive: true })
     rows.addEventListener("pointerdown", down, { passive: true })
+    rows.addEventListener("click", tap, { passive: true })
     return () => {
       rows.removeEventListener("pointerover", over)
       rows.removeEventListener("pointerdown", down)
+      rows.removeEventListener("click", tap)
     }
+  }, [reduced])
+
+  /* Under a mouse a row glides to a stop, and back up to speed when the mouse leaves. */
+  useEffect(() => {
+    const rows = rowsRef.current
+    if (!rows || reduced || typeof window.matchMedia !== "function" || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return
+    const offs: Array<() => void> = []
+    for (const track of rows.querySelectorAll<HTMLElement>("[data-row-track]")) {
+      const row = track.parentElement
+      if (!row) continue
+      let cancel = () => {}
+      const enter = (e: PointerEvent) => {
+        if (e.pointerType !== "mouse") return
+        cancel()
+        cancel = easeRow(track, 0, 600)
+      }
+      const leave = (e: PointerEvent) => {
+        if (e.pointerType !== "mouse") return
+        cancel()
+        cancel = easeRow(track, 1, 900)
+      }
+      row.addEventListener("pointerenter", enter)
+      row.addEventListener("pointerleave", leave)
+      offs.push(() => {
+        cancel()
+        row.removeEventListener("pointerenter", enter)
+        row.removeEventListener("pointerleave", leave)
+      })
+    }
+    return () => offs.forEach((off) => off())
   }, [reduced])
 
   return (
@@ -383,7 +443,7 @@ export function IntegrationsSection() {
       aria-labelledby="integrations-title"
       className={`${m.root} ${s.clip} bg-white py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#18181b]`}
     >
-      <CornerDots live={live} reduced={reduced} />
+      <CornerDots />
       {/* Landing round 7: the shared home width, the heading set in like the showcase's. */}
       <div className="home-wrap">
         <div className="mb-8 ml-[var(--home-head-inset,14px)] max-w-[880px] sm:mb-12">
@@ -394,7 +454,7 @@ export function IntegrationsSection() {
       <div ref={rowsRef} className={`${s.rows} ${m.reveal}`}>
         {ROWS.map((apps, r) => (
           <div key={r} className={`${s.row} ${r % 2 ? s.reverse : ""}`}>
-            <div className={`${s.track} ${m.loop}`} style={{ "--dur": `${apps.length * SECONDS_PER_TILE}s` } as CSSProperties}>
+            <div className={`${s.track} ${m.loop}`} data-row-track="" style={{ "--dur": `${apps.length * SECONDS_PER_TILE}s` } as CSSProperties}>
               {[0, 1].flatMap((copy) => apps.map((app) => <Tile key={`${copy}-${app.name}`} app={app} copy={copy > 0} />))}
             </div>
           </div>
