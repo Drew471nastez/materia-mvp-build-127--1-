@@ -1531,6 +1531,8 @@ const SUITES = [
   "tests/home-landing-r11-purple.test.ts",
   /* Landing round 11, top: the website builder moves on from Mondo Mango (a party card game, product shots of its boxes, a studio hero) to loudlib, the OnePage editor from Desmond to Idris Kane, each a cross fade on the autoplay clock; a little depth on the ideas frame; Noor Haddad's digital product store in place of Soft Ground. */
   "tests/home-landing-r11-top.test.ts",
+  /* Landing round 11, frame: the purple sheet rises on phones too (transform only, scroll-driven, eased over 75svh), headings ink more gently, every picture fades in once decoded, a calmer 700ms entrance on touch, no purple in the FAQ heading, the app icon back in the footer. */
+  "tests/home-landing-r11-frame.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

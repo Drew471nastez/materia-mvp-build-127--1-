@@ -252,8 +252,8 @@ export function MarketingFooter() {
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-10">
           <div className="lg:col-span-3" data-footer-brand="">
             <Link href={logoHref} scroll={true} aria-label="Storelib" className="inline-flex items-center gap-3 transition-opacity hover:opacity-80">
-              {/* Landing round 9, the owner: the white outline mark here, not the violet picture. */}
-              <StorelibLogo size={40} variant="outline" />
+              {/* Landing round 11, the owner: "the Storelib icon in the footer should not be outlined like that". The app icon itself, as everywhere else. */}
+              <StorelibLogo size={40} />
               <span className="text-xl font-bold text-white">Storelib</span>
             </Link>
             {/* The app, under the logo: side by side on a phone, one under the other beside the columns. */}

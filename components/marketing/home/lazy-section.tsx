@@ -385,6 +385,18 @@ function layOutInSlices(box: HTMLElement, done: () => void): () => void {
  * auto gives it (layout, paint and style), so nothing it draws looks
  * different; further away it is auto again and costs a frame nothing.
  */
+/*
+ * Landing round 11 (the owner, on an iPhone: images "appear too abruptly"):
+ * a box being drawn ahead also asks for its pictures then. A picture marked
+ * loading="lazy" was left to the browser's own distance, which in Safari is
+ * a fraction of a screen, so it arrived (and faded in, landing-story.tsx
+ * IMG_FADE_MS) with the section already on screen. From LAZY_DRAW_AHEAD it
+ * is decoded before the reader gets there.
+ */
+function eagerPictures(box: HTMLElement) {
+  for (const img of box.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')) img.loading = "eager"
+}
+
 let drawWatch: IntersectionObserver | null = null
 function watchDraw(el: HTMLElement) {
   if (typeof IntersectionObserver !== "function") return () => {}
@@ -393,7 +405,10 @@ function watchDraw(el: HTMLElement) {
       for (const e of entries) {
         const box = e.target as HTMLElement
         if (!box.style.contentVisibility) continue
-        if (e.isIntersecting) slicing.get(box)?.()
+        if (e.isIntersecting) {
+          slicing.get(box)?.()
+          eagerPictures(box)
+        }
         box.style.contentVisibility = e.isIntersecting ? "visible" : "auto"
         box.style.contain = e.isIntersecting ? "layout paint style" : ""
       }

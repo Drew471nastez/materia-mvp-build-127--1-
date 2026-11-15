@@ -140,7 +140,8 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
         <div data-faq-column="" className="!mx-auto w-full !max-w-[880px] !px-0">
           <AnimateOnScroll variant="fade-up">
             <div className="story-section-heading !mx-auto !mb-9 w-full !text-center sm:!mb-12">
-              <StoryHeading text="Frequently asked questions" accent={["questions"]} />
+              {/* Landing round 11, the owner: "the questions should not be purple". No accent word: the whole heading inks to the dark text colour. */}
+              <StoryHeading text="Frequently asked questions" />
             </div>
             <div className="faq-list faq-rows">{items}</div>
             <p className="faq-more">
