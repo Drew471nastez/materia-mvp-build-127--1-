@@ -23,7 +23,7 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { IdeasComeToLife, IDEAS_HEADING, IDEAS_HEADINGS, IDEAS_STYLES, IDEAS_SUB, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
+import { IdeasComeToLife, IDEAS_HEADING, IDEAS_HEADINGS, IDEAS_STYLES, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
 import { BUILDER_CSS, CommunityMock, DesmondPage, MondoMangoSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { CreatorsCarousel, CREATORS, CREATORS_CSS } from "@/components/marketing/home/creators-carousel"
@@ -70,7 +70,8 @@ check("nothing animates before the section is seen", !/data-mock-live="/.test(id
 console.log("\n── The heading changes by itself ──")
 check("three headings, See your ideas come to life. first, then A drag and drop editor.", IDEAS_HEADINGS.length === 3 && IDEAS_HEADINGS[0] === IDEAS_HEADING && IDEAS_HEADINGS[1] === "A drag and drop editor.")
 check("one heading for assistive tech, the lines that take turns hidden from it", new RegExp(`<h2[^>]*aria-label="${IDEAS_HEADING}"`).test(ideas) && /<span class="ideas-stack" aria-hidden="true">/.test(ideas) && (ideas.match(/class="ideas-line"/g) ?? []).length === 3)
-check("a line about building without code under it", /\bNo code\b/.test(IDEAS_SUB) && ideas.includes(IDEAS_SUB))
+// Changed on purpose (landing round 10): the owner: "Get rid of the subheading"; the line under the heading is gone (tests/home-landing-r10-top.test.ts).
+check("no line under the heading any more", !/class="ideas-sub"/.test(ideas))
 const flip = ideasCss.slice(ideasCss.indexOf("@keyframes ideas-flip"), ideasCss.indexOf("}}", ideasCss.indexOf("@keyframes ideas-flip")) + 2)
 check("the flip is transform and opacity only", flip.length > 20 && !/(top|left|height|width|margin|filter)\s*:/.test(flip))
 check("its loop runs only while the section is seen, never under reduced motion", /infinite both paused/.test(ideasCss) && /\.ideas\[data-live\] \.ideas-line\{animation-play-state:running\}/.test(ideasCss) && /prefers-reduced-motion:reduce\)\{[^@]*\.ideas-line\{animation:none!important\}/.test(ideasCss))

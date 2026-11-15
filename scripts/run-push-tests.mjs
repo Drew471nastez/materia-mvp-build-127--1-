@@ -1511,6 +1511,8 @@ const SUITES = [
   "tests/home-landing-r9-business.test.ts",
   /* Landing round 9 (purple): analytics blocks enter one by one as each comes on screen, the globe lighter on a phone and still while flung, the map on white with a black card, a 3s turn that renders nothing, Buy now clear of the copy. */
   "tests/home-landing-r9-purple.test.ts",
+  /* Landing round 10, top: the ideas picture smaller (78%, capped by the screen's height) without the line under the heading, Fieldwork's new cover as tall as the other stores' header, the four pictures capped at 58svh. */
+  "tests/home-landing-r10-top.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
