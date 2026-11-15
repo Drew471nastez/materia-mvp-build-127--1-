@@ -94,7 +94,7 @@ export default function StorelibLanding() {
           <LazyIdeasComeToLife />
 
           {/* 5 UNLIMITED POSSIBILITIES (frame). Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
-          <LazySection name="possibilities" minHeight="clamp(442px, 21vw + 290px, 600px)">
+          <LazySection name="possibilities" minHeight="clamp(380px, 23vw + 254px, 720px)">
             <ProductMarquee />
           </LazySection>
 

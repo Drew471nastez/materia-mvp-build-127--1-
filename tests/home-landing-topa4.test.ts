@@ -137,8 +137,9 @@ check("one clock for all three, a third apart, paused off screen", /animation-de
 
 console.log("\n── Unlimited possibilities ──")
 check("two rows", MARQUEE_ROWS.length === 2)
-check("a row clips sideways only, so a lifted pill's shadow is not cut", /\.um-row\{[^}]*overflow:hidden;overflow:clip visible/.test(marqueeSrc))
-check("and has room for the shadow under the pill, given back so the rows sit where they did", /\.um-row\{[^}]*padding-block:8px 30px;margin-bottom:-18px\}/.test(marqueeSrc))
+check("a row clips sideways only, so a photo's shadow is not cut", /\.um-row\{[^}]*overflow:hidden;overflow:clip visible/.test(marqueeSrc))
+/* Changed on purpose (landing round 7): no pills any more; a row has just enough room for a diamond's corners, and its fades reach past it by the shadow's room. */
+check("and has room for a diamond's corners, its fades past its edges", /\.um-row\{[^}]*padding-block:calc\(var\(--pic\) \* \.1\)\}/.test(marqueeSrc) && /\.um-row::before,\.um-row::after\{[^}]*top:-30px;bottom:-30px/.test(marqueeSrc))
 
 console.log("\n── The words ──")
 const words = [EVERYTHING_HEADING.lead, EVERYTHING_HEADING.rest, ...EVERYTHING_SLIDES.map((s) => s.name), JSON.stringify(EVERYTHING_SUPPORT), JSON.stringify(EVERYTHING_STORES), all].join(" ")

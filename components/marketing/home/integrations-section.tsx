@@ -29,10 +29,14 @@
 
   TWO ROWS THAT NEVER SHOW A TILE TWICE (the owner: two rows, icons a fifth
   smaller). Each row is its set twice over and one loop travels exactly one
-  set. A set (12 or 13 tiles of 90px and a 20px gap) is wider than the most
-  of the rows ever seen (1210px, solid fades past it) plus one tile, so the
-  same icon is never on screen twice at once, never side by side. The rows stop under a pointer. Off
-  screen, under reduced motion, nothing moves.
+  set. Landing round 7, the owner: the rows run the full width of the
+  screen, edge to edge, fading only at the very ends (no solid white past
+  1210px any more). So that a set is still wider than the screen plus one
+  tile, a tile and its gap take at least 1/10.5 of the screen's width: on a
+  wide screen the gap grows and the icons spread out, as in the owner's
+  reference. A set of 12 or 13 tiles is then at least 12/10.5 of the
+  screen, and the same icon is never on screen twice at once. The rows stop
+  under a pointer. Off screen, under reduced motion, nothing moves.
 
   The tiles' shadows have room: each row clips sideways only, with room
   above and below for the shadow and the lift, and the fades at both ends
@@ -111,9 +115,8 @@ const SECONDS_PER_TILE = 4
 export const PLATFORM_INTEGRATION_APPS = ROWS.flatMap((r) => r.map((a) => ({ name: a.name, logo: a.logo ?? null })))
 /** The rows' sets, for tests: no row may be narrow enough to show a tile twice. */
 export const INTEGRATION_ROW_SIZES = ROWS.map((r) => r.length)
-/** What one tile takes on a wide screen (tile and gap) and the most of a row ever seen, for tests. */
-export const INTEGRATION_TILE_STEP = 90 + 20
-export const INTEGRATION_SEEN_MAX = 1210
+/** A tile and its gap take at least this share of the screen's width (1 / 10.5 of it, integrations-section.module.css), for tests: a row of n tiles is then (n - 1) / 10.5 screens wide plus a tile. */
+export const INTEGRATION_STEP_SHARE = 1 / 10.5
 
 function Icon({ app }: { app: App }) {
   if (app.tile) {
@@ -238,8 +241,9 @@ export function IntegrationsSection() {
       aria-labelledby="integrations-title"
       className={`${m.root} ${s.clip} bg-white py-[var(--home-pad,clamp(72px,9vw,128px))] text-[#18181b]`}
     >
-      <div className="mx-auto max-w-[1400px] px-[var(--landing-gutter,22px)]">
-        <div className="mb-8 max-w-[880px] sm:mb-12">
+      {/* Landing round 7: the shared home width, the heading set in like the showcase's. */}
+      <div className="home-wrap">
+        <div className="mb-8 ml-[var(--home-head-inset,14px)] max-w-[880px] sm:mb-12">
           <StoryHeading id="integrations-title" text="Connect your favorite apps" accent={["favorite", "apps"]} />
         </div>
       </div>

@@ -1455,6 +1455,8 @@ const SUITES = [
   "tests/home-landing-r6-showcase.test.ts",
   /* Landing round 6, everything: "Cine Tones LUT Pack" on a bold black cover with no count; the store strip as the owner's reference (merch stores and link pages, tall cards a fixed inset down and cut at the foot); each card rises in once as it scrolls into view. */
   "tests/home-landing-r6-everything.test.ts",
+  /* Landing round 7 (marquee): Unlimited possibilities is two full-width rows of tilted photos and words; the app icons run edge to edge; the creators rail decides the axis after 8px, follows the finger 1:1, coasts and eases back into its drift; headings on the shared home width. */
+  "tests/home-landing-r7-marquee.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

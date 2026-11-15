@@ -3,127 +3,116 @@
 import { useEffect, useRef, type CSSProperties } from "react"
 import { StoryHeading } from "./story-heading"
 
-type Chip = { label: string; emoji: string }
+type Item = { label: string; photo: string }
 
 /*
   WHAT CREATORS SELL, IN TWO ROWS (landing round, the owner: "keep only 2
-  rows, not 3"; wave 12 had three). Edge to edge, one moving left and one
-  right. Communities, never Memberships: memberships were folded into
-  communities (tests/memberships-folded). Wave 13, the owner: an emoji and a
-  word in a white pill. Landing round 3: about half of them are things that
-  ship (tees, vinyl, mugs, prints), half are digital or a community.
+  rows, not 3"). Edge to edge, one moving left and one right. Communities,
+  never Memberships: memberships were folded into communities
+  (tests/memberships-folded). About half of them are things that ship.
+
+  Landing round 7, the owner: no more pills. Each thing is a photograph on a
+  rounded square, tilted a few degrees (every third one turned into a
+  diamond), and its name in large dark type beside it, the rows drifting in
+  opposite directions and fading to white at both sides. The photos are from
+  Unsplash (free licence), cropped square, 256px WebP under
+  public/home/possibilities.
 */
-const ROW_1: Chip[] = [
-  { label: "Presets", emoji: "🎛️" },
-  { label: "Beats", emoji: "🎹" },
-  { label: "Merch", emoji: "🛍️" },
-  { label: "Online courses", emoji: "🎓" },
-  { label: "Communities", emoji: "👥" },
-  { label: "1:1 coaching", emoji: "🤝" },
-  { label: "Ebooks", emoji: "📚" },
-  { label: "T-shirts", emoji: "👕" },
-  { label: "Hoodies", emoji: "🧥" },
-  { label: "Notion templates", emoji: "📋" },
-  { label: "Vinyl records", emoji: "💿" },
-  { label: "Podcasts", emoji: "🎙️" },
-  { label: "Sample packs", emoji: "🥁" },
-  { label: "Mugs", emoji: "☕" },
-  { label: "Tote bags", emoji: "👜" },
-  { label: "Posters", emoji: "📌" },
-  { label: "Bookings", emoji: "📅" },
-  { label: "Candles", emoji: "🕯️" },
+const ROW_1: Item[] = [
+  { label: "Merch", photo: "merch" },
+  { label: "Online courses", photo: "courses" },
+  { label: "Presets", photo: "presets" },
+  { label: "Vinyl records", photo: "vinyl" },
+  { label: "Communities", photo: "communities" },
+  { label: "Art prints", photo: "prints" },
+  { label: "Coaching", photo: "coaching" },
+  { label: "Candles", photo: "candles" },
+  { label: "Ebooks", photo: "ebooks" },
 ]
-const ROW_2: Chip[] = [
-  { label: "Music", emoji: "🎵" },
-  { label: "Ceramics", emoji: "🏺" },
-  { label: "Workshops", emoji: "🧑‍🏫" },
-  { label: "Event tickets", emoji: "🎟️" },
-  { label: "Art prints", emoji: "🖼️" },
-  { label: "Digital art", emoji: "🎨" },
-  { label: "Video tutorials", emoji: "🎥" },
-  { label: "Fitness plans", emoji: "🏋️" },
-  { label: "Zines", emoji: "📰" },
-  { label: "Hats", emoji: "🧢" },
-  { label: "Jewelry", emoji: "💍" },
-  { label: "Signed books", emoji: "📖" },
-  { label: "Procreate brushes", emoji: "🖌️" },
-  { label: "Stock footage", emoji: "🎬" },
-  { label: "Phone cases", emoji: "📱" },
-  { label: "Sewing patterns", emoji: "🧵" },
-  { label: "Language lessons", emoji: "🗣️" },
-  { label: "Stickers", emoji: "🏷️" },
+const ROW_2: Item[] = [
+  { label: "Music", photo: "music" },
+  { label: "Hoodies", photo: "hoodies" },
+  { label: "Templates", photo: "templates" },
+  { label: "Ceramics", photo: "ceramics" },
+  { label: "Podcasts", photo: "podcasts" },
+  { label: "Event tickets", photo: "tickets" },
+  { label: "Jewelry", photo: "jewelry" },
+  { label: "Workshops", photo: "workshops" },
+  { label: "Tote bags", photo: "totes" },
 ]
 
 export const MARQUEE_ROWS = [
-  { items: ROW_1, direction: "left", seconds: 92 },
-  { items: ROW_2, direction: "right", seconds: 98 },
+  { items: ROW_1, direction: "left", seconds: 96 },
+  { items: ROW_2, direction: "right", seconds: 104 },
 ] as const
+
+/** Each photo's tilt in degrees, in turn along a row; 45 is a diamond. The second row starts further along, so the rows never tilt in step. */
+export const MARQUEE_TILTS = [-7, 45, 6, -4, 45, 9, -10, 45, 4] as const
 
 /*
   THE LOOP. Each row is one track holding the same list three times; the
   track slides by exactly one copy (a third of itself) and starts over, so
-  the seam is never seen. Each chip carries its own right margin instead of
+  the seam is never seen. Each item carries its own right margin instead of
   the track having a gap, so the three copies are the same width to the
-  pixel. Three copies, not two: the two still on screen at the end of a lap
-  are over 4,000px, wider than any screen. Only `transform` moves, on the
-  compositor (no layout or paint per frame). Both stop off screen and
-  in a background tab. With reduced motion the rows stand still: one copy
-  each, wrapped and centred.
+  pixel. Three copies, not two: one copy is about 3,800px at its widest,
+  near the width of a 4K screen. Only `transform` moves, on the compositor
+  (no layout or paint per frame). Both stop off screen and in a background
+  tab. With reduced motion the rows stand still: one copy each, wrapped.
 
-  UNDER THE MOUSE (wave 13, the owner: no purple fade on hover, a smooth
-  clean response instead). The chip under the pointer lifts and grows a
-  little, its shadow fading in from a layer of its own (opacity only, so
-  nothing repaints), and its row glides to a stop rather than freezing: the
-  row's own CSS animation has its playback rate eased down to zero, and back
-  up when the pointer leaves (easeRow below). Touch screens get a small
-  press instead of a sticky hover.
+  THE FADES are two white layers over each row's ends, standing still, so
+  the moving track is never masked or repainted. A row clips sideways only,
+  so a photo's shadow and a diamond's corners are never cut along its top
+  or bottom; the fades reach past the row by the same room.
+
+  UNDER THE MOUSE a row glides to a stop rather than freezing: its CSS
+  animation's playback rate is eased down to zero, and back up when the
+  pointer leaves (easeRow below).
 */
 const CSS = `
 .um{position:relative;background:#fff;color:#18181b;overflow:clip;padding-block:clamp(64px,8vw,120px)}
-.um-head{max-width:1400px;margin:0 auto clamp(36px,4vw,56px);padding-inline:clamp(22px,6vw,96px);text-align:center}
-.um-head .story-heading{margin-inline:auto}
-.um-sub{margin:20px auto 0;max-width:46ch;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#6b6874;text-wrap:pretty}
-[data-landing-story] [data-story-section] > .um-rows,.um-rows{max-width:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(4px,.6vw,8px)}
-/* Landing round 4 (the owner: a pill's hover shadow was cut by its row). The row clips sideways only, so the lifted pill's shadow (28px under it) falls outside the row; where overflow-x: clip is not known, the row keeps overflow: hidden and has room for the shadow in its padding, given back by a negative margin so the rows sit where they did. */
-.um-row{position:relative;width:100%;overflow:hidden;overflow:clip visible;padding-block:8px 30px;margin-bottom:-18px}
+.um-head{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto clamp(30px,3.4vw,52px);padding-inline:calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
+.um-sub{margin:18px 0 0;max-width:46ch;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#6b6874;text-wrap:pretty}
+[data-landing-story] [data-story-section] > .um-rows,.um-rows{max-width:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(10px,1.6vw,28px)}
+.um-row{--pic:clamp(60px,6.4vw,124px);position:relative;width:100%;overflow:hidden;overflow:clip visible;padding-block:calc(var(--pic) * .1)}
+.um-row::before,.um-row::after{content:"";position:absolute;top:-30px;bottom:-30px;z-index:1;width:clamp(44px,13vw,260px);pointer-events:none}
+.um-row::before{left:0;background:linear-gradient(90deg,#fff,rgba(255,255,255,.82) 30%,rgba(255,255,255,.4) 64%,rgba(255,255,255,0))}
+.um-row::after{right:0;background:linear-gradient(270deg,#fff,rgba(255,255,255,.82) 30%,rgba(255,255,255,.4) 64%,rgba(255,255,255,0))}
 .um-track{display:flex;width:max-content;will-change:transform;backface-visibility:hidden;animation:um-left var(--um-s,64s) linear infinite}
 .um-row[data-dir="right"] .um-track{animation-name:um-right}
-.um-copy{display:flex;margin:0;padding:0;list-style:none;flex:none}
-.um-chip{position:relative;flex:none;display:inline-flex;align-items:center;gap:9px;height:48px;margin-right:12px;padding:0 22px 0 18px;border-radius:999px;background:#fff;border:1.5px solid #e5e5e5;box-shadow:0 1px 2px rgba(0,0,0,.05);white-space:nowrap;font-size:15.5px;font-weight:500;letter-spacing:-.005em;color:#404040;cursor:default;transition:transform .55s cubic-bezier(.22,1,.36,1)}
-.um-chip::after{content:"";position:absolute;inset:-1.5px;border-radius:inherit;box-shadow:0 14px 28px -14px rgba(24,24,27,.32),0 2px 6px rgba(24,24,27,.06);opacity:0;transition:opacity .45s ease;pointer-events:none}
-.um-emoji{font-size:18px;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
-@media(hover:hover) and (pointer:fine){
-  .um-chip:hover{z-index:1;transform:translate(0,-3px) scale(1.06);color:#18181b}
-  .um-chip:hover::after{opacity:1}
-}
-@media(hover:none){.um-chip:active{transform:scale(.96);transition-duration:.2s}}
+.um-copy{display:flex;align-items:center;margin:0;padding:0;list-style:none;flex:none}
+.um-item{flex:none;display:flex;align-items:center;gap:clamp(16px,1.5vw,28px);margin-right:clamp(44px,5.4vw,104px);white-space:nowrap;font-size:clamp(20px,2vw,36px);font-weight:500;line-height:1;letter-spacing:-.025em;color:#18181b}
+.um-pic{position:relative;flex:none;width:var(--pic);height:var(--pic);border-radius:24%;overflow:hidden;background:#ecebf0;transform:rotate(var(--tilt,0deg));box-shadow:0 10px 22px -14px rgba(24,24,27,.34)}
+.um-pic[data-diamond]{width:calc(var(--pic) * .84);height:calc(var(--pic) * .84);margin-inline:calc(var(--pic) * .08)}
+.um-pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;-webkit-user-drag:none;user-select:none}
+.um-pic[data-diamond] img{transform:rotate(-45deg) scale(1.42)}
 .um[data-um-paused] .um-track,[data-story-paused] .um-track{animation-play-state:paused}
 @keyframes um-left{from{transform:translate3d(0,0,0)}to{transform:translate3d(calc(-100% / 3),0,0)}}
 @keyframes um-right{from{transform:translate3d(calc(-100% / 3),0,0)}to{transform:translate3d(0,0,0)}}
-@media(max-width:767px){
-  .um-chip{height:42px;gap:7px;margin-right:10px;padding:0 17px 0 14px;font-size:14px}
-  .um-emoji{font-size:16px}
-}
+@media(max-width:767px){.um-head{margin-bottom:22px}}
 @media(prefers-reduced-motion:reduce){
-  .um-track{animation:none;width:auto;will-change:auto;padding-inline:clamp(16px,4vw,48px)}
-  .um-copy{flex:1 1 auto;flex-wrap:wrap;justify-content:center;gap:10px}
+  .um-track{animation:none;width:auto;will-change:auto;padding-inline:var(--home-edge,20px)}
+  .um-copy{flex:1 1 auto;flex-wrap:wrap;justify-content:center;gap:24px 40px}
   .um-copy[aria-hidden]{display:none}
-  .um-chip{margin:0;transition:none}
-  .um-chip::after{transition:none}
+  .um-item{margin:0}
+  .um-row::before,.um-row::after{display:none}
 }
 `
 
-function Row({ items, direction, seconds }: (typeof MARQUEE_ROWS)[number]) {
+function Row({ items, direction, seconds, shift }: (typeof MARQUEE_ROWS)[number] & { shift: number }) {
   const copy = (k: number) => (
     <ul key={k} className="um-copy" aria-hidden={k > 0 || undefined}>
-      {items.map(({ label, emoji }) => (
-        <li key={label} className="um-chip">
-          <span className="um-emoji" aria-hidden="true">
-            {emoji}
-          </span>
-          {label}
-        </li>
-      ))}
+      {items.map(({ label, photo }, i) => {
+        const tilt = MARQUEE_TILTS[(i + shift) % MARQUEE_TILTS.length]
+        return (
+          <li key={label} className="um-item">
+            <span className="um-pic" data-diamond={tilt === 45 ? "" : undefined} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/home/possibilities/${photo}.webp`} alt="" width={256} height={256} decoding="async" fetchPriority="low" draggable={false} />
+            </span>
+            {label}
+          </li>
+        )
+      })}
     </ul>
   )
   return (
@@ -162,7 +151,7 @@ function easeRow(track: HTMLElement, to: number, ms: number): () => void {
   return () => cancelAnimationFrame(frame)
 }
 
-/** "Unlimited possibilities": what creators sell, two edge-to-edge rows moving left and right. */
+/** "Unlimited possibilities": what creators sell, two edge-to-edge rows of photos and names moving left and right. */
 export function ProductMarquee() {
   const ref = useRef<HTMLElement>(null)
   /* Off screen or in a background tab the rows stop, on /pricing too, where no LandingStory watches them. */
@@ -219,13 +208,14 @@ export function ProductMarquee() {
   return (
     <section ref={ref} data-story-section="categories" className="um" aria-labelledby="um-title" data-unlimited="">
       <style>{CSS}</style>
-      <div className="um-head">
+      {/* A header, not a div: the page's 1400px column rule for a section's divs does not reach it, so it takes the shared home width. */}
+      <header className="um-head">
         <StoryHeading id="um-title" text="Unlimited possibilities" accent={["possibilities"]} />
         <p className="um-sub">Whatever you make, there is a place for it on Storelib. Sell it, book it, teach it or ship it.</p>
-      </div>
+      </header>
       <div className="um-rows">
         {MARQUEE_ROWS.map((row, i) => (
-          <Row key={i} {...row} />
+          <Row key={i} {...row} shift={i * 4} />
         ))}
       </div>
     </section>
