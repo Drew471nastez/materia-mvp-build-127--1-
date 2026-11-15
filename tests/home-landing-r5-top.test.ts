@@ -150,7 +150,8 @@ check("on a 120Hz display the idle spin draws at most about 60 times a second", 
 check("heavy drawing steps the canvas down to fewer device pixels, then the idle spin to 30fps", /st\.dpr = st\.dprCeil = Math\.max\(1, st\.dpr - 0\.5\)/.test(draw) && /const SLOW_FRAME_IDLE_MS = 30/.test(draw))
 
 console.log("\n── The globe: on a phone ──")
-check("device pixels at most 2x, 1.5x on a phone with four cores or 4 GB or less", /return cores <= 4 \|\| memory <= 4 \? 1\.5 : 2/.test(globe) && /Math\.min\(globeDprCap\(\), window\.devicePixelRatio/.test(globe))
+/* Changed on purpose (landing round 8): the owner asked for a lighter globe; a phone draws at 1.5x (1.25x low end), elsewhere 2x or 1.5x low end. */
+check("device pixels at most 2x, 1.5x on a phone with four cores or 4 GB or less", /if \(phone\) return lowEnd \? 1\.25 : 1\.5/.test(globe) && /return lowEnd \? 1\.5 : 2/.test(globe) && /Math\.min\(globeDprCap\(\), window\.devicePixelRatio/.test(globe))
 check("a finger waits 8px: mostly vertical is the page's, sideways is captured then", /if \(Math\.abs\(dx\) < 8 && Math\.abs\(dy\) < 8\) return/.test(globe) && /if \(Math\.abs\(dy\) >= Math\.abs\(dx\)\) \{\s*touch = null/.test(globe) && /touch-action:pan-y/.test(evSrc))
 check("a finger turns the globe about its axis only", /take\(e, touch\.y0\)/.test(globe) && /y: touch && touch\.id === e\.pointerId \? touch\.y0 : e\.clientY/.test(globe))
 check("the globe still stops off screen and in a hidden tab", /driver\.run\(st\.visible && st\.shown && st\.live && !st\.reduced\)/.test(globe))
