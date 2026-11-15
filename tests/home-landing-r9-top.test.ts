@@ -19,7 +19,34 @@
  *      and was cut by the section's box, gone;
  *   8. Mondo Mango "has too many images"; The Strength Room stays as it is.
  *
- * MEASURED_NUMBERS
+ * Measured on the real page in the dev server (Chromium, iPhone 13, CDP touch
+ * sequences; before is round 8's code on the same machine):
+ *   - the strip under a 160px sideways drag in 4px steps: before it stayed 4px
+ *     behind the finger for the whole drag (the 8px spent deciding were never
+ *     given back); now it is taken at 6 to 8px and stands under the finger
+ *     from there (finger 8, 12, 20, 40, 160px: strip 8.6, 12.6, 20.6, 40.6,
+ *     160.6px, the 0.6 being its own drift while it waited).
+ *   - the same drag at 4x CPU: frames over 34ms 3 before and 0 now, the
+ *     longest frame 66.7ms before and 33.4ms now, one 71ms long task before
+ *     and none now. At 1x: one frame over 20ms before, none now.
+ *   - a 150px upward swipe starting on the strip scrolled the page 139px and
+ *     never took the strip; one going 70 across and 100 up scrolled it 90px.
+ *     The same two on the globe: 140px and 88px, the globe never taken. A
+ *     180px sideways swipe on the globe turned it and the page stood still.
+ *   - the pieces' pictures on the phone: 360 x 450 files drawn at 85 x 106
+ *     before, the 240 x 300 ones now (18 files, 95 KB together).
+ *   - playwright.webkit (iPhone 13, pointer events dispatched to the element,
+ *     since its pan cannot be driven from a script): a sideways drag takes
+ *     the strip and the globe, an upward and a slanted one take neither, and
+ *     no attribute changes on the strip. Its frame times on this machine say
+ *     nothing (a software renderer on a dev build: 40 to 70ms a frame with
+ *     nothing dragged).
+ *   - ideas: the heading, line and tabs centred on 195 of 390, 720 of 1440,
+ *     960 of 1920. The picture 1292px wide before and 1135px now at 1440,
+ *     1752 and 1540 at 1920, 350 and 348 at 390. The section 1178px before
+ *     and 1088px now at 1440, 1449 and 1326 at 1920, 522 and 523 at 390.
+ *   - the everything section's height did not change: 2048px at 390, 1502px
+ *     at 1440, 1791px at 1920.
  */
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync, statSync } from "node:fs"
