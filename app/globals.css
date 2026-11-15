@@ -10073,20 +10073,24 @@ html[data-op-press] [data-op-letgo] {
   mask-image: linear-gradient(to bottom, #000, transparent);
 }
 @media (min-width: 48rem) {
+  /* ON A COMPUTER THE BAR IS SOLID, IN THE PAGE'S COLOUR, AND THE CONTENT FADES INTO IT. The owner: "the header ...
+     is getting cutted and it looks bad". The frosted bar showed the content blurred through it and its blur stopped
+     on a straight line, where a photo's sharp edges began, so the content read as cut. Now the bar is the page's
+     own colour and its foot is a 36px fade of that colour, with no blur to end. */
   .op-topbar {
     --op-bar-h: 56px;
     --op-bar-foot: var(--op-bar-h);
-    /* On a computer the card is wide and the page's colour is often not the card's (a gradient, a glow): a lighter
-       tint and a longer fade, so the bar reads as the card frosted, not a strip laid on it. */
-    background-color: color-mix(in srgb, var(--op-bar-bg, #ffffff) 58%, transparent) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(1.5);
-    backdrop-filter: blur(22px) saturate(1.5);
+    background-color: var(--op-bar-bg, #ffffff) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
   .op-topbar::after {
-    height: 28px;
-    background-color: color-mix(in srgb, var(--op-bar-bg, #ffffff) 58%, transparent);
-    -webkit-backdrop-filter: blur(22px) saturate(1.5);
-    backdrop-filter: blur(22px) saturate(1.5);
+    height: 36px;
+    background: linear-gradient(to bottom, var(--op-bar-bg, #ffffff), transparent);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 }
 /* Where no stylesheet draws it, the script writes it a frame at a time: a short ease covers the step. */
@@ -10124,17 +10128,9 @@ html[data-op-press] [data-op-letgo] {
    scroll on the compositor; --op-card-top is where the card starts (written
    by HeroTopBar, 32px by default). Its shadow is drawn by the box around it,
    which this does not cut. */
-@keyframes op-card-top { from { clip-path: inset(0 round 40px); } to { clip-path: inset(20000px 0 0 0 round 40px); } }
-@supports (animation-timeline: scroll()) {
-  @media (min-width: 48rem) {
-    [data-op-card] {
-      animation: op-card-top linear both;
-      animation-timeline: scroll(root block);
-      animation-range: var(--op-card-top, 32px) calc(var(--op-card-top, 32px) + 20000px);
-    }
-    .op-topbar { border-radius: 40px 40px 0 0; }
-  }
-}
+/* Round R3 cut the card with 40px corners at the top of the window as it scrolled. The owner saw the wallpaper in
+   those corners and a block's straight edges running into the curve as the page "getting cutted": the card now
+   passes the window's top square, under the bar, which is its own full width (components/onepage/hero-scroll). */
 
 /* The header's search tail follows its dark field; Explore's light field keeps its own look. */
 [data-header-tone="dark"] [data-header-search-tail] > div > span[aria-hidden] { background-color:rgba(255,255,255,.15); }
