@@ -194,12 +194,12 @@ export function sellMapPath(block: 1 | 2 = 1): string {
  * are far apart on the map. `cell` is the land dot of the city; `buy` the
  * button in that country's language (`lang` for the page's own markup);
  * `side` puts the city's small word to the left of its dot where the right
- * would run into a neighbour (Paris, by Berlin) or off the map (Sydney).
+ * would run into a neighbour (Paris, by Berlin) or off the map (Tokyo, Sydney).
  */
 export const SELL_COUNTRIES = [
   { code: "US", country: "the United States", city: "New York", cell: [70, 26], total: "$32.00", product: "705 tee", photo: "705-tee.webp", kind: "physical", lang: "en", buy: "Buy now" },
   { code: "DE", country: "Germany", city: "Berlin", cell: [128, 18], total: "29,00 €", product: "Cine Tones LUT Pack", photo: "cine-tones-lut-pack.webp", kind: "digital", lang: "de", buy: "Jetzt kaufen" },
-  { code: "JP", country: "Japan", city: "Tokyo", cell: [213, 29], total: "¥4,800", product: "Steel bottle", photo: "steel-bottle.webp", kind: "physical", lang: "ja", buy: "今すぐ購入" },
+  { code: "JP", country: "Japan", city: "Tokyo", cell: [213, 29], total: "¥4,800", product: "Steel bottle", photo: "steel-bottle.webp", kind: "physical", lang: "ja", buy: "今すぐ購入", side: "left" },
   { code: "CA", country: "Canada", city: "Vancouver", cell: [37, 20], total: "C$79.00", product: "Mobility course", photo: "mobility-course.webp", kind: "digital", lang: "en", buy: "Buy now" },
   { code: "FR", country: "France", city: "Paris", cell: [121, 20], total: "24,00 €", product: "Canvas tote", photo: "canvas-tote.webp", kind: "physical", lang: "fr", buy: "Acheter", side: "left" },
   { code: "AU", country: "Australia", city: "Sydney", cell: [220, 75], total: "A$34.00", product: "Ancestral Kitchen", photo: "ancestral-kitchen-cookbook.webp", kind: "digital", lang: "en", buy: "Buy now", side: "left" },
@@ -494,7 +494,7 @@ const MAP_CSS = `
 .cmm-buy{display:grid;place-items:center;height:40px;margin-top:12px;border-radius:12px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:600}
 
 /* The order pill: over the front card's right edge, reaching toward the map. */
-.cmm-order{position:absolute;z-index:4;left:calc(var(--cmm-peek) + var(--cmm-w) - 44px);top:38%;display:inline-flex;align-items:center;height:44px;padding:0 18px 0 7px;border-radius:999px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 18px 36px -18px rgba(0,0,0,.8)}
+.cmm-order{position:absolute;z-index:4;left:calc(var(--cmm-peek) + var(--cmm-w) - 44px);top:38%;width:max-content;display:inline-flex;align-items:center;height:44px;padding:0 18px 0 7px;border-radius:999px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 18px 36px -18px rgba(0,0,0,.8)}
 .cmm-order .cmm-swap{display:grid}
 .cmm-swap span{grid-area:1/1;display:inline-flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums;opacity:0;transform:translate3d(0,6px,0);transition:opacity .22s ease-out,transform .45s ${EASE}}
 .cmm-swap span[data-was]{transform:translate3d(0,-6px,0)}
@@ -539,11 +539,11 @@ const MAP_CSS = `
   .cmm-prod-name{padding:10px 3px 0;font-size:14px;line-height:19px}
   .cmm-prod-row{flex-direction:column;align-items:flex-start;gap:0;padding:0 3px;margin-top:2px}
   .cmm-buy{height:36px;margin-top:10px;font-size:13.5px}
-  .cmm-order{position:relative;left:auto;top:auto;order:-1;margin:-26px 0 14px;height:40px;padding:0 16px 0 6px;font-size:13.5px}
-  .cmm-order img{width:28px;height:28px}
+  .cmm-order{position:relative;left:auto;top:auto;order:-1;margin:-18px 0 14px;height:36px;padding:0 14px 0 5px;font-size:13px}
+  .cmm-order img{width:26px;height:26px}
   .cmm-copy{margin:28px 18px 0}
   .cmm-copy p{font-size:14.5px}
-  .cmm-say{font-size:11px;line-height:14px;left:7px}
+  .cmm-say{font-size:10.5px;line-height:14px;left:7px}
   .cmm-pin[data-side="left"] .cmm-say{right:7px}
   .cmm-core{left:-3px;top:-3px;width:6px;height:6px}
   .cmm-dot::before{left:-2px;top:-2px;width:4px;height:4px}
