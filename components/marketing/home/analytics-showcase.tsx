@@ -294,7 +294,8 @@ function EnginesCard({ live, reduced }: { live: boolean; reduced: boolean }) {
 /*
   THE ENTRANCE (landing round 9). Every block marked data-rise is watched by
   one IntersectionObserver. The first report about a block decides: wholly
-  below the screen, it is hidden ("wait") until it comes on screen ("in");
+  below the screen (or in a lazy box the browser is still skipping), it is
+  hidden ("wait") until it comes on screen ("in");
   already on screen or above it, it is left exactly as it is. So a block is
   never hidden while it could be seen, and without script or under reduced
   motion nothing is hidden at all. No scroll listener, nothing measured.
@@ -312,7 +313,9 @@ function useRise(ref: RefObject<HTMLElement | null>) {
           if (!seen.has(el)) {
             seen.add(el)
             if (!entry.isIntersecting) {
-              if (entry.boundingClientRect.top > innerHeight) el.dataset.rise = "wait"
+              /* An empty rectangle: the block is in a lazy box the browser is still skipping (content-visibility), which it only does far off screen. */
+              const box = entry.boundingClientRect
+              if (box.top > innerHeight || (box.width === 0 && box.height === 0)) el.dataset.rise = "wait"
               else io.unobserve(el)
               continue
             }

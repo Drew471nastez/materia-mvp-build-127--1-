@@ -89,7 +89,8 @@
  *  - a country stays 3s (SELL_STEP_MS).
  *  - a turn renders nothing: the flag's line ends, and a handful of
  *    attributes are written straight to the layers already in the page
- *    (data-on, data-was, three custom properties on the card). React is not
+ *    (data-on, data-was, and three numbers, each on the one element that
+ *    reads it, so the rest of the card is not restyled). React is not
  *    asked to render the section in the middle of its own transition, which
  *    was a task of 50 to 60ms at 4x CPU on every turn.
  *  - the product, its words and the button change on one clock: the picture
@@ -234,9 +235,11 @@ export function SellEverywhereMap() {
     t.active = i
     t.laps++
     const pan = sellMapPan(SELL_COUNTRIES[i].cell)
-    el.style.setProperty("--a", String(i))
-    el.style.setProperty("--pan-x", pan.x)
-    el.style.setProperty("--pan-y", pan.y)
+    /* Each number is written on the one element that reads it (and is registered as not inherited, MAP_CSS): written on the card, it made the browser work out the style of all 145 elements inside it again, 27 to 41ms at 4x CPU on every turn. */
+    el.querySelector<HTMLElement>(".cmm-flag-lit")?.style.setProperty("--cmm-a", String(i))
+    const map = el.querySelector<HTMLElement>(".cmm-map")
+    map?.style.setProperty("--cmm-pan-x", pan.x)
+    map?.style.setProperty("--cmm-pan-y", pan.y)
     for (const node of el.querySelectorAll<HTMLElement>("[data-i]")) {
       const k = Number(node.dataset.i)
       node.toggleAttribute("data-on", k === i)
@@ -262,14 +265,14 @@ export function SellEverywhereMap() {
           <StoryHeading id="cmm-title" text="Your store never closes. Sell anywhere." accent={["anywhere"]} />
         </div>
 
-        <div ref={card} className="cmm-card" style={{ "--a": 0, "--pan-x": first.x, "--pan-y": first.y } as CSSProperties}>
+        <div ref={card} className="cmm-card">
           <span className="cmm-grid" aria-hidden="true" />
           <div
             className="cmm-world"
             role="img"
             aria-label={`A world map with orders from ${SELL_COUNTRIES.map((c) => c.city).join(", ")}, each buyer seeing a product, physical or digital, priced in their own money (${SELL_COUNTRIES.map((c) => c.total).join(", ")}) with the buy button in their language.`}
           >
-            <div className="cmm-map" aria-hidden="true">
+            <div className="cmm-map" aria-hidden="true" style={{ "--cmm-pan-x": first.x, "--cmm-pan-y": first.y } as CSSProperties}>
               <svg className="cmm-svg" viewBox={`0 0 ${SELL_MAP.cols} ${SELL_MAP.rows}`} preserveAspectRatio="xMidYMid meet" focusable="false">
                 {dots ? <path d={dots} fill="none" stroke="#ffffff" strokeOpacity={0.28} strokeWidth={0.6} strokeLinecap="round" /> : null}
               </svg>
@@ -293,7 +296,7 @@ export function SellEverywhereMap() {
 
           <div className="cmm-side">
             <div className="cmm-flags" role="group" aria-label="Buyer's country">
-              <span className="cmm-flag-lit" aria-hidden="true">
+              <span className="cmm-flag-lit" aria-hidden="true" style={{ "--cmm-a": 0 } as CSSProperties}>
                 {/* The line that times the turn: it starts again with every country, and its end brings the next. */}
                 <i className="cmm-time" data-lap="0" onAnimationEnd={next} />
               </span>
@@ -360,6 +363,9 @@ const EASE = "cubic-bezier(.22,1,.36,1)"
 const SOFT = "cubic-bezier(.4,0,.2,1)"
 const STEP = SELL_STEP_MS
 const MAP_CSS = `
+@property --cmm-a{syntax:"<number>";inherits:false;initial-value:0}
+@property --cmm-pan-x{syntax:"<percentage>";inherits:false;initial-value:0%}
+@property --cmm-pan-y{syntax:"<percentage>";inherits:false;initial-value:0%}
 .cmm{position:relative;background:#fff;color:#0f0e13;padding:clamp(72px,9vw,128px) 0}
 /* Landing round 9: white whatever sheet it is in, by its own classes (a band's rules recolour by [data-band] .cmm, two classes strong). */
 [data-landing-story] .cmm.cmm{background:#fff;color:#0f0e13}
@@ -402,7 +408,7 @@ const MAP_CSS = `
 @media (hover:hover) and (pointer:fine){.cmm-flag:hover{opacity:1}}
 .cmm-flag:focus-visible{outline:2px solid #fff;outline-offset:2px;opacity:1}
 .cmm-flags img{width:24px;height:17px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
-.cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:40px;height:40px;border-radius:12px;pointer-events:none;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--a) * 48px),0);transition:transform .7s ${EASE}}
+.cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:40px;height:40px;border-radius:12px;pointer-events:none;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--cmm-a) * 48px),0);transition:transform .7s ${EASE}}
 .cmm-flag-lit::after,.cmm-time{position:absolute;left:10px;right:10px;bottom:5px;height:2px;border-radius:2px}
 .cmm-flag-lit::after{content:"";background:rgba(255,255,255,.14)}
 .cmm-time{z-index:1;background:rgba(255,255,255,.88);transform:scaleX(0);transform-origin:0 50%;animation:cmm-time ${STEP}ms linear both;animation-play-state:paused}
@@ -439,10 +445,10 @@ const MAP_CSS = `
   .cmm-world::before,.cmm-world::after{content:"";position:absolute;z-index:2;top:0;bottom:0;width:9%;pointer-events:none}
   .cmm-world::before{left:0;background:linear-gradient(90deg,#0f0f12,rgba(15,15,18,0))}
   .cmm-world::after{right:0;background:linear-gradient(270deg,#0f0f12,rgba(15,15,18,0))}
-  .cmm-map{width:${ZOOM * 100}%;transform:translate3d(var(--pan-x,0),var(--pan-y,0),0);transition:transform 1.4s ${EASE};will-change:transform}
+  .cmm-map{width:${ZOOM * 100}%;transform:translate3d(var(--cmm-pan-x,0),var(--cmm-pan-y,0),0);transition:transform 1.4s ${EASE};will-change:transform}
   .cmm-side{order:2;width:auto;flex-direction:column;align-items:stretch;gap:14px;margin:14px 14px 0}
   .cmm-flags{align-self:center;grid-auto-flow:column;grid-auto-rows:auto;grid-auto-columns:40px;gap:8px}
-  .cmm-flags .cmm-flag-lit{transform:translate3d(calc(var(--a) * 48px),0,0)}
+  .cmm-flags .cmm-flag-lit{transform:translate3d(calc(var(--cmm-a) * 48px),0,0)}
   .cmm-prod{display:grid;grid-template-columns:112px minmax(0,1fr);grid-template-rows:1fr auto;column-gap:14px;width:auto;padding:10px;border-radius:18px}
   .cmm-photos{grid-row:1/3;border-radius:11px}
   .cmm-prod-info{padding:4px 2px 0}
@@ -459,7 +465,7 @@ const MAP_CSS = `
   .cmm-map{width:100%;transform:none;will-change:auto}
   .cmm-side{flex-direction:row;align-items:center;justify-content:center;gap:22px}
   .cmm-flags{align-self:auto;grid-auto-flow:row;grid-auto-columns:auto;grid-auto-rows:40px}
-  .cmm-flags .cmm-flag-lit{transform:translate3d(0,calc(var(--a) * 48px),0)}
+  .cmm-flags .cmm-flag-lit{transform:translate3d(0,calc(var(--cmm-a) * 48px),0)}
   .cmm-prod{width:min(420px,70%)}
 }
 @media (max-width:767px){
