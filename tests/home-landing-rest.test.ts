@@ -148,8 +148,8 @@ console.log("\n── Your AI tools work here too ──")
   check("paused until on screen, and the tab visible", /animation-play-state:paused/.test(css) && /\.ait-term\[data-live\] \.ait-line,\.ait-term\[data-live\] \.ait-cover,\.ait-term\[data-live\] \.ait-caret\{animation-play-state:running\}/.test(css) && /new IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /document\.hidden/.test(src))
   check("reduced motion shows the finished terminal, still", /@media \(prefers-reduced-motion:reduce\)\{\s*\.ait-line\{animation:none!important;opacity:1;transform:none\}\s*\.ait-cover\{display:none\}/.test(css))
   check("no scroll listener, no per-frame state", !/addEventListener\("scroll"|requestAnimationFrame|useState/.test(src))
-  // Changed on purpose (landing round 11): the owner asked for a light running round the terminal; its soft rim is one still blur (.ait-glow), and the dot field's mask is a radial gradient. Still no backdrop blur.
-  check("not loud: no backdrop blur, the only blur the terminal's soft rim, the card a quiet dark with a deep purple corner", !/backdrop-filter/.test(css) && (css.match(/filter:\s*blur/g) ?? []).length === 1 && /\.ait-glow\{[^}]*filter:blur\(7px\)/.test(css) && /\.ait-card\{[^}]*linear-gradient\(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%\)/.test(css))
+  // Changed on purpose (landing round 11): the owner asked for a light running round the terminal; its soft rim fades by a still mask, not a blur, and the dot field's mask is a radial gradient.
+  check("not loud: no blur at all, the card a quiet dark with a deep purple corner", !/backdrop-filter|filter:\s*blur/.test(css) && /\.ait-glow\{[^}]*mask-image:linear-gradient/.test(css) && /\.ait-card\{[^}]*linear-gradient\(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%\)/.test(css))
   check("the corners a pixel tighter than the page's 32px", /\.ait-card\{[^}]*border-radius:clamp\(21px,2\.4vw,31px\)/.test(css))
   check("words: no em dash, banned word or fans", !/—/.test(text(html) + AI_TOOLS_SCRIPT.map((l) => l.text).join(" ")) && !BANNED.test(text(html)) && !/\bfans?\b/i.test(text(html)))
 

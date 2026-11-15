@@ -831,8 +831,8 @@ const HOW_CSS = `
 .cmh-o{animation-duration:.7s;animation-timing-function:${EASE};animation-fill-mode:both;animation-play-state:paused}
 [data-seen] .cmh-o{animation-play-state:running}
 /* A picture is drawn in em: its font size follows its card's width, so one drawing fits a narrow card at 1100px and a wide one at 1920. */
-.cmh-sc{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(10.5px,4.6cqw,16px);line-height:1.3;color:#18181b}
-.cmh-biz{font-size:clamp(10px,2.3cqw,17px)}
+.cmh-sc{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(10.5px,4.6cqw,18px);line-height:1.3;color:#18181b}
+.cmh-biz{font-size:clamp(10px,2.3cqw,19px)}
 /* One white panel a picture: a hairline and one soft shadow, the same on all three. */
 .cmh-tip-panel,.cmh-biz-panel,.cmh-dm-win{background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.06),0 1.6em 3em -2em rgba(24,24,27,.28);box-sizing:border-box}
 

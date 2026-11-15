@@ -66,9 +66,9 @@
              gone by the time the footer starts.
 
   Landing round 11, the owner, of the closing call: "the pattern dots
-  should be more smooth and clean and more visible at the bottom as well";
-  and of the AI tools card, "make the pattern more visible and clean for it
-  as well" (it carries this field now). So:
+  should be more smooth and clean and more visible at the bottom as well"
+  (the AI tools card got a still grid of the same dots, in its own file).
+  So:
 
     visible  the dark tone rests at 0.34 (was 0.19) and lights to 0.68
              (was 0.46), and the trough of the flow keeps 45% of a
