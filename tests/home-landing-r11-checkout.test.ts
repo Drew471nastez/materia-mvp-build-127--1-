@@ -15,12 +15,12 @@
  *
  *   the ring          its own 3D space (cmc-ring, z 2) drawn under the phone (z 3), set back by its radius so its
  *                     nearest point is level with the phone: a product swings out beside the phone and passes
- *                     behind it, never across its screen. Wider: 44vw (up to 880px) on a computer, 60vw on a
+ *                     behind it, never across its screen. Wider: 44vw (up to 880px) on a computer, 64vw on a
  *                     phone. Each face cross fades its sharp object (cmc-near) to its blurred copy (cmc-far) as
  *                     it goes round the back, on the ring's own clock; opacity only. The copies are blurred
  *                     harder (scripts/bake-checkout-soft.mjs, 0.085 of the width)
  *   the phone         --pe is the settled phone (the room one screen leaves under a two row headline), --pw the
- *                     big phone it starts as (1.72x on a computer, 1.36x on a phone); one scroll timeline
+ *                     big phone it starts as (1.72x on a computer, 1.24x on a phone); one scroll timeline
  *                     transform takes the world from big and low (its top at 40svh) to settled, as the words
  *                     rise in on two rows
  *   One-tap           a creator's dark page, Buy now, and instant-checkout.tsx's window over it in
@@ -66,9 +66,10 @@ const ruleIn = (sheet: string, sel: string) => sheet.match(new RegExp(`(?:^|[\\n
 
 console.log("\n1. The ring: wider, under the phone, soft round the back")
 check("the ring is its own 3D space, drawn before the phone and under it (z 2 to the phone's 3)", /^class="cmc-stage"><div class="cmc-copy">[\s\S]*?<\/div><div class="cmc-ring" aria-hidden="true"><div class="cmc-orbit">[\s\S]*<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise">/.test(stage) && /\.cmc-ring\{position:absolute;z-index:2;inset:0;pointer-events:none;perspective:var\(--pp\);perspective-origin:50% var\(--cy\)\}/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css))
+check("  under the phone, its shape in solid black, carried as the phone is and stepping back with it, never faded: nothing shows through the phone as it goes soft", /<\/div><\/div><div class="cmc-shade" aria-hidden="true"><span><\/span><\/div><div class="cmc-phone-wrap">/.test(stage) && /\.cmc-shade > span\{animation:cmc-settle cubic-bezier\(\.4,0,\.2,1\) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain 44svh\}/.test(tl) && /\.cmc-shade\{animation:cmc-back linear both;/.test(tl) && /^from\{transform:scale\(1\)\}to\{transform:scale\(0\.92\)\}$/.test(keyframes("cmc-back")) && /\.cmc-shade > span::before\{[^}]*background:#000\}/.test(css) && !/\.cmc-shade[^{]*\{[^}]*opacity/.test(css))
 check("  the phone's world holds no products and no 3D: nothing can be sorted in front of its screen", !/class="cmc-world">[^]*?class="cmc-o"/.test(stage.slice(stage.indexOf('class="cmc-phone-wrap"'))) && !/\.cmc-world\{[^}]*preserve-3d/.test(css))
 check("  set back by its radius, so its nearest point is level with the phone, then leaning and turning", /\.cmc-orbit\{position:absolute;left:50%;top:var\(--cy\);width:0;height:0;transform-style:preserve-3d;transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(0deg\)\}/.test(css))
-check("wider: 44vw (up to 880px) on a computer, 60vw (up to 320px) on a phone, the perspective three radii", /--r:min\(44vw,880px\)/.test(desk) && /--r:min\(60vw,320px\);--pp:calc\(var\(--r\) \* 3\)/.test(css))
+check("wider: 44vw (up to 880px) on a computer, 64vw (up to 340px) on a phone, the perspective three radii", /--r:min\(44vw,880px\)/.test(desk) && /--r:min\(64vw,340px\);--pp:calc\(var\(--r\) \* 3\)/.test(css))
 check("each face: the sharp object, its blurred copy for depth, its blurred copy for the cards", FLOATS.every((f) => new RegExp(`data-f="${f.id}"[^>]*><span class="cmc-face"><span class="cmc-sharp"><span class="cmc-near">[\\s\\S]*?</span></span><img class="cmc-far" src="/home/commerce/soft-${f.id}\\.webp"[^>]*><img class="cmc-soft" src="/home/commerce/soft-${f.id}\\.webp"`).test(stage)))
 check("  sharp beside the phone, soft round the back: one cross fade over the turn, opacity only", /^0%,26%,74%,100%\{opacity:1\}40%,60%\{opacity:0\}$/.test(keyframes("cmc-near")) && /^0%,26%,74%,100%\{opacity:0\}40%,60%\{opacity:1\}$/.test(keyframes("cmc-far")) && onlyCompositor(keyframes("cmc-near")) && onlyCompositor(keyframes("cmc-far")))
 check("  on the ring's own clock, from each object's place, linear, paused off screen", ["near", "far"].every((k) => new RegExp(`\\.cmc-${k}\\{animation:cmc-${k} 44s linear infinite;animation-delay:calc\\(var\\(--p\\) \\* -44s\\);animation-play-state:paused\\}`).test(css)) && /\.cmc-stage\[data-commerce-live\] :is\(\.cmc-face,\.cmc-near,\.cmc-far\)\{animation-play-state:running\}/.test(css))
@@ -77,7 +78,7 @@ check("the copies are blurred harder now (0.085 of the width), small webp files 
 check("  the bake script knows the new parts (the depth copy hidden, the sharp layer flat)", /\.cmc-soft,\.cmc-far\{display:none!important\}/.test(read("scripts/bake-checkout-soft.mjs")) && /\.cmc-near,/.test(read("scripts/bake-checkout-soft.mjs")))
 
 console.log("\n2. The phone: big as the section arrives, smaller under a two row headline")
-check("the settled phone is the room one screen leaves under the headline; the big one a multiple of it", /--pe:min\(68vw,300px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css) && /--big:1\.72;--ps:0\.581;--y0:40svh/.test(desk) && /--big:1\.36;--ps:0\.735;/.test(css))
+check("the settled phone is the room one screen leaves under the headline; the big one a multiple of it", /--pe:min\(68vw,300px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css) && /--big:1\.72;--ps:0\.581;--y0:40svh/.test(desk) && /--big:1\.24;--ps:0\.806;/.test(css))
 check("  the phone's box is the big phone's; the world carries it from big and low to settled, one transform", /\.cmc-phone-wrap\{position:absolute;z-index:3;left:50%;top:0;width:var\(--pw\);height:calc\(var\(--pw\) \* 2\.07\);margin-left:calc\(var\(--pw\) \/ -2\)\}/.test(css) && /\.cmc-world\{position:relative;width:100%;height:100%;transform-origin:50% 0;transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}/.test(css) && /^from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}to\{transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}$/.test(keyframes("cmc-settle")))
 check("  on the scroll timeline over the first 44svh of the hold, eased", /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.4,0,\.2,1\) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain 44svh\}/.test(tl))
 check("  it settles with its top under the headline's two rows (and so its foot on the stage's)", /--y1:calc\(var\(--hd\) \+ var\(--tt\) \+ var\(--fs\) \* 2\.1 \+ var\(--gap\)\)/.test(css) && /\.cmc-title\{margin:0 auto;font-size:var\(--fs\);font-weight:300;line-height:1\.04;/.test(css))
@@ -88,6 +89,7 @@ check("  each word still rises in on the timeline, in order", (co.match(/class="
 console.log("\n3. Bring back the ones who almost bought: the email and the Recovered chart")
 const rec = card("recover")
 check("the reminder email and the Recovered tile with its rising line, last month dashed under it", /class="cmv-mail"/.test(rec) && /Still thinking it over\?/.test(words(rec)) && /Recovered/.test(words(rec)) && /\$384\.00/.test(rec) && /\$416\.00/.test(rec) && /class="cmv-chart"><svg viewBox="0 0 120 56"/.test(rec) && /stroke-dasharray="3 3"/.test(rec) && /13 of 41 came back/.test(words(rec)))
+check("  the chart is never empty: only today's last stretch is covered until the sale is paid (it was wiped whole each loop)", /^0%,[\d.]+%\{transform:translate3d\(76%,0,0\)\}[\d.]+%,100%\{transform:translate3d\(101%,0,0\)\}$/.test(keyframes("cmv-wipe")) && /^0%,8%\{opacity:0;/.test(keyframes("cmv-mail")))
 const mail = ruleIn(phoneCss, ".cmv-mail")
 const got = ruleIn(phoneCss, ".cmv-got")
 check("  on a phone the email and the tile sit side by side inside the square", em("left", mail) + em("width", mail) < em("left", got) && em("left", got) < 32 && em("right", got) > 0 && em("bottom", got) > 0 && !/\.cmv-mail p\{display:none/.test(phoneCss))

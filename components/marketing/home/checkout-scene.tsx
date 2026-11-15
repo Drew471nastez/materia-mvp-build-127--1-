@@ -123,13 +123,13 @@ const SOFT_PAD = 20
 const SOFT_W = 100 + 2 * SOFT_PAD
 export const SOFT: Readonly<Record<string, { w: number; h: number }>> = {
   tee: { w: 112, h: 146 },
-  luts: { w: 112, h: 105 },
+  luts: { w: 112, h: 106 },
   cap: { w: 112, h: 83 },
   course: { w: 112, h: 100 },
   tote: { w: 112, h: 151 },
   ebook: { w: 112, h: 139 },
-  notion: { w: 112, h: 93 },
-  phone: { w: 168, h: 296 },
+  notion: { w: 112, h: 94 },
+  phone: { w: 168, h: 297 },
 }
 /** One turn of the ring, in seconds. */
 const TURN_S = 44
@@ -175,8 +175,10 @@ const FACTS = [
 ] as const
 
 /** Where the finger presses in the One-tap demo's page (px of the 393 x 852 screen): Buy now, then Pay with Apple Pay. */
-const IC_BUY_Y = 420
-const IC_PAY_Y = 652
+const IC_BUY_Y = 424
+const IC_PAY_Y = 706
+/** Where the checkout's window starts on the screen: below the creator's picture, so the page shows above it, dimmed. */
+const IC_SHEET_TOP = 150
 /** One demo, start to finish, in seconds. Every card's loop is this long. */
 const LOOP_S = 10
 /** A moment of the loop (seconds) as a keyframe offset. */
@@ -347,6 +349,10 @@ export function CheckoutScene() {
           </div>
 
           <Orbit />
+          {/* The phone's shape in black under it, moving with it but never fading: as the phone goes soft behind the cards, no product shows through it. */}
+          <div className="cmc-shade" aria-hidden="true">
+            <span />
+          </div>
           <div className="cmc-phone-wrap">
             <div className="cmc-world">
               <div className="cmc-rise">
@@ -1262,6 +1268,8 @@ function VisCurrency() {
  * grid; the stroke keeps its width however the tile is sized.
  */
 const REC_LINE = "M0 44 C8 43 12 38 20 39 S32 46 40 36 S52 24 60 27 S72 34 80 24 S92 20 100 15 S112 8 120 4"
+/** Where today's stretch of the line starts, as a share of the tile's width: the part drawn on once this sale is paid. */
+const REC_TODAY = 76
 const REC_PREV = "M0 48 C10 44 14 50 24 46 S38 40 48 45 S62 50 72 42 S88 44 98 38 S112 40 120 34"
 
 /**
@@ -1410,6 +1418,7 @@ ${FLOATS.map((f) => (f.m ? `  .cmc-o[data-f="${f.id}"]{${spotVars(f.m, f)}}` : "
 @keyframes cmc-settle{from{transform:translate3d(0,var(--y0),0) scale(1)}to{transform:translate3d(0,var(--y1),0) scale(var(--ps))}}
 @keyframes cmc-word{from{opacity:0;transform:translate3d(0,.55em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmc-recede{from{opacity:1;transform:scale(1)}to{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}}
+@keyframes cmc-back{from{transform:scale(1)}to{transform:scale(${RECEDE_SCALE})}}
 @keyframes cmc-out{from{opacity:1}to{opacity:0}}
 @keyframes cmc-in{from{opacity:0}to{opacity:1}}
 /* The phone is the brightest thing on the stage: behind the cards its blurred copy comes up to only 30%, so the products lead. */
@@ -1482,9 +1491,9 @@ const SCENE_CSS = `
   --hd:60px;--tt:clamp(12px,2.2svh,24px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(12px,2svh,20px);
   --fs:clamp(27px,8.2vw,40px);
   --pe:min(68vw,300px,calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
-  --big:1.36;--ps:${f3(1 / 1.36)};--pw:calc(var(--pe) * var(--big));
+  --big:1.24;--ps:${f3(1 / 1.24)};--pw:calc(var(--pe) * var(--big));
   --y0:38svh;--y1:calc(var(--hd) + var(--tt) + var(--fs) * 2.1 + var(--gap));
-  --r:min(60vw,320px);--pp:calc(var(--r) * 3);--cy:58svh;--tilt:-14deg;--iw:var(--pe)}
+  --r:min(64vw,340px);--pp:calc(var(--r) * 3);--cy:58svh;--tilt:-14deg;--iw:var(--pe)}
 .cmc-copy{position:absolute;z-index:4;left:var(--edge);right:var(--edge);top:calc(var(--hd) + var(--tt));text-align:center}
 .cmc-title{margin:0 auto;font-size:var(--fs);font-weight:300;line-height:1.04;letter-spacing:-.045em;color:#fff}
 .cmc-row{display:block;white-space:nowrap}
@@ -1493,6 +1502,10 @@ const SCENE_CSS = `
 .cmc-phone-wrap{position:absolute;z-index:3;left:50%;top:0;width:var(--pw);height:calc(var(--pw) * 2.07);margin-left:calc(var(--pw) / -2)}
 .cmc-world{position:relative;width:100%;height:100%;transform-origin:50% 0;transform:translate3d(0,var(--y1),0) scale(var(--ps))}
 .cmc-rise{position:relative}
+/* The phone's shape in solid black, under the phone and over the ring, carried exactly as the phone is (the same box, the same settle), stepping back with it but never fading. */
+.cmc-shade{position:absolute;z-index:3;left:50%;top:0;width:var(--pw);height:calc(var(--pw) * 2.07);margin-left:calc(var(--pw) / -2);pointer-events:none}
+.cmc-shade > span{position:relative;display:block;width:100%;height:100%;transform-origin:50% 0;transform:translate3d(0,var(--y1),0) scale(var(--ps))}
+.cmc-shade > span::before{content:"";position:absolute;inset:1.5%;border-radius:calc(var(--pw) * .16);background:#000}
 
 /*
  * The ring, under the phone (z 2 to the phone's 3). Its box (cmc-ring) gives
@@ -1549,6 +1562,8 @@ ${THINGS_CSS}
     .cmc-stage{position:sticky;top:0}
     .cmc-track > .cmc-cards{margin-top:calc(${DWELL} - ${OVERLAP})}
     .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
+    .cmc-shade > span{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
+    .cmc-shade{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
     /*
      * Round 10: the stage stays held behind the cards. As they come up the
      * phone and the ring step back (a little smaller, faded to ${RECEDE_TO}) and
@@ -1704,7 +1719,7 @@ const PHONE_CSS = `
 .ic-buy{grid-column:1/-1;display:flex;align-items:center;justify-content:center;height:48px;border-radius:12px;background:#ececee;color:#111113;font-size:16px;font-weight:600}
 .ic-link{display:flex;align-items:center;justify-content:center;width:100%;height:56px;margin-top:12px;border-radius:16px;background:#1c1c20;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);box-sizing:border-box;font-size:15px;font-weight:500}
 .ic-dim{position:absolute;inset:0;z-index:3;background:#000;opacity:.6}
-.ic-sheet{position:absolute;left:0;right:0;top:104px;bottom:0;z-index:4;overflow:hidden;border-radius:28px 28px 0 0;background:#18181b;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.ic-sheet{position:absolute;left:0;right:0;top:${IC_SHEET_TOP}px;bottom:0;z-index:4;overflow:hidden;border-radius:28px 28px 0 0;background:#18181b;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 .ic-head{position:relative;display:flex;flex-direction:column;align-items:center;padding:22px 20px 20px;background:#111113;border-bottom:1px solid rgba(255,255,255,.07)}
 .ic-x{position:absolute;right:10px;top:10px;display:grid;place-items:center;width:44px;height:44px;color:#9c9da4}
 .ic-mark{display:block;width:76px;height:76px;margin-top:6px;border-radius:12px;overflow:hidden}
@@ -1859,8 +1874,8 @@ const DESK_CSS = u(`
 const CARD_GROUND = "#111113"
 /* Built to convert on a phone: the window's design width (u), and how far its page scrolls to the shipping and to Pay (measured in the window, in u). */
 const CDX_NARROW = 380
-const CDX_S1 = 760
-const CDX_S2 = 1030
+const CDX_S1 = 870
+const CDX_S2 = 1190
 /* The tallest a card's picture is drawn (a 1440 x 800 screen shows a whole card with room to spare). */
 const VIS_CAP = "44svh"
 
@@ -2240,9 +2255,13 @@ ${hlKeyframes}
 @keyframes cmv-st1{0%,${at(0.2)}{opacity:.35}${at(0.5)},100%{opacity:1}}
 @keyframes cmv-st2{0%,${at(0.95)}{opacity:.35}${at(1.25)},100%{opacity:1}}
 @keyframes cmv-st3{0%,${at(4.55)}{opacity:.35}${at(4.85)},100%{opacity:1}}
-@keyframes cmv-mail{0%,${at(1)}{opacity:0;transform:translate3d(0,1.4em,0)}${at(1.9)},100%{opacity:1;transform:translate3d(0,0,0)}}
-/* The Recovered tile: its line drawn as the email goes out, its amount up by this sale once it is paid. */
-@keyframes cmv-wipe{0%,${at(0.9)}{transform:translate3d(0,0,0)}${at(3.4)},100%{transform:translate3d(101%,0,0)}}
+@keyframes cmv-mail{0%,${at(0.8)}{opacity:0;transform:translate3d(0,1.4em,0)}${at(1.6)},100%{opacity:1;transform:translate3d(0,0,0)}}
+/*
+ * The Recovered tile (round 11, the owner: bring it back "with the Recovered chart there"): the month's line is
+ * always drawn; only its last stretch, today, is covered until this sale is paid, then drawn on as the amount
+ * goes up by it. Before, the whole line was wiped in each loop and the tile stood empty for its first seconds.
+ */
+@keyframes cmv-wipe{0%,${at(4.6)}{transform:translate3d(${REC_TODAY}%,0,0)}${at(5.4)},100%{transform:translate3d(101%,0,0)}}
 @keyframes cmv-n0{0%,${at(4.6)}{opacity:1}${at(4.85)},100%{opacity:0}}
 @keyframes cmv-n1{0%,${at(4.7)}{opacity:0;transform:translate3d(0,.35em,0)}${at(5.1)},100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmv-btn{0%,${at(3.8)}{transform:scale(1)}${at(3.95)}{transform:scale(.94)}${at(4.2)},100%{transform:scale(1)}}
