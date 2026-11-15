@@ -53,20 +53,19 @@ console.log("\nThe examples")
 check("no Nadia Brooks, no LaSalle at dusk, no The Loop, no checkout tile", !/Nadia|LaSalle|The Loop|Checkout without leaving your page|cmh-sheet|cmh-op-|print-lasalle|creator-nadia|guide-loop/.test(code(FILE) + words(how)))
 check("nothing imported from the checkout track's files", !/from "\.\/(checkout-scene|ebook-cover)"/.test(src))
 check("one made up woodworker's shop: Ruben Linde, Linde Woodshop", HOW_SHOP.creator === "Ruben Linde" && HOW_SHOP.name === "Linde Woodshop" && text.includes("Support Ruben") && text.includes("Linde Woodshop"))
-check("a shop apron printed when ordered and workbench plans as a PDF", HOW_PRODUCTS.map((p) => `${p.id}:${p.kind}`).join() === "apron:Physical,plans:Digital" && text.includes("Linde Shop Apron") && text.includes("Weekend Workbench Plans"))
+// Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack (tests/home-landing-r8-how.test.ts).
+check("a tee printed when ordered and the LUT pack as a download", HOW_PRODUCTS.map((p) => `${p.id}:${p.kind}`).join() === "tee:Physical,luts:Digital" && text.includes("Linde Shop Tee") && text.includes("Cine Tones LUT Pack"))
 check("what he keeps is the price less Storelib's real fee and the print cost", HOW_PRODUCTS.every((p) => p.keepCents === p.priceCents - calculateStorelibFee({ grossMinor: p.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - p.baseCents && p.keepCents > 0))
 check("a hand tool course in the player", ["Sharpening a chisel", "Sawing to a line", "Planing a board flat", "Your first dovetail", "2 of 7 done"].every((w) => text.includes(w)))
-const PICS = ["apron", "plans-bench", "lesson-plane", "linde-avatar", "site-workshop"]
+const PICS = ["tee-white", "lesson-plane", "linde-avatar", "site-workshop"] // Changed on purpose (landing round 8): the tee in place of the apron and the bench.
 check("its pictures are local webp files under 120 KB, all drawn", PICS.every((n) => existsSync(`public/home/how/${n}.webp`) && statSync(`public/home/how/${n}.webp`).size < 120 * 1024 && how.includes(`/home/how/${n}.webp`)))
 check("the street course still this section alone used is gone", !existsSync("public/home/how/course-street.webp") && !how.includes("course-street"))
 check("none of the banned samples", !/weeknight|pasta|sourdough|golden hour|wheel throw|drawing basics|saturday run club|dust & tape|elena ruiz|payout|\bfans?\b/i.test(src + text))
 
-console.log("\nYour own domain, as it was before, on black to deep purple")
-check("round 3's tile: the drawn website, the address pill with its tick, the three addresses", how.includes('class="cmh-dm-site"') && how.includes('class="cmh-dm-pill"') && /cmh-a cmh-dm-ok/.test(how) && (how.match(/class="cmh-dm-row"/g) ?? []).length === 3 && !how.includes("cmh-dm-card"))
-check("the pill reads www.lindewoodshop with a violet .com", how.includes(`${HOW_DOMAIN.name}<b>${HOW_DOMAIN.tld}</b>`) && /\.cmh-dm-addr b\{font-weight:500;color:#7c3aed\}/.test(css))
-check("the three purposes the product serves, each at an address Storelib accepts", HOW_DOMAIN.targets.map((t) => t.purpose).join() === DOMAIN_PURPOSES.join() && HOW_DOMAIN.targets.every((t) => hostnameProblem(cleanHostname(`${t.sub}.lindewoodshop.com`)) === null))
-const night = (css.match(/\.cmh-stage\[data-ground=night\]\{([^}]*)\}/) ?? [])[1] ?? ""
-check("the ground is a still black to deep purple gradient: no neon, no glass, nothing animated", /linear-gradient\(160deg,#050507 0%,#0c0a12 46%,#1d1233 100%\)/.test(night) && /radial-gradient\(90% 80% at 100% 100%,#3a1c6b/.test(night) && !/backdrop-filter|blur\(|animation/.test(night) && !/#a855f7|#c084fc|#d946ef|#8b5cf6/.test(night) && /data-ground="night"/.test(how))
+console.log("\nYour own domain")
+// Changed on purpose (landing round 8) (the owner: the www, shop and club banner was "too complex", and the black card the odd one out): one browser window on a light ground; tests/home-landing-r8-how.test.ts pins it.
+check("one browser window over his website, no pill, no rows, no night ground", how.includes('class="cmh-br"') && !how.includes('class="cmh-dm-pill"') && !how.includes('class="cmh-dm-row"') && !/data-ground="night"/.test(how) && !/night/.test(css))
+check("the domain is one Storelib accepts and serves one of the product's purposes", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
 check("the caption keeps the code's claims", /On Pro, point a domain you own at your website, your creator page or a community\. Storelib checks the DNS and adds HTTPS\./.test(text))
 
 console.log("\nSmooth")

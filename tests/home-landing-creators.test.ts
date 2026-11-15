@@ -83,8 +83,9 @@ check("no Golden Hour presets, no camera picture, no purple gradient grounds", (
   /* Changed on purpose (landing round 4): the owner asked for colourful, changing gradient grounds behind every tile; they live only in the two ground layers, and none is purple. */
   const css = HOW_IT_WORKS_STYLES[0].css
   /* Changed on purpose (landing round 7, the owner asked for it): the domain's ground is a still black to deep purple gradient; the only other gradient is the shade under the plans' title. */
-  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*\.cmh-stage\[data-ground=night\]$|^\s*\.cmh-cover-t$/.test(m[1].split("\n").pop()!), m[1])
-  assert.ok(!/#7c3aed|#8b5cf6|#a855f7/.test(css.slice(0, css.indexOf(".cmh-dm-addr"))))
+  // Changed on purpose (landing round 8): four light grounds, each a soft two stop tint, and the LUT cover's shade over its still; no violet anywhere.
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*\.cmh-stage\[data-ground=(sand|sage|clay|mist)\]$|^\s*\.cmh-lut::(before|after)$/.test(m[1].split("\n").pop()!), m[1])
+  assert.ok(!/#7c3aed|#8b5cf6|#a855f7/.test(css))
 })
 check("one tile sells physical and digital products, each with what the seller keeps", () => {
   assert.deepEqual(HOW_PRODUCTS.map((p) => p.kind), ["Physical", "Digital"])
