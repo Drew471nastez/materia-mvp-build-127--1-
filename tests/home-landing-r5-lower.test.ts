@@ -53,10 +53,10 @@ console.log("\n── audience: one picture, nothing moving ──")
   check("five people, each a real face and a door Contacts names", AUDIENCE_PEOPLE.length === 5 && AUDIENCE_PEOPLE.every((p) => existsSync(join(root, "public/home/audience/people", `${p.photo}.webp`))) && ["OnePage", "Checkout", "Free download", "Website"].every((v) => AUDIENCE_PEOPLE.some((p) => p.via === v)))
 /* Changed on purpose (landing round 7): the platforms are the second scene of the picture now, each named under its mark. */
   check("the five email platforms in their own marks", /EMAIL_PLATFORMS\.map/.test(src) && (html.match(/<span class="[^"]*mark[^"]*"><svg/g) ?? []).length === 5)
-  check("three plain rows beside it, no composer", (html.match(/<li><h3>/g) ?? []).length === 3 && !/Composer|Send test|Subject/.test(src))
+  check("three plain rows beside it, no composer", /* Changed on purpose (landing round 9): each row is one short line. */ (html.match(/<li>[^<]+<\/li>/g) ?? []).length === 3 && !/Composer|Send test|Subject/.test(src))
 /* Changed on purpose (landing round 7): the owner asked for a chart, then Synced with, then the export, autoplaying smooth and clean. It turns by one attribute, no state; only transitions on opacity and transform (tests/home-landing-r7-lower.test.ts). */
-  check("no state, timeouts or reveals; one interval while on screen", !/useState|setTimeout|m\.reveal|m\.loop/.test(src) && /usePlatformSection/.test(src) && (src.match(/setInterval/g) ?? []).length === 1)
-  check("its CSS has no keyframes", !/@keyframes|animation:/.test(css))
+  check("no state, timeouts or reveals; one interval while on screen", /* Changed on purpose (landing round 9): no interval either; one observer writes one attribute and CSS runs the strip. */ !/useState|setTimeout|setInterval|usePlatformSection|m\.reveal|m\.loop/.test(src) && (src.match(/new IntersectionObserver/g) ?? []).length === 1)
+  check("its CSS has two keyframes, paused until on screen", (css.match(/@keyframes/g) ?? []).length === 2 && (css.match(/infinite both paused;/g) ?? []).length === 2)  /* Changed on purpose (landing round 9): the list rolls one row at a time on a CSS clock. */
   check("words: no banned word, sample or em dash", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
 }
 

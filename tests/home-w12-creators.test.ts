@@ -110,7 +110,8 @@ check("assets exist, are WebP at the right size, and fit the budget", () => {
       assert.ok(size < (w === 400 ? 40_000 : 90_000), `${p} ${size}`)
       total += size
     }
-  for (const f of readdirSync(dir)) assert.ok(/^[a-z]+-(400|720)\.webp$/.test(f), `stray file ${f}`)
+  /* Changed on purpose (landing round 9): one shared grain tile lives beside the photos. */
+  for (const f of readdirSync(dir)) assert.ok(/^[a-z]+-(400|720)\.webp$/.test(f) || f === "grain.webp", `stray file ${f}`)
   assert.ok(total < 1_500_000, `total ${total}`)
 })
 
@@ -162,7 +163,8 @@ check("engine: one rAF, transform only, IO and visibility pause, drag with captu
   assert.ok(src.includes("track.style.transform = tf(x)") && src.includes("`translate3d(${(-v).toFixed(2)}px,0,0)`"))
   assert.ok(!/style\.(left|width|marginLeft|scrollLeft)\s*=/.test(src))
   assert.ok(src.includes("new IntersectionObserver") && src.includes('"visibilitychange"'))
-  assert.ok(src.includes("setPointerCapture") && CREATORS_CSS.includes("touch-action:pan-y"))
+  /* Changed on purpose (landing round 9): the pointer handling is components/marketing/rail-gesture.ts, shared with the showcase. */
+  assert.ok(src.includes("bindRailGesture(viewport") && read("components/marketing/rail-gesture.ts").includes("setPointerCapture") && CREATORS_CSS.includes("touch-action:pan-y"))
   assert.ok(src.includes("cancelAnimationFrame(paintFrame)"))
   // the measuring reads happen only in measure(), never per frame
   const frame = src.slice(src.indexOf("const frame = "), src.indexOf("const schedule = "))

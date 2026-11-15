@@ -23,7 +23,7 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { AudienceOwnership, AUDIENCE_PEOPLE, AUDIENCE_SCENES, AUDIENCE_SCENE_MS } from "@/components/marketing/home/audience-ownership"
+import { AudienceOwnership, AUDIENCE_PEOPLE } from "@/components/marketing/home/audience-ownership"
 import { AnalyticsShowcase } from "@/components/marketing/home/analytics-showcase"
 import { SellEverywhereMap, SELL_EVERYWHERE_STYLES } from "@/components/marketing/home/sell-everywhere-map"
 import { EarningsCalculator, EARNINGS_STYLES } from "@/components/marketing/home/earnings-calculator"
@@ -112,14 +112,11 @@ console.log("\n── audience: growth, synced with, export; real faces ──")
   const css = read(`${DIR}/audience-ownership.module.css`)
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
-  check("three scenes in the owner's order", AUDIENCE_SCENES.join("|") === "Growth|Synced with|Export" && html.indexOf('data-i="0"') < html.indexOf('data-i="1"') && html.indexOf('data-i="1"') < html.indexOf('data-i="2"'))
-  check("the chart first: one smooth line and its area", /<path d="M0 88\.0C/.test(html) && (html.match(/<path d="M0 88/g) ?? []).length === 2)
-  check("then Synced with, the five platforms in their own marks", words.includes("Synced with") && ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"].every((n) => words.includes(n)))
-  check("then the export, a CSV writing then Downloaded", words.includes("contacts.csv") && words.includes("Downloaded") && words.includes("Export CSV"))
-  check("one box of a fixed height; the scenes stacked in one cell", /\.scenes \{\s*display: grid;\s*height: 158px;/.test(css) && /\.scene \{\s*grid-area: 1 \/ 1;/.test(css))
-  check("the turn is one attribute on the box, no React state", /el\.dataset\.scene = String\(i\)/.test(src) && !/useState/.test(src) && /AUDIENCE_SCENE_MS/.test(src) && AUDIENCE_SCENE_MS >= 3000)
-  check("only opacity and transform change in the stage", ![...css.matchAll(/transition:([^;]+);/g)].some((m) => /width|height|left|top|margin|padding|stroke-dash|filter|box-shadow/.test(m[1])))
-  check("plays only on screen with the tab visible; still under reduced motion", /usePlatformSection\(root/.test(src) && /if \(!el \|\| !live \|\| reduced\) return/.test(src) && /@media \(prefers-reduced-motion: reduce\)/.test(css))
+  /* Changed on purpose (landing round 9): the owner found the three scenes "too much text and complex" and the section stuttering as it came on screen. The chart, the export file and the scene names are gone; the picture is the list with a new person joining (tests/home-landing-r9-white.test.ts). */
+  check("the three scenes are gone", !/data-scene|contacts\.csv|Downloaded|Growth/.test(html) && !/\.scene\b|\.cover\b|\.steps\b/.test(css) && !/setInterval/.test(src))
+  check("still Synced with, the five platforms in their own marks, and Export CSV", words.includes("Synced with") && words.includes("Export CSV") && ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"].every((n) => html.includes(n)) && (html.match(/class="[^"]*mark[^"]*"><svg/g) ?? []).length === 5)
+  check("only opacity and transform move", ![...css.matchAll(/transition:([^;]+);/g)].length && [...css.matchAll(/@keyframes [\w-]+ \{([\s\S]*?)\n\}/g)].every((m) => !/(width|height|left|top|margin|padding|filter|box-shadow|background)\s*:/.test(m[1])))
+  check("plays only on screen with the tab visible; still under reduced motion", /new IntersectionObserver/.test(src) && /document\.hidden/.test(src) && /@media \(prefers-reduced-motion: reduce\)/.test(css))
   const faces = AUDIENCE_PEOPLE.map((p) => p.photo)
   check("five new faces, small webp files, none of the old stock profiles", faces.length === 5 && faces.every((f) => existsSync(join(root, "public/home/audience/people", `${f}.webp`)) && statSync(join(root, "public/home/audience/people", `${f}.webp`)).size < 40 * 1024) && !faces.some((f) => ["sofia", "jonah", "aiko", "liam", "priya"].includes(f)), faces)
   check("the old portraits are gone from the folder", ["sofia", "jonah", "aiko", "liam", "priya", "amara", "ines", "leo"].every((f) => !existsSync(join(root, "public/home/audience/people", `${f}.webp`))))
@@ -134,7 +131,8 @@ console.log("\n── the map and the AI tools: the one width ──")
   const mapHtml = renderToStaticMarkup(createElement(SellEverywhereMap))
   const aiHtml = renderToStaticMarkup(createElement(AiToolsSection))
   check("map: in the one width, its heading set in", /\.cmm-wrap,\[data-landing-story\] \.cmm>\.cmm-wrap\{[^}]*max-width:var\(--home-max,2020px\);[^}]*padding:0 var\(--home-edge,/.test(map) && /\.cmm-head\{[^}]*padding-left:var\(--home-head-inset,0px\)\}/.test(map) && /class="cmm-wrap"/.test(mapHtml))
-  check("map: nothing purple on the purple sheet", !PURPLE.test(map) && /\[data-band\] \.cmm \.story-heading\{--story-accent:#fff\}/.test(map), map.match(PURPLE))
+  /* Changed on purpose (landing round 9): the map is on a white sheet now and draws its own white ground and dark heading, whose accent is the page's violet as on every white sheet; the black card itself still has nothing purple. */
+  check("map: nothing purple in the card; the heading is the white sheet's own", !PURPLE.test(map.replace("--story-accent:#7c3aed", "")) && /\[data-landing-story\] \.cmm \.cmm-head \.story-heading\{--story-ink:#18181b;--story-muted:#777780;--story-accent:#7c3aed\}/.test(map), map.match(PURPLE))
   check("AI tools: in the one width", /\.ait-wrap,\[data-landing-story\] \.ait>\.ait-wrap\{[^}]*max-width:var\(--home-max,2020px\);[^}]*padding:0 var\(--home-edge,/.test(ai) && /class="ait-wrap"/.test(aiHtml))
 }
 

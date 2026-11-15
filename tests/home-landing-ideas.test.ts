@@ -139,7 +139,8 @@ console.log("\nSecond pass: a little less height, a pixel less rounding")
 {
   /* Changed on purpose (landing round 4): the computer's shape on every screen, and the panel of the tabs in place of the carousel's slide. */
   check("the previews are a little shorter: 1280/752 (was 16/10), on every screen", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(src.ideas))
-  check("the panels' corners one pixel less (up to 17, was 18)", /\.ideas-panel\{[^}]*border-radius:clamp\(9px,1\.3vw,17px\)/.test(src.ideas))
+  /* Changed on purpose (landing round 9): the corners are the one frame's that holds every panel. */
+  check("the panels' corners one pixel less (up to 17, was 18)", /\.ideas-frame\{[^}]*border-radius:clamp\(9px,1\.3vw,17px\)/.test(src.ideas))
   /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
   check("no small print under these sections", !/class(Name)?="[^"]*(fine-?print|small-?print|-note|-foot)"/.test(src.ideas + src.marquee))
 }

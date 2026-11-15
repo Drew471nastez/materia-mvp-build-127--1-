@@ -55,10 +55,10 @@ export const metadata: Metadata = {
       dark     the hero and the showcase, sitting on
       white    Make the work, ideas, what you can sell (landing round 8), creators, how it works
       dark     the checkout scene (it draws its own black)
-      white    your audience, your apps, your AI tools
-      purple   what is working, the map (round 8: it rises over the white as a sheet)
-      white    the possibilities, what you could earn, pricing, the questions
-      dark     the app and the closing call, running on into the black footer
+      white    your audience, your apps, your AI tools, the app (landing round 9)
+      purple   what is working (round 8: it rises over the white as a sheet)
+      white    the map (landing round 9), the possibilities, what you could earn, pricing, the questions
+      dark     the closing call, running on into the black footer
 
     the motion sections from the other wave-12 tracks are mounted near the
     screen by lazySection() (components/marketing/home/lazy-section): their
@@ -118,18 +118,23 @@ export default function StorelibLanding() {
 
           {/* 12 Your AI tools work here too (landing round): Claude Code, Codex or Cursor connected to a site, building it as drafts */}
           <LazyAiToolsSection />
+
+          {/* 12b RunFromAnywhere. Landing round 9, the owner: it "should be positioned somewhere else", on white: after the apps and the AI tools (what works with a store, then the store in a pocket), and it leads into the numbers. */}
+          <LazyAppAnywhere />
         </ScrollRevealPanel>
 
-        {/* PURPLE SHEET: 13 AnalyticsShowcase and 14 SellEverywhere world map. Landing round 8: it rises over the white above as the page scrolls (transform only, nothing held). */}
+        {/* PURPLE SHEET: 13 AnalyticsShowcase alone (landing round 9: the map left it for the white sheet under it). Landing round 8: it rises over the white above as the page scrolls (transform only, nothing held). */}
         <ScrollRevealPanel tone="purple" arrive="rise">
           {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
           <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1100px)" }} />
           <LazyAnalyticsShowcase />
-          <LazySellEverywhereMap />
         </ScrollRevealPanel>
 
-        {/* WHITE SHEET: what you can sell, earnings, pricing, the questions */}
+        {/* WHITE SHEET: the map, what you can sell, earnings, pricing, the questions */}
         <ScrollRevealPanel tone="white">
+          {/* 14 SellEverywhere world map. Landing round 9, the owner: it sits on white, right after the purple. */}
+          <LazySellEverywhereMap />
+
           {/* 5 UNLIMITED POSSIBILITIES (frame). Landing round 8: moved here from between the ideas and the creators (the owner: it sat inside "Storelib is for creators"); what you can sell, then what it could earn. Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
           <LazySection name="possibilities" minHeight="clamp(380px, 23vw + 254px, 720px)">
             <ProductMarquee />
@@ -143,15 +148,14 @@ export default function StorelibLanding() {
             <PricingSection editorial hideDetailsLink />
           </LazySection>
 
-          {/* 17 FAQ */}
+          {/* 17 FAQ: the last section (landing round 9, the owner) */}
           <LazySection name="faq" minHeight="max(calc(795px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), 730px)">
             <FaqSection editorial />
           </LazySection>
         </ScrollRevealPanel>
 
-        {/* DARK CLOSE (round 4: no purple): 18 RunFromAnywhere and 19 FINAL CTA (frame), running on into the black footer with no seam */}
+        {/* DARK CLOSE (round 4: no purple): 18 FINAL CTA (frame) alone above the footer (landing round 9, the owner: the questions, then Start selling), running on into the black footer with no seam */}
         <ScrollRevealBackdrop>
-          <LazyAppAnywhere />
           <FinalCta />
         </ScrollRevealBackdrop>
       </LandingStory>

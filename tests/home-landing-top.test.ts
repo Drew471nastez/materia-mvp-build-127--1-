@@ -62,8 +62,9 @@ console.log("\n── the showcase: pull to drag and swipe, butter smooth ──
   leaves at the hand's speed and never passes its place, and a hard flick on a phone carries through up to three cards.
 */
 check("the shared tuning is untouched: no glide, one step a gesture (the possibilities rail reads it)", SHOWCASE_MOTION.glideSettle === undefined && SHOWCASE_MOTION.swipeMaxSteps === undefined && SHOWCASE_MOTION.dragThreshold === 6 && SHOWCASE_MOTION.maxFlickVelocity === 6000)
-check("the hand holds the rail exactly, and autoplay is kept", /x = resist\(drag\.fromX - \(e\.clientX - drag\.startX\)\)/.test(hook) && /SHOWCASE_AUTOPLAY\.intervalMs/.test(hook))
-check("vertical swipes stay the page's, and the rail has the pointer events", /\.build-showcase-track\[data-rail-ready\] \{overflow:visible;touch-action:pan-y pinch-zoom/.test(showcase) && /"pointerdown", onDown/.test(hook) && /setPointerCapture/.test(hook))
+/* Changed on purpose (landing round 9): the pointer is read in rail-gesture.ts, which hands the rail its dx. */
+check("the hand holds the rail exactly, and autoplay is kept", /x = resist\(drag\.fromX - dx\)/.test(hook) && /SHOWCASE_AUTOPLAY\.intervalMs/.test(hook))
+check("vertical swipes stay the page's, and the rail has the pointer events", /\.build-showcase-track\[data-rail-ready\] \{overflow:visible;touch-action:pan-y pinch-zoom/.test(showcase) && /bindRailGesture\(el, \{/.test(hook) && /"pointerdown", onPointerDown/.test(read("components/marketing/rail-gesture.ts")) && /setPointerCapture/.test(read("components/marketing/rail-gesture.ts")))
 {
   const bez = (e: string) => e.match(/cubic-bezier\(([^)]+)\)/)![1].split(",").map(Number)
   const [x1, y1, , y2] = bez(glideEasing(1016, 400, 600))

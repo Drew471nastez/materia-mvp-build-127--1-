@@ -22,8 +22,9 @@ export function Hero() {
       }
     >
       <style>{HERO_CSS}</style>
-      {/* The video's own host, read from its address, so a rotated link keeps its warm connection. */}
-      <link rel="preconnect" href={new URL(HERO_VIDEO.src).origin} crossOrigin="anonymous" />
+      {/* Landing round 9: the first frame of the film is asked for from the head, ahead of everything, the phone cut on a phone (React lifts a preload link into <head>). The film is on this site, so no second host to open. */}
+      <link rel="preload" as="image" href={HERO_VIDEO.poster} media="(min-width: 640px)" fetchPriority="high" />
+      <link rel="preload" as="image" href={HERO_VIDEO.phonePoster} media={HERO_VIDEO.phoneMedia} fetchPriority="high" />
       <HeroVideo />
       <div className="cinematic-tint" aria-hidden="true" />
       <div className="cinematic-grain" aria-hidden="true" />
@@ -107,9 +108,9 @@ body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled]::bef
 /* Scrolled, the bar is opaque: a backdrop blur behind an opaque colour shows nothing and is still re-rendered on every scroll frame. */
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] { backdrop-filter:none; -webkit-backdrop-filter:none; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] > header { border-bottom-color:rgba(0,0,0,.096); }
-/* Landing round 5: the bar's Start now (phone) and Sign up (computer) wait, faded where they stand, until the hero's own buttons have gone under the bar (platform-header-client writes data-home-cta). Opacity and translate only, so the bar never moves or changes height. */
-body:has([data-home-hero="cinematic"]) #platform-header-root :is([data-home-phone-start],[data-guest-signup]) { transition:opacity 320ms cubic-bezier(.22,1,.36,1),translate 420ms cubic-bezier(.22,1,.36,1),background-color 150ms,visibility 0s linear 0s; }
-body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-home-cta="shown"]) :is([data-home-phone-start],[data-guest-signup]) { opacity:0; translate:0 7px; visibility:hidden; pointer-events:none; transition:opacity 180ms ease-out,translate 180ms ease-out,background-color 150ms,visibility 0s linear 180ms; }
+/* Landing round 5: the bar's Start now (phone) and Sign up (computer) wait, faded where they stand, until the hero's own buttons have gone under the bar (platform-header-client writes data-home-cta; landing round 9: on a phone, until the showcase has). Opacity and translate only, so the bar never moves or changes height. Landing round 9, the owner: "very smooth and clean, unobservable": a longer, softer fade (560ms, it was 320) over a 4px rise (it was 7), and it leaves the same way. */
+body:has([data-home-hero="cinematic"]) #platform-header-root :is([data-home-phone-start],[data-guest-signup]) { transition:opacity 560ms cubic-bezier(.33,0,.2,1),translate 640ms cubic-bezier(.22,1,.36,1),background-color 150ms,visibility 0s linear 0s; }
+body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-home-cta="shown"]) :is([data-home-phone-start],[data-guest-signup]) { opacity:0; translate:0 4px; visibility:hidden; pointer-events:none; transition:opacity 280ms ease-out,translate 280ms ease-out,background-color 150ms,visibility 0s linear 280ms; }
 @media (min-width:1024px) {
   [data-home-hero="cinematic"] { --hero-tint-opacity:.57; min-height:min(886.83px,calc((100svh - 68.96px)*1.0815)); }
   .cinematic-heading {font-size:clamp(77.9px,7.6vw,110.2px)}

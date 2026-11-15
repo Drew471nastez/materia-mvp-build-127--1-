@@ -98,10 +98,11 @@ console.log("\n── The page ──")
     /* Changed on purpose (landing round 8): no flat ground (the white sheet rounds its own top); the business section is back after the ideas; the possibilities moved to open the last white sheet. */
     ['<ScrollRevealPanel tone="white">', ["<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />"]],
     ["<ScrollRevealBackdrop>", ["<LazyCheckoutScene />"]],
-    ['<ScrollRevealPanel tone="white">', ["<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />"]],
-    ['<ScrollRevealPanel tone="purple" arrive="rise">', ["<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />"]],
-    ['<ScrollRevealPanel tone="white">', ["<ProductMarquee />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection"]],
-    ["<ScrollRevealBackdrop>", ["<LazyAppAnywhere />", "<FinalCta />"]],
+    // Changed on purpose (landing round 9): the owner moved the app onto white (after the apps and the AI tools) and the map out of the purple onto the white sheet under it; the questions are the last section and the closing call stands alone above the footer.
+    ['<ScrollRevealPanel tone="white">', ["<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />", "<LazyAppAnywhere />"]],
+    ['<ScrollRevealPanel tone="purple" arrive="rise">', ["<LazyAnalyticsShowcase />"]],
+    ['<ScrollRevealPanel tone="white">', ["<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection"]],
+    ["<ScrollRevealBackdrop>", ["<FinalCta />"]],
   ]
   let at = 0
   const wrong: string[] = []
@@ -126,7 +127,7 @@ console.log("\n── The page ──")
   check("the grounds and their sections, in the owner's order", wrong.length === 0, wrong)
   check("everything is inside the one story root, so loops still pause off screen", /<LandingStory>\s*<ScrollRevealBackdrop/.test(page) && /<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page))
   // Changed on purpose (landing round 8): the business section is back after the ideas; the possibilities left the creators' stretch and open the last white sheet, before what you could earn.
-  check("the ideas, then what you can sell, then the creators; the possibilities open the last white sheet", !/StoryBand|data-band/.test(page) && /<LazyIdeasComeToLife \/>[\s\S]{0,200}<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page) && /<ScrollRevealPanel tone="white">\s*<LazySection name="possibilities"[^>]*>\s*<ProductMarquee \/>\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
+  check("the ideas, then what you can sell, then the creators; the possibilities open the last white sheet", !/StoryBand|data-band/.test(page) && /<LazyIdeasComeToLife \/>[\s\S]{0,200}<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page) && /* Changed on purpose (landing round 9): the map opens that sheet now, the possibilities follow it. */ /<ScrollRevealPanel tone="white">\s*<LazySellEverywhereMap \/>\s*<LazySection name="possibilities"[^>]*>\s*<ProductMarquee \/>\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
   check("the questions' sheet is not held, so a link to #faq lands on them", /<LazyEarningsCalculator \/>/.test(page) && !/\bhold\b/.test(page))
   check("every server-drawn lazy box keeps its name", ["possibilities", "pricing", "faq"].every((n) => page.includes(`<LazySection name="${n}"`)))
   check("the measured heights are still written into the page", /<style dangerouslySetInnerHTML=\{\{ __html: LAZY_SECTION_HEIGHTS_CSS \}\} \/>/.test(page))

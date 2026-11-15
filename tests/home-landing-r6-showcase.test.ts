@@ -51,12 +51,14 @@ const html = renderToStaticMarkup(createElement(BuildShowcase))
 
 console.log("\n── The caption never lands on anything ──")
 const figures = html.match(/<figure[^>]*>[\s\S]*?<\/figure>/g) ?? []
-check("twelve cards, each a picture box and then its caption", figures.length === 12 && figures.every((f) => /<div class="build-showcase-pic"><img [^>]*\/><\/div><figcaption>[^<]+<\/figcaption><\/figure>$/.test(f)), figures.length)
+/* Changed on purpose (landing round 9): the box is a <picture>, with a 4:3 source for phones in a store's, website's or community's. */
+check("twelve cards, each a picture box and then its caption", figures.length === 12 && figures.every((f) => /<picture class="build-showcase-pic">(?:<source [^>]*\/>)?<img [^>]*\/><\/picture><figcaption>[^<]+<\/figcaption><\/figure>$/.test(f)), figures.length)
 check("the caption is in the flow under the picture, never laid over it", !/figcaption \{[^}]*position:absolute/.test(css) && /\.build-showcase-slide figcaption \{height:44px;padding-top:14px;box-sizing:border-box;overflow:hidden;white-space:nowrap;text-overflow:ellipsis/.test(css))
 check("it keeps its line whether shown or not, so a hover moves nothing (opacity only)", /\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:opacity/.test(css) && !/figcaption\{[^}]*(transform|height|margin)[^}]*\}/.test(css.replace(/\.build-showcase-slide figcaption\{height:38px[^}]*\}/, "")))
 check("a mouse shows it on hover, never while dragging", /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(css))
 check("a touch screen has no hover, so there it is simply shown", /@media\(hover:none\),\(pointer:coarse\)\{\.build-showcase-slide figcaption\{opacity:1;transition:none\}\}/.test(css))
-check("the picture is clipped in its own box, the caption outside it", /\.build-showcase-pic \{[^}]*border-radius:7px;contain:paint;isolation:isolate;background:#151517;overflow:hidden\}/.test(css) && !/\.build-showcase-slide \{[^}]*overflow:hidden/.test(css))
+/* Changed on purpose (landing round 9): the box's ground is the page's own tone until its picture has faded in. */
+check("the picture is clipped in its own box, the caption outside it", /\.build-showcase-pic \{[^}]*border-radius:7px;contain:paint;background:var\(--showcase-tone,#151517\);overflow:hidden\}/.test(css) && !/\.build-showcase-slide \{[^}]*overflow:hidden/.test(css))
 
 console.log("\n── The cards end inside the section, with room under them ──")
 check("no negative bottom margin runs the rail past the section's edge", !/margin-bottom:calc\([^)]*-\./.test(css) && !/--showcase-height/.test(css))
@@ -69,11 +71,13 @@ console.log("\n── On a phone: the reference's shape ──")
 check("every card is 78% of the screen wide (440px at most), on the gutter", /--showcase-card:min\(78vw,440px\)/.test(phone) && /\.build-showcase-slide\{flex:0 0 var\(--showcase-card\);width:var\(--showcase-card\);scroll-snap-align:start;scroll-snap-stop:normal\}/.test(phone) && /padding-inline:var\(--showcase-gutter\);scroll-padding-inline:var\(--showcase-gutter\)/.test(phone))
 /* Changed on purpose (landing round 8): the owner wants a OnePage on a phone as a tall 9:16 card, as a short video is shown, not a phone screen stood in a 4:3 card; stores and websites stay 4:3 (tests/home-landing-r8-rails.test.ts). */
 check("4:3 landscape for stores and websites, 10px apart", /\.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone) && /--showcase-gap:10px/.test(phone))
-check("a OnePage is a 9:16 card on its own page colour", /\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:9\/16;background:var\(--showcase-tone,#151517\)\}/.test(phone) && !/left:27%;top:9%;width:46%/.test(phone))
+/* Changed on purpose (landing round 9): "Keep OnePages as they are", the page's own 540 x 1056 on a phone too. */
+check("a OnePage is the page's own shape on its own page colour", /\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:540\/1056\}/.test(phone) && /\.build-showcase-pic \{[^}]*background:var\(--showcase-tone,#151517\)/.test(css) && !/left:27%;top:9%;width:46%/.test(phone))
 const tones = SHOWCASE_EXAMPLES.filter((e) => e.format === "portrait").map((e) => e.tone)
 check("each OnePage has its tone, the wide pages none", tones.length === 4 && tones.every((t) => /^#[0-9a-f]{6}$/.test(t ?? "")) && SHOWCASE_EXAMPLES.filter((e) => e.format === "wide").every((e) => e.tone === undefined), tones)
 check("the tone reaches the card as a custom property", (html.match(/style="--showcase-tone:#[0-9a-f]{6}"/g) ?? []).length === 4)
-check("the phone rail has hard edges: no mask over a scroller (it keeps WebKit's scroll on the compositor)", /\.build-showcase-viewport\{margin-inline:0;mask-image:none;-webkit-mask-image:none\}/.test(phone))
+/* Changed on purpose (landing round 9): no mask at any width now (a mask over a moving layer is drawn again every frame), so the phone has none to switch off. */
+check("the phone rail has hard edges: no mask anywhere", /\.build-showcase-viewport\{margin-inline:0\}/.test(phone) && !/mask-image/.test(css))
 check("desktop keeps its groups: wide, OnePage, wide in their own shapes", /grid-template-columns:256fr 90fr 256fr/.test(css) && /aspect-ratio:1440\/990/.test(css) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic \{aspect-ratio:540\/1056\}/.test(css))
 
 console.log("\n── Autoplay waits for the reader ──")

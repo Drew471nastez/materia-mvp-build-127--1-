@@ -48,11 +48,12 @@ const rule = (css: string, selector: string) => {
 
 console.log("\nHow it works: four cards, wide and narrow")
 // Changed on purpose (landing round 7): the owner asked for section 3's structure, a two by two grid of wide and narrow cards, not six even tiles.
-check("four cards, wide then narrow, narrow then wide, on section 3's 24 column grid; one column on a phone", () => {
-  assert.equal((how.match(/class="cmh-card /g) ?? []).length, 4)
-  assert.deepEqual([...how.matchAll(/class="cmh-card (cmh-wide|cmh-narrow)"/g)].map((m) => m[1]), ["cmh-wide", "cmh-narrow", "cmh-narrow", "cmh-wide"])
+// Changed on purpose (landing round 9): three cards in one row from 1100px, narrow, wide, narrow (the owner's reference); one column on a phone.
+check("three cards, narrow, wide, narrow, in one row; one column on a phone", () => {
+  assert.equal((how.match(/class="cmh-card /g) ?? []).length, 3)
+  assert.deepEqual([...how.matchAll(/class="cmh-card (cmh-wide|cmh-narrow)"/g)].map((m) => m[1]), ["cmh-narrow", "cmh-wide", "cmh-narrow"])
   assert.ok(/\.cmh-grid\{display:grid;grid-template-columns:minmax\(0,1fr\)/.test(howCss))
-  assert.ok(/\.cmh-grid\{grid-template-columns:repeat\(24,minmax\(0,1fr\)\)/.test(howCss) && /\.cmh-wide\{grid-column:span 13\}/.test(howCss) && /\.cmh-narrow\{grid-column:span 11\}/.test(howCss))
+  assert.ok(/\.cmh-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,2fr\) minmax\(0,1fr\)/.test(howCss))
 })
 check("the first tile still sells a physical and a digital product, and there are no Golden Hour presets", () => {
   const w = words(how)
@@ -60,7 +61,8 @@ check("the first tile still sells a physical and a digital product, and there ar
   // Changed on purpose (landing round 5): no cap either (the owner); the physical product is Nadia's signed print.
   // Changed on purpose (landing round 7): the owner did not like Nadia Brooks or LaSalle at dusk; the shop is Linde Woodshop, an apron and workbench plans.
   // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack in place of the apron and the plans.
-  assert.ok(/Sell physical and digital products\./.test(w) && /Linde Shop Tee/.test(w) && /Cine Tones LUT Pack/.test(w) && !/LaSalle|Nadia|The Loop|Darkroom cap|Apron|Workbench/.test(w))
+  // Changed on purpose (landing round 9): no products card (it repeated section 3); the two products are section 3's, as the shop's top products.
+  assert.ok(!/Sell physical and digital products\./.test(w) && /Midnight Studio Tee/.test(w) && /Cine Tones LUT Pack/.test(w) && !/LaSalle|Nadia|The Loop|Darkroom cap|Apron|Workbench/.test(w))
   for (const f of [HOW, CO, "components/marketing/home/ebook-cover.tsx", "components/marketing/home/commerce-kit.tsx"]) assert.ok(!/golden hour|preset/i.test(read(f)), f)
 })
 
@@ -69,13 +71,13 @@ console.log("\nYour own domain")
 // Changed on purpose (landing round 5): the owner found the tile "too colorful": one dark card, the address bar with its lock on top, the two records Storelib asks for, no purple TLD, no green pill.
 // Changed on purpose (landing round 7, the owner: "bring back the design how it was before", on black to purple): the round 3 tile again, his website under the address pill and the three addresses checked, on a dark ground that turns deep purple.
 // Changed on purpose (landing round 8) (the owner: the www, shop and club banner was "too complex", and the black card the odd one out): one browser window on a light ground, his domain typing into the address bar over his website.
-check("the tile: one browser window, the domain in its address bar over his website, on a light ground", () => {
-  assert.ok(how.includes('class="cmh-br"') && how.includes('class="cmh-br-bar"') && how.includes('class="cmh-br-page"') && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
-  const typed = [...how.matchAll(/<span class="cmh-a cmh-ch" data-k="\d+">([^<]*)/g)].map((m) => m[1]).join("")
-  assert.equal(typed, HOW_DOMAIN.host)
-  assert.ok(/data-ground="mist"/.test(how) && !/data-ground="night"/.test(how))
+// Changed on purpose (landing round 9): the owner liked the card, not its design: one address pill over his website on a peach ground, no browser window.
+check("the tile: one address pill over his website, on a light ground", () => {
+  assert.ok(how.includes('class="cmh-pill"') && how.includes('class="cmh-a cmh-site"') && !how.includes("cmh-br") && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
+  assert.ok(how.includes(`<span class="cmh-a cmh-url" data-k="1">${HOW_DOMAIN.host}</span>`))
+  assert.ok(/data-ground="peach"/.test(how) && !/data-ground="night"/.test(how))
   assert.ok(!/backdrop-filter|blur\(/.test(howCss), "no glass")
-  assert.ok(/Use your own domain\./.test(words(how)))
+  assert.ok(/Use your own domain/.test(words(how)))
 })
 check("the address is one Storelib would accept, and is not a Storelib name", () => {
   const apex = cleanHostname(HOW_DOMAIN.host)
@@ -85,7 +87,8 @@ check("the address is one Storelib would accept, and is not a Storelib name", ()
   assert.equal(servingHost(apex), `www.${apex}`)
   assert.ok(!/storelib/.test(apex))
 })
-check("it serves one of the things a domain can serve in the product, and the caption names all three", () => {
+// Changed on purpose (landing round 9): the caption is one short line ("your site"); the three purposes stay the code's.
+check("it serves one of the things a domain can serve in the product", () => {
   assert.ok((DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
   const w = words(how)
   /* The creator page's domain serves the OnePage too (at /links). */
@@ -93,14 +96,15 @@ check("it serves one of the things a domain can serve in the product, and the ca
   /* One community per domain. */
   assert.ok(/purpose 'community'/.test(read("lib/custom-domains/store.ts")))
   /* Nothing else is claimed: no store, checkout, email or app on the domain. */
-  const cap = w.slice(w.indexOf("Use your own domain."))
+  const cap = w.slice(w.indexOf("Use your own domain"))
   assert.ok(!/email|checkout|app\b|buy a domain|free/i.test(cap), cap)
 })
-check("the caption's claims are the code's: Pro, a domain you own, the DNS is checked, HTTPS follows", () => {
+check("the caption's claims are the code's: Pro, a domain you own, HTTPS follows; the picture ticks DNS and HTTPS", () => {
   const w = words(how)
-  const cap = w.slice(w.indexOf("Use your own domain."))
-  assert.ok(/On Pro, point a domain you own at your website, your creator page or a community\./.test(cap))
-  assert.ok(/Storelib checks the DNS and adds HTTPS\./.test(cap))
+  const cap = w.slice(w.indexOf("Use your own domain"))
+  // Changed on purpose (landing round 9): one short line; DNS and HTTPS are ticked in the picture.
+  assert.ok(/On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(cap))
+  assert.ok(/DNS found/.test(w) && /HTTPS on/.test(w))
   assert.equal(siteLimits("free").customDomain, false)
   assert.equal(siteLimits("pro").customDomain, true)
   const api = read("app/api/domains/route.ts")
@@ -113,7 +117,8 @@ check("the caption's claims are the code's: Pro, a domain you own, the DNS is ch
 })
 check("its motion: the ticks come one after another, transform and opacity only, paused off screen, still when motion is reduced", () => {
   // Changed on purpose (landing round 8): the letters come one after another, then the lock; no ticks.
-  const keys = [...Array(HOW_DOMAIN.host.length).keys()].map((i) => `cmh-ch${i}`).concat(["cmh-lk"])
+  // Changed on purpose (landing round 9): no typing; the address swaps, then the lock turns violet, then DNS and HTTPS tick.
+  const keys = ["cmh-url1", "cmh-lock", "cmh-ok0", "cmh-ok1"]
   for (const k of keys) {
     const m = howCss.match(new RegExp(`@keyframes ${k}\\{([\\s\\S]*?\\})\\}`))
     assert.ok(m, k)
@@ -122,7 +127,7 @@ check("its motion: the ticks come one after another, transform and opacity only,
   }
   const starts = keys.map((k) => Number(howCss.match(new RegExp(`@keyframes ${k}\\{0%,([\\d.]+)%`))![1]))
   assert.ok(starts.every((t, i) => i === 0 || t > starts[i - 1]), starts.join(","))
-  assert.ok((how.match(/class="cmh-a cmh-ch"/g) ?? []).length === HOW_DOMAIN.host.length && /cmh-a cmh-br-lk/.test(how))
+  assert.ok((how.match(/class="cmh-a cmh-ok"/g) ?? []).length === 2 && /cmh-a cmh-pill-on/.test(how))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss))
   assert.ok(/\[data-commerce-live\] \.cmh-a\{animation-play-state:running!important\}/.test(howCss))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss)) /* Changed on purpose (landing round 4): no spinner any more. */
@@ -172,7 +177,8 @@ check("One-tap payments is a phone and nothing else", () => {
   /* Changed on purpose (landing round 7): the phone is the full page checkout, its express Apple Pay button and then Apple Pay's own sheet. */
   // Changed on purpose (landing round 8): the phone sells the Cine Tones LUT Pack ($29).
   assert.ok(/Pay \$29\.00/.test(words(panel)) && /Confirm with Side Button/.test(words(panel)))
-  const convert = co.slice(co.indexOf('class="cdx"'), co.indexOf('class="mcx"'))
+  // Changed on purpose (landing round 9): one picture for Built to convert on every screen (the owner: on a phone "like on desktop"), so the phone layout that followed the window is gone.
+  const convert = co.slice(co.indexOf('class="cdx"'), co.indexOf('data-k="tap"'))
   assert.ok(/cdx-win/.test(convert) && !/class="cmc-phone"/.test(convert), "the browser is Built to convert's") /* Changed on purpose (landing round 4): the website checkout's window. */
 })
 /* Changed on purpose (landing round 5, the owner: "not pill shapes, should be tabs, how they were before"): the dark tab cards of 0724a74c1, no pills. */

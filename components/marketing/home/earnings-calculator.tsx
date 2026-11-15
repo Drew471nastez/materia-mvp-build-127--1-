@@ -61,10 +61,24 @@
  * column is .82 of the panel's 2, was .62), and the section sits in the
  * page's one width (--home-edge and --home-max, app/globals.css), its
  * heading set in by --home-head-inset like the showcase's.
+ *
+ * Landing round 9, the owner: "make sure the sliders (selling price, sales)
+ * are not grabbed by mistake while I scroll down". A native range takes the
+ * finger the moment it lands: on a phone the thumb jumped to wherever a
+ * scrolling thumb happened to touch the track. Each slider now sits in a
+ * guard (ScrollSafeSlider below) that answers the pointer itself and leaves
+ * the range to the keyboard and to screen readers:
+ *   - a finger that lands on a slider changes nothing. After 8px of travel
+ *     the axis is decided: mostly sideways and the thumb follows the finger
+ *     from where it stood (it never jumps), captured from then on; mostly up
+ *     or down and the page scrolls (touch-action: pan-y), the value as it was;
+ *   - a tap (the browser's own click, which it does not send for a touch
+ *     that stops a scroll) moves the thumb there;
+ *   - a mouse or a pen takes the thumb at once, as before.
  */
 import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
-import { useId, useRef, useState } from "react"
+import { useId, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react"
 import { StoryHeading } from "../story-heading"
 import { COMMERCE_PRO_MONTHLY_CENTS, CommerceKindIcon, COMMERCE_KIT_STYLE, CommerceKitStyle, CommerceNumber, CommerceSlider, commerceSale, commerceUsd, useCommerceLive, type CommerceKind, type CommercePlan } from "./commerce-kit"
 
@@ -195,38 +209,42 @@ export function EarningsCalculator() {
                 </div>
                 <KindTabs value={kindId} onChange={setKind} label="What you sell" />
               </div>
-              <CommerceSlider
-                id={`${uid}-price`}
-                label="Selling price"
-                value={price}
-                min={p.min}
-                max={p.max}
-                onChange={(v) => setPrices((s) => ({ ...s, [kindId]: v }))}
-                display={<NumberField label="Selling price in dollars" value={price} min={p.min} max={p.max} prefix="$" onChange={(v) => setPrices((s) => ({ ...s, [kindId]: v }))} />}
-                valueText={commerceUsd(price * 100)}
-                hint={
-                  <>
-                    <span>{commerceUsd(p.min * 100)}</span>
-                    <span>{commerceUsd(p.max * 100)}</span>
-                  </>
-                }
-              />
-              <CommerceSlider
-                id={`${uid}-sales`}
-                label="Sales a day"
-                value={perDay}
-                min={1}
-                max={SALES_MAX}
-                onChange={setPerDay}
-                display={<NumberField label="Sales a day" value={perDay} min={1} max={SALES_MAX} onChange={setPerDay} />}
-                valueText={`${perDay} a day`}
-                hint={
-                  <>
-                    <span>1</span>
-                    <span>{SALES_MAX}</span>
-                  </>
-                }
-              />
+              <ScrollSafeSlider value={price} min={p.min} max={p.max} onChange={(v) => setPrices((s) => ({ ...s, [kindId]: v }))}>
+                <CommerceSlider
+                  id={`${uid}-price`}
+                  label="Selling price"
+                  value={price}
+                  min={p.min}
+                  max={p.max}
+                  onChange={(v) => setPrices((s) => ({ ...s, [kindId]: v }))}
+                  display={<NumberField label="Selling price in dollars" value={price} min={p.min} max={p.max} prefix="$" onChange={(v) => setPrices((s) => ({ ...s, [kindId]: v }))} />}
+                  valueText={commerceUsd(price * 100)}
+                  hint={
+                    <>
+                      <span>{commerceUsd(p.min * 100)}</span>
+                      <span>{commerceUsd(p.max * 100)}</span>
+                    </>
+                  }
+                />
+              </ScrollSafeSlider>
+              <ScrollSafeSlider value={perDay} min={1} max={SALES_MAX} onChange={setPerDay}>
+                <CommerceSlider
+                  id={`${uid}-sales`}
+                  label="Sales a day"
+                  value={perDay}
+                  min={1}
+                  max={SALES_MAX}
+                  onChange={setPerDay}
+                  display={<NumberField label="Sales a day" value={perDay} min={1} max={SALES_MAX} onChange={setPerDay} />}
+                  valueText={`${perDay} a day`}
+                  hint={
+                    <>
+                      <span>1</span>
+                      <span>{SALES_MAX}</span>
+                    </>
+                  }
+                />
+              </ScrollSafeSlider>
             </div>
 
             <div className="cme-out" aria-live="off">
@@ -262,6 +280,103 @@ export function EarningsCalculator() {
         </div>
       </div>
     </section>
+  )
+}
+
+/** How far a finger travels before the gesture is read as a drag or a scroll. */
+export const EARN_SLIDER_SLOP_PX = 8
+/** The range's thumb (./commerce-kit, .cmk-range): its centre travels from half this inside one end to half this inside the other. */
+const THUMB_PX = 28
+
+/**
+ * What a finger that has travelled (dx, dy) from where it landed is doing:
+ * nothing yet inside the slop, dragging the thumb when it went mostly
+ * sideways, scrolling the page otherwise (a tie scrolls).
+ */
+export function earnSliderAxis(dx: number, dy: number): "wait" | "drag" | "page" {
+  const ax = Math.abs(dx)
+  const ay = Math.abs(dy)
+  if (ax < EARN_SLIDER_SLOP_PX && ay < EARN_SLIDER_SLOP_PX) return "wait"
+  return ax > ay ? "drag" : "page"
+}
+
+type SliderGesture = { id: number; x: number; y: number; left: number; width: number; from: number; mode: "wait" | "drag" | "mouse" }
+
+/**
+ * Wraps one CommerceSlider so that a finger scrolling the page over it does
+ * not move it (see the note at the top of this file). The range itself takes
+ * no pointer (pointer-events: none in EARN_CSS); this box does, over the
+ * range's own 44px band only, so the label and the typed figure are as they
+ * were. Measured once, when the pointer lands.
+ */
+function ScrollSafeSlider({ value, min, max, onChange, children }: { value: number; min: number; max: number; onChange: (v: number) => void; children: ReactNode }) {
+  const gesture = useRef<SliderGesture | null>(null)
+  /* The last pointer to land here: a mouse sets the value on the way down, so its click is not a second answer. */
+  const touched = useRef(false)
+  const clamp = (v: number) => Math.max(min, Math.min(max, Math.round(v)))
+  const set = (v: number) => {
+    const next = clamp(v)
+    if (next !== value) onChange(next)
+  }
+  const band = (box: HTMLElement, x: number, y: number) => {
+    const range = box.querySelector<HTMLInputElement>('input[type="range"]')
+    const r = range?.getBoundingClientRect()
+    return range && r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom ? { range, left: r.left, width: r.width } : null
+  }
+  const valueAt = (x: number, left: number, width: number) => min + ((x - left - THUMB_PX / 2) / Math.max(1, width - THUMB_PX)) * (max - min)
+
+  const down = (e: ReactPointerEvent<HTMLDivElement>) => {
+    gesture.current = null
+    touched.current = e.pointerType === "touch"
+    if (!e.isPrimary || (e.pointerType !== "touch" && e.button !== 0)) return
+    const hit = band(e.currentTarget, e.clientX, e.clientY)
+    if (!hit) return
+    const g: SliderGesture = { id: e.pointerId, x: e.clientX, y: e.clientY, left: hit.left, width: hit.width, from: value, mode: "wait" }
+    gesture.current = g
+    if (e.pointerType === "touch") return
+    /* A mouse or a pen: the thumb goes to the pointer and follows it. */
+    e.preventDefault()
+    g.mode = "mouse"
+    e.currentTarget.setPointerCapture(e.pointerId)
+    hit.range.focus({ preventScroll: true })
+    set(valueAt(e.clientX, g.left, g.width))
+  }
+  const move = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = gesture.current
+    if (!g || g.id !== e.pointerId) return
+    if (g.mode === "mouse") return set(valueAt(e.clientX, g.left, g.width))
+    if (g.mode === "wait") {
+      const axis = earnSliderAxis(e.clientX - g.x, e.clientY - g.y)
+      if (axis === "wait") return
+      /* Up or down: the page scrolls and the value stays. */
+      if (axis === "page") {
+        gesture.current = null
+        return
+      }
+      g.mode = "drag"
+      g.x = e.clientX
+      e.currentTarget.setPointerCapture(e.pointerId)
+    }
+    set(g.from + ((e.clientX - g.x) / Math.max(1, g.width - THUMB_PX)) * (max - min))
+  }
+  /* Up and cancel only. Not lostpointercapture: a touch is captured by what it landed on, and taking the capture here (a drag) or lifting the finger (a tap) both send it, which would end the gesture they belong to. */
+  const end = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = gesture.current
+    if (!g || g.id !== e.pointerId) return
+    /* A finger that never left its 8px: keep the gesture for the click that follows, if the browser sends one. */
+    if (g.mode !== "wait" || e.type !== "pointerup") gesture.current = null
+  }
+  const click = (e: ReactMouseEvent<HTMLDivElement>) => {
+    const g = gesture.current
+    gesture.current = null
+    if (!touched.current || !g || g.mode !== "wait") return
+    const hit = band(e.currentTarget, e.clientX, e.clientY)
+    if (hit) set(valueAt(e.clientX, hit.left, hit.width))
+  }
+  return (
+    <div className="cme-slide" data-earn-slider="" onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClick={click}>
+      {children}
+    </div>
   )
 }
 
@@ -309,6 +424,8 @@ const EARN_CSS = `
 .cme-num{display:inline-flex;align-items:baseline;gap:1px;padding:2px 10px;border-radius:9px;background:#f6f6f8;box-shadow:inset 0 0 0 1px #ececf0}
 .cme-num input{min-width:2ch;border:0;outline:0;background:transparent;font:inherit;color:inherit;text-align:right;padding:0;font-variant-numeric:tabular-nums}
 .cme-num:focus-within{box-shadow:inset 0 0 0 2px #7c3aed}
+.cme-slide{touch-action:pan-y;-webkit-tap-highlight-color:transparent}
+.cme-slide .cmk-range{pointer-events:none}
 .cme-kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .cme-kind{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:9px;min-width:0;height:48px;padding:0 14px;border:0;border-radius:12px;background:#f6f6f8;color:#55525e;font:500 14.5px/1 var(--font-inter,Inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:inset 0 0 0 1px transparent;transition:background-color .2s ease,color .2s ease,box-shadow .2s ease}
 .cme-kind{container-type:inline-size}

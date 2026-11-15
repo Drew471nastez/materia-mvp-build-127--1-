@@ -95,16 +95,17 @@ console.log("\n── Start now comes in after the hero ──")
   const header = code("components/platform/platform-header-client.tsx")
   const fx = header.slice(header.indexOf('el.setAttribute("data-home-cta", "shown")') - 400, header.indexOf("}, [pathname])", header.indexOf('"data-home-cta"')))
   check("only on the home page", /if \(!el \|\| pathname !== "\/"\) return/.test(fx))
-  check("watches the hero's own buttons with one observer", /document\.querySelector\("\[data-home-hero\] \.cinematic-actions"\)/.test(fx) && /new IntersectionObserver\(/.test(fx) && /io\.observe\(cta\)/.test(fx))
+  // Changed on purpose (landing round 9): the same one observer also watches the showcase, which is what a phone waits for (tests/home-landing-r9-frame.test.ts).
+  check("watches the hero's own buttons with one observer", /document\.querySelector\("\[data-home-hero\] \.cinematic-actions"\)/.test(fx) && (fx.match(/new IntersectionObserver\(/g) ?? []).length === 1 && /io\.observe\(cta\)/.test(fx))
   check("gone means above the bar's foot, not merely off screen below", /rootMargin: `-\$\{top\}px 0px 0px 0px`/.test(fx) && /!entry\.isIntersecting && entry\.boundingClientRect\.top < /.test(fx))
-  check("an attribute on the bar: no state, no scroll listener, no re-render", /el\.setAttribute\("data-home-cta", gone \? "shown" : "hidden"\)/.test(fx) && !/addEventListener|useState|set[A-Z]\w*\(/.test(fx.replace(/setAttribute/g, "")))
+  check("an attribute on the bar: no state, no scroll listener, no re-render", /* Changed on purpose (landing round 9): which block is watched depends on the width, so "gone" is kept per block. */ /el\.setAttribute\("data-home-cta", gone\.get\(watched\) \? "shown" : "hidden"\)/.test(fx) && !/addEventListener|useState|set[A-Z]\w*\(/.test(fx.replace(/setAttribute/g, "")))
   check("without an observer it simply shows", /el\.setAttribute\("data-home-cta", "shown"\)/.test(fx))
   const hero = read("components/marketing/hero.tsx")
   const hidden = /#platform-header-root:not\(\[data-home-cta="shown"\]\) :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""
-  check("waiting: faded where it stands, not focusable or tappable", /opacity:0/.test(hidden) && /translate:0 7px/.test(hidden) && /visibility:hidden/.test(hidden) && /pointer-events:none/.test(hidden))
+  check("waiting: faded where it stands, not focusable or tappable", /opacity:0/.test(hidden) && /* Changed on purpose (landing round 9): a 4px rise (it was 7), the owner: "unobservable". */ /translate:0 4px/.test(hidden) && /visibility:hidden/.test(hidden) && /pointer-events:none/.test(hidden))
   check("its room is kept: no display, width or size change", !/display|width|height|margin|padding/.test(hidden))
   const shown = /#platform-header-root :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""
-  check("arriving: opacity and translate eased in, nothing else animated", /transition:opacity 320ms cubic-bezier\(\.22,1,\.36,1\),translate 420ms/.test(shown) && !/height|width|box-shadow|filter/.test(shown))
+  check("arriving: opacity and translate eased in, nothing else animated", /* Changed on purpose (landing round 9): a longer, softer fade (560ms and 640ms; they were 320 and 420). */ /transition:opacity 560ms cubic-bezier\(\.33,0,\.2,1\),translate 640ms/.test(shown) && !/height|width|box-shadow|filter/.test(shown))
   check("reduced motion: a plain fade, no movement", /translate:none !important; transition:opacity 150ms linear/.test(hero))
 }
 

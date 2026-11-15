@@ -3,103 +3,48 @@
 import { useEffect, useRef, type CSSProperties } from "react"
 
 /*
- * THE SCRIPTED FALLBACK (landing round 7, the owner: "make the filling as you
- * scroll into the headings feel more smooth and clean"). Only browsers
- * without scroll-driven animations, and a heading inside a box that clips by
- * scrolling, come here. One passive scroll listener and one frame for all of
- * them, and nothing is measured on a frame: where a heading sits on the page
- * is read from the IntersectionObserver's own entries (handed over after the
- * browser has laid out, so free) and kept, and each frame works the progress
- * out from scrollY alone and writes one number, --story-progress. The words'
- * colour and the rise are worked out from it by the stylesheet (STORY_CSS).
+ * THE FALLBACK INKS ONCE (landing round 9, the owner: "on mobile, as I
+ * scroll, headings glitch, move and stutter"). Browsers without scroll-driven
+ * animations (every iPhone before iOS 26) and a heading inside a box that
+ * clips by scrolling come here. Round 7 followed the scroll from script: a
+ * scroll listener and a frame that wrote --story-progress, which the heading's
+ * 12px rise and every word's colour were worked out from. A phone scrolls on
+ * its own thread and tells the page late, so the heading was moved a frame or
+ * more behind the scroll it was following: it shook. Now nothing follows the
+ * scroll here. One IntersectionObserver marks a heading when it comes on
+ * screen (data-story-inked), and the stylesheet runs --story-progress from 0
+ * to 1 as a transition (STORY_CSS), so the words ink as the same soft wave,
+ * once, and the heading never moves. A heading already passed is inked at
+ * once. No scroll listener, no frame, no layout read.
  */
-function createHeadingMotion() {
+function createHeadingInk() {
   const nodes = new Set<HTMLElement>()
-  const active = new Set<HTMLElement>()
-  const state = new WeakMap<HTMLElement, { top: number; height: number; progress: string }>()
-  const motion = matchMedia("(prefers-reduced-motion: reduce)")
-  let frame = 0
-  let viewportWidth = document.documentElement.clientWidth
-  let viewportHeight = innerHeight
-  const write = (node: HTMLElement, value: number) => {
-    const entry = state.get(node)
-    const progress = value.toFixed(3)
-    if (!entry || entry.progress === progress) return
-    node.style.setProperty("--story-progress", progress)
-    entry.progress = progress
-  }
-  const paint = () => {
-    frame = 0
-    if (document.hidden) return
-    const y = scrollY
-    for (const node of motion.matches ? nodes : active) {
-      const entry = state.get(node)
-      if (!entry || entry.top < 0) continue
-      write(
-        node,
-        motion.matches
-          ? 1
-          : Math.max(0, Math.min(1, (viewportHeight - (entry.top - y) - 64) / (viewportHeight * 0.68 + entry.height * 0.25))),
-      )
-    }
-  }
-  const schedule = () => {
-    if (!frame) frame = requestAnimationFrame(paint)
-  }
-  const resize = () => {
-    const width = document.documentElement.clientWidth
-    if (width !== viewportWidth || (!matchMedia("(pointer:coarse)").matches && width >= 1024)) {
-      viewportWidth = width
-      viewportHeight = innerHeight
-      schedule()
-    }
-  }
-  /* Several thresholds, so a heading's kept position is refreshed as it crosses the screen (a section mounting above it moves it). */
   const observer =
     typeof IntersectionObserver === "function"
       ? new IntersectionObserver(
           (entries) => {
-            const y = scrollY
             for (const entry of entries) {
               const node = entry.target as HTMLElement
-              const kept = state.get(node)
-              if (kept) {
-                kept.top = entry.boundingClientRect.top + y
-                kept.height = entry.boundingClientRect.height
-              }
-              if (entry.isIntersecting) active.add(node)
-              else {
-                active.delete(node)
-                if (entry.boundingClientRect.bottom < 0) write(node, 1)
-              }
+              /* On screen, or already above it (flung past, or the page restored further down). */
+              if (!entry.isIntersecting && entry.boundingClientRect.bottom >= 0) continue
+              node.setAttribute("data-story-inked", "")
+              observer?.unobserve(node)
             }
-            schedule()
           },
-          { rootMargin: "80px 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },
+          { rootMargin: "0px 0px -10% 0px" },
         )
       : null
-  window.addEventListener("scroll", schedule, { passive: true })
-  window.addEventListener("resize", resize)
-  document.addEventListener("visibilitychange", schedule)
-  motion.addEventListener("change", schedule)
   return {
     add(node: HTMLElement) {
-      /* top -1 until the observer reports where the heading is: nothing is painted from a guess. */
-      state.set(node, { top: -1, height: 0, progress: "" })
       nodes.add(node)
-      observer?.observe(node)
+      if (observer) observer.observe(node)
+      else node.setAttribute("data-story-inked", "")
       return () => {
         nodes.delete(node)
-        active.delete(node)
         observer?.unobserve(node)
         if (!nodes.size) {
-          cancelAnimationFrame(frame)
           observer?.disconnect()
-          window.removeEventListener("scroll", schedule)
-          window.removeEventListener("resize", resize)
-          document.removeEventListener("visibilitychange", schedule)
-          motion.removeEventListener("change", schedule)
-          headingMotion = undefined
+          headingInk = undefined
         }
       }
     },
@@ -116,6 +61,16 @@ function createHeadingMotion() {
  * Everything is derived from the single number --story-progress (the
  * scroll-driven animation in app/globals.css, or the fallback above), and
  * only colour and the heading's rise (a transform) move.
+ *
+ * Landing round 9: a heading in the fallback does not rise at all and inks by
+ * a transition of that number (it is a registered <number>, app/globals.css
+ * @property; a browser that cannot run it inks the heading in one step). And
+ * on a touch screen no heading rises, in either path: a phone's scroll runs
+ * ahead of the page's own thread, and Safari runs scroll-driven animations on
+ * that thread, so a transform tied to the scroll trails it and the heading
+ * shakes. The colour may trail by a frame; nobody sees that. The rule names
+ * the class alone (three times, for weight), so a heading a section writes
+ * itself (the ideas' turning lines) stands still too.
  */
 export const STORY_CSS = `
 @supports (color:color-mix(in oklab,red 50%,blue)) {
@@ -127,8 +82,17 @@ export const STORY_CSS = `
   }
 }
 @media (forced-colors:active) {.story-heading[data-story-heading] [data-story-word][data-story-word] {color:CanvasText}}
+.story-heading[data-story-heading][data-story-js] {transform:none}
+.story-heading[data-story-heading][data-story-js] > span {--story-progress:0}
+.story-heading[data-story-heading][data-story-js][data-story-inked] > span {--story-progress:1}
+@media (prefers-reduced-motion:no-preference) {
+  .story-heading[data-story-heading][data-story-js] > span {transition:--story-progress 1.1s cubic-bezier(.3,0,.25,1)}
+}
+@media (hover:none) and (pointer:coarse) {
+  .story-heading.story-heading.story-heading {animation:none;transform:none}
+}
 `
-let headingMotion: ReturnType<typeof createHeadingMotion> | undefined
+let headingInk: ReturnType<typeof createHeadingInk> | undefined
 
 /*
  * Where the browser has scroll-driven animations, a heading inks and rises by
@@ -139,7 +103,8 @@ let headingMotion: ReturnType<typeof createHeadingMotion> | undefined
  * (5 to 15 ms at 4x CPU). The script keeps browsers without scroll-driven
  * animations and a heading inside a box that clips by scrolling (overflow:
  * hidden or auto), whose view timeline would follow that box instead of the
- * page; those are marked data-story-js, which the stylesheet leaves alone.
+ * page; those are marked data-story-js, which the stylesheet leaves alone,
+ * and ink once as they come on screen (createHeadingInk).
  * Wave 13: the showcase heading inks from the scroll again, the same way.
  */
 function inkedByCss(node: HTMLElement) {
@@ -213,8 +178,8 @@ export function StoryHeading({
     const decide = () => {
       if (inkedByCss(node)) return
       node.setAttribute("data-story-js", "")
-      headingMotion ??= createHeadingMotion()
-      remove = headingMotion.add(node)
+      headingInk ??= createHeadingInk()
+      remove = headingInk.add(node)
     }
     if (typeof CSS === "undefined" || !CSS.supports("animation-timeline: view()")) {
       decide()

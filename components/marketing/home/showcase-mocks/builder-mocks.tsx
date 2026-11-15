@@ -128,7 +128,7 @@ const MM_PRODUCTS: Product[] = [
 
 /**
  * Mondo Mango, a loud little merch label's store, the site open in the website builder: the wordmark in the
- * middle of the header, a wall of colour for a hero, then the drop on white with the wordmark printed on every
+ * middle of the header, an orange hero with one photograph (landing round 9: one picture, not seven), then the drop on white with the wordmark printed on every
  * piece. `rings` outlines the Hero, then the products, the way the builder rings the section it has selected.
  */
 export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
@@ -147,7 +147,12 @@ export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
         </span>
       </div>
       <div className="mg-hero">
-        <Pic n="mm-hero" w={1600} h={540} className="mg-wall" />
+        <span className="mg-pitch">
+          <b>Wear it loud.</b>
+          <i>Heavy cotton crewnecks, caps and tees, made in small runs.</i>
+          <em>Shop the drop</em>
+        </span>
+        <Pic n="mm-hero" w={960} h={726} className="mg-wall" />
         <span className="mg-sticker">
           <b>Drop 03</b>
           <i>out now</i>
@@ -835,8 +840,13 @@ export const BUILDER_CSS = u(`
 .mg-links{display:flex;gap:18u;font-size:10.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#141414}
 .mg-links b{font-weight:600;box-shadow:inset 0 -1.5u 0 #ff5b14}
 .mg-logo{position:absolute;left:50%;top:50%;width:156u!important;height:36u!important;background:none!important;transform:translate(-50%,-50%)}
-.mg-hero{position:relative;flex:none;height:326u;margin:0 24u}
-.mg-wall{width:100%!important;height:100%!important;object-fit:cover}
+/* Landing round 9 (the owner: "Mondo Mango has too many images"): the wall of seven photographs is one. The hero is the label's orange with three plain lines on it, and one photograph beside it. */
+.mg-hero{position:relative;flex:none;display:flex;height:326u;margin:0 24u;background:#ff5b14}
+.mg-pitch{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:0 40u;color:#fff6e6}
+.mg-pitch b{font-size:68u;font-weight:900;line-height:.92;letter-spacing:-.05em}
+.mg-pitch i{max-width:320u;margin-top:16u;font-size:15u;font-style:normal;font-weight:500;line-height:1.4}
+.mg-pitch em{margin-top:22u;padding:12u 20u;border-radius:999u;background:#141414;color:#fff;font-size:11u;font-style:normal;font-weight:700;line-height:1;letter-spacing:.14em;text-transform:uppercase}
+.mg-wall{flex:none;width:440u!important;height:100%!important;object-fit:cover;object-position:50% 30%}
 .mg-sticker{position:absolute;z-index:3;right:22u;top:20u;display:grid;place-items:center;align-content:center;width:96u;height:96u;border-radius:50%;background:#ffc928;color:#2338e8;transform:rotate(-12deg);box-shadow:0 6u 16u -8u rgba(0,0,0,.4)}
 .mg-sticker b{font-size:18u;font-weight:900;line-height:1;letter-spacing:-.03em}
 .mg-sticker i{margin-top:3u;font-size:9.5u;font-style:normal;font-weight:700;letter-spacing:.16em;text-transform:uppercase}

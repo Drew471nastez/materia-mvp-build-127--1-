@@ -66,11 +66,13 @@ check("before the script the rail scrolls natively and snaps, and a swipe at an 
 check("before the script both axes stay the browser's", /\.build-showcase-track \{[^}]*touch-action:pan-x pan-y pinch-zoom/.test(showcase))
 check("cards and groups snap at their start, the phone's on the gutter", /\.build-showcase-group \{[^}]*scroll-snap-align:start/.test(showcase) && /scroll-padding-inline:var\(--showcase-gutter\)/.test(showcase) && /\.build-showcase-slide\{flex:0 0 var\(--showcase-card\);width:var\(--showcase-card\);scroll-snap-align:start/.test(showcase)) /* Changed on purpose (landing round 6): the phone card is a 4:3 card 78% of the screen wide, its caption under it. */
 check("the script's rail turns the snapping off and leaves vertical pans to the page", /\.build-showcase-track\[data-rail-ready\] \{[^}]*touch-action:pan-y pinch-zoom;[^}]*scroll-snap-type:none/.test(showcase))
-check("one engine for touch and mouse, no second rail", !/startNative|RailMotion|const NATIVE =/.test(hook) && /el\.addEventListener\("pointerdown", onDown\)/.test(hook))
+/* Changed on purpose (landing round 9): the one engine reads its pointer through components/marketing/rail-gesture.ts. */
+check("one engine for touch and mouse, no second rail", !/startNative|RailMotion|const NATIVE =/.test(hook) && /const gesture = bindRailGesture\(el, \{/.test(hook))
 check("it runs only on screen, in a visible tab, with motion allowed", /const canPlay = \(\) => visible && !paused && !document\.hidden && !reduce\.matches/.test(hook) && /"visibilitychange", onVisibility/.test(hook))
 check("autoplay: a card every 4.2s, back 5s after the reader's last input", SHOWCASE_AUTOPLAY.intervalMs === 4200 && SHOWCASE_AUTOPLAY.idleMs === 5000)
 check("card places are read once per layout change, never during a swipe", /resize\?\.observe\(viewport\)/.test(hook) && (hook.match(/s\.offsetLeft/g) ?? []).length === 1)
-check("a short flick is a card", SHOWCASE_GESTURE.axisSlop === 8 && SHOWCASE_GESTURE.flickVelocity <= 200 && SHOWCASE_GESTURE.flickDistanceMax <= 30)
+/* Changed on purpose (landing round 9): the axis is read after 4px (rail-gesture.ts), the owner had to pull too long. */
+check("a short flick is a card", (SHOWCASE_GESTURE.axisSlop as number) === 4 && SHOWCASE_GESTURE.flickVelocity <= 200 && SHOWCASE_GESTURE.flickDistanceMax <= 30)
 
 console.log("\n── The showcase: the cards inside the section ──")
 /* Changed on purpose (landing round 6): the owner saw the captions cut by the section's edge; the cards now end inside it with room under their captions, and a phone card is a 4:3 card (tests/home-landing-r6-showcase.test.ts). */
@@ -153,8 +155,10 @@ check("heavy drawing steps the canvas down to fewer device pixels, then the idle
 console.log("\n── The globe: on a phone ──")
 /* Changed on purpose (landing round 8): the owner asked for a lighter globe; a phone draws at 1.5x (1.25x low end), elsewhere 2x or 1.5x low end. */
 check("device pixels at most 2x, 1.5x on a phone with four cores or 4 GB or less", /if \(phone\) return lowEnd \? 1\.25 : 1\.5/.test(globe) && /return lowEnd \? 1\.5 : 2/.test(globe) && /Math\.min\(globeDprCap\(\), window\.devicePixelRatio/.test(globe))
-check("a finger waits 8px: mostly vertical is the page's, sideways is captured then", /if \(Math\.abs\(dx\) < 8 && Math\.abs\(dy\) < 8\) return/.test(globe) && /if \(Math\.abs\(dy\) >= Math\.abs\(dx\)\) \{\s*touch = null/.test(globe) && /touch-action:pan-y/.test(evSrc))
-check("a finger turns the globe about its axis only", /take\(e, touch\.y0\)/.test(globe) && /y: touch && touch\.id === e\.pointerId \? touch\.y0 : e\.clientY/.test(globe))
+/* Changed on purpose (landing round 9): the first pixels are read by swipeAxis (6px, down or up is the page's, clearly sideways is taken; tests/home-landing-r9-top). */
+check("a finger waits for a clear direction: mostly vertical is the page's, sideways is captured then", /const axis = swipeAxis\(dx, dy\)\s*if \(!axis\) return\s*if \(axis === "y"\) \{\s*touch = null/.test(globe) && /if \(ay >= ax\) return "y"/.test(globe) && /touch-action:pan-y/.test(evSrc))
+/* Changed on purpose (landing round 9): take is also told where the finger was a few pixels ago, so the globe follows from the first pixel. */
+check("a finger turns the globe about its axis only", /take\(e, touch\.y0, /.test(globe) && /y: touch && touch\.id === e\.pointerId \? touch\.y0 : e\.clientY/.test(globe))
 check("the globe still stops off screen and in a hidden tab", /driver\.run\(st\.visible && st\.shown && st\.live && !st\.reduced\)/.test(globe))
 
 console.log(`\n${passed} passed, ${failed} failed`)

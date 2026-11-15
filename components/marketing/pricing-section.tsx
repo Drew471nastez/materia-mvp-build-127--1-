@@ -114,22 +114,25 @@ export function PricingSection({
     the heading "Pricing & Plans" and one plain line under it. On the home
     page (editorial) it uses the page's heading type and, landing round 7, the
     page's one width (.home-wrap): cards edge to edge with the showcase under
-    the hero, the heading and the pill from its left edge, set in by the
-    heading inset;
+    the hero, the heading from its left edge, set in by the heading inset;
     /pricing keeps its own h1 and the same words.
   */
   /* Landing round 3: on the home page the section sits on the white sheet with the calculator and the questions, so it is white there, with no rules above and below. */
   return (
     <section data-story-section={editorial ? "pricing" : undefined} className={editorial ? "bg-white py-20 sm:py-24" : "py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]"} id="pricing">
-      <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [&_[data-plan-cards]]:!max-w-none [&_[data-plan-interval-row]]:justify-start [&_[data-plan-interval-row]]:pl-[var(--home-head-inset)]" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
+      <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [&_[data-plan-cards]]:!max-w-none" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
         <AnimateOnScroll variant="blur-in">
           {/*
             Landing round 8, the owner: "make the heading left aligned like all
             the other sections". Stated outright on the home page (text-left,
             no auto margins, the AnimateOnScroll wrapper full width) so no
-            inherited centring can move it: the heading, its line and the pill
-            start at the content edge plus --home-head-inset, as every other
-            section's heading does.
+            inherited centring can move it: the heading and its line start at
+            the content edge plus --home-head-inset, as every other section's
+            heading does.
+            Landing round 9, the owner: "get rid of the Monthly / Yearly pill
+            there; monthly or yearly is chosen when I pay". The home page's
+            cards show monthly prices and no pill (hideInterval below);
+            /pricing keeps its pill.
           */}
           <div data-pricing-head="" className={editorial ? "story-section-heading !mx-0 !mb-10 w-full pl-[var(--home-head-inset)] !text-left" : "text-center max-w-[640px] mx-auto mb-10 sm:mb-12"}>
             {editorial ? <StoryHeading text={headingOverride || "Pricing & Plans"} accent={["Plans"]} /> : (
@@ -151,7 +154,7 @@ export function PricingSection({
             ./pricing-lines, so nothing on a card is more than the plan gives.
             The onboarding (compact, above) keeps the app's own lines.
           */}
-          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} pictureLoading={headingLevel === 1 ? "eager" : "lazy"} lines={PUBLIC_LINES} tick="ink" />
+          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} pictureLoading={headingLevel === 1 ? "eager" : "lazy"} lines={PUBLIC_LINES} tick="ink" hideInterval={editorial} />
           {footnote}
         </AnimateOnScroll>
 

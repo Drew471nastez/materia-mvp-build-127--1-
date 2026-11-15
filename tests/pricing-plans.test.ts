@@ -423,8 +423,9 @@ function main() {
     const free = /free: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]
     const growth = /growth: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]
     // Changed on purpose (landing round 8): the owner asked for more contrast in the pictures; lifted and above 1.
-    check("Free's picture lifted with its contrast above 1", free === "brightness(0.9) contrast(1.12)", free)
-    check("Pro's picture lifted with its contrast above 1", growth === "brightness(0.62) contrast(1.16) saturate(1.05)", growth)
+    // Changed on purpose (landing round 9): the owner asked for the covers a step darker with a little more contrast.
+    check("Free's picture a step darker, its contrast above 1", free === "brightness(0.76) contrast(1.2)", free)
+    check("Pro's picture a step darker, its contrast above 1", growth === "brightness(0.52) contrast(1.24) saturate(1.05)", growth)
   }
 
   console.log("\nThe probe that measures the cards is on disk")

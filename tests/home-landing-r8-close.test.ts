@@ -70,9 +70,11 @@ console.log("\n── apps: the real list, true marks, corner dots ──")
   const a = cornerDot(3, 1000, cloud)
   const b = cornerDot(3, 1016, cloud)
   check("a dot moves smoothly: under a pixel a frame", Math.hypot(a.x - b.x, a.y - b.y) < 1 && Math.hypot(a.x - b.x, a.y - b.y) > 0)
-  check("one canvas behind the section, no pointer, no state", /<canvas ref=\{ref\} className=\{s\.dots\} aria-hidden="true" data-corner-dots="" \/>/.test(src) && /\.dots \{\s*position: absolute;\s*inset: 0;\s*z-index: -1;[^}]*pointer-events: none;/.test(css))
+  // Changed on purpose (landing round 9): the canvas was redrawn on the page's thread every frame and made the heading and the rows stutter; the dots are still SVG layers now, moved by CSS.
+  check("one box behind the section, no canvas, no pointer, no state", /<div className=\{s\.dots\} aria-hidden="true" data-corner-dots="">/.test(src) && !/<canvas|getContext/.test(src) && /\.dots \{\s*position: absolute;\s*inset: 0;\s*z-index: -1;[^}]*pointer-events: none;/.test(css))
   const loop = src.slice(src.indexOf("function CornerDots"), src.indexOf("One turn, landing"))
-  check("the loop runs only while live (on screen, tab visible), still under reduced motion, at most 60 a second, no layout read", /if \(!live \|\| reduced\) return/.test(loop) && /const \{ reduced, live \} = usePlatformSection\(ref\)/.test(src) && /if \(last && t - last < 12\) return/.test(loop) && !/getBoundingClientRect|useState/.test(loop) && /ResizeObserver/.test(loop))
+  // Changed on purpose (landing round 9): no script loop at all; the layers carry platform's .loop, which pauses them off screen and in a background tab and stills them under reduced motion.
+  check("no frame loop: the layers move by CSS, paused off screen with every other loop, no layout read", !/requestAnimationFrame|getBoundingClientRect|useState|useEffect|ResizeObserver/.test(loop) && /className=\{`\$\{s\.cloud\} \$\{m\.loop\}`\}/.test(loop) && /\.cloud \{[^}]*animation: breathe 28s linear infinite;/.test(css))
 }
 
 console.log("\n── pricing: left, teal, clean pictures ──")
@@ -82,18 +84,21 @@ console.log("\n── pricing: left, teal, clean pictures ──")
   check("the heading stated left aligned on the home page", /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
   check("the small print starts at the same edge on the home page", /editorial \? "pl-\[var\(--home-head-inset\)\] text-left" : "text-center"/.test(pricing))
   const scale = PLAN_ART.pro
-  check("Scale is a deep teal, not violet or pink", /hue-rotate\(-80deg\)/.test(scale.filter) && /#0f6b66/.test(scale.button) && !/#7c3aed|#6d28d9|#5b21b6|#2a0f63|#1c0a45/.test(Object.values(scale).join(" ")))
+  // Changed on purpose (landing round 9): the owner did not want Scale green either, so the teal is gone (tests/home-landing-r9-close.test.ts pins the new colour).
+  check("Scale is not teal, violet or pink", !/hue-rotate\(-80deg\)|#0f6b66/.test(Object.values(scale).join(" ")) && !/#7c3aed|#6d28d9|#5b21b6|#2a0f63|#1c0a45/.test(Object.values(scale).join(" ")))
   const contrast = (f: string) => Number(/contrast\(([\d.]+)\)/.exec(f)?.[1] ?? 0)
   check("every picture's contrast above 1, no longer dimmed below half", Object.values(PLAN_ART).every((a) => contrast(a.filter) > 1.1 && Number(/brightness\(([\d.]+)\)/.exec(a.filter)?.[1]) >= 0.5), Object.values(PLAN_ART).map((a) => a.filter))
-  check("the grain a quarter of what it was", Object.values(PLAN_ART).every((a) => a.grain <= 0.05))
+  // Changed on purpose (landing round 9): the owner asked for a little more grain (0.05 to 0.08), still under half of the 0.2 it was.
+  check("the grain under half of what it was", Object.values(PLAN_ART).every((a) => a.grain <= 0.08))
   check("the pictures sent at quality 90, a quality next.config serves", /quality=\{90\}/.test(cards) && /qualities: \[[^\]]*\b90\b/.test(read("next.config.mjs")))
 }
 
 console.log("\n── questions: no grey box ──")
 {
   const faq = read("components/marketing/faq-section.tsx")
-  check("transparent over the grey ground globals.css gives the section", /style=\{editorial \? \{ background: "transparent" \} : undefined\}/.test(faq) && /!rounded-none/.test(faq))
-  check("in the page's one width, the heading at the inset, the answers to the far edge", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /"!max-w-none !pl-\[var\(--home-head-inset,14px\)\] !pr-0"/.test(faq) && !/!px-\[clamp\(20px,4\.4vw,80px\)\]/.test(faq))
+  // Changed on purpose (landing round 9): the home page's questions have their own branch, so the style is stated outright; and the owner's reference is one centred column, so the heading no longer starts at the inset.
+  check("transparent over the grey ground globals.css gives the section", /style=\{\{ background: "transparent" \}\}/.test(faq) && /!rounded-none/.test(faq))
+  check("in the page's one width, one centred column inside it", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /data-faq-column="" className="!mx-auto w-full !max-w-\[880px\] !px-0"/.test(faq) &&!/!px-\[clamp\(20px,4\.4vw,80px\)\]/.test(faq))
 }
 
 console.log("\n── the close: dots, motion, the footer's edge ──")

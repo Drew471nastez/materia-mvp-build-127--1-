@@ -89,10 +89,12 @@ console.log("\nCommerce: the sections render on the server")
   const how = renderToStaticMarkup(createElement(HowItWorks))
   /* Changed on purpose (landing round): the owner asked for less "fans" in the copy. */
   // Changed on purpose (landing round 7, the owner: "another heading, more clean and simple", two tones like section 3).
-  check("how it works: its heading", how.includes("Products, courses and tips.") && HOW_HEADING.lead === "Products, courses and tips." && HOW_HEADING.rest === "On your own domain." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
+  // Changed on purpose (landing round 9): a new heading, the products card being gone.
+  check("how it works: its heading", how.includes("Take tips. See what sells.") && HOW_HEADING.lead === "Take tips. See what sells." && HOW_HEADING.rest === "All on your own domain." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
   /* Changed on purpose (landing round 3): a sixth tile, the creator's own domain, as the owner asked. */
   // Changed on purpose (landing round 7): four cards in section 3's two by two grid; the checkout and files tiles are gone.
-  check("how it works: four cards", (how.match(/class="cmh-card /g) ?? []).length === 4)
+  // Changed on purpose (landing round 9): three cards in one row (tips, the numbers, your own domain); the products and course cards repeated other sections.
+  check("how it works: three cards", (how.match(/class="cmh-card /g) ?? []).length === 3)
   /* Changed on purpose (wave 13): the owner removed the profit picker, the "How it works" pill and the subheading. */
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
   /* Changed on purpose (landing round): the merch tile became one shop's physical and digital products (a tee printed when ordered, an e-book sent when paid), as the owner asked. */
@@ -100,12 +102,14 @@ console.log("\nCommerce: the sections render on the server")
   // Changed on purpose (landing round 5): the owner did not like the cap: a $45 signed print (an example $14 print cost) and the $19 e-book.
   // Changed on purpose (landing round 7): the owner did not like Nadia Brooks's print: a $38 shop apron (an example $16 print cost) and $24 workbench plans.
   // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack: a $32 tee (an example $12.50 print cost) and the $29 pack.
-  check("how it works: a $32 tee and the $29 LUT pack, physical and digital", how.includes("$32.00") && how.includes("$29.00") && how.includes("$12.50") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/tee-white.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
-  check("how it works: what each product leaves is Storelib's fee and the example cost off the price", HOW_PRODUCTS.every((m) => m.keepCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.keepCents > 0))
+  // Changed on purpose (landing round 9): section 3's two products as the shop's top products, with what section 3 says each made.
+  check("how it works: the $29 LUT pack and the $32 tee as top products", how.includes("$11,194") && how.includes("$6,848") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.priceCents).join() === "2900,3200" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/everything/tee.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
+  check("how it works: no You keep figures", !/You keep|Print cost/.test(how) && typeof calculateStorelibFee === "function") // Changed on purpose (landing round 9): they were the products card's.
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
 /* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
   // Changed on purpose (landing round 7): no checkout or files tile any more; the course player keeps its real words.
-  check("how it works: the tiles use the product's real words", ["Lessons", "2 of 7 done", "Selling price", "You keep"].every((w) => how.includes(w)) && !how.includes("op-nadia") && !how.includes("Check out"))
+  // Changed on purpose (landing round 9): the reports' own names (app/(storelib)/app/analytics).
+  check("how it works: the tiles use the product's real words", ["Sales", "Top products", "Orders by country"].every((w) => how.includes(w)) && !how.includes("op-nadia") && !how.includes("Check out"))
   /* Added (landing round): the owner never wants the Golden Hour presets mockups again, nor the camera picture on the course. */
   check("how it works: no Golden Hour presets, no camera course picture, no purple gradient grounds", !/Golden Hour|golden-cover|course-camera|lt-field/i.test(how + src.how) && !/linear-gradient\(160deg,#4c1d95/.test(src.how))
 
@@ -131,7 +135,8 @@ console.log("\nCommerce: the sections render on the server")
   /* Changed on purpose (landing round): the product is Maya Ellis's e-book, Weeknight Pasta, not the Golden Hour presets the owner found AI looking. */
 /* Changed on purpose (landing round 4): new products; the seller's note is the in-app sale notification ("New sale: <total>", "<buyer> bought <thing> for <total>."). */
   // Changed on purpose (landing round 8): the LUT pack and the tee.
-  check("checkout: the reminder and the sale note use the real words", co.includes("You left Cine Tones LUT Pack at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $71.88") && co.includes("Sam Rivera bought Midnight Studio Tee and 1 more for $71.88."))
+  /* Changed on purpose (landing round 9): the owner: in the reminder "put the black t-shirt example". */
+  check("checkout: the reminder and the sale note use the real words", co.includes("You left Midnight Studio Tee at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $71.88") && co.includes("Sam Rivera bought Midnight Studio Tee and 1 more for $71.88."))
   check("checkout: no Golden Hour presets anywhere, and less fans in the words", !/Golden Hour|golden-cover|Presets/.test(co + src.checkout) && !/\bfans?\b/i.test(co.replace(/<style[\s\S]*?<\/style>/g, "")))
   /* Changed on purpose (landing round 7): the label names the checkout page. */
   check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="Storelib&#x27;s checkout page on a phone/.test(co))
@@ -199,8 +204,10 @@ console.log("\nCommerce: motion and performance rules")
 /* Changed on purpose (landing round 4): the phone rises and stays, the words come in, the tab cards rise over the phone: CSS view timelines (transform and opacity, on the compositor, reversible), and where a browser has none, two IntersectionObservers set two attributes and the same states play as transitions. Still no scroll listener and no layout read. */
   /* Changed on purpose (landing round 5): no scroll timelines; one observer starts a one-shot entrance, plain scroll does the rest. */
   // Changed on purpose (landing round 8): the objects turn on a scroll timeline (transform, run by the compositor).
-  check("checkout: one observer for the entrance, a scroll timeline for the objects only, no scroll listener, no layout read", /animation-timeline:--cmc-t/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-in/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
-  check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0;height:100svh/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(\$\{OVERLAP\} \* -1\) 0 0/.test(src.checkout))
+  /* Changed on purpose (landing round 9): the observer watches the cards only; the timeline also brings the phone down and the headline in. */
+  check("checkout: one observer for the cards, a scroll timeline for the scene, no scroll listener, no layout read", /animation-timeline:--cmc-t/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-over/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
+  /* Changed on purpose (landing round 9): held only where scroll timelines exist. */
+  check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0\}/.test(src.checkout) && /\.cmc-cards\.cmc-cards\{[^}]*margin:calc\(\$\{OVERLAP\} \* -1\) 0 0/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
   check("checkout: keyframes animate transform and opacity only", [...src.checkout.matchAll(/@keyframes [\w-]+\{([^@]*?)\}\}/g)].every((m) => !/(width|height|top|left|margin|background|box-shadow|filter)\s*:/.test(m[1])))
@@ -233,7 +240,8 @@ console.log("\nCommerce: images")
   // Changed on purpose (landing round 5): the print instead of the captured OnePage; the cap picture stays for the checkout scene's currencies panel.
   // Changed on purpose (landing round 7): Linde Woodshop's five pictures; the cap and the print stay for the checkout scene; the street course still is gone.
   // Changed on purpose (landing round 8): the tee in place of the apron and the bench (the LUT pack's still is section 3's file).
-  check("public/home/how holds the checkout's cap and print and the woodshop's pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,lesson-plane.webp,linde-avatar.webp,print-lasalle.webp,site-workshop.webp,tee-white.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 9): the white tee and the lesson still are deleted with their cards.
+  check("public/home/how holds the cap and print and the woodshop's two pictures, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,linde-avatar.webp,print-lasalle.webp,site-workshop.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }

@@ -1491,6 +1491,26 @@ const SUITES = [
   "tests/home-landing-r8-business.test.ts",
   /* Landing round 8 (frame): every join rounded on the lower block over the upper's square foot, nothing but the upper's colour behind a corner; the purple sheet rises over the white by a scroll-driven transform, nothing held; the possibilities before the earnings; one entrance for headings (word by word) and bodies; the tile turn and the ideas heading quicker. */
   "tests/home-landing-r8-frame.test.ts",
+  /* Landing round 9, rows: the possibilities an eighth smaller, a photo straightens and lifts inside two rings under a mouse, six new photos; the apps' corner dots are still SVG layers moved by CSS (no canvas redrawn each frame), a tap (not a swipe) turns an icon, a row glides to a stop; the app section white with one black stage: a phone in thin rings, chips drifting and lighting as a notice lands. */
+  "tests/home-landing-r9-rows.test.ts",
+  /* Landing round 9, checkout: the phone first and big, the stage held a screen while the scroll brings it down and reveals the headline; a creator's physical and digital products going round it in one 3D space; Google Pay beside Apple Pay; the phone mockup's scale fixed for WebKit; the cards' computer pictures in 4:3 on a phone, shorter lines, smoother loops, the Recovered tile, faint orbs. */
+  "tests/home-landing-r9-checkout.test.ts",
+  /* Landing round 9 (top): the store strip and the globe read a finger's first pixels with one rule (down or up is the page's, clearly sideways is taken, then followed as if from the first pixel), one write a frame, 240px pictures for the pieces; the support card raspberry to peach again; Kaia Moon's buttons fatter; the ideas heading, line and tabs centred, the picture 88% wide on a computer in one hairline frame with no shadow; Mondo Mango's hero one photograph. */
+  "tests/home-landing-r9-top.test.ts",
+  /* Landing round 9, the white sheet: the audience section in 15 words beside one picture (the list, a new person joining, one strip on a CSS clock, no timer); the AI tools line 35% shorter and its terminal 16 lines on a phone; the earnings sliders not grabbed by a scrolling finger (axis decided after 8px). */
+  "tests/home-landing-r9-white.test.ts",
+  /* Landing round 9 (how): three picture cards in one row (tips in colour, the numbers with a chart that draws in and reads by mouse, one address pill for the domain), ring lines, a dot field behind the heading; the products and course cards gone; transform and opacity only, nothing hidden on a fast scroll. */
+  "tests/home-landing-r9-how.test.ts",
+  /* Landing round 9, the close: no Monthly and Yearly pill on the home page's pricing (monthly prices; /pricing keeps it); Scale a warm bronze, not green; the covers a step darker with a little more contrast and grain; the questions as one centred column of grey rows with a closing line to /faq and the help center; the footer's logo as white line art. */
+  "tests/home-landing-r9-close.test.ts",
+  /* Landing round 9, rails: one gesture for the showcase and the creators rail (a finger from touch events, 4px, across only when clearly across, down never cancelled), pictures at the size drawn and decoded ahead, OnePages their own shape and 4:3 files for the rest, the dot field under the mouse, the creators' new photos and grain. */
+  "tests/home-landing-r9-rails.test.ts",
+  /* Landing round 9 (frame): the app and the map on white, the questions last and the closing call alone; sections' code fetched after first paint and no idle step waiting for ever, an entrance never hiding a flung block; on phones headings fade as one piece and nothing follows the scroll; the hero film as two small faststart files with their first frames as posters; Start now after the showcase on a phone. */
+  "tests/home-landing-r9-frame.test.ts",
+  /* Landing round 9, business: "What will you sell?" without pills or a line under them (plain words, an index beside the stage on a computer, a ring that closes as the turn runs), five digital covers passing in a slow row with a buy card that follows, the Midnight Studio Tee in place of the yellow headphones, a real banner on Applied AI Club; courses and bookings kept. */
+  "tests/home-landing-r9-business.test.ts",
+  /* Landing round 9 (purple): analytics blocks enter one by one as each comes on screen, the globe lighter on a phone and still while flung, the map on white with a black card, a 3s turn that renders nothing, Buy now clear of the copy. */
+  "tests/home-landing-r9-purple.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
