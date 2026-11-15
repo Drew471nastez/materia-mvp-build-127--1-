@@ -70,12 +70,14 @@ check("one observer, no scroll listener, no rAF, no layout read", (src.match(/ne
 check("armed only while a part is wholly below the screen, so a part mounted on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /* Changed on purpose (wave 17): only a mouse arms the cards; on a touch screen they ride in with their ground, which had come up over the phone empty (the owner's recording, a dark shade sweeping over the phone). */ /const arm = matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)\.matches/.test(src) && /if \(!arm \|\| root\.hasAttribute\("data-cmc-over-armed"\)\) root\.setAttribute\("data-cmc-over", ""\)/.test(src))
 // Changed on purpose (landing round 7): the phone rises from 34% low as its own box comes up the screen, so the rise is seen.
 // Changed on purpose (landing round 9): the owner: the phone comes first and comes down with the scroll; a scroll timeline of transform.
-check("the phone's move is a transform on the scroll timeline, never from off screen", /\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t;animation-range:contain 0% contain \d+svh\}/.test(css) /* Changed on purpose (wave 17): the hold's stretches are lengths of scroll from "contain 0%", not percentages, so Safari's toolbar coming and going (the scrollport's height) no longer moves the phone, the words or the ring mid-hold. Same numbers with the toolbar out. */ && !/data-cmc-in/.test(css))
+// Changed on purpose (landing round 10): the track also holds the cards (the stage stays behind them), so the ranges are in svh of scroll, not percent of the track.
+check("the phone's move is a transform on the scroll timeline, never from off screen", /\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t;animation-range:contain 0svh contain \d+svh\}/.test(css) && !/data-cmc-in/.test(css))
 // Changed on purpose (landing round 7): the words are armed by the headline's own attribute.
 // Changed on purpose (landing round 9): the owner: the heading "should not be there by default", it is revealed as the page scrolls; each word on the scroll timeline.
 check("  the words fade and lift, transform and opacity only", /@keyframes cmc-word\{from\{opacity:0;transform:translate3d\(0,\.55em,0\)\}to\{opacity:1;transform:translate3d\(0,0,0\)\}\}/.test(css) && /\.cmc-w\{animation:cmc-word [^;]*both;animation-timeline:--cmc-t\}/.test(css))
 // Changed on purpose (landing round 9): the owner asked for a short sticky stage here: one screen, the cards pulled up 56svh.
-check("the stage is held by sticky for one screen, the cards pulled up 56svh", /\.cmc-track\.cmc-track\{height:calc\(100svh \+ 100svh\)/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5;[^}]*margin:calc\(56svh \* -1\) 0 0/.test(css))
+// Changed on purpose (landing round 10): the stage is held for a screen and then stays behind the cards: the track holds both, the cards 44svh (100svh less 56svh) under the stage's foot.
+check("the stage is held by sticky for one screen, the cards pulled up 56svh", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(100svh - 56svh\)\}/.test(css))
 // Changed on purpose (landing round 7): the phone is centred under the headline; up to 390px wide on a computer.
 // Changed on purpose (landing round 9): the owner: "the phone is bigger".
 check("the phone is a little bigger on a computer (up to 400px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{--hd:68px;[^}]*--pw:min\(400px,/.test(css))
@@ -84,13 +86,15 @@ check("the One-tap demo's moves are transform and opacity", ["pc-press", "ap-she
 // Changed on purpose (landing round 8): no tabs and no autoplay: the four demos are cards, each running while it is on screen.
 check("nothing plays by itself on a timer: no autoplay to hold", !/setTimeout|setInterval/.test(src))
 /* Changed on purpose (landing round 9): the hold is written only under prefers-reduced-motion:no-preference (with scroll timelines), so reduced motion has no hold to undo; it still lays the cards flat and stops every motion. */
-check("reduced motion: nothing held, nothing moving", /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*?@supports \(animation-timeline:view\(\)\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{height:calc\(100svh/.test(css) && /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmc\[data-story-section\] > \.cmc-cards\.cmc-cards\{margin-top:0\}/.test(css) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(css))
+// Changed on purpose (landing round 10): the cards are inside the track now, so their selector is a plain class.
+check("reduced motion: nothing held, nothing moving", /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*?@supports \(animation-timeline:view\(\)\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{view-timeline/.test(css) && /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmc-cards\{margin-top:0\}/.test(css) && /\.cmc-stage \*\{transition:none!important;animation:none!important\}/.test(css))
 
 console.log("\nThe tabs are tabs again, not pills")
 // Changed on purpose (landing round 8): the tabs became a grid of cards that slides up over the phone, as in the owner's recording.
 check("four cards in a grid, two across on a computer, a row to swipe on a phone", /\.cmc-bento\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:16px\}/.test(css) && /scroll-snap-type:x mandatory/.test(css))
 // Changed on purpose (landing round 8): cards, not tabs.
-check("  each a dark card with its label, its title, a line and its demo", (co.match(/class="cmc-card-l"/g) ?? []).length === 4 && (co.match(/class="cmc-vis"/g) ?? []).length === 4 && /border-radius:28px;background:#111113/.test(rule(".cmc-card")))
+// Changed on purpose (landing round 10): the cards' ground is a little see-through, so the products behind show faintly.
+check("  each a dark card with its label, its title, a line and its demo", (co.match(/class="cmc-card-l"/g) ?? []).length === 4 && (co.match(/class="cmc-vis"/g) ?? []).length === 4 && /border-radius:28px;background:rgba\(17,17,19,0\.66\)/.test(rule(".cmc-card")))
 // Changed on purpose (landing round 8): cards, not tabs.
 check("  no pill anywhere in the cards", !/999px/.test(rule(".cmc-card") + rule(".cmc-bento")))
 

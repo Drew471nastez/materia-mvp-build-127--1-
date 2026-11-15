@@ -50,11 +50,13 @@ console.log("\nThe layout: an index beside the stage, a row over it on a phone")
 {
   check("one box in the page's width holds the words and the stage", /\.biz-body\{[^}]*display:grid;grid-template-columns:minmax\(0,1fr\)[^}]*max-width:var\(--home-max,2020px\)[^}]*padding:0 var\(--home-edge/.test(css))
   const wide = css.match(/@media\(min-width:1280px\)\{([\s\S]*?)\n\}/)?.[1] ?? ""
-  check("from 1280px: two columns, the index as tall as the stage in five equal rows with hairlines", /\.biz-body\{grid-template-columns:clamp\(232px,18vw,330px\) minmax\(0,1fr\)/.test(wide) && /\.biz-tabs\{display:grid;grid-template-rows:repeat\(5,minmax\(0,1fr\)\)/.test(wide) && /\.biz-tab\{[^}]*border-top:1px solid #ececee/.test(wide))
+  // Changed on purpose (landing round 10): the stage stops at 66svh tall and the index takes what is left beside it.
+  check("from 1280px: two columns, the index as tall as the stage in five equal rows with hairlines", /\.biz-body\{grid-template-columns:minmax\(clamp\(232px,18vw,330px\),1fr\) minmax\(0,calc\(66vh \* 1100 \/ 570\)\)/.test(wide) && /\.biz-tabs\{display:grid;grid-template-rows:repeat\(5,minmax\(0,1fr\)\)/.test(wide) && /\.biz-tab\{[^}]*border-top:1px solid #ececee/.test(wide))
   check("the index says what each kind covers", /\.biz-tab-d\{display:block/.test(wide) && /\.biz-tab-s,\.biz-tab-d\{display:none\}/.test(css) && BUSINESS_SLIDES.every((s) => s.line.length > 12 && html.includes(s.line)))
   check("below that: one row that slides inside itself, never the page", /\.biz-tabs\{display:flex;[^}]*overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none\}/.test(css))
   check("a word is a 44px touch target at 16px on a phone", /\.biz-tab\{[^}]*min-height:44px[^}]*font-size:16px/.test(css))
-  check("the stage is drawn at 1040 x 600 on a computer, 400 x 640 on a phone", /\.bz-frame\{aspect-ratio:1040\/600/.test(BUSINESS_MOCK_CSS) && /\.bz-frame>\.smk\{--w:1040\}/.test(BUSINESS_MOCK_CSS) && /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:400\/640\}/.test(BUSINESS_MOCK_CSS))
+  // Changed on purpose (landing round 10): about a tenth shorter on a computer, the same scenes drawn at 1100 x 570.
+  check("the stage is drawn at 1100 x 570 on a computer, 400 x 640 on a phone", /\.bz-frame\{aspect-ratio:1100\/570/.test(BUSINESS_MOCK_CSS) && /\.bz-frame>\.smk\{--w:1100\}/.test(BUSINESS_MOCK_CSS) && /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:400\/640\}/.test(BUSINESS_MOCK_CSS))
 }
 
 console.log("\nDigital: covers in a slow row")

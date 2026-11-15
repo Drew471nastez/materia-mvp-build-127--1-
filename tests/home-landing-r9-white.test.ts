@@ -108,7 +108,9 @@ console.log("\n── AI tools: a shorter line, a shorter terminal on a phone �
   check("its lines sit closer there", /\.ait-body\{padding:12px 14px 14px;font-size:11\.5px;line-height:1\.62\}/.test(phone) && /\.ait-line\{min-height:1\.62em\}/.test(phone))
   const last = AI_TOOLS_SCRIPT.map((l) => l.phone === false).lastIndexOf(true)
   check("the lines after the gap come 1.2s earlier there, on their own keyframes", AI_TOOLS_SCRIPT.every((_, i) => (i > last) === new RegExp(`\\.ait-l${i}\\{animation-name:ait-m${i}\\}`).test(phone)) && /@keyframes ait-m12\{0%,47\.50%\{/.test(phone), phone.slice(0, 300))
-  check("desktop keeps all 18 lines and its own timing", /@keyframes ait-l12\{0%,55\.00%\{/.test(css) && !/ait-nophone\{display:none\}/.test(css.replace(phone, "")))
+  // Changed on purpose (landing round 10): a short laptop screen (900px high or less) runs the phone's 16 lines too; a taller desktop keeps all 18.
+  const laptop = css.match(/@media \(min-width:1024px\) and \(max-height:900px\)\{([\s\S]*?)\n\}\n@media/)?.[1] ?? ""
+  check("desktop keeps all 18 lines and its own timing", /@keyframes ait-l12\{0%,55\.00%\{/.test(css) && laptop.length > 0 && !/ait-nophone\{display:none\}/.test(css.replace(phone, "").replace(laptop, "")))
   check("every keyframe still moves transform and opacity only", [...css.matchAll(/@keyframes ait-[\w-]+\{([\s\S]*?\})\}/g)].every((m) => !/(width|height|top|left|margin|padding|filter|clip|background)\s*:/.test(m[1])))
 }
 

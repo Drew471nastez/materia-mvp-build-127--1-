@@ -73,7 +73,8 @@ check("the round 5 print is gone from public/home/commerce", !existsSync("public
 check("no banned sample content", !/Weeknight Pasta|sourdough|Golden Hour|wheel throwing|Drawing Basics|Saturday Run Club|Dust & Tape|Elena Ruiz/i.test(words(co)))
 
 console.log("\nCentred, and the phone rises as it comes up the screen")
-check("the headline is centred at the top, on a computer too (no copy column beside the phone)", /text-align:center/.test(rule(".cmc-copy")) && !/text-align:left/.test(css.slice(css.indexOf("@media (min-width:900px)"), css.indexOf(".cmc[data-story-section] > .cmc-cards"))))
+// Changed on purpose (landing round 10): the cards' rule is a plain class (they are inside the track).
+check("the headline is centred at the top, on a computer too (no copy column beside the phone)", /text-align:center/.test(rule(".cmc-copy")) && !/text-align:left/.test(css.slice(css.indexOf("@media (min-width:900px)"), css.indexOf(".cmc-cards{position:relative"))))
 // Changed on purpose (landing round 9): the phone's box is its big size, centred in the stage, with both margins in one declaration.
 check("the phone is centred (left 50%, half its width back)", /left:50%/.test(rule(".cmc-phone-wrap")) && /margin:calc\(var\(--pw\) \* -1\.035\) 0 0 calc\(var\(--pw\) \/ -2\)/.test(rule(".cmc-phone-wrap")) && !/right:max/.test(css))
 // Changed on purpose (landing round 9): the headline and the phone are revealed by the scroll timeline (the owner's choreography), so the observer watches the cards only.
@@ -91,13 +92,16 @@ check("a scroll timeline over the scene's track (transform and opacity), with th
 
 console.log("\nThe tab cards come over the phone, fading in")
 // Changed on purpose (landing round 9): the owner asked for a short sticky stage here: about one screen (100svh), only where scroll timelines exist; the cards are pulled 56svh up.
-check("the stage holds one screen and the cards are pulled 56svh up over it, above it (z 5)", /\.cmc-track\.cmc-track\{height:calc\(100svh \+ 100svh\)/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\.cmc-cards\{[^}]*z-index:5;[^}]*margin:calc\(56svh \* -1\) 0 0/.test(css))
+// Changed on purpose (landing round 10): the track holds the stage and the cards, so the stage stays held behind them; the cards start 44svh under the stage's foot (the same 56svh overlap).
+check("the stage holds one screen and the cards are pulled 56svh up over it, above it (z 5)", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(100svh - 56svh\)\}/.test(css))
 // Changed on purpose (landing round 8): each card slides up on its own, staggered, as the grid in the owner's recording does.
 // Changed on purpose (landing round 9): the ring cannot fade (opacity would flatten its 3D space) and the headline stays over the cards; the phone alone dims under them.
-check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc\[data-cmc-over\] \.cmc-rise::after\{opacity:\.45\}/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
+// Changed on purpose (landing round 10): the phone and the ring step back together on the scroll timeline (the wrap round the 3D space fades, the space itself is untouched); no black veil.
+check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc-phone-wrap\{animation:cmc-recede linear both;animation-timeline:--cmc-t;/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
 // Changed on purpose (landing round 8): the transition is on each card.
 // Changed on purpose (landing round 9): the phone's move is the scroll timeline's now.
-check("  as transitions of transform and opacity only", /\.cmc-card\{transition:opacity \.7s ease,transform 1s/.test(css) && /\.cmc-rise::after\{transition:opacity \.6s ease\}/.test(css))
+// Changed on purpose (landing round 10): no veil to transition.
+check("  as transitions of transform and opacity only", /\.cmc-card\{transition:opacity \.7s ease,transform 1s/.test(css) && !/\.cmc-rise::after/.test(css))
 
 console.log("\nThe products ride a ring around the phone again")
 // Changed on purpose (landing round 8): the baked 2D lap became a 3D turn over the scroll.

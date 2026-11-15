@@ -28,9 +28,16 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   shows it and starts its turn again; autoplay keeps going. With reduced
   motion nothing turns by itself, the ring stands closed and the scenes stand
   finished.
+
+  Round 10, the owner: the section "occupies too much height of the entire
+  page", the scenes are too tall ("reduce it just a little, 5 to 10%"), and
+  the line under the heading "doesn't make sense". The line is gone; the
+  stage is drawn at 1100 x 570 instead of 1040 x 600, about a tenth shorter
+  at the same width with every scene the same picture, and it never stands
+  taller than 66svh, so on a laptop (1440 x 800) the heading, the index and
+  the stage are one screen.
 */
 export const BUSINESS_HEADING = "What will you sell?"
-export const BUSINESS_SUB = "Downloads, things you ship, courses, paid communities and booked calls. Each one gets its own page and checkout."
 export const BUSINESS_SLIDE_MS = 6500
 /** How long autoplay waits after a finger leaves the stage. */
 export const BUSINESS_TOUCH_RESUME_MS = 2500
@@ -160,7 +167,6 @@ export function BusinessCarousel() {
       <ShowcaseStyles styles={BUSINESS_STYLES} />
       <div className="biz-head">
         <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={["sell"]} />
-        <p className="biz-sub">{BUSINESS_SUB}</p>
       </div>
       <div className="biz-body">
         <div ref={row} className="biz-tabs" role="tablist" aria-label="What you can sell">
@@ -257,7 +263,6 @@ const CSS = `
 /* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
 [data-landing-story] .biz>.biz-head,.biz-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .biz .biz-h{margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
-.biz-sub{max-width:52ch;margin:18px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
 [data-landing-story] .biz>.biz-body,.biz-body{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);row-gap:clamp(8px,1.4vw,16px);max-width:var(--home-max,2020px);margin:clamp(20px,3vw,44px) auto 0;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 /* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than a small phone slides under the thumb. */
 .biz-tabs{display:flex;gap:clamp(18px,2.6vw,34px);margin:0 calc(var(--home-edge,20px) * -1);padding:0 calc(var(--home-edge,20px) + var(--home-head-inset,14px));overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
@@ -290,10 +295,10 @@ const CSS = `
   .biz-tab-s{display:block}
   .biz-tabs{gap:20px;padding:0 var(--home-edge,20px)}
   .biz .biz-h{font-size:clamp(32px,9vw,40px)}
-  .biz-sub{font-size:16px}
 }
 @media(min-width:1280px){
-  [data-landing-story] .biz>.biz-body,.biz-body{grid-template-columns:clamp(232px,18vw,330px) minmax(0,1fr);column-gap:clamp(28px,3vw,64px)}
+  /* The stage takes the room beside the index up to 66svh tall (its drawing is 1100 x 570); on a short window the index takes what is left. */
+  [data-landing-story] .biz>.biz-body,.biz-body{grid-template-columns:minmax(clamp(232px,18vw,330px),1fr) minmax(0,calc(66vh * 1100 / 570));grid-template-columns:minmax(clamp(232px,18vw,330px),1fr) minmax(0,calc(66svh * 1100 / 570));column-gap:clamp(28px,3vw,64px)}
   .biz-tabs{display:grid;grid-template-rows:repeat(5,minmax(0,1fr));gap:0;margin:0;padding:0 0 0 var(--home-head-inset,14px);overflow:visible}
   .biz-tab{flex-direction:row-reverse;justify-content:space-between;gap:16px;min-height:0;border-top:1px solid #ececee;font-size:clamp(19px,1.5vw,26px);font-weight:600;letter-spacing:-.02em;white-space:normal}
   .biz-tab:last-child{border-bottom:1px solid #ececee}

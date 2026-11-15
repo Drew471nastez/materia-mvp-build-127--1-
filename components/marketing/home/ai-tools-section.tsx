@@ -50,6 +50,13 @@
  * little closer (line height 1.62, was 1.75): 16 lines, not 18. The lines
  * after the gap get their own keyframes there (ait-m*), 1.2s earlier, so
  * the run keeps its beat. The line is 12 words, was 22.
+ *
+ * LANDING ROUND 10, THE OWNER: on a MacBook Air in Chrome at 100% (about
+ * 1440x800 to 1470x830) sections were too tall. The card was 620px there,
+ * 78% of the screen. On a laptop that short (1024px wide or more, 900px
+ * high or less) the terminal runs the phone's 16 lines at the phone's line
+ * height and the card pads less, so it is about 500px; 1920x1080 and
+ * phones are as they were.
  */
 import type { CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
@@ -168,6 +175,13 @@ const AI_CSS = `
 ${AI_TOOLS_SCRIPT.map((l, i) => `.ait-l${i}{animation-name:ait-l${i}}\n${lineKeyframes(i, l.at)}`).join("\n")}
 @media (min-width:1024px){
   .ait-card{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)}
+}
+@media (min-width:1024px) and (max-height:900px){
+  .ait-card{padding:clamp(32px,5.5svh,64px) clamp(40px,4.4vw,64px)}
+  .ait-body{padding:14px 18px 16px;line-height:1.62}
+  .ait-line{min-height:1.62em}
+  .ait-nophone{display:none}
+${PHONE_CSS}
 }
 @media (max-width:639px){
   .ait-body{padding:12px 14px 14px;font-size:11.5px;line-height:1.62}

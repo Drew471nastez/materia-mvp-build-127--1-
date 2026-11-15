@@ -41,9 +41,16 @@ export const IDEAS_HEADING = "See your ideas come to life."
   panels now stand in one frame that never changes, a hairline border and no
   shadow, so a switch only cross fades what is inside it. Mondo Mango's hero
   is one photograph.
+
+  Landing round 10 (the owner): the picture is still "too big" on a computer,
+  "reduce it a little more, but keep the things", and the line under the
+  heading goes. From 768px the frame is 78% of the shared width and never
+  taller than the screen under the tabs allows (100svh less 170px), so on a
+  1440x800 laptop the tabs and the whole picture stand in one screen. The
+  editor inside is drawn in the frame's own width, so it shrinks whole. A
+  phone keeps the full width.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
-export const IDEAS_SUB = "No code, nothing to install. Drag sections in, edit on the page, publish when it looks right."
 /** How long each heading stays, in seconds; the three take turns in one CSS loop. */
 export const IDEAS_HEADING_S = 3.6
 
@@ -121,7 +128,6 @@ export function IdeasComeToLife() {
             ))}
           </span>
         </h2>
-        <p className="ideas-sub">{IDEAS_SUB}</p>
       </div>
       <div className="ideas-tabs-row">
         <div className="ideas-tabs" role="tablist" aria-label="Storelib's editors">
@@ -208,7 +214,6 @@ const CSS = `
 }
 /* Landing round 8 (the owner: "the flip thing is delayed"): the old line left from 29% (of the 10.8s loop, each line's turn is 33.3%) and the next came in only from 33.3%, so for a moment the heading was empty and every change read as late. Now the old line leaves (31% to 35%) while the next comes in (0 to 4.5% of its own turn, 486ms, was 648ms): one line hands over to the next in about 0.75s instead of 1.1s, with no empty moment. */
 @keyframes ideas-flip{0%{opacity:0;transform:translate3d(0,.45em,0)}4.5%,31%{opacity:1;transform:none}35%,100%{opacity:0;transform:translate3d(0,-.4em,0)}}
-.ideas-sub{max-width:56ch;margin:18px auto 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
 [data-landing-story] .ideas>.ideas-tabs-row,.ideas-tabs-row{box-sizing:border-box;display:flex;justify-content:center;max-width:var(--home-max,2020px);margin:clamp(24px,3vw,36px) auto clamp(18px,2.2vw,28px);padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
 .ideas-tabs{display:flex;gap:2px;max-width:100%;padding:4px;border-radius:999px;background:#f1f1f2}
 .ideas-tab{position:relative;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
@@ -222,9 +227,9 @@ const CSS = `
 @media(max-width:359px){.ideas-tab{padding:0 8px;font-size:12px}}
 .ideas[data-run] .smk-clock[data-on]{animation-play-state:running}
 [data-landing-story] .ideas>.ideas-stage,.ideas-stage{position:relative;display:grid;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px));box-sizing:border-box}
-/* Landing round 9: one frame for every panel, with the corners and a hairline; no shadow anywhere, so nothing comes and goes at the foot when a tab changes and nothing is there for the lazy box to cut. From 768px it is 88% of the shared width, centred. */
+/* Landing round 9: one frame for every panel, with the corners and a hairline; no shadow anywhere, so nothing comes and goes at the foot when a tab changes and nothing is there for the lazy box to cut. Landing round 10: from 768px it is 78% of the shared width, and no wider than a frame (1280/752) as tall as the screen less 170px (the tabs, their gap and a margin), centred. */
 .ideas-frame{grid-area:1/1;display:grid;box-sizing:border-box;width:100%;justify-self:center;border:1px solid #e3e3e6;border-radius:clamp(9px,1.3vw,17px);overflow:hidden;background:#fff}
-@media(min-width:768px){.ideas-frame{width:88%}}
+@media(min-width:768px){.ideas-frame{width:min(78%,calc((100svh - 170px) * 1280 / 752))}}
 .ideas-panel{grid-area:1/1;background:#fff;transition:opacity .55s cubic-bezier(.2,.7,.2,1)}
 .ideas-panel[data-pane="active"]{z-index:2;animation:ideas-in .55s cubic-bezier(.2,.7,.2,1) both}
 .ideas-panel[data-pane="leaving"]{z-index:1}
@@ -234,7 +239,6 @@ const CSS = `
 .ideas-mock{aspect-ratio:1280/752;background:#fff;pointer-events:none;user-select:none;-webkit-user-select:none}
 @media(max-width:767px){
   .ideas .ideas-h{font-size:clamp(30px,8.4vw,40px)}
-  .ideas-sub{font-size:16px}
 }
 @media(prefers-reduced-motion:reduce){
   .ideas-line{animation:none!important}

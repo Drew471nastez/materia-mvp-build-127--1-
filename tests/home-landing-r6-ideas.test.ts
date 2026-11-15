@@ -17,7 +17,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { IdeasComeToLife, IDEAS_STYLES, IDEAS_SUB, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
+import { IdeasComeToLife, IDEAS_STYLES, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
 import { MondoMangoSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let failed = 0
@@ -57,10 +57,9 @@ check("arrow keys move between tabs", /ArrowRight/.test(read(F.ideas)) && /Arrow
 check("autoplay pauses under the pointer, off screen and in a hidden tab", /\{\.\.\.t\.hoverProps\}/.test(read(F.ideas)) && /data-run=\{t\.run \|\| undefined\}/.test(read(F.ideas)) && /\.ideas\[data-run\] \.smk-clock\[data-on\]\{animation-play-state:running\}/.test(ideasCss))
 check("no timers of its own", !/setInterval|setTimeout/.test(code(F.ideas)))
 
-console.log("\nThe line under the heading is shorter")
-const words = IDEAS_SUB.split(/\s+/).length
-check("about five words shorter than round 5's 21", words <= 17 && words >= 12)
-check("it still says no code and nothing to install", /^No code, nothing to install\./.test(IDEAS_SUB) && ideas.includes(IDEAS_SUB))
+console.log("\nThe line under the heading")
+// Changed on purpose (landing round 10): the owner: "Get rid of the subheading"; the line under the heading is gone (tests/home-landing-r10-top.test.ts).
+check("no line under the heading any more", !/class="ideas-sub"/.test(ideas) && !/No code, nothing to install/.test(ideas))
 
 console.log("\nThe website builder's merch brand")
 // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.

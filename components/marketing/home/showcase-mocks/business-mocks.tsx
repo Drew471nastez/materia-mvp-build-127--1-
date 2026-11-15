@@ -24,8 +24,13 @@ import { Pic, pic, u } from "./frame"
   bookings: "I love it", untouched but for where they stand on the narrower
   stage.
 
-  Drawn at one design size per layout (1040 x 600 from 768px, 400 x 640
-  below; `--u` in frame.tsx), so a picture is the same at any width. Every
+  Drawn at one design size per layout (1100 x 570 from 768px, 400 x 640
+  below; `--u` in frame.tsx), so a picture is the same at any width. Round
+  10, the owner: the scenes stood too tall ("reduce it just a little, 5 to
+  10%"). 1040 x 600 became 1100 x 570: at the same width the stage is about
+  a tenth shorter, everything in it drawn a little smaller, and the 60
+  design pixels gained across go to the gaps between a picture and its card,
+  so no scene is cropped or rearranged. Every
   moment is a CSS animation on transform and opacity, started when the scene
   becomes the chosen one and paused while the section is off screen
   (business-carousel.tsx). Without motion every scene stands at its resting
@@ -487,8 +492,8 @@ ${DIGITAL_FRAMES}`
 
 export const BUSINESS_MOCK_CSS =
   u(`
-.bz-frame{aspect-ratio:1040/600;border-radius:inherit}
-.bz-frame>.smk{--w:1040}
+.bz-frame{aspect-ratio:1100/570;border-radius:inherit}
+.bz-frame>.smk{--w:1100}
 .bs{position:absolute;inset:0;overflow:hidden;color:#18181b;font-size:14u;line-height:1.4}
 .bs svg{width:15u;height:15u;flex:none}
 .bs-card{position:absolute;display:flex;flex-direction:column;width:360u;padding:28u 28u 26u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -28u rgba(16,24,40,.4)}
@@ -503,12 +508,12 @@ export const BUSINESS_MOCK_CSS =
 
 /* digital: covers pass in a slow row; the one in the middle is full size and the card is its page */
 .bs-digital{background:#f0eff1}
-.bd-rail{position:absolute;left:0;top:0;bottom:0;width:700u;overflow:hidden}
-.bd-track{--pitch:292u;position:absolute;left:330u;top:50%;display:flex;margin-top:-175u;transform:translate3d(calc(var(--pitch) * -1.5),0,0)}
+.bd-rail{position:absolute;left:0;top:0;bottom:0;width:740u;overflow:hidden}
+.bd-track{--pitch:292u;position:absolute;left:352u;top:50%;display:flex;margin-top:-175u;transform:translate3d(calc(var(--pitch) * -1.5),0,0)}
 .bd-slot{flex:none;display:grid;place-items:center;width:var(--pitch)}
 .bd-cover{position:relative;display:block;width:280u;height:350u;border-radius:14u;overflow:hidden;container-type:inline-size;transform:scale(.78);opacity:.5;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 26u 44u -26u rgba(16,24,40,.5)}
 .bd-slot[data-p="0"] .bd-cover{transform:none;opacity:1}
-.bd-card{right:56u;top:50%;width:340u;height:368u;margin-top:-184u}
+.bd-card{right:64u;top:50%;width:340u;height:368u;margin-top:-184u}
 .bd-infos{display:grid}
 .bd-info{grid-area:1/1;opacity:0}
 .bd-info[data-p="0"]{opacity:1}
@@ -549,9 +554,9 @@ export const BUSINESS_MOCK_CSS =
 
 /* physical: the tee on its own ground (the photograph's backdrop is this colour), a size picked, into the cart */
 .bs-tee{background:#eeedea}
-.bt-photo{position:absolute;left:36u;top:12u;width:576u;height:576u;overflow:hidden}
+.bt-photo{position:absolute;left:64u;top:12u;width:546u;height:546u;overflow:hidden}
 .bt-pic{background:none;transform-origin:50% 55%}
-.bt-card{right:56u;top:50%;height:388u;margin-top:-194u}
+.bt-card{right:64u;top:50%;height:388u;margin-top:-194u}
 .bs-cart{position:absolute;right:22u;top:22u;display:grid;place-items:center;width:38u;height:38u;border-radius:50%;background:#f4f4f5}
 .bs-cart svg{width:17u;height:17u}
 .bs-cart b{position:absolute;right:-3u;top:-3u;display:grid;place-items:center;min-width:18u;height:18u;border-radius:9u;background:#18181b;color:#fff;font-size:10.5u;font-weight:700}
@@ -562,7 +567,7 @@ export const BUSINESS_MOCK_CSS =
 .bs-swap{display:grid}
 .bs-swap>span{grid-area:1/1;display:flex;align-items:center;gap:7u}
 .bs-swap .a{opacity:0}
-.bt-added{position:absolute;left:56u;top:44u;display:flex;align-items:center;gap:12u;padding:10u 16u 10u 10u;border-radius:16u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 18u 36u -18u rgba(16,24,40,.4)}
+.bt-added{position:absolute;left:84u;top:40u;display:flex;align-items:center;gap:12u;padding:10u 16u 10u 10u;border-radius:16u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 18u 36u -18u rgba(16,24,40,.4)}
 .bt-added .smk-pic{width:44u;height:44u;border-radius:10u}
 .bt-added>span{display:grid;gap:1u}
 .bt-added b{font-size:13.5u}
@@ -571,8 +576,8 @@ export const BUSINESS_MOCK_CSS =
 
 /* course: as it was, a white card on a soft grey, now with its lesson playing */
 .bs-course{background:#e9ecf0}
-.bs-ccard{position:absolute;left:50%;top:36u;bottom:36u;width:720u;margin-left:-360u;display:flex;flex-direction:column;border-radius:20u;background:#fff;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 1u 2u rgba(16,24,40,.04),0 30u 60u -30u rgba(16,24,40,.35)}
-.bp-player{position:relative;height:250u;flex:none;overflow:hidden}
+.bs-ccard{position:absolute;left:50%;top:22u;bottom:22u;width:720u;margin-left:-360u;display:flex;flex-direction:column;border-radius:20u;background:#fff;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 1u 2u rgba(16,24,40,.04),0 30u 60u -30u rgba(16,24,40,.35)}
+.bp-player{position:relative;height:248u;flex:none;overflow:hidden}
 .bp-player-pic{object-position:50% 40%}
 .bp-play{position:absolute;left:50%;top:50%;width:58u;height:58u;margin:-29u 0 0 -29u;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.94);color:#18181b;box-shadow:0 6u 18u rgba(0,0,0,.2)}
 .bp-play svg{width:20u;height:20u;margin-left:2u}
@@ -599,7 +604,7 @@ export const BUSINESS_MOCK_CSS =
 
 /* community: the club's page on a dark ground, its feed coming in beside it. The banner is a club's own: its photograph running into black, its mark, its name and who hosts it. */
 .bs-club{background:#111214}
-.bs-com{position:absolute;left:48u;top:40u;bottom:40u;width:500u;display:flex;flex-direction:column;border-radius:22u;background:#fff;overflow:hidden}
+.bs-com{position:absolute;left:56u;top:26u;bottom:26u;width:520u;display:flex;flex-direction:column;border-radius:22u;background:#fff;overflow:hidden}
 .bs-com-cover{position:relative;height:236u;flex:none;overflow:hidden;background:#0c0d10;color:#fff}
 .bs-com-pic{position:absolute;right:0;top:0;width:72%!important;background:none}
 .bs-com-cover::after{content:"";position:absolute;inset:0;background:linear-gradient(to right,#0c0d10 28%,rgba(12,13,16,.6) 58%,rgba(12,13,16,.25)),linear-gradient(to top,rgba(12,13,16,.5),rgba(12,13,16,0) 45%)}
@@ -625,7 +630,7 @@ export const BUSINESS_MOCK_CSS =
 .bs-spaces{display:flex;flex-wrap:wrap;gap:8u;margin-top:14u}
 .bs-spaces i{padding:6u 11u;border-radius:999u;background:#f4f4f5;font-size:12.5u;font-style:normal;font-weight:500;color:#3f3f46}
 .bs-spaces i::before{content:"#";margin-right:3u;color:#a1a1aa}
-.bs-feed{position:absolute;left:576u;right:48u;top:40u;display:grid;gap:12u}
+.bs-feed{position:absolute;left:616u;right:56u;top:26u;display:grid;gap:12u}
 .bs-feed-h{display:flex;align-items:center;gap:9u;margin-bottom:4u!important;font-size:13u;font-weight:600;color:#a1a1aa}
 .bs-feed-h i{position:relative;width:8u;height:8u;border-radius:50%;background:#4ade80}
 .bs-feed-h i::after{content:"";position:absolute;inset:0;border-radius:50%;background:#4ade80;opacity:0}
@@ -644,13 +649,13 @@ export const BUSINESS_MOCK_CSS =
 
 /* booking: the coach first, then a day and a time picked and booked */
 .bs-coach{background:#0f1012}
-.bs-coach-photo{position:absolute;left:0;top:0;bottom:0;width:500u;overflow:hidden}
+.bs-coach-photo{position:absolute;left:0;top:0;bottom:0;width:540u;overflow:hidden}
 .bs-coach-pic{object-position:50% 30%;transform-origin:40% 40%}
 .bs-coach-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(15,16,18,.72),rgba(15,16,18,0) 40%),linear-gradient(to left,#0f1012,rgba(15,16,18,0) 22%)}
 .bs-coach-name{position:absolute;left:32u;bottom:30u;z-index:1;display:grid;gap:3u;color:#fff}
 .bs-coach-name b{font-size:20u;font-weight:650}
 .bs-coach-name i{font-size:13u;font-style:normal;opacity:.8}
-.bs-book{--day:66u;right:56u;top:50%;width:440u;height:460u;margin-top:-230u}
+.bs-book{--day:66u;right:64u;top:50%;width:440u;height:460u;margin-top:-230u}
 .bs-meta{display:flex;align-items:center;gap:14u;margin-top:10u!important;font-size:13u;color:#52525b}
 .bs-meta span{display:flex;align-items:center;gap:6u}
 .bs-meta svg{width:14u;height:14u;color:#71717a}
