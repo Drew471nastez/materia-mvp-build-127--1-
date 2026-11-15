@@ -184,10 +184,12 @@ for (const html of [ideas]) assert.ok(!/<button[^>]*role="tab"[^>]*>(?:(?!<\/but
 const ideasSrc = read("components/marketing/home/ideas-come-to-life.tsx")
 assert.ok(/\.ideas\{position:relative;background:#fff/.test(ideasSrc), "a light section")
 // Changed on purpose (landing round 7): the heading starts at the page's one left edge, set in by the heading inset, like the showcase heading.
-assert.ok(/\.ideas-head\{[^}]*text-align:left/.test(ideasSrc))
+// Changed on purpose (landing round 9): centred (the owner: "center aligned, not left").
+assert.ok(/\.ideas-head\{[^}]*text-align:center/.test(ideasSrc))
 assert.ok(!/radial-gradient|ideas-caption/.test(ideasSrc), "no backdrop and no caption")
 /* Changed on purpose (landing round 4): a panel behind the tabs, not a carousel slide; use-auto-tabs.ts watches the screen and the browser tab. */
-assert.ok(/\.ideas-panel\{[^}]*box-shadow:0 0 0 1px/.test(ideasSrc), "the picture has its own depth")
+/* Changed on purpose (landing round 9): the panels' own shadows doubled and were cut at the foot on every switch; one still frame with a hairline holds them. */
+assert.ok(/\.ideas-frame\{[^}]*border:1px solid #e3e3e6/.test(ideasSrc) && !/\.ideas-panel\{[^}]*box-shadow/.test(ideasSrc), "the picture stands in one hairline frame")
 assert.ok(ideasSrc.includes("prefers-reduced-motion:reduce") && /useAutoTabs\(/.test(ideasSrc))
 // The editors as they are: the website builder's bar and tree, the OnePage editor's tabs, the community page editor's own screen.
 for (const want of ["Sections", "Pages", "Theme", "Add section", "Publish", "Preview"]) assert.ok(ideas.includes(want), `website builder: ${want}`)

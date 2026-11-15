@@ -191,6 +191,24 @@ export function globeDprCap(): number {
   return lowEnd ? 1.5 : 2
 }
 
+/*
+  WHOSE SWIPE IS IT (landing round 9, the owner: the globe and the store strip must understand "when I'm reaching it
+  with touch and when I'm just scrolling"). Both are touch-action: pan-y, so the browser scrolls the page for a finger
+  going down or up; this is the same question asked of the finger's first pixels, for the script. Nothing is decided
+  inside SWIPE_SLOP. Past it, a finger that has gone as far down or up as sideways is the page's ("y") and is never
+  looked at again; one clearly going sideways (half again as far across as down) is taken ("x"); one in between is
+  watched until it has gone SWIPE_CLEAR across, so a slanted scroll is not mistaken for a turn.
+*/
+export const SWIPE_SLOP = 6
+export const SWIPE_CLEAR = 20
+export function swipeAxis(dx: number, dy: number): "x" | "y" | null {
+  const ax = Math.abs(dx)
+  const ay = Math.abs(dy)
+  if (ax < SWIPE_SLOP && ay < SWIPE_SLOP) return null
+  if (ay >= ax) return "y"
+  return ax >= ay * 1.5 || ax >= SWIPE_CLEAR ? "x" : null
+}
+
 /** What drives the globe: a worker holding the canvas, or the engine on this thread. */
 type Driver = {
   size: (w: number, h: number, dpr: number) => void
@@ -375,13 +393,13 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       turns the globe about its axis only, so a swipe that drifts down a little does not tip it.
     */
     let touch: { id: number; x0: number; y0: number } | null = null
-    const take = (e: PointerEvent, y: number) => {
+    const take = (e: PointerEvent, y: number, x = e.clientX) => {
       st.dragging = e.pointerId
       box.setAttribute("data-dragging", "")
       try {
         box.setPointerCapture(e.pointerId)
       } catch {}
-      driver.pointer({ kind: "down", x: e.clientX, y, t: e.timeStamp })
+      driver.pointer({ kind: "down", x, y, t: e.timeStamp })
     }
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || !e.isPrimary) return
@@ -401,12 +419,15 @@ export function EverythingGlobe({ live, reduced }: { live: boolean; reduced: boo
       if (touch && touch.id === e.pointerId && st.dragging !== e.pointerId) {
         const dx = e.clientX - touch.x0
         const dy = e.clientY - touch.y0
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
-        if (Math.abs(dy) >= Math.abs(dx)) {
+        const axis = swipeAxis(dx, dy)
+        if (!axis) return
+        if (axis === "y") {
           touch = null
           return
         }
-        take(e, touch.y0)
+        /* Taken as if from the first pixel: held where the finger was SWIPE_SLOP ago, then turned to where it is. */
+        take(e, touch.y0, e.clientX - Math.max(-SWIPE_SLOP, Math.min(SWIPE_SLOP, dx)))
+        driver.pointer({ kind: "move", x: e.clientX, y: touch.y0, t: e.timeStamp })
         return
       }
       if (st.dragging === e.pointerId) {

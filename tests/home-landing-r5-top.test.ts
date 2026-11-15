@@ -153,8 +153,10 @@ check("heavy drawing steps the canvas down to fewer device pixels, then the idle
 console.log("\n── The globe: on a phone ──")
 /* Changed on purpose (landing round 8): the owner asked for a lighter globe; a phone draws at 1.5x (1.25x low end), elsewhere 2x or 1.5x low end. */
 check("device pixels at most 2x, 1.5x on a phone with four cores or 4 GB or less", /if \(phone\) return lowEnd \? 1\.25 : 1\.5/.test(globe) && /return lowEnd \? 1\.5 : 2/.test(globe) && /Math\.min\(globeDprCap\(\), window\.devicePixelRatio/.test(globe))
-check("a finger waits 8px: mostly vertical is the page's, sideways is captured then", /if \(Math\.abs\(dx\) < 8 && Math\.abs\(dy\) < 8\) return/.test(globe) && /if \(Math\.abs\(dy\) >= Math\.abs\(dx\)\) \{\s*touch = null/.test(globe) && /touch-action:pan-y/.test(evSrc))
-check("a finger turns the globe about its axis only", /take\(e, touch\.y0\)/.test(globe) && /y: touch && touch\.id === e\.pointerId \? touch\.y0 : e\.clientY/.test(globe))
+/* Changed on purpose (landing round 9): the first pixels are read by swipeAxis (6px, down or up is the page's, clearly sideways is taken; tests/home-landing-r9-top). */
+check("a finger waits for a clear direction: mostly vertical is the page's, sideways is captured then", /const axis = swipeAxis\(dx, dy\)\s*if \(!axis\) return\s*if \(axis === "y"\) \{\s*touch = null/.test(globe) && /if \(ay >= ax\) return "y"/.test(globe) && /touch-action:pan-y/.test(evSrc))
+/* Changed on purpose (landing round 9): take is also told where the finger was a few pixels ago, so the globe follows from the first pixel. */
+check("a finger turns the globe about its axis only", /take\(e, touch\.y0, /.test(globe) && /y: touch && touch\.id === e\.pointerId \? touch\.y0 : e\.clientY/.test(globe))
 check("the globe still stops off screen and in a hidden tab", /driver\.run\(st\.visible && st\.shown && st\.live && !st\.reduced\)/.test(globe))
 
 console.log(`\n${passed} passed, ${failed} failed`)

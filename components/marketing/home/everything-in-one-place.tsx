@@ -35,7 +35,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type RefObject } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { usePlatformSection } from "./platform-motion"
-import { EverythingGlobe } from "./everything-globe"
+import { EverythingGlobe, SWIPE_SLOP, swipeAxis } from "./everything-globe"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 /*
@@ -138,10 +138,16 @@ export const EVERYTHING_SLIDES: Slide[] = [
 ]
 
 /* eager: the store strip's pictures (landing round 8), so a page coming round the loop never arrives before its photos. */
-function Img({ src, w, h, className, eager }: { src: string; w: number; h: number; className?: string; eager?: boolean }) {
+function Img({ src, w, h, className, eager, piece }: { src: string; w: number; h: number; className?: string; eager?: boolean; piece?: boolean }) {
+  /*
+    Landing round 9 (the size drawn): a piece in the store strip is about 85px wide on a phone and 150px on a
+    computer, so it comes at 240px wide where that is enough (every phone, a 1x screen) and at 360px on a 2x computer.
+  */
+  const set = piece ? { srcSet: `${src.replace(/\.webp$/, "-240.webp")} 240w, ${src} 360w`, sizes: PIECE_SIZES } : null
   /* eslint-disable-next-line @next/next/no-img-element */
-  return <img className={className} src={src} alt="" width={w} height={h} loading={eager ? "eager" : "lazy"} decoding="async" draggable={false} />
+  return <img className={className} src={src} {...set} alt="" width={w} height={h} loading={eager ? "eager" : "lazy"} decoding="async" draggable={false} />
 }
+export const PIECE_SIZES = "(max-width:767px) 80px, 150px"
 
 /*
   Landing round 4 (the owner: "a real looking community card"): the
@@ -423,6 +429,8 @@ type LinkPage = {
   avatar: string
   /** A line under the name (landing round 8). */
   bio?: string
+  /** Landing round 9: this page's two buttons are drawn fat and loud (ev-lp-hype). */
+  hype?: boolean
   /** The name's colour. */
   accent: string
   /** The blurred photo behind the page, and the colour under it while it loads. */
@@ -487,6 +495,7 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
     name: "Kaia Moon",
     avatar: `${ST}/kaia-av.webp`,
     bio: "Singer and songwriter. New album Low Tide out now.",
+    hype: true,
     accent: "#9cf0cb",
     ground: `${ST}/kaia-bg.webp`,
     tone: "#0f1a2c",
@@ -548,7 +557,7 @@ function MerchCard({ s }: { s: MerchStore }) {
         <span className="ev-mc-grid ev-ms-grid">
           {s.products.map((p) => (
             <span key={p.name} className="ev-mc-item">
-              <Img eager className="ev-mc-img" src={p.src} w={360} h={450} />
+              <Img eager piece className="ev-mc-img" src={p.src} w={360} h={450} />
               <span className="ev-mc-name">{p.name}</span>
               <span className="ev-mc-price">{p.price}</span>
             </span>
@@ -572,7 +581,7 @@ function MerchCard({ s }: { s: MerchStore }) {
       <span className="ev-mc-grid">
         {s.products.map((p) => (
           <span key={p.name} className="ev-mc-item">
-            <Img eager className="ev-mc-img" src={p.src} w={360} h={450} />
+            <Img eager piece className="ev-mc-img" src={p.src} w={360} h={450} />
             <span className="ev-mc-name">{p.name}</span>
             <span className="ev-mc-price">{p.price}</span>
           </span>
@@ -606,7 +615,7 @@ function LinkSocial() {
 function LinkCard({ s }: { s: LinkPage }) {
   const [first, ...rest] = s.name.split(" ")
   return (
-    <div className="ev-st ev-lp" style={{ background: s.tone, "--accent": s.accent } as CSSProperties}>
+    <div className="ev-st ev-lp" data-hype={s.hype || undefined} style={{ background: s.tone, "--accent": s.accent } as CSSProperties}>
       <Img eager className="ev-lp-ground" src={s.ground} w={240} h={420} />
       <Img eager className="ev-lp-av" src={s.avatar} w={160} h={160} />
       <span className="ev-lp-name">
@@ -619,7 +628,7 @@ function LinkCard({ s }: { s: LinkPage }) {
       <span className="ev-lp-btn">{s.buttons[1]}</span>
       <span className="ev-lp-grid">
         {s.products.map((src) => (
-          <Img eager key={src} className="ev-lp-img" src={src} w={360} h={450} />
+          <Img eager piece key={src} className="ev-lp-img" src={src} w={360} h={450} />
         ))}
       </span>
     </div>
@@ -746,7 +755,7 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
     let anims: Animation[] = []
     let t0 = 0
     let x0 = 0
-    let drag: { id: number; x0: number; y0: number; at: number; started: boolean; samples: Array<{ t: number; x: number }> } | null = null
+    let drag: { id: number; x0: number; y0: number; at: number; started: boolean; touch: boolean; samples: Array<{ t: number; x: number }> } | null = null
     const clock = () => {
       const t = document.timeline?.currentTime
       return typeof t === "number" ? t : performance.now()
@@ -832,17 +841,31 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
       paint()
       if (was || !drag) startDrift()
     }
+    /*
+      Landing round 9 (the owner: the swipe "is laggy", and it "must not mistake scrolling down for scrolling it
+      horizontally"). A finger's first pixels decide whose gesture it is (swipeAxis, everything-globe.tsx): down or
+      up is the page's and the strip lets go at once; clearly sideways is the strip's. From then the strip stands
+      under the finger as if it had been held from the first pixel (the pixels spent deciding are caught up at
+      once), and it is written once a frame however many moves arrive, with no layout read, and with no attribute
+      changed on the strip for a finger (that restyled every page in it). A mouse takes hold after 3px.
+    */
+    let frame = 0
+    const flush = () => {
+      frame = 0
+      paint()
+    }
     const down = (e: PointerEvent) => {
       if (e.button !== 0 || !e.isPrimary) return
-      drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, at: 0, started: false, samples: [] }
+      drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, at: 0, started: false, touch: e.pointerType === "touch", samples: [] }
     }
     const move = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
       const dx = e.clientX - drag.x0
       if (!drag.started) {
         const dy = e.clientY - drag.y0
-        if (Math.hypot(dx, dy) < 8) return
-        if (Math.abs(dy) >= Math.abs(dx)) {
+        const axis = drag.touch ? swipeAxis(dx, dy) : Math.hypot(dx, dy) >= 3 ? "x" : null
+        if (!axis) return
+        if (axis === "y") {
           drag = null
           return
         }
@@ -850,21 +873,28 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
         raf = 0
         stopDrift()
         drag.started = true
-        drag.at = x + dx
-        vp.setPointerCapture(e.pointerId)
-        vp.dataset.dragging = ""
+        /* Where the strip stood when it was taken, less the first pixels: it catches the finger up. */
+        drag.at = x + dx - Math.max(-SWIPE_SLOP, Math.min(SWIPE_SLOP, dx))
+        try {
+          vp.setPointerCapture(e.pointerId)
+        } catch {}
+        if (!drag.touch) vp.dataset.dragging = ""
       }
       x = drag.at - dx
       drag.samples.push({ t: e.timeStamp, x })
       if (drag.samples.length > 24) drag.samples.shift()
-      paint()
+      if (!frame) frame = requestAnimationFrame(flush)
     }
     const up = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
       const d = drag
       drag = null
       if (!d.started) return
-      delete vp.dataset.dragging
+      if (!d.touch) delete vp.dataset.dragging
+      if (frame) {
+        cancelAnimationFrame(frame)
+        flush()
+      }
       /* The hand's speed over its last 80ms; a hand that stopped before letting go has none. */
       const recent = d.samples.filter((p) => e.timeStamp - p.t < 80)
       let v = 0
@@ -895,6 +925,7 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
     return () => {
       api.current = null
       cancelAnimationFrame(raf)
+      cancelAnimationFrame(frame)
       for (const a of anims) a.cancel()
       anims = []
       ro?.disconnect()
@@ -1297,6 +1328,13 @@ const CSS = `
 .ev-lp-social .ev-lp-line{fill:none;stroke:#fff;stroke-width:2}
 .ev-lp-btn{display:flex;align-items:center;justify-content:center;height:${r(58)};margin-top:${r(14)};border:1px solid rgba(255,255,255,.12);border-radius:${r(14)};background:rgba(255,255,255,.14);font-size:${r(17)};font-weight:500}
 .ev-lp-social + .ev-lp-btn{margin-top:${r(30)}}
+/*
+  Landing round 9 (the owner: Kaia Moon's Shop merch and Tour dates "more fatty, more hype, a little bit"): on her page
+  the two buttons are taller, fully round and set heavy; the first is filled in her mint with dark words, the second
+  keeps the tint under a mint outline. The other pages' buttons are as they were.
+*/
+.ev-lp[data-hype] .ev-lp-btn{height:${r(66)};border:${r(2)} solid var(--accent);border-radius:${r(33)};background:rgba(255,255,255,.1);font-size:${r(19)};font-weight:800;letter-spacing:-.01em}
+.ev-lp[data-hype] .ev-lp-social + .ev-lp-btn{background:var(--accent);color:#0b1b26}
 .ev-lp-grid{display:grid;grid-template-columns:1fr 1fr;gap:${r(14)};margin-top:${r(26)}}
 .ev-lp-img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;border-radius:${r(14)};background:rgba(255,255,255,.08)}
 
@@ -1334,9 +1372,11 @@ ${GLOBE_CSS()}
   Landing round 8 (the owner: he likes the colour and the gradient, not the orange, pink and red): deep teal at the top
   left through sea green to a clear aqua at the foot, the glow a pale aqua. Still one gradient, no purple, nothing warm;
   the white thread and its black answer read on every part of it.
+  Landing round 9 (the owner: "keep the colour of the Real support card as the pink/orange/red gradient"): round 7's
+  ground again, raspberry at the top left through rose to a warm peach at the foot, the glow a pale pink. The teal is gone.
 */
-.ev-c{background:radial-gradient(70% 60% at 88% 8%,rgba(160,246,232,.30) 0%,rgba(160,246,232,0) 100%),linear-gradient(168deg,#053c4a 0%,#0a6b78 36%,#12999b 64%,#5fd6c2 100%);container-type:inline-size}
-.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,440px);padding:18px 18px 20px;box-sizing:border-box;border-radius:18px;background:#fff;box-shadow:0 30px 60px -34px rgba(2,40,48,.6);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
+.ev-c{background:radial-gradient(70% 60% at 88% 8%,rgba(255,170,180,.32) 0%,rgba(255,170,180,0) 100%),linear-gradient(168deg,#9d1640 0%,#c03560 36%,#dc6476 64%,#f1a283 100%);container-type:inline-size}
+.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,440px);padding:18px 18px 20px;box-sizing:border-box;border-radius:18px;background:#fff;box-shadow:0 30px 60px -34px rgba(80,8,30,.55);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
 .ev-c-thread .ev-c-q,.ev-c-thread .ev-c-r,.ev-c-thread .ev-c-typing{animation-delay:calc(var(--k,0) * ${TURN}s)}
 .ev-c-head{margin:0 0 14px;font-size:14px;font-weight:500;color:#6b6a72}
 .ev-c-msg{display:flex;align-items:flex-end;gap:8px;margin-top:10px}

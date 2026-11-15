@@ -76,7 +76,8 @@ check("off screen and in a hidden tab the animations are taken off; back on, the
 check("the pitch read from the laid out slots with transforms off, on any resize of the strip or a slot", /for \(const s of slots\) s\.style\.transform = "none"/.test(src) && /ro\?\.observe\(vp\)\s*ro\?\.observe\(slots\[0\]\)/.test(src))
 check("a slot's width is CSS, never a picture's", /width:var\(--card-w\)/.test(rule(".ev-s-slot")) && /aspect-ratio:4\/5/.test(rule(".ev-mc-img")))
 check("the strip's pictures load with the section, so none arrives blank", (html.match(/<img class="ev-(mc-img|lp-ground|lp-av|lp-img|ms-hero|pf-photo)"[^>]*loading="eager"/g) ?? []).length > 0 && !/<img class="ev-(mc-img|lp-img)"[^>]*loading="lazy"/.test(html))
-check("touch leaves vertical swipes to the page", /touch-action:pan-y/.test(rule(".ev-s")) && /Math\.abs\(dy\) >= Math\.abs\(dx\)/.test(src))
+/* Changed on purpose (landing round 9): the axis is read by swipeAxis (everything-globe.tsx). */
+check("touch leaves vertical swipes to the page", /touch-action:pan-y/.test(rule(".ev-s")) && /if \(axis === "y"\) \{\s*drag = null/.test(src))
 {
   /* The loop's arithmetic for the narrowest pages (170px + 12px) and the widest pictures: any offset covers the picture. */
   const n = EVERYTHING_STORES.length * 2
@@ -133,7 +134,8 @@ check("the analytics globe, which shares the engine, still passes its own points
 
 console.log("\n── 4. Support ──")
 const ground = rule(".ev-c")
-check("a still deep teal to aqua gradient", /linear-gradient\(168deg,#053c4a 0%,#0a6b78 36%,#12999b 64%,#5fd6c2 100%\)/.test(ground) && !/animation/.test(ground))
+/* Changed on purpose (landing round 9): "keep the colour of the Real support card as the pink/orange/red gradient": round 7's raspberry to peach, the teal gone. */
+check("a still raspberry to peach gradient, no teal", /linear-gradient\(168deg,#9d1640 0%,#c03560 36%,#dc6476 64%,#f1a283 100%\)/.test(ground) && !/animation/.test(ground) && !/#053c4a|#12999b|#5fd6c2/.test(ground))
 {
   const hues = [...ground.matchAll(/#([0-9a-f]{6})/g)].map((m) => {
     const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255)
@@ -143,7 +145,8 @@ check("a still deep teal to aqua gradient", /linear-gradient\(168deg,#053c4a 0%,
     const h = max === r ? ((g - b) / (max - min)) % 6 : max === g ? (b - r) / (max - min) + 2 : (r - g) / (max - min) + 4
     return (h * 60 + 360) % 360
   })
-  check("no orange, pink, red or purple in it: every hue between green and blue", hues.length >= 4 && hues.every((h) => h > 150 && h < 200), hues)
+  /* Changed on purpose (landing round 9): the owner wants the pink, orange and red back; every hue from raspberry round to peach, still no purple, green or blue. */
+  check("pink, orange and red again: every hue from raspberry round to peach", hues.length >= 4 && hues.every((h) => h > 335 || h < 25), hues)
 }
 check("the thread white and its answer black on it, readable", /background:#fff/.test(rule(".ev-c-thread")) && /\.ev-c-dark\{background:#111113;color:#fff\}/.test(css))
 
