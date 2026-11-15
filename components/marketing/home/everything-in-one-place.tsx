@@ -123,15 +123,15 @@ export const EVERYTHING_SLIDES: Slide[] = [
   },
   {
     tab: "Community",
-    name: "The Paperback Club",
+    name: "AI Builders Masterclass",
     kind: "community",
-    img: `${IMG}/community.webp`,
-    w: 640,
-    h: 360,
+    img: `${IMG}/ai-builders.webp`,
+    w: 720,
+    h: 380,
     stats: [
-      ["Price", "$8 / month"],
-      ["Members", "1,240"],
-      ["Monthly", "$9,920.00"],
+      ["Price", "$29 / month"],
+      ["Members", "860"],
+      ["Monthly", "$24,940.00"],
     ],
     status: "Open",
   },
@@ -148,38 +148,40 @@ function Img({ src, w, h, className }: { src: string; w: number; h: number; clas
   (components/community/member), small: the cover, the name and address,
   one line about it, Members, Online and Admins, and the faces of a few
   members. Drawn at 260px and scaled to the tile.
+  Landing round 7 (the owner: get rid of the book club, "something more good and clean like AI Builders
+  Masterclass"): a cohort community on a light card. A photo of a live session across the top with when the next
+  one is, the name and address, the next session as its own row (the date, what gets built, the time and the
+  cohort), and the members' faces with how many there are.
 */
-const COMMUNITY_FACES = ["av-n", "av-e", "av-h", "av-f", "av-o"] as const
+const COMMUNITY_FACES = ["av-n", "av-e", "av-h", "av-f"] as const
 function CommunityCard({ s }: { s: Slide }) {
   return (
     <span className="ev-cm">
-      <Img className="ev-cm-cover" src={s.img} w={s.w} h={s.h} />
+      <span className="ev-cm-top">
+        <Img className="ev-cm-cover" src={s.img} w={s.w} h={s.h} />
+        <span className="ev-cm-badge">
+          <span className="ev-cm-live" />
+          Live Thursday
+        </span>
+      </span>
       <span className="ev-cm-body">
         <span className="ev-cm-name">{s.name}</span>
-        <span className="ev-cm-url">storelib.com/community/paperback</span>
-        <span className="ev-cm-x">One book a month, a call on the last Sunday.</span>
-        <span className="ev-cm-stats">
-          <span>
-            <b>1.2k</b>
-            <i>Members</i>
+        <span className="ev-cm-url">storelib.com/community/ai-builders</span>
+        <span className="ev-cm-next">
+          <span className="ev-cm-date">
+            <i>Thu</i>
+            <b>14</b>
           </span>
-          <span>
-            <b>46</b>
-            <i>
-              <span className="ev-cm-live" />
-              Online
-            </i>
-          </span>
-          <span>
-            <b>2</b>
-            <i>Admins</i>
+          <span className="ev-cm-what">
+            <b>Ship an agent with tools</b>
+            <i>6:00 PM · Cohort 4, week 3</i>
           </span>
         </span>
         <span className="ev-cm-faces">
           {COMMUNITY_FACES.map((f) => (
             <Img key={f} className="ev-cm-face" src={`/home/showcase/${f}.webp`} w={96} h={96} />
           ))}
-          <span className="ev-cm-more">+1.2k</span>
+          <span className="ev-cm-count">860 members</span>
         </span>
       </span>
     </span>
@@ -581,12 +583,13 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
     const el = track.current
     if (!vp || !el || typeof el.animate !== "function") return
     const reduce = matchMedia("(prefers-reduced-motion: reduce)")
+    /* One set's width; the track holds the set twice, and the strip only ever shows an offset in [0, loop). */
     let loop = 0
     let x = 0
     let placed = false
     let raf = 0
     let drift: Animation | null = null
-    let from = 0
+    let period = 0
     let drag: { id: number; x0: number; y0: number; at: number; started: boolean; samples: Array<{ t: number; x: number }> } | null = null
     const wrap = (v: number) => (loop > 0 ? ((v % loop) + loop) % loop : v)
     const paint = () => {
@@ -595,16 +598,24 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
     const shown = () => liveRef.current && !document.hidden
     const stopDrift = () => {
       if (!drift) return
-      x = from + ((Number(drift.currentTime) || 0) / 1000) * DRIFT_PX_S
+      x = (((Number(drift.currentTime) || 0) / period) % 1) * loop
       drift.cancel()
       drift = null
       paint()
     }
+    /*
+      Landing round 7 (the owner: "at some point the carousel ends and gets empty"). The drift ran from wherever the
+      strip stood to one set further, so a start late in the set carried the strip past the end of its second copy and
+      left grey behind it for part of every lap. It now always runs from 0 to one set's width, entered at the point
+      where the strip stands: the shown offset never leaves [0, loop), the second copy always fills the rest of the
+      picture, and the lap's end is the copy's start, the same picture, so there is no jump.
+    */
     const startDrift = () => {
       if (drift || drag || loop <= 0 || reduce.matches) return
       x = wrap(x)
-      from = x
-      drift = el.animate([{ transform: `translate3d(${-x}px,0,0)` }, { transform: `translate3d(${-(x + loop)}px,0,0)` }], { duration: (loop / DRIFT_PX_S) * 1000, iterations: Infinity, easing: "linear" })
+      period = (loop / DRIFT_PX_S) * 1000
+      drift = el.animate([{ transform: "translate3d(0px,0,0)" }, { transform: `translate3d(${-loop}px,0,0)` }], { duration: period, iterations: Infinity, easing: "linear" })
+      drift.currentTime = (x / loop) * period
       if (!shown()) drift.pause()
     }
     const glide = (v0: number) => {
@@ -632,11 +643,22 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
       const copy = el.children[el.children.length / 2] as HTMLElement | undefined
       if (!first || !copy) return
       stopDrift()
-      loop = copy.offsetLeft - first.offsetLeft
+      cancelAnimationFrame(raf)
+      raf = 0
+      /*
+        Read from the boxes, not offsetLeft: a card's width is a fraction of the picture's, and offsetLeft rounds it,
+        which would leave the lap a part of a pixel off and the wrap a visible tick. Read on a resize only, never per frame.
+      */
+      const a = first.getBoundingClientRect()
+      const before = loop
+      const at = wrap(x)
+      loop = copy.getBoundingClientRect().left - a.left
+      /* A resize keeps the same page where it was: the offset scales with the set. */
+      if (before > 0 && loop > 0) x = (at / before) * loop
       /* The first page in the middle, whole: read once, when the strip is first laid out. */
       if (!placed && loop > 0) {
         placed = true
-        x = first.offsetLeft + first.offsetWidth / 2 - vp.clientWidth / 2
+        x = a.left - el.getBoundingClientRect().left + a.width / 2 - vp.clientWidth / 2
       }
       paint()
       startDrift()
@@ -875,7 +897,7 @@ export function EverythingInOnePlace() {
       <style href="w13-everything" precedence="w13-home">
         {CSS}
       </style>
-      <div className="ev-in">
+      <div className="ev-in home-wrap">
         <h2 id="everything-in-one-place-title" className="ev-h">
           {EVERYTHING_HEADING.lead} <span className="ev-h-mute">{EVERYTHING_HEADING.rest}</span>
         </h2>
@@ -907,9 +929,15 @@ const q = (n: number) => `calc(${n} * var(--q))`
 /* One support request's turn, in seconds. */
 const TURN = 10
 const CSS = `
-.ev{position:relative;isolation:isolate;background:#fff;color:#18181b;padding:var(--home-pad,clamp(72px,9vw,128px)) var(--landing-gutter,22px)}
-.ev-in{max-width:1240px;margin:0 auto}
-.ev-h{margin:0 0 clamp(32px,4.4vw,60px);font-size:clamp(34px,4.6vw,64px);font-weight:500;line-height:1.05;letter-spacing:-.045em;color:#18181b;text-wrap:balance}
+/*
+  Landing round 7 (the owner: the section "a little bit more" wide at 90% and 100% zoom, like his reference): the
+  content sits in the page's shared box (.home-wrap in app/globals.css: the showcase's side edge and cap), so the
+  cards' edges line up with the showcase cards under the hero, and the heading starts --home-head-inset in from them.
+  The pictures grow with the cards: their height follows the page's width up to 620px.
+*/
+.ev{position:relative;isolation:isolate;background:#fff;color:#18181b;padding:var(--home-pad,clamp(72px,9vw,128px)) 0}
+.ev-in{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin-inline:auto;padding-inline:var(--home-edge,clamp(20px,5.15vw,84px))}
+.ev-h{margin:0 0 clamp(32px,4.4vw,60px);padding-inline-start:var(--home-head-inset,0px);font-size:clamp(34px,4.6vw,64px);font-weight:500;line-height:1.05;letter-spacing:-.045em;color:#18181b;text-wrap:balance}
 .ev-h-mute{color:#8e8c96}
 .ev-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:44px}
 @media(min-width:768px){
@@ -922,7 +950,7 @@ const CSS = `
 .ev-card[data-in]{opacity:1;transform:none}
 @media(min-width:768px){.ev-card:nth-child(even){--d:110ms}}
 .ev-vis{position:relative;overflow:hidden;height:clamp(300px,86vw,380px);border-radius:17px;isolation:isolate;contain:paint}
-@media(min-width:768px){.ev-vis{height:clamp(320px,32vw,440px);border-radius:19px}}
+@media(min-width:768px){.ev-vis{height:clamp(320px,33vw,620px);border-radius:19px}}
 .ev-cap{margin:24px 0 0;max-width:46ch;font-size:15.5px;line-height:1.5;color:#7c7a84;text-wrap:pretty}
 .ev-cap-lead{font-weight:500;color:#18181b}
 @media(min-width:768px){.ev-cap{font-size:16px}}
@@ -952,9 +980,13 @@ const CSS = `
 @keyframes ev-bg-drift{from{transform:translate3d(-3%,-2%,0) rotate(-4deg) scale(1)}to{transform:translate3d(3%,2%,0) rotate(4deg) scale(1.06)}}
 .ev-p-bg{animation-play-state:paused}
 .ev[data-platform-live="true"] .ev-p-bg[data-on]{animation-play-state:running}
-/* The stage centres the card and holds the perspective the card leans in; the card itself only ever rotates and scales (usePressTilt). */
-.ev-p-stage{position:absolute;left:50%;top:44%;width:min(88%,470px);transform:translate(-50%,-50%);perspective:1100px}
-.ev-p-card{display:flex;align-items:center;gap:clamp(12px,1.8vw,20px);padding:10px;border-radius:17px;background:#fff;box-shadow:0 24px 48px -30px rgba(40,32,20,.45),0 1px 3px rgba(40,32,20,.08);transform-origin:50% 50%;backface-visibility:hidden}
+/*
+  The stage centres the card and holds the perspective the card leans in; the card itself only ever rotates and scales
+  (usePressTilt). Landing round 7: the card grows with the wider picture (470px in a 660px picture, about 620px in a
+  940px one), and its words are sized in the card's own width (cqi), so a bigger card is the same card, larger.
+*/
+.ev-p-stage{position:absolute;left:50%;top:44%;width:min(88%,calc(470px + (100% - 660px) * .55));transform:translate(-50%,-50%);perspective:1100px;container-type:inline-size}
+.ev-p-card{display:flex;align-items:center;gap:clamp(12px,4cqi,26px);padding:clamp(10px,2.1cqi,14px);border-radius:17px;background:#fff;box-shadow:0 24px 48px -30px rgba(40,32,20,.45),0 1px 3px rgba(40,32,20,.08);transform-origin:50% 50%;backface-visibility:hidden}
 .ev-p-media{position:relative;flex:0 0 42%;aspect-ratio:1;border-radius:11px;overflow:hidden;background:#ededed;container-type:inline-size}
 .ev-p-img{position:absolute;inset:0;opacity:0;transform:translate(32%,0) scale(.9);transition:opacity .4s ease,transform .9s ${EASE}}
 .ev-p-img > img{display:block;width:100%;height:100%;object-fit:cover}
@@ -974,32 +1006,38 @@ const CSS = `
 .ev-p-progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.35)}
 .ev-p-progress::after{content:"";position:absolute;inset:0 62% 0 0;background:#fff}
 
-/* The community card in the tile (components/community/member's left column card), drawn at 260px and scaled to the tile. */
+/*
+  The community card in the tile, drawn at 260px and scaled to the tile. Landing round 7: the AI Builders Masterclass,
+  light and plain: the session photo with a white "Live Thursday" tag, the name, the next session in a pale row, the faces.
+*/
 .ev-p-community{--q:calc(100cqw / 260);background:#fff}
-.ev-cm{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#1a1a2e;font-size:${q(12)};line-height:1.3;text-align:left}
-.ev-cm-cover{display:block;width:100%;height:${q(84)};object-fit:cover}
+.ev-cm{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#111827;font-size:${q(12)};line-height:1.3;text-align:left}
+.ev-cm-top{position:relative;display:block;flex:none;height:${q(96)}}
+.ev-cm-cover{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 40%}
+.ev-cm-badge{position:absolute;left:${q(10)};top:${q(10)};display:flex;align-items:center;gap:${q(5)};padding:${q(4)} ${q(8)} ${q(4)} ${q(7)};border-radius:${q(99)};background:#fff;font-size:${q(10)};font-weight:600;line-height:1;color:#111827}
+.ev-cm-live{width:${q(6)};height:${q(6)};border-radius:99px;background:#ef4444}
 .ev-cm-body{display:flex;flex-direction:column;padding:${q(12)} ${q(14)} 0}
-.ev-cm-name{font-size:${q(16)};font-weight:600;letter-spacing:-.01em}
-.ev-cm-url{margin-top:${q(2)};font-size:${q(10.5)};color:#6b7280}
-.ev-cm-x{margin-top:${q(8)};font-size:${q(11.5)};line-height:1.45;color:#374151}
-.ev-cm-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:${q(10)};padding:${q(8)} 0;border-top:1px solid #eef0f2;border-bottom:1px solid #eef0f2;text-align:center}
-.ev-cm-stats > span{display:flex;flex-direction:column;align-items:center}
-.ev-cm-stats > span + span{border-left:1px solid #eef0f2}
-.ev-cm-stats b{font-size:${q(14)};font-weight:600}
-.ev-cm-stats i{display:flex;align-items:center;gap:${q(4)};font-size:${q(10)};font-style:normal;color:#6b7280}
-.ev-cm-live{width:${q(6)};height:${q(6)};border-radius:99px;background:#22c55e}
-.ev-cm-faces{display:flex;align-items:center;margin-top:${q(10)}}
-.ev-cm-face{display:block;width:${q(24)};height:${q(24)};margin-right:${q(-6)};border:${q(2)} solid #fff;border-radius:50%;object-fit:cover}
-.ev-cm-more{margin-left:${q(10)};padding:${q(3)} ${q(7)};border-radius:99px;background:#f3f4f6;font-size:${q(10)};font-weight:500;color:#374151}
+.ev-cm-name{font-size:${q(16.5)};font-weight:700;line-height:1.15;letter-spacing:-.02em;white-space:nowrap}
+.ev-cm-url{margin-top:${q(3)};font-size:${q(10.5)};color:#6b7280}
+.ev-cm-next{display:flex;align-items:center;gap:${q(10)};margin-top:${q(12)};padding:${q(8)};border-radius:${q(10)};background:#f4f5f7}
+.ev-cm-date{display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;width:${q(34)};height:${q(36)};border-radius:${q(7)};background:#fff;box-shadow:0 0 0 1px #e8eaee}
+.ev-cm-date i{font-size:${q(8.5)};font-style:normal;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#ef4444}
+.ev-cm-date b{font-size:${q(15)};font-weight:700;line-height:1.05}
+.ev-cm-what{display:flex;min-width:0;flex-direction:column;gap:${q(2)}}
+.ev-cm-what b{font-size:${q(12)};font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-cm-what i{font-size:${q(10)};font-style:normal;color:#6b7280;white-space:nowrap}
+.ev-cm-faces{display:flex;align-items:center;margin-top:${q(12)}}
+.ev-cm-face{display:block;width:${q(22)};height:${q(22)};margin-right:${q(-6)};border:${q(2)} solid #fff;border-radius:50%;object-fit:cover}
+.ev-cm-count{margin-left:${q(14)};font-size:${q(11)};font-weight:500;color:#374151}
 
 .ev-p-info{position:relative;display:grid;flex:1 1 auto;min-width:0;align-self:stretch;align-items:center}
 .ev-p-text{grid-area:1/1;min-width:0}
 .ev-p-rise{opacity:0;transform:translate(0,10px);transition:opacity .25s ease,transform .3s ease}
 .ev-p-text[data-on] .ev-p-rise{opacity:1;transform:none;transition:opacity .55s ease,transform .8s ${EASE};transition-delay:calc(.2s + var(--d,0) * 55ms)}
-.ev-p-name{margin:0 0 12px;font-size:clamp(14px,1.45vw,18px);font-weight:600;line-height:1.2;letter-spacing:-.02em;color:#18181b}
-.ev-p-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin:0}
-.ev-p-k{margin:0 0 2px;font-size:11px;color:#8b8994}
-.ev-p-v{margin:0;display:flex;align-items:center;gap:6px;font-size:clamp(12.5px,1.15vw,14.5px);font-weight:500;color:#18181b;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ev-p-name{margin:0 0 clamp(12px,2.6cqi,16px);font-size:clamp(14px,3.8cqi,23px);font-weight:600;line-height:1.2;letter-spacing:-.02em;color:#18181b}
+.ev-p-stats{display:grid;grid-template-columns:1fr 1fr;gap:clamp(10px,2.2cqi,14px) 12px;margin:0}
+.ev-p-k{margin:0 0 2px;font-size:clamp(11px,2.35cqi,14px);color:#8b8994}
+.ev-p-v{margin:0;display:flex;align-items:center;gap:6px;font-size:clamp(12.5px,3.05cqi,18px);font-weight:500;color:#18181b;white-space:nowrap;font-variant-numeric:tabular-nums}
 .ev-p-money{color:#18181b}
 .ev-p-dot{width:7px;height:7px;flex:none;border-radius:99px;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
 .ev-tabs{position:absolute;left:50%;bottom:16px;display:flex;gap:2px;padding:4px;border-radius:999px;background:rgba(255,255,255,.5);transform:translate(-50%,0)}
@@ -1014,6 +1052,8 @@ const CSS = `
 .ev-tab[data-on] .ev-tab-fill{opacity:1;animation:ev-fill 4.6s linear both}
 @media(hover:hover){.ev-p:hover .ev-tab-fill{animation-play-state:paused}}
 @keyframes ev-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* Landing round 7: on the wider pictures the tabs grow a little with the card. */
+@media(min-width:1600px){.ev-tabs{bottom:20px}.ev-tab{height:34px;padding:0 15px;font-size:14px;line-height:34px}}
 @media(max-width:479px){
   .ev-tab{padding:0 10px;font-size:12.5px}
   .ev-p-stage{top:43%;width:92%}
@@ -1031,10 +1071,12 @@ const CSS = `
   2. Storefronts. Landing round 6 (the owner's reference picture): a light grey picture, the pages as tall rounded
   cards side by side, a fixed inset from its top and running off its foot, the middle one whole and its neighbours cut
   by the sides. A card's width follows the picture's (56% of it on a phone, never over 270px), so on a phone and on a
-  laptop about one whole card and two cut ones stand in it. --r is one of the page's own pixels (drawn at 390). The
+  laptop about one whole card and two cut ones stand in it. Landing round 7: the picture grows with the wider section,
+  and the cap with it (58% of the picture's height once that is over 270px), so a taller picture shows a larger card
+  rather than more of a small one. --r is one of the page's own pixels (drawn at 390). The
   strip takes the pointer (drag, swipe); the cards inside take none.
 */
-.ev-s{--top:clamp(24px,8cqw,34px);--card-w:clamp(170px,56cqw,270px);--gap:12px;background:#ebebeb;container-type:size;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.ev-s{--top:clamp(24px,8cqw,42px);--card-w:clamp(170px,56cqw,max(270px,58cqh));--gap:clamp(12px,2cqw,16px);background:#ebebeb;container-type:size;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .ev-s[data-dragging]{cursor:grabbing}
 .ev-s-track{position:absolute;top:var(--top);left:0;display:flex;height:100cqh;width:max-content;will-change:transform;backface-visibility:hidden}
 .ev-s-slot{flex:none;width:var(--card-w);height:100%;padding:0 calc(var(--gap) / 2);box-sizing:content-box;pointer-events:none}
@@ -1076,11 +1118,15 @@ ${GLOBE_CSS()}
   later than the one before. In its third a thread rises in, the question
   arrives, the other side types, the answer arrives; then it fades up and
   out as the next one rises.
+  Landing round 7 (the owner: the background "more colorful, cool and clean, simple, bold", like his reference): one
+  still gradient, deep raspberry at the top left through rose to a warm peach at the foot, with a faint lighter glow in
+  the top right so it is not flat. No noise, nothing moving behind the thread. The thread is a plain white card on it,
+  rounder and roomier, and its words grow with the card (container queries below).
 */
-.ev-c{background:#eef0f2;container-type:inline-size}
-.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,430px);padding:18px 18px 20px;box-sizing:border-box;border-radius:16px;background:#fff;box-shadow:0 24px 48px -30px rgba(20,24,40,.4),0 1px 3px rgba(20,24,40,.07);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
+.ev-c{background:radial-gradient(70% 60% at 88% 8%,rgba(255,170,180,.32) 0%,rgba(255,170,180,0) 100%),linear-gradient(168deg,#9d1640 0%,#c03560 36%,#dc6476 64%,#f1a283 100%);container-type:inline-size}
+.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,440px);padding:18px 18px 20px;box-sizing:border-box;border-radius:18px;background:#fff;box-shadow:0 30px 60px -34px rgba(80,8,30,.55);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
 .ev-c-thread .ev-c-q,.ev-c-thread .ev-c-r,.ev-c-thread .ev-c-typing{animation-delay:calc(var(--k,0) * ${TURN}s)}
-.ev-c-head{margin:0 0 14px;font-size:14px;font-weight:600;color:#18181b}
+.ev-c-head{margin:0 0 14px;font-size:14px;font-weight:500;color:#6b6a72}
 .ev-c-msg{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
 .ev-c-bubble{flex:1 1 auto;margin:0;padding:11px 13px;border-radius:12px;font-size:13.5px;line-height:1.42}
 .ev-c-light{background:#f0eff2;color:#18181b}
@@ -1103,6 +1149,21 @@ ${GLOBE_CSS()}
   .ev-c-bubble{font-size:12.5px;padding:9px 11px}
   .ev-c-head{font-size:13px;margin-bottom:10px}
 }
+@container (min-width:640px){
+  .ev-c-thread{width:min(68%,580px);padding:24px 24px 26px;border-radius:22px}
+  .ev-c-head{font-size:15px;margin-bottom:16px}
+  .ev-c-msg{gap:10px;margin-top:12px}
+  .ev-c-bubble{padding:13px 16px;border-radius:14px;font-size:15px}
+  .ev-c-typing{top:12px;padding:15px 16px;border-radius:14px}
+  .ev-c-av{width:28px;height:28px;border-radius:8px}
+}
+@container (min-width:860px){
+  .ev-c-thread{width:min(64%,640px);padding:30px 30px 32px;border-radius:24px}
+  .ev-c-head{font-size:16.5px;margin-bottom:18px}
+  .ev-c-bubble{padding:15px 18px;border-radius:16px;font-size:16.5px}
+  .ev-c-typing{padding:17px 18px;border-radius:16px}
+  .ev-c-av{width:32px;height:32px;border-radius:9px}
+}
 
 @media(prefers-reduced-motion:reduce){
   .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill{transition:none !important}
@@ -1116,7 +1177,7 @@ ${GLOBE_CSS()}
 @media(scripting:none){.ev-card{opacity:1;transform:none}}
 `
 
-/** The globe card's styles (unchanged by this round). */
+/** The globe card's styles. */
 function GLOBE_CSS() {
   return `/* 3. Globe */
 .ev-g{background:#060608}
@@ -1125,11 +1186,12 @@ function GLOBE_CSS() {
 .ev-globe-canvas{display:block;width:100%;height:100%}
 .ev-globe-pills{position:absolute;inset:0;pointer-events:none}
 /*
-  The order notification (landing round 5): one fixed place in the lower left corner, never moved. It rises 10px and
-  fades in, stays, and fades out where it stands; every pill keeps its own layer for good, so nothing is promoted or
-  dropped (a flash of re-rasterised text) as it comes and goes.
+  The order notification (landing round 5): it rises 10px and fades in, stays, and fades out where it stands; every
+  pill keeps its own layer for good, so nothing is promoted or dropped (a flash of re-rasterised text) as it comes and
+  goes. Landing round 7: where it stands is the globe's (GLOBE_NOTICE_CSS in everything-globe.tsx pins it over its
+  city), so the round 5 lower left corner, which that already overrode, is gone from here.
 */
-.ev-globe-pill{position:absolute;left:16px;bottom:16px;display:flex;width:max-content;max-width:calc(100% - 32px);align-items:center;gap:7px;padding:7px 12px 7px 9px;border-radius:999px;background:#fff;color:#18181b;font-size:13px;line-height:1.2;white-space:nowrap;box-shadow:0 10px 30px -12px rgba(0,0,0,.6);opacity:0;transform:translate3d(0,10px,0);will-change:opacity,transform;backface-visibility:hidden;transition:opacity .28s ease,transform .28s ease}
+.ev-globe-pill{display:flex;width:max-content;align-items:center;gap:7px;padding:7px 12px 7px 9px;border-radius:999px;background:#fff;color:#18181b;font-size:13px;line-height:1.2;white-space:nowrap;box-shadow:0 10px 30px -12px rgba(0,0,0,.6);opacity:0;transform:translate3d(0,10px,0);will-change:opacity,transform;backface-visibility:hidden;transition:opacity .28s ease,transform .28s ease}
 .ev-globe-pill[data-on]{opacity:1;transform:translate3d(0,0,0);transition:opacity .4s ease,transform .55s ${EASE}}
 .ev-globe-flag{display:block;width:16px;height:12px;border-radius:2px;object-fit:cover}
 .ev-globe-city{color:#55535c}

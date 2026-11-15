@@ -86,7 +86,8 @@ check("the strip draws every page twice over (one set's width a loop)", (strip.m
 check("the cards in the strip take no pointer, and nothing is selectable", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && /user-select:none/.test(rule(evCss, ".ev-s")))
 check("the strip is hidden from assistive tech and holds nothing that takes focus", /class="ev-vis ev-s" aria-hidden="true"/.test(everything) && !/<(a|button|input|select|textarea)\b|tabindex/i.test(strip))
 check("no hover style on anything in the strip", !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))
-check("the strip still drifts in one loop, by one set's width", /el\.animate\(\[\{ transform: `translate3d\(\$\{-x\}px,0,0\)` \}, \{ transform: `translate3d\(\$\{-\(x \+ loop\)\}px,0,0\)` \}\]/.test(src.everything) && /class="ev-s-track"/.test(everything))
+/* Changed on purpose (landing round 7): the loop runs 0 to one set and is entered at the strip's offset, so it never runs past the second copy. */
+check("the strip still drifts in one loop, by one set's width", /el\.animate\(\[\{ transform: "translate3d\(0px,0,0\)" \}, \{ transform: `translate3d\(\$\{-loop\}px,0,0\)` \}\]/.test(src.everything) && /class="ev-s-track"/.test(everything))
 
 console.log("\n── Support: three requests, none about missing money ──")
 /* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2 (one thread at a time, photos and Storelib's mark), without the From buyers / Storelib switch. Three true requests still take turns, none about money. */

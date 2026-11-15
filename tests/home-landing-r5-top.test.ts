@@ -98,7 +98,8 @@ const words = [EVERYTHING_HEADING.lead, EVERYTHING_HEADING.rest, ...EVERYTHING_S
 check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|fans?)\b/i.test(words))
 
 console.log("\n── The globe: the notification ──")
-check("the notification has one fixed place and comes and goes by opacity and transform only", /\.ev-globe-pill\{position:absolute;left:16px;bottom:16px;[^}]*opacity:0;transform:translate3d\(0,10px,0\);will-change:opacity,transform;[^}]*transition:opacity \.28s ease,transform \.28s ease\}/.test(evSrc) && /\.ev-globe-pill\[data-on\]\{opacity:1;transform:translate3d\(0,0,0\);/.test(evSrc))
+/* Changed on purpose (landing round 7): the round 5 lower left corner is gone; the globe (GLOBE_NOTICE_CSS) places the notification over its city, as it already did. */
+check("the notification comes and goes by opacity and transform only", /\.ev-globe-pill\{display:flex;[^}]*opacity:0;transform:translate3d\(0,10px,0\);will-change:opacity,transform;[^}]*transition:opacity \.28s ease,transform \.28s ease\}/.test(evSrc) && /\.ev-globe-pill\[data-on\]\{opacity:1;transform:translate3d\(0,0,0\);/.test(evSrc))
 check("its layer is kept for good (no promotion flash)", !/\.ev-globe-pill\[data-on\]\{[^}]*will-change/.test(evSrc))
 /* Changed on purpose (landing round 6): the owner wants it "where the rocket landed": the page places it once per landing by a transform on its pin (no left or top, no layout read per frame) and lets one animation carry it with the city. */
 check("the page places it once per landing, by transform only", /pin\.style\.transform = `translate\(/.test(globe) && !/style\.(left|top) =/.test(globe) && !/getBoundingClientRect\(\)[^\n]*pill/.test(globe))
