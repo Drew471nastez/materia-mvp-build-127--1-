@@ -1457,6 +1457,18 @@ const SUITES = [
   "tests/home-landing-r6-showcase.test.ts",
   /* Landing round 6, everything: "Cine Tones LUT Pack" on a bold black cover with no count; the store strip as the owner's reference (merch stores and link pages, tall cards a fixed inset down and cut at the foot); each card rises in once as it scrolls into view. */
   "tests/home-landing-r6-everything.test.ts",
+  /* Landing round 7, everything: the section in the page's shared box with taller pictures, the support thread on a still raspberry to peach gradient, the store strip a true endless loop, and the AI Builders Masterclass in place of the book club. */
+  "tests/home-landing-r7-everything.test.ts",
+  /* Landing round 7 (frame): the header's links plain white and a size up, the headings' scroll fill one soft colour wave from one number (no measuring on a frame), One store for everything you sell off the page, room under the showcase's cards, ideas, pricing, the questions and the app in the page's one width. */
+  "tests/home-landing-r7-frame.test.ts",
+  /* Landing round 7, how: How it works in section 3's shape (two tone heading, wide and narrow cards), Linde Woodshop in place of Nadia Brooks, no checkout tile, round 3's domain tile on black to deep purple, in the shared page box. */
+  "tests/home-landing-r7-how.test.ts",
+  /* Landing round 7 (marquee): Unlimited possibilities is two full-width rows of tilted photos and words; the app icons run edge to edge; the creators rail decides the axis after 8px, follows the finger 1:1, coasts and eases back into its drift; headings on the shared home width. */
+  "tests/home-landing-r7-marquee.test.ts",
+  /* Landing round 7, checkout: the phone shows Storelib's full page checkout (not the in page sheet) for Maren Holt's knitting pattern, centred under a centred headline and rising as it comes up the screen; product pictures ride a ring around it again; the tab cards fade in over it; a fainter dot grid; One-tap and reminder demos on fewer transform and opacity layers; the cards in the shared content box. */
+  "tests/home-landing-r7-checkout.test.ts",
+  /* Landing round 7, lower: the reports one near-black panel and nothing purple on the purple; the engines one sliding strip; the dot field even and flowing, after the mouse; no fee line under the earnings; Contacts plays growth, synced with, export with new faces; every lower section in the one width. */
+  "tests/home-landing-r7-lower.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -33,6 +33,20 @@ export const CREATORS_HEADING = "Storelib is for creators. Whatever you make."
 
 const SIZES = "(max-width: 640px) 66vw, (max-width: 1280px) 24vw, 300px"
 
+/* The feel of a finger on the rail (landing round 7). */
+/** How far a finger moves before the gesture is read as across (the rail's) or down (the page's). */
+export const AXIS_SLOP = 8
+/** A throw slows by e every this many seconds: about the glide of a flicked list on a phone. */
+const COAST_TAU = 0.42
+/** The fastest throw, px a second. */
+const MAX_THROW = 3200
+/** The finger's speed is read over its last this many ms. */
+const VELOCITY_WINDOW_MS = 90
+/** After a hold or a throw, the drift waits this long, then eases back in over RAMP_UP_MS. */
+const RESUME_AFTER_MS = 1400
+const RAMP_UP_MS = 1800
+const RAMP_DOWN_MS = 650
+
 function Card({ c, idx, copy }: { c: CreatorCard; idx: number; copy: boolean }) {
   return (
     <li className="cc-card" data-idx={idx} aria-hidden={copy || undefined} inert={copy || undefined}>
@@ -83,6 +97,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     const count = CREATORS.length
     let loop = 0
     let step = 1
+    /* x: how far the rail has travelled left, in px. v: its speed, px a second. */
     let x = 0
     let v = 0
     let glide = 0
@@ -91,7 +106,21 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     let visible = typeof IntersectionObserver !== "function"
     let hovering = false
     let focused = false
-    let drag: { id: number; lastX: number; lastT: number; moved: number; vel: number; captured: boolean } | null = null
+    /* After a touch or a drag the drift waits this long (a timestamp) before it picks up again. */
+    let holdUntil = 0
+    let holdTimer = 0
+    /* A throw: the rail coasting after the finger has let go, slowing down on its own. */
+    let coasting = false
+    /* A change of speed in progress: from one speed to another over a set time, eased at both ends. */
+    let ramp: { from: number; to: number; t0: number; ms: number } | null = null
+    let drag: {
+      id: number
+      startX: number
+      startY: number
+      fromX: number
+      axis: "x" | "y" | null
+      samples: Array<{ t: number; cx: number }>
+    } | null = null
     let suppressClick = false
     /*
      * The steady drift runs on the compositor. Once the rail has eased up to
@@ -144,28 +173,60 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       drift = null
       last = 0
     }
+    /* What the rail's speed should settle at right now: nothing while it is held, looked at or waiting, its drift otherwise. */
+    const goal = (t: number) => (hovering || focused || drag || coasting || t < holdUntil ? 0 : cruise())
     const frame = (t: number) => {
       raf = 0
-      const dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016
+      const dt = last ? Math.min(0.05, (t - last) / 1000) : 1 / 60
       last = t
-      const goal = hovering || focused || drag ? 0 : cruise()
-      if (!drag) {
-        // Critically damped approach: a soft slow-down and pick-up, never a jolt.
-        v += (goal - v) * (1 - Math.exp(-dt * (Math.abs(v) > Math.abs(goal) ? 2.6 : 1.6)))
-        let move = v * dt
-        if (glide) {
-          // Arrow-key nudges ease out over a card width on top of the drift.
-          let part = glide * (1 - Math.exp(-dt * 7))
-          if (Math.abs(glide - part) < 0.4) part = glide
-          glide -= part
-          move += part
-        }
-        x += move
+      if (drag) {
+        /* The finger leads: x was set from it in onMove, 1:1, and is only drawn here, once a frame. */
+        paint()
+        schedule()
+        return
       }
+      const want = goal(t)
+      if (coasting) {
+        /* A throw slows the way a flicked list does on a phone: by the same share of its speed every moment, so it glides out rather than stopping short. */
+        v *= Math.exp(-dt / COAST_TAU)
+        if (Math.abs(v) < 4) {
+          v = 0
+          coasting = false
+          holdUntil = t + RESUME_AFTER_MS
+        }
+      } else {
+        if (!ramp || ramp.to !== want) {
+          /* Picking up is slow and soft; slowing for a pointer or a key is quicker. Both ease in and out (smootherstep), so the speed never changes with a jolt. */
+          ramp = { from: v, to: want, t0: t, ms: want > Math.abs(v) ? RAMP_UP_MS : RAMP_DOWN_MS }
+        }
+        const p = Math.min(1, (t - ramp.t0) / ramp.ms)
+        const e = p * p * p * (p * (p * 6 - 15) + 10)
+        v = ramp.from + (ramp.to - ramp.from) * e
+        if (p >= 1) v = ramp.to
+      }
+      let move = v * dt
+      if (glide) {
+        // Arrow-key nudges ease out over a card width on top of the drift.
+        let part = glide * (1 - Math.exp(-dt * 7))
+        if (Math.abs(glide - part) < 0.4) part = glide
+        glide -= part
+        move += part
+      }
+      x += move
       paint()
-      if (live() && !drag && !glide && goal && Math.abs(v - goal) < 0.5 && startCruise(goal)) last = 0
-      else if (live() && (drag || glide || goal || Math.abs(v) > 0.4)) schedule()
-      else last = 0
+      const settled = !coasting && !glide && ramp !== null && v === ramp.to
+      if (live() && settled && want && startCruise(want)) {
+        ramp = null
+        last = 0
+      } else if (live() && (coasting || glide || !settled)) schedule()
+      else {
+        last = 0
+        /* Waiting out a hold, standing still: no frames, one timer to wake it when the wait is over. */
+        if (live() && t < holdUntil) {
+          clearTimeout(holdTimer)
+          holdTimer = window.setTimeout(schedule, holdUntil - t + 1)
+        }
+      }
     }
     const schedule = () => {
       if (!raf && !drift && live()) raf = requestAnimationFrame(frame)
@@ -202,40 +263,89 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       focused = false
       wake()
     }
+    /*
+     * A FINGER ON THE RAIL (landing round 7, the owner: "more buttery, more
+     * realistic", and never fighting the page's own scroll). Touching holds
+     * the rail where it is. Nothing is decided until the finger has moved
+     * AXIS_SLOP px: if it went more across than down, the rail is the
+     * finger's (pointer capture from then on, and it follows 1:1); if more
+     * down, the page scrolls (touch-action: pan-y leaves vertical pans to the
+     * browser, which cancels the pointer) and the rail lets go at once. On
+     * release it coasts with the finger's last speed, slowing smoothly, then
+     * waits a moment and eases back into its drift from a standstill.
+     */
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || reduce.matches) return
+      if (e.button !== 0 || reduce.matches || drag) return
       stopCruise()
-      drag = { id: e.pointerId, lastX: e.clientX, lastT: e.timeStamp, moved: 0, vel: 0, captured: false }
+      coasting = false
+      glide = 0
+      v = 0
+      ramp = null
+      drag = { id: e.pointerId, startX: e.clientX, startY: e.clientY, fromX: x, axis: null, samples: [{ t: e.timeStamp, cx: e.clientX }] }
       suppressClick = false
+      schedule()
     }
     const onMove = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
-      const dx = e.clientX - drag.lastX
-      const dts = Math.max(1, e.timeStamp - drag.lastT) / 1000
-      drag.moved += Math.abs(dx)
-      drag.lastX = e.clientX
-      drag.lastT = e.timeStamp
-      if (!drag.captured && drag.moved > 6) {
-        drag.captured = true
-        viewport.setPointerCapture(e.pointerId)
+      const dx = e.clientX - drag.startX
+      const dy = e.clientY - drag.startY
+      if (!drag.axis) {
+        if (Math.hypot(dx, dy) < AXIS_SLOP) return
+        drag.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"
+        if (drag.axis === "y") return letGo(e.timeStamp, false)
+        try {
+          viewport.setPointerCapture(e.pointerId)
+        } catch {}
         viewport.dataset.dragging = ""
+        /* Taken from here, so the slop is not a jump: the rail moves from where the finger is now. */
+        drag.startX = e.clientX
+        drag.fromX = x
       }
-      if (!drag.captured) return
-      x -= dx
-      drag.vel = drag.vel * 0.6 + (-dx / dts) * 0.4
-      v = 0
+      x = drag.fromX - (e.clientX - drag.startX)
+      drag.samples.push({ t: e.timeStamp, cx: e.clientX })
+      while (drag.samples.length > 2 && e.timeStamp - drag.samples[0].t > VELOCITY_WINDOW_MS) drag.samples.shift()
+      schedule()
+    }
+    /* The finger's speed over its last few moves, px a second (positive: the rail travels left). A finger that stopped before lifting throws nothing. */
+    const releaseSpeed = (now: number) => {
+      const s = drag?.samples ?? []
+      const a = s[0]
+      const b = s[s.length - 1]
+      if (!a || !b || b.t - a.t < 8 || now - b.t > 60) return 0
+      const speed = -((b.cx - a.cx) / (b.t - a.t)) * 1000
+      return Math.max(-MAX_THROW, Math.min(MAX_THROW, speed))
+    }
+    const letGo = (now: number, wasDrag: boolean) => {
+      const speed = wasDrag ? releaseSpeed(now) : 0
+      drag = null
+      delete viewport.dataset.dragging
+      const t = performance.now()
+      if (wasDrag && Math.abs(speed) > 40) {
+        v = speed
+        coasting = true
+        ramp = null
+      } else {
+        v = 0
+        ramp = null
+        /* Held still and let go, or handed to the page's scroll: wait a little after a hold, none after a scroll. */
+        holdUntil = wasDrag ? t + RESUME_AFTER_MS : t
+      }
       schedule()
     }
     const onUp = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
-      if (drag.captured) {
-        suppressClick = true
-        v = Math.max(-2600, Math.min(2600, drag.vel))
-        delete viewport.dataset.dragging
+      const wasDrag = drag.axis === "x"
+      if (wasDrag) suppressClick = true
+      /* A finger that rested on the rail without moving held it: it waits a moment before drifting again. */
+      if (!drag.axis && e.type === "pointerup" && e.pointerType !== "mouse") {
+        drag = null
+        v = 0
+        ramp = null
+        holdUntil = performance.now() + RESUME_AFTER_MS
+        schedule()
+        return
       }
-      drag = null
-      schedule()
-      if (!raf) paint()
+      letGo(e.timeStamp, wasDrag)
     }
     const onClick = (e: MouseEvent) => {
       if (suppressClick) {
@@ -287,6 +397,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     if (!ro) sync()
     return () => {
       cancelAnimationFrame(raf)
+      clearTimeout(holdTimer)
       drift?.cancel()
       io?.disconnect()
       ro?.disconnect()
@@ -316,7 +427,8 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       aria-labelledby="creators-carousel-title"
     >
       <style href="w12-creators-carousel" precedence="w12-section">{CREATORS_CSS}</style>
-      <div className="cc-head">
+      {/* A header, not a div: the page's 1400px column rule for a section's divs does not reach it, so it takes the shared home width (landing round 7). */}
+      <header className="cc-head">
         <StoryHeading
           id="creators-carousel-title"
           text={CREATORS_HEADING}
@@ -331,7 +443,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
             </svg>
           </span>
         </a>
-      </div>
+      </header>
 
       <div
         ref={viewportRef}
@@ -351,10 +463,11 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
 }
 
 export const CREATORS_CSS = `
-.cc-section{--cc-bg:#fff;--cc-ink:#18181b;--cc-muted:#6b6b76;--cc-photo:#ecebf0;--cc-w:clamp(236px,66vw,268px);--cc-gap:14px;--cc-gutter:var(--landing-gutter,clamp(20px,6vw,96px));--cc-ease:cubic-bezier(.22,1,.36,1);position:relative;background:var(--cc-bg);color:var(--cc-ink);overflow:clip;padding-block:clamp(64px,8vw,120px)}
+.cc-section{--cc-bg:#fff;--cc-ink:#18181b;--cc-muted:#6b6b76;--cc-photo:#ecebf0;--cc-w:clamp(236px,66vw,268px);--cc-gap:14px;--cc-gutter:var(--home-edge,clamp(20px,5.15vw,84px));--cc-ease:cubic-bezier(.22,1,.36,1);position:relative;background:var(--cc-bg);color:var(--cc-ink);overflow:clip;padding-block:clamp(64px,8vw,120px)}
 .cc-section[data-tone="dark"]{--cc-bg:#0b0b0c;--cc-ink:#fafafa;--cc-muted:#a1a1aa;--cc-photo:#1a1a1d;border-radius:clamp(28px,4vw,56px)}
 @media(min-width:768px){.cc-section{--cc-w:clamp(240px,21vw,296px);--cc-gap:20px}}
-.cc-section .cc-head{max-width:1400px;margin-inline:auto;padding-inline:var(--cc-gutter);box-sizing:border-box}
+/* Landing round 7: the shared home width (globals.css, --home-max and --home-edge), the heading set in by --home-head-inset like the showcase's. */
+.cc-section .cc-head{width:100%;max-width:var(--home-max,2020px);margin-inline:auto;padding-inline:calc(var(--cc-gutter) + var(--home-head-inset,14px));box-sizing:border-box}
 .cc-head{display:grid;gap:28px;align-items:end;justify-items:start}
 @media(min-width:1024px){.cc-head{grid-template-columns:minmax(0,1fr) auto;gap:56px}}
 .cc-head .story-heading{font-size:clamp(36px,5vw,72px);max-width:15ch}
@@ -370,9 +483,14 @@ export const CREATORS_CSS = `
 @media(min-width:1024px){.cc-cta{margin-bottom:10px}}
 
 [data-landing-story] [data-story-section="creators"] > .cc-viewport{max-width:none;padding-inline:0}
-.cc-viewport{position:relative;margin-top:clamp(36px,5vw,60px);overflow:hidden;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;outline-offset:-4px}
+.cc-viewport{position:relative;margin-top:clamp(36px,5vw,60px);overflow:hidden;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline-offset:-4px}
+/* From 768px the rail sits in the shared box, its cards' edges on the showcase cards' edges, with the showcase's 14px fade at each side. On a phone it runs to the screen's edges, the first card starting at the gutter. */
+@media(min-width:768px){
+  [data-landing-story] [data-story-section="creators"] > .cc-viewport,.cc-viewport{margin-inline:max(var(--cc-gutter),calc((100% - var(--home-max,2020px)) / 2 + var(--cc-gutter)));mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+}
 .cc-viewport[data-dragging]{cursor:grabbing}
 .cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-gutter) 8px;list-style:none;will-change:transform;backface-visibility:hidden}
+@media(min-width:768px){.cc-track{padding-inline:0}}
 .cc-card{flex:none;width:var(--cc-w);margin:0;padding:0}
 /* The card as it was before the product tiles: the photo, and on a soft shade at its foot the creator's name, their kind and what they sell. It stays still under the pointer. */
 .cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:23px;background:var(--cc-photo);isolation:isolate}
@@ -386,7 +504,7 @@ export const CREATORS_CSS = `
 /* Reduced motion: the same cards, standing still in a grid. */
 @media(prefers-reduced-motion:reduce){
   .cc-viewport{cursor:auto;touch-action:auto}
-  .cc-track{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));width:auto;max-width:1400px;margin-inline:auto;transform:none!important;will-change:auto;box-sizing:border-box}
+  .cc-track{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));width:auto;max-width:none;margin-inline:auto;transform:none!important;will-change:auto;box-sizing:border-box}
   @media(min-width:768px){.cc-track{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}}
   @media(min-width:1180px){.cc-track{grid-template-columns:repeat(4,1fr)}}
   .cc-card{width:auto}

@@ -15,31 +15,63 @@
   pointer-events: none;
 }
 /*
-  The reports (landing round 5, the owner: "white with some depth, a bit of
-  glass, cooler and cleaner"). Near white, a cool top-lit gradient, a bright
-  hairline on the top edge and a soft violet shadow under them. No backdrop
-  blur: the glass is in the light, so nothing is sampled while it scrolls.
+  Landing round 7, the owner: nothing purple on the purple sheet, not even
+  light purple. The heading's accent and the line under the title read white
+  and a neutral grey here (the band's own muted colour is a lilac).
 */
-.report {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 14px 0 12px;
-  border-radius: 999px;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: #2a2540;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 244, 255, 0.92) 100%);
-  box-shadow:
-    inset 0 1px 0 #fff,
-    inset 0 -1px 0 rgba(91, 33, 182, 0.06),
-    0 0 0 1px rgba(255, 255, 255, 0.5),
-    0 1px 2px rgba(30, 10, 80, 0.14),
-    0 10px 22px -12px rgba(30, 10, 80, 0.5);
+.section {
+  --band-muted: #dddce3;
 }
-.report svg {
-  color: #6d28d9;
+.section :global(.story-heading) {
+  --story-accent: #fff;
+}
+/* Headings and the words beside the globe start where the showcase's heading does: the content edge plus --home-head-inset. */
+.inset {
+  padding-left: var(--home-head-inset, 0px);
+}
+
+/*
+  The reports (landing round 7, the owner: "instead of the white pill
+  shapes, some other shape, cleaner, smoother"). Six even tiles in the
+  near-black of the cards beside them, a 12px corner and a hairline: three
+  across, two on a phone. No icons, no pills, nothing violet.
+*/
+.reports {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 480px;
+  padding: 0;
+  list-style: none;
+}
+.report {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 46px;
+  padding: 0 15px;
+  border-radius: 12px;
+  background: #0d0d10;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 10px 24px -16px rgba(5, 2, 15, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: #ececf1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 479px) {
+  .reports {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .report {
+    height: 42px;
+    padding: 0 14px;
+    font-size: 13.5px;
+  }
 }
 @media (max-width: 639px) {
   .dark {
@@ -196,7 +228,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #8b7cf6, #c4b5fd);
+  background: rgba(255, 255, 255, 0.82);
   transform-origin: 0 50%;
 }
 @media (max-width: 639px) {
@@ -279,9 +311,10 @@
 }
 
 /*
-  The light behind the engines (landing round 5): two soft tints, a cool
-  violet and a blue, on one layer twice the card's size that turns once a
-  minute around the card's middle. One transform, very low contrast.
+  The light behind the engines (landing round 5): two soft tints on one
+  layer twice the card's size that turns once a minute around the card's
+  middle. One transform, very low contrast. Round 7: neutral, a white and a
+  cool grey, nothing violet.
 */
 .orbit {
   position: absolute;
@@ -291,8 +324,8 @@
   aspect-ratio: 1;
   margin: -90% 0 0 -90%;
   background:
-    radial-gradient(22% 22% at 30% 34%, rgba(139, 124, 246, 0.22), transparent 70%),
-    radial-gradient(24% 24% at 70% 66%, rgba(96, 165, 250, 0.14), transparent 70%);
+    radial-gradient(22% 22% at 30% 34%, rgba(255, 255, 255, 0.07), transparent 70%),
+    radial-gradient(24% 24% at 70% 66%, rgba(186, 196, 214, 0.06), transparent 70%);
   animation: orbit 60s linear infinite;
 }
 @keyframes orbit {
@@ -301,17 +334,25 @@
   }
 }
 
-/* The engines take turns in one pill: the one in turn in the middle, its neighbours faint at the sides. */
+/*
+  The engines (landing round 7, smoother): the names sit side by side on one
+  strip, a step apart, and the strip slides one step a turn: one transform
+  on one layer, eased in and out, the text never scaled. The mask on the
+  row never moves, so a name brightens as it passes the middle and fades at
+  the sides by itself. A plain dark pill marks the middle.
+*/
 .engines {
   --step: 168px;
   position: relative;
   height: 64px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0, 0, 0, 0.28) 24%, #000 42%, #000 58%, rgba(0, 0, 0, 0.28) 76%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, rgba(0, 0, 0, 0.28) 24%, #000 42%, #000 58%, rgba(0, 0, 0, 0.28) 76%, transparent 100%);
 }
 @media (max-width: 639px) {
   .engines {
     --step: 150px;
+    -webkit-mask-image: linear-gradient(90deg, transparent 6%, rgba(0, 0, 0, 0.2) 27%, #000 40%, #000 60%, rgba(0, 0, 0, 0.2) 73%, transparent 94%);
+    mask-image: linear-gradient(90deg, transparent 6%, rgba(0, 0, 0, 0.2) 27%, #000 40%, #000 60%, rgba(0, 0, 0, 0.2) 73%, transparent 94%);
   }
 }
 .enginePill {
@@ -322,62 +363,48 @@
   height: 64px;
   margin-left: -98px;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  background: #1a1a20;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
     0 18px 36px -18px rgba(0, 0, 0, 0.8);
 }
-.engine {
+.strip {
   position: absolute;
   left: 50%;
   top: 0;
   display: flex;
+  height: 64px;
+  margin-left: calc(var(--step) / -2);
+  transform: translate3d(calc(var(--pos, 5) * var(--step) * -1), 0, 0);
+  transition: transform 1000ms cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: transform;
+}
+.strip[data-snap] {
+  transition: none;
+}
+.engine {
+  display: flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   gap: 9px;
-  width: 180px;
+  width: var(--step);
   height: 64px;
-  margin-left: -90px;
   font-size: 19px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: #fff;
   white-space: nowrap;
-  opacity: 0;
-  transform: translate3d(calc(var(--rel, 0) * var(--step)), 0, 0) scale(0.84);
-  transition:
-    transform 800ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 600ms ease-out;
 }
 .engineMark {
   width: 22px;
   height: 22px;
   flex: none;
 }
-.engine[data-rel="-2"] {
-  --rel: -2;
-}
-.engine[data-rel="-1"] {
-  --rel: -1;
-  opacity: 0.32;
-}
-.engine[data-rel="0"] {
-  --rel: 0;
-  opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
-}
-.engine[data-rel="1"] {
-  --rel: 1;
-  opacity: 0.32;
-}
-.engine[data-rel="2"] {
-  --rel: 2;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .globe canvas,
-  .engine {
+  .strip {
     transition: none;
   }
   .globe canvas {

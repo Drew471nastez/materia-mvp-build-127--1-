@@ -79,26 +79,31 @@ console.log("\nCommerce: the figures are Storelib's")
   check("money reads $15.75 and $2,850", commerceUsd(1575) === "$15.75" && commerceUsd(285000) === "$2,850")
   for (const [k, s] of Object.entries(src)) check(`${k}: example figures are labelled`, k === "kit" || k === "checkout" || /[Ee]xample/.test(s))
   /* Changed on purpose (landing round): the owner asked for the small print under How it works and under the checkout tabs to go (it only took space); the calculator still names Stripe's fee. */
-  check("Stripe's processing fee is named as separate where the calculator shows fees, and the removed small print stays gone", /card processing fee is separate/.test(src.earn) && !/cmh-fine|cmc-foot/.test(src.how + src.checkout))
+/* Changed on purpose (landing round 7): the owner asked for the fee line under the calculator to go too. */
+  check("the fee line under the calculator and the removed small print stay gone", !/card processing fee is separate/.test(src.earn) && !/cmh-fine|cmc-foot/.test(src.how + src.checkout))
 }
 
 console.log("\nCommerce: the sections render on the server")
 {
   const how = renderToStaticMarkup(createElement(HowItWorks))
   /* Changed on purpose (landing round): the owner asked for less "fans" in the copy. */
-  check("how it works: its heading", how.includes("Sell what people love. We handle the rest.") && HOW_HEADING === "Sell what people love. We handle the rest." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
+  // Changed on purpose (landing round 7, the owner: "another heading, more clean and simple", two tones like section 3).
+  check("how it works: its heading", how.includes("Products, courses and tips.") && HOW_HEADING.lead === "Products, courses and tips." && HOW_HEADING.rest === "On your own domain." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
   /* Changed on purpose (landing round 3): a sixth tile, the creator's own domain, as the owner asked. */
-  check("how it works: six tiles", (how.match(/class="cmh-tile"/g) ?? []).length === 6)
+  // Changed on purpose (landing round 7): four cards in section 3's two by two grid; the checkout and files tiles are gone.
+  check("how it works: four cards", (how.match(/class="cmh-card /g) ?? []).length === 4)
   /* Changed on purpose (wave 13): the owner removed the profit picker, the "How it works" pill and the subheading. */
   check("how it works: no picker, no eyebrow, no subheading", !how.includes('role="radiogroup"') && !how.includes('type="range"') && !/story-eyebrow|What you keep on every sale|Merch with no stock to buy/.test(how))
   /* Changed on purpose (landing round): the merch tile became one shop's physical and digital products (a tee printed when ordered, an e-book sent when paid), as the owner asked. */
 /* Changed on purpose (landing round 4): the owner wanted the blue tee and Weeknight Pasta gone: an embroidered cap and a night photography e-book. */
   // Changed on purpose (landing round 5): the owner did not like the cap: a $45 signed print (an example $14 print cost) and the $19 e-book.
-  check("how it works: a $45 print and a $19 e-book, physical and digital", how.includes("$45.00") && how.includes("$19.00") && how.includes("$14.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/print-lasalle.webp") && !how.includes("cap-yellow"))
+  // Changed on purpose (landing round 7): the owner did not like Nadia Brooks's print: a $38 shop apron (an example $16 print cost) and $24 workbench plans.
+  check("how it works: a $38 apron and $24 plans, physical and digital", how.includes("$38.00") && how.includes("$24.00") && how.includes("$16.00") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.kind).join() === "Physical,Digital" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/how/apron.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
   check("how it works: what each product leaves is Storelib's fee and the example cost off the price", HOW_PRODUCTS.every((m) => m.keepCents === m.priceCents - calculateStorelibFee({ grossMinor: m.priceCents, currency: "USD", sellerPlan: "free" }).totalStorelibFeeMinor - m.baseCents && m.keepCents > 0))
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
 /* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
-  check("how it works: the tiles use the product's real words", ["Thanks for your purchase", "Get your files", "Lessons", "2 of 7 done", "Check out · $45.00"].every((w) => how.includes(w)) && !how.includes("op-nadia"))
+  // Changed on purpose (landing round 7): no checkout or files tile any more; the course player keeps its real words.
+  check("how it works: the tiles use the product's real words", ["Lessons", "2 of 7 done", "Selling price", "You keep"].every((w) => how.includes(w)) && !how.includes("op-nadia") && !how.includes("Check out"))
   /* Added (landing round): the owner never wants the Golden Hour presets mockups again, nor the camera picture on the course. */
   check("how it works: no Golden Hour presets, no camera course picture, no purple gradient grounds", !/Golden Hour|golden-cover|course-camera|lt-field/i.test(how + src.how) && !/linear-gradient\(160deg,#4c1d95/.test(src.how))
 
@@ -110,22 +115,25 @@ console.log("\nCommerce: the sections render on the server")
   check("checkout: four tabs and one visible panel", (co.match(/role="tab"/g) ?? []).length === 4 && (co.match(/role="tabpanel"/g) ?? []).length === 4 && (co.match(/role="tabpanel"[^>]*inert/g) ?? []).length === 3 && !/role="tabpanel"[^>]*hidden/.test(co) && /\.cmc-panel\{grid-area:1\/1;[^}]*visibility:hidden/.test(src.checkout))
   /* Changed on purpose (wave 13): the real instant checkout heads its fields "Your details" (components/checkout/instant-checkout.tsx), not "Contact". */
 /* Changed on purpose (landing round 4): the phone no longer completes a payment as the page scrolls; Payment complete is the desktop checkout's. */
-  check("checkout: the phone draws the real checkout's words", ["Your details", "Email me news and offers", "Payment method", "Pay $19.00 with Apple Pay", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
+  /* Changed on purpose (landing round 7, the owner: "use the actual Storelib checkout, not the modal checkout"): the phone draws the full page checkout's words. */
+  check("checkout: the phone draws the real checkout's words", ["Contact information", "Email me with news and offers", "Payment method", "Add promotion code", "Total due", "Pay $12.00", "Payment complete", "Powered by Stripe"].every((w) => co.includes(w)))
   /* Added (wave 13). */
   check("checkout: no subheading under the headline, no eyebrow", !/cmc-sub|story-eyebrow/.test(co))
   /* Changed on purpose (landing round 3): the owner wants the wallets tab to be a phone and nothing else, so the second browser (the one with Google Pay) is gone; the tab's words still name both wallets. */
 /* Changed on purpose (landing round 4): Built to convert is the website checkout on a computer again, as the owner asked. */
   check("checkout: the website checkout in a desktop browser, once, and both wallets named", (co.match(/class="cdx-win"/g) ?? []).length === 1 && co.includes("Apple Pay and Google Pay, built in"))
-  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$45.00", "€42.00", "£36.00", "¥6,900", "C$62.00"].every((p) => co.includes(p))) /* Changed on purpose (landing round 5): the $45 print in place of the cap. */
+  check("checkout: five currencies with their real flags", ["US", "EU", "GB", "JP", "CA"].every((f) => co.includes(`/flags/${f}.svg`)) && ["$64.00", "€59.00", "£50.00", "¥9,800", "C$88.00"].every((p) => co.includes(p))) /* Changed on purpose (landing round 7): Maren Holt's $64 yarn kit in place of the print. */
   /* Changed on purpose (landing round): the product is Maya Ellis's e-book, Weeknight Pasta, not the Golden Hour presets the owner found AI looking. */
 /* Changed on purpose (landing round 4): new products; the seller's note is the in-app sale notification ("New sale: <total>", "<buyer> bought <thing> for <total>."). */
-  check("checkout: the reminder and the sale note use the real words", co.includes("You left LaSalle at dusk at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $75.12") && co.includes("Sam Rivera bought LaSalle at dusk and 1 more for $75.12.")) /* Changed on purpose (landing round 5): the print in place of the cap. */
+  check("checkout: the reminder and the sale note use the real words", co.includes("You left Harbor yarn kit at checkout") && co.includes("Still thinking it over?") && co.includes("Finish checkout") && co.includes("New sale: $88.08") && co.includes("Sam Rivera bought Harbor yarn kit and 1 more for $88.08.")) /* Changed on purpose (landing round 7): Maren Holt's yarn kit in place of the print. */
   check("checkout: no Golden Hour presets anywhere, and less fans in the words", !/Golden Hour|golden-cover|Presets/.test(co + src.checkout) && !/\bfans?\b/i.test(co.replace(/<style[\s\S]*?<\/style>/g, "")))
-  check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="A Storelib checkout on a phone/.test(co))
+  /* Changed on purpose (landing round 7): the label names the checkout page. */
+  check("checkout: the phone is one labelled image to a screen reader", /role="img" aria-label="Storelib&#x27;s checkout page on a phone/.test(co))
   /* Changed on purpose (landing round): the orbiting products (the Golden preset box, the camera course, a purple membership card) are gone with the orbit. */
 /* Changed on purpose (landing round 4): the owner asked for the products orbiting the phone back, none of them the Golden Hour box or the purple membership card, each crossfading to a pre-blurred file (never a live filter). */
   /* Changed on purpose (landing round 5): the orbit is gone, it stuttered under a finger. */
-  check("checkout: no products orbit the phone", !/cmc-orbit|\/home\/commerce\/float-/.test(co + src.checkout))
+  /* Changed on purpose (landing round 7): the owner asked for the products around the phone back ("how they were before"), a new set of plain pictures on one transform loop, no blurred twins. */
+  check("checkout: products ride a ring around the phone again, without blurred twins", /cmc-orbit/.test(co) && /\/home\/commerce\/float-/.test(co) && !/-blur\.webp/.test(co + src.checkout))
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
@@ -139,7 +147,7 @@ console.log("\nCommerce: the sections render on the server")
     check("map: the button in the buyer's language", ["Buy now", "Jetzt kaufen", "今すぐ購入", "Acheter"].every((w) => map.includes(`>${w}</span>`)))
     check("map: real flags for each country, from the site's own flag files", SELL_COUNTRIES.every((c) => map.includes(`/flags/${c.code}.svg`) && existsSync(join(ROOT, "public/flags", `${c.code}.svg`))))
     /* Changed on purpose (landing round): the owner asked for a little less rounding (32px to 31px). */
-    check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:31px/.test(src.map) && /\.cmm-wrap\{max-width:1400px/.test(src.map))
+    check("map: a contained card inside the page width, not a full-width black band", /\.cmm\{[^}]*background:#fff/.test(src.map) && /\.cmm-card\{[^}]*border-radius:31px/.test(src.map) && /\.cmm-wrap,\[data-landing-story\] \.cmm>\.cmm-wrap\{[^}]*max-width:var\(--home-max,2020px\)/.test(src.map))  /* Changed on purpose (landing round 7): inside the page's one width (--home-max), not the old 1400px. */
     check("map: the country changes only while the section is on screen, and never under reduced motion", /if \(!live\) return/.test(src.map) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(src.map) && /window\.clearInterval/.test(src.map))
     /* Changed on purpose (landing round 4): one product photograph per country. */
     check("map: each product photo exists", SELL_COUNTRIES.every((c) => existsSync(join(ROOT, "public/home/sell-map", c.photo)) && map.includes(`/home/sell-map/${c.photo}`)))
@@ -214,7 +222,8 @@ console.log("\nCommerce: images")
   /* Changed on purpose (landing round): the tee photo and the course's video still, webp, each under 30 KB, and nothing unused. */
 /* Changed on purpose (landing round 4): the cap, the course's street still, and the captured OnePage and its sheet. */
   // Changed on purpose (landing round 5): the print instead of the captured OnePage; the cap picture stays for the checkout scene's currencies panel.
-  check("public/home/how holds the checkout's cap, the course and the print, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,course-street.webp,print-lasalle.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 7): Linde Woodshop's five pictures; the cap and the print stay for the checkout scene; the street course still is gone.
+  check("public/home/how holds the checkout's cap and print and the woodshop's pictures, webp, each under 30 KB", howFiles.sort().join() === "apron.webp,cap-yellow.webp,lesson-plane.webp,linde-avatar.webp,plans-bench.webp,print-lasalle.webp,site-workshop.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   check("images are lazy (or eager inside a tab demo) and decode off the main thread", imgs > 10 && imgs === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }

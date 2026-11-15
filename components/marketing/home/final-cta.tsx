@@ -19,9 +19,15 @@ import { DotField } from "./dot-field"
   Round 5, the owner: "what you make" a little lighter (it read too grey),
   and the dots smoother, scattered and following the mouse: DotField is a
   canvas now (dot-field.tsx), its light gliding after the pointer.
+
+  Round 7, the owner: the pattern here was "smooth, flowing, following the
+  mouse cursor and going auto, very subtle", bring it back. The field is an
+  even grid again with a slow current of light flowing through it by
+  itself, and the pointer's light gliding after the mouse (dot-field.tsx).
+  The block sits in the page's one width (--home-edge, app/globals.css).
 */
 const STYLES = `
-.fcta{position:relative;isolation:isolate;background:transparent;color:#fff;padding:clamp(88px,10vw,152px) var(--landing-gutter,clamp(22px,6vw,96px)) clamp(80px,9vw,136px)}
+.fcta{position:relative;isolation:isolate;background:transparent;color:#fff;padding:clamp(88px,10vw,152px) var(--home-edge,clamp(20px,5.15vw,84px)) clamp(80px,9vw,136px)}
 .fcta-in{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;max-width:880px;margin:0 auto;text-align:center}
 .fcta-mark{display:block;margin-bottom:28px}
 .fcta-title{margin:0;max-width:15ch;font-size:clamp(38px,5.6vw,80px);font-weight:500;line-height:1.02;letter-spacing:-.05em;color:#fafafa;text-wrap:balance}

@@ -86,8 +86,13 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
-    <section data-story-section={editorial ? "faq" : undefined} className={`py-20 sm:py-28 ${editorial ? "bg-transparent" : "bg-[#fafafa]"}`} id="faq">
-      <div className="max-w-[1200px] mx-auto px-6">
+    /*
+      Landing round 7: on the home page the grey box (app/globals.css, the
+      faq section) stands in the page's one width, its sides on the edges of
+      the showcase cards under the hero, and the words sit in from them.
+    */
+    <section data-story-section={editorial ? "faq" : undefined} className={`py-20 sm:py-28 ${editorial ? "bg-transparent mx-auto w-[min(calc(100%_-_2_*_var(--home-edge)),calc(var(--home-max)_-_2_*_var(--home-edge)))]" : "bg-[#fafafa]"}`} id="faq">
+      <div className={editorial ? "!max-w-none !px-[clamp(20px,4.4vw,80px)]" : "max-w-[1200px] mx-auto px-6"}>
         <AnimateOnScroll variant="slide-right">
           {/*
             Wave 13: the heading and its line had a 280 to 320px column, so a

@@ -49,12 +49,14 @@ console.log("\n── audience: one picture, nothing moving ──")
   const css = read(`${DIR}/audience-ownership.module.css`)
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
-  check("one picture: Contacts, with its count and Export CSV", (src.match(/className=\{s\.mock\}/g) ?? []).length === 1 && words.includes("Contacts") && words.includes("Export CSV") && words.includes("18,240"))
+  check("one picture: Contacts, with its count and Export CSV", (src.match(/\$\{s\.mock\}/g) ?? []).length === 1 && words.includes("Contacts") && words.includes("Export CSV") && words.includes("18,240"))
   check("five people, each a real face and a door Contacts names", AUDIENCE_PEOPLE.length === 5 && AUDIENCE_PEOPLE.every((p) => existsSync(join(root, "public/home/audience/people", `${p.photo}.webp`))) && ["OnePage", "Checkout", "Free download", "Website"].every((v) => AUDIENCE_PEOPLE.some((p) => p.via === v)))
-  check("the five email platforms in their own marks", /EMAIL_PLATFORMS\.map/.test(src) && (html.match(/class="[^"]*mark[^"]*" title="/g) ?? []).length === 5)
+/* Changed on purpose (landing round 7): the platforms are the second scene of the picture now, each named under its mark. */
+  check("the five email platforms in their own marks", /EMAIL_PLATFORMS\.map/.test(src) && (html.match(/<span class="[^"]*mark[^"]*"><svg/g) ?? []).length === 5)
   check("three plain rows beside it, no composer", (html.match(/<li><h3>/g) ?? []).length === 3 && !/Composer|Send test|Subject/.test(src))
-  check("no timers, loops, reveals or state", !/useState|useEffect|setInterval|setTimeout|m\.reveal|m\.loop|usePlatformSection/.test(src))
-  check("its CSS animates nothing", !/@keyframes|transition|animation/.test(css))
+/* Changed on purpose (landing round 7): the owner asked for a chart, then Synced with, then the export, autoplaying smooth and clean. It turns by one attribute, no state; only transitions on opacity and transform (tests/home-landing-r7-lower.test.ts). */
+  check("no state, timeouts or reveals; one interval while on screen", !/useState|setTimeout|m\.reveal|m\.loop/.test(src) && /usePlatformSection/.test(src) && (src.match(/setInterval/g) ?? []).length === 1)
+  check("its CSS has no keyframes", !/@keyframes|animation:/.test(css))
   check("words: no banned word, sample or em dash", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
 }
 
@@ -72,10 +74,12 @@ console.log("\n── analytics ──")
   const src = read(`${DIR}/analytics-showcase.tsx`)
   const css = read(`${DIR}/analytics-showcase.module.css`)
   const html = renderToStaticMarkup(createElement(AnalyticsShowcase))
-  check("the reports are white pills with depth, no backdrop blur", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\)/.test(css) && !/backdrop-filter/.test(css))
+/* Changed on purpose (landing round 7): another shape than the white pills, nothing purple on the purple sheet. */
+  check("the reports are near-black tiles, no backdrop blur", /\.report \{[^}]*background: #0d0d10;/.test(css) && !/backdrop-filter/.test(css))
   check("the SEO grid is fainter and slower", /\.dots \{[^}]*rgba\(255, 255, 255, 0\.09\)[^}]*animation: dotsDrift 16s/.test(css))
-  check("the engine switcher as before round 4: no buttons, no light per engine", !/engineTab|\.glow|aria-pressed/.test(html + css) && (html.match(/data-rel="/g) ?? []).length === 5)
-  check("one very quiet light turning around it, by transform, paused off screen", /\$\{s\.orbit\} \$\{m\.loop\}/.test(src) && /\.orbit \{[^}]*rgba\(139, 124, 246, 0\.22\)/.test(css) && /@keyframes orbit \{\s*to \{\s*transform: rotate\(360deg\);/.test(css))
+/* Changed on purpose (landing round 7): smoother: one strip slides, no slots; the light behind it is neutral, nothing purple on the purple sheet. */
+  check("the engine switcher: no buttons, no light per engine, one strip", !/engineTab|\.glow|aria-pressed/.test(html + css) && (html.match(/class="[^"]*strip[^"]*"/g) ?? []).length === 1)
+  check("one very quiet light turning around it, by transform, paused off screen", /\$\{s\.orbit\} \$\{m\.loop\}/.test(src) && /\.orbit \{[^}]*rgba\(255, 255, 255, 0\.07\)/.test(css) && /@keyframes orbit \{\s*to \{\s*transform: rotate\(360deg\);/.test(css))
 }
 
 console.log("\n── the map: physical and digital ──")
@@ -106,14 +110,15 @@ console.log("\n── the close and the dot field ──")
   check('"what you make" a little lighter', /\.fcta-title em\{font-style:normal;color:#b6b3c1\}/.test(cta))
   check("one canvas, the device pixel ratio capped at 1.5", DOT_FIELD_MAX_DPR === 1.5 && /<canvas ref=\{canvasRef\}/.test(src))
   const pts = dotFieldPoints(1200, 600, 18)
-  const grid = Math.ceil(1200 / 18 + 1) * Math.ceil(600 / 18 + 1)
-  check("scattered and thinned in patches, not a full grid", pts.length / 4 > grid * 0.25 && pts.length / 4 < grid * 0.85, { dots: pts.length / 4, grid })
+  /* Changed on purpose (landing round 7): the owner asked for the pattern "smooth, flowing ... clean": an even grid with a current of light flowing through it. */
+  check("an even grid, every point of it", pts.length / 4 === (Math.floor(1200 / 18) + 1) * (Math.floor(600 / 18) + 1), { dots: pts.length / 4 })
   check("subtle: resting dots at about a seventh, lit under a half", Object.values(DOT_FIELD_TONES).every((t) => t.rest <= 0.16 && t.lit <= 0.45))
   check("the earnings tile drops its icon before its word is cut", /@container \(max-width:136px\)\{\.cme-kind-i\{display:none\}/.test(EARNINGS_STYLES.map((s) => s.css).join("")))
   check("the pointer is followed with a lerp in the loop, a mouse only", /lightX \+= \(tx - lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src))
   check("no React state, no layout read in the loop", !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const draw"), src.indexOf("const resize"))))
   check("paused off screen and in a hidden tab; one still frame under reduced motion", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /cancelAnimationFrame/.test(src) && /&& !reduced/.test(src))
-  check("a calm drift on touch, at 30 frames a second", /if \(!fine && dt < 30\) return/.test(src))
+/* Changed on purpose (landing round 7): the flow moves on every screen: 60 frames a second while a mouse moves the light, 30 when only the slow flow moves. */
+  check("at most 60 frames a second, 30 when only the flow moves", /if \(last && t - last < \(t - movedAt < 1500 \? 12 : 28\)\) return/.test(src))
   check("its props kept: gap, fade, tone, className, style", /gap = 18,\s*fade = "edges",\s*tone = "dark",\s*className,\s*style,/.test(src) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
 }
 

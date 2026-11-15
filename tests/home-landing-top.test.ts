@@ -110,7 +110,8 @@ check("the course is a lesson on its video, not a camera", course?.kind === "cou
 const community = EVERYTHING_SLIDES.find((s) => s.tab === "Community")
 /* Changed on purpose (landing round 2): the community is its Storelib community page (components/community/member), not a photo. */
 /* Changed on purpose (landing round 4): the owner asked for "a real looking community card", so the community is the card a Storelib community shows at the top of its left column (cover, name, address, Members, Online, Admins, faces). */
-check("the community is a Storelib community card: cover, name, address, the three counts and faces", community?.kind === "community" && !/Inner Circle/.test(all) && /class="ev-cm-cover"/.test(html) && /class="ev-cm-stats"/.test(html) && /class="ev-cm-faces"/.test(html) && /\.ev-p-community\{[^}]*background:#fff\}/.test(css))
+/* Changed on purpose (landing round 7): the AI Builders Masterclass card shows the next live session in place of the three counts. */
+check("the community is a Storelib community card: cover, name, address, the next session and faces", community?.kind === "community" && !/Inner Circle/.test(all) && /class="ev-cm-cover"/.test(html) && /class="ev-cm-next"/.test(html) && /class="ev-cm-faces"/.test(html) && /\.ev-p-community\{[^}]*background:#fff\}/.test(css))
 for (const s of EVERYTHING_SLIDES) check(`${s.tab}: its picture exists and is small`, existsSync(join(root, "public", s.img)) && statSync(join(root, "public", s.img)).size < 120 * 1024)
 check("no purple gradients behind the products or the support thread", !/#a947a8|#7c3aed|#5b21b6|#c2417a|#a8326a|#7b3fc4|#4a3fbf/.test(css))
 
@@ -118,7 +119,8 @@ console.log("\n── make the work: the card leans when pressed ──")
 check("under a mouse the white card leans with the pointer, on a spring, springing back on leave", /usePressTilt\(card\)/.test(src) && /ref=\{card\} className="ev-p-card"/.test(src) && /el\.addEventListener\("pointerenter", enter\)/.test(src) && /el\.addEventListener\("pointerleave", leave\)/.test(src) && /target\[0\] = target\[1\] = target\[2\] = 0/.test(src))
 check("never on a touch screen or a pen without hover, never under reduced motion", /if \(e\.pointerType !== "mouse" \|\| !fine\.matches \|\| reduce\.matches\) return/.test(src) && /matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)/.test(src) && /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/.test(src))
 check("transform only, written once a frame, the frames stop when it settles, and nothing left behind", /el\.style\.transform = `rotateX\(/.test(src) && !/el\.style\.(?!transform|willChange)\w+ =/.test(src) && /raf = moving \? requestAnimationFrame\(step\) : 0/.test(src) && /el\.style\.transform = ""/.test(src) && !/addEventListener\(\s*["']scroll/.test(src))
-check("the stage holds the centring and the perspective, the card only leans", /\.ev-p-stage\{[^}]*transform:translate\(-50%,-50%\);perspective:\d+px\}/.test(css) && !/\.ev-p-card\{[^}]*translate/.test(css))
+/* Changed on purpose (landing round 7): the stage is also the card's size container. */
+check("the stage holds the centring and the perspective, the card only leans", /\.ev-p-stage\{[^}]*transform:translate\(-50%,-50%\);perspective:\d+px;container-type:inline-size\}/.test(css) && !/\.ev-p-card\{[^}]*translate/.test(css))
 
 console.log("\n── make the work: a store that looks like you ──")
 /* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
@@ -126,7 +128,8 @@ check("merch stores and link pages, each drawn whole in the markup, twice over",
 check("drawn at a phone's 390px and scaled", /--r:calc\(var\(--card-w\) \/ 390\)/.test(css))
 check("every store picture is local, exists and is small", EVERYTHING_STORES.flatMap((st) => (st.kind === "merch" ? st.products.map((p) => p.src) : [st.ground, ...st.products])).every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024))
 /* Changed on purpose (landing round 4): the owner wants to drag the strip, so its drift is a Web Animation from script that a hand can take over (tests/home-landing-topa4). */
-check("it drifts without a stop, on the compositor: one linear loop of transform", /el\.animate\(\[\{ transform: `translate3d/.test(src) && /iterations: Infinity, easing: "linear"/.test(src) && /class="ev-s-track"/.test(html))
+/* Changed on purpose (landing round 7): the keyframes are a plain string from 0. */
+check("it drifts without a stop, on the compositor: one linear loop of transform", /el\.animate\(\[\{ transform: "translate3d/.test(src) && /iterations: Infinity, easing: "linear"/.test(src) && /class="ev-s-track"/.test(html))
 check("it pauses off screen and stands still under reduced motion", /drift\.pause\(\)/.test(src) && /if \(drift \|\| drag \|\| loop <= 0 \|\| reduce\.matches\) return/.test(src))
 
 console.log("\n── make the work: real support ──")
@@ -140,7 +143,8 @@ check("the thread compacts wherever the card is narrow, so it always fits", /\.e
 
 console.log("\n── corners and small print ──")
 /* Changed on purpose (landing round 4): the support thread is the card of before, at 16px. */
-check("the section's cards and models are about a pixel tighter", /\.ev-vis\{[^}]*border-radius:17px/.test(css) && /\.ev-vis\{height:clamp\(320px,32vw,440px\);border-radius:19px\}/.test(css) && /\.ev-p-card\{[^}]*border-radius:17px/.test(css) && /\.ev-c-thread\{[^}]*border-radius:16px/.test(css))
+/* Changed on purpose (landing round 7): the pictures grow with the wider section (up to 620px tall) and the support thread is rounder on its new ground. */
+check("the section's cards and models are about a pixel tighter", /\.ev-vis\{[^}]*border-radius:17px/.test(css) && /\.ev-vis\{height:clamp\(320px,33vw,620px\);border-radius:19px\}/.test(css) && /\.ev-p-card\{[^}]*border-radius:17px/.test(css) && /\.ev-c-thread\{[^}]*border-radius:18px/.test(css))
 check("the showcase's pictures too", /margin:0;border-radius:7px;contain:paint/.test(showcase) && /aspect-ratio:4\/3;border-radius:8px[;}]/.test(showcase)) /* Changed on purpose (landing round 6): the phone card is 4:3 with an 8px radius. */ /* Changed on purpose (landing round 5): the phone card also snaps (scroll-snap-align after the radius). */
 check("no small print under the section: the grid is the last thing in it", /<\/article><\/div><\/div><\/section>$/.test(html) && !/<small/.test(html))
 

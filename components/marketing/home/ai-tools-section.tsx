@@ -38,6 +38,10 @@
  * with the preview: the terminal starts about a quarter written (every
  * animation shares a negative delay, AI_TOOLS_START_S), and its words
  * cannot be selected.
+ *
+ * LANDING ROUND 7, THE OWNER: every section as wide as the showcase under
+ * the hero. The card sits in the page's one width (--home-edge and
+ * --home-max, app/globals.css), its edges on the showcase's.
  */
 import type { CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
@@ -104,6 +108,7 @@ function lineKeyframes(i: number, at: number) {
 }
 
 const AI_CSS = `
+.ait-wrap,[data-landing-story] .ait>.ait-wrap{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 .ait-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(32px,4vw,56px);align-items:center;padding:clamp(26px,4.4vw,64px);border-radius:clamp(21px,2.4vw,31px);background:#0e0d12;background-image:linear-gradient(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 30px 60px -40px rgba(24,16,48,.55);color:#fff;overflow:hidden}
 .ait-copy{min-width:0}
 .ait-marks{display:flex;align-items:center;gap:clamp(16px,1.6vw,22px);margin:0 0 clamp(22px,2.4vw,30px);padding:0;list-style:none}
@@ -191,7 +196,7 @@ export function AiToolsSection() {
       <style href="w13-ai-tools" precedence="default">
         {AI_CSS}
       </style>
-      <div>
+      <div className="ait-wrap">
         <div className="ait-card">
           <div className="ait-copy">
             <ul className="ait-marks" aria-label="Works with Claude, ChatGPT and Codex, Cursor and GitHub Copilot">

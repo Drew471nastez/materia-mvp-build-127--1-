@@ -102,9 +102,11 @@ check("merch, digital, course, community", EVERYTHING_SLIDES.map((s) => s.tab).j
 /* Changed on purpose (landing round 6): the pack is "Cine Tones LUT Pack", no count (the owner). */
 check("the merch and the LUT pack are kept", EVERYTHING_SLIDES[0].name === "Midnight Studio Tee" && EVERYTHING_SLIDES[1].name === "Cine Tones LUT Pack")
 /* Changed on purpose (landing round 5): the owner found the knitting course "really bad"; a home Pilates course in its place. */
-check("a new course and a new community", EVERYTHING_SLIDES[2].name === "28 Day Mat Pilates" && EVERYTHING_SLIDES[3].name === "The Paperback Club")
-check("every product's numbers add up", [32 * 214 === 6848, 29 * 386 === 11194, 39 * 412 === 16068, 8 * 1240 === 9920].every(Boolean) && EVERYTHING_SLIDES[2].stats[2][1] === "$16,068.00" && EVERYTHING_SLIDES[3].stats[2][1] === "$9,920.00")
-check("the community is a community card: cover, name, address, Members, Online, Admins and faces", ["ev-cm-cover", "ev-cm-name", "ev-cm-url", "ev-cm-stats", "ev-cm-faces"].every((c) => everything.includes(`class="${c}"`)) && /Members/.test(everything) && /Online/.test(everything) && /Admins/.test(everything))
+/* Changed on purpose (landing round 7): the owner wanted the book club gone for a modern community: the AI Builders Masterclass. */
+check("a new course and a new community", EVERYTHING_SLIDES[2].name === "28 Day Mat Pilates" && EVERYTHING_SLIDES[3].name === "AI Builders Masterclass")
+check("every product's numbers add up", [32 * 214 === 6848, 29 * 386 === 11194, 39 * 412 === 16068, 29 * 860 === 24940].every(Boolean) && EVERYTHING_SLIDES[2].stats[2][1] === "$16,068.00" && EVERYTHING_SLIDES[3].stats[2][1] === "$24,940.00")
+/* Changed on purpose (landing round 7): the masterclass card: the next live session and the member count in place of Members, Online and Admins. */
+check("the community is a community card: cover, name, address, the next session, faces and members", ["ev-cm-cover", "ev-cm-name", "ev-cm-url", "ev-cm-next", "ev-cm-faces"].every((c) => everything.includes(`class="${c}"`)) && /860 members/.test(everything) && /Live Thursday/.test(everything))
 const grounds = [0, 1, 2, 3].map((i) => rule(evCss, `.ev-p-bg${i}`))
 check("four colourful gradient grounds, each its own", grounds.every((g) => /radial-gradient/.test(g) && /linear-gradient/.test(g)) && new Set(grounds).size === 4)
 check("they cross fade (opacity) and drift slowly (a transform), nothing else", /\.ev-p-bg\{[^}]*transition:opacity 1\.4s/.test(evCss) && /@keyframes ev-bg-drift\{from\{transform:[^}]*\}to\{transform:[^}]*\}\}/.test(evCss))
@@ -112,14 +114,16 @@ check("only the ground on show drifts, and only while the section is live", /\.e
 check("reduced motion stops the drift", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.ev-p-bg\{animation:none !important\}/.test(evCss))
 check("the card still leans under the mouse", /usePressTilt\(card\)/.test(evSrc) && /data-press-tilt=""/.test(everything))
 /* Changed on purpose (landing round 5): the course photo is pilates.webp (the knitting course is gone). */
-check("the course and community pictures exist and are small", ["pilates", "community"].every((k) => statSync(join(root, `public/home/everything/${k}.webp`)).size < 60_000))
+/* Changed on purpose (landing round 7): the community picture is ai-builders.webp. */
+check("the course and community pictures exist and are small", ["pilates", "ai-builders"].every((k) => statSync(join(root, `public/home/everything/${k}.webp`)).size < 60_000))
 
 console.log("\n── Make the work: Build a store that looks like you ──")
 /* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
 check("merch stores and link pages", EVERYTHING_STORES.filter((s) => s.kind === "merch").length >= 3 && EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3)
 check("every merch store shows four pieces, each with a name and a price", EVERYTHING_STORES.every((s) => s.kind !== "merch" || (s.products.length === 4 && s.products.every((p) => p.name && /^\$\d+$/.test(p.price)))))
 check("no wheel throwing, no sourdough in the stores", !BANNED.test(JSON.stringify(EVERYTHING_STORES)))
-check("every card is drawn at a phone's 390px, its width following the picture's, as tall as the picture and set a fixed inset down", /--card-w:clamp\(170px,56cqw,270px\)/.test(rule(evCss, ".ev-s")) && /container-type:size/.test(rule(evCss, ".ev-s")) && /top:var\(--top\)/.test(rule(evCss, ".ev-s-track")) && /height:100cqh/.test(rule(evCss, ".ev-s-track")) && /height:100%/.test(rule(evCss, ".ev-st")))
+/* Changed on purpose (landing round 7): the cap grows with a taller picture (58% of its height once over 270px). */
+check("every card is drawn at a phone's 390px, its width following the picture's, as tall as the picture and set a fixed inset down", /--card-w:clamp\(170px,56cqw,max\(270px,58cqh\)\)/.test(rule(evCss, ".ev-s")) && /container-type:size/.test(rule(evCss, ".ev-s")) && /top:var\(--top\)/.test(rule(evCss, ".ev-s-track")) && /height:100cqh/.test(rule(evCss, ".ev-s-track")) && /height:100%/.test(rule(evCss, ".ev-st")))
 check("each card is rounded, and runs off the picture's foot as in the reference", /border-radius:calc\(30 \* var\(--r\)\)/.test(rule(evCss, ".ev-st")))
 check("the strip can be dragged: it takes the pointer, leaves vertical swipes to the page", /cursor:grab/.test(rule(evCss, ".ev-s")) && /touch-action:pan-y/.test(rule(evCss, ".ev-s")) && /addEventListener\("pointerdown", down\)/.test(evSrc) && /setPointerCapture/.test(evSrc))
 check("the cards inside take no pointer, and there is no hover anywhere in the strip", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))
@@ -137,8 +141,9 @@ check("one clock for all three, a third apart, paused off screen", /animation-de
 
 console.log("\n── Unlimited possibilities ──")
 check("two rows", MARQUEE_ROWS.length === 2)
-check("a row clips sideways only, so a lifted pill's shadow is not cut", /\.um-row\{[^}]*overflow:hidden;overflow:clip visible/.test(marqueeSrc))
-check("and has room for the shadow under the pill, given back so the rows sit where they did", /\.um-row\{[^}]*padding-block:8px 30px;margin-bottom:-18px\}/.test(marqueeSrc))
+check("a row clips sideways only, so a photo's shadow is not cut", /\.um-row\{[^}]*overflow:hidden;overflow:clip visible/.test(marqueeSrc))
+/* Changed on purpose (landing round 7): no pills any more; a row has just enough room for a diamond's corners, and its fades reach past it by the shadow's room. */
+check("and has room for a diamond's corners, its fades past its edges", /\.um-row\{[^}]*padding-block:calc\(var\(--pic\) \* \.1\)\}/.test(marqueeSrc) && /\.um-row::before,\.um-row::after\{[^}]*top:-30px;bottom:-30px/.test(marqueeSrc))
 
 console.log("\n── The words ──")
 const words = [EVERYTHING_HEADING.lead, EVERYTHING_HEADING.rest, ...EVERYTHING_SLIDES.map((s) => s.name), JSON.stringify(EVERYTHING_SUPPORT), JSON.stringify(EVERYTHING_STORES), all].join(" ")
