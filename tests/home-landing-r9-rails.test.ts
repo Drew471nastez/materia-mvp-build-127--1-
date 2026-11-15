@@ -86,7 +86,8 @@ check("no mask over the moving rail", !/mask-image/.test(css))
 check("no standing layer for each caption", !/figcaption\{will-change/.test(css) && (css.match(/will-change/g) ?? []).length === 1)
 check("the rail no longer fades as a whole", !/\.build-showcase-track\[data-rail-ready\] \{opacity:0/.test(css))
 check("one transform a frame, only in a frame the pointer moved", /x = resist\(drag\.fromX - dx\)\s*schedulePaint\(\)/.test(hook) && /if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(hook))
-check("the hover caption is as it was", /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1;transition-duration:460ms\}\}/.test(css) && /\.build-showcase-slide figcaption \{height:44px;padding-top:14px;[^}]*opacity:0;pointer-events:none;transition:opacity 380ms cubic-bezier\(\.33,0,\.2,1\)\}/.test(css))
+/* Changed on purpose (landing round 11): the caption is a fade over the card's bottom (the owner), still shown only on a resting mouse, never while dragging. */
+check("the hover caption: a scrim over the card's bottom, never while dragging", /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1;transition-duration:480ms\}/.test(css) && /\.build-showcase-slide figcaption \{position:absolute;[^}]*opacity:0;pointer-events:none;transition:opacity 420ms cubic-bezier\(\.33,0,\.2,1\)\}/.test(css))
 
 console.log("\nThe showcase's pictures: the size drawn, decoded ahead, faded in")
 const figures = html.match(/<figure[\s\S]*?<\/figure>/g) ?? []
@@ -112,18 +113,22 @@ check("a OnePage card: a 360 and a 540 file, and no phone source (one shape ever
   check("and decodes under 60% of the pixels", (8 * 960 * 720 + 4 * 540 * 1056) / (8 * 1440 * 990 + 4 * 540 * 1056) < 0.6)
   check("every file is under 120 KB", SHOWCASE_EXAMPLES.every((e) => statSync(`public${e.src}`).size < 120_000) && wides.every((e) => statSync(`public/home/showcase/m-${brand(e)}-960.webp`).size < 120_000))
 }
-check("fetched and decoded two at a time, from a screen before the section arrives", /rootMargin: "900px 0px"/.test(hook) && /const warm = \(\) => \{\s*if \(warmed\) return\s*warmed = true\s*next\(\)\s*next\(\)\s*\}/.test(hook) && /img\.decode\(\)\.then\(shown, shown\)/.test(hook))
+/* Changed on purpose (landing round 11): "the images appear too abruptly": three at a time, from two screens ahead (SHOWCASE_PRELOAD). */
+check("fetched and decoded three at a time, from two screens before the section arrives", /rootMargin: `\$\{SHOWCASE_PRELOAD\.marginPx\}px 0px`/.test(hook) && /SHOWCASE_PRELOAD = \{ marginPx: 1600, parallel: 3 \}/.test(hook) && /for \(let i = 0; i < SHOWCASE_PRELOAD\.parallel; i\+\+\) next\(\)/.test(hook) && /img\.decode\(\)\.then\(shown, shown\)/.test(hook))
 check("not all twelve at once any more", !/for \(const img of el\.querySelectorAll<HTMLImageElement>\("img"\)\) \{\s*img\.loading = "eager"/.test(hook))
 check("a picture is shown once decoded; one already there, without a fade", /img\.setAttribute\("data-shown", ""\)/.test(hook) && /if \(img\.complete && img\.naturalWidth > 0\) img\.setAttribute\("data-shown", "now"\)/.test(hook))
-check("the fade is one opacity, 420ms, only once the script is there to show the picture", /\.build-showcase-track\[data-rail-ready\] \.build-showcase-pic img \{opacity:0;transition:opacity 420ms cubic-bezier\(\.33,0,\.2,1\)\}/.test(css) && /\.build-showcase-pic img\[data-shown\] \{opacity:1\}/.test(css) && /img\[data-shown="now"\] \{transition:none\}/.test(css))
+/* Changed on purpose (landing round 11): the arrival is an opacity and a 2.5% zoom settling (a transform inside the card's clip), slower, so nothing pops. */
+check("the arrival is opacity and a small zoom settling, only once the script is there to show the picture", /\.build-showcase-track\[data-rail-ready\] \.build-showcase-pic img \{opacity:0;transform:scale\(1\.025\);transition:opacity 620ms cubic-bezier\(\.33,0,\.2,1\),transform 1100ms cubic-bezier\(\.22,1,\.36,1\)\}/.test(css) && /\.build-showcase-pic img\[data-shown\] \{opacity:1;transform:none\}/.test(css) && /img\[data-shown="now"\] \{transition:none\}/.test(css))
 check("the card holds its shape and its ground meanwhile: nothing shifts", /\.build-showcase-pic \{display:block;position:relative;width:100%;aspect-ratio:1440\/990;[^}]*background:var\(--showcase-tone,#151517\);overflow:hidden\}/.test(css))
-check("reduced motion: shown at once", /@media\(prefers-reduced-motion:reduce\)\{\.build-showcase-track\[data-rail-ready\] \.build-showcase-pic img\{opacity:1;transition:none\}/.test(css))
+/* Changed on purpose (landing round 11): no zoom either. */
+check("reduced motion: shown at once", /@media\(prefers-reduced-motion:reduce\)\{\.build-showcase-track\[data-rail-ready\] \.build-showcase-pic img\{opacity:1;transform:none;transition:none\}/.test(css))
 
 console.log("\nShapes on a phone, and the two new pages")
 check("a OnePage keeps the page's own shape, 540 x 1056, as on a desktop", /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:540\/1056\}/.test(phone) && !/9\/16/.test(css))
 check("a store, website or community is 4:3", /\.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone))
 check("the strength coach is gone, file too", !/hale|get strong|training program/i.test(SHOWCASE_EXAMPLES.map((e) => `${e.src} ${e.label} ${e.alt}`).join(" ")) && !existsSync("public/home/showcase/a-hale.webp"))
-check("Studio Marlow, an interior stylist's guides and consults, in its place", SHOWCASE_EXAMPLES[3].src === "/home/showcase/a-marlow.webp" && SHOWCASE_EXAMPLES[3].label === "Sell design guides" && /Studio Marlow/.test(SHOWCASE_EXAMPLES[3].alt))
+/* Changed on purpose (landing round 11): the owner did not like Studio Marlow; a travel creator's website in its place. */
+check("the interior stylist is gone; Ines Duarte, a travel creator's website, in its place", SHOWCASE_EXAMPLES[3].src === "/home/showcase/a-ines.webp" && SHOWCASE_EXAMPLES[3].label === "Sell travel guides" && !/marlow/i.test(SHOWCASE_EXAMPLES.map((e) => e.src + e.alt).join(" ")))
 check("Luca Brandt is a website now, not a OnePage on a wide screen, with the shared LUT pack", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-luca.webp" && e.format === "wide" && /website/.test(e.alt) && !/OnePage/.test(e.alt) && /Cine Tones LUT Pack/.test(e.alt) && /\$9 a month/.test(e.alt)))
 check("captions three words at most, twelve different pictures", SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3) && new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size === 12)
 {
@@ -152,7 +157,8 @@ check("each at the sizes the card draws: 400 x 500 and 720 x 900 webp", ["musici
 check("a very subtle grain on every card: one shared tile, no filter, no blend mode", /\.cc-photo::after\{content:"";position:absolute;inset:0;background:url\(\/home\/creators\/grain\.webp\) 0 0\/96px 96px;opacity:\.55;pointer-events:none\}/.test(CREATORS_CSS) && !/filter:|mix-blend-mode|feTurbulence/.test(CREATORS_CSS))
 check("the tile is 192px (two device px a grain on a 2x screen) and under 20 KB", webpSize("public/home/creators/grain.webp").w === 192 && statSync("public/home/creators/grain.webp").size < 20_000)
 check("the shade and the words sit over the grain", /\.cc-shade,\.cc-meta\{z-index:1\}/.test(CREATORS_CSS))
-check("the photos are decoded ahead, two at a time, from a screen before the rail arrives", /track\.querySelectorAll<HTMLImageElement>\("li:not\(\[aria-hidden\]\) img"\)/.test(creators) && /img\.decode\(\)\.then\(next, next\)/.test(creators) && /\{ rootMargin: "900px 0px" \}/.test(creators))
+/* Changed on purpose (landing round 11): "make sure the images are smooth and clean": three at a time from two screens ahead (CREATORS_PRELOAD), each shown once decoded. */
+check("the photos are decoded ahead, three at a time, from two screens before the rail arrives", /track\.querySelectorAll<HTMLImageElement>\("li:not\(\[aria-hidden\]\) img"\)/.test(creators) && /img\.decode\(\)\.then\(done, done\)/.test(creators) && /\{ rootMargin: `\$\{CREATORS_PRELOAD\.marginPx\}px 0px` \}/.test(creators))
 check("still lazy and sized in the markup", (rail.match(/<img class="cc-img"[^>]*loading="lazy"[^>]*>/g) ?? []).length === 24 && (rail.match(/width="400" height="500"/g) ?? []).length === 24)
 check("on a phone only five of the second copy are kept: a third less to draw", /@media\(max-width:767px\)\{\.cc-card\[aria-hidden="true"\]:nth-child\(n\+18\)\{display:none\}\}/.test(CREATORS_CSS) && CREATORS.length === 12)
 check("the finger leads 1:1, drawn once a frame", /x = drag\.fromX - dx\s*if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(creators))

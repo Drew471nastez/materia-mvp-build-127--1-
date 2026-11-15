@@ -47,7 +47,8 @@ check("no sale notification of any kind under the rail", () => {
 })
 check("no bump on hover: no lift, no zoom, no transition on the card or its photo", () => {
   assert.ok(!/:hover \.cc-(body|img|photo|card|meta)/.test(CREATORS_CSS))
-  assert.ok(!/\.cc-(img|photo|card)\{[^}]*transition/.test(CREATORS_CSS))
+  /* Changed on purpose (landing round 11): a photo eases in once decoded (.cc-track[data-cc-ready] .cc-img, its arrival, not a hover); the card and photo themselves still have no transition. */
+  assert.ok(!/(^|\n|\})\.cc-(img|photo|card)\{[^}]*transition/.test(CREATORS_CSS))
 })
 check("the card's foot is as it was before: name, kind and what they sell on a shade inside the photo", () => {
   const card = creators.match(/<li class="cc-card"[\s\S]*?<\/li>/)?.[0] ?? ""

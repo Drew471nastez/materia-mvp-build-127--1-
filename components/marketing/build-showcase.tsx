@@ -7,67 +7,44 @@ import { StoryHeading } from "./story-heading"
 /*
   TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 14 and
   landing round 2, merged). Each group is a store or website, a OnePage and
-  a community, so every swipe shows all three things Storelib makes, for
-  fictional creators who sell what real Storelib creators sell. The stores
-  are drawn in the layout of a real Storelib creator store, the websites as
-  sites built on Storelib, the OnePages each in its own theme, and the
-  communities are
-  Storelib's own member frame and feed (components/community/member)
-  rendered with a fictional community's data and photographed at 2x.
-  Satori Studio is a real OnePage, storelib.me/satori-studio, as a phone
-  shows it. Photographs are Unsplash.
+  a community or a third page, for fictional creators who sell what real
+  Storelib creators sell. The OnePages are PublicOnePage itself, rendered
+  with fixture data in a scratch entry that is not committed and photographed
+  as a phone shows them; Satori Studio is a real OnePage,
+  storelib.me/satori-studio. Photographs are Unsplash.
 
-  LANDING ROUND 4 (the owner): Gia Romano's page made again, higher quality
-  and truer to the real thing, and Kai Moreno (prints, the Gallery theme)
-  new, PublicOnePage itself, rendered with fixture data in a dev-only route
-  that is not committed, captured at the sizes below. The Long Draft
-  (ThemePage) is round 2's capture.
+  EACH CARD IS ITS PICTURE'S OWN SHAPE: the wide pictures are 1440 x 990 and
+  the OnePages 540 x 1056, so a picture fills its card with no bars and
+  nothing cropped. At one height they are 1.4545 and 0.5114 wide, which is
+  256fr 90fr 256fr. On a phone (landing round 9) every store, website and
+  community has a second picture made for the phone's 4:3 card
+  (m-<brand>-640/960.webp), and every picture has a file for the size it is
+  drawn at (srcset).
 
-  EACH CARD IS ITS PICTURE'S OWN SHAPE, 10% taller than round 60's: the wide
-  pictures are 1440 x 990 and the OnePages 540 x 1056, so a picture fills its
-  card with no bars and nothing cropped. At one height they are 1.4545 and
-  0.5114 wide, which is still 256fr 90fr 256fr.
+  LANDING ROUND 11, THE OWNER, card by card:
+  - The interior stylist's site is gone; in its place Ines Duarte, a travel
+    creator in Lisbon (guides, presets, photo walks), a drawn site.
+  - The Strength Room, the community drawn in the ideas section
+    (showcase-mocks/builder-mocks.tsx CommunityMock), photographed at both
+    shapes, in place of the climbing club.
+  - loudlib, the owner's own sample pack store (loudlib.net), rebuilt from
+    the live page in the capture harness (the site turns away a script), in
+    place of the writing course.
+  - Tideline, the owner's own picture of a surf label's merch store, in place
+    of the streetwear drop.
+  - The photographer's OnePage is gone; Off the Clock, a podcast's page on the
+    Pop theme, in its place.
+  - The Storelib app in a hand (public/home/app, the "Run your business from
+    anywhere" photograph) in place of the gardening community.
+  - Gia Romano's OnePage on a real theme, Sunset (design-tab THEME_TEMPLATES):
+    the hero layout, her photo across the top, terracotta and cream.
 
-  THE CAPTION (three words at most, the owner) waits for a pointer to rest
-  on the picture (a mouse or a pen: hover and a fine pointer), then fades
-  in.
-
-  LANDING ROUND 6, THE OWNER: "when I hover, the text there on mobile
-  devices and desktop gets overlapped". The caption was laid over the bottom
-  of the picture and the section cut the cards' bottom, so the line ran into
-  the picture and the section's edge. Now the caption has a line of its own
-  under the picture, inside the card's box, and the whole card sits inside
-  the section with room under it: nothing can land on anything. With a mouse
-  it still waits for the hover; on a touch screen, where there is no hover,
-  it is simply there, under its card.
-
-  LANDING ROUND 8, THE OWNER: Plainspace's store has a new cover, bold and
-  clean (black, its line in heavy type, the Life OS planner beside it). The
-  nail artist, the coffee subscription and the language club are gone (the
-  owner did not like them). In their places, Mara
-  Lind (a Pilates teacher's bookings, the Sage theme) and Luca Brandt (a
-  colourist's Grade Club subscription and the Cine Tones LUT Pack, Graphite,
-  as a laptop shows it) are PublicOnePage itself, and Seed & Soil (growing
-  food in small spaces) is Storelib's own member frame and feed, each
-  rendered with fixture data from a scratch entry that is not committed and
-  photographed at the sizes below. Photographs are Unsplash.
-
-  LANDING ROUND 9, THE OWNER: "Do not show OnePages as 4:3. Keep OnePages as
-  they are and adapt all the stores and websites there to fit a 4:3 ratio
-  because they're not fitting well." On a phone a OnePage card is now the
-  page's own shape (540 x 1056, as on a desktop), and every store, website
-  and community has a second picture made for the phone's 4:3 card
-  (m-<brand>-640/960.webp, 4:3 files, so the card crops nothing): the two
-  drawn sites photographed again in a 4:3 window, Plainspace without its
-  empty margins, The Long Draft and Second Shift with their own page carried
-  on underneath, and the three community frames, which fill their window
-  edge to edge, fitted across (6%). "I don't like the 'Get strong, not just
-  tired' image: add something else, more smooth, more clean": Hale Strength
-  is gone and Studio Marlow, an interior stylist's guides and consults, is in
-  its place. "I don't like the Luca Brandt one; that should display in 4:3":
-  Luca's OnePage stood on a wide screen is now his website, drawn for both
-  shapes. Every picture also has a file for the size it is drawn at (srcset),
-  so a phone decodes a third of the pixels it did.
+  THE CAPTION (three words at most, the owner). Round 11, the owner: "the
+  text should not be under the card; it should be a bottom fade appearing
+  smoothly over the bottom of the card". It is a scrim over the bottom of
+  the picture with the words on it: with a mouse it fades in (one opacity,
+  the words rising a few px) when the pointer rests on the card; on a touch
+  screen, where there is no hover, it is always there.
 */
 const wide = (brand: string, label: string, alt: string) => ({
   src: `/home/showcase/a-${brand}.webp`,
@@ -102,22 +79,22 @@ const GROUPS = [
   [
     wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store under a black cover, Your whole week. One calm page.: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn", "#1a1a1d"),
-    wide("seedsoil", "Run a community", "Seed & Soil, a community for growing food in small spaces on Storelib: a pinned sowing guide for November, a member's tray of pea shoots and the winter seed swap"),
+    wide("app", "The Storelib app", "The Storelib app on an iPhone held over a knee in jeans: Good afternoon, Andrew, the week's visitors, revenue and orders, and one order waiting to ship"),
   ],
   [
-    wide("marlow", "Sell design guides", "Studio Marlow, interior stylist Anouk Marlow's website: a yellow armchair in a calm room, her Small Living Room Guide for $24 and a one room consult"),
-    portrait("gia", "Sell your cookbook", "Gia Romano's OnePage: her Pasta Sunday ebook for $18, a tagliatelle class on Saturday and photos of her dishes", "#f1e9cc"),
-    wide("pinchgrip", "Host meetups", "Pinch Grip Club, a women's climbing community in Sheffield on Storelib: a pinned Stanage meetup, a trip report with photos and the Wednesday bouldering social"),
+    wide("ines", "Sell travel guides", "Ines Duarte's website, a travel creator in Lisbon: a yellow tram on a sunny street, her Lisbon City Guide for $19, Portugal Presets, a coast road plan and a Saturday photo walk in Alfama"),
+    portrait("gia", "Sell your cookbook", "Gia Romano's OnePage on the Sunset theme, her photo across the top: her Pasta Sunday ebook for $18, a tagliatelle class on Saturday and photos of her dishes", "#8f3b28"),
+    wide("strength", "Run a community", "The Strength Room, Rina Castillo's paid strength coaching community on Storelib: its barbell emblem, the community card, the next live form check and the pinned post with the new program"),
   ],
   [
-    wide("draft", "Teach a course", "The Long Draft's Storelib website: a ten-week novel writing course for £240 and three shorter clinics"),
-    portrait("kai", "Sell your prints", "Kai Moreno's OnePage, a landscape photographer: signed A3 prints for $65 and a photo walk in Lisbon", "#e6e4dc"),
+    wide("loud", "Sell sample packs", "loudlib's Storelib store, a sample pack shop in the dark look under a purple sale bar: Serum Presets Vol 1, the Tech House Master Bundle and a drum kit, each as a boxed pack"),
+    portrait("otc", "Sell bonus episodes", "Off the Clock's OnePage on the Pop theme, Marcus Bell's podcast: bonus episodes for $5 a month, tickets to a live show in Leeds and season one uncut", "#1d3fd8"),
     wide("nightshift", "Build a club", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
     wide("luca", "Sell subscriptions", "Luca Brandt's website, a colourist in Berlin: a graded desert road, Grade Club for $9 a month, the Cine Tones LUT Pack and a guide to grading night exteriors"),
     portrait("mara", "Fill your bookings", "Mara Lind's OnePage, a Pilates teacher in Brooklyn: book a private session, photos of her classes, a home program and a class pack", "#b9c6ad"),
-    wide("shift", "Drop new merch", "Second Shift's Storelib website: a streetwear drop of a court set, tees and a cap, from $32, under a yellow announcement bar"),
+    wide("tideline", "Drop new merch", "Tideline's Storelib store, a surf label: its wave logo in black, a Coastal Hoodie for $48, a Surf Tee for $28 and a Breakwater Cap for $22 on light grey"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
@@ -206,7 +183,9 @@ export function BuildShowcase() {
                         draggable={false}
                       />
                     </picture>
-                    <figcaption>{example.label}</figcaption>
+                    <figcaption>
+                      <span>{example.label}</span>
+                    </figcaption>
                   </figure>
                   )
                 })}
@@ -264,19 +243,31 @@ const CSS = `
 .build-showcase-slide[data-format="portrait"] .build-showcase-pic {aspect-ratio:540/1056}
 .build-showcase-pic img {display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
 /*
-  THE CAPTION: a line of its own under the picture (landing round 6), one
-  line high whether it shows or not, so showing it moves nothing and covers
-  nothing. With a mouse it is away until the mouse rests on the card, then
-  fades in as one opacity (round 9: no standing layer for each caption);
-  while the rail is dragged it stays away. A touch screen has no hover, so there it is
-  always shown.
+  THE CAPTION, LANDING ROUND 11 (the owner: "the text should not be under the
+  card; it should be a bottom fade appearing smoothly over the bottom of the
+  card with the text"). A scrim over the bottom of the picture, the words on
+  it. It takes no room of its own, so showing it moves nothing. With a mouse
+  it waits for the pointer to rest on the card, then fades in as one opacity
+  while the words rise 8px (a transform): nothing is laid out again; while
+  the rail is dragged it stays away. A touch screen has no hover, so there
+  the scrim and its words are simply always there.
 */
-.build-showcase-slide figcaption {height:44px;padding-top:14px;box-sizing:border-box;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:15px;font-weight:500;line-height:20px;letter-spacing:-.005em;color:#d4d4d8;opacity:0;pointer-events:none;transition:opacity 380ms cubic-bezier(.33,0,.2,1)}
-@media(hover:hover) and (pointer:fine){.build-showcase-track:not([data-dragging]) .build-showcase-slide:hover figcaption{opacity:1;transition-duration:460ms}}
-@media(hover:none),(pointer:coarse){.build-showcase-slide figcaption{opacity:1;transition:none}}
-/* Landing round 9: each picture fades in on its own card once it is decoded (data-shown, use-showcase-motion.ts); the card keeps its place and its ground meanwhile. Hidden only once the script is there to show them; one that was already there is shown without a fade. */
-.build-showcase-track[data-rail-ready] .build-showcase-pic img {opacity:0;transition:opacity 420ms cubic-bezier(.33,0,.2,1)}
-.build-showcase-track[data-rail-ready] .build-showcase-pic img[data-shown] {opacity:1}
+.build-showcase-slide figcaption {position:absolute;left:0;right:0;bottom:0;z-index:1;display:flex;align-items:flex-end;height:min(46%,136px);padding:0 18px 16px;box-sizing:border-box;border-radius:0 0 7px 7px;background:linear-gradient(to top,rgba(5,5,6,.84) 0%,rgba(5,5,6,.56) 40%,rgba(5,5,6,0) 100%);color:#fafafa;font-size:15px;font-weight:600;line-height:20px;letter-spacing:-.01em;opacity:0;pointer-events:none;transition:opacity 420ms cubic-bezier(.33,0,.2,1)}
+.build-showcase-slide figcaption span {display:block;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transform:translate3d(0,8px,0);transition:transform 560ms cubic-bezier(.22,1,.36,1)}
+.build-showcase-slide[data-format="portrait"] figcaption {padding:0 12px 14px;font-size:14px;line-height:18px}
+@media(hover:hover) and (pointer:fine){.build-showcase-track:not([data-dragging]) .build-showcase-slide:hover figcaption{opacity:1;transition-duration:480ms}.build-showcase-track:not([data-dragging]) .build-showcase-slide:hover figcaption span{transform:none}}
+@media(hover:none),(pointer:coarse){.build-showcase-slide figcaption{opacity:1;transition:none}.build-showcase-slide figcaption span{transform:none;transition:none}}
+/*
+  THE PICTURES ARRIVE (landing round 9, round 11: "the images appear too
+  abruptly and glitchy"). Each picture is shown only once it is decoded
+  (data-shown, use-showcase-motion.ts), then eases in: its opacity, and a
+  2.5% zoom settling back to 1 (a transform inside the card's clip, so no
+  edge of the ground shows). The card keeps its place and its ground
+  meanwhile. Hidden only once the script is there to show them; one that was
+  already there is shown at once.
+*/
+.build-showcase-track[data-rail-ready] .build-showcase-pic img {opacity:0;transform:scale(1.025);transition:opacity 620ms cubic-bezier(.33,0,.2,1),transform 1100ms cubic-bezier(.22,1,.36,1)}
+.build-showcase-track[data-rail-ready] .build-showcase-pic img[data-shown] {opacity:1;transform:none}
 .build-showcase-track[data-rail-ready] .build-showcase-pic img[data-shown="now"] {transition:none}
 /*
   ON A PHONE, LANDING ROUND 6 (the owner's reference, a store showcase in a
@@ -290,7 +281,11 @@ const CSS = `
   shape as on a desktop (540 x 1056, where round 8 cut it to 9:16), and the
   4:3 cards get pictures made for 4:3 (the phone's <source>), so neither
   shape crops its picture.
+  LANDING ROUND 11, THE OWNER: "On mobile, the OnePages in this section
+  should have the same height as the 4:3 images." A OnePage card keeps its
+  own shape but is as tall as a 4:3 card: 0.75 of the card's width high, so
+  0.75 * 540 / 1056 = 0.3835 of it wide.
 */
-@media(max-width:767px){.build-showcase{--showcase-card:min(78vw,440px)}.build-showcase-card{padding:64px 0 clamp(44px,12vw,64px)}.build-showcase-top{margin-inline:var(--showcase-gutter)}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0}.build-showcase-track{--showcase-gap:10px;gap:var(--showcase-gap);align-items:flex-start;padding-inline:var(--showcase-gutter);scroll-padding-inline:var(--showcase-gutter)}.build-showcase-group{display:contents}.build-showcase-slide{flex:0 0 var(--showcase-card);width:var(--showcase-card);scroll-snap-align:start;scroll-snap-stop:normal}.build-showcase-pic{aspect-ratio:4/3;border-radius:8px}.build-showcase-pic img{object-position:50% 0}.build-showcase-slide[data-format="portrait"]{flex-basis:calc(var(--showcase-card)*.6328);width:calc(var(--showcase-card)*.6328)}.build-showcase-slide[data-format="portrait"] .build-showcase-pic{aspect-ratio:540/1056}.build-showcase-slide figcaption{height:38px;padding-top:12px;font-size:14px;line-height:18px;color:#a1a1aa}}
-@media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready] .build-showcase-pic img{opacity:1;transition:none}.build-showcase-slide figcaption{transition:none}}
+@media(max-width:767px){.build-showcase{--showcase-card:min(78vw,440px)}.build-showcase-card{padding:64px 0 clamp(44px,12vw,64px)}.build-showcase-top{margin-inline:var(--showcase-gutter)}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0}.build-showcase-track{--showcase-gap:10px;gap:var(--showcase-gap);align-items:flex-start;padding-inline:var(--showcase-gutter);scroll-padding-inline:var(--showcase-gutter)}.build-showcase-group{display:contents}.build-showcase-slide{flex:0 0 var(--showcase-card);width:var(--showcase-card);scroll-snap-align:start;scroll-snap-stop:normal}.build-showcase-pic{aspect-ratio:4/3;border-radius:8px}.build-showcase-pic img{object-position:50% 0}.build-showcase-slide[data-format="portrait"]{flex-basis:calc(var(--showcase-card)*.3835);width:calc(var(--showcase-card)*.3835)}.build-showcase-slide[data-format="portrait"] .build-showcase-pic{aspect-ratio:540/1056}.build-showcase-slide figcaption{border-radius:0 0 8px 8px;padding:0 14px 12px;font-size:14px;line-height:18px}.build-showcase-slide[data-format="portrait"] figcaption{height:52%;padding:0 9px 10px;font-size:12px;line-height:15px;letter-spacing:0}.build-showcase-slide[data-format="portrait"] figcaption span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
+@media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready] .build-showcase-pic img{opacity:1;transform:none;transition:none}.build-showcase-slide figcaption,.build-showcase-slide figcaption span{transform:none;transition:none}}
 `
