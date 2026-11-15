@@ -123,8 +123,9 @@ check("ideas: one tab an editor, each named in full", (ideas.match(/class="ideas
 /* Changed on purpose (landing round 4): the ideas tabs now sit above the picture, so only the tab row is read. */
 check("no icons and no coloured chips in the tabs", !/<svg|<img/.test(ideas.slice(ideas.indexOf('class="ideas-tabs"'), ideas.indexOf('class="ideas-stage"'))))
 
-console.log("\n── One store for everything you sell: gone (landing round 7) ──")
-check("the section and its product pages are deleted", !existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && !existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
+console.log("\n── One store for everything you sell: back (landing round 8) ──")
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+check("the section and its product pages are back", existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
 check("the editors' previews take no pointer either", /\.ideas-mock\{[^}]*pointer-events:none/.test(src.ideas))
 check("no hover style inside any mock", !/:hover/.test(read("components/marketing/home/showcase-mocks/builder-mocks.tsx")))
 

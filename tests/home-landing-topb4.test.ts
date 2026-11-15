@@ -111,9 +111,10 @@ check("the community card: cover, address, Members, Online, Admins", cm.includes
 check("the space chips, the composer and a pinned post", cm.includes("Share something...") && cm.includes("Pinned") && (cm.match(/class="cx-post"/g) ?? []).length === 2)
 
 /* Changed on purpose (landing round 5): the owner asked for this section "how it was before", with no interactiveness that stops the scroll. tests/home-landing-r5-middle.test.ts pins the restored section; these keep what still holds. */
-console.log("\n── One store for everything you sell: gone (landing round 7) ──")
+console.log("\n── One store for everything you sell: back (landing round 8) ──")
 {
-  check("the section and its product pages are deleted", !existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && !existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
+  /* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+  check("the section and its product pages are back", existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
 }
 
 console.log("\n── Storelib is for creators ──")

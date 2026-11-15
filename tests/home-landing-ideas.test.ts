@@ -100,7 +100,8 @@ console.log("\nUnlimited possibilities: two rows")
 console.log("\nWhat a store sells: gone from the page (landing round 7)")
 {
   /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
-  check("the section and its product pages are deleted", !existsSync("components/marketing/home/business-carousel.tsx") && !existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx"))
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+  check("the section and its product pages are back", existsSync("components/marketing/home/business-carousel.tsx") && existsSync("components/marketing/home/showcase-mocks/business-mocks.tsx"))
 }
 
 /* Changed on purpose (landing round 4, the owner: a merch store with tees and caps, no sourdough; the Design slide went with the carousel). */
