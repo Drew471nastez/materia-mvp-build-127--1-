@@ -40,7 +40,7 @@ console.log("\nA clearer, simpler heading")
   check("the heading is a short question, not the old line", BUSINESS_HEADING === "What will you sell?" && !read(SECTION).includes("One store for everything you sell."))
   const words = `${BUSINESS_HEADING} ${BUSINESS_SUB} ${BUSINESS_SLIDES.map((s) => s.alt).join(" ")}`
   check("no banned words, no em dash, no 'fans' or 'enthusiasts'", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|\bfans\b|enthusiast/i.test(words) && !/—/.test(words + read(MOCKS)))
-  /* Changed on purpose (landing round 9): the words and the stage share one box (.biz-body), two columns from 1200px. */
+  /* Changed on purpose (landing round 9): the words and the stage share one box (.biz-body), two columns from 1280px. */
   check("the heading block and the body use the page's one width and heading inset", /\.biz-head\{[^}]*max-width:var\(--home-max,2020px\)[^}]*calc\(var\(--home-edge[^}]*\+ var\(--home-head-inset,14px\)\)/.test(sectionCss) && /\.biz-body\{[^}]*max-width:var\(--home-max,2020px\)[^}]*padding:0 var\(--home-edge/.test(sectionCss))
 }
 

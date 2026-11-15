@@ -672,9 +672,11 @@ export const BUSINESS_MOCK_CSS =
   .bd-rail{right:0;bottom:auto;width:auto;height:380u}
   .bd-track{--pitch:206u;left:200u;top:68u;margin:0}
   .bd-cover{width:200u;height:250u;border-radius:12u}
+  .bc-tag,.bc-foot{font-size:5.6cqw}
+  .bc-book .bc-line,.bc-font .bc-line{font-size:5.6cqw}
   .bd-card{top:auto;bottom:16u;margin:0;height:236u}
   .bd-instant{display:none}
-  .bt-photo{left:24u;top:30u;width:352u;height:352u}
+  .bt-photo{left:24u;top:40u;width:352u;height:352u}
   .bt-card{top:auto;bottom:16u;margin:0;height:292u}
   .bs-ship{display:none}
   .bt-sizes{margin-bottom:18u}

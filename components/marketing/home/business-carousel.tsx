@@ -247,7 +247,7 @@ export function BusinessCarousel() {
 /*
   White, like the ideas section above it. The heading block and the body share
   one left edge: the page's (app/globals.css, --home-edge, --home-max), the
-  words set in by the heading inset. From 1200px the body is two columns, the
+  words set in by the heading inset. From 1280px the body is two columns, the
   index and the stage, the same height; below that the words are a row over
   a stage as wide as the showcase cards. A scene changes by a crossfade over
   the one before; nothing in here animates layout.
@@ -259,7 +259,7 @@ const CSS = `
 .biz .biz-h{margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
 .biz-sub{max-width:52ch;margin:18px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#65616e;text-wrap:pretty}
 [data-landing-story] .biz>.biz-body,.biz-body{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);row-gap:clamp(8px,1.4vw,16px);max-width:var(--home-max,2020px);margin:clamp(20px,3vw,44px) auto 0;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
-/* The words. A row here, an index from 1200px. The row reaches the screen's edges, so one wider than a small phone slides under the thumb. */
+/* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than a small phone slides under the thumb. */
 .biz-tabs{display:flex;gap:clamp(18px,2.6vw,34px);margin:0 calc(var(--home-edge,20px) * -1);padding:0 calc(var(--home-edge,20px) + var(--home-head-inset,14px));overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
 .biz-tabs::-webkit-scrollbar{display:none}
 .biz-tab{flex:none;display:flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:0;border:0;background:none;color:#a1a1aa;font-family:inherit;font-size:16px;font-weight:550;line-height:1.2;letter-spacing:-.01em;text-align:left;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
@@ -292,8 +292,8 @@ const CSS = `
   .biz .biz-h{font-size:clamp(32px,9vw,40px)}
   .biz-sub{font-size:16px}
 }
-@media(min-width:1200px){
-  [data-landing-story] .biz>.biz-body,.biz-body{grid-template-columns:clamp(244px,19.5vw,330px) minmax(0,1fr);column-gap:clamp(30px,3.2vw,64px)}
+@media(min-width:1280px){
+  [data-landing-story] .biz>.biz-body,.biz-body{grid-template-columns:clamp(232px,18vw,330px) minmax(0,1fr);column-gap:clamp(28px,3vw,64px)}
   .biz-tabs{display:grid;grid-template-rows:repeat(5,minmax(0,1fr));gap:0;margin:0;padding:0 0 0 var(--home-head-inset,14px);overflow:visible}
   .biz-tab{flex-direction:row-reverse;justify-content:space-between;gap:16px;min-height:0;border-top:1px solid #ececee;font-size:clamp(19px,1.5vw,26px);font-weight:600;letter-spacing:-.02em;white-space:normal}
   .biz-tab:last-child{border-bottom:1px solid #ececee}
