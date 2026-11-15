@@ -74,28 +74,30 @@ check("the rail stays endless, on the compositor, and draggable without fighting
 
 console.log("\nHow it works")
 check("the heading and captions lean less on fans", () => {
-  assert.equal(HOW_HEADING, "Sell what people love. We handle the rest.")
+  // Changed on purpose (landing round 7, the owner: "another heading, more clean and simple", in section 3's two tones).
+  assert.deepEqual(HOW_HEADING, { lead: "Products, courses and tips.", rest: "On your own domain." })
   assert.ok(!/\bfans?\b/i.test(words(how)))
 })
 check("no Golden Hour presets, no camera picture, no purple gradient grounds", () => {
   assert.ok(!/Golden Hour|golden|course-camera|lt-field|Presets/i.test(how + read(HOW)))
   /* Changed on purpose (landing round 4): the owner asked for colourful, changing gradient grounds behind every tile; they live only in the two ground layers, and none is purple. */
   const css = HOW_IT_WORKS_STYLES[0].css
-  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*\.cmh-gl[12]$/.test(m[1]), m[1])
+  /* Changed on purpose (landing round 7, the owner asked for it): the domain's ground is a still black to deep purple gradient; the only other gradient is the shade under the plans' title. */
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*\.cmh-stage\[data-ground=night\]$|^\s*\.cmh-cover-t$/.test(m[1].split("\n").pop()!), m[1])
   assert.ok(!/#7c3aed|#8b5cf6|#a855f7/.test(css.slice(0, css.indexOf(".cmh-dm-addr"))))
 })
 check("one tile sells physical and digital products, each with what the seller keeps", () => {
   assert.deepEqual(HOW_PRODUCTS.map((p) => p.kind), ["Physical", "Digital"])
   const t = words(how)
   /* Changed on purpose (landing round 4): one card at a time on a coloured ground, the cap made to order and the e-book delivered at once. */
-  assert.ok(t.includes("Sell physical and digital products.") && t.includes("Production cost") && t.includes("Instant"))
+  assert.ok(t.includes("Sell physical and digital products.") && t.includes("Print cost") /* Changed on purpose (landing round 7): the apron's print partner price. */ && t.includes("Instant"))
   assert.ok(!/Sell your own merch, no inventory/.test(t))
   assert.ok(HOW_PRODUCTS.every((p) => t.includes(`You keep $${(p.keepCents / 100).toFixed(2)}`)))
 })
 check("the course tile is the course player: Lessons, done count, the round marks", () => {
   const t = words(how)
   /* Changed on purpose (landing round 4): a new course, no pasta. */
-  assert.ok(t.includes("Lessons") && t.includes("2 of 7 done") && /data-state="done"/.test(how) && /data-state="now"/.test(how) && how.includes("/home/how/course-street.webp"))
+  assert.ok(t.includes("Lessons") && t.includes("2 of 7 done") && /data-state="done"/.test(how) && /data-state="now"/.test(how) && how.includes("/home/how/lesson-plane.webp")) // Changed on purpose (landing round 7): the hand tool course's own still.
 })
 check("every loop still pauses off screen and holds still for reduced motion", () => {
   const css = HOW_IT_WORKS_STYLES[0].css
@@ -142,7 +144,8 @@ check("no small print under How it works or the checkout tabs", () => {
 })
 check("corners a pixel softer: cards 23px, tiles up to 27px, panels 31px", () => {
   assert.ok(/\.cc-photo\{[^}]*border-radius:23px/.test(CREATORS_CSS))
-  assert.ok(/border-radius:clamp\(21px,2\.4vw,27px\)/.test(HOW_IT_WORKS_STYLES[0].css))
+  // Changed on purpose (landing round 7): How it works takes section 3's corners, 17px on a phone and 19px from 768px.
+  assert.ok(/\.cmh-stage\{[^}]*border-radius:17px/.test(HOW_IT_WORKS_STYLES[0].css) && /\.cmh-stage\{height:clamp\(360px,32vw,440px\);border-radius:19px\}/.test(HOW_IT_WORKS_STYLES[0].css))
   assert.ok(/\.cmc-panel\{[^}]*border-radius:31px/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
 })
 

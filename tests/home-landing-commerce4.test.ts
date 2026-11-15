@@ -69,8 +69,9 @@ check("none of this round's banned samples", () => {
   assert.ok(!/sourdough|golden hour|wheel throw|drawing basics|saturday run club|dust & tape|elena ruiz|real mornings|hemi walker|lowtide|bank account/i.test(all))
 })
 // Changed on purpose (landing round 5): the owner did not like the cap; How it works sells a signed print of Nadia's photograph instead.
-check("half physical, half digital: the print and the e-book in How it works", () => {
-  assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["print", "Physical"], ["ebook", "Digital"]])
+// Changed on purpose (landing round 7): the owner did not like Nadia Brooks's shop; How it works sells Ruben Linde's apron and workbench plans.
+check("half physical, half digital: the apron and the plans in How it works", () => {
+  assert.deepEqual(HOW_PRODUCTS.map((p) => [p.id, p.kind]), [["apron", "Physical"], ["plans", "Digital"]])
   /* Changed on purpose (landing round 5): the orbit is gone (the owner: it stuttered under a finger); no product rides around the phone. */
   assert.ok(!/\/home\/commerce\/float-/.test(co))
 })
@@ -78,33 +79,36 @@ check("half physical, half digital: the print and the e-book in How it works", (
 console.log("\nHow it works")
 // Changed on purpose (landing round 5): the owner found the colourful grounds "too colorful"; they are a soft grey or near black, and still.
 check("every tile stands on a calm ground in Storelib's colours, nothing drifting behind it, loops paused off screen", () => {
-  assert.equal((how.match(/class="cmh-stage" data-ground="(light|dark)"/g) ?? []).length, 6)
+  // Changed on purpose (landing round 7): four cards; the domain's ground is a still black to deep purple gradient (the owner).
+  assert.equal((how.match(/class="cmh-stage" data-ground="light"/g) ?? []).length, 3)
+  assert.equal((how.match(/class="cmh-stage" data-ground="night"/g) ?? []).length, 1)
   assert.ok(!/cmh-gl|cmh-drift/.test(how + howCss))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss) && howCss.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}"))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss))
 })
 check("the first tile is a product card, and its caption is about half as long as it was", () => {
   assert.equal((how.match(/class="cmh-a cmh-pc"/g) ?? []).length, 2)
-  for (const t of ["Selling price", "Production cost", "You keep", "Status"]) assert.ok(words(how).includes(t), t)
+  // Changed on purpose (landing round 7): "Print cost" (the apron's partner price), so the label fits a phone's card on one line.
+  for (const t of ["Selling price", "Print cost", "You keep", "Status"]) assert.ok(words(how).includes(t), t)
   const cap = words(how.match(/<p class="cmh-cap">([\s\S]*?)<\/p>/)![1])
   /* Round 3's caption was 33 words. */
   assert.ok(cap.trim().split(" ").length <= 17, cap)
 })
 // Changed on purpose (landing round 5): the owner wanted the sheet's title and price bigger and bolder, and no cap; the OnePage and its sheet are drawn in HTML with the print.
-check("the checkout tile is the OnePage and its product sheet, and the sheet's button is the real one for a product that ships", () => {
+// Changed on purpose (landing round 7, the owner: "get rid of" Checkout without leaving your page): no checkout tile, no OnePage, no sheet.
+check("there is no checkout tile in How it works", () => {
   for (const f of ["op-nadia.webp", "op-nadia-sheet.webp"]) assert.ok(!how.includes(f) && !existsSync(`public/home/how/${f}`), f)
-  assert.ok(how.includes('class="cmh-a cmh-sheet"') && how.includes("/home/how/print-lasalle.webp") && statSync("public/home/how/print-lasalle.webp").size < 30 * 1024)
+  assert.ok(!how.includes("cmh-sheet") && !/Checkout without leaving your page/.test(words(how)) && !how.includes("print-lasalle"))
   assert.equal(sheetButtonLabel("Check out", "$45.00", true), "Check out · $45.00")
-  assert.ok(words(how).includes("Check out · $45.00"))
-  assert.ok(/const words = p\?\.ships \? "Check out"/.test(read("components/onepage/product-sheet.tsx")))
-  assert.ok(onlyCompositor(keyframes(howCss, "cmh-sheet")) && onlyCompositor(keyframes(howCss, "cmh-dim")))
+  assert.ok(statSync("public/home/how/print-lasalle.webp").size < 30 * 1024, "the checkout scene still uses the print")
+  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-dok")))
 })
-check("the domain tile is cleaner and keeps the code's claims: the three purposes, Pro, DNS checked, HTTPS", () => {
+// Changed on purpose (landing round 7, the owner: "bring back the design how it was before"): the round 3 tile, the website under the address pill and the three addresses; the caption keeps Pro.
+check("the domain tile is round 3's again and keeps the code's claims: the three purposes, Pro, DNS, HTTPS", () => {
   assert.deepEqual(HOW_DOMAIN.targets.map((t) => t.purpose), [...DOMAIN_PURPOSES])
   const w = words(how)
   assert.ok(/On Pro, point a domain you own at your website, your creator page or a community\. Storelib checks the DNS and adds HTTPS\./.test(w))
-  assert.ok(how.includes('class="cmh-dm-card"') && /\bPro\b/.test(w) && w.includes("DNS checked") && w.includes("HTTPS on"))
-  assert.ok(!how.includes("cmh-dm-site"))
+  assert.ok(how.includes('class="cmh-dm-site"') && how.includes('class="cmh-dm-pill"') && !how.includes("cmh-dm-card"))
 })
 
 console.log("\nThe checkout scene")

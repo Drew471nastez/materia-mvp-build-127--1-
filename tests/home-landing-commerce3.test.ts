@@ -46,29 +46,32 @@ const rule = (css: string, selector: string) => {
   return css.slice(i, css.indexOf("}", i))
 }
 
-console.log("\nHow it works: six even tiles")
-check("six tiles, none wider than another, three across on a desktop, two, then one", () => {
-  assert.equal((how.match(/class="cmh-tile"/g) ?? []).length, 6)
-  assert.ok(!/data-wide/.test(how) && !/data-wide/.test(howCss))
-  assert.ok(/\.cmh-grid\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(howCss))
-  assert.ok(/@media \(max-width:1179px\)\{\s*\.cmh-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/.test(howCss))
-  assert.ok(/@media \(max-width:639px\)\{\s*\.cmh-grid\{grid-template-columns:1fr\}/.test(howCss))
+console.log("\nHow it works: four cards, wide and narrow")
+// Changed on purpose (landing round 7): the owner asked for section 3's structure, a two by two grid of wide and narrow cards, not six even tiles.
+check("four cards, wide then narrow, narrow then wide, on section 3's 24 column grid; one column on a phone", () => {
+  assert.equal((how.match(/class="cmh-card /g) ?? []).length, 4)
+  assert.deepEqual([...how.matchAll(/class="cmh-card (cmh-wide|cmh-narrow)"/g)].map((m) => m[1]), ["cmh-wide", "cmh-narrow", "cmh-narrow", "cmh-wide"])
+  assert.ok(/\.cmh-grid\{display:grid;grid-template-columns:minmax\(0,1fr\)/.test(howCss))
+  assert.ok(/\.cmh-grid\{grid-template-columns:repeat\(24,minmax\(0,1fr\)\)/.test(howCss) && /\.cmh-wide\{grid-column:span 13\}/.test(howCss) && /\.cmh-narrow\{grid-column:span 11\}/.test(howCss))
 })
 check("the first tile still sells a physical and a digital product, and there are no Golden Hour presets", () => {
   const w = words(how)
   /* Changed on purpose (landing round 4): no blue tee, no Weeknight Pasta. */
   // Changed on purpose (landing round 5): no cap either (the owner); the physical product is Nadia's signed print.
-  assert.ok(/Sell physical and digital products\./.test(w) && /LaSalle at dusk/.test(w) && !/Darkroom cap/.test(w) && /The Loop/.test(w) && !/After Dark/.test(w)) // Changed on purpose (landing round 5): the owner did not like After Dark; the e-book is The Loop everywhere.
+  // Changed on purpose (landing round 7): the owner did not like Nadia Brooks or LaSalle at dusk; the shop is Linde Woodshop, an apron and workbench plans.
+  assert.ok(/Sell physical and digital products\./.test(w) && /Linde Shop Apron/.test(w) && /Weekend Workbench Plans/.test(w) && !/LaSalle|Nadia|The Loop|Darkroom cap/.test(w))
   for (const f of [HOW, CO, "components/marketing/home/ebook-cover.tsx", "components/marketing/home/commerce-kit.tsx"]) assert.ok(!/golden hour|preset/i.test(read(f)), f)
 })
 
 console.log("\nYour own domain")
 /* Changed on purpose (landing round 4): a cleaner design: the pill over the domain's own card (Pro, the three addresses, DNS checked, HTTPS on), no drawn website. */
 // Changed on purpose (landing round 5): the owner found the tile "too colorful": one dark card, the address bar with its lock on top, the two records Storelib asks for, no purple TLD, no green pill.
-check("the tile: one dark card with the address and its lock, the records, DNS checked and HTTPS on", () => {
-  assert.ok(how.includes('class="cmh-dm-card"') && how.includes('class="cmh-dm-bar"') && !how.includes("cmh-dm-pill") && /DNS checked/.test(words(how)) && /HTTPS on/.test(words(how)))
-  assert.ok(how.replace(/<!-- -->/g, "").includes(`${HOW_DOMAIN.name}${HOW_DOMAIN.tld}`.replace(/^www\./, "www.<b>") + "</b>"))
-  assert.ok(/\.cmh-dm-card\{[^}]*background:#1a1a1d/.test(howCss) && !/#7c3aed/.test(howCss), "dark, and no purple")
+// Changed on purpose (landing round 7, the owner: "bring back the design how it was before", on black to purple): the round 3 tile again, his website under the address pill and the three addresses checked, on a dark ground that turns deep purple.
+check("the tile: the drawn website under the address pill, the three addresses checked, on the night ground", () => {
+  assert.ok(how.includes('class="cmh-dm-site"') && how.includes('class="cmh-dm-pill"') && !how.includes("cmh-dm-card") && !how.includes("cmh-dm-bar"))
+  assert.ok(how.replace(/<!-- -->/g, "").includes(`${HOW_DOMAIN.name}<b>${HOW_DOMAIN.tld}</b>`))
+  assert.ok(/data-ground="night"/.test(how) && /\.cmh-stage\[data-ground=night\]\{background:radial-gradient\([^}]*#3a1c6b[^}]*linear-gradient\(160deg,#050507/.test(howCss), "black to deep purple")
+  assert.ok(!/backdrop-filter|blur\(/.test(howCss), "no glass")
   assert.ok(/Use your own domain\./.test(words(how)))
 })
 check("the address is one Storelib would accept, and is not a Storelib name", () => {
@@ -89,7 +92,8 @@ check("it shows exactly what a domain can serve in the product: the website, the
   assert.deepEqual(HOW_DOMAIN.targets.map((t) => t.purpose), [...DOMAIN_PURPOSES])
   const w = words(how)
   // Changed on purpose (landing round 5): a short name per purpose in the tile's switch.
-  for (const t of HOW_DOMAIN.targets) assert.ok(w.includes(t.tab), t.tab)
+  // Changed on purpose (landing round 7): the round 3 rows again, each address with what it serves.
+  for (const t of HOW_DOMAIN.targets) assert.ok(how.replace(/<!-- -->/g, "").includes(`<b>${t.sub}</b>.lindewoodshop.com`) && w.includes(t.what), t.what)
   /* The creator page's domain serves the OnePage too (at /links). */
   assert.ok(/OnePage at \/links/.test(read("components/app/settings/domains-panel.tsx")) && /OnePage at \/links/.test(read("lib/custom-domains/store.ts")))
   assert.ok(HOW_DOMAIN.targets.find((t) => t.purpose === "creator_page")!.what.includes("OnePage"))
@@ -116,15 +120,16 @@ check("the caption's claims are the code's: Pro, a domain you own, the DNS is ch
 })
 check("its motion: the ticks come one after another, transform and opacity only, paused off screen, still when motion is reduced", () => {
   // Changed on purpose (landing round 5): two records to check (A on @, CNAME on www), then DNS checked and HTTPS on; no tick in a pill.
-  for (const k of ["cmh-dt0", "cmh-dt1", "cmh-st0", "cmh-st1"]) {
+  // Changed on purpose (landing round 7): the round 3 design again: the pill's tick, then the three addresses, one after another.
+  for (const k of ["cmh-dok", "cmh-dt0", "cmh-dt1", "cmh-dt2"]) {
     const m = howCss.match(new RegExp(`@keyframes ${k}\\{([\\s\\S]*?\\})\\}`))
     assert.ok(m, k)
     const props = [...m![1].matchAll(/([a-z-]+):/g)].map((x) => x[1])
     assert.ok(props.every((p) => p === "opacity" || p === "transform"), `${k}: ${props.join(",")}`)
   }
-  const starts = ["cmh-dt0", "cmh-dt1", "cmh-st0", "cmh-st1"].map((k) => Number(howCss.match(new RegExp(`@keyframes ${k}\\{0%,(\\d+)%`))![1]))
+  const starts = ["cmh-dok", "cmh-dt0", "cmh-dt1", "cmh-dt2"].map((k) => Number(howCss.match(new RegExp(`@keyframes ${k}\\{0%,(\\d+)%`))![1]))
   assert.ok(starts[0] < starts[1] && starts[1] < starts[2] && starts[2] < starts[3], starts.join(","))
-  assert.ok((how.match(/class="cmh-a cmh-dm-tick"/g) ?? []).length === 2 && !/cmh-dm-ok/.test(how))
+  assert.ok((how.match(/class="cmh-a cmh-dm-tick"/g) ?? []).length === 3 && /cmh-a cmh-dm-ok/.test(how))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss))
   assert.ok(/\[data-commerce-live\] \.cmh-a\{animation-play-state:running!important\}/.test(howCss))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss)) /* Changed on purpose (landing round 4): no spinner any more. */
