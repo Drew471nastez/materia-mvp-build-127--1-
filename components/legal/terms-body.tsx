@@ -164,7 +164,7 @@ export function TermsBody() {
           </p>
           <Ul items={[
             "Free Plan: 5% + $0.25 per transaction",
-            "Pro Plan: 3% + $0.25 per transaction",
+            "Grow Plan: 3% + $0.25 per transaction",
           ]} />
           <p>
             Sellers who subscribed to a plan that is no longer offered keep that plan&apos;s transaction fee

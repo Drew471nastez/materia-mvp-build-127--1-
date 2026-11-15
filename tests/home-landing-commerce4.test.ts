@@ -111,7 +111,8 @@ check("there is no checkout tile in How it works", () => {
 check("the domain tile is one address pill and keeps the code's claims: Pro, a domain you own, HTTPS", () => {
   assert.ok((DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
   const w = words(how)
-  assert.ok(/On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(w))
+  /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
+  assert.ok(/On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(w))
   assert.ok(how.includes('class="cmh-dm-band"') && !how.includes("cmh-pill") && !how.includes("cmh-br") && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row")) // Changed on purpose (landing round 10): one address band, no pill over a website.
 })
 

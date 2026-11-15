@@ -43,7 +43,7 @@ export function takesCommunitySlot(c: { deleted?: boolean; deleting?: boolean })
 
 /** The error code a create answers with at the limit, and what the screens say. */
 export const PLAN_LIMIT_ERROR = "plan_limit"
-export const PLAN_LIMIT_TEXT = `The Free plan includes ${FREE_COMMUNITY_LIMIT} communities. Upgrade to Pro to run more.`
+export const PLAN_LIMIT_TEXT = `The Free plan includes ${FREE_COMMUNITY_LIMIT} communities. Upgrade to Grow to run more.`
 
 /** Round 26: Keep (undo a scheduled deletion) when the replacement has taken the place. */
-export const KEEP_LIMIT_TEXT = `The Free plan includes ${FREE_COMMUNITY_LIMIT} communities and ${FREE_COMMUNITY_LIMIT} are in use. Delete one or upgrade to Pro to keep this one.`
+export const KEEP_LIMIT_TEXT = `The Free plan includes ${FREE_COMMUNITY_LIMIT} communities and ${FREE_COMMUNITY_LIMIT} are in use. Delete one or upgrade to Grow to keep this one.`

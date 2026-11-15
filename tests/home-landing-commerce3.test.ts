@@ -104,7 +104,8 @@ check("the caption's claims are the code's: Pro, a domain you own, HTTPS follows
   const w = words(how)
   const cap = w.slice(w.indexOf("Use your own domain"))
   // Changed on purpose (landing round 9): one short line; DNS and HTTPS are ticked in the picture.
-  assert.ok(/On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(cap))
+  /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
+  assert.ok(/On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(cap))
   assert.ok(!/DNS found|HTTPS on/.test(w)) // Changed on purpose (landing round 10): no ticks in the picture; the lock on the band stays.
   assert.equal(siteLimits("free").customDomain, false)
   assert.equal(siteLimits("pro").customDomain, true)

@@ -91,7 +91,8 @@ check("no letter by letter typing left", !/cmh-ch\d|cmh-caret|cmh-br-veil|cmh-lo
 // Changed on purpose (landing round 10): no ticks, no lock that turns; the lock on the band is violet throughout.
 check("no DNS and HTTPS ticks, the lock is violet throughout", !/@keyframes cmh-(url1|lock|ok0|ok1)\{/.test(css) && !text.includes("DNS found") && /\.cmh-dm-lock\{[^}]*background:#8b5cf6/.test(css))
 // Changed on purpose (landing round 9): a caption is a title and one short line now.
-check("the caption keeps the code's claims in one line", /On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(text) && text.includes("Use your own domain"))
+/* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
+check("the caption keeps the code's claims in one line", /On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(text) && text.includes("Use your own domain"))
 
 console.log("\n5. Structure and width stay")
 // Changed on purpose (landing round 9): the owner asked for the reference's row: three cards, narrow, wide, narrow.

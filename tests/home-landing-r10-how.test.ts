@@ -50,7 +50,8 @@ const rows = [...card.matchAll(/<span class="cmh-dm-end"( data-storelib="")?>([^
 check("the reel: his Storelib address first, then his own; two rows before and three after so a neighbour always shows", HOW_ENDINGS[0] === ".storelib.com" && rows.join() === [...HOW_ENDINGS.slice(-2), ...HOW_ENDINGS, ...HOW_ENDINGS.slice(0, 3)].join() && rows[2] === HOW_ENDINGS[0] && rows[2 + HOW_ENDINGS.length] === HOW_ENDINGS[0])
 check("only the storelib.com ending is greyed", (card.match(/data-storelib=""/g) ?? []).length === 2 && /color:#a1a1aa/.test(rule(".cmh-dm-end[data-storelib]")))
 check("every address it shows is real: his Storelib address, and domains Storelib accepts", `${HOW_DOMAIN.name}${HOW_ENDINGS[0]}` === HOW_DOMAIN.before && `${HOW_DOMAIN.name}${HOW_ENDINGS[1]}` === HOW_DOMAIN.host && HOW_ENDINGS.slice(1).every((e) => hostnameProblem(cleanHostname(`${HOW_DOMAIN.name}${e}`)) === null))
-check("minimal words: the band and the caption, nothing else in the picture", text.includes("Use your own domain") && text.includes("On Pro, point a domain you own at your site. HTTPS is set up for you.") && HOW_CARDS[2].title === "Use your own domain")
+/* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
+check("minimal words: the band and the caption, nothing else in the picture", text.includes("Use your own domain") && text.includes("On Grow, point a domain you own at your site. HTTPS is set up for you.") && HOW_CARDS[2].title === "Use your own domain")
 
 console.log("\n2. Its motion, like the engines card")
 const steps = [...kf("cmh-reel").matchAll(/translate3d\(0,(?:0|calc\(var\(--dm-step\) \* -(\d)\)),0\)/g)].map((m) => Number(m[1] ?? 0))

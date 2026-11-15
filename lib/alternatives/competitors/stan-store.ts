@@ -26,7 +26,7 @@ export const stanStore: Competitor = {
   pricingShort: "From $29 a month, 0% per sale",
   seo: {
     title: "Stan Store alternative: Storelib compared on price and features",
-    description: `Stan Store costs $29 or $99 a month with no cut of sales. Storelib has a free plan at ${STORELIB.freeFee} a sale and Pro at ${STORELIB.proPrice}. See which costs less at your sales.`,
+    description: `Stan Store costs $29 or $99 a month with no cut of sales. Storelib has a free plan at ${STORELIB.freeFee} a sale and Grow at ${STORELIB.proPrice}. See which costs less at your sales.`,
     h1: "Storelib as a Stan Store alternative",
   },
   intro: [
@@ -38,7 +38,7 @@ export const stanStore: Competitor = {
     { text: `You can start for nothing. Storelib Free has no monthly fee and takes ${STORELIB.freeFee} a sale, so a store that sells a few times a month costs far less than $29.`, code: "lib/billing/plans.ts" },
     { text: "Email campaigns and automations on every plan. On Stan, email broadcasts and flows are part of Creator Pro at $99 a month.", code: "app/(storelib)/app/emails" },
     { text: "Discount codes, bundles and upsells on every plan, where Stan keeps order bumps and discount codes for Creator Pro.", code: "app/(storelib)/app/offers" },
-    { text: `A full website as well as the bio link: ${STORELIB.freeSites} sites on Free, ${STORELIB.proSites} on Pro${STORELIB.proCustomDomain ? ", with your own domain on Pro" : ""}.`, code: "lib/sites/plan.ts" },
+    { text: `A full website as well as the bio link: ${STORELIB.freeSites} sites on Free, ${STORELIB.proSites} on Grow${STORELIB.proCustomDomain ? ", with your own domain on Grow" : ""}.`, code: "lib/sites/plan.ts" },
   ],
   whenToStay: [
     { text: "Coaching calls booked straight into your Google Calendar are the heart of what you sell. Stan's booking flow is built for that.", sources: ["stan-coaching", "stan-calendar"], status: "verified" },
@@ -56,7 +56,7 @@ export const stanStore: Competitor = {
     { text: "Your own domain: we could not confirm whether Stan supports one.", sources: [], status: "unverified", note: "Not found in Stan's help center or pricing pages." },
   ],
   storelibStrengths: [
-    { text: `A free plan with no monthly fee, and Pro at ${STORELIB.proPrice} when the lower rate pays for itself.`, code: "lib/billing/plans.ts" },
+    { text: `A free plan with no monthly fee, and Grow at ${STORELIB.proPrice} when the lower rate pays for itself.`, code: "lib/billing/plans.ts" },
     { text: "Email campaigns, automations, discount codes and bundles on every plan.", code: "app/(storelib)/app/emails" },
     { text: "A OnePage for your bio link, a creator page and a website builder, selling the same products.", code: "lib/onepage/address.ts" },
     { text: "Courses with lessons and progress, and paid communities.", code: "lib/courses/types.ts", flag: "communities", textOff: "Courses with lessons, video and progress." },
@@ -116,7 +116,7 @@ export const stanStore: Competitor = {
   examples: [
     { who: "Creators", title: "A first digital product", text: smallMonth() },
     { who: "Educators", title: "A course and a weekly email", text: "A teacher who sells a course and writes to students every week needs email. On Storelib that is on the free plan; on Stan email broadcasts come with Creator Pro." },
-    { who: "Sellers", title: "A shop that has outgrown the bio link", text: `When a bio page is not enough, a Storelib website sells the same products with its own pages and navigation, and on Pro it can live on your own domain.` },
+    { who: "Sellers", title: "A shop that has outgrown the bio link", text: `When a bio page is not enough, a Storelib website sells the same products with its own pages and navigation, and on Grow it can live on your own domain.` },
   ],
   switching: [
     { title: "List what you sell on Stan", text: "Note each product, its price and its files, and download your customer list from Stan before you change anything." },

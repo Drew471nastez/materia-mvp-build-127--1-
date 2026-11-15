@@ -16,7 +16,7 @@ export const dashboardEn: Record<string, string> = {
     "nav.creatorPage": "Creator Page",
     "nav.websiteBuilder": "Website",
     "nav.unlockBenefits": "Unlock more benefits",
-    "nav.upgradeToPro": "Upgrade to Pro",
+    "nav.upgradeToPro": "Upgrade to Grow",
     // Settings entries surfaced in the sidebar
     "settings.billing": "Billing",
     "settings.signOut": "Sign Out",
@@ -48,7 +48,7 @@ export const dashboardEn: Record<string, string> = {
     "dashboard.viewAnalytics": "View Analytics",
     "dashboard.viewAnalyticsDesc": "See how your store is performing",
     // Announcement bar
-    "dashboard.tryProFree": "Try Pro",
+    "dashboard.tryProFree": "Try Grow",
     "dashboard.proSubtitle": "our most popular plan for content creators and businesses.",
     "dashboard.completeSetup": "Complete setup",
     "dashboard.stepsRemaining": "steps remaining to get started.",
@@ -142,7 +142,7 @@ export const dashboardEn: Record<string, string> = {
     // Promo banner
     "dashboard.trackRealtime": "Track what's working in real time",
     "dashboard.optimizeSales": "Use your dashboard to optimize for more sales.",
-    "dashboard.unlockGrowth": "Pro plan",
+    "dashboard.unlockGrowth": "Grow plan",
     "dashboard.growthDesc": "3% fees instead of 5%, and 25 GB of storage instead of 1 GB.",
     "dashboard.features": "Features",
     "dashboard.addCustomDomain": "Add Custom Domain",

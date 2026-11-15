@@ -1,13 +1,12 @@
 /**
  * The plans Storelib sells, and how every screen names them.
  *
- * Two plans are offered: Free and Pro at $29 a month. Pro is the internal plan
- * id `growth`, because that is the only $29 price that exists in Stripe. The
- * id stays `growth` everywhere money moves (checkout, webhooks, fees, limits);
- * only the name a person reads is "Pro".
- *
- * The internal `pro` plan ($99, 1.5%) is no longer offered. People already on
- * it keep it, and their billing screens still show it, also named "Pro".
+ * Three plans are offered: Free, Grow at $29 a month and Pro at $99 a month.
+ * Grow is the internal plan id `growth` (the $29 Stripe price) and Pro is the
+ * internal plan id `pro` (the $99 Stripe price). The ids stay as they are
+ * everywhere money moves (checkout, webhooks, fees, limits, Stripe metadata);
+ * only the names a person reads changed (pricing round 5: the $29 plan was
+ * called Pro and the $99 plan Scale).
  *
  * The feature lists are written FROM the entitlement tables rather than beside
  * them, so a card cannot promise something the plan does not get:
@@ -26,10 +25,10 @@ import { appLocale } from "@/lib/i18n/format"
 export type PlanId = "free" | "growth" | "pro"
 export type OfferedPlanId = "free" | "growth" | "pro"
 
-/** The plan id a Pro checkout sends. Never "pro": that is the $99 plan, sold as Scale. */
+/** The plan id a Grow checkout sends (the $29 plan). Never "pro": that is the $99 plan, sold as Pro. */
 export const PRO_CHECKOUT_PLAN_ID = "growth" as const
 
-/** The plan id a Scale checkout sends: the existing $99 plan and its Stripe price. */
+/** The plan id a Pro checkout sends: the $99 plan and its Stripe price. */
 export const SCALE_CHECKOUT_PLAN_ID = "pro" as const
 
 export const OFFERED_PLAN_IDS: readonly OfferedPlanId[] = ["free", PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID]
@@ -37,12 +36,12 @@ export const OFFERED_PLAN_IDS: readonly OfferedPlanId[] = ["free", PRO_CHECKOUT_
 /** What the Stripe price for `growth` charges, in cents. */
 export const PRO_PRICE_CENTS = 2900
 
-/** What the Stripe price for `pro` (Scale) charges, in cents. */
+/** What the Stripe price for `pro` (sold as Pro) charges, in cents. */
 export const SCALE_PRICE_CENTS = 9900
 
 /**
  * PAYING YEARLY, the way Shopify offers it: the same plan, paid once a
- * year, for less per month. Pro yearly is $22 a month, $264 once a year,
+ * year, for less per month. Grow yearly is $22 a month, $264 once a year,
  * against $29 a month: 24% less.
  *
  * NOT ON SALE YET. There is no yearly price in Stripe, so a yearly Pro
@@ -60,9 +59,9 @@ export const YEARLY_BILLING_LIVE = false
 
 const DISPLAY_NAMES: Record<PlanId, string> = {
   free: "Free",
-  growth: "Pro",
   /* i18n-ignore-next-line: a plan's name, never translated, like Free and Pro. */
-  pro: "Scale",
+  growth: "Grow",
+  pro: "Pro",
 }
 
 /** The name a person reads for any plan id, including ones no longer sold. */
@@ -134,7 +133,7 @@ function freeFeatures(): string[] {
   ]
 }
 
-/** What Free does not have that Pro does, shown crossed out so the cards compare. */
+/** What Free does not have that Grow does, shown crossed out so the cards compare. */
 function freeExcluded(): string[] {
   const free = siteLimits("free")
   const lines: string[] = []
@@ -142,7 +141,7 @@ function freeExcluded(): string[] {
   return lines
 }
 
-/** What Pro adds, after everything Free has. */
+/** What Grow (id `growth`) adds, after everything Free has. */
 function proFeatures(): string[] {
   const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
   const lines = [tt("Everything in Free"), feeLine(PRO_CHECKOUT_PLAN_ID)]
@@ -154,12 +153,12 @@ function proFeatures(): string[] {
 }
 
 /**
- * What Scale adds, after everything Pro has: its own lower fee (1.5% + $0.25,
- * the fee table's Scale rate, wave 13) and the room its tables give it.
+ * What Pro (id `pro`) adds, after everything Grow has: its own lower fee
+ * (1.5% + $0.25, the fee table's "scale" rate) and the room its tables give it.
  */
 function scaleFeatures(): string[] {
   const id = SCALE_CHECKOUT_PLAN_ID
-  return [tt("Everything in Pro"), feeLine(id), websitesLine(id), storageLine(id), aiEditsLine(id)]
+  return [tt("Everything in Grow"), feeLine(id), websitesLine(id), storageLine(id), aiEditsLine(id)]
 }
 
 export interface OfferedPlan {
@@ -173,9 +172,9 @@ export interface OfferedPlan {
   pill: string
   /** The small line under the price. */
   priceNote: string
-  /** One line under that. */
+  /** One line under the price: at most seven words (pricing round 5). */
   summary: string
-  /** What the plan includes. Pro starts with "Everything in Free", Scale with "Everything in Pro". */
+  /** What the plan includes. Grow starts with "Everything in Free", Pro with "Everything in Grow". */
   features: string[]
   /** What it does not include, drawn greyed with a cross, so both cards have as many lines. */
   excluded: string[]
@@ -207,7 +206,7 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     period: "/month",
     get pill() { return tt("Your own brand") },
     get priceNote() { return tt("per month") },
-    get summary() { return tt("Keep more of every sale.") },
+    get summary() { return tt("Your own domain and lower card rates.") },
     features: proFeatures(),
     excluded: [],
     /* A monthly Stripe subscription, cancelled from Billing
@@ -222,7 +221,7 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     period: "/month",
     get pill() { return tt("Most room") },
     get priceNote() { return tt("per month") },
-    get summary() { return tt("Room for a bigger business.") },
+    get summary() { return tt("The lowest rates for a bigger business.") },
     features: scaleFeatures(),
     excluded: [],
     get note() { return tt("Billed monthly. Cancel anytime.") },
@@ -231,10 +230,10 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
 
 /**
  * What a card says about its price for the interval picked. Free is the
- * same either way; Pro yearly is its monthly equivalent, with the yearly
- * total (or, until it is on sale, when it opens) in the small print. Scale
- * has no yearly price at all, so yearly shows its monthly price and says
- * yearly opens soon (its button is held, as Pro's is).
+ * same either way; Grow yearly is its monthly equivalent, with the yearly
+ * total (or, until it is on sale, when it opens) in the small print. Pro
+ * (id `pro`) has no yearly price at all, so yearly shows its monthly price
+ * and says yearly opens soon (its button is held, as Grow's is).
  */
 export function pricedFor(plan: OfferedPlan, interval: BillingInterval): Pick<OfferedPlan, "price" | "priceNote" | "note"> {
   if (interval === "monthly" || plan.priceCents === 0) return { price: plan.price, priceNote: plan.priceNote, note: plan.note }
@@ -267,7 +266,7 @@ export type ComparisonValue = string | boolean
 
 export interface ComparisonSection {
   title: string
-  /** `pro` is the Pro column (id `growth`), `scale` the Scale column (id `pro`). */
+  /** `pro` is the Grow column (id `growth`), `scale` the Pro column (id `pro`). */
   rows: { label: string; free: ComparisonValue; pro: ComparisonValue; scale: ComparisonValue }[]
 }
 
@@ -335,23 +334,23 @@ export function planQuestions(): { q: string; a: string }[] {
   return [
     {
       q: tt("How do I decide which plan is best for me?"),
-      a: tt("Free opens your store with no monthly fee, so you can start selling today. Pro is for when your store is earning: a lower fee on every sale ({proFee} instead of {freeFee}), your own domain, no Storelib branding, and room for {maxSites} websites.", { proFee, freeFee, maxSites: pro.maxSites }),
+      a: tt("Free opens your store with no monthly fee, so you can start selling today. Grow is for when your store is earning: a lower fee on every sale ({proFee} instead of {freeFee}), your own domain, no Storelib branding, and room for {maxSites} websites.", { proFee, freeFee, maxSites: pro.maxSites }),
     },
     {
-      q: tt("Who is Scale for?"),
+      q: tt("Who is Pro for?"),
       a: tt("A bigger business: the lowest fee on every sale ({scaleFee}), {maxSites} websites of {maxPages} pages each, {storage} of file storage and {aiEdits} AI edits a month, for {price} a month.", { scaleFee: getFeeDescription(SCALE_CHECKOUT_PLAN_ID).replace(" per sale", ""), maxSites: scale.maxSites, maxPages: scale.maxPages, storage: formatBytes(PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes), aiEdits: scale.aiEditsPerMonth, price: formatPlanPrice(SCALE_PRICE_CENTS) }),
     },
     ...(breakEven
       ? [
           {
-            q: tt("When does Pro pay for itself?"),
-            a: tt("Pro costs {proPrice} a month and takes {value}% less of every sale. Once you sell about ${value2} a month, the lower fee alone covers the plan, and everything past that is yours.", { proPrice, value: Math.round(saved * 1000) / 10, value2: breakEven.toLocaleString(appLocale()) }),
+            q: tt("When does Grow pay for itself?"),
+            a: tt("Grow costs {proPrice} a month and takes {value}% less of every sale. Once you sell about ${value2} a month, the lower fee alone covers the plan, and everything past that is yours.", { proPrice, value: Math.round(saved * 1000) / 10, value2: breakEven.toLocaleString(appLocale()) }),
           },
         ]
       : []),
     {
       q: tt("What fees are taken from a sale?"),
-      a: tt("Storelib's fee for your plan ({freeFee} on Free, {proFee} on Pro, {scaleFee} on Scale), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.", { freeFee, proFee, scaleFee: getFeeDescription(SCALE_CHECKOUT_PLAN_ID).replace(" per transaction", "") }),
+      a: tt("Storelib's fee for your plan ({freeFee} on Free, {proFee} on Grow, {scaleFee} on Pro), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.", { freeFee, proFee, scaleFee: getFeeDescription(SCALE_CHECKOUT_PLAN_ID).replace(" per transaction", "") }),
     },
     {
       q: tt("How do I change or cancel my plan?"),
@@ -363,7 +362,7 @@ export function planQuestions(): { q: string; a: string }[] {
     },
     {
       q: tt("Do I need a card to start?"),
-      a: tt("No. Free asks for no card. You only add one when you upgrade to Pro or Scale."),
+      a: tt("No. Free asks for no card. You only add one when you upgrade to Grow or Pro."),
     },
   ]
 }

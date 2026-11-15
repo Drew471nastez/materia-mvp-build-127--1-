@@ -121,12 +121,14 @@ async function main() {
     check("the split features and the plans put no image preload in the head", preloads.length === 0, preloads.map((p) => p.slice(0, 160)))
     const imgs = doc.match(/<img [^>]*>/g) ?? []
     /* Changed on purpose (wave 12): the manage section and its pictures were deleted, so fewer pictures are rendered here. */
-    check("  and every picture in them is lazy", imgs.length >= 4 && imgs.every((i) => /loading="lazy"/.test(i)), [imgs.length, ...imgs.filter((i) => !/loading="lazy"/.test(i)).map((i) => i.slice(0, 160))])
+    /* Changed on purpose (pricing round 5): the plan cards have no pictures any more, so two are left (the split features). */
+    check("  and every picture in them is lazy", imgs.length >= 2 && imgs.every((i) => /loading="lazy"/.test(i)), [imgs.length, ...imgs.filter((i) => !/loading="lazy"/.test(i)).map((i) => i.slice(0, 160))])
     check("  none of them asks for high priority", !imgs.some((i) => /fetchpriority="high"/i.test(i)))
 
     /* Changed on purpose (wave 12): the bento and the manage section left the home page and were deleted. */
     check(`components/marketing/split-features-section.tsx downloads no detached copy of an original upload`, !/new window\.Image\(\)/.test(code("components/marketing/split-features-section.tsx")))
-    check("the plans' pictures stay eager on /pricing, where the cards are the page", /pictureLoading=\{headingLevel === 1 \? "eager" : "lazy"\}/.test(code("components/marketing/pricing-section.tsx")) && /pictureLoading = "eager"/.test(code("components/billing/plan-cards.tsx")))
+    /* Changed on purpose (pricing round 5): the plan cards have no pictures to load, eager or lazy. */
+    check("the plan cards load no pictures at all", !/pictureLoading|next\/image/.test(code("components/billing/plan-cards.tsx")) && !/pictureLoading/.test(code("components/marketing/pricing-section.tsx")))
     const video = code("components/marketing/hero-video.tsx")
     check("the hero prioritizes only its local poster and defers video until preferences are known", /fetchPriority="high"/.test(video) && /preload="none"/.test(video) && /allowed\(\)/.test(video))
   }

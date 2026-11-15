@@ -62,7 +62,7 @@ const FAQ_CATEGORIES = [
       },
       {
         q: "Does Storelib take a commission on my sales?",
-        a: "Yes, a fee on each sale that depends on your plan: 5% + $0.25 on Free and 3% + $0.25 on Pro. The $0.25 is added to orders of $4.00 or more. Stripe's standard processing fees apply on top.",
+        a: "Yes, a fee on each sale that depends on your plan: 5% + $0.25 on Free and 3% + $0.25 on Grow. The $0.25 is added to orders of $4.00 or more. Stripe's standard processing fees apply on top.",
       },
       {
         q: "How do I set up payouts?",
@@ -78,8 +78,8 @@ const FAQ_CATEGORIES = [
         a: "Yes! Storelib has a free plan that lets you start selling right away. You can create products, set up your store, and start making sales without paying anything upfront. Upgrade when you need more features.",
       },
       {
-        q: "What's included in Pro?",
-        a: "Pro is $29 a month. It lowers the fee on each sale from 5% to 3%, lets you connect your own domain, removes Storelib branding, adds the verified badge, and gives you 25 GB of file storage instead of 1 GB. The Pricing page has the full list.",
+        q: "What's included in Grow?",
+        a: "Grow is $29 a month. It lowers the fee on each sale from 5% to 3%, lets you connect your own domain, removes Storelib branding, adds the verified badge, and gives you 25 GB of file storage instead of 1 GB. The Pricing page has the full list.",
       },
       {
         q: "Can I cancel my subscription anytime?",
@@ -87,7 +87,7 @@ const FAQ_CATEGORIES = [
       },
       {
         q: "Is there a free trial for paid plans?",
-        a: "There is no trial, because the Free plan has no time limit. Sell on Free for as long as you like, and upgrade to Pro when the lower fee or your own domain is worth $29 a month.",
+        a: "There is no trial, because the Free plan has no time limit. Sell on Free for as long as you like, and upgrade to Grow when the lower fee or your own domain is worth $29 a month.",
       },
     ],
   },
@@ -96,7 +96,7 @@ const FAQ_CATEGORIES = [
     faqs: [
       {
         q: "Can I use my own domain?",
-        a: "Yes, on the Pro plan ($29 a month). Your store lives at yourname.com.",
+        a: "Yes, on the Grow plan ($29 a month). Your store lives at yourname.com.",
       },
       {
         q: "What's the difference between Storelib and a link-in-bio tool?",

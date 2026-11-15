@@ -54,7 +54,7 @@ export const podia: Competitor = {
   storelibLimits: [
     { text: "Courses have lessons, video, captions and progress, but no quizzes, certificates or drip schedule.", code: "lib/courses/types.ts" },
     { text: "No booking calendar for coaching calls and no affiliate program.", code: "lib/onepage/types.ts" },
-    { text: `Every sale pays a fee, ${STORELIB.proFee} on Pro at the lowest. Past a certain volume Podia Shaker's flat price costs less.`, code: "lib/payments/fees/defaults.ts" },
+    { text: `Every sale pays a fee, ${STORELIB.proFee} on Grow at the lowest. Past a certain volume Podia Shaker's flat price costs less.`, code: "lib/payments/fees/defaults.ts" },
     { text: "Storelib is not a merchant of record, and neither is Podia: on both you set and file your own tax.", code: "lib/tax/rules.ts" },
   ],
   features: [
@@ -126,12 +126,12 @@ export const podia: Competitor = {
     { title: "Connect Stripe", text: "Storelib pays out through Stripe, so connect one before your first sale." },
     { title: "Rebuild your courses and products", text: "Add each course as modules and lessons, and each download with its files." },
     { title: "Tell your list", text: "Storelib has no list import, so email your Podia subscribers about the move before you cancel." },
-    { title: "Move your domain", text: "Connect your domain to a Storelib website on Pro once the new site is ready." },
+    { title: "Move your domain", text: "Connect your domain to a Storelib website on Grow once the new site is ready." },
   ],
   moving: {
     products: "Courses come across as modules and lessons with their videos and files, and downloads as products. Quizzes, certificates and coaching have no Storelib version.",
     customers: "Storelib has no customer or subscriber import. Send your Podia list one email about the new store, then build your Storelib list from there and set up automations for new subscribers.",
-    domain: "The domain you connected to Podia can be connected to a Storelib website on Pro. Switch its DNS when the new site is live.",
+    domain: "The domain you connected to Podia can be connected to a Storelib website on Grow. Switch its DNS when the new site is live.",
   },
   movingHelp: { customers: ["/help/email/automations"] },
   faqs: [

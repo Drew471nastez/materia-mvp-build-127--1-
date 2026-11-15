@@ -36,7 +36,7 @@ export const shopify: Competitor = {
   ],
   whyStorelib: [
     { text: "Built for digital products from the start: files and courses are product types, not an app added to a store made for parcels.", code: "lib/billing/plans.ts" },
-    { text: `No monthly fee on Free. Shopify's cheapest listed plan is $39 a month billed monthly; Storelib Pro is ${STORELIB.proPrice}.`, code: "lib/billing/plans.ts" },
+    { text: `No monthly fee on Free. Shopify's cheapest listed plan is $39 a month billed monthly; Storelib Grow is ${STORELIB.proPrice}.`, code: "lib/billing/plans.ts" },
     { text: "A bio link page, a creator page and a website from one account, without installing apps.", code: "lib/onepage/address.ts" },
     { text: "Email campaigns, discount codes, bundles and upsells are part of Storelib rather than separate apps.", code: "app/(storelib)/app/offers" },
   ],
@@ -58,7 +58,7 @@ export const shopify: Competitor = {
   ],
   storelibStrengths: [
     { text: "Digital products and courses without apps.", code: "app/(storelib)/app/courses" },
-    { text: `A free plan, and Pro at ${STORELIB.proPrice} a month.`, code: "lib/billing/plans.ts" },
+    { text: `A free plan, and Grow at ${STORELIB.proPrice} a month.`, code: "lib/billing/plans.ts" },
     { text: "OnePage for your bio link and a creator page, on top of the website.", code: "lib/onepage/address.ts" },
   ],
   storelibLimits: [
@@ -133,20 +133,20 @@ export const shopify: Competitor = {
     { title: "Export your products and customers", text: "In Shopify admin, export products and customers as CSV, and download the files your digital products deliver." },
     { title: "Create a free Storelib account", text: "Sign up and set up payments with Stripe inside Storelib." },
     { title: "Add your digital products", text: "Recreate each product with its price and files, and courses with their lessons." },
-    { title: "Build your website", text: "Pick a template in the website builder and add your pages. Your own domain connects on Pro." },
+    { title: "Build your website", text: "Pick a template in the website builder and add your pages. Your own domain connects on Grow." },
     { title: "Move the domain last", text: "Point your domain at Storelib only when the new site is ready, so the shop is never offline." },
   ],
   moving: {
     products: "There is no Shopify product import. Add each product with its price and files. Your theme can come along: upload its zip and it becomes a Storelib theme. Reviews come over as a CSV in Storelib Reviews.",
     customers: "Customer accounts and order history stay on Shopify: Storelib has no customer import. Keep your Shopify export for your records.",
-    domain: "Move the domain last. In Settings, Domains on Pro, add it and copy the DNS records Storelib shows to the company you bought it from. Keep Shopify running until Storelib says Connected.",
+    domain: "Move the domain last. In Settings, Domains on Grow, add it and copy the DNS records Storelib shows to the company you bought it from. Keep Shopify running until Storelib says Connected.",
   },
   faqs: [
-    { q: "Is Storelib cheaper than Shopify for digital products?", a: `For a small or medium digital shop, usually. Shopify Basic is $39 a month billed monthly before card fees. Storelib Free has no monthly fee and takes ${STORELIB.freeFee} a sale, and Pro is ${STORELIB.proPrice}. Shopify takes no cut beyond its card rate, so at high volume Shopify can cost less. The calculator shows the point.` },
+    { q: "Is Storelib cheaper than Shopify for digital products?", a: `For a small or medium digital shop, usually. Shopify Basic is $39 a month billed monthly before card fees. Storelib Free has no monthly fee and takes ${STORELIB.freeFee} a sale, and Grow is ${STORELIB.proPrice}. Shopify takes no cut beyond its card rate, so at high volume Shopify can cost less. The calculator shows the point.` },
     { q: "Can I sell physical products on Storelib?", a: "Yes. Physical products sell on your Storelib website with shipping and stock, next to your digital products. For a warehouse operation, Shopify's tools go further.", flag: "physical", aOff: "Not today. Storelib is built for digital products and courses. If you ship parcels, Shopify is the better fit." },
     { q: "Do I need apps to sell digital products on Storelib?", a: "No. Files and courses are product types on Storelib, delivered by Storelib itself. On Shopify, digital delivery comes from an app." },
-    { q: "Can I keep my own domain?", a: STORELIB.proCustomDomain ? "Yes, on Pro. Connect it in the website builder once your site is ready." : "Not on the current plans." },
-    { q: "Does Storelib have themes?", a: "Yes. The website builder has templates you edit section by section, and Pro includes premium templates." },
+    { q: "Can I keep my own domain?", a: STORELIB.proCustomDomain ? "Yes, on Grow. Connect it in the website builder once your site is ready." : "Not on the current plans." },
+    { q: "Does Storelib have themes?", a: "Yes. The website builder has templates you edit section by section, and Grow includes premium templates." },
   ],
   visuals: ["editor", "presets", "dashboard"],
   sources: [

@@ -76,7 +76,7 @@ console.log("\nYour own domain")
 // Changed on purpose (landing round 10): one address band (tests/home-landing-r10-how.test.ts pins it).
 check("one address band, no rows, no night ground", how.includes('class="cmh-dm-band"') && !how.includes('class="cmh-dm-row"') && !/data-ground="night"/.test(how) && !/night/.test(css))
 check("the domain is one Storelib accepts and serves one of the product's purposes", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
-check("the caption keeps the code's claims", /On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(text)) // Changed on purpose (landing round 9): one short line.
+check("the caption keeps the code's claims", /On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(text)) // Changed on purpose (landing round 9): one short line. /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
 
 console.log("\nSmooth")
 check("every keyframe moves transform and opacity only", keyframeBodies(css).every(onlyCompositor))

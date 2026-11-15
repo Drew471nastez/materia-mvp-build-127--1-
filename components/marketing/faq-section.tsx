@@ -22,7 +22,7 @@ const FAQS = [
   },
   {
     q: "Can I use my own domain?",
-    a: "Yes, on Pro ($29 a month) and Scale ($99 a month). Your store lives at yourname.com.",
+    a: "Yes, on Grow ($29 a month) and Pro ($99 a month). Your store lives at yourname.com.",
   },
   {
     q: "How fast do I get paid?",

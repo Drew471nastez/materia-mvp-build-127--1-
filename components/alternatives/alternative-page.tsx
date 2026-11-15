@@ -182,7 +182,7 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
                 </div>
                 <div className="px-4 py-3.5 sm:px-5">
                   <dt className="flex flex-wrap items-baseline justify-between gap-x-3 text-[15px] font-semibold text-[#1a1a2e]">
-                    <span>Pro</span>
+                    <span>Grow</span>
                     <span>{STORELIB.proPrice} a month</span>
                   </dt>
                   <dd className="mt-1 text-[14px] leading-[1.5] text-[#4b5563]">
@@ -195,7 +195,7 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
                   Stripe&apos;s card processing applies on both plans: 2.9% + 30¢ for a US card on Stripe&apos;s standard pricing.
                   <SourceMarks ids={[STRIPE_PRICING_SOURCE.id]} numbers={numbers} />
                 </li>
-                <li>Pro&apos;s lower rate covers its price from about ${proBreakEvenDollars().toLocaleString("en-US")} of sales a month.</li>
+                <li>Grow&apos;s lower rate covers its price from about ${proBreakEvenDollars().toLocaleString("en-US")} of sales a month.</li>
                 <li>
                   <Link href="/pricing" className="font-medium text-[#1a1a2e] underline underline-offset-2">Storelib pricing</Link>
                   {" · "}

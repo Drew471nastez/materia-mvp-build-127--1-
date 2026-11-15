@@ -5,16 +5,15 @@ import { StoryHeading } from "./story-heading"
 import Link from "next/link"
 import { AnimateOnScroll } from "./animate-on-scroll"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
-import { publicPlanLines } from "./pricing-lines"
 import { PLAN_FOOTNOTE, PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
 
-/** The paid plans a checkout can be started for: Pro (`growth`) and Scale (`pro`). */
+/** The paid plans a checkout can be started for: Grow (`growth`, $29) and Pro (`pro`, $99). */
 export type PaidCheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID | typeof SCALE_CHECKOUT_PLAN_ID
 
 /**
- * Free, Pro and Scale. Pro is the internal plan id `growth` and Scale the
+ * Free, Grow and Pro. Grow is the internal plan id `growth` and Pro the
  * internal id `pro` (see lib/billing/plans.ts), so every callback here
- * receives "growth" when Pro is chosen and SCALE_CHECKOUT_PLAN_ID for Scale.
+ * receives "growth" when Grow is chosen and SCALE_CHECKOUT_PLAN_ID for Pro.
  */
 export interface PricingOnboardingCallbacks {
   onPlanSelect: (planId: OfferedPlanId) => void
@@ -23,13 +22,10 @@ export interface PricingOnboardingCallbacks {
   ctaLabels: Record<OfferedPlanId, string>
 }
 
-/** The public cards' lines, worked out once from the plan tables. */
-const PUBLIC_LINES = publicPlanLines()
-
 const DEFAULT_CTA: Record<OfferedPlanId, string> = {
   free: "Start free",
-  [PRO_CHECKOUT_PLAN_ID]: "Get Pro",
-  [SCALE_CHECKOUT_PLAN_ID]: "Get Scale",
+  [PRO_CHECKOUT_PLAN_ID]: "Get Grow",
+  [SCALE_CHECKOUT_PLAN_ID]: "Get Pro",
 }
 
 export function PricingSection({
@@ -52,7 +48,7 @@ export function PricingSection({
   onboardingCallbacks?: PricingOnboardingCallbacks
   headingOverride?: string
   subtitleOverride?: string
-  /** When provided, the Pro and Scale buttons start Stripe checkout directly instead of linking to /signup */
+  /** When provided, the Grow and Pro buttons start Stripe checkout directly instead of linking to /signup */
   upgradeCallbacks?: {
     onPlanSelect: (planId: PaidCheckoutPlanId) => void
     loadingPlan: PaidCheckoutPlanId | null
@@ -121,7 +117,7 @@ export function PricingSection({
   /* Landing round 10, the owner (a MacBook Air at 100%, about 1440x800): on a laptop that short the home section pads 64px a side, not 96, so the heading and the three cards fit in one screen. */
   return (
     <section data-story-section={editorial ? "pricing" : undefined} className={editorial ? "bg-white py-20 sm:py-24 [@media(min-width:1024px)_and_(max-height:900px)]:!py-16" : "py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]"} id="pricing">
-      <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [&_[data-plan-cards]]:!max-w-none" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
+      <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [&_[data-plan-ground]]:!max-w-none" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
         <AnimateOnScroll variant="blur-in">
           {/*
             Landing round 8, the owner: "make the heading left aligned like all
@@ -149,13 +145,12 @@ export function PricingSection({
 
         <AnimateOnScroll variant="fade-up" delay={120}>
           {/*
-            LANDING ROUND, THE OWNER: plain lines a seller understands, not
-            limits ("what is 1 GB of file storage?"), and a quiet tick in
-            place of the purple check. Written from the plan tables in
-            ./pricing-lines, so nothing on a card is more than the plan gives.
-            The onboarding (compact, above) keeps the app's own lines.
+            PRICING ROUND 5, THE OWNER: the cards drawn like the reference
+            picture, on a grey ground, with the "Contact sales" bar under
+            them. The lines are the same on every surface
+            (./pricing-lines, five at most), so they are not handed in here.
           */}
-          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} pictureLoading={headingLevel === 1 ? "eager" : "lazy"} lines={PUBLIC_LINES} tick="ink" hideInterval={editorial} />
+          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} hideInterval={editorial} contactSales />
           {footnote}
         </AnimateOnScroll>
 

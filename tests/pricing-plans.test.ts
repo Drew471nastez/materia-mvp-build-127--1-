@@ -97,7 +97,8 @@ function main() {
   /* Changed on purpose (wave 13): the owner re-opened the $99 plan, id `pro`, sold as Scale. */
   check("the offered ids are free, growth and pro, in that order", JSON.stringify(OFFERED_PLAN_IDS) === '["free","growth","pro"]', JSON.stringify(OFFERED_PLAN_IDS))
   check("the cards are drawn from those same three", OFFERED_PLANS.map((p) => p.id).join() === OFFERED_PLAN_IDS.join())
-  check("named Free, Pro and Scale", OFFERED_PLANS.map((p) => p.name).join() === "Free,Pro,Scale", OFFERED_PLANS.map((p) => p.name).join())
+  /* Changed on purpose (pricing round 5): the $29 plan is named Grow and the $99 plan Pro; the ids are unchanged. */
+  check("named Free, Grow and Pro", OFFERED_PLANS.map((p) => p.name).join() === "Free,Grow,Pro", OFFERED_PLANS.map((p) => p.name).join())
   check("priced $0, $29 and $99", OFFERED_PLANS.map((p) => p.price).join() === "$0,$29,$99", OFFERED_PLANS.map((p) => p.price).join())
   check("Scale checks out as the existing pro plan, at the $99 the Stripe price charges", SCALE_CHECKOUT_PLAN_ID === "pro" && SCALE_PRICE_CENTS === 9900 && OFFERED_PLANS[2].period === "/month")
   check("Pro is $29 a month, not $29.90", PRO_PRICE_CENTS === 2900 && formatPlanPrice(PRO_PRICE_CENTS) === "$29")
@@ -252,17 +253,22 @@ function main() {
      The one gradient allowed is the fade laid over the bottom of the picture, which the owner asked for. */
   const gradientLines = cards.split("\n").filter((l) => /bg-gradient|linear-gradient/.test(l))
   /* Added (wave 13): the owner asked for the checks simpler and lighter: thin, not bold, not in filled circles. */
-  check("the plan checks are thin lines, not filled circles", /<Check className=\{`mt-\[2px\] h-4 w-4 shrink-0 \$\{look\.dot\}`\} strokeWidth=\{1\.75\}/.test(cards) && !/rounded-full \$\{look\.dot\}/.test(cards) && !/strokeWidth=\{3\.25\}/.test(cards))
+  /* Changed on purpose (pricing round 5): each line has a small thin line icon, as in the owner's reference. */
+  check("the plan lines carry thin line icons, not filled circles", /strokeWidth=\{1\.5\} aria-hidden="true" \/>/.test(cards) && !/rounded-full \$\{look/.test(cards) && !/strokeWidth=\{3\.25\}/.test(cards))
   check("no glow or floated badge on the cards", !/radial-gradient|glow|btn-shine|absolute -top-3/.test(cards))
-  check("the only gradients are the fade over the bottom of the picture", gradientLines.length > 0 && gradientLines.every((l) => /absolute inset-x-0 bottom-0 -z-10/.test(l)))
+  /* Changed on purpose (pricing round 5): the cards have no cover picture, so no gradient at all. */
+  check("no gradients on the cards", gradientLines.length === 0, gradientLines.join(" | "))
   /* Safari draws a backdrop blur but not the mask that fades it, so a blurred band ended in a hard edge across the picture. */
   check("no backdrop blur over the pictures", !/backdrop-blur/.test(cards))
   /* Grain in overlay all but vanished over the dark pictures, and a blended layer is one a phone composites against the picture under every animation. */
-  check("a film grain over each picture, drawn as a tile, not fetched, and not blended", /data-plan-grain/.test(cards) && /feTurbulence/.test(cards) && /backgroundImage: PLAN_GRAIN/.test(cards) && !/mix-blend/.test(cards))
+  /* Changed on purpose (pricing round 5): no cover picture, so no grain over one. */
+  check("no film grain and nothing blended", !/feTurbulence|data-plan-grain/.test(cards) && !/mix-blend/.test(cards))
   check("monthly and yearly are both laid out, so switching never resizes a card", /<TextSwap value=\{interval\} items=\{\{ monthly: monthly\.price, yearly: yearly\.price \}\} \/>/.test(cards) && !/key=\{priced\.price\}/.test(cards))
-  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{sizes\}/.test(cards) && /sizes=\{PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 1180px\) 390px, \(min-width: 768px\) 33vw, calc\(100vw - 32px\)"/.test(cards))
+  /* Changed on purpose (pricing round 5): no header pictures; the top of a card is a soft grey panel. */
+  check("no header pictures to fetch: a grey panel instead", !/next\/image/.test(cards) && /data-plan-panel=""/.test(cards))
   /* Storelib's own address for the pictures (lib/storage/media-url.ts), a host next.config lets the optimizer fetch under /media/. */
-  check("both pictures are on the host next.config lets the optimizer fetch", (cards.match(/https:\/\/storelib\.com\/media\//g) ?? []).length === 1 && !/supabase\.co/.test(cards) && /hostname: process\.env\.NEXT_PUBLIC_MAIN_DOMAIN \|\| 'storelib\.com',\s*pathname: '\/media\/\*\*'/.test(readSource("next.config.mjs")))
+  /* Changed on purpose (pricing round 5): no pictures, so nothing for the optimizer to fetch. */
+  check("no picture hosts on the cards", (cards.match(/https:\/\/storelib\.com\/media\//g) ?? []).length === 0 && !/supabase\.co/.test(cards))
   check("the billing tab no longer upsells from Pro to the $99 plan", !/nextUpgradePlan/.test(readCode("components/app/billing/billing-page-client.tsx")))
 
   console.log("\nChoosing Pro checks out as growth")
@@ -274,7 +280,8 @@ function main() {
   check("/pricing posts the plan it was handed as planId", /body: JSON\.stringify\(\{\s*planId,/.test(client))
   /* Changed on purpose (wave 13): /pricing checks out Scale too, typed to the two paid ids through their constants. */
   check("and is typed to the two paid ids, named by their constants", /type CheckoutPlanId = PaidCheckoutPlanId/.test(client) && /export type PaidCheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID \| typeof SCALE_CHECKOUT_PLAN_ID/.test(section) && !/["']pro["']/.test(client))
-  check("the pricing section starts Scale's checkout with SCALE_CHECKOUT_PLAN_ID", /onPlanSelect\(SCALE_CHECKOUT_PLAN_ID\)/.test(section) && /\[SCALE_CHECKOUT_PLAN_ID\]: "Get Scale"/.test(section))
+  /* Changed on purpose (pricing round 5): the $99 plan's button reads Get Pro. */
+  check("the pricing section starts Pro's checkout with SCALE_CHECKOUT_PLAN_ID", /onPlanSelect\(SCALE_CHECKOUT_PLAN_ID\)/.test(section) && /\[SCALE_CHECKOUT_PLAN_ID\]: "Get Pro"/.test(section))
   const upgrade = readCode("components/app/billing/upgrade-page-client.tsx")
   /* Changed on purpose (wave 13): the upgrade page offers Scale (id pro) as well. */
   check("the upgrade page offers free, growth and pro", /actionFor\("free"\)/.test(upgrade) && /actionFor\("growth"\)/.test(upgrade) && /actionFor\("pro"\)/.test(upgrade))
@@ -282,7 +289,8 @@ function main() {
   check("and posts that id to checkout", /body: JSON\.stringify\(\{\s*planId,/.test(upgrade))
   const onboarding = readCode("components/app/creator-onboarding-modal.tsx")
   /* Changed on purpose (wave 13): onboarding offers Scale too. */
-  check("onboarding labels Free, Pro and Scale", /growth: "Get Pro"/.test(onboarding) && /pro: "Get Scale"/.test(onboarding))
+  /* Changed on purpose (pricing round 5): Grow and Pro. */
+  check("onboarding labels Free, Grow and Pro", /growth: (tt\()?"Get Grow"/.test(onboarding) && /pro: (tt\()?"Get Pro"/.test(onboarding))
 
   console.log("\nThe $99 plan, sold again as Scale, still works for the people already on it")
 
@@ -308,17 +316,21 @@ function main() {
   }
   check("its site limits are untouched", siteLimits("pro").customCode === true && siteLimits("pro").maxSites === 10)
   /* Changed on purpose (wave 13): the $99 plan is named Scale everywhere, its existing subscribers included. */
-  check("its name on billing screens is Scale", planDisplayName("pro") === "Scale" && planDisplayName("professional") === "Scale")
+  /* Changed on purpose (pricing round 5): the $99 plan is named Pro. */
+  check("its name on billing screens is Pro", planDisplayName("pro") === "Pro" && planDisplayName("professional") === "Pro")
   {
     const scale = OFFERED_PLANS[2]
     const sl = siteLimits("pro")
-    check("the Scale card starts with Everything in Pro, then its own fee from the fee table", scale.features[0] === "Everything in Pro" && scale.features[1] === getFeeDescription("pro"), scale.features.join(" | "))
+    /* Changed on purpose (pricing round 5): it adds to Grow. */
+    check("the Pro card (id pro) starts with Everything in Grow, then its own fee from the fee table", scale.features[0] === "Everything in Grow" && scale.features[1] === getFeeDescription("pro"), scale.features.join(" | "))
     check("the Scale card's websites, storage and AI lines come from its tables", scale.features.includes(`${sl.maxSites} websites, ${sl.maxPages} pages each`) && scale.features.includes(`${formatBytes(PLAN_LIMITS.pro.storageQuotaBytes)} of file storage`) && scale.features.includes(`${sl.aiEditsPerMonth} AI edits a month`))
     check("the Scale card claims nothing the code does not enforce (no custom code, Shopify, API or priority lines)", !scale.features.some((l) => /custom code|shopify|api access|priority|white.?label/i.test(l)))
     check("Scale has no yearly price, so yearly shows its monthly price and says yearly opens soon", pricedFor(scale, "yearly").price === "$99" && /opens soon/.test(pricedFor(scale, "yearly").note))
-    check("the admin plan picker names it Scale", /\{ id: "pro", label: "Scale, \$99" \}/.test(readCode("lib/billing/plan-override.ts")))
+    /* Changed on purpose (pricing round 5): Pro, $99. */
+    check("the admin plan picker names it Pro", /\{ id: "pro", label: "Pro, \$99" \}/.test(readCode("lib/billing/plan-override.ts")))
   }
-  check("growth is also named Pro", planDisplayName("growth") === "Pro" && withPlanLabel({ id: "growth", name: "Growth" })!.name === "Pro")
+  /* Changed on purpose (pricing round 5): growth is named Grow. */
+  check("growth is named Grow", planDisplayName("growth") === "Grow" && withPlanLabel({ id: "growth", name: "Growth" })!.name === "Grow")
   /* Changed on purpose: the card's fee line is the plan's own rate, read from
      the fee table, and only "per sale" (the under $4 tier is in the terms). */
   const proRate = getFeeDescription("pro")
@@ -378,10 +390,12 @@ function main() {
     check("inside Settings the tab adds no second column, gutter or clip of its own", /<div className=\{embedded \? "" : "max-w-4xl mx-auto/.test(billing))
 
     /* Changed on purpose: beside the heading the pill wrapped flush left on a phone and the cards stretched the section's width. */
-    check("with a heading, the heading has its own row and the pill is centred over cards in the same 720px row",
-      /<div data-plan-heading-row="" className="mb-4">\{heading\}<\/div>/.test(cards) && (cards.match(/<div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">/g) ?? []).length === 2 && !/inSection \? "" :/.test(cards))
-    check("the small pill is 32px (26px options in 3px of padding) with 13px words, each option a 44px press",
-      /small \? "p-\[3px\]"/.test(cards) && /"h-\[26px\] gap-1\.5 px-3 after:absolute after:inset-x-0 after:-inset-y-\[9px\]/.test(cards) && /text-\[13px\] font-semibold/.test(cards))
+    /* Changed on purpose (pricing round 5): one pill row, drawn whether or not there is a heading; the cards sit on their grey ground. */
+    check("with a heading, the heading has its own row and the pill is centred over the cards",
+      /<div data-plan-heading-row="" className="mb-4">\{heading\}<\/div>/.test(cards) && (cards.match(/<div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">/g) ?? []).length === 1)
+    /* Changed on purpose (pricing round 5): one pill size, restyled to the cards (a white track, a grey thumb), each option 36px tall. */
+    check("the pill is one size, 36px options with 13.5px words",
+      /h-9 cursor-pointer/.test(cards) && /text-\[13\.5px\] font-medium/.test(cards))
     check("without one, the pill stays centred over the cards (upgrade page, landing page, onboarding)", /<div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">/.test(cards))
 
     /* The switch: nothing is remounted, nothing is laid out again, and only position and opacity move. */
@@ -397,8 +411,9 @@ function main() {
       rest crossfades, old and new on the same curve so they always add up to one line, with a short roll.
     */
     const swap = readCode("components/ui/text-swap.tsx")
+    /* Changed on purpose (pricing round 5): the price and its period swap; the description is the same either way. */
     check("every changing line on a card goes through the shared TextSwap, and plan-cards has no swap of its own",
-      /import \{ SWAP_EASE, SWAP_MS, TextSwap \} from "@\/components\/ui\/text-swap"/.test(cards) && !/function Morph\b/.test(cards) && (cards.match(/<TextSwap\b/g) ?? []).length === 4)
+      /import \{ SWAP_EASE, SWAP_MS, TextSwap \} from "@\/components\/ui\/text-swap"/.test(cards) && !/function Morph\b/.test(cards) && (cards.match(/<TextSwap\b/g) ?? []).length === 3)
     check("a line that is the same either way (Free) is drawn as plain text, with nothing to fade or move",
       /keys\.every\(\(k\) => items\[k\] === first\)\) return <>\{first\}<\/>/.test(swap))
     check("only the part that changes swaps: a shared start stays as plain text, never split inside a word",
@@ -412,11 +427,12 @@ function main() {
       /style=\{\{ transition: `color \$\{SWITCH_MS\}ms \$\{SWITCH_EASE\}` \}\}/.test(cards.slice(cards.indexOf("function IntervalSwitch"))))
     check("with reduced motion the lines, the words and the thumb do not animate",
       /motion-reduce:!transition-none motion-reduce:!translate-none/.test(swap) && /data-interval-thumb=""[\s\S]{0,400}motion-reduce:!transition-none/.test(cards)
-        && /z-\[1\] inline-flex cursor-pointer motion-reduce:!transition-none/.test(cards))
+        && /z-\[1\] inline-flex h-9 cursor-pointer motion-reduce:!transition-none/.test(cards))
 
     /* One source for the art. */
-    check("the pictures, their dimming and their grain are written in one place, PLAN_ART",
-      /export const PLAN_ART: Record<OfferedPlanId/.test(cards) && /const look = PLAN_ART\[plan\.id\]/.test(cards) && /style=\{\{ filter: look\.filter \}\}/.test(cards))
+    /* Changed on purpose (pricing round 5): no art on the cards any more; the only colour is the purple of the middle card's button. */
+    check("no pictures, dimming or grain on the cards",
+      !/PLAN_ART|filter: look\.filter/.test(cards) && /export const PLAN_PURPLE = "#7c3aed"/.test(cards))
     const elsewhere = ["components/app/billing/billing-page-client.tsx", "components/app/billing/upgrade-page-client.tsx", "components/marketing/pricing-section.tsx", "components/app/creator-onboarding-modal.tsx", "app/(storelib)/(marketing)/pricing/pricing-client.tsx"]
       .filter((f) => /ChatGPT%20Image%20Sep%2025|PLAN_GRAIN|feTurbulence/.test(readCode(f)))
     check("no other offer surface draws its own picture or grain", elsewhere.length === 0, elsewhere.join(", "))
@@ -424,8 +440,9 @@ function main() {
     const growth = /growth: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]
     // Changed on purpose (landing round 8): the owner asked for more contrast in the pictures; lifted and above 1.
     // Changed on purpose (landing round 9): the owner asked for the covers a step darker with a little more contrast.
-    check("Free's picture a step darker, its contrast above 1", free === "brightness(0.76) contrast(1.2)", free)
-    check("Pro's picture a step darker, its contrast above 1", growth === "brightness(0.52) contrast(1.24) saturate(1.05)", growth)
+    /* Changed on purpose (pricing round 5): no covers, so no picture filters. */
+    check("no cover filters left", free === undefined, free)
+    check("none on Grow either", growth === undefined, growth)
   }
 
   console.log("\nThe probe that measures the cards is on disk")

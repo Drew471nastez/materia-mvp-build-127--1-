@@ -535,7 +535,8 @@ async function metadataAndRoutes() {
   r = await put({ slug: "satori" })
   check("sending the address it has changes nothing and checks nothing", r.res.status === 200 && r.row.slug === "satori")
   r = await put({ settings: { verified_badge_enabled: true } }, "free")
-  check("the verified badge is refused on the free plan", r.res.status === 400 && /Pro/.test(r.body.error) && r.row.settings.verified_badge_enabled === undefined)
+  /* Changed on purpose (pricing round 5): the plan that has it is named Grow. */
+  check("the verified badge is refused on the free plan", r.res.status === 400 && /Grow/.test(r.body.error) && r.row.settings.verified_badge_enabled === undefined)
   r = await put({ settings: { show_branding: false } }, "free")
   check("so is hiding the Storelib badge", r.res.status === 400 && r.row.settings.show_branding === true)
   r = await put({ settings: { verified_badge_enabled: true, verified_badge_type: "verified_artist" } }, "growth")

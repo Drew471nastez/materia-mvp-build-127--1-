@@ -35,7 +35,7 @@ export const payhip: Competitor = {
   ],
   whenToStay: [
     { text: "You sell to buyers in the EU, the UK, the US or Canada and want the platform to deal with the tax. Payhip collects and pays it for you; on Storelib you set and file your own.", sources: ["payhip-tax", "payhip-eu-vat"], status: "verified" },
-    { text: `You want the smallest cut. Payhip Free takes 5% with no fixed part, where Storelib Free takes ${STORELIB.freeFee}. Payhip Plus at $29 takes 2%; Storelib Pro at ${STORELIB.proPrice} takes ${STORELIB.proFee}.`, sources: ["payhip-pricing"], status: "verified" },
+    { text: `You want the smallest cut. Payhip Free takes 5% with no fixed part, where Storelib Free takes ${STORELIB.freeFee}. Payhip Plus at $29 takes 2%; Storelib Grow at ${STORELIB.proPrice} takes ${STORELIB.proFee}.`, sources: ["payhip-pricing"], status: "verified" },
     { text: "You sell coaching sessions or software with license keys. Payhip does both; Storelib does neither.", sources: ["payhip-features"], status: "verified" },
   ],
   strengths: [
@@ -57,7 +57,7 @@ export const payhip: Competitor = {
   ],
   storelibLimits: [
     { text: "Storelib is not a merchant of record. You set the tax your store charges and you file it; Storelib does not collect or pay VAT or sales tax for you.", code: "lib/tax/rules.ts" },
-    { text: `Storelib's cut is higher at each level: ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Pro, against Payhip's 5% and 2%.`, code: "lib/payments/fees/defaults.ts" },
+    { text: `Storelib's cut is higher at each level: ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Grow, against Payhip's 5% and 2%.`, code: "lib/payments/fees/defaults.ts" },
     { text: "No license keys and no booking calendar for coaching calls.", code: "lib/products" },
     { text: "Payouts go through Stripe to banks in the US, UK, EEA, Canada and Switzerland only.", code: "lib/payments/stripe/payout-regions.ts" },
   ],
@@ -132,12 +132,12 @@ export const payhip: Competitor = {
   moving: {
     products: "Each Payhip product becomes a Storelib product with its price and files. Courses are rebuilt as modules and lessons. Coaching and license keys have no Storelib version.",
     customers: "Storelib has no customer or list import. Tell past buyers and subscribers about your new store from the email tool you use now.",
-    domain: "If your Payhip store used your own domain, connect the same domain to a Storelib website on Pro and update its DNS when you are ready to switch.",
+    domain: "If your Payhip store used your own domain, connect the same domain to a Storelib website on Grow and update its DNS when you are ready to switch.",
   },
   movingHelp: { products: ["/help/orders-and-payouts/fees"] },
   faqs: [
     { q: "Does Storelib handle VAT for me like Payhip does?", a: "No. Payhip collects and pays digital EU and UK VAT and US and Canadian sales tax for you. On Storelib you are the seller: you set the tax rates your store charges and you file them." },
-    { q: "Is Payhip cheaper than Storelib?", a: `On fees per sale, yes, at each level. Payhip Free takes 5% and Storelib Free ${STORELIB.freeFee}; Payhip Plus at $29 takes 2% and Storelib Pro at ${STORELIB.proPrice} takes ${STORELIB.proFee}. Card processing is on top on both.` },
+    { q: "Is Payhip cheaper than Storelib?", a: `On fees per sale, yes, at each level. Payhip Free takes 5% and Storelib Free ${STORELIB.freeFee}; Payhip Plus at $29 takes 2% and Storelib Grow at ${STORELIB.proPrice} takes ${STORELIB.proFee}. Card processing is on top on both.` },
     {
       q: "Can I sell a community on Storelib?",
       a: "Yes. A Storelib community has posts, chat, events and paid plans, monthly or yearly, beside your other products.",

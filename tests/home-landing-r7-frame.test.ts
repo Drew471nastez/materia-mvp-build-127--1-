@@ -79,7 +79,8 @@ console.log("\nIdeas, pricing, the questions and the app in the page's one width
   const pricing = read("components/marketing/pricing-section.tsx")
   // Changed on purpose (landing round 8): the heading is stated left aligned outright (no auto margins, full width, !text-left).
   // Changed on purpose (landing round 9): the home page has no Monthly and Yearly pill any more (the owner: chosen when paying), so nothing places one.
-  check("pricing: the shared box on the home page, cards edge to edge in it, the heading at the inset", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\] \[&_\[data-plan-cards\]\]:!max-w-none"/.test(pricing) && /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
+  /* Changed on purpose (pricing round 5): the cards sit on their own grey ground now, so the ground is what spans the box edge to edge. */
+  check("pricing: the shared box on the home page, cards edge to edge in it, the heading at the inset", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\] \[&_\[data-plan-ground\]\]:!max-w-none"/.test(pricing) && /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
   check("pricing: /pricing keeps its own centred column", /"max-w-\[1240px\] mx-auto px-4 sm:px-6"/.test(pricing))
   const faq = read("components/marketing/faq-section.tsx")
   // Changed on purpose (landing round 8): no grey box any more; the questions sit in the shared width, the heading at the inset.

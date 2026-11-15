@@ -222,7 +222,7 @@ export function UseCasePage({ u, flags }: { u: UseCase; flags: Flags }) {
         <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div>
             <h2 id="start-h" className="text-[22px] font-bold text-[#1a1a2e]">Start on Free</h2>
-            <p className="mt-1.5 text-[15px] text-[#4b5563]">No monthly fee and no card to sign up. Move to Pro when the lower fee pays for itself.</p>
+            <p className="mt-1.5 text-[15px] text-[#4b5563]">No monthly fee and no card to sign up. Move to Grow when the lower fee pays for itself.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <SignupCta slug={null} source={source} placement="bottom">Start free</SignupCta>

@@ -170,7 +170,7 @@ export const settingsRo: Record<string, string> = {
 
   // Domains tab
   "settings.upgradeForDomains": "Fă upgrade pentru domenii personalizate",
-  "settings.customDomainsPlans": "Domeniile personalizate sunt disponibile în planul Pro.",
+  "settings.customDomainsPlans": "Domeniile personalizate sunt disponibile în planul Grow.",
   "settings.upgrade": "Fă upgrade",
   "settings.connectOwnDomain": "Conectează-ți propriul domeniu",
   "settings.connectDomainDescA": "Conectează un domeniu personalizat la magazinul și OnePage-ul tău. Magazinul tău va fi la",
