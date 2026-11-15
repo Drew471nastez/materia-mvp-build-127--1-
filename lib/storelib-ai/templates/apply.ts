@@ -195,8 +195,14 @@ export async function applyTemplate(store: ProjectStore, template: SiteTemplate,
     const pageSeo = { ...((current.page_seo as Record<string, unknown>) ?? {}) }
     for (const p of template.pages) if (p.seo) pageSeo[p.key] = { title: p.seo.title.slice(0, 70), ...(p.seo.description ? { description: p.seo.description.slice(0, 160) } : {}) }
     const menus = { ...((current.menus as Record<string, unknown>) ?? {}), ...clone(template.menus) }
+    /* A bank template's own look (its colour schemes, type and buttons), under the tokens' keys; its colour schemes stay beside the tokens' own. */
+    const ownLook: Record<string, unknown> = template.themeSettings ? clone(template.themeSettings) : {}
+    const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
+    const schemes = isRecord(ownLook.color_schemes) && isRecord(mapped.settings.color_schemes) ? { color_schemes: { ...ownLook.color_schemes, ...mapped.settings.color_schemes } } : {}
     const patch: Record<string, unknown> = {
+      ...ownLook,
       ...mapped.settings,
+      ...schemes,
       menus,
       page_seo: pageSeo,
       [DESIGN_CONTRACT_SETTING]: { v: 1, direction: { primary: opts.choice?.primary.id ?? template.directionIds[0] ?? "", secondary: null }, ai: flatTokens(tokens) },

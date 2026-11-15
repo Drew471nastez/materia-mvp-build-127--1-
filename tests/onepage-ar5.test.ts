@@ -263,8 +263,9 @@ check("every links layout is used by three themes or more", ["grid", "cards", "c
 check("products as tiles and as rows, each in four themes or more", kinds((t) => t.product_layout === "grid") >= 4 && kinds((t) => t.product_layout === "rows") >= 4)
 check("a Hero theme names its Hero", THEME_TEMPLATES.filter((t) => (t.theme_config as T).header_layout === "hero").every((t) => (t as T).profile_layout === "hero"))
 check("a Hero the last theme set is taken back by a Classic theme", design.includes('(currentHeaderLayout !== "hero" || heroFromTheme)'))
-const folio = THEME_TEMPLATES.find((t) => t.id === "folio")!
-const own = { id: "p", theme: { ...folio.theme_config, template_id: "folio", cover_image_url: "https://cdn.example.com/mine.jpg" }, settings: {}, draft_blocks: [] }
+/* Changed on purpose (round 17): Folio is retired; Night is a theme with a cover too. */
+const folio = THEME_TEMPLATES.find((t) => t.id === "night")!
+const own = { id: "p", theme: { ...folio.theme_config, template_id: "night", cover_image_url: "https://cdn.example.com/mine.jpg" }, settings: {}, draft_blocks: [] }
 check("a cover the creator chose stays through a theme change", (lookFromTemplate(own as never, THEME_TEMPLATES.find((t) => t.id === "air") as never, undefined, folio as never).theme as T).cover_image_url === "https://cdn.example.com/mine.jpg")
 const onboarding = read("components/onepage/onboarding-modal.tsx")
 check("the onboarding lays a theme on as the Design tab does", /applyThemeLook\(template as never, hero \? "hero" : "classic"/.test(onboarding) && !/\.\.\.template\.theme_config,\n\s*template_id: template\.id,/.test(onboarding))

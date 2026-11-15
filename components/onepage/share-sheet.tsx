@@ -35,7 +35,7 @@
  *   THE BOUNCE         its buttons grew on hover; now only their tint changes.
  */
 import { useEffect, useState } from "react"
-import { Check, Link2, Loader2, X as Close } from "lucide-react"
+import { Check, Link2, X as Close } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -45,7 +45,6 @@ import { onePageImageSrc } from "@/lib/onepage/display-image"
 import { PosterVideo } from "./poster-video"
 import { OnePageDialog } from "./onepage-dialog"
 import { SocialIcon } from "./brand-icons"
-import { useStoryShare } from "./use-story-share"
 
 async function copyText(text: string) {
   try {
@@ -190,7 +189,6 @@ export function OnePageShareSheet({
   avatarUrl,
   avatarVideoUrl,
   band: bandInput = {},
-  storyFont = null,
 }: {
   open: boolean
   onClose: () => void
@@ -201,8 +199,6 @@ export function OnePageShareSheet({
   avatarVideoUrl?: string | null
   /** The page's colours, for the band (shareBandBackground). */
   band?: ShareBandInput
-  /** The page's typeface, for the story picture. */
-  storyFont?: string | null
 }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
@@ -219,14 +215,6 @@ export function OnePageShareSheet({
   const shown = pageUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
   const band = shareBandBackground(bandInput)
   const onBand = shareBandInk(band) === "light"
-  const story = useStoryShare({
-    open,
-    name: pageTitle,
-    address: shown,
-    avatarUrl,
-    ground: band,
-    fontFamily: storyFont,
-  })
 
   const targets = [
     {
@@ -243,12 +231,12 @@ export function OnePageShareSheet({
       go: () => openShareTarget(`twitter://post?message=${encodeURIComponent(shareText)}`, `https://x.com/intent/post?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`),
     },
     {
-      /* Round 3: Facebook gave way to an Instagram story of this page (lib/onepage/story-image, ./use-story-share). */
-      name: "Story",
-      label: "Share to Instagram Story",
-      color: "#FF0069",
-      icon: story.busy ? <Loader2 aria-hidden className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" /> : <SocialIcon platform="instagram" tone="brand" size={18} />,
-      go: story.share,
+      /* Round 17, the owner: no Instagram story option any more. Facebook is back in its place. */
+      name: "Facebook",
+      color: "#1877F2",
+      icon: <SocialIcon platform="facebook" tone="brand" size={18} />,
+      /* No custom scheme: the web address goes to the system so Facebook's own link can open the app (preferSystem). */
+      go: () => openShareTarget(null, `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`, true),
     },
     {
       name: "WhatsApp",
@@ -307,7 +295,6 @@ export function OnePageShareSheet({
             type="button"
             onClick={t.go}
             aria-live={t.live ? "polite" : undefined}
-            aria-label={"label" in t ? t.label : undefined}
             className="flex w-[76px] flex-col items-center gap-1.5 rounded-xl p-2 transition-colors duration-150 hover:bg-[color-mix(in_srgb,currentColor_8%,transparent)] active:bg-[color-mix(in_srgb,currentColor_12%,transparent)]"
             data-share-target={t.name}
           >
@@ -318,10 +305,6 @@ export function OnePageShareSheet({
           </button>
         ))}
       </div>
-      {/* After the picture is saved rather than shared: how the address gets onto it (one line). */}
-      <p aria-live="polite" className={story.saved ? "mt-2 text-center text-[12.5px] leading-[18px] text-[var(--sheet-muted)]" : "sr-only"} data-story-hint="">
-        {story.saved ? "Image saved and link copied. In your story, add a Link sticker and paste it." : ""}
-      </p>
 
       <div
         role="link"

@@ -52,7 +52,7 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperDrift, WallpaperEffectLayers, WallpaperNoise, WallpaperPattern, useHeaderClearance, usePictureEnds } from "@/components/onepage/wallpaper-layers"
+import { WallpaperDrift, WallpaperEffectLayers, WallpaperMotion, WallpaperNoise, WallpaperPattern, gradientMotionOf, useHeaderClearance, usePictureEnds } from "@/components/onepage/wallpaper-layers"
 import { pixelThroughLook, wallpaperMediaLook, withVeil } from "@/lib/onepage/wallpaper"
 import { wallpaperPhotoSrc } from "@/components/onepage/themes/wallpaper-photo"
 /* Round W9: a theme's skin, its material and the scene behind it (lib/onepage/theme-skin, app/onepage-skins.css). */
@@ -127,17 +127,29 @@ import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { openableUrl } from "@/lib/onepage/safe-urls"
 import { linkHref } from "@/lib/onepage/public-shape"
 
+/*
+  Round 63: ONE ANSWER ON THE SERVER AND IN THE BROWSER. The server put a space where a tag was and the browser
+  (DOMParser's textContent) put nothing, so a description with a line break ("Workbook<br>30 pages") was
+  "Workbook 30 pages" in the HTML and "Workbook30 pages" in the first render: React error 418 on the live page, and
+  the browser drew the block again. Now both read it the same way: a tag is a space, the entities a description
+  carries are read, every run of white space is one space.
+*/
+const NAMED_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "\u2019", lsquo: "\u2018", rdquo: "\u201d", ldquo: "\u201c", hellip: "\u2026", mdash: "\u2014", ndash: "\u2013", bull: "\u2022", middot: "\u00b7", copy: "\u00a9", reg: "\u00ae", trade: "\u2122", euro: "\u20ac", pound: "\u00a3" }
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
   const raw = value.trim()
   if (!raw) return ""
-  if (typeof window === "undefined") {
-    return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
-  }
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(raw, "text/html")
-  const text = doc.body.textContent || ""
-  return text.replace(/\s+/g, " ").trim()
+  return raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (m, name: string) => {
+      if (name[0] === "#") {
+        const code = name[1] === "x" || name[1] === "X" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10)
+        return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m
+      }
+      return NAMED_ENTITIES[name.toLowerCase()] ?? m
+    })
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 /**
@@ -1676,7 +1688,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={surroundLook} box={{ position: "fixed", inset: 0, zIndex: 0 }} />}
 
         {/* Round AL: the gradient drifting, one layer moved by the compositor (components/onepage/wallpaper-layers WallpaperDrift). */}
-        {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
+        {isAnimatedGradient && (gradientMotionOf(safeTheme as never) === "drift" ? <WallpaperDrift gradient={safeTheme.background_gradient} /> : <WallpaperMotion theme={safeTheme as never} />)}
         {/* Noise overlay for gradient backgrounds */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Noise overlay for image backgrounds */}
@@ -1744,7 +1756,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               />
             )}
             {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
-            {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} className="absolute inset-0 rounded-[40px]" />}
+            {isAnimatedGradient && (gradientMotionOf(safeTheme as never) === "drift" ? <WallpaperDrift gradient={safeTheme.background_gradient} className="absolute inset-0 rounded-[40px]" /> : <WallpaperMotion theme={safeTheme as never} className="absolute inset-0 rounded-[40px]" />)}
             {/* Noise overlay inside card */}
             {((safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise) || (safeTheme.background_type === "image" && (safeTheme as any).image_noise)) && (
               <WallpaperNoise strength={(safeTheme as any).noise_strength} className="absolute inset-0 rounded-[40px]" />
@@ -1837,7 +1849,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           )}
           {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
 
-          {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
+          {isAnimatedGradient && (gradientMotionOf(safeTheme as never) === "drift" ? <WallpaperDrift gradient={safeTheme.background_gradient} /> : <WallpaperMotion theme={safeTheme as never} />)}
           {/* Noise overlays for mobile */}
           {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
@@ -1961,7 +1973,13 @@ function VerifiedBadge({ isDesktop = false, badgeType, size: sizeOwn, tip = true
       {tip ? (
         <span
           className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
-          style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}
+          /*
+            Round 17, the owner: the tooltip took the name's own font (a display serif, a mono, capitals with wide
+            spacing), since it sits inside the name. It is a plain label: the app's text face, its own weight and
+            case, whatever the name is set in.
+          */
+          style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)", fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, sans-serif", fontWeight: 500, fontStyle: "normal", textTransform: "none", letterSpacing: "normal", lineHeight: 1.25, fontVariant: "normal" }}
+          data-verified-tip=""
         >
           {label}
         </span>

@@ -6,7 +6,8 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { BlockExtras, ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
+import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
+import { BlockExtras } from "@/components/onepage/extra-blocks-editor"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
 
 const theme = {

@@ -290,7 +290,7 @@ export async function requireCreatorCommunity(communityId: string, action: Commu
     before it writes (tiers, settings, the page, the gallery, a deletion), so the community's held public reads are
     expired once the request has answered (./public-cache.ts), and the next visitor reads what was saved.
   */
-  communityPublicChangedAfter(community.id, community.creator_id)
+  communityPublicChangedAfter(community.id, community.creator_id, community.slug)
   return { ok: true, ctx, community, viewer: ownsIt ? { ...viewer, role: "owner", active: true } : viewer, role }
 }
 
@@ -309,6 +309,6 @@ export async function teamCommunityGate(ctx: CreatorContext, db: Parameters<type
   if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
   const viewer: Viewer = { ...NOBODY, userId: identity, role, active: true, status: "active", perms }
   /* A team member's write clears the public page as the owner's does (requireCreatorCommunity). */
-  communityPublicChangedAfter(community.id, community.creator_id)
+  communityPublicChangedAfter(community.id, community.creator_id, community.slug)
   return { ok: true, ctx: { ...ctx, userId: identity, admin: teamAuditDb(db, ctx.userId) }, community, viewer, role }
 }

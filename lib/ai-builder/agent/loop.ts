@@ -233,6 +233,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       const brief = cp.brief
       const choice = direction?.choice ?? null
       const chosen = await Promise.resolve(lib.choose(brief, choice)).catch(() => null)
+      let poured: typeof chosen = null
       if (chosen) {
         const applied = await lib.apply(deps.store, chosen, brief, { jobId: job.jobId, choice }).catch(() => ({ ok: false, files: [] as string[], pages: [] as string[] }))
         if (applied.ok) {
@@ -241,9 +242,13 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
           for (const key of applied.pages) cp.pagesTouched = addUnique(cp.pagesTouched, key)
           ;[pagesNow, filesNow] = await Promise.all([deps.store.listPages(), deps.store.listFiles()])
           templateText = templateBlock(chosen, applied, fewShotExamples(chosen))
+          poured = chosen
           emit({ kind: "note", text: `Starting from the ${chosen.name} template, to be made your own.` })
         }
       }
+      /* Round AZ: worked examples from the owner's library (the AI source bank), with or without a template poured in. */
+      const patterns = lib.patterns ? await lib.patterns(brief, poured).catch(() => "") : ""
+      if (patterns) templateText = [templateText, patterns].filter(Boolean).join("\n\n")
     }
         /* Round P (P1): which picture service this environment has, plainly; none means a text-forward design, never a grey box. */
     const pictures = await (deps.images?.available() ?? Promise.resolve({ generate: null, stock: false })).catch(() => ({ generate: null, stock: false }))

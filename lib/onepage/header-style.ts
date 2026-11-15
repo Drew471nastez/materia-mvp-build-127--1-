@@ -6,7 +6,8 @@
  * public-onepage, one component for both) and set in the Design tab
  * (components/onepage/tabs/design-tab). Pure: no DOM, no React.
  *
- *   avatar_size          "small" | "medium" (missing) | "large"
+ *   avatar_size          "small" | "large"; "medium" (missing) is drawn as Small
+ *                        (round 17: two sizes, see AVATAR_PX)
  *   avatar_shape         "circle" (missing) | "rounded" | "square"
  *   avatar_radius        the rounded square's corner, in px (missing: 24)
  *   avatar_border_width  px, 0 for none (missing: AVATAR_BORDER_DEFAULT)
@@ -46,11 +47,16 @@ export const AVATAR_BORDER_MAX = 8
 export const AVATAR_RADIUS_DEFAULT = 24
 export const AVATAR_RADIUS_MAX = 56
 
-/* The picture's side on a phone and on a computer. Medium is what every page drew. */
+/*
+  The picture's side on a phone and on a computer. Round 17, the owner: "make the Medium being Small, and Large 5% larger
+  than Large, and keep only Small and Large". Small is what every page drew by default (the old Medium, 114 and 121), so a
+  page that never chose a size does not move; a page saved on the old Small (88) is drawn at it too. Large is the old Large
+  and 5% more (140 to 147, 148 to 155). "medium" stays a value a page may hold and is drawn as Small.
+*/
 const AVATAR_PX: Record<AvatarSize, [phone: number, desktop: number]> = {
-  small: [88, 94],
+  small: [114, 121],
   medium: [114, 121],
-  large: [140, 148],
+  large: [147, 155],
 }
 
 export const TITLE_WEIGHTS = [400, 500, 600, 700, 800] as const

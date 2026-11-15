@@ -71,7 +71,7 @@ console.log("SHEET")
   const live = read("components/onepage/public-onepage.tsx")
   check("drawn once around the public page (the preview frame draws the same component)", (live.match(/<BlockSheetProvider\b/g) ?? []).length === 1 && /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx")))
   check("Calendly's own pop-ups are gone; it opens the sheet", !/showCalendlyModal/.test(live) && /blockSheet\.open\(\{/.test(live))
-  const extra = read("components/onepage/extra-blocks.tsx")
+  const extra = (read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx"))
   check("the Interaction choice sits in every embedding block's settings", /offersInteraction\(block\.type\) \? <InteractionChoice/.test(extra) && /<ModeChoice/.test(extra))
   check("Calendly's two switches gave way to it", !/Go Directly To Link/.test(read("components/onepage/tabs/links-tab.tsx")))
 }

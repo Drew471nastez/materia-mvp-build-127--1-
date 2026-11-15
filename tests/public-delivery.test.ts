@@ -315,7 +315,7 @@ async function communityPages() {
   section("Wiring")
   const gate = readCode("lib/communities/server/context.ts")
   const gateEnd = gate.slice(gate.indexOf("export async function requireCreatorCommunity"))
-  check("every gated staff request clears the community's public page once it has answered", /communityPublicChangedAfter\(community\.id, community\.creator_id\)\s*return \{ ok: true, ctx, community/.test(gateEnd) && (gate.match(/communityPublicChangedAfter\(community\.id, community\.creator_id\)/g) ?? []).length === 2)
+  check("every gated staff request clears the community's public page once it has answered", /communityPublicChangedAfter\(community\.id, community\.creator_id, community\.slug\)\s*return \{ ok: true, ctx, community/.test(gateEnd) && (gate.match(/communityPublicChangedAfter\(community\.id, community\.creator_id, community\.slug\)/g) ?? []).length === 2)
   const cache = readCode("lib/communities/server/public-cache.ts")
   check("  expired at once, never stale: { expire: 0 }", /revalidateTag\(communityPublicTag\(communityId\), \{ expire: 0 \}\)/.test(cache))
   check("  held a minute at most", /COMMUNITY_PUBLIC_HOLD_SECONDS = 60/.test(cache) && /revalidate: COMMUNITY_PUBLIC_HOLD_SECONDS/.test(cache))
@@ -368,7 +368,7 @@ async function creatorPage() {
   section("A creator's community cards are held, and cleared with the community")
   const lib = readCode("lib/communities/server/public.ts")
   check("the cards on a creator's page are held under the creator's and the cards' tags", /\["community-cards", "v1", creatorId\], \[communityCardsTag\(creatorId\), \.\.\.communityCreatorTags\(creatorId\)\]/.test(lib))
-  check("  a Storelib suspension or hiding clears the community and its card", /communityPublicChanged\(communityId, \(row as \{ creator_id\?: string \| null \}\)\.creator_id \?\? null\)/.test(readCode("lib/communities/server/admin.ts")))
+  check("  a Storelib suspension or hiding clears the community and its card", /communityPublicChanged\(communityId, \(row as \{ creator_id\?: string \| null \}\)\.creator_id \?\? null, \(row as \{ slug\?: string \| null \}\)\.slug \?\? null\)/.test(readCode("lib/communities/server/admin.ts")))
 
   section("A OnePage click is one request's worth of work (app/api/onepage/track)")
   const track = readCode("app/api/onepage/track/route.ts")

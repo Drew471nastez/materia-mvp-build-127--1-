@@ -127,7 +127,7 @@ section("Share: the card from before, with the creator's photo")
   check("a bottom sheet on a phone and the centred card from 640px, with no surface of its own behind the band", /<OnePageDialog [^>]*\bbare phoneTop=\{shareBandTop\(band\)\} header=\{header\}>/.test(share) && !/\bcentered\b/.test(share.slice(share.indexOf("<OnePageDialog"))))
   check("the creator's photo, or their video, large in the band", /<AppAvatar waitForPhoto src=\{onePageImageSrc\(avatarUrl, 160\)\}/.test(share) && /<PosterVideo src=\{avatarVideoUrl\}/.test(share))
   /* Changed on purpose (round 3, social): Facebook gave way to Share to Instagram Story (tests/onepage-social-r3). */
-  check("the four places and the Storelib card, as before", ["Copy link", '"X"', '"Story"', '"WhatsApp"', "Create your own page", "Build your store with Storelib", ">Join<"].every((w) => share.includes(w)))
+  check("the four places and the Storelib card, as before", /* Changed on purpose (round 17): no Instagram story; Facebook is back. */ ["Copy link", '"X"', '"Facebook"', '"WhatsApp"', "Create your own page", "Build your store with Storelib", ">Join<"].every((w) => share.includes(w)))
   check("a share never leaves the editor's preview", (share.match(/isOnePagePreview\(\)/g) ?? []).length >= 2)
   check("its buttons do not grow on hover", !/hover:scale/.test(share))
   const page = code("components/onepage/public-onepage.tsx")

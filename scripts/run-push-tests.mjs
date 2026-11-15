@@ -558,6 +558,10 @@ const SUITES = [
   "tests/home-landing-creators.test.ts",
   /* Round 60: the showcase rail's motion as numbers: drag, flick, settle, wheel, loop, any frame rate. */
   "tests/rail-motion.test.ts",
+  /* Round 63: a stranger's community page and About held by the CDN under the community's tag, marked by the proxy, cleared by every staff write and take down (lib/communities/stranger-page). */
+  "tests/community-stranger-cache.test.ts",
+  /* Round 63: a visitor's OnePage downloads what it draws: the blocks' editors are their own files, the checkout window and the platform header are fetched where used, and the description is one plain text on the server and in the browser (no React 418). */
+  "tests/onepage-delivery-r63.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",
@@ -1399,6 +1403,8 @@ const SUITES = [
   "tests/own-panel-layer.test.ts",
   /* An inline native form takes the colours of the section it stands in (lib/website-builder/form-islands.ts formSurfaceVars): a booking form on a dark band read 1.1:1, every text now 4.5:1 or better on dark, light and coloured bands; a section naming its own --sheet-ink is left alone. Real Chromium. */
   "tests/form-surface.test.ts",
+  /* Round AZ: the AI source bank (lib/storelib-ai/bank, /admin/ai-bank, part 467). A real Storelib Default store snapshotted with nothing of its account left (pictures, product and collection ids, contact details, outside links, brand settings), its look and code kept; fitted to the business (no shop for a coach who does not sell); a store brief starts from it, a coach brief does not; applied and resumed through the agent's own store; an imported theme shown as worked examples, never poured in. */
+  "tests/ai-template-bank.test.ts",
   /* Round O (O4): the rendered visual critic (lib/ai-builder/visual-critic). The draft drawn from the job's own project with no script in it (stripped, CSP), photographed in REAL Chromium at 1440 and 390 with JavaScript disabled (proven: a page script that would hide its overflow never runs) and a fenced network; measured (sideways scroll at 390, a dead call to action in the first screen and unreadable contrast are hard gates; heading wrap, tap targets, broken or missing pictures, no CTA, instructions to the creator printed in the page); a scripted vision model reviews 4 pictures per page on spec 8.2's seven axes with a bounded JSON repair retry; in the agent loop the defects come back as numbered repair tasks naming the file, two reviews at most, the review's spend in the job's spend, a gate that stays ends partial, and no browser is "Not visually checked", never a pass. Without Chromium the browser sections say so and skip. */
   "tests/ai-visual-critic-o4.test.ts",
   /* Round P (P5): the website agent's own quality. A placement with no blocks gets its schema's filled preset items (fresh ids); a section whose item types have no filled preset is refused at write; finish refuses too few items (min_blocks, 3 for a repeating list, fewer when the store has fewer), placeholder items and copies; template first with a scripted model and a stub template (applied in the brief phase, its components as few-shot, untouched copy and imagery refused, adapting clears it); every picture slot filled when pictures can be made, text-forward otherwise, an empty frame refused; the critic's hard gates for empty slots, empty item lists, empty sections and an empty <img>; models by phase (plan, build on opus high, repair on sonnet) and the cost estimate inside the raised cap. */

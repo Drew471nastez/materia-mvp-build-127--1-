@@ -200,7 +200,7 @@ async function main() {
     check("  the domain row is the store's, from the page", /useJson<DomainsAnswer>\(team \? null : "\/api\/domains"\)/.test(read("components/onepage/settings-integrations.tsx")))
     const preview = read("components/onepage/live-preview.tsx")
     check("the preview's owner name and photo come with the page for a member, never from their browser or their own photo", /if \(!ownerId \|\| team\) return/.test(preview) && /team \? \{ displayName: team\.ownerName \?\? null, avatarUrl: team\.ownerAvatar \?\? null \}/.test(preview) && /admin\.from\("profiles"\)\.select\("display_name, avatar_url"\)\.eq\("id", ownerUserId\)/.test(read("app/(storelib)/app/onepage/page.tsx")))
-    check("the free products a lead magnet lists are the store's", /const teamStore = teamStoreForProducts\(\)/.test(read("components/onepage/storelib-blocks.tsx")))
+    check("the free products a lead magnet lists are the store's", /const teamStore = teamStoreForProducts\(\)/.test((read("components/onepage/storelib-blocks.tsx") + "\n" + read("components/onepage/storelib-blocks-editor.tsx"))))
   }
 
   console.log("\nRecord lines name the member")

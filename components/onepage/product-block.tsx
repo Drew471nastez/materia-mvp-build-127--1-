@@ -66,7 +66,20 @@ import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notic
 import { ProductSheet } from "./product-sheet"
 import { FramedPicture, readPictureShape } from "@/components/ui/framed-picture"
 import { CHECKOUT_HISTORY_KEY, HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer, type PurchaseStep } from "@/lib/onepage/purchase-flow"
-import { InstantCheckout, loadProductFacts } from "@/components/checkout/instant-checkout"
+import dynamic from "next/dynamic"
+import { loadProductFacts as readProductFacts } from "@/components/checkout/product-facts"
+/*
+  Round 63: THE CHECKOUT IS FETCHED, NOT SHIPPED. The checkout window and its words in every language were part of
+  every OnePage's first download, for every visitor, buyer or not. It is now its own file, asked for when the
+  block comes near the screen and the browser is idle (the same moment the product's facts are read, below),
+  so it is there before a tap without weighing on the page's first paint.
+*/
+const InstantCheckout = dynamic(() => import("@/components/checkout/instant-checkout").then((m) => m.InstantCheckout), { ssr: false })
+/* The facts are a small read (./product-facts); asking for them also starts the checkout window's file, so it is ready by the tap. */
+const loadProductFacts = (productId: string) => {
+  void import("@/components/checkout/instant-checkout").catch(() => undefined)
+  return readProductFacts(productId)
+}
 import { sheetPalette } from "@/lib/onepage/sheet-theme"
 
 /** The free product quick checkout made before round 10 (public-onepage's own window), kept for the blocks that use it. */

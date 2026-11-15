@@ -10008,11 +10008,19 @@ html[data-op-press] [data-op-letgo] {
    (scroll-padding), and has room above and below for a shadow: a card is cut
    only by the screen or the card's own rounded edge. Inside a half width
    block or a pair, where the edge is a neighbour, it keeps a few px. */
+/*
+  Round 17, the owner: "why do some blocks that don't need vertical scrolling scroll". A box that scrolls sideways
+  (overflow-x: auto) has its other direction computed to auto as well, so a rail whose cards stood a few px taller
+  than its room (a shadow, a hover lift, a hard shadow's offset) became a scroller up and down too, and caught the
+  page's own scroll under a finger or a wheel. A rail scrolls sideways only; what does not fit above and below is
+  cut where it was already cut (an auto box clips there too), and the page's scroll passes through.
+*/
 .op-rail {
   width: auto;
   margin-inline: calc(-1 * var(--op-gutter, 4px));
   padding-inline: var(--op-gutter, 4px);
   scroll-padding-inline: var(--op-gutter, 4px);
+  overflow-y: hidden;
   margin-block: -10px;
   padding-block: 10px;
 }
@@ -10036,23 +10044,49 @@ html[data-op-press] [data-op-letgo] {
    at its foot, so the content slides under it without a line. Its height is
    read by the bar's own row (--op-bar-h); lib/onepage/feel names the same
    numbers (BAR_PHONE_PX, BAR_DESKTOP_PX, BAR_MORPH_PX, CARD_RADIUS_PX). */
+/*
+  Round 17, the owner: "I still don't like the way the header is there ... look how bad it looks on desktop". It was a
+  solid band of the page's colour with a fade hung under it, so on a computer the content stopped at a hard strip.
+  It is frosted now: the page's colour at 82% over a blur of what slides under it, and its own foot fades out (a mask,
+  not a second layer), so there is no edge anywhere, on a phone or a computer. The words keep the page's title colour,
+  and 82% of the page's own colour over a blurred picture still reads as that colour.
+*/
 .op-topbar {
   --op-bar-h: 60px;
   --op-bar-foot: calc(env(safe-area-inset-top, 0px) + var(--op-bar-h));
+  background-color: color-mix(in srgb, var(--op-bar-bg, #ffffff) 82%, transparent) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
 }
+/* Its foot: the same frosted colour carried on 16px and faded out, so the content slides under it with no line. */
 .op-topbar::after {
   content: "";
   position: absolute;
   inset-inline: 0;
   top: 100%;
-  height: 14px;
+  height: 16px;
   pointer-events: none;
-  background: linear-gradient(to bottom, var(--op-bar-bg, transparent), color-mix(in srgb, var(--op-bar-bg, transparent) 55%, transparent) 40%, transparent);
+  background-color: color-mix(in srgb, var(--op-bar-bg, #ffffff) 82%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
 }
 @media (min-width: 48rem) {
   .op-topbar {
     --op-bar-h: 56px;
     --op-bar-foot: var(--op-bar-h);
+    /* On a computer the card is wide and the page's colour is often not the card's (a gradient, a glow): a lighter
+       tint and a longer fade, so the bar reads as the card frosted, not a strip laid on it. */
+    background-color: color-mix(in srgb, var(--op-bar-bg, #ffffff) 58%, transparent) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    backdrop-filter: blur(22px) saturate(1.5);
+  }
+  .op-topbar::after {
+    height: 28px;
+    background-color: color-mix(in srgb, var(--op-bar-bg, #ffffff) 58%, transparent);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    backdrop-filter: blur(22px) saturate(1.5);
   }
 }
 /* Where no stylesheet draws it, the script writes it a frame at a time: a short ease covers the step. */

@@ -26,7 +26,6 @@ const NAMES: Record<string, () => string> = {
   astrid: () => ttx("theme", "Astrid"),
   night: () => ttx("theme", "Night"),
   graphite: () => ttx("theme", "Graphite"),
-  midnight: () => ttx("theme", "Midnight"),
   space: () => ttx("theme", "Space"),
   neon: () => ttx("theme", "Neon"),
   blueprint: () => ttx("theme", "Blueprint"),
@@ -39,7 +38,6 @@ const NAMES: Record<string, () => string> = {
   ember: () => ttx("theme", "Ember"),
   lagoon: () => ttx("theme", "Lagoon"),
   atlas: () => ttx("theme", "Atlas"),
-  folio: () => ttx("theme", "Folio"),
   ledger: () => ttx("theme", "Ledger"),
   cobalt: () => ttx("theme", "Cobalt"),
   notebook: () => ttx("theme", "Notebook"),
@@ -51,7 +49,6 @@ const NAMES: Record<string, () => string> = {
   messenger: () => ttx("theme", "Messenger"),
   y2k: () => ttx("theme", "Y2K"),
   playful: () => ttx("theme", "Playful"),
-  grunge: () => ttx("theme", "Grunge"),
   /* Round W10 (components/onepage/themes/r40-themes W10_THEMES). */
   aero2: () => ttx("theme", "Aero Aquarium"),
   aqua2: () => ttx("theme", "Aqua Graphite"),
@@ -86,6 +83,15 @@ const NAMES: Record<string, () => string> = {
   umber: () => ttx("theme", "Umber"),
   dusk: () => ttx("theme", "Dusk"),
   onair: () => ttx("theme", "On Air"),
+  /* Round 17: three patterns, a classical stone, a photocopy, three photographs. */
+  ripple: () => ttx("theme", "Ripple"),
+  solstice: () => ttx("theme", "Solstice"),
+  ribbon: () => ttx("theme", "Ribbon"),
+  doric: () => ttx("theme", "Doric"),
+  xerox: () => ttx("theme", "Xerox"),
+  mesa: () => ttx("theme", "Mesa"),
+  cosmos: () => ttx("theme", "Cosmos"),
+  shore: () => ttx("theme", "Shore"),
 }
 
 /** A theme's name in the reader's language. */

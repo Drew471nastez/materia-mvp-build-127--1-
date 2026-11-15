@@ -62,7 +62,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Minus, Pause, Pla
 import { cn } from "@/lib/utils"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
-import { loadProductFacts, type ProductFacts } from "@/components/checkout/instant-checkout"
+import { loadProductFacts, type ProductFacts } from "@/components/checkout/product-facts"
 import { productCheckoutUrl, sheetBuyBlocker, sheetButtonLabel, sheetMaxQuantity } from "@/lib/onepage/product-block"
 import { onePageShippedCheckoutHref } from "@/lib/onepage/shipped-checkout"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
@@ -881,7 +881,7 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
           A video's thumbnail is its still, filled, with a small play mark in its corner; without a still, the sheet's
           raised tone with the mark in the middle, never a grey box or a cut-off screenshot of words.
         */
-        <div ref={thumbs} className="-m-1 mt-1.5 flex gap-2 overflow-x-auto p-1 overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-sheet-no-drag="" data-product-sheet-thumbs="">
+        <div ref={thumbs} className="-m-1 mt-1.5 flex gap-2 overflow-x-auto overflow-y-hidden p-1 overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-sheet-no-drag="" data-product-sheet-thumbs="">
           {media.map((m, i) => {
             const still = m.type === "video" ? m.poster : m.url
             return (

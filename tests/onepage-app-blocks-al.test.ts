@@ -16,7 +16,8 @@ import { join } from "node:path"
 import * as React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { ESSENTIAL_ENTRY_IDS, PICKER_CATEGORIES, PICKER_ENTRIES, searchEntries } from "@/components/onepage/add-block-picker"
-import { ExtraBlock, extraBlockRow } from "@/components/onepage/extra-blocks"
+import { ExtraBlock } from "@/components/onepage/extra-blocks"
+import { extraBlockRow } from "@/components/onepage/extra-blocks-editor"
 import {
   APP_FRAME_HOSTS,
   APP_PROVIDERS,

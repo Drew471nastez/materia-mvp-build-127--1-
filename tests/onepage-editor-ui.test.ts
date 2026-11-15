@@ -99,7 +99,7 @@ function main() {
     check("times read as people say them", timeLabel(18, 5) === "6:05 PM" && timeLabel(0, 0) === "12:00 AM")
     check("the zone is named with its offset", zoneLabel(zone, Date.parse("2030-07-01T00:00:00Z")) === "Europe/Bucharest, GMT+3" && zoneLabel("Asia/Kolkata", 0) === "Asia/Kolkata, GMT+5:30" && zoneLabel("UTC") === "UTC")
 
-    const extras = read("components/onepage/extra-blocks.tsx")
+    const extras = (read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx"))
     check("no datetime-local box is left in the block settings", !/datetime-local/.test(extras))
     check("the schedule is Show from and Hide after, each a day and a time", /<DateTimeField label="Show from"/.test(extras) && /<DateTimeField label="Hide after"/.test(extras))
     check("the end knows its start, so days before it are quieter", /after=\{s\?\.start_at\}/.test(extras))
@@ -300,7 +300,7 @@ function main() {
       sliding size control was the only one of its kind, and its size fought the Layout tab's Title size. Its
       size is now the kit's Segmented in Layout (block-settings BlockStyleControls), and the sliding one is gone.
     */
-    check("a heading's size is the kit's Segmented in Layout, one control", !/data-segment-thumb=""/.test(read("components/onepage/extra-blocks.tsx")) && !/function Segmented/.test(read("components/onepage/extra-blocks.tsx"))
+    check("a heading's size is the kit's Segmented in Layout, one control", !/data-segment-thumb=""/.test((read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx"))) && !/function Segmented/.test((read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx")))
       && /block\.type === "heading" \? \(/.test(read("components/onepage/block-settings.tsx")) && /onChange=\{\(size\) => write\(\{ title_size: undefined \}, \{ size \}\)\}/.test(read("components/onepage/block-settings.tsx")))
     /*
       EVERY SHEET ON A PHONE IS THE SHARED ONE. The name and bio, the

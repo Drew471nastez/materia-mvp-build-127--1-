@@ -5,6 +5,7 @@ import { headers } from "next/headers"
 import { notFound, permanentRedirect } from "next/navigation"
 import { connection } from "next/server"
 import { COMMUNITY_PATH_HEADER, movedCommunityPath } from "@/lib/communities/slug-move"
+import { COMMUNITY_STRANGER_HEADER } from "@/lib/communities/stranger-page"
 import { meetsRole } from "@/lib/communities/permissions"
 import { communityOpen } from "@/lib/communities/server/context"
 import { memberPage, type MemberPage } from "@/components/community/member/data"
@@ -92,7 +93,9 @@ export default async function CommunitySlugLayout({ children, params }: { childr
   */
   if (page.state === "off" || page.state === "missing" || (page.community && page.state !== "closed" && page.state !== "unknown" && !barVisible(page))) notFound()
   const tracking = storeTracking(page)
-  const visit = visitBeacon(page, (await headers()).get("referer"))
+  /* Round 63: a stranger's page is one copy for every stranger (lib/communities/stranger-page.ts): no visitor's Referer is drawn into it; the beacon reads document.referrer instead. */
+  const asked = await headers()
+  const visit = visitBeacon(page, asked.get(COMMUNITY_STRANGER_HEADER) ? null : asked.get("referer"))
   if (page.state === "member" && page.community && page.viewer) {
     return (
       <CommunityShell community={page.community} viewer={page.viewer}>

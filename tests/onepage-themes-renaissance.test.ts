@@ -85,7 +85,7 @@ check("every one of Paper's settings laid on", Object.entries(PAPER_LOOK).every(
 check("nothing of Editorial's look left: halftone, Abril capitals, the stock cover and its framing, left aligned buttons", moved.background_pattern === "paper" && !/Abril/.test(moved.title_font) && moved.title_case == null && moved.cover_image_url == null && moved.cover_crop == null && moved.button_text_align == null && moved.button_icon_position == null && moved.social_icon_style == null)
 const own = withoutRetiredTheme({ ...stored, button_color: "#0f5132", title_font: "'Lora', serif", cover_image_url: "https://cdn.example.com/mine.jpg", avatar_shape: "square" }) as C
 check("what the creator chose after picking it stays: their colour, their font, their own cover, their picture's frame", own.button_color === "#0f5132" && own.title_font === "'Lora', serif" && own.cover_image_url === "https://cdn.example.com/mine.jpg" && own.avatar_shape === "square" && own.template_id === "paper")
-check("a partial old row (only the id) is drawn as Paper too", (withoutRetiredTheme({ template_id: "editorial" }) as C).background_color === "#f3eee4")
+/* Changed on purpose (round 17): Paper's own colour is its round 17 sheet. */ check("a partial old row (only the id) is drawn as Paper too", (withoutRetiredTheme({ template_id: "editorial" }) as C).background_color === PAPER_LOOK.background_color)
 const air = { ...(THEME_TEMPLATES.find((t) => t.id === "air")!.theme_config as C), template_id: "air" }
 check("any other theme is the same object, untouched", withoutRetiredTheme(air) === air && withoutRetiredTheme(null) === null)
 check("moving twice is moving once", JSON.stringify(withoutRetiredTheme(moved)) === JSON.stringify(moved))
