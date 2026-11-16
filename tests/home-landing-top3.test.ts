@@ -75,12 +75,13 @@ check("link pages stand between the stores", EVERYTHING_STORES.filter((s) => s.k
 check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind !== "merch" || EVERYTHING_STORES[(i + 1) % EVERYTHING_STORES.length].kind !== "merch"))
 check(
   "each picture is local, exists and is small",
-  EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [s.ground, s.avatar, ...s.products] : [s.photo])).every((u) => {
+  EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [s.ground, s.avatar, ...s.products] : s.kind === "product" ? [s.avatar, s.cover] : [])) /* Changed on purpose (landing round 14): Liam Bailey's product page brings his photo and cover; Satori Studio's picture is the showcase's own (public/home/showcase). */.every((u) => {
     const file = join(root, "public", u)
     return u.startsWith("/home/everything/stores/") && existsSync(file) && statSync(file).size < 120_000
   }),
 )
-check("the strip draws every page twice over (one set's width a loop)", (strip.match(/class="ev-st ev-(mc|lp|pf)"/g) ?? []).length === EVERYTHING_STORES.length * 2)
+// Changed on purpose (landing round 14): each page once (every page wraps round on its own since round 8).
+check("the strip draws every page once", (strip.match(/class="ev-st ev-(mc|lp|pp|shot)"/g) ?? []).length === EVERYTHING_STORES.length)
 check("the cards in the strip take no pointer, and nothing is selectable", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && /user-select:none/.test(rule(evCss, ".ev-s")))
 check("the strip is hidden from assistive tech and holds nothing that takes focus", /class="ev-vis ev-s" aria-hidden="true"/.test(everything) && !/<(a|button|input|select|textarea)\b|tabindex/i.test(strip))
 check("no hover style on anything in the strip", !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))

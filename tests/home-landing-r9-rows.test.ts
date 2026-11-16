@@ -66,14 +66,16 @@ console.log("\n── Unlimited possibilities: a little smaller, a hover, six ne
   check("the words too (was 20px to 36px), and the room between items", /\.um-item\{[^}]*gap:clamp\(14px,1\.35vw,25px\);margin-right:clamp\(40px,4\.8vw,92px\);[^}]*font-size:clamp\(18px,1\.75vw,31px\)/.test(src))
   const items = MARQUEE_ROWS.flatMap((r) => r.items)
   check("a photo is a frame that tilts and a face that clips, so rings can open round it", (html.match(/<span class="um-pic"[^>]*><span class="um-face"><img /g) ?? []).length === items.length * 3 && /\.um-face\{[^}]*border-radius:inherit;overflow:hidden/.test(src) && !/\n\.um-pic\{[^}]*overflow:hidden/.test(src))
-  const hover = src.slice(src.indexOf("@media(hover:hover) and (pointer:fine){"), src.indexOf(".um[data-um-paused]"))
+  // Changed on purpose (landing round 14): the stylesheet pause on data-um-paused is gone (home/loop-gate.ts runs the rows); the hover block ends at the background tab rule now.
+  const hover = src.slice(src.indexOf("@media(hover:hover) and (pointer:fine){"), src.indexOf("[data-story-paused] .um-track"))
   check("under a mouse it straightens, lifts and grows a little", /\.um-item:hover \.um-pic\{transform:translate3d\(0,-4px,0\) rotate\(0deg\) scale\(1\.06\)\}/.test(hover))
   check("a diamond turns square with its picture still upright and still covering it", /\.um-item:hover \.um-pic\[data-diamond\] img\{transform:rotate\(0deg\) scale\(1\.42\)\}/.test(hover))
   check("two thin rings open round it, the outer one a beat later", /\.um-pic::before\{inset:-7px;transform:scale\(\.88\)\}/.test(src) && /\.um-pic::after\{inset:-15px;[^}]*transform:scale\(\.84\)\}/.test(src) && /\.um-item:hover \.um-pic::before,\.um-item:hover \.um-pic::after\{opacity:1;transform:scale\(1\)\}/.test(hover) && /\.um-pic::after\{transition-delay:\.07s\}/.test(hover))
   const moved = [...hover.matchAll(/transition:([^;}]+(?:,[^;}]+)*)/g)].flatMap((m) => m[1].replace(/\([^)]*\)/g, "").split(",").map((t) => t.trim().split(" ")[0]))
   check("only transform and opacity are transitioned, and only where there is a mouse", moved.length >= 3 && moved.every((p) => p === "transform" || p === "opacity") && !/transition/.test(src.slice(src.indexOf("const CSS = `"), src.indexOf("@media(hover:hover)"))), moved)
   check("still under reduced motion", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.um-pic,\.um-pic img,\.um-pic::before,\.um-pic::after\{transition:none\}/.test(src))
-  check("the row still glides to a stop under the mouse", /easeRow\(track, 0, 700\)/.test(src) && !/\.um-row:hover \.um-track/.test(src))
+  // Changed on purpose (landing round 14): the glide lives in home/loop-gate.ts (700ms down, 900ms back), started by a mouse that really moves over the row.
+  check("the row still glides to a stop under the mouse", /useLoopGate\(ref, MARQUEE_GATE\)/.test(src) && /stopMs = 700, goMs = 900/.test(read("components/marketing/home/loop-gate.ts")) && !/\.um-row:hover \.um-track/.test(src))
   /* The six the owner called too basic: their round 7 files, by git blob id. */
   const old: Record<string, string> = { totes: "dabd03ed9c42c08e8d95f50c16a9ab4f0efdaa01", courses: "d2bd9a9a45fcd124d264ba4e9cf8db3f29ee02bb", presets: "a3541dd3e70409632a6b619f20737df16742741b", vinyl: "87b619b9a16b737319f15c4775cff9bdc1474064", communities: "945a2d44e0a50b11ec42682dee0028a76fa17b59", templates: "4f5926c590477b50a994ea95d3a740d52427a72c" }
   // Changed on purpose (landing round 11): tote bags and vinyl records left the list (the owner: more digital, no totes), so a file that is gone counts as replaced.
@@ -106,7 +108,8 @@ console.log("\n── Connect your favorite apps: nothing left to stutter ──
   check("every keyframe animates transform and opacity only", keyframeProps(noComments(css)).every((p) => p === "transform" || p === "opacity"), keyframeProps(noComments(css)))
   check("a finger turns an icon with a tap, never with the touch that starts a swipe", /rows\.addEventListener\("click", tap, \{ passive: true \}\)/.test(code) && /const tap = \(e: MouseEvent\) => \{\s*if \(touch\) flip\(/.test(code) && !/const down = \(e: PointerEvent\) => \{\s*if \(!fine\(e\)\) flip/.test(code))
   check("a mouse still turns it by reaching it", /const over = \(e: PointerEvent\) => \{\s*if \(fine\(e\)\) flip\(/.test(code))
-  check("no dead stop under a mouse: the row glides to a stop and back", !/:hover \.track/.test(noComments(css)) && !/animation-play-state/.test(noComments(css)) && /easeRow\(track, 0, 600\)/.test(code) && /easeRow\(track, 1, 900\)/.test(code) && /updatePlaybackRate/.test(code) && (html.match(/data-row-track=""/g) ?? []).length === 2)
+  // Changed on purpose (landing round 14): the glide lives in home/loop-gate.ts (600ms down for the apps, 900ms back).
+  check("no dead stop under a mouse: the row glides to a stop and back", !/:hover \.track/.test(noComments(css)) && !/animation-play-state/.test(noComments(css)) && /ROW_GATE = \{ tracks: "\[data-row-track\]", stopMs: 600 \}/.test(code) && /goMs = 900/.test(read("components/marketing/home/loop-gate.ts")) && /updatePlaybackRate/.test(read("components/marketing/home/loop-gate.ts")) && (html.match(/data-row-track=""/g) ?? []).length === 2)
   check("no scroll or move listener", !/addEventListener\(\s*"(scroll|pointermove|mousemove|touchmove|wheel)"/.test(code))
   check("the heading and the two rows are as they were", /aria-label="Connect your favorite apps"/.test(html) && /--tile: clamp\(90px, 5\.6vw, 116px\);/.test(css))
 }

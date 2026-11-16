@@ -1599,6 +1599,8 @@ const SUITES = [
   "tests/home-landing-r14-business.test.ts",
   /* Landing round 14, purple: the world map's product stack centred between the flags and the map (one column width read by both), and on a phone the inset rounded card again; Your audience belongs to you plays four steps (the contacts, synced from a form, a checkout and an import, an email sent to a segment, the composer's five layouts in a brand's logo and colors), the lines beside it the steps, timed by one Web Animation, held on a tap or swipe and played again after a pause, transform and opacity only. */
   "tests/home-landing-r14-purple.test.ts",
+  /* Landing round 14, everything: Liam Bailey's real product page (full width cover, the live button) and Satori Studio's real OnePage in the store strip, each page once; one support thread at a time; the possibilities' and the apps' rows run by one gate (never stopped by a scroll under a resting pointer, played again on screen); the apps' gap half on a computer with three more real connections. */
+  "tests/home-landing-r14-everything.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

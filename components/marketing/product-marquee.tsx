@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef, type CSSProperties } from "react"
+import { useRef, type CSSProperties } from "react"
 import { StoryHeading } from "./story-heading"
+import { useLoopGate } from "./home/loop-gate"
 
 type Item = { label: string; photo: string }
 
@@ -96,7 +97,7 @@ export const MARQUEE_TILTS = [-7, 45, 6, -4, 45, 9, -10, 45, 4] as const
 
   UNDER THE MOUSE a row glides to a stop rather than freezing: its CSS
   animation's playback rate is eased down to zero, and back up when the
-  pointer leaves (easeRow below).
+  pointer leaves (home/loop-gate.ts, which also stops and starts the rows).
 */
 const CSS = `
 .um{position:relative;background:#fff;color:#18181b;overflow:clip;padding-block:clamp(64px,8vw,120px)}
@@ -128,7 +129,7 @@ const CSS = `
   .um-item:hover .um-pic[data-diamond] img{transform:rotate(0deg) scale(1.42)}
   .um-item:hover .um-pic::before,.um-item:hover .um-pic::after{opacity:1;transform:scale(1)}
 }
-.um[data-um-paused] .um-track,[data-story-paused] .um-track{animation-play-state:paused}
+[data-story-paused] .um-track{animation-play-state:paused}
 @keyframes um-left{from{transform:translate3d(0,0,0)}to{transform:translate3d(calc(-100% / 3),0,0)}}
 @keyframes um-right{from{transform:translate3d(calc(-100% / 3),0,0)}to{transform:translate3d(0,0,0)}}
 @media(max-width:767px){.um-head{margin-bottom:22px}}
@@ -149,6 +150,9 @@ const CSS = `
   .um-pic,.um-pic img,.um-pic::before,.um-pic::after{transition:none}
 }
 `
+
+/* The rows the gate runs; a stable object, so the hook is set up once. */
+const MARQUEE_GATE = { tracks: ".um-track" } as const
 
 function Row({ items, direction, seconds, shift }: (typeof MARQUEE_ROWS)[number] & { shift: number }) {
   const copy = (k: number) => (
@@ -178,86 +182,16 @@ function Row({ items, direction, seconds, shift }: (typeof MARQUEE_ROWS)[number]
   )
 }
 
-/**
- * Eases a row's loop to a new speed (0 stopped, 1 full) over `ms`, by the
- * playback rate of its CSS animation: the motion stays on the compositor and
- * only a handful of rate changes are sent while it eases. Returns a cancel.
- */
-function easeRow(track: HTMLElement, to: number, ms: number): () => void {
-  const anim = typeof track.getAnimations === "function" ? track.getAnimations()[0] : undefined
-  if (!anim) return () => {}
-  const from = anim.playbackRate
-  const t0 = performance.now()
-  let frame = 0
-  const set = (rate: number) => {
-    /* Never exactly zero: a zero rate would hold the animation's time and could not be eased out of on every engine. */
-    const r = Math.max(0.0001, rate)
-    if (typeof anim.updatePlaybackRate === "function") anim.updatePlaybackRate(r)
-    else anim.playbackRate = r
-  }
-  const step = (now: number) => {
-    const p = Math.min(1, (now - t0) / ms)
-    const eased = 1 - Math.pow(1 - p, 3)
-    set(from + (to - from) * eased)
-    if (p < 1) frame = requestAnimationFrame(step)
-  }
-  frame = requestAnimationFrame(step)
-  return () => cancelAnimationFrame(frame)
-}
-
 /** "Unlimited possibilities": what creators sell, two edge-to-edge rows of photos and names moving left and right. */
 export function ProductMarquee() {
   const ref = useRef<HTMLElement>(null)
-  /* Off screen or in a background tab the rows stop, on /pricing too, where no LandingStory watches them. */
-  useEffect(() => {
-    const el = ref.current
-    if (!el || typeof IntersectionObserver !== "function") return
-    let visible = true
-    const sync = () => el.toggleAttribute("data-um-paused", !visible || document.hidden)
-    const io = new IntersectionObserver(
-      ([e]) => {
-        visible = e.isIntersecting
-        sync()
-      },
-      { rootMargin: "120px 0px" },
-    )
-    io.observe(el)
-    document.addEventListener("visibilitychange", sync)
-    return () => {
-      io.disconnect()
-      document.removeEventListener("visibilitychange", sync)
-    }
-  }, [])
-
-  /* A mouse over a row glides it to a stop; leaving lets it pick its speed back up. */
-  useEffect(() => {
-    const el = ref.current
-    if (!el || typeof window.matchMedia !== "function" || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return
-    const offs: Array<() => void> = []
-    for (const row of el.querySelectorAll<HTMLElement>(".um-row")) {
-      const track = row.querySelector<HTMLElement>(".um-track")
-      if (!track) continue
-      let cancel = () => {}
-      const enter = (e: PointerEvent) => {
-        if (e.pointerType !== "mouse") return
-        cancel()
-        cancel = easeRow(track, 0, 700)
-      }
-      const leave = (e: PointerEvent) => {
-        if (e.pointerType !== "mouse") return
-        cancel()
-        cancel = easeRow(track, 1, 900)
-      }
-      row.addEventListener("pointerenter", enter)
-      row.addEventListener("pointerleave", leave)
-      offs.push(() => {
-        cancel()
-        row.removeEventListener("pointerenter", enter)
-        row.removeEventListener("pointerleave", leave)
-      })
-    }
-    return () => offs.forEach((off) => off())
-  }, [])
+  /*
+    Landing round 14 (the owner: the rows "sometimes freeze and block"): one hook runs the rows (loop-gate.ts). Off
+    screen or in a background tab they stop, on /pricing too, where no LandingStory watches them; a mouse moved over
+    a row glides it to a stop and leaving lets it pick its speed back up; the page scrolling under a resting pointer
+    stops nothing, and a row on screen that anything else left paused is played again within two seconds.
+  */
+  useLoopGate(ref, MARQUEE_GATE)
 
   return (
     <section ref={ref} data-story-section="categories" className="um" aria-labelledby="um-title" data-unlimited="">
