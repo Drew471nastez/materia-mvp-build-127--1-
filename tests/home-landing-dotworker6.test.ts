@@ -51,15 +51,18 @@ console.log("\n── One engine, one config each, the old numbers ──")
 {
   const { dark, purple, how } = DOT_FIELD_CONFIGS
   // Changed on purpose (landing round 13): the closing call more subtle (0.24 / 0.5), its light eased (follow 0.085 twice) and parting less (4).
-  check("dark: rest 0.24, lit 0.5, r 0.8, ride 0, trough 0.45, 32 levels, radius 180, follow 0.085, part 4", dark.rest === 0.24 && dark.lit === 0.5 && dark.r === 0.8 && dark.ride === 0 && dark.trough === 0.45 && dark.levels === 32 && dark.radius === 180 && dark.follow === 0.085 && dark.part === 4)
+  // Changed on purpose (landing round 14): the closing call a little more visible (0.28 / 0.56), a wider soft light (210), a slower glide (0.065), a smaller parting (2.5).
+  check("dark: rest 0.28, lit 0.56, r 0.8, ride 0, trough 0.45, 32 levels, radius 210, follow 0.065, part 2.5, soft", dark.rest === 0.28 && dark.lit === 0.56 && dark.r === 0.8 && dark.ride === 0 && dark.trough === 0.45 && dark.levels === 32 && dark.radius === 210 && dark.follow === 0.065 && dark.part === 2.5 && dark.soft && !purple.soft && !how.soft)
   check("purple: rest 0.17, lit 0.4, r 0.95, ride 0.5, trough 0.3", purple.rest === 0.17 && purple.lit === 0.4 && purple.r === 0.95 && purple.ride === 0.5 && purple.trough === 0.3 && purple.rgb === "255,255,255")
   check("the flow's waves and the light's paths as they were", dark.rate[0] === 0.00038 && dark.rate[1] === 0.00016 && dark.rideX === 0.8 && dark.rideY === 1.4 && dark.pathX.join() === "0.5,0.32,0.00011" && dark.pathY.join() === "0.42,0.26,0.000083,1.3")
   check("the wander: 0.6 on the closing call, 0.45 / 0.55 on the purple; it follows within 40px of the box", dark.alone.join() === "0.6,0.6" && purple.alone.join() === "0.45,0.55" && dark.within === 40 && purple.within === 40)
-  check("how: gap 20, 1.5 dpr, ink 24,24,27 at 0.15, violet 124,58,237 at 0.6, radius 170, part 5, 20 levels, follow 0.08", HOW_FIELD.gap === 20 && how.maxDpr === 1.5 && how.rgb === "24,24,27" && how.rest === 0.15 && how.rgbLit === "124,58,237" && how.lit === 0.6 && how.radius === 170 && how.part === 5 && how.levels === 20 && how.follow === 0.08)
-  check("how: its own waves, ride, path and radii, 30 frames a second without a mouse", how.rate.join() === "0.0004,0.00017" && how.rideX === 1.2 && how.rideY === 1.8 && how.trough === 0.3 && how.pathX.join() === "0.5,0.34,0.00013" && how.pathY.join() === "0.36,0.2,0.000097,1.3" && how.r === 0.9 && how.rLit === 1.15 && how.alone.join() === "0.55,0.55" && how.within === null && how.frameMs.join() === "12,30")
+  // Changed on purpose (landing round 14): the ink a little more visible (0.18), the light toward the right.
+  check("how: gap 20, 1.5 dpr, ink 24,24,27 at 0.18, violet 124,58,237 at 0.6, radius 170, part 5, 20 levels, follow 0.08", HOW_FIELD.gap === 20 && how.maxDpr === 1.5 && how.rgb === "24,24,27" && how.rest === 0.18 && how.rgbLit === "124,58,237" && how.lit === 0.6 && how.radius === 170 && how.part === 5 && how.levels === 20 && how.follow === 0.08)
+  check("how: its own waves, ride, path and radii, 30 frames a second without a mouse", how.rate.join() === "0.0004,0.00017" && how.rideX === 1.2 && how.rideY === 1.8 && how.trough === 0.3 && how.pathX.join() === "0.68,0.22,0.00013" && how.pathY.join() === "0.3,0.18,0.000097,1.3" && how.r === 0.9 && how.rLit === 1.15 && how.alone.join() === "0.55,0.55" && how.within === null && how.frameMs.join() === "12,30")
   check("the dark and purple tones are the exported ones; the dpr cap is 2", DOT_FIELD_CONFIGS.dark.rest === DOT_FIELD_TONES.dark.rest && DOT_FIELD_MAX_DPR === 2 && dark.maxDpr === 2)
   const f = (x: number, y: number) => howFieldFade(x, y, 1440, 640)
-  check("how's per-dot fade: full at the top middle, none at the bottom, soft at the sides", f(720, 40) > 0.9 && f(720, 640) === 0 && f(0, 40) < f(720, 40) * 0.5)
+  // Changed on purpose (landing round 14): strongest toward the right, a quarter at the left.
+  check("how's per-dot fade: full toward the top right, none at the bottom, soft at the sides, subtle on the left", f(1180, 40) > 0.9 && f(720, 640) === 0 && f(0, 40) < f(720, 40) * 0.5 && f(200, 40) < f(1180, 40) * 0.4)
 }
 
 console.log("\n── The tiles ──")

@@ -79,7 +79,8 @@ console.log("\nYour own domain")
 // Changed on purpose (landing round 11): the owner disliked the pictures again: his website in a browser, the address closing from lindewood.storelib.com to lindewood.com, on a warm near white ground.
 // Changed on purpose (landing round 12, the owner's reference): a store's front page as four photographs, a big address field over it typing www.fernlyn.com, a green check; on the section itself.
 check("the tile: a store's front page, its address typed over it", () => {
-  assert.ok(how.includes('class="cmh-dm-shop"') && how.includes('class="cmh-dm-field"') && !how.includes("cmh-dm-band") && !how.includes("cmh-pill") && !how.includes("cmh-dm-row"))
+  // Changed on purpose (landing round 14): the owner asked for /pricing's domain reel here (DomainReel, imported); its address is HOW_DOMAIN.typed.
+  assert.ok(how.includes('class="ev-vis pz-d"') && !how.includes("cmh-dm-"))
   assert.ok(`www.${HOW_DOMAIN.host}` === HOW_DOMAIN.typed && words(how).replace(/ /g, "").includes(HOW_DOMAIN.typed))
   assert.ok(!/data-ground="night"/.test(how))
   assert.ok(!/backdrop-filter|blur\(/.test(howCss), "no glass")
@@ -128,14 +129,15 @@ check("its motion: the address closes, transform and opacity only, paused off sc
   // Changed on purpose (landing round 8): the letters come one after another, then the lock; no ticks.
   // Changed on purpose (landing round 9): no typing; the address swaps, then the lock turns violet, then DNS and HTTPS tick.
   // Changed on purpose (landing round 12, the owner's reference): the address types in behind a caret and a green check comes in.
-  const keys = ["cmh-dm-caret", "cmh-dm-check", "cmh-dm-type", "cmh-dc0"]
+  // Changed on purpose (landing round 14): the domain is /pricing's reel (its motion is held by tests/home-landing-r13-pricing.test.ts); the tip flow's keyframes stand in here.
+  const keys = ["cmh-tp-sheet", "cmh-tp-thx", "cmh-tp-pick", "cmh-tp-scrim"]
   for (const k of keys) {
     const m = howCss.match(new RegExp(`@keyframes ${k}\\{([\\s\\S]*?\\})\\}`))
     assert.ok(m, k)
     const props = [...m![1].matchAll(/([a-z-]+):/g)].map((x) => x[1])
     assert.ok(props.every((p) => p === "opacity" || p === "transform"), `${k}: ${props.join(",")}`)
   }
-  assert.ok(/class="cmh-a cmh-dm-type"/.test(how) && /class="cmh-a cmh-dm-caret"/.test(how) && /class="cmh-a cmh-dm-check"/.test(how))
+  assert.ok(/class="cmh-a cmh-tp-sheet"/.test(how) && /class="cmh-a cmh-tp-thx"/.test(how))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss))
   assert.ok(/\[data-commerce-live\] \.cmh-a\{animation-play-state:running!important\}/.test(howCss))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss)) /* Changed on purpose (landing round 4): no spinner any more. */
