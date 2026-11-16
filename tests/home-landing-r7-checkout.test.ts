@@ -68,7 +68,8 @@ check("Mara Quinn's Cine Tones LUT Pack ($29) and a t-shirt ($32), not The Loop,
 check("the old names still export (older suites import them)", GUIDE === LUTS && PRINT === TEE)
 // Changed on purpose (landing round 8): the products around the phone are 3D renders with transparent grounds (tests/home-landing-r8-checkout.test.ts).
 // Changed on purpose (landing round 9): the owner: "physical products and digital products, not random things like a camera or a plant"; the scanned models are gone, the cap and the tote are cut out of photographs the page already shows.
-check("the pictures are webp files under 120 KB, credited in the code", ["tee-thumb", "creator-mara", "obj-tee", "obj-cap", "obj-tote"].every((f) => small(`public/home/commerce/${f}.webp`, 120)) && ["obj-camera", "obj-hat", "obj-lamp", "obj-vase", "obj-cassette", "obj-plant"].every((f) => !existsSync(`public/home/commerce/${f}.webp`)) && /photo-1618354691373-d851c5c3a990/.test(src) && /photo-1438761681033-6461ffad8d80/.test(src) && !/Poly Haven/.test(src))
+// Changed on purpose (landing round 12): no tote on the page; the beanie in its place.
+check("the pictures are webp files under 120 KB, credited in the code", ["tee-thumb", "creator-mara", "obj-tee", "obj-cap", "obj-beanie"].every((f) => small(`public/home/commerce/${f}.webp`, 120)) && ["obj-camera", "obj-hat", "obj-lamp", "obj-vase", "obj-cassette", "obj-plant"].every((f) => !existsSync(`public/home/commerce/${f}.webp`)) && /photo-1618354691373-d851c5c3a990/.test(src) && /photo-1438761681033-6461ffad8d80/.test(src) && !/Poly Haven/.test(src))
 check("the round 5 print is gone from public/home/commerce", !existsSync("public/home/commerce/print-lasalle.webp"))
 check("no banned sample content", !/Weeknight Pasta|sourdough|Golden Hour|wheel throwing|Drawing Basics|Saturday Run Club|Dust & Tape|Elena Ruiz/i.test(words(co)))
 
@@ -79,7 +80,8 @@ check("the headline is centred at the top, on a computer too (no copy column bes
 // Changed on purpose (landing round 11): the phone's box is the big phone's, at the stage's top; the world inside carries it down.
 check("the phone is centred (left 50%, half its width back)", /left:50%/.test(rule(".cmc-phone-wrap")) && /margin-left:calc\(var\(--pw\) \/ -2\)/.test(rule(".cmc-phone-wrap")) && !/right:max/.test(css))
 // Changed on purpose (landing round 9): the headline and the phone are revealed by the scroll timeline (the owner's choreography), so the observer watches the cards only.
-check("one observer watches the cards; no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 1 && /root\.querySelector\("\.cmc-cards"\)/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
+// Changed on purpose (landing round 12): a second observer (useNear) marks the section near and the stage covered.
+check("one observer watches the cards, one the section and the cards' top; no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 2 && /root\.querySelector\("\.cmc-cards"\)/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
 // Changed on purpose (landing round 9): one part (the cards), so the attribute is named.
 check("armed only while wholly below the screen, so a part already on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /* Changed on purpose (wave 17): only a mouse arms the cards; on a touch screen they ride in with their ground, which had come up over the phone empty (the owner's recording, a dark shade sweeping over the phone). */ /const arm = matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)\.matches/.test(src) && /if \(!arm \|\| root\.hasAttribute\("data-cmc-over-armed"\)\) root\.setAttribute\("data-cmc-over", ""\)/.test(src))
 // Changed on purpose (landing round 9): the owner: the phone comes first, big, and comes down as the page scrolls; a scroll timeline of transform, no transition.
@@ -119,7 +121,8 @@ check("one turn, transform only, in 3D", onlyCompositor(lap) && /rotateY/.test(l
 // Changed on purpose (landing round 8): the float is what runs by itself.
 // Changed on purpose (landing round 9): no float on top; the ring's turn is the loop, paused until the stage is on screen.
 /* Changed on purpose (wave 17): the stage wakes a screen ahead (it popped in on an iPhone recording); still paused off screen beyond that and in a hidden tab. */
-check("the ring's turn paused until the stage is on screen in a visible tab", /\.cmc-o\{animation:cmc-orbit [^}]*animation-play-state:paused\}/.test(css) && /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /useCommerceLive<HTMLDivElement>\("100% 0px", false\)/.test(src))
+// Changed on purpose (landing round 12): half a screen ahead, and paused again once the cards cover the stage.
+check("the ring's turn paused until the stage is on screen in a visible tab", /\.cmc-o\{animation:cmc-orbit [^}]*animation-play-state:paused\}/.test(css) && /\.cmc:not\(\[data-cmc-covered\]\) \.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /useCommerceLive<HTMLDivElement>\("50% 0px", false\)/.test(src))
 // Changed on purpose (landing round 9): the ring is in the phone's own 3D space and comes with it.
 // Changed on purpose (landing round 11): the owner: never across the phone. The ring is its own space, drawn under the phone.
 check("the ring is its own 3D space, drawn under the phone", /<div class="cmc-ring" aria-hidden="true"><div class="cmc-orbit">/.test(co) && /\.cmc-orbit\{[^}]*transform-style:preserve-3d/.test(css) && co.indexOf('class="cmc-ring"') < co.indexOf('class="cmc-phone-wrap"'))

@@ -3,13 +3,14 @@
  *  THE CHECKOUT SCENE'S BLURRED COPIES (home, landing rounds 10 and 11)
  * ===========================================================================
  * When the four dark cards come up over the checkout scene, the products
- * going round the phone (and the phone) go soft behind them. Blurring them in
+ * going round the phone go soft behind them. Blurring them in
  * the browser would cost a blur on every frame the ring turns, so each one has
  * a blurred copy baked here and the page only cross fades to it (opacity).
  *
  * The copies are taken from the scene itself, so the drawn digital products
  * (the LUT pack's box, the e-book, the course, the Notion page) and the phone
- * match what the page draws. Round 11 (the owner: the products "should be
+ * match what the page draws. Round 12: the phone has no copy any more (it
+ * fades out whole behind the cards). Round 11 (the owner: the products "should be
  * more blurred as they disappear, go behind"): the same copies also take over
  * from the sharp objects as they go round the back of the ring, so they are
  * blurred harder (SIGMA.object 0.055 to 0.085 of the object's width).
@@ -29,9 +30,9 @@ import sharp from "sharp"
 const URL = process.argv[2] || "http://localhost:3000/"
 const PAD = 0.2
 /* Output widths, and the blur as a share of the object's own width. */
-const OUT = { object: 112, phone: 168 }
-const SIGMA = { object: 0.085, phone: 0.032 }
-const IDS = ["tee", "luts", "cap", "course", "tote", "ebook", "notion"]
+const OUT = { object: 112 }
+const SIGMA = { object: 0.085 }
+const IDS = ["tee", "luts", "cap", "course", "beanie", "ebook", "notion"]
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const browser = await chromium.launch()
@@ -83,6 +84,5 @@ async function bake(sel, name, kind) {
 
 const sizes = []
 for (const id of IDS) sizes.push(await bake(`.cmc-o[data-f="${id}"] .cmc-sharp`, id, "object"))
-sizes.push(await bake(".cmc-rise > .cmc-phone", "phone", "phone"))
 await browser.close()
 console.log(sizes.map(([n, s]) => `  ${n}: { w: ${s.w}, h: ${s.h} },`).join("\n"))

@@ -11,7 +11,7 @@
  *                    real full page checkout (/checkout), centred, with no
  *                    headline over it yet
  *   2. the products  what a creator sells, going round the phone on a ring:
- *                    a tee, a cap and a tote (photographs with their grounds
+ *                    a tee, a cap and a beanie (photographs with their grounds
  *                    cut away) and digital products drawn as objects (the
  *                    Cine Tones LUT Pack's box, an e-book, a course card, a
  *                    Notion template). Round 11: the ring is its own 3D
@@ -34,11 +34,12 @@
  *   5. behind them   round 10 (the owner: the products "should still be there
  *                    in the background, blurred and faded, rotating in 3D"):
  *                    the stage stays held behind the cards while they are on
- *                    screen. As they come up the phone and the ring step back,
- *                    fade to 40% and go soft (each one cross fades to a
- *                    blurred copy baked as a small picture, so nothing is
- *                    blurred per frame), and keep turning in the gaps between
- *                    and around the cards, and faintly through them
+ *                    screen. As they come up the ring steps back, fades to 45%
+ *                    and goes soft (each product cross fades to a blurred
+ *                    copy baked as a small picture, so nothing is blurred per
+ *                    frame) and keeps turning in the gaps between and around
+ *                    the cards. Round 12: the phone fades out whole as they
+ *                    come, nothing of it is left behind them
  *
  * THE PHONE IS THE REAL PAGE. PageCheckout below is
  * app/(storelib)/checkout/checkout-client.tsx as a phone lays it out, at the
@@ -55,8 +56,7 @@
  * The currencies are the ones fees are written for
  * (lib/payments/fees/currency-rules). The reminder is
  * lib/physical/email-templates checkoutReminderEmail's words
- * (lib/automations/abandoned.ts). The "Recovered" tile beside it is an
- * example: thirteen $32 tees.
+ * (lib/automations/abandoned.ts).
  */
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import type { SectionStyle } from "./lazy-section"
@@ -91,8 +91,9 @@ export const CHECKOUT_HEADING = "Checkout that turns a tap into a sale"
  * physical ones and random things like a camera or a plant"): what one
  * creator sells. Three photographs with their grounds cut away (a flood fill
  * from the edges): the black tee above, the cap "How it works" prints and
- * the tote "Sell everywhere" ships (both already on the page, cut out here
- * as obj-cap.webp and obj-tote.webp). Four digital products drawn here as
+ * a beanie (round 12: totes are off the page; this is the 705 beanie the page
+ * already has, public/home/sell-map/705-beanie.webp), cut out here as
+ * obj-cap.webp and obj-beanie.webp. Four digital products drawn here as
  * objects: the LUT pack's box with the section's own cover, an e-book, a
  * course card and a Notion template. No frames, no shadows, no filters.
  *
@@ -109,13 +110,13 @@ export const FLOATS: readonly Thing[] = [
   { id: "luts", kind: "digital", ar: 0.92, rz: -6, d: { p: 0.2, y: 0.12, s: 0.42 }, m: { p: 0.3, y: 0.1, s: 0.25 } },
   { id: "cap", kind: "physical", img: { src: `${IMG}/obj-cap.webp`, w: 360, h: 231 }, ar: 231 / 360, rz: -8, d: { p: 0.35, y: -0.14, s: 0.5 }, m: { p: 0.5, y: -0.1, s: 0.3 } },
   { id: "course", kind: "digital", ar: 0.87, rz: 5, d: { p: 0.49, y: 0.1, s: 0.54 }, m: { p: 0.7, y: 0.08, s: 0.33 } },
-  { id: "tote", kind: "physical", img: { src: `${IMG}/obj-tote.webp`, w: 320, h: 474 }, ar: 474 / 320, rz: 6, d: { p: 0.63, y: -0.08, s: 0.38 }, m: null },
+  { id: "beanie", kind: "physical", img: { src: `${IMG}/obj-beanie.webp`, w: 288, h: 338 }, ar: 338 / 288, rz: 6, d: { p: 0.63, y: -0.08, s: 0.4 }, m: null },
   { id: "ebook", kind: "digital", ar: 4 / 3, rz: 7, d: { p: 0.77, y: 0.14, s: 0.34 }, m: { p: 0.9, y: 0.12, s: 0.21 } },
   { id: "notion", kind: "digital", ar: 0.84, rz: -4, d: { p: 0.91, y: -0.04, s: 0.42 }, m: null },
 ]
 /*
  * The blurred copies (round 10): public/home/commerce/soft-<id>.webp, each
- * object's box (and the phone's) with SOFT_PAD percent of its width spare on
+ * object's box with SOFT_PAD percent of its width spare on
  * every side, blurred, at a small size; scripts/bake-checkout-soft.mjs makes
  * them from the scene itself. A blurred picture drawn larger loses nothing.
  */
@@ -126,10 +127,9 @@ export const SOFT: Readonly<Record<string, { w: number; h: number }>> = {
   luts: { w: 112, h: 106 },
   cap: { w: 112, h: 83 },
   course: { w: 112, h: 100 },
-  tote: { w: 112, h: 151 },
+  beanie: { w: 112, h: 126 },
   ebook: { w: 112, h: 139 },
   notion: { w: 112, h: 94 },
-  phone: { w: 168, h: 297 },
 }
 /** One turn of the ring, in seconds. */
 const TURN_S = 44
@@ -233,6 +233,47 @@ function useEntrances(rootRef: React.RefObject<HTMLElement | null>) {
   }, [rootRef])
 }
 
+/**
+ * Round 12, the cost of the section (the owner: "the section must not cost
+ * frames"; the page audit). Two attributes on the section, set by observers,
+ * nothing per frame:
+ *   data-cmc-near     the section is within half a screen of the screen; the
+ *                     scroll timeline animations apply only then
+ *   data-cmc-covered  the cards have come up half a screen past its top, so the
+ *                     stage behind them shows only in the gaps, soft and at
+ *                     45%: the ring's clock loops pause there (the scroll
+ *                     still turns it), and run again as the cards go down
+ * Without IntersectionObserver the section is simply near and never covered.
+ */
+function useNear(rootRef: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    if (typeof IntersectionObserver !== "function") {
+      root.setAttribute("data-cmc-near", "")
+      return
+    }
+    const mark = root.querySelector(".cmc-cover-mark")
+    /* One observer, two boxes, the same half screen of margin: the section (near or not) and the cards' top (covered once it is half a screen above the screen). */
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.target === root) root.toggleAttribute("data-cmc-near", e.isIntersecting)
+          else root.toggleAttribute("data-cmc-covered", !e.isIntersecting && e.boundingClientRect.top < 0)
+        }
+      },
+      { rootMargin: "50% 0px" },
+    )
+    io.observe(root)
+    if (mark) io.observe(mark)
+    return () => {
+      io.disconnect()
+      root.removeAttribute("data-cmc-near")
+      root.removeAttribute("data-cmc-covered")
+    }
+  }, [rootRef])
+}
+
 /** A digital product as an object: the LUT pack's box, an e-book, a course card, a Notion template. */
 function DigitalThing({ id }: { id: string }) {
   if (id === "luts")
@@ -324,9 +365,10 @@ const HEADING_ROWS = [CHECKOUT_HEADING.split(" ").slice(0, 3), CHECKOUT_HEADING.
 export function CheckoutScene() {
   const rootRef = useRef<HTMLElement>(null)
   /* The ring turns only while the stage is on screen in a visible tab (no React state: the attribute runs or pauses the CSS). */
-  /* Wave 17: the ring wakes a screen ahead, so on a phone its layers are painted before it scrolls in (it popped in on an iPhone). */
-  const [stageRef] = useCommerceLive<HTMLDivElement>("100% 0px", false)
+  /* Wave 17: the ring wakes ahead of the screen, so on a phone its layers are painted before it scrolls in (it popped in on an iPhone). Round 12: half a screen ahead, not a whole one (the page audit). */
+  const [stageRef] = useCommerceLive<HTMLDivElement>("50% 0px", false)
   useEntrances(rootRef)
+  useNear(rootRef)
 
   return (
     <section ref={rootRef} className="cmc" data-story-section="checkout" aria-labelledby="cmc-title">
@@ -365,16 +407,17 @@ export function CheckoutScene() {
           <div className="cmc-phone-wrap">
             <div className="cmc-world">
               <div className="cmc-rise">
-                {/* The phone's shape in black, in the phone's own box under it and never fading: as the phone goes soft behind the cards, no product shows through it. */}
+                {/* The phone's shape in black, in the phone's own box under it: as the phone fades behind the cards no product shows through it, and it goes only once the phone is gone. */}
                 <span className="cmc-shade" aria-hidden="true" />
                 <Phone label={`Storelib's checkout page on a phone (an iPhone): ${LUTS.title} by ${SELLER}, ${LUTS.price}, with Apple Pay and Google Pay.`} />
-                <img className="cmc-soft cmc-phone-soft" src={`${IMG}/soft-phone.webp`} alt="" width={SOFT.phone.w} height={SOFT.phone.h} loading="lazy" decoding="async" />
               </div>
             </div>
           </div>
         </div>
 
         <div className="cmc-cards">
+          {/* The cards' first card top: once it is past the screen's top the stage is covered (useNear). */}
+          <span className="cmc-cover-mark" aria-hidden="true" />
           <div className="cmc-cards-in">
             <div className="cmc-bento">
               {CARDS.map((c, i) => (
@@ -420,7 +463,8 @@ function Card({ id, i }: { id: CardId; i: number }) {
 
 /* ── The phone: a modern iPhone, its screen the real checkout ────────── */
 
-function StatusBar() {
+/** The status bar and the Dynamic Island; the home indicator only on the light page (round 12: on the dark One-tap phone it read as a white bar at the screen's foot). */
+function StatusBar({ home = true }: { home?: boolean }) {
   return (
     <>
       <div className="cmc-status">
@@ -441,7 +485,7 @@ function StatusBar() {
         </span>
       </div>
       <span className="cmc-island" />
-      <span className="cmc-home" />
+      {home ? <span className="cmc-home" /> : null}
     </>
   )
 }
@@ -481,7 +525,7 @@ function Phone({ label, pay = false }: { label?: string; pay?: boolean }) {
       <span className="cmc-key cmc-key-dn" />
       <span className="cmc-key cmc-key-pw" />
       <div className="cmc-bezel">
-        <div className="cmc-screen" aria-hidden="true" inert>
+        <div className="cmc-screen" data-dark={pay || undefined} aria-hidden="true" inert>
           <div className="cmc-ui" data-dark={pay || undefined}>
             {pay ? (
               <InstantDemo />
@@ -491,7 +535,7 @@ function Phone({ label, pay = false }: { label?: string; pay?: boolean }) {
                 <SafariBar />
               </>
             )}
-            <StatusBar />
+            <StatusBar home={!pay} />
           </div>
         </div>
       </div>
@@ -573,7 +617,7 @@ function PageCheckout() {
           <div className="pc-details">
             <div className="pc-line">
               <span className="pc-thumb">
-                <EbookCover />
+                <EbookCover small />
               </span>
               <span className="pc-li">
                 <b>{LUTS.title}</b>
@@ -683,7 +727,7 @@ function InstantDemo() {
         <span className="ic-bio">Colorist. LUTs and lessons for people who shoot.</span>
         <div className="ic-block">
           <span className="ic-cover">
-            <EbookCover />
+            <EbookCover small />
           </span>
           <span className="ic-bt">
             <b>{LUTS.title}</b>
@@ -705,7 +749,7 @@ function InstantDemo() {
             </svg>
           </span>
           <span className="ic-mark">
-            <EbookCover />
+            <EbookCover small />
           </span>
           <b className="ic-title">{LUTS.title}</b>
           <small>{SELLER}</small>
@@ -900,7 +944,7 @@ const TOTAL = "$71.88"
 const SHOP_HOST = "maraquinn.storelib.com"
 
 function LineThumb({ l }: { l: Line }) {
-  return l.physical ? <img src={TEE.img} alt="" loading="eager" decoding="async" width={96} height={96} /> : <EbookCover />
+  return l.physical ? <img src={TEE.img} alt="" loading="eager" decoding="async" width={96} height={96} /> : <EbookCover small />
 }
 
 /** A field as the checkout draws one: the label above, the box, empty until it is filled. */
@@ -1273,22 +1317,11 @@ function VisCurrency() {
 
 /* ── Checkout reminders: left at Pay, the email an hour later, paid ──── */
 
-/*
- * The "Recovered" tile's line: sales the reminders brought back, day by day
- * (an example), and the same days a month before, dashed. Drawn on a 120 x 56
- * grid; the stroke keeps its width however the tile is sized.
- */
-const REC_LINE = "M0 44 C8 43 12 38 20 39 S32 46 40 36 S52 24 60 27 S72 34 80 24 S92 20 100 15 S112 8 120 4"
-/** Where today's stretch of the line starts, as a share of the tile's width: the part drawn on once this sale is paid. */
-const REC_TODAY = 76
-const REC_PREV = "M0 48 C10 44 14 50 24 46 S38 40 48 45 S62 50 72 42 S88 44 98 38 S112 40 120 34"
-
 /**
- * Three moments on one line that fills as the hour passes, the email that
- * brings the buyer back, and (round 9, the owner: "that kind of 'understand
- * your business / your profit' thing", like the reference's chart card) what
- * the reminders brought back: an amount that grows by this sale, over a
- * rising line. The reminder is for the black t-shirt.
+ * Three moments on one line that fills as the hour passes, and the email that
+ * brings the buyer back. The reminder is for the black t-shirt. Round 12 (the
+ * owner: "get rid of the recovered chart/stats entirely"): the Recovered tile
+ * and its numbers are gone; the email has the picture to itself.
  */
 function VisRecover() {
   return (
@@ -1333,40 +1366,9 @@ function VisRecover() {
           <b>{TEE.price}</b>
         </div>
       </div>
-      <div className="cmv-got">
-        <span className="cmv-got-l">Recovered</span>
-        <span className="cmv-got-n">
-          <span className="cmv-n0">{REC_BEFORE}</span>
-          <span className="cmv-n1">{REC_AFTER}</span>
-        </span>
-        <span className="cmv-got-s">
-          <span className="cmv-got-up">+{TEE.price}</span>
-          last 30 days
-        </span>
-        <span className="cmv-chart">
-          <svg viewBox="0 0 120 56" preserveAspectRatio="none">
-            <path d={`${REC_LINE} V56 H0 Z`} fill="url(#cmv-area)" />
-            <path d={REC_PREV} fill="none" stroke="rgba(255,255,255,.22)" strokeWidth="1.25" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-            <path d={REC_LINE} fill="none" stroke="#a78bfa" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-            <defs>
-              <linearGradient id="cmv-area" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#8b5cf6" stopOpacity=".28" />
-                <stop offset="1" stopColor="#8b5cf6" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <span className="cmv-wipe" />
-        </span>
-        <span className="cmv-got-f">
-          <b>13</b> of 41 came back
-        </span>
-      </div>
     </div>
   )
 }
-/* Thirteen $32.00 tees came back, this one the thirteenth: $384.00 before it, $416.00 with it. */
-const REC_BEFORE = "$384.00"
-const REC_AFTER = "$416.00"
 
 /* ── Styles ──────────────────────────────────────────────────────────── */
 
@@ -1388,10 +1390,20 @@ const SETTLE = 44
 const RECEDE = [48, 100] as const
 const RECEDE_TO = 0.45
 const RECEDE_SCALE = 0.92
+/*
+ * Round 12 (the owner: the phone was "too visible" behind the cards): the
+ * phone fades out whole while the cards come up, and its blurred copy is gone.
+ * Its black shade goes after it, once there is no phone left to show through.
+ * At 80svh into the hold the cards' top edge is a quarter to a third of the way up
+ * the screen at every width (they come on screen at 44svh), so the phone is
+ * gone before they reach its middle, with nothing of it left behind them.
+ */
+const PHONE_OUT = [RECEDE[0], 80] as const
+const SHADE_OUT = [80, 86] as const
 /* The headline fades before the cards' top edge reaches it. */
 const COPY_OUT = [86, 116] as const
 /* Each word's stretch of the hold: a fifth of it, each starting a little after the one before, the last done as the phone lands. */
-const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{animation-range:contain ${f3(5 + i * 2.6)}svh contain ${f3(SETTLE - 18.2 + i * 2.6)}svh}`).join("\n    ")
+const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `${NEAR} .cmc-w[data-w="${i}"]{animation-range:contain ${f3(5 + i * 2.6)}svh contain ${f3(SETTLE - 18.2 + i * 2.6)}svh}`).join("\n    ")
 /*
  * Wave 17: the ring's turn runs the whole time the track is on screen, as it
  * did with "entry 0% exit 100%", but its start is written as a length of
@@ -1405,6 +1417,14 @@ const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w=
  * out.
  */
 const SPIN_RANGE = "contain -100svh exit 100%"
+/*
+ * Round 12 (the page audit: the scroll timeline animations were sampled while
+ * the section was screens away): they apply only while the section is within
+ * half a screen of the screen (data-cmc-near, useNear). Only the animations:
+ * the held stage, its sticky place and the cards' pull stay in the layout
+ * always, so the page's length never changes when the attribute does.
+ */
+const NEAR = ".cmc[data-cmc-near]"
 
 /** An object's place on the ring as custom properties: its start (a turn), its height, its width, its picture's height over its width, its lean. */
 const spotVars = (s: Spot, f: Thing) => `--p:${f3(s.p)};--y:${f3(s.y)};--s:${f3(s.s)};--ar:${f3(f.ar)};--rz:${f3(f.rz)}deg`
@@ -1445,8 +1465,6 @@ ${FLOATS.map((f) => (f.m ? `  .cmc-o[data-f="${f.id}"]{${spotVars(f.m, f)}}` : "
 @keyframes cmc-back{from{transform:scale(1)}to{transform:scale(${RECEDE_SCALE})}}
 @keyframes cmc-out{from{opacity:1}to{opacity:0}}
 @keyframes cmc-in{from{opacity:0}to{opacity:1}}
-/* The phone is the brightest thing on the stage: behind the cards its blurred copy comes up to only 30% of the ring's faded strength, so the products lead. */
-@keyframes cmc-in-half{from{opacity:0}to{opacity:${f3(0.3 * RECEDE_TO)}}}
 `
 
 /* The digital products, drawn as objects. Each is sized in its own container units, so it is the same picture at any size. */
@@ -1548,8 +1566,9 @@ const SCENE_CSS = `
  * in the phone's own box, so the very transforms that carry the phone carry
  * it. A twin beside the phone running the same animations could fall a frame
  * behind while scrolling and let a product show through the fading phone.
- * Nothing over it fades but the phone itself: the wrap only steps back
- * (cmc-back), the ring alone fades (cmc-recede).
+ * The wrap only steps back (cmc-back), the ring alone fades (cmc-recede).
+ * Round 12: the shade fades only after the phone has gone (SHADE_OUT after
+ * PHONE_OUT), so there is never a fading phone over a product.
  */
 .cmc-shade{position:absolute;inset:0;display:block;border-radius:calc(var(--pw) * .178);background:#000;pointer-events:none}
 
@@ -1577,7 +1596,6 @@ const SCENE_CSS = `
  * one (cmc-soft) comes up as the cards arrive.
  */
 .cmc-soft,.cmc-far{position:absolute;left:0;top:0;display:block;width:${SOFT_W}%;max-width:none;height:auto;margin:-${SOFT_PAD}% 0 0 -${SOFT_PAD}%;opacity:0;pointer-events:none;-webkit-user-drag:none;transform:rotate(var(--rz))}
-.cmc-phone-soft{transform:none}
 ${ORBIT_CSS}
 ${THINGS_CSS}
 @media (min-width:900px){
@@ -1594,8 +1612,8 @@ ${THINGS_CSS}
   .cmc-face{animation:cmc-depth ${TURN_S}s linear infinite;animation-delay:calc(var(--p) * -${TURN_S}s);animation-play-state:paused}
   .cmc-near{animation:cmc-near ${TURN_S}s linear infinite;animation-delay:calc(var(--p) * -${TURN_S}s);animation-play-state:paused}
   .cmc-far{animation:cmc-far ${TURN_S}s linear infinite;animation-delay:calc(var(--p) * -${TURN_S}s);animation-play-state:paused}
-  .cmc-stage[data-commerce-live] .cmc-o{animation-play-state:running;will-change:transform}
-  .cmc-stage[data-commerce-live] :is(.cmc-face,.cmc-near,.cmc-far){animation-play-state:running}
+  .cmc:not([data-cmc-covered]) .cmc-stage[data-commerce-live] .cmc-o{animation-play-state:running;will-change:transform}
+  .cmc:not([data-cmc-covered]) .cmc-stage[data-commerce-live] :is(.cmc-face,.cmc-near,.cmc-far){animation-play-state:running}
 
   /*
    * With scroll timelines (the compositor runs them, nothing per frame in
@@ -1607,23 +1625,25 @@ ${THINGS_CSS}
     .cmc[data-story-section] > .cmc-track.cmc-track{view-timeline:--cmc-t block}
     .cmc-stage{position:sticky;top:0}
     .cmc-track > .cmc-cards{margin-top:calc(${DWELL} - ${OVERLAP})}
-    .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
+    ${NEAR} .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
     /*
      * Round 10: the stage stays held behind the cards. As they come up the
-     * phone and the ring step back (a little smaller, faded to ${RECEDE_TO}) and
-     * go soft (each sharp object fades into its blurred copy), the headline
-     * fades before the cards reach it, and the ring keeps turning behind them.
+     * ring steps back (a little smaller, faded to ${RECEDE_TO}) and goes soft
+     * (each sharp object fades into its blurred copy), the phone fades out
+     * whole (round 12), the headline fades before the cards reach it, and the
+     * ring keeps turning behind them.
      */
-    .cmc-phone-wrap{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
-    .cmc-ring{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
-    .cmc-sharp,.cmc-rise > .cmc-phone{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
-    .cmc-soft{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
-    .cmc-phone-soft{animation-name:cmc-in-half}
-    .cmc-copy{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${COPY_OUT[0]}svh contain ${COPY_OUT[1]}svh}
-    .cmc-orbit{animation:cmc-spin linear both;animation-timeline:--cmc-t;animation-range:${SPIN_RANGE}}
-    .cmc-face{animation:cmc-unspin linear both,cmc-depth ${TURN_S}s linear infinite;animation-timeline:--cmc-t,auto;animation-range:${SPIN_RANGE};animation-delay:0s,calc(var(--p) * -${TURN_S}s);animation-play-state:running,paused}
-    .cmc-stage[data-commerce-live] .cmc-face{animation-play-state:running,running}
-    .cmc-w{animation:cmc-word cubic-bezier(.2,.7,.3,1) both;animation-timeline:--cmc-t}
+    ${NEAR} .cmc-phone-wrap{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
+    ${NEAR} .cmc-ring{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
+    ${NEAR} .cmc-sharp{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
+    ${NEAR} .cmc-soft{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
+    ${NEAR} .cmc-rise > .cmc-phone{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${PHONE_OUT[0]}svh contain ${PHONE_OUT[1]}svh}
+    ${NEAR} .cmc-shade{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${SHADE_OUT[0]}svh contain ${SHADE_OUT[1]}svh}
+    ${NEAR} .cmc-copy{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${COPY_OUT[0]}svh contain ${COPY_OUT[1]}svh}
+    ${NEAR} .cmc-orbit{animation:cmc-spin linear both;animation-timeline:--cmc-t;animation-range:${SPIN_RANGE}}
+    ${NEAR} .cmc-face{animation:cmc-unspin linear both,cmc-depth ${TURN_S}s linear infinite;animation-timeline:--cmc-t,auto;animation-range:${SPIN_RANGE};animation-delay:0s,calc(var(--p) * -${TURN_S}s);animation-play-state:running,paused}
+    ${NEAR}:not([data-cmc-covered]) .cmc-stage[data-commerce-live] .cmc-face{animation-play-state:running,running}
+    ${NEAR} .cmc-w{animation:cmc-word cubic-bezier(.2,.7,.3,1) both;animation-timeline:--cmc-t}
     ${wordRanges()}
   }
 }
@@ -1634,6 +1654,7 @@ ${THINGS_CSS}
  * motion): they only lap the stage's foot, so the whole phone is seen first.
  */
 .cmc-cards{position:relative;z-index:5;margin-top:-8svh}
+.cmc-cover-mark{position:absolute;left:0;right:0;top:clamp(72px,10vh,120px);height:1px;pointer-events:none}
 .cmc-cards-in{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:clamp(72px,10vh,120px) var(--edge) clamp(64px,8vw,120px)}
 
 /*
@@ -1748,7 +1769,8 @@ const PHONE_CSS = `
 .cmc-ui[data-dark] .cmc-batt{border-color:rgba(255,255,255,.45)}
 .cmc-ui[data-dark] .cmc-batt::after{background:rgba(255,255,255,.45)}
 .cmc-ui[data-dark] .cmc-batt span{background:#fff}
-.cmc-ui[data-dark] .cmc-home{z-index:10;background:#f4f4f5}
+/* The dark screen's own ground is the page's, so a fraction of a pixel left under the scaled page never shows as a light line. */
+.cmc-screen[data-dark]{background:#111113}
 .ic{position:absolute;inset:0;overflow:hidden;background:#111113;color:#ececee}
 .ic-page{display:flex;flex-direction:column;align-items:center;padding:92px 22px 0;text-align:center}
 .ic-av{width:88px;height:88px;border-radius:50%;object-fit:cover}
@@ -1920,7 +1942,8 @@ const CARD_GROUND = "#111113"
 /* Built to convert on a phone: the window's design width (u), and how far its page scrolls to the shipping and to Pay (measured in the window, in u). */
 const CDX_NARROW = 380
 const CDX_S1 = 870
-const CDX_S2 = 1190
+/* Round 12: the picture is 4:3 on a phone, so the window shows 241u of its page, not 342u; it scrolls further to bring Pay (its foot at 1483u) up. */
+const CDX_S2 = 1250
 /* The tallest a card's picture is drawn (a 1440 x 800 screen shows a whole card with room to spare). */
 const VIS_CAP = "44svh"
 
@@ -2011,16 +2034,22 @@ const CARDS_CSS = u(`
 /* Currencies: the tee and the LUT pack, each currency in turn. */
 .cmv-flag{display:block;flex:none;width:1.5em;height:1em;border-radius:.2em;object-fit:cover}
 .cv{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:1.3em;padding:0 3.2em}
-.cv-head{display:flex;align-items:center;gap:.6em;font-size:1em}
+/*
+ * Round 12 (the owner: the card's content "is cut off by its container"): nothing in the picture can grow past its
+ * box. Every column may shrink (minmax(0,1fr), min-width:0), and a tile's picture is a square whose photo or cover
+ * fills it from outside the flow, so no engine can size the square from what is in it (the cover carries its own
+ * aspect-ratio and container, inside a flex column inside a grid: the kind of nesting engines size differently).
+ */
+.cv-head{display:flex;align-items:center;gap:.6em;min-width:0;font-size:1em}
 .cv-head img{width:2em;height:2em;border-radius:50%;object-fit:cover}
 .cv-head b{font-weight:600}
-.cv-for{display:flex;align-items:center;gap:.35em;margin-left:auto;color:#8b8b94}
+.cv-for{display:flex;align-items:center;gap:.35em;min-width:0;margin-left:auto;color:#8b8b94;white-space:nowrap}
 .cv-for .cv-stack{color:#f4f4f5;font-weight:500;justify-items:end}
-.cv-tiles{display:grid;grid-template-columns:1fr 1fr;gap:1.2em}
-.cv-tile{display:flex;flex-direction:column;padding:.75em .75em 1em;border-radius:1.3em;background:#1a1a1e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
-.cv-pic{display:block;aspect-ratio:1;border-radius:.75em;overflow:hidden;background:#fff}
-.cv-pic img{display:block;width:100%;height:100%;object-fit:cover}
-.cv-pic .ebc{width:100%;height:100%}
+.cv-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.2em}
+.cv-tile{display:flex;flex-direction:column;min-width:0;padding:.75em .75em 1em;border-radius:1.3em;background:#1a1a1e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.cv-pic{position:relative;display:block;width:100%;height:0;padding-bottom:100%;border-radius:.75em;overflow:hidden;background:#fff}
+.cv-pic img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover}
+.cv-pic .ebc{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto}
 .cv-name{margin:.8em .2em 0;font-size:1em;font-weight:500;color:#d4d4d8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cv-stack{position:relative;display:grid}
 .cv-cyc{grid-area:1/1;opacity:0;white-space:nowrap}
@@ -2034,7 +2063,7 @@ const CARDS_CSS = u(`
 /* The reminder: three moments on one rail that fills as the hour passes, and the email. */
 .cmv-mail{border-radius:1.4em;background:#1a1a1e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:#f4f4f5}
 .cmv-rec{position:absolute;inset:0;font-size:1.15em}
-.cmv-tl{position:absolute;left:3.2em;right:2em;top:2.4em;display:grid;grid-template-columns:repeat(3,1fr)}
+.cmv-tl{position:absolute;left:8em;right:6em;top:4.4em;display:grid;grid-template-columns:repeat(3,1fr)}
 .cmv-rail{position:absolute;left:.35em;right:calc(33.333% - .35em);top:.25em;height:2px;border-radius:1px;background:rgba(255,255,255,.12);overflow:hidden}
 .cmv-fill{position:absolute;inset:0;background:linear-gradient(90deg,#e4e4e7,#a78bfa);transform-origin:0 50%}
 .cmv-st{position:relative;display:grid;gap:.1em;padding-top:1.5em;font-size:.85em}
@@ -2042,7 +2071,8 @@ const CARDS_CSS = u(`
 .cmv-st3 i{background:#a78bfa}
 .cmv-st b{font-weight:500;color:#f4f4f5;white-space:nowrap}
 .cmv-st small{font-size:.9em;color:#8b8b94}
-.cmv-mail{position:absolute;left:3.2em;width:22.4em;top:8.2em;padding:1.4em 1.5em;box-sizing:border-box}
+/* Round 12: the email alone under the rail, in the middle of the picture. */
+.cmv-mail{position:absolute;left:8em;right:8em;top:9.6em;padding:1.4em 1.6em;box-sizing:border-box}
 .cmv-mail-from{display:flex;align-items:center;gap:.7em}
 .cmv-mail-from img{width:2.3em;height:2.3em;border-radius:50%;object-fit:cover}
 .cmv-mail-from b{display:block;font-size:.95em;font-weight:600}
@@ -2056,21 +2086,6 @@ const CARDS_CSS = u(`
 .cmv-thumb img{display:block;width:100%;height:100%;object-fit:cover}
 .cmv-mail-line>span:not(.cmv-thumb){flex:1}
 .cmv-mail-line b{font-weight:600;color:#fff}
-/* What the reminders brought back: an amount over a rising line (an example). */
-.cmv-got{position:absolute;left:26.6em;right:3.2em;top:8.2em;bottom:3.2em;display:flex;flex-direction:column;padding:1.3em 1.3em 1.1em;border-radius:1.4em;background:#1a1a1e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:#f4f4f5;box-sizing:border-box;overflow:hidden}
-.cmv-got-l{font-size:.9em;font-weight:500;color:#d4d4d8}
-.cmv-got-n{display:grid;margin-top:.25em;font-size:1.9em;font-weight:600;line-height:1.15;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
-.cmv-got-n>*{grid-area:1/1}
-.cmv-n0{opacity:0}
-.cmv-got-s{display:flex;align-items:center;gap:.5em;margin-top:.3em;font-size:.78em;color:#8b8b94;white-space:nowrap}
-.cmv-got-up{padding:.12em .5em;border-radius:1em;background:rgba(167,139,250,.16);color:#c4b5fd;font-weight:600;font-variant-numeric:tabular-nums}
-.cmv-chart{position:relative;flex:1;min-height:0;margin:.9em -1.3em 0}
-.cmv-chart svg{display:block;width:100%;height:100%}
-/* The line is drawn by sliding its cover away (a transform), never by animating the stroke. */
-.cmv-wipe{position:absolute;inset:0 -2% 0 0;background:#1a1a1e;transform:translate3d(101%,0,0)}
-.cmv-got-f{padding-top:.8em;border-top:1px solid rgba(255,255,255,.08);font-size:.78em;color:#8b8b94;white-space:nowrap}
-.cmv-got-f b{font-weight:600;color:#f4f4f5}
-
 @media (max-width:899px){
   /*
    * Round 11 (the owner: on a phone the pictures were "broken and cut", "they
@@ -2085,6 +2100,9 @@ const CARDS_CSS = u(`
   .cmc-card-copy p{font-size:15px}
   .cmc-vis{height:auto;aspect-ratio:1;margin:0 -6px;border-radius:16px}
   .cmc-vis-in{font-size:calc(100cqw / 32);width:32em;height:32em;margin-left:-16em}
+  /* Round 12 (the owner: "on phones they must be 4:3 like on desktop"): Built to convert's picture is 4:3 here too, 32 x 24 em. */
+  .cmc-card[data-k=convert] .cmc-vis{aspect-ratio:4/3}
+  .cmc-card[data-k=convert] .cmc-vis-in{height:24em}
   .cmc-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 16px;margin-top:12px;padding:24px 20px;border-radius:24px}
   .cmc-fact{padding-left:14px}
   .cmc-fact b{font-size:26px}
@@ -2136,18 +2154,12 @@ const CARDS_CSS = u(`
   .cv-tee,.cv-luts{font-size:1.6em}
   .cv-chip{gap:.3em;height:2.5em;font-size:.74em}
   .cv-chip .cmv-flag{width:1.3em;height:.87em}
-  /* The reminder: the rail, the email under it, the Recovered tile beside the email, its chart full height. */
+  /* The reminder: the rail, and the email under it across the picture. */
   .cmv-rec{font-size:1em}
-  .cmv-tl{left:1.5em;right:.6em;top:1.5em}
-  .cmv-mail{left:1.2em;width:18.6em;top:6.2em;padding:1.1em 1.2em}
-  .cmv-mail-subj{display:none}
+  .cmv-tl{left:2.2em;right:1.4em;top:2.4em}
+  .cmv-mail{left:1.6em;right:1.6em;top:7em;padding:1.2em 1.3em}
   .cmv-mail-h{font-size:1.3em}
   .cmv-mail p{font-size:.86em}
-  .cmv-got{left:20.6em;right:1.2em;top:6.2em;bottom:1.4em;padding:1em .9em .9em;border-radius:1.2em}
-  .cmv-got-n{font-size:1.4em}
-  .cmv-chart{margin:.7em -.9em 0}
-  .cmv-got-s{flex-direction:column;align-items:flex-start;gap:.25em;font-size:.72em}
-  .cmv-got-f{font-size:.72em;white-space:normal}
 }
 `)
 
@@ -2195,7 +2207,7 @@ const press = (t: number, k: number) => `0%,${at(t)}{transform:scale(1)}${at(t +
 /* Built to convert: the form fills, the page scrolls to the shipping, it is chosen and the totals settle, on down to the card, Pay, paid, the seller's notice, and back to the top under the paid screen. */
 const LOOP_CSS = u(`
 @media (prefers-reduced-motion:no-preference){
-  ${ON} :where(.cdx-v,.cdx-scroll,.cdx-sum-in,.cdx-radio i,.cdx-s0,.cdx-s1,.cdx-t0,.cdx-t1,.cdx-box-terms,.cmv-cursor,.cdx-pay,.cdx-paid,.cdx-ring,.cdx-paid b,.cdx-paid small,.cmv-sale,.pc-touch,.ic-dim,.ic-sheet,.ic-form,.ic-done,.ic-pay,.ic-buy,.ap-dim,.ap-sheet,.ap-side,.ap-done,.tp-ring,.tp-btn,.tp-ok,.tp-shine,.cv-cyc,.cv-hl,.cmv-rec,.cmv-fill,.cmv-st,.cmv-mail,.cmv-mail-btn,.cmv-n0,.cmv-n1,.cmv-got-up,.cmv-wipe){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1)}
+  ${ON} :where(.cdx-v,.cdx-scroll,.cdx-sum-in,.cdx-radio i,.cdx-s0,.cdx-s1,.cdx-t0,.cdx-t1,.cdx-box-terms,.cmv-cursor,.cdx-pay,.cdx-paid,.cdx-ring,.cdx-paid b,.cdx-paid small,.cmv-sale,.pc-touch,.ic-dim,.ic-sheet,.ic-form,.ic-done,.ic-pay,.ic-buy,.ap-dim,.ap-sheet,.ap-side,.ap-done,.tp-ring,.tp-btn,.tp-ok,.tp-shine,.cv-cyc,.cv-hl,.cmv-rec,.cmv-fill,.cmv-st,.cmv-mail,.cmv-mail-btn){animation-duration:${LOOP_S}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1)}
   ${ON} .cdx-v-country,${ON} .cdx-v-state{animation-name:none}
   ${FIELDS.map(([k, t]) => typed(k, t)).join("\n  ")}
   ${ON} .cdx-scroll{animation-name:cdx-scroll}
@@ -2244,9 +2256,6 @@ const LOOP_CSS = u(`
   ${ON} .cmv-st3{animation-name:cmv-st3}
   ${ON} .cmv-mail{animation-name:cmv-mail;animation-timing-function:cubic-bezier(.16,1,.3,1)}
   ${ON} .cmv-mail-btn{animation-name:cmv-btn}
-  ${ON} .cmv-n0{animation-name:cmv-n0}
-  ${ON} .cmv-n1,${ON} .cmv-got-up{animation-name:cmv-n1}
-  ${ON} .cmv-wipe{animation-name:cmv-wipe;animation-timing-function:cubic-bezier(.45,0,.2,1)}
   /* On a phone the order sits above the form, so it scrolls away with the page instead of staying beside it. */
   @media (max-width:899px){
     ${ON} .cdx-sum-in{animation-name:none}
@@ -2301,14 +2310,6 @@ ${hlKeyframes}
 @keyframes cmv-st2{0%,${at(0.95)}{opacity:.35}${at(1.25)},100%{opacity:1}}
 @keyframes cmv-st3{0%,${at(4.55)}{opacity:.35}${at(4.85)},100%{opacity:1}}
 @keyframes cmv-mail{0%,${at(0.8)}{opacity:0;transform:translate3d(0,1.4em,0)}${at(1.6)},100%{opacity:1;transform:translate3d(0,0,0)}}
-/*
- * The Recovered tile (round 11, the owner: bring it back "with the Recovered chart there"): the month's line is
- * always drawn; only its last stretch, today, is covered until this sale is paid, then drawn on as the amount
- * goes up by it. Before, the whole line was wiped in each loop and the tile stood empty for its first seconds.
- */
-@keyframes cmv-wipe{0%,${at(4.6)}{transform:translate3d(${REC_TODAY}%,0,0)}${at(5.4)},100%{transform:translate3d(101%,0,0)}}
-@keyframes cmv-n0{0%,${at(4.6)}{opacity:1}${at(4.85)},100%{opacity:0}}
-@keyframes cmv-n1{0%,${at(4.7)}{opacity:0;transform:translate3d(0,.35em,0)}${at(5.1)},100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmv-btn{0%,${at(3.8)}{transform:scale(1)}${at(3.95)}{transform:scale(.94)}${at(4.2)},100%{transform:scale(1)}}
 `)
 
