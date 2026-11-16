@@ -74,9 +74,10 @@ check("both sites stand in the one canvas, the second hidden at first", /class="
 // Changed on purpose (landing round 12): the first site is GodBless, published at its storelib.com address.
 // Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
 check("the bar's name and the published address change with it", /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">steez\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
-check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /class="ll-bar">Sale 60% off all products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Tech House Master Bundle 2025/.test(ll) && /class="ll-h">Bestselling/.test(ll))
-check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-midi", "ll-hero"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On sale</g) ?? []).length === 3)
-check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
+// Changed on purpose (landing round 14): the owner asked for loudlib exactly as loudlib.net is: no hero, the real bar words and the real BESTSELLING grid (tests/home-landing-r14-ideas.test.ts).
+check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /Sale 60% Off To All Products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Master Bundle 2025/.test(ll) && /class="ll-h">BESTSELLING/.test(ll))
+check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-ambience", "ll-deep-house", "ll-unitech"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On Sale</g) ?? []).length === 3)
+check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
 check("the change is a cross fade, opacity only", /\.bm-s1,\.bm-s2\{transition:opacity \.7s cubic-bezier\(\.4,0,\.2,1\)\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s1\{opacity:0\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s2\{opacity:1\}/.test(BUILDER_CSS))
 check("with reduced motion it simply changes", /@media\(prefers-reduced-motion:reduce\)\{\.bm-s1,\.bm-s2\{transition:none\}\}/.test(BUILDER_CSS))
 

@@ -72,7 +72,8 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
 // Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
 check("Steez in the builder with its own address", site.includes("Summer Madness") && wb.includes("Steez") && wb.includes("steez.storelib.com"))
-check("its pictures exist, are webp and small", ["stz-hero", "stz-logo", "stz-summer", "stz-p-navy", "stz-p-orange", "stz-p-red", "stz-p-lilac"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
+// Changed on purpose (landing round 14): the four products are the owner's own Steez products, no people.
+check("its pictures exist, are webp and small", ["stz-hero", "stz-logo", "stz-summer", "stz-p-hoodie", "stz-p-raw", "stz-p-grey", "stz-p-faith"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
 // Changed on purpose (landing round 13): the site is Steez (.stz).
 check("the shop on white", /\.stz\{[^}]*background:#fff/.test(BUILDER_CSS))
 check("no Saltmoor left", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/sm-hero.webp"))

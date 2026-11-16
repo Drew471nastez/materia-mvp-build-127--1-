@@ -90,11 +90,12 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
 // Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
 check("Steez, a real looking store", site.includes("Summer Madness") && wb.includes("Steez"))
-check("its products are pictures that exist and are small", ["stz-hero", "stz-logo", "stz-summer", "stz-p-navy", "stz-p-orange", "stz-p-red", "stz-p-lilac"].every((n) => {
+// Changed on purpose (landing round 14): the owner's own four Steez products.
+check("its products are pictures that exist and are small", ["stz-hero", "stz-logo", "stz-summer", "stz-p-hoodie", "stz-p-raw", "stz-p-grey", "stz-p-faith"].every((n) => {
   const f = join(root, `public/home/showcase/${n}.webp`)
   return existsSync(f) && statSync(f).size < 120_000 && site.includes(`/home/showcase/${n}.webp`)
 }))
-check("Publish puts steez.storelib.com live, the selected sections outlined", wb.includes("steez.storelib.com") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
+check("Publish puts steez.storelib.com live, the selected sections outlined", wb.includes("steez.storelib.com") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
 
 console.log("\n── The OnePage editor: a LUT pack on a real theme ──")
 const page = renderToStaticMarkup(createElement(DesmondPage))

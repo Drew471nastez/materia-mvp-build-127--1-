@@ -53,12 +53,14 @@ check("a wordmark in the middle of the header, drawn as a picture", /class="smk-
 check("the header's links and the shop's keys", ["Home", "Shop", "Products", "Contact"].every((w) => site.includes(w)) && /class="stz-icons"/.test(site))
 check("a cover: one photograph in the hero", (site.match(/stz-hero\.webp/g) ?? []).length === 1 && /class="smk-pic stz-photo"/.test(site) && !/pw-hero|Everyday cotton|Porto/.test(site + read(F.builders)))
 const prices = [...site.matchAll(/<span class="stz-price">\$(\d+)\.00<\/span>/g)].map((m) => Number(m[1]))
-check("four tees, priced like real clothes", prices.length === 4 && prices.every((p) => p >= 15 && p <= 150) && ["Navy Box Logo Tee", "Orange Classic Tee", "Red Oversized Tee", "Lilac Heavy Tee"].every((n) => site.includes(n)))
-check("every picture is real, webp and under 120 KB", ["stz-hero", "stz-logo", "stz-summer", "stz-p-navy", "stz-p-orange", "stz-p-red", "stz-p-lilac"].every((n) => small(n) && site.includes(`/home/showcase/${n}.webp`)))
+// Changed on purpose (landing round 14): the owner's own four Steez products, at his prices.
+check("four tees, priced like real clothes", prices.length === 4 && prices.every((p) => p >= 15 && p <= 150) && ["Gradient Hoodie", "Raw Tee", "Grey Graphic T-shirt", "Faith over fear Graphic T-shirt"].every((n) => site.includes(n)))
+check("every picture is real, webp and under 120 KB", ["stz-hero", "stz-logo", "stz-summer", "stz-p-hoodie", "stz-p-raw", "stz-p-grey", "stz-p-faith"].every((n) => small(n) && site.includes(`/home/showcase/${n}.webp`)))
 check("Plain Weather and its pictures are gone", !/Plain Weather|plainweather|PlainWeather|\bpw-/.test(code(F.builders) + code(F.ideas)) && ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => !existsSync(pic(n))))
 check("the page is white", /\.stz\{[^}]*background:#fff;/.test(BUILDER_CSS))
 // Changed on purpose (landing round 11): two sites, so two pairs of rings.
-check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4 && /class="wx-sel wx-ring-a"/.test(wb) && /class="wx-sel wx-ring-b"/.test(wb) && /\.wx-sel\.wx-ring-b\{opacity:0\}/.test(BUILDER_CSS))
+// Changed on purpose (landing round 14): one ring per site, around the section whose heading is edited.
+check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2 && /class="wx-sel wx-ring"/.test(wb))
 
 console.log("\nThe Strength Room: a real emblem, a banner for a cover")
 const mark = cm.match(/<svg class="cx-mark"[\s\S]*?<\/svg>/)?.[0] ?? ""
@@ -73,7 +75,8 @@ check("three pill tabs on the grey track", IDEAS_TABS.map((t) => t.title).join()
 check("the same autoplay clock (one 8.4 s moment per tab)", BUILDER_DURATION_MS === 8400 && /\.ideas\[data-run\] \.smk-clock\[data-on\]\{animation-play-state:running\}/.test(ideasCss))
 check("the picture keeps its 1280 x 752 shape, so the section keeps its height", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss) && /\.bm-frame>\.smk\{--w:1280\}/.test(BUILDER_CSS))
 // Changed on purpose (landing round 13): the Steez page scrolls its products into view when they are selected (sxk-stz-scroll, a transform); nothing else of the store moves.
-check("nothing new moves: the store and the emblem are still pictures", !/@keyframes sxk-gb|@keyframes sxk-cx-mark/.test(BUILDER_CSS) && !/\.stz(?!-page)[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS.replace(/@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] \.stz-page\{[^}]*\}\}/, "")))
+// Changed on purpose (landing round 14): the only things that move on the store are the builder's own edit (the ring, the heading's words) and the canvas scroll.
+check("nothing new moves: the store and the emblem are still pictures", !/@keyframes sxk-gb|@keyframes sxk-cx-mark/.test(BUILDER_CSS) && !/\.stz(?!-page| \.wx-)[^{,]*\{[^}]*(animation|transition)/.test(BUILDER_CSS.replace(/@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] \.stz-page\{[^}]*\}\}/, "")))
 check("the alt text tells the new story", /Steez/.test(IDEAS_TABS[0].alt) && /barbell emblem/.test(IDEAS_TABS[2].alt) && !/Plain Weather/.test(IDEAS_TABS.map((t) => t.alt).join()))
 
 console.log("\nCopy")

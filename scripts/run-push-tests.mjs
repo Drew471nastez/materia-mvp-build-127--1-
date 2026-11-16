@@ -1581,6 +1581,8 @@ const SUITES = [
   "tests/home-landing-r13-business.test.ts",
   /* Landing round 13, pricing: /pricing without the Compare Storelib links or the four badges; the cards on white under a much bigger heading; then sheets that rise over them as the page scrolls (sticky, rounded tops, a compositor shade): what comes with your store (the home Everything pictures as a two over three bento, and a domain reel of endings Storelib connects), Compare all features from planComparison() with a sticky plan row, and the questions; Get Grow a solid purple button. */
   "tests/home-landing-r13-pricing.test.ts",
+  /* Landing round 14, ideas: Steez's products are the owner's own four, flat on light grey, no progress bar; loudlib is drawn as loudlib.net is (the sale bar, the header, BESTSELLING and its six packs, no hero); the builder's moment selects a heading, types new words over it, then Publish; the unused pictures are deleted. */
+  "tests/home-landing-r14-ideas.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
