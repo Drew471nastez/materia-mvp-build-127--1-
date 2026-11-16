@@ -131,7 +131,8 @@ console.log("\n── integrations ──")
   /* Changed on purpose (landing round 7): the owner wanted the icons full width, so there is no solid strip any more; each fade is only a short ramp at the screen's edge. */
   check("the fades short and light, at the screen's edges only", /width: clamp\(40px, 11vw, 220px\);/.test(css) && /rgba\(255, 255, 255, 0\.8\) 18%/.test(css) && !/0\.92\)/.test(css) && !/--solid/.test(css))
   check("no bump under the pointer: no lift, no shadow layer of the tile's own", !/\.tile:hover|\.tile::before|translate3d\(0, -4px, 0\)/.test(css))
-  check("nothing square behind a turning icon: only the rounded face turns, its back hidden, a hairline only round light icons", /\.inner \{[^}]*border-radius: 24%;[^}]*backface-visibility: hidden;/.test(css) && /\.inner\[data-light\]/.test(css) && /data-light=/.test(src) && (html.match(/data-light="true"/g) ?? []).length >= 8)
+  /* Changed on purpose (landing round 11 perf): the face has no backface-visibility: hidden any more; the turn goes 0 to 90 and -90 to 0 degrees, so its back is never shown, and the property made every icon a layer of its own. */
+  check("nothing square behind a turning icon: only the rounded face turns, a hairline only round light icons", /\.inner \{[^}]*border-radius: 24%;/.test(css) && !/\.inner \{[^}]*backface-visibility/.test(css) && /\.inner\[data-light\]/.test(css) && /data-light=/.test(src) && (html.match(/data-light="true"/g) ?? []).length >= 8)
   // Changed on purpose (landing round 8): the owner found the flip delayed: 680ms, setting off at once.
   check("one smooth turn", /const TURN_MS = 680/.test(src) && /perspective\(700px\) rotateY\(90deg\)", offset: 0\.5/.test(src))
 }

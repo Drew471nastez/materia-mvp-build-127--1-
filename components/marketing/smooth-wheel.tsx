@@ -38,20 +38,45 @@ export function SmoothWheel() {
     let current = window.scrollY
     let running = false
 
-    const maxScroll = () => doc.scrollHeight - window.innerHeight
+    /*
+      Landing round 11 perf: no layout read per wheel event. scrollHeight and a
+      computed overflow, read in a wheel handler, make the browser lay the page
+      out and restyle it first, and on this page something is nearly always
+      dirty (loops, sections arriving): measured at 4x CPU, the handler was
+      about 10ms a wheel event and a tenth of the main thread over a scroll.
+      The page's length is kept up by a ResizeObserver (it reports after
+      layout, nothing is forced) and read once when a glide starts; the boxes
+      that can scroll under a pointer are found once per element.
+    */
+    let height = doc.scrollHeight
+    const sized = typeof ResizeObserver === "function" ? new ResizeObserver(() => (height = doc.scrollHeight)) : null
+    sized?.observe(doc)
+    const maxScroll = () => (sized ? height : doc.scrollHeight) - window.innerHeight
     const clamp = (v: number) => Math.max(0, Math.min(v, maxScroll()))
     const locked = () => doc.hasAttribute("data-modal-any") || document.body.hasAttribute("data-scroll-locked")
 
-    /* A box under the pointer that can still scroll that way takes the wheel itself. */
-    const nestedCanScroll = (start: EventTarget | null, dy: number) => {
-      let node = start instanceof Element ? start : null
+    /* A box under the pointer that can still scroll that way takes the wheel itself. The boxes that may scroll (overflow auto or scroll) on the way up from an element are found once per element. */
+    const scrollers = new WeakMap<Element, Element[]>()
+    const scrollersAbove = (start: Element) => {
+      let list = scrollers.get(start)
+      if (list) return list
+      list = []
+      let node: Element | null = start
       while (node && node !== document.body && node !== doc) {
         const oy = getComputedStyle(node).overflowY
-        if ((oy === "auto" || oy === "scroll") && node.scrollHeight > node.clientHeight + 1) {
+        if (oy === "auto" || oy === "scroll") list.push(node)
+        node = node.parentElement
+      }
+      scrollers.set(start, list)
+      return list
+    }
+    const nestedCanScroll = (start: EventTarget | null, dy: number) => {
+      if (!(start instanceof Element)) return false
+      for (const node of scrollersAbove(start)) {
+        if (node.scrollHeight > node.clientHeight + 1) {
           if (dy < 0 && node.scrollTop > 0) return true
           if (dy > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) return true
         }
-        node = node.parentElement
       }
       return false
     }
@@ -92,6 +117,7 @@ export function SmoothWheel() {
     window.addEventListener("resize", onResize, { passive: true })
     return () => {
       running = false
+      sized?.disconnect()
       window.removeEventListener("wheel", onWheel)
       window.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onResize)

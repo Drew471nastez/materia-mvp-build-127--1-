@@ -6,6 +6,7 @@ import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
 import { SmoothWheel } from "@/components/marketing/smooth-wheel"
 import { LazySection } from "@/components/marketing/home/lazy-section"
+import { NearGate } from "@/components/marketing/home/near-gate"
 import {
   LazyEverythingInOnePlace,
   LazyIdeasComeToLife,
@@ -81,6 +82,8 @@ export default function StorelibLanding() {
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
       {/* A desktop mouse wheel glides, as the Materia theme's smooth scroll does (components/marketing/smooth-wheel.tsx). */}
       <SmoothWheel />
+      {/* One safety net for loops off screen: the infinite CSS loops of every lazy section far from the screen are paused (components/marketing/home/near-gate.tsx). */}
+      <NearGate />
       <LandingStory>
         {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). The page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). */}
         <ScrollRevealBackdrop>
