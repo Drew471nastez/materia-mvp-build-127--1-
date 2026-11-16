@@ -36,5 +36,9 @@ check("the checkout pictures on a phone are the computer's 48 x 42, and Built to
 console.log("\n── pictures asked for ahead ──")
 check("a lazy picture is asked for three screens ahead", PICTURE_AHEAD === "300% 0px 300% 0px" && /if \(img\.loading === "lazy"\) img\.loading = "eager"/.test(story) && /rootMargin: PICTURE_AHEAD/.test(story))
 
+console.log("\n── round 14: nothing in the checkout follows the scroll on a phone ──")
+check("the scroll timelines and the held stage start at 900px", /@media \(min-width:900px\)\{\s*@supports \(animation-timeline:view\(\)\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}\s*\.cmc-stage\{position:sticky;top:0\}/.test(co) && (co.match(/@supports \(animation-timeline:view\(\)\)/g) || []).length === 1)
+check("the dark header has no backdrop filter (a solid bar)", !/backdrop-blur/.test(read("lib/platform/header-chrome.ts").replace(/\/\*[\s\S]*?\*\//g, "").split("if (!light)")[1].split("}")[0]))
+
 console.log(`\n${failed ? `${failed} failed` : "all passed"}`)
 if (failed) process.exit(1)

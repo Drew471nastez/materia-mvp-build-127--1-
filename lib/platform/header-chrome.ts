@@ -60,7 +60,8 @@ const DARK_FOCUS =
 export function headerChrome(light: boolean): HeaderChrome {
   if (!light) {
     return {
-      root: `platform-header-depth z-40 w-full bg-[${BUYER_HEADER_DARK_BG}] backdrop-blur supports-[backdrop-filter]:bg-[${BUYER_HEADER_DARK_BG}]`,
+      /* Landing round 14: no backdrop-blur. The bar is a solid colour, so the blur drew nothing, and a backdrop filter on a sticky bar makes Safari on a phone filter the page under it again on every frame of a scroll (the owner: the header "pops and flashes"). */
+      root: `platform-header-depth z-40 w-full bg-[${BUYER_HEADER_DARK_BG}]`,
       header: `w-full bg-[${BUYER_HEADER_DARK_BG}]`,
       headerBorder: "border-b border-white/[0.08]",
       focus: DARK_FOCUS,
