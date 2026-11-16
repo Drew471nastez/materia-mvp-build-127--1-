@@ -1,0 +1,3 @@
+/* Round BB, part 468: themes uploaded straight into the AI source bank. The admin can drop a zip, an HTML page, a stylesheet or a whole theme folder at /admin/ai-bank; it is kept as a reference the website AI reads (its pages, sections, styles and how it moves), with no library website behind it, so public.ai_template_bank.install_id may now be empty. Library entries keep their website and still go when it is deleted. Still server only. No existing rows change. Run after part 467. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.ai_template_bank') IS NULL THEN RAISE NOTICE 'ai bank uploads: run part 467 first.'; RETURN; END IF; ALTER TABLE public.ai_template_bank ALTER COLUMN install_id DROP NOT NULL; END $do$;
+notify pgrst, 'reload schema';

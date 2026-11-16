@@ -28,7 +28,8 @@ import { agentOnForEveryone } from "./agent-access"
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** Jobs one creator may have running at once. */
-export const MAX_RUNNING_JOBS = 1
+/* Round BB: three AI websites may build at once per store (one per website, enforced by the jobs table). */
+export const MAX_RUNNING_JOBS = 3
 
 /** The Website page's key for one press: 8 to 80 letters, digits and dashes. */
 export function isStartKey(v: unknown): v is string {

@@ -116,11 +116,11 @@ export function chooseBankEntry(entries: readonly BankListing[], brief: BriefLik
 }
 
 /** Reference entries (imported themes) worth showing for this brief, best first. */
-export function referenceEntries(entries: readonly BankListing[], brief: BriefLike, max = 2): BankListing[] {
+export function referenceEntries(entries: readonly BankListing[], brief: BriefLike, max = 3): BankListing[] {
+  /* Round BB: the owner's references are the standard for every site, so the nearest are always read, however far. */
   return entries
     .filter((e) => e.kind === "reference")
     .map((entry, i) => ({ entry, i, s: scoreBankEntry(entry, brief).score }))
-    .filter((x) => x.s >= 3)
     .sort((a, b) => b.s - a.s || a.i - b.i)
     .slice(0, max)
     .map((x) => x.entry)
