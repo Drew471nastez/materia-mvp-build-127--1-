@@ -393,7 +393,8 @@ function watchDistance(el: Element) {
       for (const e of entries) {
         const r = e.boundingClientRect
         const vh = e.rootBounds?.height ?? window.innerHeight
-        distance.set(e.target, r.bottom < 0 ? -r.bottom : r.top > vh ? (r.top - vh) * 0.67 : 0)
+        /* Landing round 14: a box with no size is hidden at this width (earnings on a phone): it goes last, not first. */
+        distance.set(e.target, !r.width && !r.height ? Infinity : r.bottom < 0 ? -r.bottom : r.top > vh ? (r.top - vh) * 0.67 : 0)
       }
     },
     { rootMargin: "400% 0px 400% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },

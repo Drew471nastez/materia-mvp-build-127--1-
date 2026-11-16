@@ -207,7 +207,8 @@ export const HEADER_LOGO = { desktop: 37.72, marketingPhone: 36.01, phone: 32.59
  * a modifier (a new tab, a new window) is left to the link.
  */
 export function scrollHomeToTop(e: React.MouseEvent<HTMLElement>, targetPath: string, pathname: string | null): boolean {
-  if (targetPath !== "/" || pathname !== "/") return false
+  /* Landing round 14: the browser's own address decides "already here", not only the caller's. A caller holding a stale pathname turned Home on /faq into a scroll of /faq and a loading cover that never left. */
+  if (targetPath !== "/" || pathname !== "/" || (typeof window !== "undefined" && window.location.pathname !== "/")) return false
   if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false
   e.preventDefault()
   const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -1960,6 +1961,10 @@ export function PlatformHeaderClient({
     when its foot has gone under the bar; a computer still watches the hero's
     buttons. The same observer watches both and the width is asked when it
     reports, so a turned phone needs no listener.
+
+    Landing round 14, the owner: on a computer (768px and wider) Sign up no
+    longer waits; it stands beside Log in from the top of the page. The
+    attribute still drives the phone's Start now (hero.tsx).
   */
   useEffect(() => {
     const el = headerRootRef.current
@@ -2160,7 +2165,7 @@ export function PlatformHeaderClient({
       }
       router.push(targetPath)
     },
-    [shouldForceCanonicalNav, navigateToCanonical, router],
+    [shouldForceCanonicalNav, navigateToCanonical, router, pathname],
   )
 
   const onCanonicalNav = useCallback(
@@ -2200,7 +2205,19 @@ export function PlatformHeaderClient({
       */
       if (e.defaultPrevented) router.push(targetPath)
     },
-    [navigateToCanonical, shouldForceCanonicalNav, router],
+    /*
+      PATHNAME IS A DEPENDENCY (landing round 14, the owner: "on /faq I try to
+      go Home, it shows loading and doesn't load the page at all; I have to
+      hard refresh"). It was left out, and nothing else here changes on a
+      client navigation, so this callback kept the address the header first
+      rendered at. Open the site on "/", press FAQ, press Home: the stale
+      pathname still said "/", scrollHomeToTop took Home for "already here",
+      cancelled the link and scrolled /faq to its top, while the loading line
+      (route-loading-bar, which saw a link to another page) put the slow-page
+      cover up until its 10 second give up. scrollHomeToTop now reads the
+      address the browser is at as well, so a stale caller cannot do it again.
+    */
+    [navigateToCanonical, shouldForceCanonicalNav, router, pathname],
   )
 
   const getCanonicalOrRelativePath = useCallback((targetPath: string) => {

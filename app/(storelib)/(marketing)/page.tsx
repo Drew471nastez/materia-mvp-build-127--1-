@@ -21,6 +21,7 @@ import {
   LazyAppAnywhere,
   LazyBuildShowcase,
   LAZY_SECTION_HEIGHTS_CSS,
+  LAZY_SECTION_PHONE_HIDDEN_CSS,
 } from "@/components/marketing/home/lazy-sections"
 import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -91,6 +92,8 @@ export default function StorelibLanding() {
 
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
+      {/* Landing round 14: no earnings on a phone. A tag of its own: these strings come from a client module, so here they are references the browser resolves, and joining two with + printed a function's source instead. */}
+      <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_PHONE_HIDDEN_CSS }} />
       {/* Landing round 12, the owner: the wheel glide was "too smooth and delayed". The page scrolls natively, in real time (tests/home-smooth-wheel-r5.test.ts). */}
       {/* Landing round 13: the whole landing is one Suspense boundary too, so a section whose file is late during hydration holds only this boundary, never the wrapper (see the four sections above). */}
       <Suspense fallback={null}>

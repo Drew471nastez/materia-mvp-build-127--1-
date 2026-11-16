@@ -1585,6 +1585,8 @@ const SUITES = [
   "tests/home-landing-r14-showcase.test.ts",
   /* Landing round 14, ideas: Steez's products are the owner's own four, flat on light grey, no progress bar; loudlib is drawn as loudlib.net is (the sale bar, the header, BESTSELLING and its six packs, no hero); the builder's moment selects a heading, types new words over it, then Publish; the unused pictures are deleted. */
   "tests/home-landing-r14-ideas.test.ts",
+  /* Landing round 14, the frame: Home from /faq goes home (the header's onCanonicalNav kept its first pathname, so Home was taken for "already here" and the loading cover stayed up); a computer's Sign up beside Log in from the top of the hero; no "See what your work could earn" on a phone. */
+  "tests/home-landing-r14-frame.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

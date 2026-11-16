@@ -115,9 +115,10 @@ body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled]::bef
 /* Scrolled, the bar is opaque: a backdrop blur behind an opaque colour shows nothing and is still re-rendered on every scroll frame. */
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] { backdrop-filter:none; -webkit-backdrop-filter:none; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] > header { border-bottom-color:rgba(0,0,0,.096); }
+/* Landing round 14, the owner: on a computer Sign up stands next to Log in from the top of the page, always; only the phone's Start now still waits for the hero's buttons. */
 /* Landing round 5: the bar's Start now (phone) and Sign up (computer) wait, faded where they stand, until the hero's own buttons have gone under the bar (platform-header-client writes data-home-cta; landing round 9: on a phone, until the showcase has). Opacity and translate only, so the bar never moves or changes height. Landing round 9, the owner: "very smooth and clean, unobservable": a longer, softer fade (560ms, it was 320) over a 4px rise (it was 7), and it leaves the same way. */
-body:has([data-home-hero="cinematic"]) #platform-header-root :is([data-home-phone-start],[data-guest-signup]) { transition:opacity 560ms cubic-bezier(.33,0,.2,1),translate 640ms cubic-bezier(.22,1,.36,1),background-color 150ms,visibility 0s linear 0s; }
-body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-home-cta="shown"]) :is([data-home-phone-start],[data-guest-signup]) { opacity:0; translate:0 4px; visibility:hidden; pointer-events:none; transition:opacity 280ms ease-out,translate 280ms ease-out,background-color 150ms,visibility 0s linear 280ms; }
+body:has([data-home-hero="cinematic"]) #platform-header-root [data-home-phone-start] { transition:opacity 560ms cubic-bezier(.33,0,.2,1),translate 640ms cubic-bezier(.22,1,.36,1),background-color 150ms,visibility 0s linear 0s; }
+body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-home-cta="shown"]) [data-home-phone-start] { opacity:0; translate:0 4px; visibility:hidden; pointer-events:none; transition:opacity 280ms ease-out,translate 280ms ease-out,background-color 150ms,visibility 0s linear 280ms; }
 @media (min-width:1024px) {
   [data-home-hero="cinematic"] { --hero-tint-opacity:.57; min-height:min(886.83px,calc((100svh - 68.96px)*1.0815)); }
   .cinematic-heading {font-size:clamp(77.9px,7.6vw,110.2px)}
@@ -158,8 +159,8 @@ body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-home-cta=
 @media(max-width:767px){html:not(.capacitor) body:has([data-home-hero="cinematic"]) #platform-header-root .platform-header-row{padding-top:var(--hero-stable-row-top,max(var(--home-env-top),10.65px))}}
 @media (prefers-reduced-motion: reduce) {
   body:has([data-home-hero="cinematic"]) #platform-header-root, body:has([data-home-hero="cinematic"]) #platform-header-root > header {transition:none}
-  body:has([data-home-hero="cinematic"]) #platform-header-root :is([data-home-phone-start],[data-guest-signup]) {translate:none !important; transition:opacity 150ms linear,visibility 0s linear 0s !important}
-  body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-home-cta="shown"]) :is([data-home-phone-start],[data-guest-signup]) {transition:opacity 150ms linear,visibility 0s linear 150ms !important}
+  body:has([data-home-hero="cinematic"]) #platform-header-root [data-home-phone-start] {translate:none !important; transition:opacity 150ms linear,visibility 0s linear 0s !important}
+  body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-home-cta="shown"]) [data-home-phone-start] {transition:opacity 150ms linear,visibility 0s linear 150ms !important}
   .cinematic-video { transition: none; }
   .cinematic-phrase { animation: none !important; }
   .cinematic-signup button, .cinematic-primary { transition: none; }
