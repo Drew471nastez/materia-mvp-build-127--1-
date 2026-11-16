@@ -11,6 +11,8 @@
  *   websites, pages    lib/sites/plan.ts
  *   storage, files     lib/storage/plans.ts, lib/marketing/facts.ts
  *   payout countries   lib/marketing/facts.ts PAYOUTS
+ *   bookings           lib/bookings, lib/forms/booking-payment.ts (a paid
+ *                      booking is paid through a product's checkout)
  *
  * Each question has a stable id, its address on the page (/faq#<id>), so a
  * link somebody shared keeps working when the wording of a question changes.
@@ -93,7 +95,7 @@ export function faqTopics(): FaqTopic[] {
         {
           id: "what-can-i-sell",
           q: "What can I sell on Storelib?",
-          a: `Files people download, like ebooks, templates, presets, music, fonts and software, and video courses with lessons, free previews and each student's progress. Each file can be up to ${PRODUCT_FILE_LIMIT}.`,
+          a: `Files people download, like ebooks, templates, presets, music, fonts and software, video courses with lessons, free previews and each student's progress, and paid calls and sessions. Each file can be up to ${PRODUCT_FILE_LIMIT}. For calls, make a booking form with the times you are free and put it on your OnePage or your website: a visitor picks a time and, for a paid session, pays through your product's checkout. Bookings arrive in Bookings in your dashboard and can go straight to your Google Calendar, and the visitor can move or cancel from their email.`,
         },
         {
           id: "list-a-product",
