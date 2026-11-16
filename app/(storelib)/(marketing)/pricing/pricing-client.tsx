@@ -118,7 +118,7 @@ export function PricingPageClient({ compare }: { compare?: ReactNode } = {}) {
         headingLevel={1}
         hideDetailsLink
         headingOverride={isUpgradeMode ? "Choose a plan" : undefined}
-        subtitleOverride={isUpgradeMode ? "Pro is $29 a month. Cancel at any time from Billing." : undefined}
+        subtitleOverride={isUpgradeMode ? "Grow is $29 a month. Cancel at any time from Billing." : undefined}
         upgradeCallbacks={upgradeCallbacks}
       />
 

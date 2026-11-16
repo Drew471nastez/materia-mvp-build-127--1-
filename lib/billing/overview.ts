@@ -36,8 +36,8 @@ const FREE_PLAN = {
 
 const GROWTH_PLAN = {
   id: "growth",
-  // Sold as "Pro". The id stays "growth": it is the $29 Stripe price.
-  name: "Pro",
+  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": it is the $29 Stripe price.
+  name: "Grow",
   price_cents: 2900,
   billing_period: "month",
   fee_percent: 0.03,
@@ -47,9 +47,9 @@ const GROWTH_PLAN = {
 }
 
 const PRO_PLAN = {
-  // The $99 plan, offered again (wave 13) and sold as "Scale". The id stays "pro": it is the $99 Stripe price.
+  // The $99 plan, sold as "Pro" (pricing round 5; it was "Scale"). The id stays "pro": it is the $99 Stripe price.
   id: "pro",
-  name: "Scale",
+  name: "Pro",
   price_cents: 9900,
   billing_period: "month",
   fee_percent: SCALE_STANDARD_RATE,

@@ -97,7 +97,8 @@ check("no letter by letter typing left", !/cmh-ch\d|cmh-caret|cmh-br-veil|cmh-lo
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
 check("no DNS and HTTPS ticks; the lock turns violet as the address closes", !/@keyframes cmh-(url1|lock|ok0|ok1)\{/.test(css) && !text.includes("DNS found") && /\.cmh-dm-on\{[^}]*color:#7c4ff0/.test(css))
 // Changed on purpose (landing round 9): a caption is a title and one short line now.
-check("the caption keeps the code's claims in one line", /On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(text) && text.includes("Use your own domain"))
+/* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
+check("the caption keeps the code's claims in one line", /On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(text) && text.includes("Use your own domain"))
 
 console.log("\n5. Structure and width stay")
 // Changed on purpose (landing round 9): the owner asked for the reference's row: three cards, narrow, wide, narrow.

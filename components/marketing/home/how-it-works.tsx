@@ -151,7 +151,7 @@ export const HOW_DOMAIN_PHOTO = `${HOW}/linde-turning.webp`
 export const HOW_CARDS = [
   { key: "tips", wide: false, title: "Take tips", line: "A thank you button for people who want to support your work." },
   { key: "business", wide: true, title: "Understand your business", line: "Sales, top products and where your orders come from." },
-  { key: "domain", wide: false, title: "Use your own domain", line: "On Pro, point a domain you own at your site. HTTPS is set up for you." },
+  { key: "domain", wide: false, title: "Use your own domain", line: "On Grow, point a domain you own at your site. HTTPS is set up for you." },
 ] as const
 
 /**

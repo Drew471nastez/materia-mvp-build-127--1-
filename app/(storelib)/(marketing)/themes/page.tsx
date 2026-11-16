@@ -19,7 +19,7 @@ export const revalidate = 300
 export const metadata: Metadata = pageMetadata({
   path: "/themes",
   title: "Themes for your Storelib website",
-  description: "Themes for Storelib websites: free, paid and Pro. Preview each one live and add it to your library.",
+  description: "Themes for Storelib websites: free, paid and included with Grow. Preview each one live and add it to your library.",
 })
 
 export default async function ThemesPage() {

@@ -388,9 +388,10 @@ console.log("\nGet a domain, and how domains work")
 console.log("\nThe plan that includes a domain")
 {
   check("Free does not, Pro does (its id is growth), and the old Pro still does", !siteLimits("free").customDomain && siteLimits("growth").customDomain && siteLimits("pro").customDomain)
-  check("the refusal names Pro, the only paid plan sold", siteGate("free", "customDomain") === "Connecting your own domain is available on Pro." && siteGate("growth", "customDomain") === null)
+  /* Changed on purpose (pricing round 5): the $29 plan, the first with a domain, is named Grow. */
+  check("the refusal names Grow, the first plan with a domain", siteGate("free", "customDomain") === "Connecting your own domain is available on Grow." && siteGate("growth", "customDomain") === null)
   const panel = code("components/app/settings/domains-panel.tsx")
-  check("Settings names Pro, not Growth", /Custom domains are available on the Pro plan\./.test(panel) && !/Growth/.test(panel))
+  check("Settings names Grow, not Growth", /Custom domains are available on the Grow plan\./.test(panel) && !/Growth/.test(panel))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

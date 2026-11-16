@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   const creatorId = typeof body?.creatorId === "string" ? body.creatorId : ""
   if (!UUID_RE.test(creatorId)) return NextResponse.json({ error: "No creator has this id." }, { status: 400, headers: NO_STORE })
   const plan = body?.plan === null ? null : body?.plan
-  if (plan !== null && !isAssignablePlan(plan)) return NextResponse.json({ error: "Choose Free, Pro or the legacy Pro." }, { status: 400, headers: NO_STORE })
+  if (plan !== null && !isAssignablePlan(plan)) return NextResponse.json({ error: "Choose Free, Grow or Pro." }, { status: 400, headers: NO_STORE })
 
   const admin = createAdminClient()
   const done = await setPlanOverride(admin, creatorId, plan)

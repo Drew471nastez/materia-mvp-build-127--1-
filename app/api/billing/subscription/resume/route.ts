@@ -48,7 +48,7 @@ export async function POST() {
 
     const live = (await stripe.subscriptions.retrieve(subscription.stripe_subscription_id)) as any
     if (!RUNNING.has(live.status)) {
-      return NextResponse.json({ error: "This plan has already ended. Choose Pro again to start a new one." }, { status: 409 })
+      return NextResponse.json({ error: "This plan has already ended. Choose a plan again to start a new one." }, { status: 409 })
     }
 
     /* Cancelled here (or in Stripe's portal) it is cancel_at_period_end; newer Stripe versions may set cancel_at instead. */

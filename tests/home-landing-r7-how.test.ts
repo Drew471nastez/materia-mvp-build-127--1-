@@ -77,7 +77,7 @@ console.log("\nYour own domain")
 // Changed on purpose (landing round 11): one browser window with his website, its address closing to his own domain.
 check("one browser window, no rows, no night ground", how.includes('class="cmh-dm-win"') && !how.includes('class="cmh-dm-row"') && !/data-ground="night"/.test(how) && !/night/.test(css))
 check("the domain is one Storelib accepts and serves one of the product's purposes", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
-check("the caption keeps the code's claims", /On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(text)) // Changed on purpose (landing round 9): one short line.
+check("the caption keeps the code's claims", /On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(text)) // Changed on purpose (landing round 9): one short line. /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
 
 console.log("\nSmooth")
 check("every keyframe moves transform and opacity only", keyframeBodies(css).every(onlyCompositor))

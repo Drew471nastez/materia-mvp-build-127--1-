@@ -12,7 +12,7 @@ export const CONTACT_REASONS = [
   { id: "website", label: "My store or website", hint: "The builder, a theme, a domain" },
   { id: "products", label: "Products and delivery", hint: "Files, courses, shipping" },
   { id: "account", label: "Account and login", hint: "Signing in, email, security" },
-  { id: "billing", label: "Plan and billing", hint: "Pro, invoices, cancelling" },
+  { id: "billing", label: "Plan and billing", hint: "Plans, invoices, cancelling" },
   { id: "purchase", label: "Something I bought", hint: "Access, downloads, a refund" },
   { id: "other", label: "Something else", hint: "Ideas, partnerships, anything" },
 ] as const

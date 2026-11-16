@@ -519,7 +519,7 @@ export function PlanCard({ planId }: { planId: string }) {
           href={free ? "/app/settings/billing/upgrade" : "/app/settings/billing"}
           className="mt-4 inline-flex h-11 w-full shrink-0 items-center justify-center rounded-[12px] bg-[#16161a] text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(0,0,0,0.18)] outline-none transition-colors duration-150 hover:bg-[#2a2a31] active:bg-[#0b0b0d] focus-visible:ring-2 focus-visible:ring-[#8b5cf6] focus-visible:ring-offset-2 [-webkit-tap-highlight-color:transparent]"
         >
-          {free ? tt("Upgrade to Pro") : tt("Manage plan")}
+          {free ? tt("Upgrade to Grow") : tt("Manage plan")}
         </AppLink>
       </div>
     </section>

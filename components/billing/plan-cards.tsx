@@ -1,41 +1,55 @@
 "use client"
 
 /**
- * The three plan cards: Free, Pro and Scale.
+ * The three plan cards: Free, Grow and Pro.
  *
  * One component for every place a plan is offered (the landing page,
- * /pricing, onboarding, the upgrade page and the Billing tab) so the cards
- * cannot drift apart again. Each screen decides what the button does; the
- * card decides how a plan looks, and PLAN_ART below is the only place the
- * pictures, their dimming and their grain are written down.
+ * /pricing, onboarding, the upgrade page, the Billing tab and the OnePage
+ * settings) so the cards cannot drift apart again. Each screen decides what
+ * the button does; the card decides how a plan looks.
  *
- * DRAWN TO THE OWNER'S REFERENCE. A tall header in the plan's colour, which is
- * the owner's own picture (near black for Free, deep indigo for Pro, the
- * Storelib mark standing at the right), holding a small label, the plan's
- * name, the price large, a line under it and one line of description, all in
- * white. Under it the plan's lines, each with a thin check in the plan's
- * colour (wave 13: "simpler and lighter, thin, not bold, not filled
- * circles"; a thin grey cross for what Free does not have), a full width
- * button in the same colour, and one line of small print.
+ * PRICING ROUND 5, DRAWN TO THE OWNER'S REFERENCE PICTURE. Three white cards
+ * on a light grey ground. Each card holds a soft grey panel at its top with
+ * a small white pill (the plan's icon and name), the price large with
+ * "/month" beside it, one line of at most seven words, and a full width
+ * rounded button: outlined on Free and Pro, filled in Storelib purple on
+ * Grow, the middle card, which stands a little higher with a soft shadow.
+ * Under the panel, the plan's lines (five at most), each with a small line
+ * icon. Under the three cards, a wide white bar with "Contact sales" where
+ * the page asks for it. The price is one step heavier than the reference.
  *
- * EVERY WORD IS TRUE. The lines come from lib/billing/plans.ts, which writes
- * them from the tables that enforce them; the label and the small print are
- * plain facts about the plan (no invented discount, no "most chosen"), and
- * tests/pricing-plans.test.ts holds both.
+ * The plan names people read are Free, Grow ($29, id `growth`) and Pro ($99,
+ * id `pro`); the ids, the Stripe prices and the checkout never changed
+ * (lib/billing/plans.ts).
  *
- * THE PICTURES THROUGH next/image, sized to the card: a phone is sent a
- * version about as wide as its screen, not the 1672px original.
- * scripts/check-pricing-cards.mjs measures that, the equal heights, the
- * contrast of the white text on the picture, and the 44px buttons;
- * scripts/check-billing-tab.mjs measures the Monthly and Yearly switch frame
- * by frame, and the pictures' brightness and grain.
+ * EVERY WORD IS TRUE. The lines come from components/marketing/pricing-lines,
+ * written from the tables that enforce them, and tests/pricing-cards-r5.test.ts
+ * holds the count, the names and the order.
  */
 import * as React from "react"
-import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, Check, Loader2, X } from "lucide-react"
+import {
+  ArrowRight,
+  BadgeCheck,
+  CreditCard,
+  EyeOff,
+  FolderOpen,
+  Globe,
+  Landmark,
+  Layers,
+  LayoutTemplate,
+  Loader2,
+  Mail,
+  Package,
+  PenLine,
+  Rocket,
+  Sprout,
+  Store,
+  type LucideIcon,
+} from "lucide-react"
 import { SWAP_EASE, SWAP_MS, TextSwap } from "@/components/ui/text-swap"
-import { OFFERED_PLANS, YEARLY_BILLING_LIVE, YEARLY_SAVING_PERCENT, pricedFor, type BillingInterval, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
+import { publicPlanLines, type PlanLineIcon } from "@/components/marketing/pricing-lines"
+import { OFFERED_PLANS, PRO_CHECKOUT_PLAN_ID, YEARLY_BILLING_LIVE, YEARLY_SAVING_PERCENT, pricedFor, type BillingInterval, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
 import { tt } from "@/lib/i18n/text"
 
 export interface PlanCardAction {
@@ -51,174 +65,71 @@ export interface PlanCardAction {
   current?: boolean
 }
 
-const PICTURE_BASE = "https://storelib.com/media/platform%20images"
+/** The plan in the middle, drawn raised with the filled purple button: Grow (id `growth`). */
+export const FEATURED_PLAN_ID: OfferedPlanId = PRO_CHECKOUT_PLAN_ID
 
-/**
- * FILM GRAIN OVER THE PICTURES. A tile of fractal noise turned into light
- * and dark specks, each with its own transparency, laid over the picture in
- * the ordinary way. It used to be grey noise in `mix-blend-mode: overlay`,
- * which does almost nothing over a dark picture (overlay scales with what is
- * under it, and both pictures are dark), so on a phone it all but vanished;
- * and a blended layer is one a phone has to composite against the picture
- * whenever anything above it animates. Plain specks read at any density and
- * cost nothing to draw. Drawn once, as an SVG tile in the stylesheet: no
- * image to fetch, no canvas, nothing that moves. It sits under the text.
- */
-/*
-  FINE, NOT COARSE. The tile was drawn at 160 units and shown at 160 CSS
-  pixels, so on a phone at 3x every speck was scaled up to three device
-  pixels and read as a coarse, blotchy texture. Now the noise is drawn at
-  three times the resolution (GRAIN_DENSITY) and shown in the same 160px,
-  so a speck is about one device pixel on a phone: a denser, finer grain
-  that reads as texture rather than dirt, and a little lighter (the `grain`
-  opacities below).
-*/
-const GRAIN_TILE = 160
-const GRAIN_DENSITY = 3
-const GRAIN_SVG =
-  `<svg xmlns='http://www.w3.org/2000/svg' width='${GRAIN_TILE * GRAIN_DENSITY}' height='${GRAIN_TILE * GRAIN_DENSITY}'>` +
-  "<filter id='g' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'>" +
-  "<feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch' result='n'/>" +
-  /*
-    Light specks where the noise is high, dark where it is low. The dark ones
-    are weighted heavier: on pictures this dark a light speck shows far more
-    than a dark one, and even specks would lift the whole header, undoing the
-    dimming below (scripts/check-billing-tab.mjs reads the header's average).
-  */
-  "<feColorMatrix in='n' result='light' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.3 0 0 0 -0.66'/>" +
-  "<feColorMatrix in='n' result='dark' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2 0 0 0 1'/>" +
-  "<feMerge><feMergeNode in='dark'/><feMergeNode in='light'/></feMerge>" +
-  "</filter><rect width='100%' height='100%' filter='url(#g)'/></svg>"
-export const PLAN_GRAIN = `url("data:image/svg+xml,${encodeURIComponent(GRAIN_SVG)}")`
+/** Storelib purple, the colour of the home page's primary button (components/marketing/hero). */
+export const PLAN_PURPLE = "#7c3aed"
 
-/**
- * EACH PLAN'S ART, in one place, for every card on every surface.
- *
- * `filter` dims the picture itself (not the text, not the grain). Pro's is a
- * step darker than it was (brightness 0.52 to 0.42) with its saturation put
- * back to 1, so the indigo stays indigo instead of going grey as it darkens.
- * Free's is exactly what it was with `brightness(0.95)` added at the end:
- * the last function in a filter scales every channel of what came before, so
- * the picture is 5% darker than before and nothing else moves. An overlay
- * would have done the same to the picture but also to the grain above it.
- *
- * `ground` is the picture's own tone, painted under it, so the white text
- * reads the same while the picture is still on its way; it is dimmed with
- * the picture. `blur` is a 24px copy of the picture inlined in the markup,
- * shown blurred until the real one arrives, so the header never pops from
- * flat colour to picture. `grain` is the grain layer's opacity.
- *
- * LANDING ROUND 8, THE OWNER: "increase the contrast of the images, and the
- * grain: make it more clean and smooth". The pictures were dimmed to between
- * 36% and 70% and their contrast taken below 1, which left them murky; now
- * they are lifted (Free 0.9, Pro 0.62, Scale 0.55) with their contrast above
- * 1 (1.12 to 1.16), and the darkening at the foot is lighter (70 to 75%),
- * which is still what keeps the white words readable. The grain is a quarter
- * of what it was (0.2 to 0.05): the picture reads clean and smooth, with
- * only a trace of texture left so the flat areas do not band. The picture is
- * sent at quality 90 (next.config lists it), so its gradients stay crisp.
- *
- * LANDING ROUND 9, THE OWNER: "make the covers of the pricing cards more
- * darkened, and the grain and contrast increased just a little bit". One step
- * each, on every surface that draws the cards: brightness down about a sixth
- * (Free 0.9 to 0.76, Pro 0.62 to 0.52, Scale 0.55 to 0.5), contrast up
- * (1.12 to 1.16 became 1.2 to 1.24), the grain from 0.05 to 0.08.
- *
- * LANDING ROUND 11, THE OWNER: "you increased the contrast of the cover
- * images too much". The contrast goes back to a hair over 1 (1.04 to 1.05),
- * so the pictures' gradients look like the pictures again instead of
- * crushed shadows and hot highlights; brightness stays about where round 9
- * put it (Free 0.78, Pro 0.54), so the covers are no lighter overall and
- * the white words keep their contrast.
- */
-export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}`; filter: string; ground: string; fade: string; grain: number; dot: string; button: string; ring: string }> = {
-  free: {
-    picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
-    blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
-    filter: "brightness(0.78) contrast(1.04)",
-    ground: "bg-[#111112]",
-    fade: "from-[#0b0b0c]/75",
-    grain: 0.08,
-    dot: "text-[#111113]",
-    button: "bg-[#111113] hover:bg-[#26262b] active:bg-[#000000]",
-    ring: "focus-visible:ring-[#111113]/35",
-  },
-  growth: {
-    picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
-    blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "brightness(0.54) contrast(1.05) saturate(1.05)",
-    ground: "bg-[#231587]",
-    fade: "from-[#130b55]/70",
-    grain: 0.08,
-    dot: "text-[#5a43ee]",
-    button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
-    ring: "focus-visible:ring-[#5a43ee]/45",
-  },
-  /*
-    Scale (id `pro`): Pro's picture turned from indigo to a deep steel blue.
-    It was violet (read as pink beside Pro), then a deep teal (round 9, the
-    owner: "Don't make Scale green"), then a warm bronze (round 11, the
-    owner: "I don't like the brown one for the Scale card"). Steel blue sits
-    some 40 degrees round from Pro's violet, toward blue and well short of
-    teal, and is quieter (less saturated) than Pro, so beside the black Free
-    card and the violet Pro card the three read as three plans: black,
-    violet, steel blue. No third file to fetch.
-  */
-  pro: {
-    picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
-    blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "hue-rotate(-38deg) saturate(0.62) brightness(0.56) contrast(1.05)",
-    ground: "bg-[#142c49]",
-    fade: "from-[#0b1a2d]/70",
-    grain: 0.08,
-    dot: "text-[#25588f]",
-    button: "bg-[#25588f] hover:bg-[#1f4c7d] active:bg-[#1a406a]",
-    ring: "focus-visible:ring-[#25588f]/45",
-  },
+/** The icon in each plan's pill. */
+const PLAN_ICON: Record<OfferedPlanId, LucideIcon> = {
+  free: Store,
+  growth: Sprout,
+  pro: Rocket,
 }
 
-/**
- * How wide the card, and so its picture, is drawn: a third of a row of up to
- * 1180px from 768px up, the screen less its gutters under that.
- */
-export const PLAN_PICTURE_SIZES = "(min-width: 1180px) 390px, (min-width: 768px) 33vw, calc(100vw - 32px)"
+/** The small line icon beside each line. */
+const LINE_ICON: Record<PlanLineIcon, LucideIcon> = {
+  products: Package,
+  page: LayoutTemplate,
+  bank: Landmark,
+  mail: Mail,
+  rate: CreditCard,
+  everything: Layers,
+  domain: Globe,
+  brand: EyeOff,
+  badge: BadgeCheck,
+  sites: LayoutTemplate,
+  files: FolderOpen,
+  edits: PenLine,
+}
+
+/** Worked out once from the plan tables. */
+const PLAN_LINES = publicPlanLines()
 
 /**
  * MONTHLY AND YEARLY ARE BOTH ALREADY THERE. Every line that differs between
- * the two (Pro's price, the words under it, the small print, the button) is
- * drawn by TextSwap (components/ui/text-swap): both versions laid out in one
- * cell, so the card never changes size and nothing is mounted when the pill
- * moves, and a smooth crossfade with a short roll between them. A line that
+ * the two (Grow's price, the period, the button) is drawn by TextSwap
+ * (components/ui/text-swap): both versions laid out in one cell, so the card
+ * never changes size and nothing is mounted when the pill moves. A line that
  * is the same either way (everything on Free) is plain text and never moves.
  * The pill's thumb slides on the same time and curve, so they move as one.
  */
 const SWITCH_MS = SWAP_MS
 const SWITCH_EASE = SWAP_EASE
 
-function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: OfferedPlanId; compact?: boolean }) {
-  const look = PLAN_ART[plan]
+function PlanButton({ action, featured, compact }: { action: PlanCardAction; featured: boolean; compact?: boolean }) {
   const className =
-    `inline-flex w-full ${compact ? "h-11" : "h-12"} items-center justify-center gap-2 rounded-xl px-5 ` +
-    "text-[13px] font-bold uppercase tracking-[0.06em] no-underline select-none transition-colors duration-200 " +
-    `focus-visible:outline-none focus-visible:ring-4 ${look.ring} ` +
+    `inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full px-5 ` +
+    "text-[14px] no-underline select-none transition-[background-color,border-color,color,box-shadow] duration-200 " +
+    "focus-visible:outline-none focus-visible:ring-4 " +
     (action.settled
-      ? "bg-[#f3f4f6] text-[#4b5563] cursor-default"
-      : `${look.button} text-white disabled:cursor-not-allowed disabled:opacity-70`)
+      ? "border border-[#e4e4e7] bg-white font-medium text-[#6b7280] cursor-default"
+      : featured
+        ? "bg-[#7c3aed] font-semibold text-white shadow-[0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-[#6d28d9] active:bg-[#5b21b6] focus-visible:ring-[#7c3aed]/30 disabled:cursor-not-allowed disabled:opacity-70"
+        : "border border-[#18181b] bg-white font-medium text-[#18181b] hover:bg-[#f4f4f5] active:bg-[#ebebed] focus-visible:ring-[#18181b]/15 disabled:cursor-not-allowed disabled:opacity-70")
   const content = action.loading ? (
     <>
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       {tt("Processing")}
     </>
   ) : (
-    <>
-      <span className="min-w-0 truncate">{action.label}</span>
-      {action.settled ? null : <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
-    </>
+    <span className="min-w-0 truncate">{action.label}</span>
   )
 
   if (action.href && !action.disabled && !action.settled) {
     return (
-      <Link href={action.href} className={className} data-plan-action>
+      <Link href={action.href} className={className} data-plan-action data-plan-button={featured ? "filled" : "outline"}>
         {content}
       </Link>
     )
@@ -231,32 +142,10 @@ function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: O
       aria-busy={action.loading || undefined}
       className={className}
       data-plan-action
+      data-plan-button={action.settled ? "settled" : featured ? "filled" : "outline"}
     >
       {content}
     </button>
-  )
-}
-
-/**
- * THE PUBLIC CARDS' LINES AND TICKS (landing round). The home page and
- * /pricing hand their own plain lines (components/marketing/pricing-lines)
- * and their own tick in place of the plan coloured check. Every other
- * surface draws the plan's lines and checks as before.
- *
- * LANDING ROUND 11, THE OWNER: "they should have actual filled check icons,
- * smooth and clean". The tick is a filled ink circle (#18181b, the same on
- * every plan, so no purple check comes back) with a white check in it, one
- * SVG on a 20 unit grid with round ends, 18px, centred on the first line.
- */
-export type PlanCardLines = { features: string[]; excluded: string[] }
-export type PlanCardTick = "plan" | "ink"
-
-function InkTick() {
-  return (
-    <svg viewBox="0 0 20 20" className="mt-px h-[18px] w-[18px] shrink-0 text-[#18181b]" aria-hidden="true" data-plan-tick="filled">
-      <circle cx="10" cy="10" r="10" fill="currentColor" />
-      <path d="M5.9 10.3 8.6 12.9 14.1 7.3" fill="none" stroke="#ffffff" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   )
 }
 
@@ -266,159 +155,126 @@ function PlanCard({
   label,
   compact,
   interval,
-  sizes,
   nameLevel = 3,
-  pictureLoading = "eager",
-  lines,
-  tick = "plan",
 }: {
-  pictureLoading?: "eager" | "lazy"
-  lines?: PlanCardLines
-  tick?: PlanCardTick
   plan: OfferedPlan
   action: PlanCardAction
   label?: string
   compact?: boolean
   interval: BillingInterval
-  sizes: string
   nameLevel?: 2 | 3
 }) {
   const Name = nameLevel === 2 ? "h2" : "h3"
-  const look = PLAN_ART[plan.id]
+  const featured = plan.id === FEATURED_PLAN_ID
+  const Icon = PLAN_ICON[plan.id]
   const monthly = pricedFor(plan, "monthly")
   const yearly = pricedFor(plan, "yearly")
-  /* Yearly Pro is shown, not sold, until its Stripe price exists (lib/billing/plans). */
+  /* Yearly is shown, not sold, until its Stripe price exists (lib/billing/plans). */
   const heldAction = (i: BillingInterval): PlanCardAction => {
     const held = i === "yearly" && plan.priceCents > 0 && !YEARLY_BILLING_LIVE && !action.settled
     return held ? { label: tt("Yearly opens soon"), settled: true } : action
   }
   const monthlyAction = heldAction("monthly")
   const yearlyAction = heldAction("yearly")
-  const pad = compact ? "px-5" : "px-6"
+  const yearlyPeriod = yearly.price !== monthly.price ? tt("/month, billed yearly") : tt("/month")
   /*
-    IN THE ONBOARDING THE WHOLE CARD PICKS THE PLAN. A click on the picture
-    or the lines did nothing; only the button at the foot did, and that was
-    the part most often out of view. The button stays the one control for a
-    keyboard and a screen reader, so the card adds no second tab stop.
+    IN THE ONBOARDING THE WHOLE CARD PICKS THE PLAN. The button stays the one
+    control for a keyboard and a screen reader, so the card adds no second
+    tab stop.
   */
   const shown = interval === "yearly" ? yearlyAction : monthlyAction
-  /* The public cards (tick "ink") are a pixel less round, as the owner asked of the landing page's cards. */
   const pick = compact && shown.onClick && !shown.href && !shown.disabled && !shown.settled && !shown.loading ? shown.onClick : undefined
 
-  /*
-    Landing round 11, the owner: "the pricing cards have too much depth". The
-    deep drop (36px down, 72px soft, a third black) is a short, light one
-    now (12px down, 28px soft, a sixth) over a 2px contact shadow, with the
-    same hairline ring: the cards sit on the page instead of floating.
-  */
   return (
     <article
       data-plan-card={plan.id}
+      data-plan-featured={featured ? "" : undefined}
       onClick={pick ? (e) => { if (!(e.target as Element).closest("[data-plan-action]")) pick() } : undefined}
-      className={`flex w-full flex-col overflow-hidden ${tick === "ink" ? "rounded-[21px]" : "rounded-[22px]"} bg-white shadow-[0_12px_28px_-18px_rgba(16,24,40,0.16),0_2px_6px_-3px_rgba(16,24,40,0.06)] ring-1 ring-[#0f172a]/[0.07] ${pick ? "cursor-pointer transition-[box-shadow] duration-200 hover:ring-[#0f172a]/[0.16]" : ""}`}
+      className={`flex w-full flex-col rounded-[22px] bg-white p-[5px] ring-1 ring-[#e7e7e9] ${
+        featured
+          ? "relative z-[1] shadow-[0_22px_44px_-22px_rgba(24,24,27,0.30),0_4px_12px_-6px_rgba(24,24,27,0.10)] md:-translate-y-2"
+          : "shadow-[0_1px_2px_rgba(24,24,27,0.04)]"
+      } ${pick ? "cursor-pointer" : ""}`}
     >
-      <div
-        data-plan-header=""
-        className={`relative isolate flex flex-col text-white ${look.ground} ${pad} ${
-          compact ? "min-h-[196px] pb-5 pt-5" : "min-h-[224px] pb-5 pt-5 sm:min-h-[236px] sm:pb-6 sm:pt-6"
-        }`}
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        <Image
-          src={look.picture}
-          alt=""
-          fill
-          sizes={sizes}
-          loading={pictureLoading}
-          placeholder={look.blur}
-          quality={90}
-          draggable={false}
-          className="-z-10 object-cover object-right select-none pointer-events-none"
-          style={{ filter: look.filter }}
-          data-plan-picture=""
-        />
-        {/*
-          The bottom of the picture darkens toward the text, so the description
-          sits on a quiet ground. It used to be blurred as well, a backdrop
-          blur faded out by a mask: Safari draws that blur but not the mask,
-          so on an iPhone the blur ended in a hard edge across the picture,
-          a cut through the Storelib mark. The darkening alone does the job.
-        */}
-        <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[72%] bg-gradient-to-t ${look.fade} to-transparent`} />
-        <span
-          aria-hidden="true"
-          data-plan-grain=""
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{ backgroundImage: PLAN_GRAIN, backgroundSize: `${GRAIN_TILE}px ${GRAIN_TILE}px`, opacity: look.grain }}
-        />
-        <span className="self-start rounded-full bg-white/15 px-2.5 py-0.5 text-[11.5px] font-semibold leading-[18px] text-white ring-1 ring-inset ring-white/25">
-          {label ?? plan.pill}
-        </span>
-        <Name className={`${compact ? "mt-3" : "mt-4"} ${compact ? "text-[16px]" : "text-[18px]"} font-bold leading-tight`}>{plan.name}</Name>
-        <p
-          data-plan-price=""
-          className={`mt-1.5 ${compact ? "text-[38px]" : "text-[44px] sm:text-[48px]"} font-extrabold leading-none tracking-[-0.035em] tabular-nums`}
-        >
-          <TextSwap value={interval} items={{ monthly: monthly.price, yearly: yearly.price }} />
+      <div data-plan-panel="" className={`flex flex-col rounded-[18px] bg-[#f4f4f5] ${compact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5 sm:px-6 sm:pb-6"}`}>
+        <div className="flex items-center justify-between gap-3">
+          <span data-plan-pill="" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white pl-2.5 pr-3 shadow-[0_1px_2px_rgba(24,24,27,0.06)]">
+            <Icon className="h-[15px] w-[15px] text-[#18181b]" strokeWidth={1.75} aria-hidden="true" />
+            <Name className="text-[13.5px] font-medium leading-none text-[#18181b]">{plan.name}</Name>
+          </span>
+          {label ? <span data-plan-label="" className="text-[12px] font-medium text-[#6b7280]">{label}</span> : null}
+        </div>
+        <p data-plan-price="" className={`${compact ? "mt-4" : "mt-5"} flex items-baseline gap-1.5 text-[#09090b]`}>
+          <span className={`${compact ? "text-[36px]" : "text-[42px] sm:text-[44px]"} font-semibold leading-none tracking-[-0.035em] tabular-nums`}>
+            <TextSwap value={interval} items={{ monthly: monthly.price, yearly: yearly.price }} />
+          </span>
+          <span className="text-[14.5px] font-normal leading-none text-[#6b7280]">
+            <TextSwap value={interval} items={{ monthly: tt("/month"), yearly: yearlyPeriod }} />
+          </span>
         </p>
-        <p className="mt-1.5 text-[13px] font-medium leading-[18px] text-white/85">
-          <TextSwap value={interval} items={{ monthly: monthly.priceNote, yearly: yearly.priceNote }} />
+        <p data-plan-summary="" className={`${compact ? "mt-3 text-[14px]" : "mt-4 text-[15px]"} max-w-[250px] min-h-[44px] text-balance leading-[22px] text-[#52525b]`}>
+          {plan.summary}
         </p>
-        {/* Two lines' room for every summary, so a one-line one ("Keep more of every sale.") ends its card's head level with the others. */}
-        <p className={`mt-auto ${compact ? "pt-3" : "pt-4"} ${compact ? "min-h-[52px] text-[13px]" : "min-h-[56px] text-[14px]"} leading-[20px] text-white/90`}>{plan.summary}</p>
-      </div>
-
-      <div className={`flex flex-1 flex-col ${pad} ${compact ? "pb-5 pt-5" : "pb-6 pt-5"}`}>
-        <ul className={`flex flex-col ${compact ? "gap-2" : "gap-2.5"}`}>
-          {(lines?.features ?? plan.features).map((feature) => (
-            <li key={feature} className={`flex items-start gap-3 ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-[#1a1a2e]`}>
-              {tick === "ink" ? (
-                <InkTick />
-              ) : (
-                <Check className={`mt-[2px] h-4 w-4 shrink-0 ${look.dot}`} strokeWidth={1.75} aria-hidden="true" />
-              )}
-              {tt(feature)}
-            </li>
-          ))}
-          {(lines?.excluded ?? plan.excluded).map((feature) => (
-            <li key={feature} className={`flex items-start gap-3 ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-[#6b7280]`}>
-              <X className="mt-[2px] h-4 w-4 shrink-0 text-[#9ca3af]" strokeWidth={1.75} aria-hidden="true" />
-              <span>
-                <span className="sr-only">{tt("Not included:")} </span>
-                {feature}
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        <div className={`mt-auto ${compact ? "pt-5" : "pt-6"}`}>
+        <div className={compact ? "mt-4" : "mt-5"}>
           {/*
             ONE BUTTON WHEN BOTH INTERVALS DO THE SAME THING, two in one cell
-            when they differ (Pro's yearly price is shown before it is sold).
-            Each keeps its own element for good, a link or a button, so the
-            switch crossfades between two that already exist instead of
-            swapping a link for a button in place, which remounted it and made
-            it blink.
+            when they differ (a yearly price is shown before it is sold). Each
+            keeps its own element for good, so the switch crossfades between
+            two that already exist instead of swapping a link for a button.
           */}
           {monthlyAction === yearlyAction ? (
-            <PlanButton action={monthlyAction} plan={plan.id} compact={compact} />
+            <PlanButton action={monthlyAction} featured={featured} compact={compact} />
           ) : (
             <TextSwap
               fill
               lift="0.25em"
               value={interval}
               items={{
-                monthly: <PlanButton action={monthlyAction} plan={plan.id} compact={compact} />,
-                yearly: <PlanButton action={yearlyAction} plan={plan.id} compact={compact} />,
+                monthly: <PlanButton action={monthlyAction} featured={featured} compact={compact} />,
+                yearly: <PlanButton action={yearlyAction} featured={featured} compact={compact} />,
               }}
             />
           )}
-          <p className="mt-2.5 text-center text-[12px] leading-[16px] text-[#6b7280]">
-            <TextSwap align="center" value={interval} items={{ monthly: monthly.note, yearly: yearly.note }} />
-          </p>
         </div>
       </div>
+
+      <ul data-plan-lines="" className={`flex flex-col ${compact ? "gap-3 px-4 pb-5 pt-5" : "gap-[15px] px-5 pb-6 pt-6 sm:px-6"}`}>
+        {PLAN_LINES[plan.id].map((line) => {
+          const LineIcon = LINE_ICON[line.icon]
+          return (
+            <li key={line.text} data-plan-line={line.icon} className={`flex items-start gap-3 ${compact ? "text-[13.5px]" : "text-[14.5px]"} leading-[20px] text-[#27272a]`}>
+              <LineIcon className="mt-[2px] h-4 w-4 shrink-0 text-[#3f3f46]" strokeWidth={1.5} aria-hidden="true" />
+              <span>{tt(line.text)}</span>
+            </li>
+          )
+        })}
+      </ul>
     </article>
+  )
+}
+
+/**
+ * THE WIDE BAR UNDER THE CARDS, as in the reference picture (its typos
+ * fixed): one line and a dark "Contact sales" button that opens the Help
+ * Center's contact form on Plan and billing.
+ */
+function ContactSalesBar({ compact }: { compact?: boolean }) {
+  return (
+    <div
+      data-plan-contact=""
+      className={`mt-4 flex flex-col items-start gap-4 rounded-[20px] bg-white ring-1 ring-[#e7e7e9] sm:flex-row sm:items-center sm:justify-between ${compact ? "px-5 py-4" : "px-6 py-5 sm:px-7 sm:py-6 lg:mt-6"}`}
+    >
+      <p className={`${compact ? "text-[16px]" : "text-[18px] sm:text-[21px]"} font-medium leading-[1.3] tracking-[-0.01em] text-[#09090b]`}>
+        {tt("Want a unique solution to meet your needs?")}
+      </p>
+      <Link
+        href="/help/contact?about=billing"
+        className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-[#18181b] px-5 text-[14px] font-semibold text-white no-underline shadow-[0_6px_14px_-6px_rgba(24,24,27,0.5)] transition-colors duration-200 hover:bg-[#27272a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#18181b]/20"
+      >
+        {tt("Contact sales")}
+        <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+      </Link>
+    </div>
   )
 }
 
@@ -432,10 +288,8 @@ export function PlanCards({
   interval: controlled,
   onInterval,
   nameLevel,
-  pictureLoading,
-  lines,
-  tick,
   hideInterval = false,
+  contactSales = false,
 }: {
   /**
    * No Monthly and Yearly pill, and so monthly prices only. The home page's
@@ -443,33 +297,20 @@ export function PlanCards({
    * pay"); every other surface keeps the pill.
    */
   hideInterval?: boolean
-  /** The public cards' own plain lines per plan (home page and /pricing); every other surface leaves it out. */
-  lines?: Partial<Record<OfferedPlanId, PlanCardLines>>
-  /** "ink" for the public cards' quiet tick; the plan coloured check otherwise. */
-  tick?: PlanCardTick
-  /**
-   * "lazy" where the cards are far down a page (the home page's pricing
-   * section). Eager there put a preload for each picture into the home page's
-   * head, competing with the hero (round 48). Eager everywhere else.
-   */
-  pictureLoading?: "eager" | "lazy"
+  /** The "Contact sales" bar under the cards (the home page, /pricing and the upgrade page). */
+  contactSales?: boolean
   /** The plan names' heading level: 2 where the cards sit right under the page's h1 (/pricing), 3 under a section's h2 (the default). */
   nameLevel?: 2 | 3
   actions: Record<OfferedPlanId, PlanCardAction>
   /** Monthly or yearly; held here unless the page wants to hold it. */
   interval?: BillingInterval
   onInterval?: (next: BillingInterval) => void
-  /** In place of the small label at the top of a card, such as "Current plan". */
+  /** A small word beside a card's pill, such as "Current plan". */
   labels?: Partial<Record<OfferedPlanId, string>>
   compact?: boolean
-  /** On a phone, where the cards stack, this plan comes first: Pro for somebody already on Free. Side by side they keep their order. */
+  /** On a phone, where the cards stack, this plan comes first: Grow for somebody already on Free. Side by side they keep their order. */
   lead?: OfferedPlanId
-  /**
-   * A section heading. Given one, the cards sit in a section of a page (the
-   * Billing tab): the heading on its own row, then the pill centred above
-   * two cards in a 720px row, as on the plans page. Without one they are the
-   * page's subject, and the same pill and row with no heading.
-   */
+  /** A section heading (the Billing tab): the heading on its own row, then the pill centred above the cards. */
   heading?: React.ReactNode
   className?: string
 }) {
@@ -479,92 +320,52 @@ export function PlanCards({
     setOwn(next)
     onInterval?.(next)
   }
-  const inSection = heading != null
   return (
     <>
-      {hideInterval ? null : inSection ? (
-        /*
-          IN A SECTION THE HEADING HAS ITS OWN ROW, AND THE PILL IS CENTRED
-          OVER THE CARDS. It used to sit small at the heading's right and wrap
-          under it flush left on a phone, which read as a stray control; and
-          the two cards stretched to the section's full width, so the plan's
-          words sat small in a wide card. Now the section reads like the
-          plans page: the pill centred, the pair in the same 720px row.
-        */
-        <>
-          <div data-plan-heading-row="" className="mb-4">{heading}</div>
-          <div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">
-            <IntervalSwitch value={interval} onChange={pick} />
-          </div>
-        </>
-      ) : (
-        /*
-          IN THE ONBOARDING (compact) THE PILL HAS ROOM UNDER IT and the cards
-          are a hair narrower: 12px under the pill read as the pill sitting on
-          the cards, and two 354px cards filled the step from edge to edge. Now
-          20px (24 on a computer) and 668px for the pair, with 6px more air
-          each side on a phone. Billing and the pricing page keep theirs.
-        */
+      {heading != null ? <div data-plan-heading-row="" className="mb-4">{heading}</div> : null}
+      {hideInterval ? null : (
         <div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">
           <IntervalSwitch value={interval} onChange={pick} />
         </div>
       )}
-      <div
-        data-plan-cards
-        className={`${compact ? "mx-auto max-w-[920px] max-md:px-1.5" : "mx-auto max-w-[1180px]"} grid w-full grid-cols-1 md:grid-cols-3 items-stretch ${compact ? "gap-3" : "gap-4 lg:gap-6"} ${className}`}
-      >
-        {OFFERED_PLANS.map((plan) => (
-          <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
-            <PlanCard
-              plan={plan}
-              action={actions[plan.id]}
-              label={labels?.[plan.id]}
-              compact={compact}
-              interval={interval}
-              sizes={PLAN_PICTURE_SIZES}
-              nameLevel={nameLevel}
-              pictureLoading={pictureLoading}
-              lines={lines?.[plan.id]}
-              tick={tick}
-            />
-          </div>
-        ))}
+      {/* The light grey ground the three cards (and the contact bar) sit on, as in the reference. */}
+      <div data-plan-ground="" className={`mx-auto w-full ${compact ? "max-w-[980px] rounded-[24px] p-2 sm:p-3" : "max-w-[1180px] rounded-[28px] p-2.5 sm:p-5 lg:p-7"} bg-[#efeff0] ${className}`}>
+        <div data-plan-cards className={`grid w-full grid-cols-1 md:grid-cols-3 items-stretch ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"} md:pt-2`}>
+          {OFFERED_PLANS.map((plan) => (
+            <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
+              <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} interval={interval} nameLevel={nameLevel} />
+            </div>
+          ))}
+        </div>
+        {contactSales ? <ContactSalesBar compact={compact} /> : null}
       </div>
     </>
   )
 }
 
 /**
- * MONTHLY OR YEARLY, as one pill with a white thumb that slides between the
- * two, the way Shopify's plans page asks. Yearly carries what it saves.
+ * MONTHLY OR YEARLY, as one pill with a thumb that slides between the two.
+ * Restyled to the cards (pricing round 5): a white track with a hairline,
+ * like the cards, and a soft grey thumb, like the cards' top panel. Yearly
+ * carries what it saves.
  *
  * The two options share one grid of two equal columns, so the thumb is
- * exactly one column wide by construction and moving it is a shift by
- * its own width (100%): nothing to measure, nothing laid out again, and the
- * words never move. The thumb slides on the same time and curve the prices
- * use, and the words ease from grey to ink over that same time, so the
- * colour arrives with the thumb instead of before it.
- *
- * `small` is the pill for a section heading's row: 32px tall with 13px words,
- * each option still a 44px press (its ::after reaches past the pill above
- * and below).
+ * exactly one column wide by construction and moving it is a shift by its
+ * own width (100%): nothing to measure, nothing laid out again.
  */
-function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingInterval; onChange: (next: BillingInterval) => void; size?: "regular" | "small" }) {
+function IntervalSwitch({ value, onChange }: { value: BillingInterval; onChange: (next: BillingInterval) => void }) {
   const yearly = value === "yearly"
-  const small = size === "small"
   return (
     <div
       role="radiogroup"
       aria-label={tt("Billing")}
       data-billing-interval={value}
-      className={`relative inline-grid shrink-0 grid-cols-2 rounded-full bg-[#eceef1] shadow-[inset_0_1px_2px_rgba(16,24,40,0.10),inset_0_0_0_1px_rgba(16,24,40,0.04)] ${small ? "p-[3px]" : "p-1"}`}
+      className="relative inline-grid shrink-0 grid-cols-2 rounded-full bg-white p-1 ring-1 ring-[#e4e4e7] shadow-[0_1px_2px_rgba(24,24,27,0.04)]"
     >
       <span
         aria-hidden="true"
         data-interval-thumb=""
-        className={`pointer-events-none absolute rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.18),inset_0_-1px_0_rgba(16,24,40,0.04)] motion-reduce:!transition-none ${
-          small ? "inset-y-[3px] left-[3px] w-[calc(50%-3px)]" : "inset-y-1 left-1 w-[calc(50%-4px)]"
-        }`}
+        className="pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-[#efeff0] motion-reduce:!transition-none"
         style={{
           transform: `translate3d(${yearly ? "100%" : "0"}, 0, 0)`,
           transition: `transform ${SWITCH_MS}ms ${SWITCH_EASE}`,
@@ -581,15 +382,13 @@ function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingI
             data-interval-option={option}
             onClick={() => onChange(option)}
             style={{ transition: `color ${SWITCH_MS}ms ${SWITCH_EASE}` }}
-            className={`relative z-[1] inline-flex cursor-pointer motion-reduce:!transition-none select-none items-center justify-center whitespace-nowrap rounded-full text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] ${
-              small
-                ? "h-[26px] gap-1.5 px-3 after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-['']"
-                : "h-9 gap-1.5 px-4 sm:px-5"
-            } ${on ? "text-[#111113]" : "text-[#4b5260] hover:text-[#1a1a2e]"}`}
+            className={`relative z-[1] inline-flex h-9 cursor-pointer motion-reduce:!transition-none select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13.5px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#18181b]/25 sm:px-5 [-webkit-tap-highlight-color:transparent] ${
+              on ? "text-[#09090b]" : "text-[#6b7280] hover:text-[#18181b]"
+            }`}
           >
             {option === "monthly" ? tt("Monthly") : tt("Yearly")}
             {option === "yearly" ? (
-              <span className={`rounded-full bg-[#111113] font-semibold text-white ${small ? "px-1.5 text-[10.5px] leading-[16px]" : "px-1.5 py-px text-[10.5px] leading-4"}`}>
+              <span className="rounded-full bg-[#7c3aed]/10 px-1.5 py-px text-[11px] font-semibold leading-4 text-[#6d28d9]">
                 {tt("Save")} {YEARLY_SAVING_PERCENT}%
               </span>
             ) : null}

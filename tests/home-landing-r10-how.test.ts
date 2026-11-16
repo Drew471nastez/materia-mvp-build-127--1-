@@ -48,7 +48,7 @@ console.log("\n1. Use your own domain (round 11 replaced the reel)")
 check("the round 9 picture is still gone: no pill, no ticks", !/cmh-pill|cmh-url|cmh-ok|cmh-dm-ok/.test(src) && !/DNS found|HTTPS on|Built by hand/.test(text) && !existsSync("public/home/how/site-workshop.webp"))
 check("the reel and its light are gone", !/cmh-dm-reel|cmh-dm-light|cmh-dm-band|@keyframes cmh-reel|@keyframes cmh-spin/.test(src + css))
 check("every address it shows is real: his Storelib address, and a domain Storelib accepts", `${HOW_DOMAIN.name}.storelib.com` === HOW_DOMAIN.before && `${HOW_DOMAIN.name}.com` === HOW_DOMAIN.host && hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null)
-check("minimal words: the caption", text.includes("Use your own domain") && text.includes("On Pro, point a domain you own at your site. HTTPS is set up for you.") && HOW_CARDS[2].title === "Use your own domain")
+check("minimal words: the caption", text.includes("Use your own domain") && text.includes("On Grow, point a domain you own at your site. HTTPS is set up for you.") && HOW_CARDS[2].title === "Use your own domain")
 check("its loops are .cmh-a, so they stop off screen and in a hidden tab, and move by transform and opacity", /class="cmh-a cmh-dm-com"/.test(card) && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && onlyTransform(kf("cmh-dm-com")) && !/blur\(|backdrop-filter|filter:/.test(css))
 
 console.log("\n3. One screen on a MacBook Air")

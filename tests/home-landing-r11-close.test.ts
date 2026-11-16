@@ -22,7 +22,6 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { PLAN_ART, PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { IntegrationsSection, INTEGRATION_ROW_SIZES, INTEGRATION_STEP_SHARE, PLATFORM_INTEGRATION_APPS } from "@/components/marketing/home/integrations-section"
 import { AppleMusicTile, InstagramTile, MetaMark } from "@/components/marketing/home/integration-marks"
 import { MARQUEE_ROWS, ProductMarquee } from "@/components/marketing/product-marquee"
@@ -57,50 +56,13 @@ const lum = (hex: string) => {
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
 }
-const buttonHex = (id: keyof typeof PLAN_ART) => /bg-\[(#[0-9a-f]{6})\]/.exec(PLAN_ART[id].button)?.[1] ?? ""
-const num = (f: string, name: string) => Number(new RegExp(`${name}\\(([\\d.]+)\\)`).exec(f)?.[1] ?? NaN)
 
-console.log("\n── pricing: natural covers ──")
+console.log("\n── pricing: handed to pricing round 5 ──")
 {
-  const all = Object.values(PLAN_ART)
-  check("every cover's contrast a hair over 1, no longer 1.2 and up", all.every((a) => num(a.filter, "contrast") > 1 && num(a.filter, "contrast") <= 1.06), all.map((a) => a.filter))
-  check("still dimmed for the white words: brightness between 0.5 and 0.8", all.every((a) => num(a.filter, "brightness") >= 0.5 && num(a.filter, "brightness") <= 0.8))
-  check("Free and Pro written out", PLAN_ART.free.filter === "brightness(0.78) contrast(1.04)" && PLAN_ART.growth.filter === "brightness(0.54) contrast(1.05) saturate(1.05)")
-  check("the grain left as it was", all.every((a) => a.grain === 0.08))
-}
-
-console.log("\n── pricing: Scale is steel blue ──")
-{
-  const scale = PLAN_ART.pro
-  const hexes = [...Object.values(scale).join(" ").matchAll(/#[0-9a-f]{6}/g)].map((m) => m[0])
-  const hues = hexes.map(hsl)
-  check("nothing on Scale is brown, green, teal or pink", hues.every((c) => c.s < 0.12 || (c.h >= 200 && c.h <= 230)), { hexes, hues })
-  check("the old bronze is gone", !/#8a5a24|#3a2a17|#1c130a|hue-rotate\(148deg\)/.test(Object.values(scale).join(" ")))
-  const [free, pro, sc] = [buttonHex("free"), buttonHex("growth"), buttonHex("pro")].map(hsl)
-  const apart = Math.min(Math.abs(sc.h - pro.h), 360 - Math.abs(sc.h - pro.h))
-  check("a blue of its own: at least 30 degrees from Pro's violet, quieter than it, lighter than Free's black", apart >= 30 && sc.s < pro.s && sc.s > 0.3 && free.s < 0.1 && sc.l > free.l + 0.12, { free, pro, sc, apart })
-  const white = (1.05) / (lum(buttonHex("pro")) + 0.05)
-  check("white words on Scale's button at 4.5:1 or better", white >= 4.5, white)
-  check("the cover turned from Pro's indigo toward blue, its saturation held down", /^hue-rotate\(-38deg\) saturate\(0\.62\) brightness\(0\.56\) contrast\(1\.05\)$/.test(scale.filter))
-}
-
-console.log("\n── pricing: lighter depth, filled checks ──")
-{
+  /* Changed on purpose (pricing round 5): the owner had the plan cards redrawn from a reference picture (white cards, a grey panel, Grow and Pro names, no cover pictures), so this round's checks on the covers' contrast, Scale's colour and the filled ticks are retired. tests/pricing-cards-r5.test.ts pins the cards now. */
   const cards = read("components/billing/plan-cards.tsx")
-  check("the deep 36px drop is gone", !/0_36px_72px/.test(cards))
-  const shadow = /bg-white shadow-\[([^\]]+)\] ring-1/.exec(cards)?.[1] ?? ""
-  const alphas = [...shadow.matchAll(/rgba\(16,24,40,([\d.]+)\)/g)].map((m) => Number(m[1]))
-  const offsets = [...shadow.matchAll(/0_(\d+)px_(\d+)px/g)].map((m) => Number(m[1]))
-  check("a short, light shadow: no layer darker than 0.16, none more than 12px down", alphas.length === 2 && alphas.every((a) => a <= 0.16) && offsets.every((o) => o <= 12), { shadow })
-  const actions = { free: { label: "Start free", href: "/signup" }, growth: { label: "Get Pro", href: "/signup" }, pro: { label: "Get Scale", href: "/signup" } } as Record<"free" | "growth" | "pro", PlanCardAction>
-  const pub = renderToStaticMarkup(createElement(PlanCards, { actions, tick: "ink", hideInterval: true }))
-  const app = renderToStaticMarkup(createElement(PlanCards, { actions }))
-  const ticks = pub.match(/<svg viewBox="0 0 20 20" class="mt-px h-\[18px\] w-\[18px\] shrink-0 text-\[#18181b\]" aria-hidden="true" data-plan-tick="filled"><circle cx="10" cy="10" r="10" fill="currentColor"><\/circle><path d="[^"]+" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><\/path><\/svg>/g) ?? []
-  const lines = (pub.match(/<li class="flex items-start gap-3/g) ?? []).length
-  const crosses = (pub.match(/Not included:/g) ?? []).length
-  check("every included line on the public cards has a filled ink check", ticks.length > 0 && ticks.length === lines - crosses, { ticks: ticks.length, lines, crosses })
-  check("one ink for every plan, no plan colour on the public checks", !/data-plan-tick="filled"[^>]*text-\[#5a43ee\]/.test(pub) && !/data-plan-tick="ink"/.test(pub))
-  check("the app's surfaces (Billing, onboarding, upgrade) keep their thin plan checks", !/data-plan-tick/.test(app) && /lucide-check/.test(app))
+  check("the cards no longer draw cover pictures or grain", !/PLAN_ART|PLAN_GRAIN|feTurbulence|hue-rotate/.test(cards))
+  check("the deep 36px drop is still gone", !/0_36px_72px/.test(cards))
 }
 
 console.log("\n── apps: five asked for, a smaller gap ──")

@@ -908,7 +908,7 @@ export function DomainsPanel({
         <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 shadow-sm sm:px-6 sm:py-3.5 lg:sticky lg:top-3 lg:z-[2]" data-domains-upgrade="">
           <p className="min-w-0 truncate text-[13px] font-medium text-white sm:text-[14px]">
             <span className="sm:hidden">{tt("Upgrade for custom domains")}</span>
-            <span className="hidden sm:inline">{tt("Custom domains are available on the Pro plan.")}</span>
+            <span className="hidden sm:inline">{tt("Custom domains are available on the Grow plan.")}</span>
           </p>
           <a
             href="/app/settings/billing/upgrade"

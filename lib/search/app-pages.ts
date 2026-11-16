@@ -49,7 +49,7 @@ export const APP_PAGES: readonly AppPage[] = [
   { get label() { return tt("Settings") }, href: "/app/settings", group: "Settings", get words() { return tt("profile account") } },
   { get label() { return tt("Payments") }, href: "/app/settings/payments", group: "Settings", get words() { return tt("stripe paypal connect") } },
   { get label() { return tt("Billing") }, href: "/app/settings/billing", group: "Settings", get words() { return tt("plan subscription invoices payment methods") } },
-  { get label() { return tt("Upgrade to Pro") }, href: "/app/settings/billing/upgrade", group: "Settings", get words() { return tt("plan pricing") } },
+  { get label() { return tt("Upgrade to Grow") }, href: "/app/settings/billing/upgrade", group: "Settings", get words() { return tt("plan pricing") } },
 
   /*
     EVERY PLACE INSIDE A PAGE (round 42). The tabs, sections and subpages

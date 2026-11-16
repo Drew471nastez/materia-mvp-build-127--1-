@@ -300,7 +300,7 @@ export function ThemesAdmin() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <Filters label="Price" options={[{ id: "free", label: "Free" }, { id: "paid", label: "Paid" }, { id: "pro", label: "Pro only" }]} value={draft.tier} onChange={(v) => set("tier", v as ThemeTier)} />
+                  <Filters label="Price" options={[{ id: "free", label: "Free" }, { id: "paid", label: "Paid" }, { id: "pro", label: "Grow and Pro" }]} value={draft.tier} onChange={(v) => set("tier", v as ThemeTier)} />
                   {draft.tier === "paid" ? (
                     <label className="flex items-center gap-2 text-[12px] text-[#9b9ba6]">
                       USD

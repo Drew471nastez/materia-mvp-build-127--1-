@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { PLAN_ART, PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { STORELIB_S_PATH } from "@/components/storelib-mark"
 import { FaqSection } from "@/components/marketing/faq-section"
@@ -55,46 +55,28 @@ function hueSat(hex: string): { h: number; s: number; l: number } {
   const h = (max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60
   return { h, s: d / (1 - Math.abs(2 * l - 1)), l }
 }
-const buttonHex = (id: keyof typeof PLAN_ART) => /bg-\[(#[0-9a-f]{6})\]/.exec(PLAN_ART[id].button)?.[1] ?? ""
-const num = (f: string, name: string) => Number(new RegExp(`${name}\\(([\\d.]+)\\)`).exec(f)?.[1] ?? NaN)
 
 console.log("\n── pricing: no pill on the home page ──")
 {
   const pricing = read("components/marketing/pricing-section.tsx")
   const cards = read("components/billing/plan-cards.tsx")
   check("the home page's section asks for no pill, /pricing does not", /hideInterval=\{editorial\}/.test(pricing) && !/data-plan-interval-row/.test(pricing))
-  check("without the pill the cards are monthly, whatever was held", /const interval = hideInterval \? "monthly" : controlled \?\? own/.test(cards) && /\{hideInterval \? null : inSection \? \(/.test(cards))
+  /* Changed on purpose (pricing round 5): the heading row and the pill row are drawn apart now, the pill row skipped when hidden. */
+  check("without the pill the cards are monthly, whatever was held", /const interval = hideInterval \? "monthly" : controlled \?\? own/.test(cards) && /\{hideInterval \? null : \(/.test(cards))
   const actions = { free: { label: "Start free", href: "/signup" }, growth: { label: "Get Pro", href: "/signup" }, pro: { label: "Get Scale", href: "/signup" } } as Record<"free" | "growth" | "pro", PlanCardAction>
   const home = renderToStaticMarkup(createElement(PlanCards, { actions, hideInterval: true, interval: "yearly" }))
   const full = renderToStaticMarkup(createElement(PlanCards, { actions }))
   check("drawn: no radio group, no pill row, three cards", !/role="radiogroup"|data-plan-interval-row|data-interval-option/.test(home) && (home.match(/data-plan-card="/g) ?? []).length === 3)
   check("every other surface still draws the pill with both options", /role="radiogroup"/.test(full) && /data-interval-option="monthly"/.test(full) && /data-interval-option="yearly"/.test(full))
-  check("the cards are otherwise the same markup", home.includes(full.slice(full.indexOf("<div data-plan-cards"), full.indexOf("<div data-plan-cards") + 400)))
+  /* Changed on purpose (pricing round 5): the cards sit inside their grey ground now, so the comparison starts there. */
+  check("the cards are otherwise the same markup", home.includes(full.slice(full.indexOf("<div data-plan-ground"), full.indexOf("<div data-plan-ground") + 400)))
 }
 
 console.log("\n── pricing: Scale's colour, the covers ──")
 {
-  const scale = PLAN_ART.pro
-  const all = Object.values(scale).join(" ")
-  const hexes = [...all.matchAll(/#[0-9a-f]{6}/g)].map((m) => m[0])
-  const hues = hexes.map(hueSat)
-  /* Green and teal are 70 to 200 degrees, pink and magenta 280 to 345. */
-  check("nothing on Scale is green or teal", hues.every((c) => c.s < 0.12 || c.h < 70 || c.h > 200), hexes)
-  check("nor pink or violet", hues.every((c) => c.s < 0.12 || c.h < 255 || c.h > 345) && !/hue-rotate\(-80deg\)|#0f6b66|#7c3aed|#6d28d9/.test(all), hexes)
-  const [free, pro, sc] = [buttonHex("free"), buttonHex("growth"), buttonHex("pro")].map(hueSat)
-  const apart = Math.min(Math.abs(sc.h - pro.h), 360 - Math.abs(sc.h - pro.h))
-  // Changed on purpose (landing round 11): the owner did not like the bronze either; Scale is a steel blue now, some 40 degrees from Pro's violet (tests/home-landing-r11-close.test.ts pins it).
-  check("Scale's button is a colour of its own: apart from Pro's violet on the wheel, not Free's black", apart >= 30 && sc.s > 0.3 && free.s < 0.1 && sc.l > free.l + 0.12, { free, pro, sc })
-  check("Scale is not bronze any more", !(sc.h >= 20 && sc.h <= 45), sc)
-  check("the three covers are three different pictures of colour", new Set(Object.values(PLAN_ART).map((a) => a.filter)).size === 3 && new Set(Object.values(PLAN_ART).map((a) => a.ground)).size === 3)
-  /* Round 8's values: brightness 0.9 / 0.62 / 0.55, contrast 1.12 / 1.16 / 1.14, grain 0.05. */
-  const was = { free: [0.9, 1.12], growth: [0.62, 1.16], pro: [0.55, 1.14] } as const
-  const step = (Object.keys(was) as (keyof typeof was)[]).map((id) => ({ id, b: num(PLAN_ART[id].filter, "brightness"), c: num(PLAN_ART[id].filter, "contrast"), g: PLAN_ART[id].grain }))
-  // Changed on purpose (landing round 11): Scale's steel blue picture is held a hair lighter (0.56) than round 8's bronze so the blue still reads; Free and Pro stay darker.
-  check("every cover about as dark as round 8 or darker, not by half", step.every((s) => s.b <= was[s.id][0] + 0.02 && s.b >= was[s.id][0] * 0.8 && s.b >= 0.5), step)
-  // Changed on purpose (landing round 11): the owner found the contrast too high; it is a hair over 1 now, below round 8's.
-  check("contrast natural on each: a hair over 1", step.every((s) => s.c > 1 && s.c <= 1.06), step)
-  check("the grain up a little, the same on all three", step.every((s) => s.g > 0.05 && s.g <= 0.1) && new Set(step.map((s) => s.g)).size === 1, step)
+  /* Changed on purpose (pricing round 5): the $99 plan is named Pro now and the cards have no covers (the owner's reference picture: white cards, a grey panel, one purple button on the middle card), so the checks on the covers' colours, dimming and grain are retired; tests/pricing-cards-r5.test.ts pins the new cards. */
+  const cards = read("components/billing/plan-cards.tsx")
+  check("no cover pictures, colours or grain left on the cards", !/PLAN_ART|PLAN_GRAIN|feTurbulence|hue-rotate/.test(cards))
 }
 
 console.log("\n── questions: a centred column of grey rows ──")

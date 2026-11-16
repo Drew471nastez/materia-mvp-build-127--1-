@@ -9,7 +9,7 @@ import { FACTS_UPDATED, PLANS } from "./facts"
 
 export const FEATURES_PATH = "/features"
 export const FEATURES_TITLE = "Storelib in one page: what it sells, costs and does not do"
-export const FEATURES_DESCRIPTION = `What Storelib is: digital products, courses, communities and a website builder. Free with ${PLANS.free.feeLabel} a sale, or Pro at ${PLANS.pro.price} a month. Its limits, plainly.`
+export const FEATURES_DESCRIPTION = `What Storelib is: digital products, courses, communities and a website builder. Free with ${PLANS.free.feeLabel} a sale, or Grow at ${PLANS.pro.price} a month. Its limits, plainly.`
 
 export function featuresJsonLd() {
   const url = absoluteUrl(FEATURES_PATH)

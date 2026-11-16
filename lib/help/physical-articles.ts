@@ -390,7 +390,7 @@ const ARTICLES: Article[] = [
           ["What it is", "Where physical products are sold: yourname.storelib.com, or your own domain."],
           ["Why it matters", "Physical products aren't listed on your creator page or Explore. Without a published website, nobody can buy them."],
           ["Where", "Website, in the dashboard menu. Your own domain is in Settings > Domains."],
-          ["How", "Pick a theme, make it yours and press Publish. With Pro, add your domain in Settings > Domains and copy the records it shows to your domain company."],
+          ["How", "Pick a theme, make it yours and press Publish. With Grow, add your domain in Settings > Domains and copy the records it shows to your domain company."],
         ],
       },
       shot("website-domains", "Website settings, Domains, with a connected domain.", "A connected domain: checkout, sign in and order pages move to it too."),
@@ -1211,7 +1211,7 @@ const ARTICLES: Article[] = [
     keywords: ["domain", "custom domain", "own domain", "dns", "url", "web address", "www", "ssl", "https"],
     related: ["sell-on-your-website", "website-builder/custom-domain"],
     body: [
-      { type: "p", text: "Your website starts at yourname.storelib.com. With Pro you can connect a domain you own, like fernandclay.com. Your storelib.com address keeps working too." },
+      { type: "p", text: "Your website starts at yourname.storelib.com. With Grow you can connect a domain you own, like fernandclay.com. Your storelib.com address keeps working too." },
       {
         type: "steps",
         items: [
@@ -3145,7 +3145,7 @@ const ARTICLES: Article[] = [
     slug: "physical-fees-and-plans",
     updated: "2026-10-12",
     title: "Plans and fees for physical sales",
-    summary: "What a physical sale costs you on each plan, what's included, and what needs Pro.",
+    summary: "What a physical sale costs you on each plan, what's included, and what needs Grow.",
     keywords: ["plan", "pro", "free plan", "fee", "fees", "price", "cost", "billing", "subscription", "upgrade"],
     related: ["physical-payouts", "store-domain"],
     body: [
@@ -3155,7 +3155,7 @@ const ARTICLES: Article[] = [
         items: [
           "Each sale pays Storelib's fee for your plan, the same as a digital sale. See [What Storelib charges per sale](/help/orders-and-payouts/fees).",
           "The fee is worked out on what the buyer paid, shipping and tax included.",
-          "Your own domain is part of Pro. See [Plans](/help/account-and-billing/plans).",
+          "Your own domain is part of Grow. See [Plans](/help/account-and-billing/plans).",
           "Change or cancel your plan in Settings > Plan.",
         ],
       },

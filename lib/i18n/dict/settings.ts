@@ -177,7 +177,7 @@ export const settingsEn: Record<string, string> = {
 
     // Domains tab
     "settings.upgradeForDomains": "Upgrade for custom domains",
-    "settings.customDomainsPlans": "Custom domains are available on the Pro plan.",
+    "settings.customDomainsPlans": "Custom domains are available on the Grow plan.",
     "settings.upgrade": "Upgrade",
     "settings.connectOwnDomain": "Connect your own domain",
     "settings.connectDomainDescA": "Connect a custom domain to your store and OnePage. Your store will be at",

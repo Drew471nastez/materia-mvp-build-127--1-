@@ -15,7 +15,7 @@ export const gumroad: Competitor = {
   pricingShort: "No monthly fee. 10% + 50¢ a sale, 30% on Discover sales",
   seo: {
     title: "Gumroad alternative: Storelib compared on fees and features",
-    description: `Gumroad takes 10% + 50¢ of a direct sale and 30% of a Discover sale. Storelib takes ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Pro. Fees, features and how to move your products.`,
+    description: `Gumroad takes 10% + 50¢ of a direct sale and 30% of a Discover sale. Storelib takes ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Grow. Fees, features and moving your products.`,
     h1: "Storelib as a Gumroad alternative",
   },
   intro: [
@@ -24,9 +24,9 @@ export const gumroad: Competitor = {
     "Gumroad is the merchant of record for sales on it, so it collects and pays sales tax for you. That is a real convenience, and it is part of what the 10% pays for.",
   ],
   whyStorelib: [
-    { text: `A lower cut of each sale: ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Pro, against Gumroad's 10% + 50¢. Above about $${proBreakEvenDollars().toLocaleString("en-US")} a month in sales, Pro's lower rate covers its ${STORELIB.proPrice} price.`, code: "lib/payments/fees/defaults.ts" },
+    { text: `A lower cut of each sale: ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Grow, against Gumroad's 10% + 50¢. Above about $${proBreakEvenDollars().toLocaleString("en-US")} a month in sales, Grow's lower rate covers its ${STORELIB.proPrice} price.`, code: "lib/payments/fees/defaults.ts" },
     { text: "The same fee wherever the sale happens. Storelib's fee does not change for a sale that came through Explore, where Gumroad's Discover sales pay 30%.", code: "lib/payments/fees/engine.ts" },
-    { text: `More than a product page: a creator page, a OnePage for your bio link, and a website builder with ${STORELIB.freeSites} sites on Free and ${STORELIB.proSites} on Pro.`, code: "lib/sites/plan.ts" },
+    { text: `More than a product page: a creator page, a OnePage for your bio link, and a website builder with ${STORELIB.freeSites} sites on Free and ${STORELIB.proSites} on Grow.`, code: "lib/sites/plan.ts" },
     { text: "Email campaigns, automations, discount codes, bundles and upsells are built in, so a launch does not need three other tools.", code: "app/(storelib)/app/emails" },
   ],
   whenToStay: [
@@ -48,7 +48,7 @@ export const gumroad: Competitor = {
     { text: "Payouts start at a $10 balance and follow Gumroad's schedule, which you cannot change.", sources: ["gumroad-payouts"], status: "conflicting", note: "Gumroad's help pages disagree on whether payouts are weekly or every other Friday." },
   ],
   storelibStrengths: [
-    { text: `${STORELIB.freeFee} a sale on Free, ${STORELIB.proFee} on Pro, and a lower rate with no fixed part under ${STORELIB.smallOrderBelow}.`, code: "lib/payments/fees/config.ts" },
+    { text: `${STORELIB.freeFee} a sale on Free, ${STORELIB.proFee} on Grow, and a lower rate with no fixed part under ${STORELIB.smallOrderBelow}.`, code: "lib/payments/fees/config.ts" },
     { text: "A website builder, a creator page and a OnePage, all selling the same products.", code: "lib/sites/plan.ts" },
     { text: "Courses with lessons and progress, and paid communities billed monthly or yearly.", code: "lib/courses/types.ts", flag: "communities", textOff: "Courses with lessons, video and each student's progress." },
     { text: "Email campaigns and automations to your buyers and subscribers.", code: "app/(storelib)/app/emails" },
@@ -125,10 +125,10 @@ export const gumroad: Competitor = {
   moving: {
     products: "Storelib's Gumroad import brings your digital products in as drafts. Upload each product's files again, check the price and publish. Memberships and bundles are added by hand.",
     customers: "Buyers and subscribers are not moved: Storelib has no import for customer or email lists. Send one last email from Gumroad with your new links, and keep Gumroad open until past buyers have their files.",
-    domain: "A domain pointed at Gumroad moves when you change its DNS records to the ones Storelib shows in Settings, Domains, on Pro. Without a domain, your OnePage at storelib.me/yourname is your new link.",
+    domain: "A domain pointed at Gumroad moves when you change its DNS records to the ones Storelib shows in Settings, Domains, on Grow. Without a domain, your OnePage at storelib.me/yourname is your new link.",
   },
   faqs: [
-    { q: "Is Storelib cheaper than Gumroad?", a: `For most sales, yes. Gumroad takes 10% + 50¢ of a direct sale. Storelib takes ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Pro, which costs ${STORELIB.proPrice} a month. Card processing applies on both. Gumroad's fee also covers sales tax as merchant of record, which Storelib does not do, so weigh that if you sell to many countries.` },
+    { q: "Is Storelib cheaper than Gumroad?", a: `For most sales, yes. Gumroad takes 10% + 50¢ of a direct sale. Storelib takes ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Grow, which costs ${STORELIB.proPrice} a month. Card processing applies on both. Gumroad's fee also covers sales tax as merchant of record, which Storelib does not do, so weigh that if you sell to many countries.` },
     { q: "Does Storelib charge more for marketplace sales like Gumroad Discover?", a: "No. Storelib's fee is worked out from the price and your plan only. A sale from Explore pays the same as a sale from your own link." },
     { q: "Can I move my Gumroad products to Storelib?", a: "Yes. Storelib's Gumroad import reads your products with a Gumroad access token and creates them as drafts. You upload each product's files again, then publish. Memberships, physical products and bundles are added by hand." },
     { q: "Does Storelib handle sales tax like Gumroad?", a: "No. Gumroad is the merchant of record for its sales. On Storelib you are the seller: you set the tax rates your store charges in Settings, Taxes, and digital products are not taxed unless you turn that on." },
