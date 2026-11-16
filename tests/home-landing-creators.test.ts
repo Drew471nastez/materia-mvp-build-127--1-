@@ -56,7 +56,7 @@ check("the card's foot is as it was before: name, kind and what they sell on a s
   assert.ok(!/cc-prod|cc-info|<svg/.test(card))
 })
 check("seven kinds have new photographs, each 4:5 WebP within budget", () => {
-  for (const slug of ["authors", "podcasters", "artists", "agencies", "fitness", "youtubers", "musicians"]) {
+  for (const slug of ["authors", "artists", "agencies", "fitness", "youtubers", "musicians"]) {
     for (const [w, max] of [[400, 40_000], [720, 90_000]] as const) {
       const p = `public/home/creators/${slug}-${w}.webp`
       assert.ok(existsSync(p) && statSync(p).size < max, p)
@@ -67,7 +67,8 @@ check("seven kinds have new photographs, each 4:5 WebP within budget", () => {
   const alt = (slug: string) => CREATORS.find((c) => c.slug === slug)?.alt ?? ""
   /* Changed on purpose (landing round 4): new pictures for agencies and YouTubers (and musicians and educators), their words with them. */
   /* Changed on purpose (landing round 9): the owner picked new photos for musicians (a portrait on orange), photographers (a silhouette at dusk) and fitness (dumbbells, black and white). */
-  assert.ok(/orange/.test(alt("musicians")) && /notebook/.test(alt("authors")) && /microphone/.test(alt("podcasters")) && /easel/.test(alt("artists")) && /laptop/.test(alt("agencies")) && /dumbbell/.test(alt("fitness")) && /silhouette/.test(alt("photographers")) && /clapperboard/.test(alt("youtubers")))
+  /* Changed on purpose (landing round 11): the owner picked four photographs (agencies: a partner showing a laptop, black and white; YouTubers: an editor at a dark desk; musicians: a profile in red; authors: an open book in window light) and had podcasters taken off the rail. */
+  assert.ok(/red/.test(alt("musicians")) && /open book/.test(alt("authors")) && /easel/.test(alt("artists")) && /laptop/.test(alt("agencies")) && /dumbbell/.test(alt("fitness")) && /silhouette/.test(alt("photographers")) && /video editor/.test(alt("youtubers")) && !CREATORS.some((c) => c.slug === "podcasters") && !existsSync("public/home/creators/podcasters-720.webp"))
 })
 check("the rail stays endless, on the compositor, and draggable without fighting the page's scroll", () => {
   const src = read(CC)

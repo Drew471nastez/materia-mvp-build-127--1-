@@ -19,16 +19,15 @@ export type CreatorCard = {
  * orange ground), Photographers and Fitness are Pexels photos (free licence),
  * cropped and stored the same way. */
 export const CREATORS: readonly CreatorCard[] = [
-  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lena Marsh", alt: "Lena laughing on her purple lit set, a clapperboard held up for the next take" },
-  { slug: "musicians", kind: "Musicians", sells: "Songs, vinyl & lessons", name: "Jules Arden", alt: "Jules, a musician, in a dark wool jacket against an orange wall" },
-  { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Clara Whitfield", alt: "Clara writing in a notebook at a window table" },
+  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lena Marsh", alt: "A video editor at a dark desk, cutting a clip on a wide monitor, a phone charging beside it" },
+  { slug: "musicians", kind: "Musicians", sells: "Songs, vinyl & lessons", name: "Jules Arden", alt: "A musician in profile, a cap on and locs falling, lit in deep red" },
+  { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Clara Whitfield", alt: "An open book in a slant of window light on a dark sofa" },
   { slug: "educators", kind: "Educators", sells: "Online courses", name: "Teo Alvarez", alt: "Teo in his sunlit painting studio, an apron on and a brush in hand" },
   { slug: "influencers", kind: "Influencers", sells: "Merch drops", name: "Adaeze Nwosu", alt: "Adaeze, an influencer, in a bold patterned top" },
-  { slug: "podcasters", kind: "Podcasters", sells: "Bonus episodes & memberships", name: "The Late Signal", alt: "The host of The Late Signal laughing into his microphone, headphones on" },
   { slug: "artists", kind: "Artists", sells: "Prints & original pieces", name: "Iris Calder", alt: "Iris painting on a canvas at an easel" },
   { slug: "streamers", kind: "Streamers", sells: "Sub perks & emote packs", name: "Kai Navarro", alt: "Kai streaming at a glowing desk setup with a headset on" },
   { slug: "coaches", kind: "Coaches", sells: "1:1 calls & programs", name: "Dev Mehta", alt: "Dev, a coach, smiling in a white tee against a concrete wall" },
-  { slug: "agencies", kind: "Agencies", sells: "Storefronts for every client", name: "Northfield Studio", alt: "The Northfield Studio team laughing around a laptop, a painted mural behind them" },
+  { slug: "agencies", kind: "Agencies", sells: "Storefronts for every client", name: "Northfield Studio", alt: "An agency partner showing a client a page on a laptop across a table, in black and white" },
   { slug: "photographers", kind: "Photographers", sells: "Photo presets & prints", name: "Noa Price", alt: "Noa in silhouette, her camera raised to her eye against a sky going from blue to orange" },
   { slug: "fitness", kind: "Fitness", sells: "Training plans & challenges", name: "Cole Whitaker", alt: "Cole walking through a dark gym with a dumbbell in each hand, in black and white" },
 ]
