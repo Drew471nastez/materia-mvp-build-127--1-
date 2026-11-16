@@ -20,6 +20,7 @@ import "server-only"
  */
 import { snapshotSite, type BankProfile, type SnapshotInput } from "./snapshot"
 import { listingOf, type BankListing } from "./fit"
+import { uploadSnapshot, type UploadedFile } from "./upload"
 import type { SiteTemplate } from "@/lib/storelib-ai/templates/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -33,7 +34,7 @@ type Db = { from: (table: string) => any } // eslint-disable-line @typescript-es
 
 export interface BankRow {
   id: string
-  install_id: string
+  install_id: string | null
   template_id: string
   name: string
   kind: BankProfile["kind"]
@@ -156,6 +157,31 @@ export async function snapshotIntoBank(db: Db, installId: string): Promise<BankW
     : db.from(BANK_TABLE).insert({ ...values, enabled: true, industries: [], keywords: [] })
   const { data, error } = await q.select(ROW).single()
   if (error || !data) return { ok: false, status: 500, error: "The snapshot could not be saved." }
+  return { ok: true, row: data as BankRow }
+}
+
+/**
+ * A theme the admin uploaded (zip, HTML, CSS, any theme's files): a reference entry with no website behind it.
+ * Needs part 468 (install_id may be empty).
+ */
+export async function uploadIntoBank(db: Db, name: string, files: UploadedFile[]): Promise<BankWrite> {
+  const snap = uploadSnapshot(name, files, new Date().toISOString())
+  if (!snap) return { ok: false, status: 422, error: "Nothing in that upload is a page, a style or a script the AI can read." }
+  const { count, error: countErr } = await db.from(BANK_TABLE).select("id", { count: "exact", head: true })
+  if (countErr) return { ok: false, status: isMissingBank(countErr) ? 503 : 500, error: isMissingBank(countErr) ? "Run SQL part 467 (ai_template_bank) first." : "The bank could not be read just now." }
+  if ((count ?? 0) >= MAX_BANK_ENTRIES) return { ok: false, status: 409, error: `The bank holds ${MAX_BANK_ENTRIES} entries. Remove one first.` }
+  const now = new Date().toISOString()
+  const { data, error } = await db
+    .from(BANK_TABLE)
+    .insert({ install_id: null, template_id: snap.template.id, name: snap.template.name, kind: "reference", profile: snap.profile, snapshot: snap.template, snapshot_at: now, updated_at: now, enabled: true, industries: [], keywords: [] })
+    .select(ROW)
+    .single()
+  if (error || !data) {
+    const code = (error as { code?: string } | null)?.code
+    if (code === "23502") return { ok: false, status: 503, error: "Run SQL part 468 (uploads in the AI source bank) first." }
+    if (code === "23505") return { ok: false, status: 409, error: "That upload is already in the bank." }
+    return { ok: false, status: 500, error: "The upload could not be saved." }
+  }
   return { ok: true, row: data as BankRow }
 }
 

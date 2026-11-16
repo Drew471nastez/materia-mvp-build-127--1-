@@ -5,6 +5,7 @@ import type { BankFeature, BankProfile, SectionRole } from "./snapshot"
 
 export interface BankRowView {
   id: string
+  /** Empty for an upload (no website behind it). */
   installId: string
   templateId: string
   name: string
@@ -21,12 +22,12 @@ export interface BankRowView {
   snapshotAt: string
 }
 
-export function bankRowView(row: { id: string; install_id: string; template_id: string; name: string; kind: BankProfile["kind"]; enabled: boolean; industries: string[] | null; keywords: string[] | null; profile: BankProfile; snapshot_at: string }): BankRowView {
+export function bankRowView(row: { id: string; install_id: string | null; template_id: string; name: string; kind: BankProfile["kind"]; enabled: boolean; industries: string[] | null; keywords: string[] | null; profile: BankProfile; snapshot_at: string }): BankRowView {
   const p = row.profile
   const industries = row.industries?.length ? row.industries : p?.industries ?? []
   return {
     id: row.id,
-    installId: row.install_id,
+    installId: row.install_id ?? "",
     templateId: row.template_id,
     name: row.name,
     kind: row.kind,

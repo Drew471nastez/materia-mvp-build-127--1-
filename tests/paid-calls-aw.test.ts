@@ -124,7 +124,8 @@ async function main() {
     check("no checkpoint: a new website", inlineBuildBucket(false, null) === "site-generate")
     check("a checkpoint with no plan in it (`{}` included) starts from the beginning, so it is a new website", inlineBuildBucket(true, fresh.plan) === "site-generate" && inlineBuildBucket(true, undefined) === "site-generate")
     check("only a checkpoint that carried a plan on is a Continue", inlineBuildBucket(true, { pages: [] }) === "site-generate-continue")
-    check("the difference: ten new websites a day against forty Continues an hour", LIMITS.siteGenerate.some((w) => w.seconds === 86_400 && w.limit === 10) && LIMITS.siteAi.some((w) => w.seconds === 3600 && w.limit === 40))
+    /* Changed on purpose (round BB): the owner asked for no cap on AI website building; each bucket keeps only a one minute burst guard. */
+    check("each bucket keeps only a burst guard (no hourly or daily cap)", LIMITS.siteGenerate.every((w) => (w.seconds as number) <= 60) && LIMITS.siteAi.every((w) => (w.seconds as number) <= 60))
 
     const gen = readCode("app/api/website-builder/themes/[installId]/generate/route.ts")
     const owner = gen.indexOf("if (!site.isOwner) return")

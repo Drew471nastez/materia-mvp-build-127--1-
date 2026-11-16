@@ -256,9 +256,13 @@ export function pageTransitionFor(tier: MotionTier): { page_transition: string; 
 /* ── what the agent is told ───────────────────────────────────────────── */
 
 /** The motion rules for a site at `tier`, for a prompt. */
-export function motionForPrompt(tier: MotionTier = DEFAULT_MOTION_TIER): string {
+export function motionForPrompt(tier: MotionTier = DEFAULT_MOTION_TIER, opts: { primitives?: boolean } = {}): string {
   const p = MOTION_TIER_PARAMS[tier]
   const recipes = MOTION_RECIPES.filter((r) => r.tiers.includes(tier) && r.example)
+  /* Round BB: with the owner's library as the only reference, the built-in primitives are not offered. */
+  const how = opts.primitives === false
+    ? "- How the moves are made: as the owner's library makes them (the worked examples in this brief), adapted to this site. Page transitions are the Theme setting Animations › Between pages."
+    : `- Working primitives to adapt (search_knowledge by id): ${recipes.map((r) => `${r.example} (${r.name.toLowerCase()})`).join(", ")}. Page transitions are the Theme setting Animations › Between pages.`
   return `MOTION (this site's feel: ${tier}; set it with set_tokens motion.tier, the creator changes it in Theme settings › Animations › Motion feel)
 - ${p.label}: ${p.describe}.
 - One motion signature per site (a masked headline, an image curtain or an editorial slide) plus quiet feedback on hover, focus and press. Never every trick on one page. At most ${p.showcasePerPage} scroll-linked showcase sequence${p.showcasePerPage === 1 ? "" : "s"} (sticky story, sideways gallery, pinned chapter) per page.
@@ -266,5 +270,5 @@ export function motionForPrompt(tier: MotionTier = DEFAULT_MOTION_TIER): string 
 - Give each moving section editable params in its schema: a "motion" select ("site": follows the site, "off": still), a "motion_strength" range (0 to 150, %), and its own where they matter (stagger, speed, tilt). Print them as data-motion="{{ settings.motion }}" and --m-k: calc({{ settings.motion_strength }} / 100).
 - transform and opacity only (clip-path for a mask). Never animate width, height, top, left or box-shadow, never transition: all. Write the still state as the default and add motion inside @media (prefers-reduced-motion: no-preference) and @supports (animation-timeline: view()); nothing is hidden when either is missing.
 - Native scrolling always: no scroll hijacking, no smooth-scroll library, no preloader, no content gated behind an animation. Under 600px wide, shorter travel and sticky or pinned effects become plain sequential content. Hover effects only in @media (hover: hover) and (pointer: fine); the press state stays for touch.
-- Working primitives to adapt (search_knowledge by id): ${recipes.map((r) => `${r.example} (${r.name.toLowerCase()})`).join(", ")}. Page transitions are the Theme setting Animations › Between pages.`
+${how}`
 }

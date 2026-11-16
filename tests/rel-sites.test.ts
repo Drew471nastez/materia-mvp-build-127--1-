@@ -489,7 +489,7 @@ async function aiLimits() {
     check("  a publish (no model) still goes on a failed count, as before", (await publishRateLimit("s1")) === null)
     fakeSupabase({ site_agent_runs: () => head(0) })
     check("  a count that answered under the limit lets the run go", (await agentRateLimit("c1")) === null)
-    fakeSupabase({ site_agent_runs: () => head(6) })
+    fakeSupabase({ site_agent_runs: () => head(30) })
     const over = await agentRateLimit("c1")
     check("  and one over it is still the 429 it was", over !== null && over !== AI_LIMIT_UNREADABLE && limitStatus(over) === 429)
   } finally {

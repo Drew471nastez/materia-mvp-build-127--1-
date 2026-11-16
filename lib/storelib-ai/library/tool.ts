@@ -13,7 +13,7 @@ import type { KnowledgeEntry as ContractEntry, KnowledgeKind } from "@/lib/ai-bu
 import type { ToolSpec } from "@/lib/sites/agent/types"
 import { RESOURCES, type ResourceRecord } from "./resources"
 import { matchExamples, type ComponentExample } from "./examples"
-import { searchKnowledge, tokenize } from "./retrieve"
+import { knowledgeById, searchKnowledge, tokenize } from "./retrieve"
 import type { KnowledgeCapability } from "./types"
 import { templateEntries } from "@/lib/storelib-ai/templates/gallery"
 
@@ -36,11 +36,31 @@ export const SEARCH_KNOWLEDGE_TOOL: ToolSpec<"search_knowledge"> = {
 }
 
 export interface SearchContext {
+  /**
+   * Round BB (the owner: train it only on the AI source bank): the platform's working rules only. No site
+   * template, example component, outside library, style, industry, layout, palette, motion recipe or stock header
+   * and footer pattern: the look and the structure come from the owner's library.
+   */
+  bankOnly?: boolean
   industry?: string
   styles?: string[]
   capabilities?: KnowledgeCapability[]
   /** Token budget for one result. Default 1800. */
   budgetTokens?: number
+}
+
+/** The categories that are how Storelib works, not how a site looks (SearchContext.bankOnly). */
+export const RULE_CATEGORIES: ReadonlySet<string> = new Set(["storelib", "accessibility", "debugging", "state", "responsive", "anti-slop"])
+/** And the entries of other categories that are behaviour, never a look: a dialog's focus, a drawer's scroll, a form's states, the fonts that load. */
+export const RULE_IDS: ReadonlySet<string> = new Set([
+  "component-accordion", "component-carousel", "component-dialog", "component-drawer", "component-forms", "component-inputs", "component-loading",
+  "component-media-player", "component-navigation-menus", "component-notifications", "component-tabs", "component-tooltip", "component-tables",
+  "core-agent-loop", "core-links-and-actions", "core-prompt-reading", "core-self-review", "core-iteration", "core-copywriting",
+  "typography-type-library", "typography-loading", "typography-scale",
+])
+/** Whether an entry is one of the platform's working rules (bank-only search keeps these and nothing else). */
+export function isRuleEntry(id: string): boolean {
+  return RULE_IDS.has(id) || RULE_CATEGORIES.has(knowledgeById(id)?.category ?? "")
 }
 
 function resourceEntry(r: ResourceRecord): ContractEntry {
@@ -94,6 +114,11 @@ export function runSearchKnowledge(input: AgentToolInputs["search_knowledge"], c
   const limit = Math.max(1, Math.min(8, Math.floor(input?.limit ?? 4)))
   const kinds = (input?.kinds ?? []).filter((k): k is KnowledgeKind => KINDS.includes(k))
   /* Round P (P2a): a question about site templates ("site template coffee shop", "template:<id>") gets the gallery's answer first. */
+  if (ctx.bankOnly) {
+    const found = searchKnowledge({ text: query, kinds: kinds.filter((k) => k !== "resource").length ? kinds.filter((k) => k !== "resource") : undefined, industry: ctx.industry, limit: limit * 3, budgetTokens: ctx.budgetTokens, capabilities: ctx.capabilities })
+    const entries = found.entries.filter((e) => isRuleEntry(e.id)).slice(0, limit).map(({ id, kind, title, body }) => ({ id, kind, title, body }))
+    return { entries }
+  }
   const templates = !kinds.length || kinds.includes("layout") ? templateEntries(query, Math.min(2, limit)) : []
   if (templates.length && templates.length >= limit) return { entries: templates }
   const examples = !kinds.length || kinds.includes("component") ? matchExamples(query, 1).map(exampleEntry) : []

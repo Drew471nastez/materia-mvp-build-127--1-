@@ -249,6 +249,11 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       /* Round AZ: worked examples from the owner's library (the AI source bank), with or without a template poured in. */
       const patterns = lib.patterns ? await lib.patterns(brief, poured).catch(() => "") : ""
       if (patterns) templateText = [templateText, patterns].filter(Boolean).join("\n\n")
+    } else if (job.redesign && !job.edit && cp.brief) {
+      /* Round BB: a redesign is held to the owner's library too (its worked examples, nothing poured in). */
+      const lib = templatesOf(deps)
+      const patterns = lib.patterns ? await lib.patterns(cp.brief, null).catch(() => "") : ""
+      if (patterns) templateText = patterns
     }
         /* Round P (P1): which picture service this environment has, plainly; none means a text-forward design, never a grey box. */
     const pictures = await (deps.images?.available() ?? Promise.resolve({ generate: null, stock: false })).catch(() => ({ generate: null, stock: false }))

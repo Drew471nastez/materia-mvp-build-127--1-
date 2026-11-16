@@ -201,15 +201,15 @@ async function main() {
   const bank = reader([{ template, profile }, { template: coach.template, profile: coach.profile }])
   const lib = bankTemplateLibrary(bank)
   const chosenShop = await lib.choose(shopBrief, null)
-  const builtInShop = await defaultTemplates.choose(shopBrief, null)
-  check("the library pours none of it in: the built-in templates (code) answer", (chosenShop?.id ?? null) === (builtInShop?.id ?? null) && chosenShop?.source?.kind !== "bank", chosenShop?.id)
+  /* Changed on purpose (round BB): no built-in template answers; the agent writes the site on the plan. */
+  check("the library pours none of it in, and no built-in template answers", chosenShop === null, chosenShop?.id)
   const plan = await lib.patterns(shopBrief, chosenShop)
   check("  its structure is the plan in the brief: Materia's pages in order, the product page's included", /THE PLAN FROM THE OWNER'S LIBRARY: Materia Themes/.test(plan) && /- product:/.test(plan) && /never Storelib's built-in sections, header or footer/.test(plan), plan.slice(0, 500))
   check("  the plan names no source words or pictures", !plan.includes("Fuel your focus") && !plan.includes("cdn.materia.example"))
   const coachPlan = await lib.patterns(coachBrief, await lib.choose(coachBrief, null))
   check("  a coach gets the coaching site's plan, with no shop in it", /Radu Coaching/.test(coachPlan) && !/product/.test(coachPlan), coachPlan.slice(0, 400))
   const broken = bankTemplateLibrary({ async list() { throw new Error("db down") }, async load() { throw new Error("db down") } })
-  check("a bank that cannot be read is no bank: the built-in templates answer", (await broken.choose(shopBrief, null))?.id === (await defaultTemplates.choose(shopBrief, null))?.id)
+  check("a bank that cannot be read is no bank, and no built-in template answers either", (await broken.choose(shopBrief, null)) === null && (await broken.patterns(shopBrief, null)) === "")
 
   section("5. A site written as code is poured in, fitted, and resumed")
   const built = SITE_TEMPLATES.find((t) => t.id === "course-coach")!

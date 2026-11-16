@@ -332,16 +332,17 @@ export interface JobBudget {
 
 export const DEFAULT_JOB_BUDGET: JobBudget = {
   /* Round N: a whole site (10+ home sections, every page and template) is 25 to 40 components. */
-  maxWallMs: 45 * 60_000,
-  maxIterations: 200,
+  /* Round BB: a job is never stopped part way by its own caps on a normal site; these are runaway guards only. */
+  maxWallMs: 120 * 60_000,
+  maxIterations: 400,
   /*
     Round P (P5): the build phase writes on claude-opus-5-5 at effort high and pictures are made (P1, counted in
     the same spend). lib/ai-builder/agent/model-routing.ts estimateSiteUsd puts a typical whole site at about
     $13.50 of model calls (it was about $7.30, close to the old $10 cap); $20 leaves room for pictures and
     repairs. The cap is still checked before every call with that call's worst case.
   */
-  maxUsd: 20,
-  maxUsdOwnKey: 40,
+  maxUsd: 200,
+  maxUsdOwnKey: 400,
   maxOutputTokensPerCall: 24_000,
   perInvocationMs: 240_000,
   callReserveMs: 60_000,

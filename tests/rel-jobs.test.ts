@@ -323,10 +323,11 @@ console.log("\nThe theme agent: a deadline from the request's start, a limit fro
   check(`${THEME_AGENT_AT_ONCE} questions without answers in five minutes: busy`, themeAgentVerdict([{ role: "user", created_at: at(10) }, { role: "user", created_at: at(70) }, { role: "user", created_at: at(130) }], now) === THEME_AGENT_BUSY)
   check("answered runs do not count as going", themeAgentVerdict([{ role: "user", created_at: at(10) }, { role: "user", created_at: at(70) }, { role: "assistant", created_at: at(65) }, { role: "user", created_at: at(130) }], now) === null)
   check("a run that died without answering stops counting after 300s", themeAgentVerdict([{ role: "user", created_at: at(10) }, { role: "user", created_at: at(70) }, { role: "user", created_at: at(400) }], now) === null)
-  const burst = Array.from({ length: 8 }, (_, i) => [{ role: "user", created_at: at(5 + i) }, { role: "assistant", created_at: at(4 + i) }]).flat()
-  check("eight questions in a minute: slow down", /faster than they can run/.test(themeAgentVerdict(burst, now) ?? ""))
+  /* Changed on purpose (round BB): the owner asked for no cap on AI building; a burst guard of 30 a minute and no hourly cap. */
+  const burst = Array.from({ length: 30 }, (_, i) => [{ role: "user", created_at: at(5 + i) }, { role: "assistant", created_at: at(4 + i) }]).flat()
+  check("thirty questions in a minute: slow down", /faster than they can run/.test(themeAgentVerdict(burst, now) ?? ""))
   const hour = Array.from({ length: 120 }, (_, i) => [{ role: "user", created_at: at(120 + i * 25) }, { role: "assistant", created_at: at(119 + i * 25) }]).flat()
-  check("120 in an hour: try again shortly", /in an hour/.test(themeAgentVerdict(hour, now) ?? ""))
+  check("120 in an hour: no hourly cap", themeAgentVerdict(hour, now) === null)
 
   const failing = { from: () => ({ select: () => ({ eq: () => ({ limit: async () => ({ data: null, error: { message: "timeout" } }) }) }) }) }
   /* Changed on purpose (round rel-sites): a count that cannot be read refuses the run with a Try again (503), so model spend is never unlimited during a database incident (tests/rel-sites.test.ts). */

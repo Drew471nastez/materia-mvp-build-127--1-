@@ -1682,6 +1682,15 @@ ${THINGS_CSS}
    * settles smaller under the headline as its words rise in; the scroll turns
    * the ring a little further.
    */
+  /*
+   * Landing round 14 (the owner's iPhone recording: in this section the phone lurched between its two sizes, the
+   * headline's words faded in again on every pass, the phone dimmed and came back from one frame to the next, and
+   * the scene "flashes, glitches, sticks"). Safari on a phone places a scroll-driven animation a frame after the
+   * finger has moved the page, and this scene is a dozen of them over a held stage. Under 900px nothing here follows
+   * the scroll and nothing is held: the stage is one screen showing the finished scene (the headline, the phone
+   * settled, the ring turning by itself on the compositor) and the cards follow it. From 900px it is as it was.
+   */
+  @media (min-width:900px){
   @supports (animation-timeline:view()){
     .cmc[data-story-section] > .cmc-track.cmc-track{view-timeline:--cmc-t block}
     .cmc-stage{position:sticky;top:0}
@@ -1724,6 +1733,7 @@ ${THINGS_CSS}
       ${NEAR} .cmc-shade{animation-range:contain ${PHONE_PHONE_OUT}svh contain ${PHONE_PHONE_OUT + 6}svh}
       ${NEAR} .cmc-copy{animation-range:contain ${PHONE_COPY_OUT[0]}svh contain ${PHONE_COPY_OUT[1]}svh}
     }
+  }
   }
 }
 
