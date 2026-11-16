@@ -1581,6 +1581,8 @@ const SUITES = [
   "tests/home-landing-r13-business.test.ts",
   /* Landing round 13, pricing: /pricing without the Compare Storelib links or the four badges; the cards on white under a much bigger heading; then sheets that rise over them as the page scrolls (sticky, rounded tops, a compositor shade): what comes with your store (the home Everything pictures as a two over three bento, and a domain reel of endings Storelib connects), Compare all features from planComparison() with a sticky plan row, and the questions; Get Grow a solid purple button. */
   "tests/home-landing-r13-pricing.test.ts",
+  /* Landing round 14, business: the heading "From a cookbook to a coaching call"; digital a shelf of six downloads to point at, open and buy, the download in the button; physical the line of store designs dragged by mouse or finger, flung to a design, turning by itself after a pause, glides as Web Animations, five cards drawn at most, cleaner light; on a phone each card the whole column with a line of five under the row. */
+  "tests/home-landing-r14-business.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

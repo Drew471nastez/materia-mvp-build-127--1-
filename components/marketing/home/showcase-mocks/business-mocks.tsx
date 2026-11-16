@@ -1,18 +1,17 @@
-import { CalendarDays, Check, CheckCircle2, Download, FileText, Heart, MessageCircle, Play, Users, Video } from "lucide-react"
-import type { CSSProperties } from "react"
+import { CalendarDays, Check, CheckCircle2, Download, Heart, MessageCircle, Play, Users, Video } from "lucide-react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { Pic, pic, u } from "./frame"
 
 /*
-  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 13).
+  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 14).
   Each kind of thing sold is one scene on its own calm ground: the thing
   itself, photographed, and the Storelib page that sells it, with one short
   moment playing while it is shown.
 
-    Digital product   Ancestral Kitchen (a cookbook) and Daily Mobility (a
-                      video course) on one coach's shelf, both in one order
-                      that pays and downloads (round 13)
+    Digital product   A shelf of six downloads and the one in view, which a
+                      visitor can point at, open and buy (round 14)
     Physical product  A line of store designs for goods you ship, turning in
-                      perspective without end (round 13)
+                      perspective by itself and under a drag (round 14)
     Course            Mixing in key, Tomás Reyes's course for new DJs (kept)
     Community         Applied AI Club, under its photograph (round 13: the
                       owner disliked the green banner)
@@ -23,6 +22,10 @@ import { Pic, pic, u } from "./frame"
   physical tee, cap, tote and print. Round 13 replaced round 12's e-book and
   face oil with what the owner named: the mobility course and Ancestral
   Kitchen, and the store designs.
+
+  Round 14 made the digital and physical scenes the two a visitor can use
+  (business-carousel.tsx draws them without the picture wrapper, and tells
+  them, as `on`, when they are shown and on screen).
 
   Drawn at one design size per layout (1100 x 570 from 768px, 360 x 520
   below; `--u` in frame.tsx), so a picture is the same at any width. Every
@@ -47,66 +50,186 @@ function Still({ src, w, h, className = "smk-pic" }: { src: string; w: number; h
 
 /* ================================================================ Digital product */
 /*
-  Round 13, the owner: the digital card shows the mobility course and
-  Ancestral Kitchen, the two downloads the landing sold in earlier rounds
-  (their pictures are the map's, public/home/sell-map). One coach's store:
-  the two on its shelf, and both in one order that pays and is ready to open.
-*/
-const SHELF = "/home/sell-map"
-export const DIGITAL_PRODUCTS = [
-  { name: "Ancestral Kitchen", kind: "Cookbook · PDF", price: "$34", pic: "ancestral-kitchen-cookbook", line: "80 recipes from whole foods" },
-  { name: "Daily Mobility", kind: "Video course", price: "$79", pic: "mobility-course", line: "21 lessons, 15 minutes a day" },
-] as const
-export const DIGITAL_ORDER = { by: "Ruth Calder", total: "$113" } as const
+  Round 14, the owner disliked the digital card's beige ground and its
+  motion, and wanted more digital products in it, something a visitor can
+  play with. It is a small shelf now: six downloads as they stand on a
+  Storelib page (a cookbook, a video course, a LUT pack, a sample pack, a
+  Notion template and a PDF guide) and, beside them, the one in view: what
+  comes in it and its button. Pointing at a product (on a phone, tapping it)
+  shows it there; its button buys it and the download happens in the
+  button, then the product is marked as yours on the shelf. Until someone
+  touches it the shelf shows itself: three products come up in turn and the
+  cookbook is bought.
 
-export function DigitalScene() {
-  const o = DIGITAL_ORDER
+  Pictures: the cookbook, the course and the LUT pack are the map's
+  (public/home/sell-map), the sample pack the builder's; the planner and the
+  guide are covers drawn for this card (public/home/showcase/dg-*.webp).
+*/
+export const DIGITAL_PRODUCTS = [
+  {
+    id: "kitchen",
+    name: "Ancestral Kitchen",
+    kind: "Cookbook, PDF",
+    price: "$34",
+    src: "/home/sell-map/ancestral-kitchen-cookbook.webp",
+    by: "Ruth Calder",
+    gets: ["80 recipes from whole foods", "Weekly shopping lists", "212 pages, made to print"],
+    doing: "Downloading the PDF",
+    done: "Downloaded, a copy is in your email",
+  },
+  {
+    id: "mobility",
+    name: "Daily Mobility",
+    kind: "Video course",
+    price: "$79",
+    src: "/home/sell-map/mobility-course.webp",
+    by: "Ruth Calder",
+    gets: ["21 lessons, 15 minutes a day", "Watch online or download", "Picks up where you stopped"],
+    doing: "Adding 21 lessons",
+    done: "In your library, lesson 1 is ready",
+  },
+  {
+    id: "cine",
+    name: "Cine Tones",
+    kind: "LUT pack",
+    price: "$24",
+    src: "/home/sell-map/cine-tones-lut-pack.webp",
+    by: "Dario Ruiz",
+    gets: ["12 LUTs for warm film looks", "Premiere, Resolve and Final Cut", "Before and after stills"],
+    doing: "Downloading cine-tones.zip",
+    done: "Downloaded, 12 LUTs ready",
+  },
+  {
+    id: "drums",
+    name: "Drums One Shots",
+    kind: "Sample pack",
+    price: "$19",
+    src: "/home/showcase/ll-drums.webp",
+    by: "Loud",
+    gets: ["240 drum one shots, WAV", "Kicks, snares, hats, percussion", "Royalty free"],
+    doing: "Downloading 240 samples",
+    done: "Downloaded, ready to drop in",
+  },
+  {
+    id: "planner",
+    name: "Creator Planner",
+    kind: "Notion template",
+    price: "$15",
+    src: "/home/showcase/dg-creator-planner.webp",
+    by: "Hana Ito",
+    gets: ["Content board and calendar", "Sponsor deals and invoices", "Copies into your Notion"],
+    doing: "Making your copy",
+    done: "Your copy is in your Notion",
+  },
+  {
+    id: "pricing",
+    name: "Pricing Your Work",
+    kind: "Guide, PDF",
+    price: "$12",
+    src: "/home/showcase/dg-pricing-guide.webp",
+    by: "Owen Pratt",
+    gets: ["Set rates and quote projects", "Raise them without losing clients", "64 pages"],
+    doing: "Downloading the PDF",
+    done: "Downloaded, a copy is in your email",
+  },
+] as const
+/** The shelf showing itself: the products that come up in turn (the last is bought), a step apart, then the buy. */
+export const DIGITAL_DEMO = { order: [2, 4, 0], stepMs: 1300, buyMs: 3500 } as const
+
+export function DigitalScene({ on = false }: { on?: boolean }) {
+  const [sel, setSel] = useState<number>(DIGITAL_DEMO.order[0])
+  const [peek, setPeek] = useState<number | null>(null)
+  const [owned, setOwned] = useState<readonly number[]>([])
+  /* Someone has touched the shelf: it stops showing itself and keeps what they did. */
+  const [mine, setMine] = useState(false)
+  const shown = peek ?? sel
+
+  useEffect(() => {
+    if (!on || mine || matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const { order, stepMs, buyMs } = DIGITAL_DEMO
+    const timers = order.map((i, k) => setTimeout(() => setSel(i), k * stepMs))
+    timers.push(setTimeout(() => setOwned([order[order.length - 1]]), buyMs))
+    return () => {
+      timers.forEach(clearTimeout)
+      /* Shown again later, it starts over. */
+      setOwned([])
+    }
+  }, [on, mine])
+
+  const take = () => setMine(true)
   return (
-    <div className="bs bs-digital">
-      {DIGITAL_PRODUCTS.map((p, i) => (
-        <div key={p.name} className={`bd-tile bd-tile-${i}`}>
-          <span className="bd-pic">
-            <Still src={`${SHELF}/${p.pic}.webp`} w={600} h={600} />
-          </span>
-          <span className="bd-meta">
-            <b>{p.name}</b>
-            <em>{p.price}</em>
-            <i>{p.kind}</i>
-          </span>
-        </div>
-      ))}
-      <div className="bs-card bd-card">
-        <p className="bs-kicker">Your order</p>
-        <p className="bs-by">from {o.by}</p>
-        <ol className="bd-lines">
-          {DIGITAL_PRODUCTS.map((p) => (
-            <li key={p.name}>
-              <span>
-                <b>{p.name}</b>
-                <i>{p.line}</i>
+    <div className="bs bs-digital" onPointerDown={take} onKeyDown={take}>
+      <div className="bd-shelf" onPointerLeave={() => setPeek(null)}>
+        {DIGITAL_PRODUCTS.map((p, i) => (
+          <button
+            key={p.id}
+            type="button"
+            className="bd-item"
+            aria-pressed={i === sel}
+            aria-label={`${p.name}, ${p.kind}, ${p.price}`}
+            data-shown={i === shown || undefined}
+            data-owned={owned.includes(i) || undefined}
+            onPointerEnter={(e) => {
+              if (e.pointerType === "mouse") setPeek(i)
+            }}
+            onClick={() => {
+              setSel(i)
+              setPeek(null)
+            }}
+          >
+            <span className="bd-cover">
+              <Still src={p.src} w={600} h={600} />
+              <span className="bd-own">
+                <Check />
               </span>
+            </span>
+            <span className="bd-cap">
+              <b>{p.name}</b>
               <em>{p.price}</em>
-            </li>
-          ))}
-        </ol>
-        <p className="bd-total">
-          <span>Total</span>
-          <b>{o.total}</b>
-        </p>
-        <p className="be-instant">
-          <Download /> Instant access, a copy by email
-        </p>
-        {/* The button is the whole moment: pressed, it pays and the book downloads in place, then both are ready. */}
-        <span className="bs-btn bs-press be-buy">
-          <span className="be-fill" />
-          <span className="a">Pay {o.total}</span>
-          <span className="b">
-            <FileText /> Downloading the cookbook
-          </span>
-          <span className="c">
-            <Check /> Ready in your library
-          </span>
-        </span>
+              <i>{p.kind}</i>
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="bd-view">
+        {DIGITAL_PRODUCTS.map((p, i) => {
+          const here = i === shown
+          return (
+            <div key={p.id} className="bd-pane" data-on={here || undefined} aria-hidden={!here || undefined} inert={!here}>
+              <div className="bd-pane-top">
+                <span className="bd-pane-cover">
+                  <Still src={p.src} w={600} h={600} />
+                </span>
+                <span className="bd-pane-t">
+                  <span className="bs-kicker">{p.kind}</span>
+                  <b>{p.name}</b>
+                  <span className="bs-by">by {p.by}</span>
+                </span>
+              </div>
+              <ul className="bd-gets">
+                {p.gets.map((g) => (
+                  <li key={g}>{g}</li>
+                ))}
+              </ul>
+              {/* The whole moment is in the button: pressed, it pays and the file arrives in place. */}
+              <button
+                type="button"
+                className="bs-btn bd-buy"
+                data-go={owned.includes(i) || undefined}
+                onClick={() => setOwned((o) => (o.includes(i) ? o : [...o, i]))}
+              >
+                <span className="bd-fill" />
+                <span className="a">Buy for {p.price}</span>
+                <span className="b">
+                  <Download /> {p.doing}
+                </span>
+                <span className="c">
+                  <Check /> {p.done}
+                </span>
+              </button>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -114,74 +237,337 @@ export function DigitalScene() {
 
 /* ================================================================ Physical product */
 /*
-  Round 13, the owner: the physical card is a line of store designs for
-  goods you ship, turning in perspective: one in front, the others stacked
-  behind it on each side, moving on by itself and never ending. The pictures
-  are store designs from the owner's own theme export (its template
-  carousel), each a 4:5 webp at about twice its drawn size.
+  Round 13 made the physical card a line of store designs turning in
+  perspective: one in front, the others stacked behind it on each side.
+  Round 14, the owner: keep it turning by itself, but let people drag it
+  (a mouse or a finger), very smooth, and make it far cheaper to run; and
+  the grey behind it was too grey.
 
-  Six cards and six places: the front, two to each side, and one far behind
-  the middle where a card is invisible while it crosses from the left back
-  to the right back. One keyframe animation walks a card through the six
-  places; each card runs it a sixth of the loop apart (a negative delay), so
-  the whole line is CSS on the compositor: transform and opacity, nothing
-  else, no script, no timer. A card's resting style is its place at the
-  start, so with reduced motion the line stands still and whole.
+  So the line is moved by one position, `q`, and each card's place follows
+  from how far it is from the front (`i - q`): the front, two to each side,
+  and one hidden far behind, where a card crosses from one side to the
+  other unseen. Between places everything is linear, so any position is a
+  picture.
+
+    Dragging      pointer events on the stage, `q` follows the finger and
+                  the cards are drawn once a frame; the stage takes only
+                  sideways drags (touch-action: pan-y), so the page still
+                  scrolls under a thumb moving up or down.
+    Letting go    the line glides on with the speed it had and stops on a
+                  design (never more than two away); a tap on a side card
+                  brings that one to the front.
+    Turning       when nobody has touched it for a moment, one design every
+                  STORE_STEP_S, while its scene is shown and on screen.
+
+  Every glide is one Web Animation per card, keyframed at each place it
+  passes, on transform and opacity: it runs on the compositor, nothing
+  ticks between glides and nothing at all while the scene is away. The
+  cards are flat siblings under one perspective, drawn in an order set
+  from their distance to the front (storeLayer), not a 3D scene the
+  compositor sorts every frame. The card
+  hidden behind is hidden for real (visibility), so five pictures are drawn
+  at most, each a 4:5 webp at about its drawn size. With reduced motion the
+  line stands still and a drag or a tap moves it without gliding.
 */
 export const STORE_DESIGNS = ["sora", "shine", "sunbalm", "lunea", "fusion", "vision"] as const
 /** Widths each design is saved at (public/home/showcase/bt-<id>-<w>.webp), 4:5. */
-export const STORE_DESIGN_WIDTHS = [380, 560, 760] as const
+export const STORE_DESIGN_WIDTHS = [380, 560] as const
 /** One move of the line: a hold, then the glide to the next place (seconds). */
 export const STORE_STEP_S = 2.4
 export const STORE_GLIDE_S = 0.95
-/* The six places, in the order a card visits them: front, left, far left, hidden behind, far right, right. */
-const PLACES = [
-  { x: 0, z: 0, r: 0, o: 1 },
-  { x: -262, z: -190, r: 24, o: 1 },
-  { x: -446, z: -430, r: 32, o: 0.6 },
-  { x: 0, z: -760, r: 0, o: 0 },
-  { x: 446, z: -430, r: -32, o: 0.6 },
-  { x: 262, z: -190, r: -24, o: 1 },
-] as const
-type Scale = { x: number; z: number }
+/** How long the line waits after a drag or a tap before it turns by itself again. */
+export const STORE_IDLE_MS = 3200
+/* The places, by distance from the front (-3 to 3; -3 and 3 are the same place, far behind, unseen). */
+const PLACE_X = [0, -446, -262, 0, 262, 446, 0]
+const PLACE_Z = [-760, -430, -190, 0, -190, -430, -760]
+const PLACE_R = [0, 32, 24, 0, -24, -32, 0]
+const PLACE_O = [0, 0.6, 1, 1, 1, 0.6, 0]
+type Scale = { x: number; z: number; w: number }
+/** A computer draws the line at a 336u stage; a phone a little smaller and closer together. */
+const DESK: Scale = { x: 1, z: 1, w: 336 }
+const PHONE: Scale = { x: 0.56, z: 0.7, w: 276 }
+const n6 = STORE_DESIGNS.length
+/** Distance from the front, wrapped into [-3, 3). */
+const wrapK = (k: number) => ((((k + n6 / 2) % n6) + n6) % n6) - n6 / 2
+/** A card's place at any distance from the front: x and z in design units, turn in degrees, opacity. */
+export function storePlace(k: number) {
+  const w = wrapK(k) + 3
+  const a = Math.floor(w)
+  const b = Math.min(a + 1, 6)
+  const f = w - a
+  const mix = (t: readonly number[]) => t[a] + (t[b] - t[a]) * f
+  return { x: mix(PLACE_X), z: mix(PLACE_Z), r: mix(PLACE_R), o: mix(PLACE_O) }
+}
 const placeCss = (k: number, s: Scale) => {
-  const p = PLACES[((k % PLACES.length) + PLACES.length) % PLACES.length]
+  const p = storePlace(k)
   return `transform:translate3d(${+(p.x * s.x).toFixed(1)}u,0,${+(p.z * s.z).toFixed(1)}u) rotateY(${p.r}deg);opacity:${p.o}`
 }
-/* A card's walk: hold at each place, glide to the next. Card i starts at place i, so the card on the right comes to the front. */
-const walk = (s: Scale) => {
-  const n = PLACES.length
-  const hold = 1 - STORE_GLIDE_S / STORE_STEP_S
-  const pct = (v: number) => `${+(v * 100).toFixed(3)}%`
-  let out = ""
-  for (let k = 0; k < n; k++) {
-    out += `${pct(k / n)}{${placeCss(k, s)}}`
-    out += `${pct((k + hold) / n)}{${placeCss(k, s)};animation-timing-function:cubic-bezier(.55,0,.25,1)}`
-  }
-  return `${out}100%{${placeCss(0, s)}}`
-}
-/*
-  The line at one scale: each card's resting place, and the walk. A phone draws the cards a little smaller
-  and closer together; its walk has the same name inside the phone's media query, so it replaces the
-  computer's there (the last @keyframes of a name that applies wins) and one animation rule serves both.
-*/
+/** Which card is drawn over which: the nearer the front, the higher (3 in front, 0 far behind); it changes only half way between two places. */
+export const storeLayer = (k: number) => 3 - Math.round(Math.abs(wrapK(k)))
+/* Each card's resting place before the script takes over (and without it): the line whole, the first design in front. */
 const storeLineCss = (s: Scale) =>
-  STORE_DESIGNS.map((_, i) => `.bt-card:nth-child(${i + 1}){${placeCss(i, s)}}`).join("") + `@keyframes bt-walk{${walk(s)}}`
-const STORE_LINE = storeLineCss({ x: 1, z: 1 })
-const STORE_LINE_PHONE = storeLineCss({ x: 0.56, z: 0.7 })
-export const STORE_LOOP_S = +(STORE_STEP_S * PLACES.length).toFixed(3)
+  STORE_DESIGNS.map((_, i) => `.bt-card:nth-child(${i + 1}){${placeCss(i, s)};z-index:${storeLayer(i)}${storePlace(i).o ? "" : ";visibility:hidden"}}`).join("")
+const STORE_LINE = storeLineCss(DESK)
+const STORE_LINE_PHONE = storeLineCss(PHONE)
 
-export function PhysicalScene() {
+/* Easing as a curve the script can also read, so a glide can be stopped by a finger exactly where it is. */
+const bez = (a: number, b: number) => (s: number) => 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s
+const curve = (x1: number, y1: number, x2: number, y2: number) => {
+  const X = bez(x1, x2)
+  const Y = bez(y1, y2)
+  return {
+    css: `cubic-bezier(${x1},${y1},${x2},${y2})`,
+    at: (t: number) => {
+      let lo = 0
+      let hi = 1
+      for (let k = 0; k < 18; k++) {
+        const m = (lo + hi) / 2
+        if (X(m) < t) lo = m
+        else hi = m
+      }
+      return Y((lo + hi) / 2)
+    },
+  }
+}
+type Curve = ReturnType<typeof curve>
+const WALK = curve(0.55, 0, 0.25, 1)
+const FLING = curve(0.2, 0.75, 0.25, 1)
+
+type StoreLine = { live: (on: boolean) => void; stop: () => void }
+
+/** The line's engine: plain DOM on the stage React drew once (its cards never re-render). */
+function storeLine(stage: HTMLElement): StoreLine {
+  const cards = Array.from(stage.children) as HTMLElement[]
+  const n = cards.length
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)")
+  const phone = matchMedia("(max-width: 767px)")
+  let scale = DESK
+  let unit = 1
+  let q = 0
+  let on = false
+  let anims: Animation[] = []
+  let glide: { from: number; to: number; start: number; dur: number; ease: Curve } | null = null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let raf = 0
+  let layers: ReturnType<typeof setTimeout>[] = []
+  let idleUntil = 0
+  let drag: { id: number; x0: number; q0: number; moved: boolean; pts: [number, number][] } | null = null
+
+  const now = () => performance.now()
+  const measure = () => {
+    scale = phone.matches ? PHONE : DESK
+    const w = stage.offsetWidth
+    if (w > 0) unit = w / scale.w
+  }
+  const frame = (k: number) => {
+    const p = storePlace(k)
+    return {
+      transform: `translate3d(${(p.x * scale.x * unit).toFixed(2)}px,0,${(p.z * scale.z * unit).toFixed(2)}px) rotateY(${p.r.toFixed(2)}deg)`,
+      opacity: +p.o.toFixed(3),
+    }
+  }
+  const paint = (at: number) => {
+    cards.forEach((c, i) => {
+      const f = frame(i - at)
+      c.style.transform = f.transform
+      c.style.opacity = String(f.opacity)
+      c.style.visibility = f.opacity > 0.001 ? "visible" : "hidden"
+    })
+    order(at)
+  }
+  /* The cards are flat siblings under the stage's perspective (no preserve-3d: the compositor then draws five plain quads in order, far cheaper than sorting a 3D scene), so their order is set here. */
+  const order = (at: number) => cards.forEach((c, i) => (c.style.zIndex = String(storeLayer(i - at))))
+  /** Where the line is now, mid glide or not. */
+  const where = () => (glide ? glide.from + (glide.to - glide.from) * glide.ease.at(Math.min(1, (now() - glide.start) / glide.dur)) : q)
+  const halt = () => {
+    layers.forEach(clearTimeout)
+    layers = []
+    if (!glide) return
+    q = where()
+    glide = null
+    paint(q)
+    anims.forEach((a) => a.cancel())
+    anims = []
+  }
+  /* At rest: the position kept small, and the next turn planned. */
+  const settle = () => {
+    q = ((q % n) + n) % n
+    clearTimeout(timer)
+    if (!on || drag || reduce.matches) return
+    const hold = (STORE_STEP_S - STORE_GLIDE_S) * 1000
+    timer = setTimeout(() => glideTo(Math.round(q) + 1, STORE_GLIDE_S * 1000, WALK), Math.max(hold, idleUntil - now()))
+  }
+  function glideTo(to: number, dur: number, ease: Curve) {
+    halt()
+    clearTimeout(timer)
+    const from = q
+    if (reduce.matches || dur <= 0 || Math.abs(to - from) < 0.001) {
+      q = to
+      paint(q)
+      settle()
+      return
+    }
+    /* A keyframe at every place a card passes, so each glide follows the same path as a drag. */
+    const dir = Math.sign(to - from)
+    const stops = [from]
+    for (let s = dir > 0 ? Math.floor(from) + 1 : Math.ceil(from) - 1; dir > 0 ? s < to : s > to; s += dir) stops.push(s)
+    stops.push(to)
+    const span = Math.abs(to - from)
+    anims = cards.map((c, i) => {
+      const frames = stops.map((s) => ({ ...frame(i - s), offset: Math.abs(s - from) / span }))
+      if (frames.some((f) => f.opacity > 0.001)) c.style.visibility = "visible"
+      return c.animate(frames, { duration: dur, easing: ease.css, fill: "forwards" })
+    })
+    /* The order changes half way between two places: at those moments of the glide (the easing solved for them), set it. */
+    for (let h = Math.floor(Math.min(from, to) - 0.5) + 0.5; h < Math.max(from, to); h++) {
+      if (h <= Math.min(from, to)) continue
+      const part = Math.abs(h - from) / span
+      let lo = 0
+      let hi = 1
+      for (let k = 0; k < 16; k++) {
+        const m = (lo + hi) / 2
+        if (ease.at(m) < part) lo = m
+        else hi = m
+      }
+      layers.push(setTimeout(() => order(h + dir * 0.01), hi * dur))
+    }
+    const mine = { from, to, start: now(), dur, ease }
+    glide = mine
+    anims[0].onfinish = () => {
+      if (glide !== mine) return
+      glide = null
+      q = to
+      paint(q)
+      anims.forEach((a) => a.cancel())
+      anims = []
+      settle()
+    }
+  }
+  /** Card positions per pixel of drag: one design per side card's distance, a little more. */
+  const pitch = () => Math.max(1, 262 * scale.x * unit * 1.15)
+
+  const down = (e: PointerEvent) => {
+    if (drag || (e.pointerType === "mouse" && e.button !== 0)) return
+    halt()
+    clearTimeout(timer)
+    drag = { id: e.pointerId, x0: e.clientX, q0: q, moved: false, pts: [[now(), e.clientX]] }
+  }
+  const move = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const dx = e.clientX - drag.x0
+    if (!drag.moved) {
+      if (Math.abs(dx) < 6) return
+      drag.moved = true
+      stage.setPointerCapture?.(e.pointerId)
+      stage.setAttribute("data-drag", "")
+    }
+    drag.pts.push([now(), e.clientX])
+    if (drag.pts.length > 6) drag.pts.shift()
+    q = drag.q0 - dx / pitch()
+    if (!raf)
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        paint(q)
+      })
+  }
+  const up = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const d = drag
+    drag = null
+    stage.removeAttribute("data-drag")
+    cancelAnimationFrame(raf)
+    raf = 0
+    idleUntil = now() + STORE_IDLE_MS
+    const base = Math.round(d.q0)
+    if (!d.moved) {
+      /* A tap: a side card comes to the front. */
+      const i = cards.indexOf((e.target as Element | null)?.closest?.(".bt-card") as HTMLElement)
+      const k = i >= 0 ? Math.round(wrapK(i - base)) : 0
+      if (k && e.type === "pointerup") glideTo(base + k, 520 + 160 * Math.abs(k), FLING)
+      else settle()
+      return
+    }
+    /* Let go: on with the speed it had, to the design nearest where that carries it (at most two away). */
+    const [t0, x0] = d.pts[0]
+    const [t1, x1] = d.pts[d.pts.length - 1]
+    const v = e.type === "pointerup" && now() - t1 < 90 && t1 > t0 ? -(x1 - x0) / (t1 - t0) / pitch() : 0
+    let to = Math.round(q + v * 240)
+    if (to === base && Math.abs(q - d.q0) > 0.18) to = base + Math.sign(q - d.q0)
+    to = Math.max(base - 2, Math.min(base + 2, to))
+    glideTo(to, Math.min(760, 320 + 300 * Math.abs(to - q)), FLING)
+  }
+  const key = (e: KeyboardEvent) => {
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    idleUntil = now() + STORE_IDLE_MS
+    glideTo(Math.round(where()) + step, 560, FLING)
+  }
+  const resize = () => {
+    measure()
+    halt()
+    paint(q)
+    if (!drag) settle()
+  }
+
+  measure()
+  paint(q)
+  stage.addEventListener("pointerdown", down)
+  stage.addEventListener("pointermove", move)
+  stage.addEventListener("pointerup", up)
+  stage.addEventListener("pointercancel", up)
+  stage.addEventListener("keydown", key)
+  phone.addEventListener("change", resize)
+  const ro = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null
+  ro?.observe(stage)
+  return {
+    live(v) {
+      on = v
+      if (!on) clearTimeout(timer)
+      else if (!glide && !drag) settle()
+    },
+    stop() {
+      clearTimeout(timer)
+      layers.forEach(clearTimeout)
+      cancelAnimationFrame(raf)
+      anims.forEach((a) => a.cancel())
+      ro?.disconnect()
+      phone.removeEventListener("change", resize)
+      stage.removeEventListener("pointerdown", down)
+      stage.removeEventListener("pointermove", move)
+      stage.removeEventListener("pointerup", up)
+      stage.removeEventListener("pointercancel", up)
+      stage.removeEventListener("keydown", key)
+    },
+  }
+}
+
+export function PhysicalScene({ on = false }: { on?: boolean }) {
+  const stage = useRef<HTMLDivElement>(null)
+  const line = useRef<StoreLine | null>(null)
+  useEffect(() => {
+    const el = stage.current
+    if (!el) return
+    const l = storeLine(el)
+    line.current = l
+    return () => {
+      l.stop()
+      line.current = null
+    }
+  }, [])
+  useEffect(() => {
+    line.current?.live(on)
+  }, [on])
   return (
     <div className="bs bs-store">
-      <div className="bt-stage">
-        {STORE_DESIGNS.map((id, i) => (
-          <span key={id} className="bt-card" style={{ "--d": `${+(-i * STORE_STEP_S).toFixed(3)}s` } as CSSProperties}>
+      <div ref={stage} className="bt-stage" tabIndex={0} aria-label="Store designs. Drag them, or use the arrow keys, to see the next one.">
+        {STORE_DESIGNS.map((id) => (
+          <span key={id} className="bt-card">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`/home/showcase/bt-${id}-${STORE_DESIGN_WIDTHS[1]}.webp`}
+              src={`/home/showcase/bt-${id}-${STORE_DESIGN_WIDTHS[0]}.webp`}
               srcSet={STORE_DESIGN_WIDTHS.map((w) => `/home/showcase/bt-${id}-${w}.webp ${w}w`).join(", ")}
-              sizes="(max-width: 767px) 38vw, (max-width: 1279px) 27vw, 22vw"
+              sizes="(max-width: 767px) 66vw, (max-width: 1279px) 27vw, 21vw"
               alt=""
               width={560}
               height={700}
@@ -426,15 +812,19 @@ const MOTION = `
 .bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s backwards}
 .bz-on .bs-coach-pic,.bz-on .bo-main-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
 
-.bz-on .bd-tile-0{animation:bz-rise .8s ${E} both}
-.bz-on .bd-tile-1{animation:bz-rise .8s ${E} .08s both}
-.bz-on .bs-digital .bs-press{animation:bz-press .36s ease 2.1s both}
-.bz-on .be-buy .a{animation:bz-out .3s ease 2.3s both}
-.bz-on .be-buy .b{animation:be-mid 1.7s linear 2.35s both}
-.bz-on .be-fill{animation:be-fill 1.7s linear 2.35s both}
-.bz-on .be-buy .c{animation:bz-in .4s ${E} 4.05s both}
-
-.bz-on .bt-card{animation:bt-walk ${STORE_LOOP_S}s linear var(--d,0s) infinite both}
+.bd-pane{transition:opacity .3s ease,visibility 0s linear .3s}
+.bd-pane[data-on]{transition:opacity .3s ease}
+.bd-pane-top,.bd-gets{transition:transform .45s ${E}}
+.bd-pane:not([data-on]) .bd-pane-top,.bd-pane:not([data-on]) .bd-gets{transform:translate3d(0,6u,0)}
+.bd-cover{transition:transform .35s ${E}}
+.bd-cover::after{transition:opacity .25s ease}
+.bd-own{transition:opacity .3s ease,transform .4s ${E}}
+.bd-item[data-owned] .bd-own{transition-delay:1.7s}
+.bd-buy[data-go]{animation:bz-press .36s ease both}
+.bd-buy[data-go]>.a{animation:bz-out .3s ease both}
+.bd-buy[data-go]>.b{animation:be-mid 1.6s linear .15s both}
+.bd-buy[data-go]>.bd-fill{animation:be-fill 1.6s linear .15s both}
+.bd-buy[data-go]>.c{animation:bz-in .4s ${E} 1.75s both}
 
 .bz-on .bp-bar i{animation:bz-play 4.2s linear .6s both}
 .bz-on .bp-play{animation:bz-pop .5s ${E} .3s both}
@@ -492,41 +882,52 @@ export const BUSINESS_MOCK_CSS =
 .bs-swap>span{grid-area:1/1;display:flex;align-items:center;gap:7u}
 .bs-swap .a{opacity:0}
 
-/* digital (round 13): one coach's shelf on the cookbook's own warm paper, Ancestral Kitchen and Daily Mobility side by side, and the order that buys both */
-.bs-digital{background:#e6dfd1}
-.bd-tile{position:absolute;top:83u;width:318u;height:404u;display:flex;flex-direction:column;border-radius:20u;background:#fff;overflow:hidden;box-shadow:0 0 0 1u rgba(60,40,20,.06),0 2u 4u rgba(60,40,20,.04),0 30u 60u -30u rgba(60,40,20,.42)}
-.bd-tile-0{left:48u}
-.bd-tile-1{left:388u}
-.bd-pic{position:relative;display:block;height:318u;flex:none;overflow:hidden}
-.bd-pic .smk-pic{position:absolute;inset:0}
-.bd-meta{display:grid;grid-template-columns:minmax(0,1fr) auto;align-content:center;align-items:baseline;gap:3u 12u;flex:1;padding:0 18u}
-.bd-meta b{grid-column:1/-1;font-size:15.5u;font-weight:650;letter-spacing:-.01em;white-space:nowrap}
-.bd-meta em{grid-column:2;grid-row:2;font-size:14.5u;font-style:normal;font-weight:600}
-.bd-meta i{grid-column:1;grid-row:2;font-size:12.5u;font-style:normal;color:#71717a}
-.bd-card{right:48u;top:83u;width:324u;height:404u;padding:24u 24u 22u}
-.bd-card .bs-by{margin-top:3u!important}
-.bd-lines{margin:14u 0 0;padding:0;list-style:none;border-top:1u solid #f0f0f1}
-.bd-lines li{display:flex;align-items:center;justify-content:space-between;gap:12u;padding:12u 0;border-bottom:1u solid #f4f4f5}
-.bd-lines li>span{display:grid;gap:2u}
-.bd-lines b{font-size:14u;font-weight:600}
-.bd-lines i{font-size:12u;font-style:normal;color:#71717a}
-.bd-lines em{font-size:14u;font-style:normal;font-weight:550}
-.bd-total{display:flex;align-items:baseline;justify-content:space-between;margin-top:12u!important}
-.bd-total span{font-size:13.5u;color:#52525b}
-.bd-total b{font-size:21u;font-weight:650;letter-spacing:-.01em}
-.be-instant{display:flex;align-items:center;gap:8u;margin:14u 0 14u!important;font-size:13u;color:#52525b}
-.be-instant svg{width:14u;height:14u;color:#71717a}
-.be-buy{overflow:hidden;isolation:isolate}
-.be-buy>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
-.be-buy>.a,.be-buy>.b{opacity:0}
-.be-buy svg{width:16u;height:16u}
-.be-buy .c svg{color:#4ade80}
-.be-fill{position:absolute!important;inset:0;z-index:-1;background:#3f3f46;transform-origin:0 50%;opacity:0}
+/*
+  digital (round 14): a shelf of six downloads on a clean pale sage, and beside it the one in view on a white card.
+  Each product is a button: its cover, its name and price; the one in view has a dark ring, and one bought gets a
+  small check. The card holds a pane per product, stacked, the one in view shown (opacity only).
+*/
+.bs-digital{background:#ecf1ec}
+.bd-shelf{position:absolute;left:46u;top:62u;display:grid;grid-template-columns:repeat(3,160u);gap:20u 18u;pointer-events:auto}
+.bd-item{display:grid;align-content:start;gap:10u;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.bd-item:focus-visible{outline:none}
+.bd-cover{position:relative;display:block;width:160u;height:160u;border-radius:14u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 1u 2u rgba(16,24,40,.05),0 14u 24u -18u rgba(16,24,40,.35)}
+.bd-cover .smk-pic{border-radius:inherit}
+.bd-cover::after{content:"";position:absolute;inset:-5u;border-radius:18u;box-shadow:inset 0 0 0 2u #18181b;opacity:0}
+.bd-item[data-shown] .bd-cover::after,.bd-item:focus-visible .bd-cover::after{opacity:1}
+@media(hover:hover){.bd-item:hover .bd-cover{transform:translate3d(0,-3u,0)}}
+.bd-own{position:absolute;right:8u;top:8u;display:grid;place-items:center;width:24u;height:24u;border-radius:50%;background:#18181b;color:#fff;box-shadow:0 0 0 2u #fff;opacity:0;transform:scale(.6)}
+.bd-own svg{width:13u;height:13u}
+.bd-item[data-owned] .bd-own{opacity:1;transform:none}
+.bd-cap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2u 8u;padding:0 2u}
+.bd-cap b{font-size:13.5u;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-cap em{font-size:13.5u;font-style:normal;font-weight:600}
+.bd-cap i{grid-column:1/-1;font-size:12u;font-style:normal;color:#71717a}
+.bd-view{position:absolute;right:46u;top:62u;width:440u;height:426u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -30u rgba(16,24,40,.38);pointer-events:auto}
+.bd-pane{position:absolute;inset:0;display:flex;flex-direction:column;padding:26u 26u 24u;opacity:0;visibility:hidden}
+.bd-pane[data-on]{opacity:1;visibility:visible}
+.bd-pane-top{display:grid;grid-template-columns:132u minmax(0,1fr);gap:20u;align-items:center}
+.bd-pane-cover{display:block;width:132u;height:132u;border-radius:12u;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06)}
+.bd-pane-t{display:grid;gap:6u}
+.bd-pane-t b{font-size:24u;font-weight:650;line-height:1.1;letter-spacing:-.02em}
+.bd-pane-t .bs-by{margin:0!important}
+.bd-gets{margin:20u 0 0;padding:0;list-style:none;border-top:1u solid #f0f0f1}
+.bd-gets li{padding:11u 0;border-bottom:1u solid #f4f4f5;font-size:14u;color:#3f3f46}
+.bd-buy{width:100%;height:50u;border:0;font-family:inherit;overflow:hidden;isolation:isolate;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.bd-buy:focus-visible{outline:2u solid #18181b;outline-offset:3u}
+.bd-buy>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
+.bd-buy>.b,.bd-buy>.c,.bd-buy[data-go]>.a{opacity:0}
+.bd-buy[data-go]>.c{opacity:1}
+.bd-buy svg{width:16u;height:16u}
+.bd-buy .c svg{color:#4ade80}
+.bd-fill{position:absolute!important;inset:0;z-index:-1;background:#3f3f46;transform:scaleX(0);transform-origin:0 50%}
 
-/* physical (round 13): store designs for goods you ship, a line turning in perspective on a quiet ground. The stage holds the 3D (perspective and preserve-3d, so the cards sort by depth on the compositor); each card is one flat picture with its corners and shadow drawn once. */
-.bs-store{background:#ecebe7}
-.bt-stage{position:absolute;left:50%;top:50%;width:336u;height:420u;margin:-212u 0 0 -168u;perspective:1500u;perspective-origin:50% 45%;transform-style:preserve-3d}
-.bt-card{position:absolute;inset:0;border-radius:14u;overflow:hidden;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 2u 4u rgba(16,24,40,.05),0 34u 60u -30u rgba(16,24,40,.45);backface-visibility:hidden}
+/* physical (round 14): store designs for goods you ship, a line turning in perspective in clean light (round 13's flat grey was too grey). The stage gives the perspective and takes the drag; the cards are flat siblings in the order the script sets (round 14: preserve-3d made the compositor sort a 3D scene every frame; without it a turn drops a quarter as many frames at 1920), each one flat picture with its corners and shadow drawn once. */
+.bs-store{background:radial-gradient(70% 80% at 50% 46%,#fff 0%,#f7f9fb 46%,#e9eef4 100%)}
+.bt-stage{position:absolute;left:50%;top:50%;width:336u;height:420u;margin:-212u 0 0 -168u;perspective:1500u;perspective-origin:50% 45%;pointer-events:auto;touch-action:pan-y;cursor:grab;outline:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.bt-stage[data-drag]{cursor:grabbing}
+.bt-stage:focus-visible::after{content:"";position:absolute;inset:-10u;border-radius:20u;box-shadow:0 0 0 2u #18181b}
+.bt-card{position:absolute;inset:0;border-radius:14u;overflow:hidden;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 2u 4u rgba(16,24,40,.05),0 22u 40u -22u rgba(16,24,40,.38)}
 .bt-card img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0;user-select:none;-webkit-user-select:none}
 ${STORE_LINE}
 
@@ -646,23 +1047,22 @@ ${STORE_LINE}
   .bs h4{font-size:21u}
   .bs-price{margin-top:8u!important;font-size:20u}
 
-  .bd-tile{top:14u;width:160u;height:220u;border-radius:16u}
-  .bd-tile-0{left:14u}
-  .bd-tile-1{left:186u}
-  .bd-pic{height:160u}
-  .bd-meta{gap:1u 8u;padding:0 12u}
-  .bd-meta b{font-size:13u}
-  .bd-meta em{font-size:13u}
-  .bd-meta i{font-size:11.5u}
-  .bd-card{left:14u;right:14u;top:auto;bottom:14u;width:auto;height:268u;padding:16u 18u 16u}
-  .bd-lines{margin-top:10u}
-  .bd-lines li{padding:9u 0}
-  .bd-lines b{font-size:13.5u}
-  .bd-lines i{display:none}
-  .bd-total{margin-top:9u!important}
-  .bd-total b{font-size:19u}
-  .bd-card .be-instant{display:none}
-  .bd-card .bs-btn{height:42u}
+  .bd-shelf{left:14u;top:14u;grid-template-columns:repeat(3,104u);gap:10u 10u}
+  .bd-cover{width:104u;height:104u;border-radius:12u}
+  .bd-cover::after{inset:-4u;border-radius:15u}
+  .bd-cap{display:none}
+  .bd-own{right:6u;top:6u;width:22u;height:22u}
+  .bd-view{left:14u;right:14u;top:246u;bottom:14u;width:auto;height:auto;border-radius:18u}
+  .bd-pane{padding:16u 16u 16u}
+  .bd-pane-top{grid-template-columns:76u minmax(0,1fr);gap:14u}
+  .bd-pane-cover{width:76u;height:76u;border-radius:10u}
+  .bd-pane-t{gap:3u}
+  .bd-pane-t b{font-size:19u}
+  .bd-pane-t .bs-kicker{font-size:10.5u}
+  .bd-gets{margin-top:12u}
+  .bd-gets li{padding:7u 0;font-size:13u}
+  .bd-gets li:nth-child(n+3){display:none}
+  .bd-buy{height:44u;margin-top:auto;font-size:14u}
 
   .bt-stage{width:276u;height:345u;margin:-172u 0 0 -138u;perspective:1100u}
   .bt-card{border-radius:11u}
@@ -680,7 +1080,7 @@ ${STORE_LINE}
   .bp-lessons li{height:40u;font-size:13u}
   .bp-now{--row:40u;top:122u;height:38u}
 
-  .bs-com{left:12u;right:12u;top:12u;bottom:auto;width:auto;height:318u}
+  .bs-com{left:12u;right:12u;top:12u;bottom:auto;width:auto;height:326u}
   .bs-com-cover{height:104u}
   .bs-com-logo{left:16u;top:14u;gap:8u}
   .bs-com-logo svg{width:24u;height:24u}
@@ -690,14 +1090,15 @@ ${STORE_LINE}
   .bs-com-word i{font-size:11.5u}
   .bs-com-host{right:14u;top:15u}
   .bs-com-host .smk-pic{width:24u;height:24u}
-  .bs-com-host em{font-size:11.5u}
+  .bs-com-host em{display:none}
   .bs-com-body{padding:14u 16u 0}
   .bs-com-head{display:grid;gap:10u;align-items:start}
   .bs-com-head h4{font-size:20u}
   .bs-com-head .bs-btn{height:40u}
-  .bs-event{margin-top:12u;padding:10u}
+  .bs-event{margin-top:12u;padding:8u 10u}
+  .bs-date{width:40u;height:42u}
   .bs-event em,.bs-spaces{display:none}
-  .bs-feed{left:12u;right:12u;top:342u;gap:10u}
+  .bs-feed{left:12u;right:12u;top:350u;gap:10u}
   .bs-feed-h,.bs-post-r{display:none}
   .bs-post:nth-of-type(n+3){display:none}
   .bs-post{grid-template-columns:32u 1fr;gap:10u;padding:11u 12u;border-radius:15u}
