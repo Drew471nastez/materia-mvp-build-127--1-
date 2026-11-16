@@ -26,9 +26,11 @@ console.log("\nThe header's links: plain, full strength, a size up; only a hover
   check("on the dark home header every link is plain white and dims on hover", /"text-white hover:text-white\/65"/.test(nav) && !/text-white\/65 hover:text-white"/.test(nav))
   check("on a light header every link is full ink and dims on hover", /"text-\[#1a1a2e\] hover:text-\[#1a1a2e\]\/60"/.test(nav) && !/text-neutral-500 hover/.test(nav))
   check("no link is drawn dimmer for not being the current page", !/item\.active \?/.test(nav))
-  const menuLink = header.match(/const MENU_LINK = "([^"]+)"/)?.[1] ?? ""
-  check("the phone menu's links share one class: full ink, 17px, dimmed only on hover or press", /text-\[17px\]/.test(menuLink) && /text-\[#1a1a2e\]/.test(menuLink) && /hover:text-\[#1a1a2e\]\/60/.test(menuLink) && /active:text-\[#1a1a2e\]\/60/.test(menuLink))
-  check("all five phone menu links use it, none keeps the grey 16px", (header.match(/className=\{MENU_LINK\}/g) ?? []).length === 5 && !/text-base font-medium text-gray-800 hover:bg-gray-100/.test(header))
+  /* Changed on purpose (wave 18): the phone menu is the full-screen one (components/platform/marketing-phone-menu.tsx), in the bar's colours and a size up again (19px); the rule is kept: full ink, dimmed only on hover or press, one class for every page link. */
+  const menu = read("components/platform/marketing-phone-menu.tsx")
+  const menuRow = menu.match(/export const MENU_ROW = "([^"]+)"/)?.[1] ?? ""
+  check("the phone menu's links share one class: full ink, 19px, dimmed only on hover or press", /text-\[19px\]/.test(menuRow) && /row: "text-\[#1a1a2e\] active:text-\[#1a1a2e\]\/55 hover:text-\[#1a1a2e\]\/65"/.test(menu) && /row: "text-white active:text-white\/55 hover:text-white\/70"/.test(menu))
+  check("all five phone menu links use it (one map over Home, Discover, Blog, Pricing, FAQ), none keeps the grey 16px", (header.match(/className=\{cn\(MENU_ROW, tone\.row, tone\.focus, "rounded-md"\)\}/g) ?? []).length === 1 && /label: "Home"[\s\S]{0,200}label: "Discover"[\s\S]{0,200}label: "Blog"[\s\S]{0,200}label: "Pricing"[\s\S]{0,200}label: "FAQ"/.test(header) && !/text-base font-medium text-gray-800 hover:bg-gray-100/.test(header))
 }
 
 console.log("\nThe headings fill as one soft wave of colour, from one number")
