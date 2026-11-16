@@ -12,7 +12,8 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { BUSINESS_HEADING, BUSINESS_SLIDES, BUSINESS_STYLES, BUSINESS_TOUCH_RESUME_MS, BusinessCarousel } from "@/components/marketing/home/business-carousel"
 /* Changed on purpose (landing round 9): the Second Brain tablet and the yellow headphones are gone (the owner: "very bad UI", "get rid of it"); a row of digital covers and the Midnight Studio Tee stand in their places. */
-import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, TeeScene } from "@/components/marketing/home/showcase-mocks/business-mocks"
+// Changed on purpose (landing round 12): the physical scene is PhysicalScene (Night Face Oil); the tee is gone.
+import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, PhysicalScene as TeeScene } from "@/components/marketing/home/showcase-mocks/business-mocks"
 
 let failed = 0
 let passed = 0
@@ -58,7 +59,8 @@ console.log("\nThe five kinds as words, on autoplay with a closing ring")
   check("picking a tab shows it and autoplay carries on (go, never select)", /onClick=\{\(\) => go\(i\)\}/.test(src) && !/t\.select\(/.test(src))
   check("a finger on the stage holds the turn, released a moment after", BUSINESS_TOUCH_RESUME_MS === 2500 && /onPointerDown=\{hold\}/.test(src) && /onPointerCancel=\{letGo\}/.test(src) && /const run = t\.run && !held/.test(src))
   check("a resting mouse holds it (use-auto-tabs hoverProps) and off screen or a hidden tab holds everything", /\{\.\.\.t\.hoverProps\}/.test(src) && /data-live=\{t\.live \|\| undefined\}/.test(src) && /\.biz:not\(\[data-live\]\) \.bz-on \*,\.biz:not\(\[data-live\]\) \.bz-on \*::after\{animation-play-state:paused!important\}/.test(sectionCss))
-  check("on a phone the short labels, in a row that scrolls inside itself", /\.biz-tab-l\{display:none\}/.test(sectionCss) && /\.biz-tabs\{[^}]*overflow-x:auto;overscroll-behavior-x:contain/.test(sectionCss))
+  // Changed on purpose (landing round 12): a phone has no row of words; the five kinds are a row of cards on snap scroll (tests/home-landing-r12-business.test.ts). A tablet's row of words still scrolls inside itself.
+  check("on a phone a row of cards, on a tablet a row of words that scrolls inside itself", /\.biz-rail\{[^}]*overflow-x:auto;[^}]*scroll-snap-type:x mandatory/.test(sectionCss) && /\.biz-tabs\{[^}]*overflow-x:auto;overscroll-behavior-x:contain/.test(sectionCss))
   check("reduced motion: the ring stands closed (it only turns under data-auto), scenes stand finished", !/\n\.biz-ring b\{[^}]*animation/.test(sectionCss) && /\.biz-ring>\.b b\{left:0;transform:rotate\(180deg\)\}/.test(sectionCss) && /@media\(prefers-reduced-motion:no-preference\)\{\n\.bz-on/.test(BUSINESS_MOCK_CSS))
   check("a scene put away is hidden, not content-visibility (a scene shown again stood empty)", /\.biz-slide\[data-pane="rest"\]\{[^}]*visibility:hidden/.test(sectionCss) && !/content-visibility/.test(sectionCss.replace(/\/\*[\s\S]*?\*\//g, "")))
 }
@@ -71,7 +73,8 @@ console.log("\nMoving scenes, transform and opacity only")
   const props = new Set(frames.flatMap((m) => [...m[2].matchAll(/([a-z-]+):/g)].map((p) => p[1])).filter((p) => p !== "animation-timing-function"))
   check("every keyframe animates only transform and opacity", frames.length >= 15 && [...props].every((p) => p === "transform" || p === "opacity"), [...props])
   // Changed on purpose (landing round 11): the physical scene's button swaps on a loop as long as one product's turn (bt-swap-b), since four products go in the cart one after another.
-  check("each scene has its own moment", [/\.bd-track\{animation:bd-run/, /\.bs-swap \.b\{animation:bt-swap-b/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
+  // Changed on purpose (landing round 12): digital downloads in its button (be-fill), physical adds the oil to the cart (bz-in on its button).
+  check("each scene has its own moment", [/\.be-fill\{animation:be-fill/, /\.bs-oil \.bs-swap \.b\{animation:bz-in/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
   check("the moments run only on the chosen scene (and the one fading out)", /className=\{on \? "biz-slide bz-on" : "biz-slide"\}/.test(read(SECTION)) && /const on = state === "active" \|\| state === "leaving"/.test(read(SECTION)))
   check("nothing in the scenes is a transition (every change is one of those keyframes)", !/transition:/.test(BUSINESS_MOCK_CSS))
 }
@@ -80,9 +83,11 @@ console.log("\nThe five examples")
 {
   /* Changed on purpose (landing round 9): digital is five covers in a row, physical is the shared black tee. */
   const brain = renderToStaticMarkup(createElement(DigitalScene))
-  check("digital: five real-looking covers in a row, no Second Brain tablet", /* Changed on purpose (landing round 11): the Content Calendar ("not cool") is now the Low Room Drums sample pack. */ ["Cine Tones LUT Pack", "Low Room Drums", "Slow Sundays", "Highland Presets", "Orlo Grotesk"].every((n) => brain.includes(n)) && !/Second Brain|bs-tablet|bz-brain/.test(code(MOCKS)))
+  // Changed on purpose (landing round 12): the owner disliked the row of covers; digital is one e-book, Slow Mornings, on its page.
+  check("digital: one real-looking e-book on its page, no Second Brain tablet", brain.includes("Slow Mornings") && brain.includes("bz-ebook.webp") && !/Second Brain|bs-tablet|bz-brain/.test(code(MOCKS)))
   const phones = renderToStaticMarkup(createElement(TeeScene))
-  check("physical: the Midnight Studio Tee on a calm ground, no headphones on yellow", phones.includes("Midnight Studio Tee") && phones.includes("bz-tee.webp") && /\.bs-tee\{background:#eeedea\}/.test(BUSINESS_MOCK_CSS) && !/headphones|#f5c518|hp-tee|Tour Tee/i.test(code(MOCKS)))
+  // Changed on purpose (landing round 12): the owner disliked the tee, cap, tote and print; physical is Night Face Oil on a warm ground.
+  check("physical: one photographed product on a calm ground, no headphones on yellow", phones.includes("Night Face Oil") && phones.includes("bz-oil.webp") && /\.bs-oil\{background:#ebe5dd\}/.test(BUSINESS_MOCK_CSS) && !/headphones|#f5c518|hp-tee|Tour Tee/i.test(code(MOCKS)))
   const course = renderToStaticMarkup(createElement(CourseScene))
   check("course: kept as it was (Tomás Reyes, the DJ photo, $79, the four lessons)", course.includes("Mixing in key, for new DJs") && course.includes("bz-dj.webp") && course.includes("$79") && ["Counting bars and phrases", "Beatmatching by ear", "Mixing in key", "Your first 30 minute set"].every((l) => course.includes(l)))
   const club = renderToStaticMarkup(createElement(ClubScene))
@@ -91,16 +96,19 @@ console.log("\nThe five examples")
   check("booking: a fitness creator with a real photograph, a day and time picked and booked", coach.includes("Talia Moreno") && /Strength coach/.test(coach) && coach.includes("bz-coach.webp") && coach.includes("Booked for Thu 19, 17:30"))
   const banned = /Nadia Brooks|The Loop|LaSalle at dusk|Nails by Bea|Nordline Coffee|Charla Circle|Static Bloom|Wildcamp|Weeknight Pasta|sourdough|Golden Hour|Drawing Basics|Saturday Run Club|Dust & Tape|Elena Ruiz|Second Serve|Ines Duarte|Priya Raman/i
   check("none of the banned or retired sample names", !banned.test(read(MOCKS) + read(SECTION)))
-  const pics = ["bz-ebook", "bz-presets", "bz-tee", "bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
+  // Changed on purpose (landing round 12): the presets and the tee are gone; the oil and the e-book's inside page came.
+  const pics = ["bz-ebook", "bz-eggs", "bz-oil", "bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
   check("every photograph is a small webp (under 120 KB)", pics.every((p) => existsSync(p) && statSync(p).size < 120 * 1024), pics.filter((p) => !existsSync(p) || statSync(p).size >= 120 * 1024))
   const every = brain + phones + course + club + coach
   /* Changed on purpose (landing round 9): the covers in the digital row (.bc-still) load with the scene; clipped by the row's rail, a lazy one was only asked for as it slid in. */
   // Changed on purpose (landing round 11): the four physical products turn in place too, so their pictures (smk-pic bt-pic, and the same files in the card and the note) load with the scene.
-  check("every picture is sized, and lazy but for the covers in the moving row and the physical products", !/<img(?![^>]*(?:loading="lazy"|class="bc-still"|loading="eager"[^>]*class="smk-pic))[^>]*>/.test(every) && !/<img(?![^>]*width=)[^>]*>/.test(every))
+  // Changed on purpose (landing round 12): on a phone the scenes stand in a row that slides, so the digital and physical photographs load with their scene (loading="eager", smk-pic).
+  check("every picture is sized, and lazy but for the digital and physical photographs", !/<img(?![^>]*(?:loading="lazy"|loading="eager"[^>]*class="smk-pic))[^>]*>/.test(every) && !/<img(?![^>]*width=)[^>]*>/.test(every))
   check("the scenes are pictures: labelled, nothing inside takes the pointer", BUSINESS_SLIDES.every((s) => s.alt.length > 60) && /\.biz-stage \.smk\{pointer-events:none/.test(sectionCss))
   /* Changed on purpose (landing round 9): the stage stands beside the index on a computer, so it is drawn at 1040 x 600. */
   // Changed on purpose (landing round 10): "the height is too big, reduce it just a little, 5 to 10%": 1100 x 570.
-  check("phones get their own layout (400 x 640), computers 1100 x 570", /\.bz-frame\{aspect-ratio:1100\/570/.test(BUSINESS_MOCK_CSS) && /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:400\/640\}\n  \.bz-frame>\.smk\{--w:400\}/.test(BUSINESS_MOCK_CSS))
+  // Changed on purpose (landing round 12): a phone's card is drawn at 360 x 520, so its name and the whole card stand on one phone screen.
+  check("phones get their own layout (360 x 520), computers 1100 x 570", /\.bz-frame\{aspect-ratio:1100\/570/.test(BUSINESS_MOCK_CSS) && /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:360\/520\}\n  \.bz-frame>\.smk\{--w:360\}/.test(BUSINESS_MOCK_CSS))
 }
 
 console.log("\nRegistered")
