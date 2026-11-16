@@ -1,10 +1,10 @@
 import dynamic from "next/dynamic"
+import { Suspense } from "react"
 import { LandingStory } from "@/components/marketing/landing-story"
 import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/scroll-reveal-panel"
 import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
-import { NearGate } from "@/components/marketing/home/near-gate"
 import {
   LazyEverythingInOnePlace,
   LazyIdeasComeToLife,
@@ -69,6 +69,13 @@ export const metadata: Metadata = {
     code is not in the first load at all. The slots below mark where each
     one goes; the integration wires them.
 */
+/*
+  Landing round 13 (the owner's iPhone: the page "stutters and glitches"): each of these four is its own Suspense
+  boundary. Their code is a separate file; when one had not arrived by the time React hydrated the page (about half
+  the loads on a phone network), the page's wrapper failed to hydrate (React #418) and React threw the whole server
+  page away and drew it again in the browser: 750 elements rebuilt, the header included, as the visitor started to
+  scroll. With a boundary, a late file only holds its own section's hydration.
+*/
 const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then((m) => ({ default: m.ProductMarquee })))
 const PricingSection = dynamic<{ editorial?: boolean; hideDetailsLink?: boolean }>(() => import("@/components/marketing/pricing-section").then((m) => ({ default: m.PricingSection })))
 const FaqSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/faq-section").then((m) => ({ default: m.FaqSection })))
@@ -76,6 +83,8 @@ const FinalCta = dynamic(() => import("@/components/marketing/home/final-cta").t
 
 export default function StorelibLanding() {
   return (
+    /* Landing round 13: the page is a Suspense boundary of its own. Measured with a phone's network: a hydration pass interrupted inside it resumed with its place in the server's HTML already one step inside this wrapper, and React threw the whole page away (#418). A boundary resumes from its own first element. */
+    <Suspense fallback={null}>
     <div className="bg-[#050506]" data-home-ground="dark">
       {/* Who Storelib is, the site and the product, as one graph (lib/seo/structured-data.ts). No SearchAction: Google retired it, and /explore?q= is not crawled. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibHomeJsonLd()) }} />
@@ -83,8 +92,8 @@ export default function StorelibLanding() {
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
       {/* Landing round 12, the owner: the wheel glide was "too smooth and delayed". The page scrolls natively, in real time (tests/home-smooth-wheel-r5.test.ts). */}
-      {/* One safety net for loops off screen: the infinite CSS loops of every lazy section far from the screen are paused (components/marketing/home/near-gate.tsx). */}
-      <NearGate />
+      {/* Landing round 13: the whole landing is one Suspense boundary too, so a section whose file is late during hydration holds only this boundary, never the wrapper (see the four sections above). */}
+      <Suspense fallback={null}>
       <LandingStory>
         {/* DARK: 1 HERO. The page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). Landing round 13, the owner: the showcase is no longer right under the hero; it is further down, before pricing. */}
         <ScrollRevealBackdrop>
@@ -143,7 +152,7 @@ export default function StorelibLanding() {
 
           {/* 5 UNLIMITED POSSIBILITIES (frame). Landing round 8: moved here from between the ideas and the creators (the owner: it sat inside "Storelib is for creators"); what you can sell, then what it could earn. Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. Wave 18: smaller on a phone (the heading and the photos), measured 324 to 359px from 360 to 767 wide, so below 768 the box is 6.7vw + 310px; from 768 it is as it was. */}
           <LazySection name="possibilities" minHeight="min(calc(6.7vw + 310px + clamp(0px, (100vw - 767px) * 100000, 100000px)), clamp(380px, 23vw + 254px, 720px))">
-            <ProductMarquee />
+            <Suspense fallback={null}><ProductMarquee /></Suspense>
           </LazySection>
 
           {/* 15 EarningsCalculator */}
@@ -160,21 +169,23 @@ export default function StorelibLanding() {
 
           {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
           <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">
-            <PricingSection editorial hideDetailsLink />
+            <Suspense fallback={null}><PricingSection editorial hideDetailsLink /></Suspense>
           </LazySection>
 
           {/* 17 FAQ: the last section (landing round 9, the owner) */}
           <LazySection name="faq" minHeight="max(calc(795px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), 730px)">
-            <FaqSection editorial />
+            <Suspense fallback={null}><FaqSection editorial /></Suspense>
           </LazySection>
         </ScrollRevealPanel>
 
         {/* DARK CLOSE (round 4: no purple): 18 FINAL CTA (frame) alone above the footer (landing round 9, the owner: the questions, then Start selling), running on into the black footer with no seam */}
         <ScrollRevealBackdrop>
-          <FinalCta />
+          <Suspense fallback={null}><FinalCta /></Suspense>
         </ScrollRevealBackdrop>
       </LandingStory>
+      </Suspense>
       {/* 20 FOOTER: components/marketing/footer.tsx, drawn under every marketing page by the layout (ConditionalFooter). */}
     </div>
+    </Suspense>
   )
 }

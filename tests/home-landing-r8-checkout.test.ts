@@ -129,10 +129,11 @@ const conv = card("convert")
 // Changed on purpose (landing round 9): the owner: on a phone the picture "should be like on desktop, 4:3", "adapted, not shrunk": the same window on every screen, drawn larger than its box on a phone; the phone layout of round 8 is gone.
 // Changed on purpose (landing round 10): the phone's 4:3 box first undoes the computer's capped height.
 // Changed on purpose (landing round 11): the owner: "broken and cut". On a phone the window is whole in a square box.
-check("the website checkout's window on every screen; on a phone whole in a square box", /class="cdx"/.test(conv) && !/class="mcx"/.test(co) && !/\.mcx/.test(css) && /@media \(max-width:899px\)\{[\s\S]*?\.cmc-vis\{height:auto;aspect-ratio:1;[\s\S]*?\.cdx\{left:1em;right:1em;top:1em;bottom:1em;/.test(css))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's window, only smaller. */
+check("the website checkout's window on every screen, the computer's on a phone too", /class="cdx"/.test(conv) && !/class="mcx"/.test(co) && !/\.mcx/.test(css) && /@media \(max-width:899px\)\{[\s\S]*?\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(css))
 // Changed on purpose (landing round 9): no scaled phone page; the window's own unit is larger on a phone (a design width of 640, not 880).
 // Changed on purpose (landing round 11): 380, the order above the form.
-check("  on a phone the window is laid out again at a design width of 380, not scaled down", /\.cdx-win\{--u:calc\(100cqw \/ 380\);/.test(css) && /\.cdx-grid\{grid-template-columns:minmax\(0,1fr\)\}/.test(css))
+check("  on a phone the window is not laid out again (no 380 design width, the order beside the form)", !/\.cdx-win\{--u:calc\(100cqw \/ 380\);/.test(css) && !/\.cdx-grid\{grid-template-columns:minmax\(0,1fr\)\}/.test(css))
 // Changed on purpose (landing round 9): one loop for every screen: the window's.
 check("  its loop: typed, down to the shipping, down to the card, Pay, paid, back up under the paid screen (transform and opacity)", ["cdx-scroll", "cdx-stick", "cdx-press", "cdx-paid", "cdx-v-email", "cdx-v-card"].every((k) => onlyCompositor(keyframes(k))) && /100%\{transform:translate3d\(0,0,0\)\}/.test(keyframes("cdx-scroll")))
 check("the sums add up: $32 + $29, $6 shipping, 8% tax, $71.88", 3200 + 2900 === 6100 && 6100 + 600 + Math.round(6100 * 0.08) === 7188 && ["$61.00", "$6.00", "$4.88", "$71.88"].every((t) => words(conv).includes(t)))

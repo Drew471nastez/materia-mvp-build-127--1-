@@ -558,7 +558,8 @@ function useDashLive(root: RefObject<HTMLDivElement | null>) {
  * queries on the box it is drawn in. Measured once on mount, before paint,
  * and again only when the stage changes size; never in a frame.
  */
-export const HOW_DASH_FIT = { perStage: 1.35, min: 440, max: 1120, margin: 0.06, marginMin: 14 } as const
+/* Landing round 13 (the owner's phone notes: "Understand your business" should be "like it's on desktop, but on mobile"): never laid out narrower than 1040, so the computer's layout with its sidebar (from 1020) is what every screen shows, scaled. */
+export const HOW_DASH_FIT = { perStage: 1.35, min: 1040, max: 1120, margin: 0.06, marginMin: 14 } as const
 function useDashFit(fit: RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const box = fit.current
@@ -943,6 +944,8 @@ const HOW_CSS = `
 /* One quiet near white a card, a breath of colour each (round 11's grounds). */
 .cmh-stage[data-ground=tips]{background:#f3f1f8}
 .cmh-stage[data-ground=business]{background:#f3f3f5}
+/* Landing round 13: on a phone the dashboard is the computer's, scaled, so its stage takes the dashboard's shape instead of the tall phone stage (no grey band above and below it). */
+@media(max-width:639px){.cmh-stage[data-ground=business]{height:auto;aspect-ratio:16/10}}
 .cmh-stage[data-ground=domain]{background:#f5f2ee}
 /* The caption: a title and one short line under it. */
 .cmh-cap-t{margin:22px 0 0;font-size:18px;font-weight:500;line-height:1.3;letter-spacing:-.015em;color:#18181b}

@@ -61,9 +61,11 @@ const fit = (sw: number, sh: number, h: (w: number) => number) => {
 }
 /* Natural heights measured in Chromium: about 553px at the phone's layout (473 wide), 520 without the rail (842), 523 with it (1120). */
 const height = (w: number) => (w <= 600 ? 555 : 525)
-const cases = [[350, 440], [624, 450], [848, 540]].map(([sw, sh]) => ({ sw, sh, ...fit(sw, sh, height) }))
+/* Landing round 13: on a phone the stage is 16:10 (350 x 219). */
+const cases = [[350, 219], [624, 450], [848, 540]].map(([sw, sh]) => ({ sw, sh, ...fit(sw, sh, height) }))
 check("whole inside its stage with a margin on every side at 390, 1440 and 1920", cases.every((c) => c.drawnW <= c.sw - 2 * c.m + 0.5 && c.drawnH <= c.sh - 2 * c.m + 0.5), cases)
-check("its type lands near 10px (a scale of 0.6 or more), the phone's layout on a phone, the rail at 1920", cases.every((c) => c.s >= 0.6) && cases[0].w <= 600 && cases[1].w > 760 && cases[1].w <= 1020 && cases[2].w > 1020, cases)
+/* Changed on purpose (landing round 13, the owner's phone notes: "like it's on desktop, but on mobile"): the computer's picture on a phone, scaled. */
+check("the computer's layout with the rail on every screen (1040 or wider), scaled 0.6 or more from 1440", cases.every((c) => c.w > 1020) && cases[1].s >= 0.5 && cases[2].s >= 0.6, cases)
 
 console.log("\n3. Tips and the domain fit a narrow card")
 check("the tip page rises from the stage's foot, a phone's width at most", /bottom:0/.test(rule(".cmh-tp-page")) && /left:max\(16px,calc\(50% - 12\.5em\)\)/.test(rule(".cmh-tp-page")) && /border-radius:1\.15em 1\.15em 0 0/.test(rule(".cmh-tp-page")))

@@ -122,7 +122,8 @@ check("  the email comes up after the rail, and no chart is drawn", !/@keyframes
 const mail = ruleIn(phoneCss, ".cmv-mail")
 const got = ruleIn(phoneCss, ".cmv-got")
 // Changed on purpose (landing round 12): no tile; the email runs across the square.
-check("  on a phone the email runs across the square", em("left", mail) > 0 && em("right", mail) > 0 && !got && !/\.cmv-mail p\{display:none/.test(phoneCss))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's picture, only smaller, no layout of its own on a phone. */
+check("  on a phone the email is placed as on a computer", !mail && !got && !/\.cmv-mail p\{display:none/.test(phoneCss))
 
 console.log("\n4. One-tap: the dark in-page checkout, not the checkout page")
 const tap = card("tap")
@@ -136,10 +137,13 @@ check("  the full page checkout stays the phone on the stage", /class="cmc-rise"
 
 console.log("\n5. On a phone: four stacked cards, every picture whole")
 check("one card under another, no sideways scroll or snap anywhere", /\.cmc-bento\{grid-template-columns:minmax\(0,1fr\);gap:12px\}/.test(phoneCss) && !/scroll-snap|overflow-x:auto|touch-action:pan-x/.test(css))
-check("  each picture a square on a 32 x 32 em grid", /\.cmc-vis\{height:auto;aspect-ratio:1;margin:0 -6px;border-radius:16px\}/.test(phoneCss) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 32\);width:32em;height:32em;margin-left:-16em\}/.test(phoneCss))
-check("  Built to convert: the window inside the square on every side, laid out at 380 with the order above the form", /\.cdx\{left:1em;right:1em;top:1em;bottom:1em;aspect-ratio:auto;transform:none\}/.test(phoneCss) && /--u:calc\(100cqw \/ 380\)/.test(phoneCss) && /\.cdx-grid\{grid-template-columns:minmax\(0,1fr\)\}/.test(phoneCss) && /\.cdx-sum-in\{animation-name:none\}/.test(css) && !/width:132%/.test(css))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's picture, only smaller, no layout of its own on a phone. */
+check("  each picture the computer's 48 x 42, scaled", /\.cmc-vis\{height:auto;aspect-ratio:48\/42;margin:0 -6px;border-radius:16px\}/.test(phoneCss) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 48\)\}/.test(phoneCss))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's picture, only smaller, no layout of its own on a phone. */
+check("  Built to convert: the computer's window, the order beside the form, not laid out again", !/\.cdx\{left:1em/.test(phoneCss) && !/--u:calc\(100cqw \/ 380\)/.test(css) && !/\.cdx-grid\{grid-template-columns:minmax\(0,1fr\)\}/.test(css) && !/\.cdx-sum-in\{animation-name:none\}/.test(css) && !/width:132%/.test(css))
 const ph = ruleIn(phoneCss, ".cmv-phone")
-check("  One-tap: the whole phone inside the square (14em wide is 29em tall), nothing panned", /--pw:calc\(100cqw \* 14 \/ 32\)/.test(ph) && em("top", ph) + 14 * 2.07 < 32 && !/cmv-pan/.test(css))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's picture, only smaller. */
+check("  One-tap: the phone placed as on a computer, nothing panned", !ph && !/cmv-pan/.test(css))
 check("  Local in 7 currencies kept, both tiles and all seven currencies", /Local in 7 currencies/.test(words(co)) && (card("currency").match(/class="cv-chip"/g) ?? []).length === 7 && (card("currency").match(/class="cv-tile"/g) ?? []).length === 2)
 
 console.log("\n6. Solid: the cards and the facts")

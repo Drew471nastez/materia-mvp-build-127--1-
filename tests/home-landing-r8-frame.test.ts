@@ -64,7 +64,7 @@ console.log("\nUnlimited possibilities moved out of the creators' stretch")
   check("the ideas run on into what you can sell, then the creators", /<LazyIdeasComeToLife \/>[\s\S]{0,200}<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page) && !/<LazyIdeasComeToLife \/>[\s\S]*<ProductMarquee \/>[\s\S]*<LazyCreatorsCarousel \/>/.test(page))
   // Changed on purpose (landing round 9): the map came out of the purple and opens that sheet; the possibilities follow it.
   // Changed on purpose (wave 18): the section is smaller on a phone (the owner: the heading "not so huge", the photos a little smaller), so below 768px its box is 6.7vw + 310px; from 768px it is the same clamp as before.
-  check("it is on the last white sheet, after the map and before what you could earn, in its lazy box", /<ScrollRevealPanel tone="white">\s*<LazySellEverywhereMap \/>\s*<LazySection name="possibilities" minHeight="min\(calc\(6\.7vw \+ 310px \+ clamp\(0px, \(100vw - 767px\) \* 100000, 100000px\)\), clamp\(380px, 23vw \+ 254px, 720px\)\)">\s*<ProductMarquee \/>\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
+  check("it is on the last white sheet, after the map and before what you could earn, in its lazy box", /<ScrollRevealPanel tone="white">\s*<LazySellEverywhereMap \/>\s*<LazySection name="possibilities" minHeight="min\(calc\(6\.7vw \+ 310px \+ clamp\(0px, \(100vw - 767px\) \* 100000, 100000px\)\), clamp\(380px, 23vw \+ 254px, 720px\)\)">\s*(?:<Suspense fallback=\{null\}>)?<ProductMarquee \/>(?:<\/Suspense>)?\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
   check("it is on the page once", (page.match(/<ProductMarquee \/>/g) || []).length === 1)
 }
 
@@ -73,7 +73,8 @@ console.log("\nOne entrance for headings and section bodies")
   const story = code("components/marketing/landing-story.tsx")
   // Changed on purpose (landing round 9): a third observer, a screen and a half out, keeps the blocks a flung page shows at once (tests/home-landing-r9-frame.test.ts).
   // Changed on purpose (landing round 11): a fourth observer gives each picture its first look (the shared image fade).
-  check("one IntersectionObserver for every block, let go once shown", (story.match(/new IntersectionObserver\(/g) || []).length === 4 && /reveal\?\.unobserve\(el\)/.test(story))
+  /* Changed on purpose (landing round 13): a fifth observer asks for lazy pictures three screens ahead (PICTURE_AHEAD). */
+  check("one IntersectionObserver for every block, let go once shown", (story.match(/new IntersectionObserver\(/g) || []).length === 5 && /reveal\?\.unobserve\(el\)/.test(story))
   check("hidden only by script, only when first seen wholly below the screen or in a skipped lazy box", /entry\.boundingClientRect/.test(story) && /box\.top > innerHeight/.test(story) && /box\.width === 0 && box\.height === 0/.test(story) && /el\.dataset\.reveal = "wait"/.test(story))
   // Changed on purpose (landing round 9): a third opacity:0, the heading fading as one piece on a phone; all three are inside the no-preference block.
   check("no reveal at all under reduced motion (script and stylesheet)", /prefers-reduced-motion: reduce/.test(story) && /^\s*@media \(prefers-reduced-motion:no-preference\)\{/m.test(REVEAL_CSS) && /* Changed on purpose (landing round 11):a waiting picture and the fade's keyframe add two. */ (REVEAL_CSS.match(/opacity:0/g) || []).length === 5 && !/opacity:0/.test(REVEAL_CSS.slice(0, REVEAL_CSS.indexOf("@media (prefers-reduced-motion:no-preference)"))))

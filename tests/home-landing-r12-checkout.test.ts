@@ -53,15 +53,16 @@ const phoneCss = css.slice(css.lastIndexOf("@media (max-width:899px){", css.inde
 console.log("\n1. The reminder card: no Recovered tile; the phone gone behind the cards")
 check("no Recovered tile, chart, amount or count in the markup", !/cmv-got|cmv-chart|cmv-wipe|cmv-n0|cmv-n1/.test(card("recover")) && !/Recovered|\$384|\$416|came back|last 30 days/.test(words(card("recover"))))
 check("  and none of it left in the styles or the loop", !/cmv-got|cmv-chart|cmv-wipe|cmv-n0|cmv-n1|cmv-area/.test(css) && !/REC_LINE|REC_PREV|REC_TODAY|REC_BEFORE|REC_AFTER/.test(code(src)))
-check("  the rail and the email stay, the email centred across the picture", /class="cmv-tl"/.test(card("recover")) && /class="cmv-mail"/.test(card("recover")) && /\.cmv-mail\{position:absolute;left:8em;right:8em;/.test(css) && /\.cmv-mail\{left:1\.6em;right:1\.6em;/.test(phoneCss))
+check("  the rail and the email stay, the email centred across the picture", /class="cmv-tl"/.test(card("recover")) && /class="cmv-mail"/.test(card("recover")) && /\.cmv-mail\{position:absolute;left:8em;right:8em;/.test(css) && /* Changed on purpose (landing round 13): no phone placement of its own. */ !/\.cmv-mail\{left:1\.6em;right:1\.6em;/.test(phoneCss))
 check("the phone has no blurred copy any more (no soft-phone picture, no SOFT.phone, no half fade in)", !/soft-phone|cmc-phone-soft/.test(co) && !/cmc-phone-soft|cmc-in-half/.test(css) && !("phone" in SOFT) && !existsSync("public/home/commerce/soft-phone.webp") && !/"phone"/.test(read("scripts/bake-checkout-soft.mjs")))
 check("  the phone itself fades to nothing from 48 to 80svh into the hold", /\.cmc-rise > \.cmc-phone\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 48svh contain 80svh\}/.test(tl) && /@keyframes cmc-out\{from\{opacity:1\}to\{opacity:0\}\}/.test(css))
 check("  its shade goes only after it, 80 to 86svh: never a fading phone over a product (the round 11 fix kept)", /\.cmc-shade\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 80svh contain 86svh\}/.test(tl) && /<div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage))
 check("  the ring stays under the phone and out of its world", /\.cmc-ring\{position:absolute;z-index:2;/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css) && !/class="cmc-o"/.test(stage.slice(stage.indexOf('class="cmc-phone-wrap"'))))
 
 console.log("\n2. Built to convert: 4:3 on a phone")
-check("on a phone its picture is 4:3, drawn 32 x 24 em", /\.cmc-card\[data-k=convert\] \.cmc-vis\{aspect-ratio:4\/3\}/.test(phoneCss) && /\.cmc-card\[data-k=convert\] \.cmc-vis-in\{height:24em\}/.test(phoneCss))
-check("  the window scrolls further to bring Pay up in the shorter view", /--s2:calc\(1250\*var\(--u\)\)/.test(phoneCss))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's picture, only smaller. */
+check("on a phone its picture is the computer's 48 x 42, like the others", !/\.cmc-card\[data-k=convert\] \.cmc-vis\{aspect-ratio:4\/3\}/.test(phoneCss) && /\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(phoneCss))
+check("  the window scrolls as on a computer (no phone scroll lengths)", !/--s2:calc\(1250\*var\(--u\)\)/.test(phoneCss))
 
 console.log("\n3. One-tap: no white bar at the phone's foot")
 const tap = card("tap")

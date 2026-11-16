@@ -46,9 +46,10 @@ check("the page scrolls to 1330u less the window's view, the shipping step at mo
 check("  and 1012u is gone", !/1012\*var\(--u\)/.test(css))
 
 console.log("\n3. On a phone, 4:3 and wider")
-check("still 4:3, 32 x 24 em (round 12)", /\.cmc-card\[data-k=convert\] \.cmc-vis\{aspect-ratio:4\/3\}/.test(phoneCss) && /\.cmc-card\[data-k=convert\] \.cmc-vis-in\{height:24em\}/.test(phoneCss))
-check("  the picture to 8px from the card's edge, the window to 6px from the picture's", /\.cmc-card\[data-k=convert\] \.cmc-vis\{margin:0 -12px;border-radius:16px\}/.test(phoneCss) && /\.cmc-card\[data-k=convert\] \.cdx\{inset:6px\}/.test(phoneCss))
-check("  the phone's window keeps its own scroll (380u wide)", /\.cdx-win\{--u:calc\(100cqw \/ 380\);/.test(phoneCss))
+/* Changed on purpose (landing round 13, the owner's phone notes: "like it's on desktop, but on mobile"): the computer's picture on a phone, scaled. */
+check("the computer's 48 x 42 picture on a phone too, not 4:3", !/\.cmc-card\[data-k=convert\] \.cmc-vis\{aspect-ratio:4\/3\}/.test(phoneCss) && /\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(phoneCss))
+check("  the picture to 8px from the card's edge, the window to 6px from the picture's", /\.cmc-card\[data-k=convert\] \.cmc-vis\{margin:0 -12px;border-radius:16px\}/.test(phoneCss) && /\.cmc-card\[data-k=convert\] \.cdx\{inset:6px;/.test(phoneCss))
+check("  the phone's window is the computer's (880u wide, no 380u layout)", !/--u:calc\(100cqw \/ 380\)/.test(phoneCss))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
