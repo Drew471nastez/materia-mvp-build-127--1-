@@ -1593,6 +1593,8 @@ const SUITES = [
   "tests/home-landing-r14-pricing.test.ts",
   /* Landing round 14, checkout: Daily Mobility goes round the phone in place of the Color Notes e-book (its still cut to a round cornered tile, a baked blurred copy); on a phone the phone is settled and narrower from the first frame under the headline, the ring wider and centred on it so the products show beside it, and the depth cross fade the phone hides is gone. */
   "tests/home-landing-r14-checkout.test.ts",
+  /* Landing round 14, faq-blog: /faq headed Questions about Storelib, with the site footer, a sheet that clips its chip row to its rounded corner (no dark sliver), and questions widened to refunds, tax, payouts, files, courses, communities, bookings, email, analytics, team, exports and deleting, each read from the code and only promised while its switch is on; the blog on the landing's shared width and display type, four cards a row from 1600px, the article on soft surfaces, posts, metadata and JSON-LD untouched. */
+  "tests/home-landing-r14-faq-blog.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

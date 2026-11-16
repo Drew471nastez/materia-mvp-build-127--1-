@@ -42,7 +42,7 @@ export default function CtaBanner({ variant }: { variant: CtaVariant }) {
   }
 
   return (
-    <section aria-labelledby="blog-cta-title" className="my-12 flex flex-col gap-4 rounded-2xl border border-[#e5e7eb] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-6" data-blog-cta={variant}>
+    <section aria-labelledby="blog-cta-title" className="my-12 flex flex-col gap-4 rounded-[20px] bg-[#f5f5f6] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-6" data-blog-cta={variant}>
       <div className="min-w-0">
         <h2 id="blog-cta-title" className="text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[#1a1a2e]">
           {copy.title}
@@ -53,7 +53,7 @@ export default function CtaBanner({ variant }: { variant: CtaVariant }) {
         <input type="hidden" name="intent" value="sell" />
         <input type="hidden" name="src" value={src} />
         <input type="hidden" name="ref" value={src} />
-        <button type="submit" className="inline-flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#1a1a2e] px-5 text-[15px] font-semibold text-white transition-colors hover:bg-[#2b2b42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e] sm:w-auto">
+        <button type="submit" className="inline-flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#1a1a2e] px-5 text-[15px] font-semibold text-white transition-colors hover:bg-[#2b2b42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e] sm:w-auto">
           Start free
           <span aria-hidden>&rarr;</span>
         </button>
