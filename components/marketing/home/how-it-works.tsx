@@ -56,7 +56,7 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react"
 import type { SectionStyle } from "./lazy-section"
 import type { DomainPurpose } from "@/lib/custom-domains/hostname"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 const HOW = "/home/how"
 
@@ -764,7 +764,7 @@ function DashScene() {
           <Lucide d={L_BELL} />
           <Lucide d={L_GEAR} className="cmh-db-gear" />
           <i />
-          <img src={STORELIB_LOGO} alt="" width={26} height={26} loading="lazy" decoding="async" />
+          <StorelibLogo size={26} unoptimized loading="lazy" decoding="async" />
           <b>Storelib</b>
         </span>
       </div>
