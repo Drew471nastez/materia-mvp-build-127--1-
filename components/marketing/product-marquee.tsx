@@ -132,11 +132,12 @@ const CSS = `
 @keyframes um-right{from{transform:translate3d(calc(-100% / 3),0,0)}to{transform:translate3d(0,0,0)}}
 @media(max-width:767px){.um-head{margin-bottom:22px}}
 /* Wave 18 (the owner, on a phone: "the text not so huge, the icons a little smaller, just a little"): the heading is 30px at 390 (was the shared 36px), the line and the labels a point smaller, and the photos about 13% smaller (47px at 390, was 54px). From 768px nothing changes. */
+/* Landing round 13 (the owner: now "too small"): half way back. At 390 the heading is 33px (wave 18: 30, before: 36), the photos 51px (47, before 54), the line 15.5px and the labels 17px. From 768px nothing changes. */
 @media(max-width:767px){
-  .um .story-heading{font-size:clamp(26px,7.7vw,34px)}
-  .um-sub{margin-top:14px;font-size:15px}
-  .um-row{--pic:clamp(42px,12vw,54px)}
-  .um-item{gap:12px;margin-right:34px;font-size:16px}
+  .um .story-heading{font-size:clamp(28px,8.5vw,36px)}
+  .um-sub{margin-top:15px;font-size:15.5px}
+  .um-row{--pic:clamp(46px,13vw,56px)}
+  .um-item{gap:13px;margin-right:37px;font-size:17px}
 }
 @media(prefers-reduced-motion:reduce){
   .um-track{animation:none;width:auto;will-change:auto;padding-inline:var(--home-edge,20px)}
