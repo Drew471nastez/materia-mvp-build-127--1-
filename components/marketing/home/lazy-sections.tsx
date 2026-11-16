@@ -92,6 +92,13 @@ export const LazyEarningsCalculator = lazySection(() => import("./earnings-calcu
   styles: () => import("./earnings-calculator").then((m) => m.EARNINGS_STYLES),
 })
 
+/*
+  Landing round 14, the owner: "See what your work could earn" is not on a phone (below 768px); a computer keeps it.
+  Its box is display: none there, so it holds no room before or after it mounts, and the page draws this rule beside
+  LAZY_SECTION_HEIGHTS_CSS, from the server's first byte. Measured at a phone width the section is 0px tall.
+*/
+export const LAZY_SECTION_PHONE_HIDDEN_CSS = '@media (max-width:767px){[data-lazy-section="earnings"]{display:none}}'
+
 /* Landing round 13, the owner: the showcase (build-showcase.tsx) leaves the hero for a place before pricing, so it is mounted as it comes near like the rest. Measured in dev: 483px at 390, 724 at 1440, 909 at 1920 (a 4:3 card a phone wide below 768px, the wide, OnePage, wide group from 768). Not yet in LAZY_SECTION_HEIGHTS_CSS. */
 export const LazyBuildShowcase = lazySection(() => import("../build-showcase").then((m) => m.BuildShowcase), {
   name: "showcase",

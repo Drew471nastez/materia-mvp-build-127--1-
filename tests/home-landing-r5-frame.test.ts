@@ -102,10 +102,11 @@ console.log("\n── Start now comes in after the hero ──")
   check("an attribute on the bar: no state, no scroll listener, no re-render", /* Changed on purpose (landing round 13): the hero buttons are the one block watched again. */ /el\.setAttribute\("data-home-cta", gone\.get\(cta\) \? "shown" : "hidden"\)/.test(fx) && !/addEventListener|useState|set[A-Z]\w*\(/.test(fx.replace(/setAttribute/g, "")))
   check("without an observer it simply shows", /el\.setAttribute\("data-home-cta", "shown"\)/.test(fx))
   const hero = read("components/marketing/hero.tsx")
-  const hidden = /#platform-header-root:not\(\[data-home-cta="shown"\]\) :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""
+  // Changed on purpose (landing round 14): only the phone's Start now waits; a computer's Sign up stands beside Log in from the top (tests/home-landing-r14-frame.test.ts).
+  const hidden = /#platform-header-root:not\(\[data-home-cta="shown"\]\) \[data-home-phone-start\] \{([^}]*)\}/.exec(hero)?.[1] ?? ""
   check("waiting: faded where it stands, not focusable or tappable", /opacity:0/.test(hidden) && /* Changed on purpose (landing round 9): a 4px rise (it was 7), the owner: "unobservable". */ /translate:0 4px/.test(hidden) && /visibility:hidden/.test(hidden) && /pointer-events:none/.test(hidden))
   check("its room is kept: no display, width or size change", !/display|width|height|margin|padding/.test(hidden))
-  const shown = /#platform-header-root :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""
+  const shown = /#platform-header-root \[data-home-phone-start\] \{([^}]*)\}/.exec(hero)?.[1] ?? ""
   check("arriving: opacity and translate eased in, nothing else animated", /* Changed on purpose (landing round 9): a longer, softer fade (560ms and 640ms; they were 320 and 420). */ /transition:opacity 560ms cubic-bezier\(\.33,0,\.2,1\),translate 640ms/.test(shown) && !/height|width|box-shadow|filter/.test(shown))
   check("reduced motion: a plain fade, no movement", /translate:none !important; transition:opacity 150ms linear/.test(hero))
 }
