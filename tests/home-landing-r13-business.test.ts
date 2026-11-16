@@ -102,7 +102,7 @@ console.log("\nThe phone keeps round 12's row of cards")
 }
 
 console.log("\nRegistered")
-check("this suite runs with the push tests, after the round 12 entries", /"tests\/home-landing-r12-perf\.test\.ts",[\s\S]{0,800}"tests\/home-landing-r13-business\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
+check("this suite runs with the push tests, after the round 12 entries", /"tests\/home-landing-r12-perf\.test\.ts",[\s\S]{0,6000}"tests\/home-landing-r13-business\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

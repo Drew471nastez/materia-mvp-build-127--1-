@@ -50,7 +50,8 @@ const howSrc = code(`${DIR}/how-it-works.tsx`)
 console.log("\n── One engine, one config each, the old numbers ──")
 {
   const { dark, purple, how } = DOT_FIELD_CONFIGS
-  check("dark: rest 0.34, lit 0.68, r 0.8, ride 0, trough 0.45, 32 levels, radius 180, follow 0.075, part 6", dark.rest === 0.34 && dark.lit === 0.68 && dark.r === 0.8 && dark.ride === 0 && dark.trough === 0.45 && dark.levels === 32 && dark.radius === 180 && dark.follow === 0.075 && dark.part === 6)
+  // Changed on purpose (landing round 13): the closing call more subtle (0.24 / 0.5), its light eased (follow 0.085 twice) and parting less (4).
+  check("dark: rest 0.24, lit 0.5, r 0.8, ride 0, trough 0.45, 32 levels, radius 180, follow 0.085, part 4", dark.rest === 0.24 && dark.lit === 0.5 && dark.r === 0.8 && dark.ride === 0 && dark.trough === 0.45 && dark.levels === 32 && dark.radius === 180 && dark.follow === 0.085 && dark.part === 4)
   check("purple: rest 0.17, lit 0.4, r 0.95, ride 0.5, trough 0.3", purple.rest === 0.17 && purple.lit === 0.4 && purple.r === 0.95 && purple.ride === 0.5 && purple.trough === 0.3 && purple.rgb === "255,255,255")
   check("the flow's waves and the light's paths as they were", dark.rate[0] === 0.00038 && dark.rate[1] === 0.00016 && dark.rideX === 0.8 && dark.rideY === 1.4 && dark.pathX.join() === "0.5,0.32,0.00011" && dark.pathY.join() === "0.42,0.26,0.000083,1.3")
   check("the wander: 0.6 on the closing call, 0.45 / 0.55 on the purple; it follows within 40px of the box", dark.alone.join() === "0.6,0.6" && purple.alone.join() === "0.45,0.55" && dark.within === 40 && purple.within === 40)
@@ -155,7 +156,7 @@ console.log("\n── The engine runs, with no DOM ──")
   for (let i = 0; i < 120; i++) step(16.7)
   const top = (fills: Fill[]) => Math.max(...fills.map((f) => Number(f.style.split(",")[3].replace(")", ""))))
   const lastFrame = c1.fills.slice(-40)
-  check("with the mouse over the field the light reaches the lit alpha", top(lastFrame) > 0.6, top(lastFrame))
+  check("with the mouse over the field the light reaches the lit alpha", top(lastFrame) > 0.45, top(lastFrame)) // Changed on purpose (landing round 13): the dark lit alpha is 0.5 now
   e2.aim(2, 0, 0, false)
   for (let i = 0; i < 400; i++) step(16.7)
   const away = c1.fills.slice(-40)

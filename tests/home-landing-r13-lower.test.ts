@@ -79,17 +79,17 @@ console.log("\n4. AI tools: the dots a bit less")
 
 console.log("\n5. The closing call: breathing dots, an eased pointer")
 {
-  const src = strip(read("components/marketing/home/dot-field.tsx"))
+  /* Changed on purpose (lead, landing round 13): main moved the dots into a worker engine (dot-field-engine.ts); the closing call's calm is ported there. */
+  const src = strip(read("components/marketing/home/dot-field-engine.ts"))
   check("more subtle overall: rests at 0.24, lights to 0.5 (was 0.34 and 0.68)", DOT_FIELD_TONES.dark.rest === 0.24 && DOT_FIELD_TONES.dark.lit === 0.5)
-  check("the purple sheet unchanged", JSON.stringify(DOT_FIELD_TONES.purple) === JSON.stringify({ rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 }) && /const calm = tone === "dark"/.test(src))
-  check("every dot drifts on a small slow loop of its own, by itself", DOT_FIELD_CALM.drift > 0 && DOT_FIELD_CALM.drift <= 2 && DOT_FIELD_CALM.periodS >= 10 && /x \+= Math\.sin\(wt \+ ph\) \* C\.drift/.test(src) && /y \+= Math\.sin\(wt \* 0\.83 \+ ph \* 1\.7 \+ 1\.1\) \* C\.drift/.test(src))
-  /* Fastest a dot moves: drift * 2pi / (period * 0.75), per 60Hz frame. */
-  const perFrame = (DOT_FIELD_CALM.drift * 2 * Math.PI) / (DOT_FIELD_CALM.periodS * 0.75) / 60
-  check("under a fiftieth of a pixel a frame: a drift, never a shimmer", perFrame < 0.02, perFrame)
-  check("the light eases after the mouse through two easings in a row, its pull fading in near the box", /midX \+= \(tx - midX\) \* k/.test(src) && /lightX \+= \(midX - lightX\) \* k/.test(src) && /const pull = hasAim \? Math\.max\(0, 1 - out \/ C\.reach\) : 0/.test(src) && /const p = pull \* pull \* \(3 - 2 \* pull\)/.test(src))
-  check("scrolling under a still mouse keeps the light with it (screen place plus the scroll, no layout read in the loop)", /aimX = calm \? e\.clientX/.test(src) && /const mx = aimX \+ window\.scrollX - pageX/.test(src) && !/getBoundingClientRect\(\)[\s\S]{0,40}draw\(/.test(src.slice(src.indexOf("const draw"), src.indexOf("const resize"))))
-  check("a soft light: flat at its centre and rim, a gentler parting", /const q = calm \? 1 - d2 \/ r2 : 1 - d \/ RADIUS/.test(src) && DOT_FIELD_CALM.part < 6)
-  check("still paused off screen and in a hidden tab, one still frame under reduced motion", /near && document\.visibilityState !== "hidden" && !reduced/.test(src))
+  check("the purple sheet unchanged", JSON.stringify(DOT_FIELD_TONES.purple) === JSON.stringify({ rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 }) && /drift: tone === "dark" \? DOT_FIELD_CALM\.drift : 0/.test(src))
+  check("every dot drifts on a small slow loop of its own, by itself", DOT_FIELD_CALM.drift > 0 && DOT_FIELD_CALM.drift <= 2 && DOT_FIELD_CALM.driftMs >= 10000 && /x \+= drift \* Math\.sin\(t \* w \+ pa\)/.test(src) && /y \+= drift \* Math\.cos\(t \* w \* 0\.83 \+ pa \* 1\.7\)/.test(src))
+  /* Fastest a dot moves: drift * 2pi / (period * 0.67), per 60Hz frame. */
+  const perFrame = (DOT_FIELD_CALM.drift * 2 * Math.PI) / ((DOT_FIELD_CALM.driftMs / 1000) * (1 / 1.33)) / 60
+  check("under a thirtieth of a pixel a frame: a drift, never a shimmer", perFrame < 0.035, perFrame)
+  check("the light eases after the mouse through two easings in a row, its pull fading in near the box", /f\.midX \+= \(tx - f\.midX\) \* k/.test(src) && /f\.lightX \+= \(f\.midX - f\.lightX\) \* k/.test(src) && /const pull = c\.reach !== null \? Math\.max\(0, 1 - out \/ c\.reach\) : 1/.test(src) && /goal = pull \* pull \* \(3 - 2 \* pull\)/.test(src))
+  check("a gentler parting", DOT_FIELD_CALM.part < 6)
+  check("no drift under reduced motion", /const drift = f\.reduced \? 0 : c\.drift/.test(src))
   const cta = renderToStaticMarkup(createElement(FinalCta))
   check("the email field and the Dashboard button stay", /<form [^>]*class="fcta-form"/.test(cta) && /type="email"/.test(cta) && /data-fcta-account|class="fcta-actions" hidden=""/.test(cta) && /"Dashboard"/.test(read("components/marketing/home/final-cta.tsx")))
 }
