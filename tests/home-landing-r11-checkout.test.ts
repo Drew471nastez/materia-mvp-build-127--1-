@@ -68,7 +68,8 @@ console.log("\n1. The ring: wider, under the phone, soft round the back")
 // Changed on purpose (wave 18): the ring's layer also carries the products' dimming (opacity 0.88, the owner: a little lower in brightness).
 check("the ring is its own 3D space, drawn before the phone and under it (z 2 to the phone's 3)", /^class="cmc-stage"><div class="cmc-copy">[\s\S]*?<\/div><div class="cmc-ring" aria-hidden="true"><div class="cmc-orbit">[\s\S]*<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise">/.test(stage) && /\.cmc-ring\{position:absolute;z-index:2;inset:0;pointer-events:none;perspective:var\(--pp\);perspective-origin:50% var\(--cy\);opacity:0\.88\}/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css))
 // Changed on purpose (landing round 11, the ring fix): the shade was a twin box beside the phone running copies of its animations, and a product showed through the fading phone (1440 x 800, "Shoot Planner" over the screen). It is in the phone's own box now; the wrap only steps back.
-check("  under the phone, its shape in solid black, in the phone's own box under it, never faded: nothing shows through the phone as it goes soft", /<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && (stage.match(/cmc-shade/g) ?? []).length === 1 && /\.cmc-shade\{position:absolute;inset:0;display:block;border-radius:calc\(var\(--pw\) \* \.178\);background:#000;pointer-events:none\}/.test(css) && !/\.cmc-shade[^{]*\{[^}]*(opacity|animation)/.test(css))
+// Changed on purpose (landing round 12): the shade now fades too, but only after the phone has gone (80 to 86svh after the phone's 48 to 80), so it still never lets a product through a fading phone.
+check("  under the phone, its shape in solid black, in the phone's own box under it, fading only once the phone is gone", /<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && (stage.match(/cmc-shade/g) ?? []).length === 1 && /\.cmc-shade\{position:absolute;inset:0;display:block;border-radius:calc\(var\(--pw\) \* \.178\);background:#000;pointer-events:none\}/.test(css) && /\.cmc-shade\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 80svh contain 86svh\}/.test(css))
 check("  the phone's world holds no products and no 3D: nothing can be sorted in front of its screen", !/class="cmc-world">[^]*?class="cmc-o"/.test(stage.slice(stage.indexOf('class="cmc-phone-wrap"'))) && !/\.cmc-world\{[^}]*preserve-3d/.test(css))
 check("  set back by its radius, so its nearest point is level with the phone, then leaning and turning", /\.cmc-orbit\{position:absolute;left:50%;top:var\(--cy\);width:0;height:0;transform-style:preserve-3d;transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(0deg\)\}/.test(css))
 // Changed on purpose (wave 18): on a phone the ring is 50vw (up to 300px) with larger products, so they float round the phone on screen instead of off its edges (the reference).
@@ -79,7 +80,8 @@ check("  sharp coming out from behind the phone, soft round the back: one cross 
 check("  on the ring's own clock, from each object's place, linear, paused off screen", ["near", "far"].every((k) => new RegExp(`\\.cmc-${k}\\{animation:cmc-${k} 44s linear infinite;animation-delay:calc\\(var\\(--p\\) \\* -44s\\);animation-play-state:paused\\}`).test(css)) && /\.cmc-stage\[data-commerce-live\] :is\(\.cmc-face,\.cmc-near,\.cmc-far\)\{animation-play-state:running\}/.test(css))
 // Changed on purpose (wave 18): in step with the narrower sharp stretch.
 check("  dimmer round the back too (half), full beside the phone", /^0%,12%,88%,100%\{opacity:1\}50%\{opacity:0\.5\}$/.test(keyframes("cmc-depth")))
-check("the copies are blurred harder now (0.085 of the width), small webp files with alpha", /const SIGMA = \{ object: 0\.085,/.test(read("scripts/bake-checkout-soft.mjs")) && Object.keys(SOFT).every((k) => existsSync(`public/home/commerce/soft-${k}.webp`) && statSync(`public/home/commerce/soft-${k}.webp`).size < 4 * 1024))
+// Changed on purpose (landing round 12): SIGMA has only the objects now (no phone copy).
+check("the copies are blurred harder now (0.085 of the width), small webp files with alpha", /const SIGMA = \{ object: 0\.085 \}/.test(read("scripts/bake-checkout-soft.mjs")) && Object.keys(SOFT).every((k) => existsSync(`public/home/commerce/soft-${k}.webp`) && statSync(`public/home/commerce/soft-${k}.webp`).size < 4 * 1024))
 check("  the bake script knows the new parts (the depth copy hidden, the sharp layer flat)", /\.cmc-soft,\.cmc-far\{display:none!important\}/.test(read("scripts/bake-checkout-soft.mjs")) && /\.cmc-near,/.test(read("scripts/bake-checkout-soft.mjs")))
 
 console.log("\n1b. The ring fix: no product ever over the phone's screen")
@@ -94,10 +96,13 @@ const ringAt = stage.indexOf('class="cmc-ring"')
 const phoneAt = stage.indexOf('class="cmc-phone-wrap"')
 check("the ring comes before the phone in the stage, outside the phone's box, and no product is inside the phone's box", ringAt > 0 && phoneAt > ringAt && !/class="cmc-o"/.test(stage.slice(phoneAt)) && !/class="cmc-phone-wrap"/.test(stage.slice(ringAt, stage.indexOf('class="cmc-orbit"'))))
 check("  the ring's layer is below the phone's (z 2 to 3) and neither shares a 3D space with the other", /\.cmc-ring\{position:absolute;z-index:2;/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css) && !/\.cmc-(ring|phone-wrap|world|rise)\{[^}]*preserve-3d/.test(css))
-check("  the shade moves only with the phone: no animation, transform or z-index of its own", !/\.cmc-shade[^{]*\{[^}]*(animation|transform|z-index)/.test(css) && /class="cmc-rise"><span class="cmc-shade"/.test(stage))
+// Changed on purpose (landing round 12): the shade has one animation, its fade after the phone; still no transform or z-index of its own.
+check("  the shade moves only with the phone: no transform or z-index of its own, its only animation the fade after the phone", !/\.cmc-shade[^{]*\{[^}]*(transform|z-index)/.test(css) && (css.match(/\.cmc-shade\{animation:/g) ?? []).length === 1 && /class="cmc-rise"><span class="cmc-shade"/.test(stage))
 check("  the ring is set back by its radius: every product is behind the phone's plane", /\.cmc-orbit\{[^}]*transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX/.test(css) && /^from\{transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(-26deg\)\}to\{transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(26deg\)\}$/.test(keyframes("cmc-spin")))
-check("  nothing that sits over the shade fades but the phone: the wrap, the world and the rise keep full opacity", !/\.cmc-(phone-wrap|world|rise)\{[^}]*animation:cmc-(recede|out|in)\b/.test(tl) && /\.cmc-sharp,\.cmc-rise > \.cmc-phone\{animation:cmc-out/.test(tl))
-check("  the phone's blurred copy ends at 30% of the ring's faded strength, as it looked when the wrap faded", /^from\{opacity:0\}to\{opacity:0\.135\}$/.test(keyframes("cmc-in-half")))
+// Changed on purpose (landing round 12): the phone has its own fade rule now (48 to 80svh).
+check("  nothing that sits over the shade fades but the phone: the wrap, the world and the rise keep full opacity", !/\.cmc-(phone-wrap|world|rise)\{[^}]*animation:cmc-(recede|out|in)\b/.test(tl) && /\.cmc-rise > \.cmc-phone\{animation:cmc-out/.test(tl))
+// Changed on purpose (landing round 12): the owner found the phone too visible behind the cards; its blurred copy is gone.
+check("  the phone has no blurred copy behind the cards", !/cmc-in-half|cmc-phone-soft/.test(css))
 
 console.log("\n2. The phone: big as the section arrives, smaller under a two row headline")
 check("the settled phone is the room one screen leaves under the headline; the big one a multiple of it", /--pe:min\(68vw,300px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css) && /--big:1\.72;--ps:0\.581;--y0:40svh/.test(desk) && /--big:1\.24;--ps:0\.806;/.test(css))
@@ -108,13 +113,16 @@ const rows = [...co.matchAll(/<span class="cmc-row">([\s\S]*?)<\/span>(?= ?<span
 check("the headline is two rows, each kept whole: \"Checkout that turns\" / \"a tap into a sale\"", rows.length === 2 && rows[0] === "Checkout that turns" && rows[1] === "a tap into a sale" && words(co.slice(co.indexOf("<h2"), co.indexOf("</h2>"))).replace(/\s+/g, " ").trim() === CHECKOUT_HEADING && /\.cmc-row\{display:block;white-space:nowrap\}/.test(css))
 check("  each word still rises in on the timeline, in order", (co.match(/class="cmc-w" data-w="\d"/g) ?? []).length === 8 && /\.cmc-w\[data-w="7"\]\{animation-range:contain 23\.2svh contain 44svh\}/.test(tl))
 
-console.log("\n3. Bring back the ones who almost bought: the email and the Recovered chart")
+console.log("\n3. Bring back the ones who almost bought: the email (round 12: the Recovered chart gone)")
 const rec = card("recover")
-check("the reminder email and the Recovered tile with its rising line, last month dashed under it", /class="cmv-mail"/.test(rec) && /Still thinking it over\?/.test(words(rec)) && /Recovered/.test(words(rec)) && /\$384\.00/.test(rec) && /\$416\.00/.test(rec) && /class="cmv-chart"><svg viewBox="0 0 120 56"/.test(rec) && /stroke-dasharray="3 3"/.test(rec) && /13 of 41 came back/.test(words(rec)))
-check("  the chart is never empty: only today's last stretch is covered until the sale is paid (it was wiped whole each loop)", /^0%,[\d.]+%\{transform:translate3d\(76%,0,0\)\}[\d.]+%,100%\{transform:translate3d\(101%,0,0\)\}$/.test(keyframes("cmv-wipe")) && /^0%,8%\{opacity:0;/.test(keyframes("cmv-mail")))
+// Changed on purpose (landing round 12): the owner: "get rid of the recovered chart/stats entirely".
+check("the reminder email, and no Recovered tile", /class="cmv-mail"/.test(rec) && /Still thinking it over\?/.test(words(rec)) && !/Recovered|\$384\.00|\$416\.00|cmv-chart|came back/.test(words(rec) + rec))
+// Changed on purpose (landing round 12): no chart; the email still comes up after the rail.
+check("  the email comes up after the rail, and no chart is drawn", !/@keyframes cmv-wipe/.test(css) && /^0%,8%\{opacity:0;/.test(keyframes("cmv-mail")))
 const mail = ruleIn(phoneCss, ".cmv-mail")
 const got = ruleIn(phoneCss, ".cmv-got")
-check("  on a phone the email and the tile sit side by side inside the square", em("left", mail) + em("width", mail) < em("left", got) && em("left", got) < 32 && em("right", got) > 0 && em("bottom", got) > 0 && !/\.cmv-mail p\{display:none/.test(phoneCss))
+// Changed on purpose (landing round 12): no tile; the email runs across the square.
+check("  on a phone the email runs across the square", em("left", mail) > 0 && em("right", mail) > 0 && !got && !/\.cmv-mail p\{display:none/.test(phoneCss))
 
 console.log("\n4. One-tap: the dark in-page checkout, not the checkout page")
 const tap = card("tap")

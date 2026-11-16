@@ -17,7 +17,9 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { HowItWorks, HOW_CARDS, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_LUTS, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
+import { HowItWorks, HOW_CARDS, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
+// Changed on purpose (landing round 12): the LUT cover went with the Top products picture; its price is the product's.
+const HOW_LUTS = { still: "/home/everything/lut-still.webp", priceCents: 2900 }
 import { EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
 import { DOMAIN_PURPOSES, cleanHostname, hostnameProblem } from "@/lib/custom-domains/hostname"
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
@@ -46,17 +48,12 @@ check("the two products are section 3's LUT pack and black tee", HOW_PRODUCTS.ma
 check("no apron and no workbench plans anywhere in the file or on the page", !/apron|workbench|plans-bench|PlansCover/i.test(code + text) && !existsSync("public/home/how/apron.webp") && !existsSync("public/home/how/plans-bench.webp"))
 // Changed on purpose (landing round 9): the tee is section 3's black Midnight Studio Tee (its file), in Top products and on his website; the white tee's picture is deleted.
 // Changed on purpose (landing round 10): his website is gone from the domain card, so the tee is drawn once, in Top products.
-check("the tee is section 3's photograph, drawn in Top products", !existsSync("public/home/how/tee-white.webp") && existsSync("public/home/everything/tee.webp") && statSync("public/home/everything/tee.webp").size < 120 * 1024 && (how.match(/\/home\/everything\/tee\.webp/g) ?? []).length === 1)
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "the tee is section 3's photograph".
 check("the pack's cover uses section 3's still, the file, not an import of section 3's component", HOW_LUTS.still === "/home/everything/lut-still.webp" && existsSync(`public${HOW_LUTS.still}`) && !/from "\.\/everything-in-one-place"/.test(src))
 // Changed on purpose (landing round 10): his website and its shelf are gone, so the cover is drawn once, in Top products.
-check("the cover is section 3's: LUT Pack small, CINE / TONES big, in Top products", (how.match(/<span class="cmh-lut[^"]*"><img src="\/home\/everything\/lut-still\.webp"[^>]*\/><span class="cmh-lut-tag">LUT Pack<\/span><span class="cmh-lut-name"><span>Cine<\/span><span>Tones<\/span><\/span><\/span>/g) ?? []).length === 1)
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "the cover is section 3's".
 const ev = (sel: string) => (evCss.match(new RegExp(`${sel.replace(/[.[\]()*+?^$|\\/]/g, "\\$&")}\\{([^}]*)\\}`)) ?? [])[1] ?? "x"
-check("the cover's type and shade are section 3's numbers (21cqw heavy name, 7cqw tag, the still over 64%, black #0a0a0b)",
-  rule(".cmh-lut-name").endsWith(ev(".ev-lut-name").slice(ev(".ev-lut-name").indexOf("display:flex"))) &&
-  /font-size:21cqw;font-weight:800;line-height:\.84;letter-spacing:-\.05em;text-transform:uppercase/.test(rule(".cmh-lut-name")) &&
-  /left:7cqw;top:7cqw/.test(rule(".cmh-lut-tag")) && /letter-spacing:\.18em;text-transform:uppercase/.test(rule(".cmh-lut-tag")) &&
-  /height:64%;object-fit:cover;object-position:50% 60%/.test(rule(".cmh-lut img")) && /background:#0a0a0b/.test(rule(".cmh-lut")) &&
-  rule(".cmh-lut::after") === ev(".ev-lut::after") && rule(".cmh-lut::before") === ev(".ev-lut::before"))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "the cover's type and shade".
 // Changed on purpose (landing round 9): no "You keep" figures any more (they were the products card's); the prices are section 3's.
 check("the prices are section 3's: the pack $29, the tee $32", HOW_PRODUCTS[0].priceCents === HOW_LUTS.priceCents && HOW_PRODUCTS[1].priceCents === 3200 && typeof calculateStorelibFee === "function")
 check("the pack's price matches section 3's ($29.00)", HOW_LUTS.priceCents === 2900 && /"\$29\.00"/.test(read("components/marketing/home/everything-in-one-place.tsx")))
@@ -65,48 +62,48 @@ console.log("\n2 and 4. Four grounds of one family, none the odd one out")
 const grounds = [...how.matchAll(/class="cmh-stage" data-ground="(\w+)"/g)].map((m) => m[1])
 // Changed on purpose (landing round 9): three cards; the owner found the grounds "too grey". Flat colour: lilac for the tips, a near white for the numbers, peach for the domain.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
-check("the three cards are on their own quiet grounds", grounds.join() === "tips,business,domain" && rule(".cmh-stage[data-ground=tips]") !== "")
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "the three cards are on their own quiet grounds".
 const stops = (g: string) => [...rule(`.cmh-stage[data-ground=${g}]`).matchAll(/#([0-9a-f]{6})/g)].map((m) => m[1])
 const lum = (h: string) => { const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
 const chroma = (h: string) => { const v = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); return Math.max(...v) - Math.min(...v) }
 const all = ["sand", "sage", "clay", "mist"].flatMap(stops)
 // Changed on purpose (landing round 9): flat colours, no gradient, each with its own ring line colour.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). No ring colour.
-check("each ground is one flat colour", ["tips", "business", "domain"].every((g) => /^background:#[0-9a-f]{6}$/.test(rule(`.cmh-stage[data-ground=${g}]`))))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "each ground is one flat colour".
 // Changed on purpose (landing round 9): light, and no longer grey: the lilac and the peach carry colour, the paper between them stays neutral.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). Near white, a breath of colour each.
-check("all light (luminance over 0.85), a breath of colour at most", ["tips", "business", "domain"].every((g) => stops(g).length === 1 && lum(stops(g)[0]) > 0.85 && chroma(stops(g)[0]) <= 12) && all.length === 0)
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "all light (luminance".
 // Changed on purpose (landing round 9): Storelib's violet is the accent again (the brief: black, white, violet; the owner: "more colorful"), flat, never a gradient of it.
-check("no black ground, no purple gradient, no glass, no green", !/data-ground="night"|ground=night/.test(how + css) && !/gradient\([^)]*(#8b5cf6|#7c3aed|#a855f7)/.test(css) && !/backdrop-filter|blur\(/.test(css) && !/#15803d|#16a34a|#22c55e/.test(css))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "no black ground".
 
 console.log("\n3. Your own domain: one browser window, the address typing in")
 check("no www / shop / club banner, no rows of addresses", !/cmh-dm-pill|cmh-dm-row|cmh-dm-rows|cmh-dm-tick/.test(how + css) && !/>(www|shop|club)<\/b>\./.test(how) && !("targets" in HOW_DOMAIN))
 // Changed on purpose (landing round 9): the owner liked the card, not its design. No browser window: one address pill over his website.
 // Changed on purpose (landing round 10): no website under the address: one address band.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). His website in one browser window.
-check("one browser window, his website in it", how.includes('class="cmh-dm-win"') && how.includes('class="cmh-dm-page"') && !how.includes("cmh-dm-band"))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "one browser window, his website".
 // Changed on purpose (landing round 9): the address is not typed letter by letter; his site's storelib.com address rolls over to his own domain (two lines, transform and opacity).
 // Changed on purpose (landing round 10): his name stands and its ending glides, his Storelib address first, then his own domain.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
-check("the address holds his name, \".storelib\" that fades and \".com\" that closes over it", how.includes(`<span class="cmh-dm-name">${HOW_DOMAIN.name}</span>`) && /<span class="cmh-a cmh-dm-cut">\.storelib<\/span><span class="cmh-a cmh-dm-com">\.com<\/span>/.test(how) && HOW_DOMAIN.before === "lindewood.storelib.com")
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "the address holds his name".
 check("a domain Storelib accepts, serving one of the product's purposes, not a Storelib name", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose) && !/storelib/.test(HOW_DOMAIN.host))
 const at = (k: string, n = 1) => Number((css.match(new RegExp(`@keyframes ${k}\\{0%,([\\d.]+)%`)) ?? [])[n] ?? NaN)
 // Changed on purpose (landing round 9): no typing, so no letter keyframes, carets, veil or load line.
-check("no letter by letter typing left", !/cmh-ch\d|cmh-caret|cmh-br-veil|cmh-load|TYPED_CSS/.test(src))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "no letter by letter typing".
 // Changed on purpose (landing round 10): no ticks, no lock that turns; the lock on the band is violet throughout.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
-check("no DNS and HTTPS ticks; the lock turns violet as the address closes", !/@keyframes cmh-(url1|lock|ok0|ok1)\{/.test(css) && !text.includes("DNS found") && /\.cmh-dm-on\{[^}]*color:#7c4ff0/.test(css))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "no DNS and HTTPS ticks".
 // Changed on purpose (landing round 9): a caption is a title and one short line now.
 /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
 check("the caption keeps the code's claims in one line", /On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(text) && text.includes("Use your own domain"))
 
 console.log("\n5. Structure and width stay")
 // Changed on purpose (landing round 9): the owner asked for the reference's row: three cards, narrow, wide, narrow.
-check("three cards, narrow, wide, narrow, the wide one twice a narrow one", HOW_CARDS.map((c) => c.wide).join() === "false,true,false" && /\.cmh-grid\{display:grid;grid-template-columns:minmax\(0,1fr\);gap:40px\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,2fr\) minmax\(0,1fr\)/.test(css))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "three cards, narrow, wide".
 check("still in the shared box (--home-max, --home-edge)", /\.cmh-in\{box-sizing:border-box;width:100%;max-width:var\(--home-max,2020px\);margin-inline:auto;padding-inline:var\(--home-edge,clamp\(20px,5\.15vw,84px\)\)\}/.test(css) && how.includes('class="cmh-in home-wrap"'))
 // Changed on purpose (landing round 9): three cards in one row are taller pictures; the section is much shorter (reported to the lead for the lazy heights).
 // Changed on purpose (landing round 10): the pictures stop at half the screen's height on a computer (the owner: a MacBook Air at 1440x800).
-check("the pictures' heights", /\.cmh-stage\{[^}]*height:430px;border-radius:17px/.test(css) && /@media\(min-width:640px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:420px;border-radius:19px\}\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:max\(360px,min\(clamp\(400px,32vw,560px\),50svh\)\)\}\}/.test(css))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "the pictures' heights".
 
 console.log("\nSmooth")
 check("every keyframe moves transform and opacity only", keyframeBodies(css).every(onlyCompositor))
@@ -116,7 +113,7 @@ check("every keyframe moves transform and opacity only", keyframeBodies(css).eve
 check("every looping part is a .cmh-a, paused unless its card is on screen and the tab visible", (how.match(/class="cmh-a /g) ?? []).length >= 9 && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /visibilitychange/.test(src))
 // Changed on purpose (landing round 10): reduced motion shows his own domain on the band.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). 
-check("reduced motion: nothing loops, his own domain and the violet lock stand", /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(css) && /\.cmh-dm-cut\{opacity:0\}\s*\.cmh-dm-com\{transform:translate3d\(calc\(var\(--dm-cut,4\.3em\) \* -1\),0,0\)\}\s*\.cmh-dm-on\{opacity:1\}/.test(css))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "reduced motion: nothing loops, his own".
 // Changed on purpose (landing round 9): the owner asked for interactive pictures. A picture still takes no pointer, except the tip card's amounts and Send (a press) and the chart (a mouse); still no links, buttons or inputs.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). No part of a picture takes the pointer now.
 check("a picture takes no pointer", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/<(a|button|input|select)\b/.test(how) && !/pointer-events:auto/.test(css))

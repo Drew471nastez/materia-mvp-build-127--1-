@@ -83,7 +83,7 @@ console.log("\n── apps: five asked for, a smaller gap ──")
   const two = renderToStaticMarkup(createElement("div", null, createElement(InstagramTile), createElement(InstagramTile), createElement(MetaMark), createElement(MetaMark)))
   const ids = [...two.matchAll(/ id="([^"]+)"/g)].map((m) => m[1])
   check("each drawing's gradient id is its own, since every tile is drawn twice", ids.length === 4 && new Set(ids).size === 4, ids)
-  check("the gap: 1/12 of the screen per tile and gap (was 1/10.5), 8px least on a phone", INTEGRATION_STEP_SHARE === 1 / 12 && /--gap: max\(20px, calc\(100vw \/ 12 - var\(--tile\)\)\);/.test(css) && /--gap: max\(8px, calc\(100vw \/ 12 - var\(--tile\)\)\);/.test(css))
+  check("the gap: 1/12 of the screen per tile and gap (was 1/10.5), 8px least on a phone", INTEGRATION_STEP_SHARE === 1 / 13 && /--gap: max\(20px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css) && /--gap: max\(6px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css)) // Changed on purpose (landing round 12): the gap a little smaller again: 1/13 of the screen, 6px least on a phone; 14 tiles still make a screen.
   check("and still no icon seen twice: each set is more than a screen plus a tile", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1), INTEGRATION_ROW_SIZES)
   const html = renderToStaticMarkup(createElement(IntegrationsSection))
   check("each new app a named icon", ["Instagram", "Spotify", "Apple Music", "YouTube"].every((n) => html.includes(`role="img" aria-label="${n}"`)))

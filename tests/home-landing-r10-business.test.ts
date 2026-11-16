@@ -15,7 +15,8 @@ import { readFileSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import * as Section from "@/components/marketing/home/business-carousel"
-import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, TeeScene } from "@/components/marketing/home/showcase-mocks/business-mocks"
+// Changed on purpose (landing round 12): the physical scene is PhysicalScene (Night Face Oil); the tee is gone.
+import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, PhysicalScene as TeeScene } from "@/components/marketing/home/showcase-mocks/business-mocks"
 
 let failed = 0
 let passed = 0
@@ -44,12 +45,14 @@ console.log("\nNo line under the heading")
 console.log("\nA shorter stage, every scene the same picture")
 {
   check("the stage is drawn at 1100 x 570 on a computer (was 1040 x 600): about 10% shorter at one width", /\.bz-frame\{aspect-ratio:1100\/570;/.test(mocks) && /\.bz-frame>\.smk\{--w:1100\}/.test(mocks) && Math.abs((570 / 1100) / (600 / 1040) - 0.898) < 0.01)
-  check("the phone keeps its 400 x 640 drawing (the section is shorter there by the line that went)", /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:400\/640\}\n  \.bz-frame>\.smk\{--w:400\}/.test(mocks))
+  // Changed on purpose (landing round 12): on a phone each kind is a card in a sliding row, drawn at 360 x 520.
+  check("the phone has its own drawing, 360 x 520", /@media\(max-width:767px\)\{\n  \.bz-frame\{aspect-ratio:360\/520\}\n  \.bz-frame>\.smk\{--w:360\}/.test(mocks))
   check("from 1280px the stage stops at 66svh tall (vh before it for older browsers) and the index takes what is left", /\.biz-body\{grid-template-columns:minmax\(clamp\(232px,18vw,330px\),1fr\) minmax\(0,calc\(66vh \* 1100 \/ 570\)\);grid-template-columns:minmax\(clamp\(232px,18vw,330px\),1fr\) minmax\(0,calc\(66svh \* 1100 \/ 570\)\)/.test(css))
   check("the index is still five equal rows as tall as the stage", /\.biz-tabs\{display:grid;grid-template-rows:repeat\(5,minmax\(0,1fr\)\)/.test(css))
   // Each scene inside the new 570 high drawing: nothing reaches past its bottom.
-  check("digital: the row sits in a wider rail, centred left of the card; covers (350) and card (368) stand centred", rule(".bd-rail").includes(`width:${U(740)}`) && rule(".bd-track").includes(`left:${U(352)}`) && rule(".bd-card").includes(`right:${U(64)};top:50%`) && rule(".bd-cover").includes(`height:${U(350)}`))
-  check("physical: the tee photo a square that ends inside the stage (12 + 546 < 570)", rule(".bt-photo").includes(`left:${U(64)};top:${U(12)};width:${U(546)};height:${U(546)}`) && 12 + 546 < 570 && rule(".bt-card").includes(`right:${U(64)};top:50%`))
+  // Changed on purpose (landing round 12): digital is one e-book (cover 360 high from 96, its page from 122, 348 high) and physical one oil (its photograph 26 from top and bottom); both end inside the stage.
+  check("digital: the cover and the page end inside the stage, the card (448) centred", rule(".be-cover").includes(`top:${U(96)};width:${U(268)};height:${U(360)}`) && 96 + 360 < 570 && rule(".be-page").includes(`top:${U(122)};width:${U(268)};height:${U(348)}`) && 122 + 348 < 570 && rule(".be-card").includes(`right:${U(64)};top:50%;height:${U(448)}`))
+  check("physical: the photograph 26 from top and bottom, the card (404) centred", rule(".bo-main").includes(`top:${U(26)};bottom:${U(26)}`) && rule(".bo-card").includes(`right:${U(56)};top:50%;width:${U(392)};height:${U(404)}`) && 404 < 570)
   check("course: the card 22 from top and bottom, the player 248 high", rule(".bs-ccard").includes(`top:${U(22)};bottom:${U(22)};width:${U(720)}`) && rule(".bp-player").includes(`height:${U(248)}`))
   check("community: the club's page 26 from top and bottom, the feed beside it from the same line", rule(".bs-com").includes(`left:${U(56)};top:${U(26)};bottom:${U(26)};width:${U(520)}`) && rule(".bs-feed").includes(`left:${U(616)};right:${U(56)};top:${U(26)}`))
   check("booking: the coach photo full height, the card (460) centred", rule(".bs-coach-photo").includes(`top:0;bottom:0;width:${U(540)}`) && rule(".bs-book").includes(`right:${U(64)};top:50%;width:${U(440)};height:${U(460)}`) && 460 < 570)
@@ -60,7 +63,8 @@ console.log("\nRound 9 kept as designed")
   check("five words, each a tab with its panel, one ring on the chosen one", (html.match(/role="tab"/g) ?? []).length === 5 && (html.match(/class="biz-ring"/g) ?? []).length === 1 && BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
   check("the ring is still the clock and autoplay still runs", /e\.animationName === "biz-ring-b"\) advance\(\)/.test(code(SECTION)) && /const run = t\.run && !held/.test(code(SECTION)))
   const scenes = [DigitalScene, TeeScene, CourseScene, ClubScene, CoachScene].map((s) => renderToStaticMarkup(createElement(s))).join("")
-  check("the five scenes say the same things", /* Changed on purpose (landing round 11): Applied AI Club and the tee stay, now among others. */ ["Cine Tones LUT Pack", "Midnight Studio Tee", "Mixing in key, for new DJs", "Applied AI Club", "Talia Moreno", "Booked for Thu 19, 17:30"].every((w) => scenes.includes(w)))
+  // Changed on purpose (landing round 12): digital is Slow Mornings and physical Night Face Oil (the owner disliked the covers and the tee).
+  check("the five scenes say the same things", /* Changed on purpose (landing round 11): Applied AI Club and the tee stay, now among others. */ ["Slow Mornings", "Night Face Oil", "Mixing in key, for new DJs", "Applied AI Club", "Talia Moreno", "Booked for Thu 19, 17:30"].every((w) => scenes.includes(w)))
   check("no banned words or em dashes in what changed", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(BUSINESS_HEADING + BUSINESS_SLIDES.map((s) => s.alt).join(" ")))
 }
 

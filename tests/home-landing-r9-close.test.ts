@@ -104,8 +104,8 @@ console.log("\n── footer: the app icon (outline undone in round 11) ──")
   const footerSrc = read("components/marketing/footer.tsx")
   const logoSrc = read("components/brand/storelib-logo.tsx")
   const footer = renderToStaticMarkup(createElement(MarketingFooter))
-  check("the footer draws the one logo picture at 40px", /<StorelibLogo size=\{40\} \/>/.test(footerSrc) && (footerSrc.match(/<StorelibLogo\b/g) ?? []).length === 1 && /<img[^>]*data-storelib-logo=""/.test(footer))
-  check("no outline anywhere: the variant is gone", !/variant/.test(logoSrc) && !/data-storelib-logo="outline"/.test(footer) && !/STORELIB_S_PATH/.test(logoSrc) && STORELIB_S_PATH.length > 0)
+  check("the footer draws the one logo at 40px", /<StorelibLogo size=\{40\} variant="solid" \/>/.test(footerSrc) && (footerSrc.match(/<StorelibLogo\b/g) ?? []).length === 1 && /<svg[^>]*data-storelib-logo="solid"/.test(footer)) // Changed on purpose (landing round 12): the solid mark, not the picture.
+  check("no outline anywhere: the outline variant is gone", !/"outline"/.test(logoSrc) && !/data-storelib-logo="outline"/.test(footer) && STORELIB_S_PATH.length > 0) // Changed on purpose (landing round 12): a "solid" variant draws the S's path; the outline one stays gone.
   check("the wordmark beside it is white", /<span class="text-xl font-bold text-white">Storelib<\/span>/.test(footer))
   check("every place draws the picture", /src=\{STORELIB_LOGO\}/.test(logoSrc) && /<img[^>]*data-storelib-logo=""/.test(renderToStaticMarkup(createElement(StorelibLogo, { size: 32 }))))
 }

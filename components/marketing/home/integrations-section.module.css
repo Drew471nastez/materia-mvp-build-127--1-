@@ -91,6 +91,10 @@
   a little more". With four more apps a set is longer, so the share drops
   from 1/10.5 to 1/12 of the screen and no icon is still seen twice: at
   1440px the gap is about 39px (was 57), on a phone 8px (was 10).
+  Landing round 12, the owner: "a little more". 1/13 of the screen: the
+  shorter set has 14 tiles, so 13 steps still make a full screen and no
+  icon is seen twice. At 1440px the gap is about 21px (was 30), at 1920
+  about 40 (was 52), on a phone 6px (was 8).
 */
 .rows {
   position: relative;
@@ -99,7 +103,7 @@
   padding-block: calc(var(--room) - (var(--row-gap) + 4px) / 2);
   /* 90px, growing a little past 1600px wide so the icons hold their own across a wide screen. */
   --tile: clamp(90px, 5.6vw, 116px);
-  --gap: max(20px, calc(100vw / 12 - var(--tile)));
+  --gap: max(20px, calc(100vw / 13 - var(--tile)));
   /* Space between the two rows: the old tile gap, not the spread one. */
   --row-gap: clamp(20px, 1.6vw, 30px);
   /* Room above and below each row for a tile's shadow and lift (the row clips sideways). */
@@ -108,7 +112,7 @@
 @media (max-width: 639px) {
   .rows {
     --tile: 67px;
-    --gap: max(8px, calc(100vw / 12 - var(--tile)));
+    --gap: max(6px, calc(100vw / 13 - var(--tile)));
     --row-gap: 10px;
     --room: 20px;
   }

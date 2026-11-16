@@ -83,6 +83,14 @@
              the sides, clear down the middle to the bottom, and only the
              last 56px fade out, so no edge meets the footer's hairline.
 
+  Landing round 12, the owner, of the closing call: the dots are "too
+  regular" (straight rows and columns): scatter them. <DotField scatter />
+  draws them from dotFieldScatter: seeded Poisson disc sampling, every dot
+  at least 0.8 of the gap from the next, so they spread evenly with no rows,
+  no columns and no clumps, each with a brightness of its own. The seed is
+  fixed, so a box of a given size always gets the same field. The purple
+  sheet keeps its grid.
+
   Put <DotField /> as the first child of a dark block that is a stacking
   context (position plus z-index, or isolation: isolate); it fills it,
   behind everything else (z-index -1, pointer-events: none). `style` can
@@ -163,6 +171,93 @@ export function dotFieldPoints(width: number, height: number, gap: number): Floa
   return out
 }
 
+/** A small seeded random number generator (mulberry32): the same seed, the same numbers, on every machine. */
+function seeded(seed: number) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** The seed the scattered field is drawn from: fixed, so a box of a given size always gets the same dots. */
+export const DOT_FIELD_SEED = 1207
+
+/**
+ * The dots for a box, scattered (landing round 12, the owner, of the closing
+ * call: the dots "too regular, straight rows and columns"). Poisson disc
+ * sampling (Bridson): every dot at least 0.8 of `gap` from every other, so
+ * the field reads as evenly spread, about as dense as the grid, but with no
+ * rows, no columns and no clumps. Each dot also gets its own brightness
+ * (0.55 to 1), so it does not read as a stamped pattern. Seeded
+ * (DOT_FIELD_SEED): the same box always gets the same dots. Same four numbers
+ * per dot as dotFieldPoints.
+ */
+export function dotFieldScatter(width: number, height: number, gap: number, seed = DOT_FIELD_SEED): Float32Array {
+  const rand = seeded(seed)
+  const r = gap * 0.8
+  const r2 = r * r
+  const cell = r / Math.SQRT2
+  const cols = Math.ceil(width / cell)
+  const rows = Math.ceil(height / cell)
+  const grid = new Int32Array(cols * rows).fill(-1)
+  const xs: number[] = []
+  const ys: number[] = []
+  const active: number[] = []
+  const add = (x: number, y: number) => {
+    const i = xs.length
+    xs.push(x)
+    ys.push(y)
+    active.push(i)
+    grid[Math.floor(y / cell) * cols + Math.floor(x / cell)] = i
+  }
+  const free = (x: number, y: number) => {
+    const cx = Math.floor(x / cell)
+    const cy = Math.floor(y / cell)
+    for (let gy = Math.max(0, cy - 2); gy <= Math.min(rows - 1, cy + 2); gy++) {
+      for (let gx = Math.max(0, cx - 2); gx <= Math.min(cols - 1, cx + 2); gx++) {
+        const j = grid[gy * cols + gx]
+        if (j < 0) continue
+        const dx = xs[j] - x
+        const dy = ys[j] - y
+        if (dx * dx + dy * dy < r2) return false
+      }
+    }
+    return true
+  }
+  if (width > 0 && height > 0) add(rand() * width, rand() * height)
+  while (active.length) {
+    const k = Math.floor(rand() * active.length)
+    const p = active[k]
+    let placed = false
+    for (let n = 0; n < 24; n++) {
+      const a = rand() * Math.PI * 2
+      const d = r * (1 + rand())
+      const x = xs[p] + Math.cos(a) * d
+      const y = ys[p] + Math.sin(a) * d
+      if (x < 0 || y < 0 || x >= width || y >= height || !free(x, y)) continue
+      add(x, y)
+      placed = true
+      break
+    }
+    if (!placed) {
+      active[k] = active[active.length - 1]
+      active.pop()
+    }
+  }
+  const out = new Float32Array(xs.length * 4)
+  for (let i = 0, o = 0; i < xs.length; i++) {
+    out[o++] = xs[i]
+    out[o++] = ys[i]
+    out[o++] = 0.55 + 0.45 * rand()
+    out[o++] = rand() * Math.PI * 2
+  }
+  return out
+}
+
 /**
  * The flow at a point and time, 0..1: two long waves, the second bending the
  * first, so the bright bands drift diagonally and curl slowly.
@@ -181,6 +276,7 @@ export function DotField({
   tone = "dark",
   className,
   style,
+  scatter = false,
 }: {
   /** Distance between dots in CSS pixels. Default 18. */
   gap?: number
@@ -190,6 +286,8 @@ export function DotField({
   tone?: "dark" | "purple"
   className?: string
   style?: CSSProperties
+  /** Scattered dots (seeded Poisson disc, dotFieldScatter) in place of the even grid: the closing call, since landing round 12. */
+  scatter?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -310,7 +408,7 @@ export function DotField({
       dpr = Math.min(DOT_FIELD_MAX_DPR, window.devicePixelRatio || 1)
       canvas.width = Math.round(w * dpr)
       canvas.height = Math.round(h * dpr)
-      points = dotFieldPoints(w, h, gap)
+      points = scatter ? dotFieldScatter(w, h, gap) : dotFieldPoints(w, h, gap)
       waves = new Float32Array((points.length / 4) * 2)
       for (let i = 0, j = 0; i < points.length; i += 4, j += 2) {
         waves[j] = points[i] * 0.0052 + points[i + 1] * 0.0033
@@ -384,7 +482,7 @@ export function DotField({
       window.removeEventListener("pointermove", onMove)
       document.documentElement.removeEventListener("pointerleave", onLeave)
     }
-  }, [gap, tone])
+  }, [gap, tone, scatter])
 
   return (
     <div ref={ref} className={`dotf${className ? ` ${className}` : ""}`} data-fade={fade === "none" ? undefined : fade} data-tone={tone} style={style} aria-hidden="true">

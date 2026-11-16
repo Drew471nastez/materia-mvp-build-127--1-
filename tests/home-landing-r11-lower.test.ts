@@ -22,10 +22,9 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { AppAnywhere } from "@/components/marketing/home/app-anywhere"
 import { AiToolsSection, AI_TOOLS_STYLES, AI_TOOLS_SCRIPT } from "@/components/marketing/home/ai-tools-section"
-import { HowItWorks, HOW_CARDS, HOW_DOMAIN, HOW_DOMAIN_PHOTO, HOW_IT_WORKS_STYLES, HOW_READ_DAYS, HOW_TIPS, HOW_TIP_EVERY_S } from "@/components/marketing/home/how-it-works"
+import { HowItWorks, HOW_IT_WORKS_STYLES } from "@/components/marketing/home/how-it-works"
 import { DOT_FIELD_CSS, DOT_FIELD_MAX_DPR, DOT_FIELD_TONES } from "@/components/marketing/home/dot-field"
 import { FinalCta } from "@/components/marketing/home/final-cta"
-import { cleanHostname, hostnameProblem } from "@/lib/custom-domains/hostname"
 
 let failed = 0
 let passed = 0
@@ -68,14 +67,14 @@ console.log("\n2. Your AI tools: the dots, the light round the terminal, the hei
   const css = AI_TOOLS_STYLES.map((s) => s.css).join("")
   const html = renderToStaticMarkup(createElement(AiToolsSection))
   const rule = (sel: string) => (css.match(new RegExp(`(?:^|\\n|\\})${sel.replace(/[.[\]=()*+?^$|\\/]/g, "\\$&")}\\{([^}]*)\\}`)) ?? [])[1] ?? ""
-  check("the card carries a fine grid of round dots behind the copy, still (no canvas, no frame loop)", /<div class="ait-card"><span class="ait-dots" aria-hidden="true"><\/span>/.test(html) && /background-image:radial-gradient\(circle,rgba\(255,255,255,\.24\) 0,rgba\(255,255,255,\.24\) 1px,transparent 1\.35px\);background-size:20px 20px/.test(rule(".ait-dots")) && !/DotField|<canvas|requestAnimationFrame/.test(src) && /\.ait-card\{position:relative;isolation:isolate;/.test(css) && /\.ait-copy\{position:relative;z-index:1;/.test(css))
+  check("the card carries a fine grid of round dots behind the copy, still (no canvas, no frame loop)", /<div class="ait-card"><span class="ait-dots" aria-hidden="true"><\/span>/.test(html) && /background-image:radial-gradient\(circle,rgba\(255,255,255,\.085\) 0,rgba\(255,255,255,\.085\) 1px,transparent 1\.35px\);background-size:20px 20px/.test(rule(".ait-dots")) /* Changed on purpose (landing round 12): a third as strong */ && !/DotField|<canvas|requestAnimationFrame/.test(src) && /\.ait-card\{position:relative;isolation:isolate;/.test(css) && /\.ait-copy\{position:relative;z-index:1;/.test(css))
   check("the grid is clear on the copy's side and gone before the terminal and the edges", /mask-image:radial-gradient\(70% 95% at 22% 50%/.test(rule(".ait-dots")) && /@media \(max-width:1023px\)\{\.ait-dots\{-webkit-mask-image:radial-gradient\(110% 55% at 50% 22%/.test(css))
   check("two rims under the terminal: a 1.5px beam and a soft glow", /<div class="ait-tw"><span class="ait-glow" aria-hidden="true"><i class="ait-spin"><\/i><\/span><span class="ait-beam" aria-hidden="true"><i class="ait-spin"><\/i><\/span><div class="ait-term"/.test(html) && /inset:-1\.5px/.test(rule(".ait-beam")) && /inset:-14px/.test(rule(".ait-glow")))
   check("the terminal sits over them, opaque, so only the rim lights", /position:relative;z-index:1/.test(rule(".ait-term")) && /--term-bg:#09080c/.test(rule(".ait-term")))
-  check("each light is the bright end of a conic gradient, two of them, opposite", /conic-gradient\(from 0deg,[^;]*#fff 179\.4deg,transparent 180deg,[^;]*#fff 359\.4deg,transparent 360deg\)/.test(rule(".ait-spin")))
-  check("only one thing moves: the layer turns (a transform), nine seconds a lap, linear", /@keyframes ait-spin\{from\{transform:rotate\(0deg\)\}to\{transform:rotate\(360deg\)\}\}/.test(css) && /animation:ait-spin 9s linear infinite paused/.test(rule(".ait-spin")) && /will-change:transform/.test(rule(".ait-spin")))
+  check("each light is the bright end of a conic gradient, two of them, opposite", /conic-gradient\(from 0deg,[^;]*rgba\(220,210,255,\.42\) 170deg,rgba\(220,210,255,0\) 180deg,[^;]*rgba\(220,210,255,\.42\) 350deg,rgba\(220,210,255,0\) 360deg\)/.test(rule(".ait-spin"))) // Changed on purpose (landing round 12): a soft lilac head that fades out, not a white one.
+  check("only one thing moves: the layer turns (a transform), linear", /@keyframes ait-spin\{from\{transform:rotate\(0deg\)\}to\{transform:rotate\(360deg\)\}\}/.test(css) && /\.ait-tw\[data-live\] \.ait-spin\{animation:ait-spin \d+s linear infinite\}/.test(css) /* Changed on purpose (landing round 12): 26s a lap now, pinned in tests/home-landing-r12-close.test.ts. Changed on purpose (landing round 12, perf): no will-change, and the turn exists only while live, pinned in tests/home-landing-r12-perf.test.ts */)
   check("the glow spreads off the edge by a still mask, no blur (a blurred rim dropped 42 frames of 248 at 1440x800), the rims clip and are contained", /inset:-14px/.test(rule(".ait-glow")) && /mask-image:linear-gradient\(90deg,transparent,#000 14px/.test(rule(".ait-glow")) && /mask-composite:intersect/.test(rule(".ait-glow")) && !/filter/.test(css) && /overflow:hidden;contain:strict/.test(rule(".ait-beam,.ait-glow")))
-  check("it turns only while the terminal is on screen and the tab visible", /\.ait-tw\[data-live\] \.ait-spin\{animation-play-state:running\}/.test(css) && /el\.parentElement\?\.toggleAttribute\("data-live", live\)/.test(src) && /visibilitychange/.test(src))
+  check("it turns only while the terminal is on screen and the tab visible", /\.ait-tw\[data-live\] \.ait-spin\{animation:ait-spin/.test(css) /* Changed on purpose (landing round 12, perf): the turn is put on while live, not resumed */ && /el\.parentElement\?\.toggleAttribute\("data-live", live\)/.test(src) && /visibilitychange/.test(src))
   check("reduced motion: the light stands still", /\.ait-spin\{animation:none!important;transform:rotate\(38deg\)\}/.test(css))
   const at = css.indexOf("@media (min-width:1024px) and (max-height:900px){")
   const laptop = css.slice(at, css.indexOf("\n}\n", at))
@@ -91,27 +90,7 @@ console.log("\n3. How it works: new pictures in the same row")
   const html = renderToStaticMarkup(createElement(HowItWorks))
   const text = words(html)
   const rule = (sel: string) => (css.match(new RegExp(`(?:^|\\n|\\})${sel.replace(/[.[\]=()*+?^$|\\/]/g, "\\$&")}\\{([^}]*)\\}`)) ?? [])[1] ?? ""
-  check("the structure stays: three cards, narrow, wide, narrow, the same captions", HOW_CARDS.map((c) => c.key).join() === "tips,business,domain" && [...html.matchAll(/class="cmh-card (cmh-wide|cmh-narrow)"/g)].map((m) => m[1]).join() === "cmh-narrow,cmh-wide,cmh-narrow" && HOW_CARDS.every((c) => text.includes(c.title) && text.includes(c.line)))
-  check("the old imagery is gone: rings, orbiting dots, hearts, toasts, the line chart, the reel", !/cmh-rings|cmh-arm|cmh-heart|cmh-toast|cmh-ch-|cmh-dm-reel|cmh-dm-band|cmh-dm-light/.test(html + css))
-  check("one quiet near white ground a card, flat", rule(".cmh-stage[data-ground=tips]") === "background:#f3f1f8" && rule(".cmh-stage[data-ground=business]") === "background:#f3f3f5" && rule(".cmh-stage[data-ground=domain]") === "background:#f5f2ee")
-  check("one white panel a picture, the same hairline and shadow on all three", /^\.cmh-tip-panel,\.cmh-biz-panel,\.cmh-dm-win\{background:#fff;box-shadow:0 0 0 1px rgba\(24,24,27,\.06\)/m.test(css))
-  // tips
-  const rows = [...html.matchAll(/<span class="cmh-tip-row"><i style="background:(#[0-9a-f]{6})">(\w)<\/i><span class="cmh-tip-w"><b>(\w+)<\/b>/g)].map((m) => m[3])
-  check("tips: the month's total over the latest tips, a list that repeats its first three rows", text.includes("Tips This month $1,284") && rows.join() === [...HOW_TIPS, ...HOW_TIPS.slice(0, 3)].map((t) => t.who).join())
-  const tk = kfBodies(css).find(([n]) => n === "cmh-tips")?.[1] ?? ""
-  const steps = [...tk.matchAll(/\* -(\d)\)/g)].map((m) => +m[1])
-  check("tips: the list steps down one row a tip, every three seconds, and ends where it began", HOW_TIP_EVERY_S === 3 && /animation-duration:15s/.test(rule(".cmh-tip-list")) && steps.join() === "5,4,4,3,3,2,2,1,1,0" && /transform:translate3d\(0,calc\(var\(--row\) \* -5\),0\)/.test(rule(".cmh-tip-list")))
-  check("tips: the window's mask never moves; only the list does", /mask-image:linear-gradient/.test(rule(".cmh-tip-win")) && !/animation/.test(rule(".cmh-tip-win")) && /class="cmh-a cmh-tip-list"/.test(html))
-  // business
-  check("business: thirty bars, today's in violet, rising once from their foot", (html.match(/<span class="cmh-bar"/g) ?? []).length === 30 && (html.match(/data-today=""/g) ?? []).length === 1 && /transform-origin:50% 100%;animation-name:cmh-rise/.test(rule(".cmh-bar>i")) && /\.cmh-bar\[data-today\]>i\{background:#8b5cf6\}/.test(css))
-  check("business: the reading glides to four days by transform, each day's sum crossfading", HOW_READ_DAYS.join() === "9,17,23,29" && (html.match(/class="cmh-a cmh-read-v" data-k="[0-3]"/g) ?? []).length === 4 && /@keyframes cmh-read\{0%\{transform:translate3d\(calc\(29 \* \(100% \+ var\(--gap\)\)\),0,0\)\}/.test(css) && [0, 1, 2, 3].every((k) => new RegExp(`@keyframes cmh-rv${k}\\{`).test(css)))
-  check("business: share bars fill once by a scale from the left", /transform-origin:0 50%;transform:scaleX\(var\(--s\)\);animation-name:cmh-fill/.test(rule(".cmh-share>i")) && /@keyframes cmh-fill\{from\{transform:scaleX\(0\)\}to\{transform:scaleX\(var\(--s\)\)\}\}/.test(css))
-  check("business: section 3's products and numbers, the countries adding up to 600 orders", text.includes("Cine Tones LUT Pack $11,194") && text.includes("Midnight Studio Tee $6,848") && text.includes("United States 330") && text.includes("$18,042.00"))
-  // domain
-  check("domain: his website in a browser, a workshop photograph on its front page, small and sized", html.includes('class="cmh-dm-win"') && new RegExp(`<img src="${HOW_DOMAIN_PHOTO}" alt="" width="640" height="420" loading="lazy" decoding="async"/>`).test(html) && existsSync(`public${HOW_DOMAIN_PHOTO}`) && statSync(`public${HOW_DOMAIN_PHOTO}`).size < 60 * 1024)
-  check("domain: the address is his Storelib address, then his own: '.storelib' fades and '.com' closes over it", /<span class="cmh-dm-name">lindewood<\/span><span class="cmh-a cmh-dm-cut">\.storelib<\/span><span class="cmh-a cmh-dm-com">\.com<\/span>/.test(html) && `${HOW_DOMAIN.name}.storelib.com` === HOW_DOMAIN.before && `${HOW_DOMAIN.name}.com` === HOW_DOMAIN.host && hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null)
-  check("domain: the distance is measured once and on resize, never in a frame", /function useDomainCut/.test(code) && /new ResizeObserver\(measure\)/.test(code) && /setProperty\("--dm-cut"/.test(code) && /var\(--dm-cut,4\.3em\)/.test(css))
-  check("domain: the address resets only while it is faded out", /@keyframes cmh-dm-text\{0%,88%\{opacity:1\}93%,95%\{opacity:0\}100%\{opacity:1\}\}/.test(css) && /94\.01%,100%\{transform:translate3d\(0,0,0\)\}/.test(css) && /42%,93\.5%\{opacity:0\}94%,100%\{opacity:1\}/.test(css))
+  // Changed on purpose (landing round 12): the owner replaced these pictures again (the real dashboard, a tip flow, a typed domain over a store); tests/home-landing-r12-how.test.ts pins them. What stays from round 11 is how they move.
   check("every keyframe moves transform and opacity only", kfBodies(css).length >= 10 && kfBodies(css).every(([, b]) => onlyCompositor(b)))
   check("every loop is paused off screen and in a hidden tab; reduced motion shows the finished frame", /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}\s*\.cmh-o\{animation:none!important\}/.test(css))
   check("the pictures take no pointer and hold nothing to press", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/pointer-events:auto/.test(css) && !/<(a|button|input|select)\b/.test(html) && !/addEventListener\("click"/.test(code))

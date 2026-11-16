@@ -80,7 +80,8 @@ console.log("\nHow it works")
 check("the heading and captions lean less on fans", () => {
   // Changed on purpose (landing round 7, the owner: "another heading, more clean and simple", in section 3's two tones).
   // Changed on purpose (landing round 9): a new heading, the products card being gone.
-  assert.deepEqual(HOW_HEADING, { lead: "Take tips. See what sells.", rest: "All on your own domain." })
+  // Changed on purpose (landing round 12): the owner asked for a better heading.
+  assert.deepEqual(HOW_HEADING, { lead: "See every sale as it happens.", rest: "Add tips and your own domain." })
   assert.ok(!/\bfans?\b/i.test(words(how)))
 })
 check("no Golden Hour presets, no camera picture, no purple gradient grounds", () => {
@@ -91,7 +92,8 @@ check("no Golden Hour presets, no camera picture, no purple gradient grounds", (
   // Changed on purpose (landing round 8): four light grounds, each a soft two stop tint, and the LUT cover's shade over its still; no violet anywhere.
   // Changed on purpose (landing round 10): the domain card's soft turning light and the mask that fades its endings are gradients too.
   // Changed on purpose (landing round 11): the gradients are the LUT cover's shade, the tip list's still mask and the shade over his website's photograph.
-  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(/^\s*(\.cmh-lut::(before|after)|\.cmh-tip-win|\.cmh-dm-page::after)$/.test(m[1].split("\n").pop()!), m[1])
+  // Changed on purpose (landing round 12): no CSS gradient at all; the chart's 15% to 0 fill is the app's own, an SVG gradient in the markup.
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(false, m[1])
   // Changed on purpose (landing round 9): flat grounds, so the only gradient is the LUT cover's shade; violet is the accent again (the owner: "more colorful"), never as a gradient.
   assert.ok(!/gradient\([^)]*#(7c3aed|8b5cf6|a855f7)/.test(css))
 })
@@ -99,7 +101,8 @@ check("no Golden Hour presets, no camera picture, no purple gradient grounds", (
 check("no products card; the top products are section 3's two", () => {
   assert.deepEqual(HOW_PRODUCTS.map((p) => p.id), ["luts", "tee"])
   const t = words(how)
-  assert.ok(!t.includes("Sell physical and digital products.") && !t.includes("Print cost") && t.includes("Top products"))
+  // Changed on purpose (landing round 12): the business picture is the real dashboard (its four figures), no Top products list.
+  assert.ok(!t.includes("Sell physical and digital products.") && !t.includes("Print cost") && t.includes("Conversion Rate"))
   assert.ok(!/Sell your own merch, no inventory/.test(t))
 })
 // Changed on purpose (landing round 9): no course card (the owner: another section shows what you can build).
@@ -158,7 +161,8 @@ check("no small print under How it works or the checkout tabs", () => {
 check("corners a pixel softer: cards 23px, tiles up to 27px, panels 31px", () => {
   assert.ok(/\.cc-photo\{[^}]*border-radius:23px/.test(CREATORS_CSS))
   // Changed on purpose (landing round 7): How it works takes section 3's corners, 17px on a phone and 19px from 768px.
-  assert.ok(/\.cmh-stage\{[^}]*border-radius:17px/.test(HOW_IT_WORKS_STYLES[0].css) && /\.cmh-stage,\.cmh-wide \.cmh-stage\{height:420px;border-radius:19px\}/.test(HOW_IT_WORKS_STYLES[0].css)) // Changed on purpose (landing round 9): one row of three taller pictures.
+  // Changed on purpose (landing round 12): no stage box any more; the pictures carry their own corners: the dashboard 16px as the app's cards, the creator page 18px.
+  assert.ok(/\.cmh-db\{[^}]*border-radius:16px/.test(HOW_IT_WORKS_STYLES[0].css) && /\.cmh-tp-page\{[^}]*border-radius:18px/.test(HOW_IT_WORKS_STYLES[0].css)) // Changed on purpose (landing round 9): one row of three taller pictures.
   /* Changed on purpose (landing round 8): the panel became four cards in a grid, 28px corners (24px on a phone). */
   assert.ok(/\.cmc-card\{[^}]*border-radius:28px/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
 })

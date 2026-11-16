@@ -9,7 +9,7 @@
  * the button does; the card decides how a plan looks.
  *
  * PRICING ROUND 5, DRAWN TO THE OWNER'S REFERENCE PICTURE. Three white cards
- * on a light grey ground. Each card holds a soft grey panel at its top with
+ * (on a light grey ground until landing round 12). Each card holds a soft grey panel at its top with
  * a small white pill (the plan's icon and name), the price large with
  * "/month" beside it, one line of at most seven words, and a full width
  * rounded button: outlined on Free and Pro, filled in Storelib purple on
@@ -21,6 +21,13 @@
  * The plan names people read are Free, Grow ($29, id `growth`) and Pro ($99,
  * id `pro`); the ids, the Stripe prices and the checkout never changed
  * (lib/billing/plans.ts).
+ *
+ * LANDING ROUND 12, THE OWNER: no light grey ground behind the cards, so the
+ * white cards sit on the page itself. Grow's icon is a line going up, not a
+ * plant. Free and Pro get the home page's dark button with its arrow (the
+ * earnings section's "Start earning", .cme-cta); Grow gets the white pill
+ * with a purple round arrow at its end (the creators section's "Start
+ * selling for free", .cc-cta). Grow's card is still the raised one.
  *
  * EVERY WORD IS TRUE. The lines come from components/marketing/pricing-lines,
  * written from the tables that enforce them, and tests/pricing-cards-r5.test.ts
@@ -43,8 +50,8 @@ import {
   Package,
   PenLine,
   Rocket,
-  Sprout,
   Store,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react"
 import { SWAP_EASE, SWAP_MS, TextSwap } from "@/components/ui/text-swap"
@@ -65,16 +72,17 @@ export interface PlanCardAction {
   current?: boolean
 }
 
-/** The plan in the middle, drawn raised with the filled purple button: Grow (id `growth`). */
+/** The plan in the middle, drawn raised with the white pill and its purple round arrow: Grow (id `growth`). */
 export const FEATURED_PLAN_ID: OfferedPlanId = PRO_CHECKOUT_PLAN_ID
 
-/** Storelib purple, the colour of the home page's primary button (components/marketing/hero). */
+/** Storelib purple, the colour of the home page's primary button (components/marketing/hero), and of Grow's round arrow. */
 export const PLAN_PURPLE = "#7c3aed"
 
 /** The icon in each plan's pill. */
 const PLAN_ICON: Record<OfferedPlanId, LucideIcon> = {
   free: Store,
-  growth: Sprout,
+  /* Landing round 12, the owner: not a plant. A line going up, which is what the plan is for. */
+  growth: TrendingUp,
   pro: Rocket,
 }
 
@@ -108,28 +116,53 @@ const PLAN_LINES = publicPlanLines()
 const SWITCH_MS = SWAP_MS
 const SWITCH_EASE = SWAP_EASE
 
+/** The arrow on the home page's dark buttons (earnings-calculator.tsx, .cme-cta). */
+function DarkArrow() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 transition duration-[250ms] ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-x-[3px] motion-reduce:transition-none">
+      <path d="M4 10h12M11 5l5 5-5 5" />
+    </svg>
+  )
+}
+
+/** The purple round arrow at the end of the creators section's pill (creators-carousel.tsx, .cc-cta-ic). */
+function PillArrow({ compact }: { compact?: boolean }) {
+  return (
+    <span aria-hidden="true" data-plan-arrow="" className={`absolute right-1.5 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-[#7c3aed] text-white ${compact ? "h-7 w-7" : "h-8 w-8"}`}>
+      <svg viewBox="0 0 16 16" width="15" height="15" className="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-x-[2px] motion-reduce:transition-none">
+        <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  )
+}
+
 function PlanButton({ action, featured, compact }: { action: PlanCardAction; featured: boolean; compact?: boolean }) {
+  const live = !action.settled && !action.loading
   const className =
-    `inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full px-5 ` +
+    `group relative inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full ${featured && !action.settled ? (compact ? "px-10" : "px-11") : "px-5"} ` +
     "text-[14px] no-underline select-none transition-[background-color,border-color,color,box-shadow] duration-200 " +
     "focus-visible:outline-none focus-visible:ring-4 " +
     (action.settled
       ? "border border-[#e4e4e7] bg-white font-medium text-[#6b7280] cursor-default"
       : featured
-        ? "bg-[#7c3aed] font-semibold text-white shadow-[0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-[#6d28d9] active:bg-[#5b21b6] focus-visible:ring-[#7c3aed]/30 disabled:cursor-not-allowed disabled:opacity-70"
-        : "border border-[#18181b] bg-white font-medium text-[#18181b] hover:bg-[#f4f4f5] active:bg-[#ebebed] focus-visible:ring-[#18181b]/15 disabled:cursor-not-allowed disabled:opacity-70")
+        ? "bg-white font-semibold text-[#18181b] shadow-[inset_0_0_0_1px_rgba(24,24,27,0.12),0_1px_2px_rgba(24,24,27,0.06),0_8px_24px_-14px_rgba(76,29,149,0.35)] hover:bg-[#faf8ff] hover:shadow-[inset_0_0_0_1px_rgba(124,58,237,0.28),0_1px_2px_rgba(24,24,27,0.06),0_10px_28px_-14px_rgba(76,29,149,0.45)] focus-visible:ring-[#7c3aed]/25 disabled:cursor-not-allowed disabled:opacity-70"
+        : "bg-[#0f0e13] font-semibold text-white hover:bg-[#2a2833] active:bg-[#2a2833] focus-visible:ring-[#18181b]/20 disabled:cursor-not-allowed disabled:opacity-70")
   const content = action.loading ? (
     <>
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       {tt("Processing")}
     </>
   ) : (
-    <span className="min-w-0 truncate">{action.label}</span>
+    <>
+      <span className="min-w-0 truncate">{action.label}</span>
+      {live ? featured ? <PillArrow compact={compact} /> : <DarkArrow /> : null}
+    </>
   )
+  const kind = action.settled ? "settled" : featured ? "pill" : "dark"
 
   if (action.href && !action.disabled && !action.settled) {
     return (
-      <Link href={action.href} className={className} data-plan-action data-plan-button={featured ? "filled" : "outline"}>
+      <Link href={action.href} className={className} data-plan-action data-plan-button={kind}>
         {content}
       </Link>
     )
@@ -142,7 +175,7 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
       aria-busy={action.loading || undefined}
       className={className}
       data-plan-action
-      data-plan-button={action.settled ? "settled" : featured ? "filled" : "outline"}
+      data-plan-button={kind}
     >
       {content}
     </button>
@@ -196,9 +229,10 @@ function PlanCard({
           : "shadow-[0_1px_2px_rgba(24,24,27,0.04)]"
       } ${pick ? "cursor-pointer" : ""}`}
     >
-      <div data-plan-panel="" className={`flex flex-col rounded-[18px] bg-[#f4f4f5] ${compact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5 sm:px-6 sm:pb-6"}`}>
+      {/* Landing round 12, the owner: no light grey on the cards either. The top panel is white, set off from the lines by a hairline. */}
+      <div data-plan-panel="" className={`flex flex-col rounded-t-[18px] border-b border-[#ececef] bg-white ${compact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5 sm:px-6 sm:pb-6"}`}>
         <div className="flex items-center justify-between gap-3">
-          <span data-plan-pill="" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white pl-2.5 pr-3 shadow-[0_1px_2px_rgba(24,24,27,0.06)]">
+          <span data-plan-pill="" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white pl-2.5 pr-3 ring-1 ring-[#e7e7e9]">
             <Icon className="h-[15px] w-[15px] text-[#18181b]" strokeWidth={1.75} aria-hidden="true" />
             <Name className="text-[13.5px] font-medium leading-none text-[#18181b]">{plan.name}</Name>
           </span>
@@ -328,8 +362,8 @@ export function PlanCards({
           <IntervalSwitch value={interval} onChange={pick} />
         </div>
       )}
-      {/* The light grey ground the three cards (and the contact bar) sit on, as in the reference. */}
-      <div data-plan-ground="" className={`mx-auto w-full ${compact ? "max-w-[980px] rounded-[24px] p-2 sm:p-3" : "max-w-[1180px] rounded-[28px] p-2.5 sm:p-5 lg:p-7"} bg-[#efeff0] ${className}`}>
+      {/* What the three cards (and the contact bar) sit in. Landing round 12, the owner: no light grey ground behind them any more (it was #efeff0, padded); the row keeps its width, so the cards take the room the ground had. */}
+      <div data-plan-ground="" className={`mx-auto w-full ${compact ? "max-w-[980px]" : "max-w-[1180px]"} ${className}`}>
         <div data-plan-cards className={`grid w-full grid-cols-1 md:grid-cols-3 items-stretch ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"} md:pt-2`}>
           {OFFERED_PLANS.map((plan) => (
             <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>

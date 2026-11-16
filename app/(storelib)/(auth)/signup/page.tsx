@@ -222,6 +222,25 @@ function SignUpFormContent() {
     }
   }, [prefilledEmail])
 
+  /*
+    CONTINUE PRESSED FOR THEM. The home page's closing call (landing round 12,
+    components/marketing/home/final-cta.tsx) asks for the email and sends
+    ?email=...&start=1: once the address is in the field this presses
+    Continue once, through the form itself (handleContinue), so it checks the
+    address and moves on to the password, or to Log in with the address kept
+    when the account exists. Never for an invite, never while a session may
+    be there (that page sends a signed in person on), never twice.
+  */
+  const autoStart = searchParams.get("start") === "1"
+  const autoStarted = useRef(false)
+  const formRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (!autoStart || autoStarted.current || !prefilledEmail || inviteEmail || maybeSignedIn || authGateLoading || nativeAuthInProgress) return
+    if (showPasswordField || email !== prefilledEmail || !/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(prefilledEmail.trim())) return
+    autoStarted.current = true
+    formRef.current?.requestSubmit()
+  }, [autoStart, prefilledEmail, inviteEmail, maybeSignedIn, authGateLoading, nativeAuthInProgress, showPasswordField, email])
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -667,7 +686,7 @@ function SignUpFormContent() {
           {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
           <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Create your account as ${inviteEmail} to accept the invite.` : t(carry.intent ? "auth.signup_subtitle_sell" : "auth.signup_subtitle")}</p>
 
-          <form onSubmit={handleContinue} className="space-y-4">
+          <form ref={formRef} onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
               {/* Named for a screen reader and a browser agent; the placeholder says the same to the eye. */}
               <label htmlFor="email" className="sr-only">

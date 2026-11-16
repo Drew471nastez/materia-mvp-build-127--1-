@@ -7,10 +7,8 @@
  * The owner, after round 7:
  *   - Website builder: "change the cover picture; make the brand more
  *     realistic, more bold, more clean, more colorful, more funky, more
- *     great, more cool, like a real Storelib store". Mondo Mango, an invented
- *     merch label: a fat 70s wordmark (a picture, so no webfont is loaded), a
- *     wall of colour photographs for a hero, and the drop on white with the
- *     wordmark printed on a crewneck, a trucker cap, a tee and a tote.
+ *     great, more cool, like a real Storelib store". An invented merch label
+ *     (replaced in landing round 12 by the owner's own GodBless store).
  *   - Community: "instead of the SR avatar, add a more realistic icon for the
  *     community" and "the cover should have bold text, like yellow, that
  *     represents the community; make it real". A barbell emblem in black on
@@ -22,7 +20,7 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { IDEAS_STYLES, IDEAS_TABS, IdeasComeToLife } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, BUILDER_DURATION_MS, CommunityMock, LoudlibSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, BUILDER_DURATION_MS, CommunityMock, GodBlessSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let failed = 0
 let passed = 0
@@ -42,20 +40,24 @@ const F = {
   builders: "components/marketing/home/showcase-mocks/builder-mocks.tsx",
 }
 const ideasCss = IDEAS_STYLES.find((s) => s.href === "w12-ideas")?.css ?? ""
-const site = renderToStaticMarkup(createElement(LoudlibSite))
+const site = renderToStaticMarkup(createElement(GodBlessSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 const cm = renderToStaticMarkup(createElement(CommunityMock))
 
-console.log("\nThe website builder shows loudlib")
-// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone with its pictures and the builder shows loudlib alone (tests/home-landing-r11-top.test.ts).
-check("its name in the builder's bar, its own address in Publish", wb.includes('<b class="wx-name">loudlib</b>') && wb.includes('<b class="wx-pub-host">loudlib.net</b>'))
-check("no webfont to load", !/fonts\.googleapis|Shrikhand|@font-face/.test(BUILDER_CSS + read(F.builders)))
-check("Mondo Mango and its pictures are gone", !/Mondo Mango|mondomango|MondoMango/.test(code(F.builders) + code(F.ideas)) && ["mm-studio", "mm-logo", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => !existsSync(pic(n))))
-check("a cover: one picture in the hero", (site.match(/ll-hero\.webp/g) ?? []).length === 1)
-check("every picture is real, webp and under 120 KB", ["ll-hero", "ll-serum", "ll-tech-house", "ll-drums", "ll-midi"].every((n) => small(n) && site.includes(`/home/showcase/${n}.webp`)))
+console.log("\nThe website builder shows a real store")
+// Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
+check("its name in the builder's bar, its own address in Publish", wb.includes('<span class="bm-s1">GodBless</span>') && wb.includes('<span class="bm-s1">godbless.storelib.com</span>'))
+// Changed on purpose (landing round 12): the store's condensed heading face ships as a small self-hosted subset (gb-oswald.woff2); still nothing from a font service.
+check("a wordmark in the middle of the header, drawn as a picture", /class="smk-pic gb-logo"/.test(site) && site.includes("/home/showcase/gb-logo.webp") && /\.gb-logo\{position:absolute;left:50%;top:50%;[^}]*background:none!important;transform:translate\(-50%,-50%\)\}/.test(BUILDER_CSS) && !/fonts\.googleapis|Shrikhand/.test(BUILDER_CSS + read(F.builders)))
+check("the header's links, small and in capitals", ["Home", "Shop all", "About us", "Search", "Account", "Cart (0)"].every((w) => site.includes(w)) && /\.gb-links\{[^}]*text-transform:uppercase/.test(BUILDER_CSS))
+check("a cover: one photograph in the hero", (site.match(/gb-hero\.webp/g) ?? []).length === 1 && /class="smk-pic gb-photo"/.test(site) && !/pw-hero|Everyday cotton|Porto/.test(site + read(F.builders)))
+const prices = [...site.matchAll(/<span class="gb-price">\$(\d+)\.00<\/span>/g)].map((m) => Number(m[1]))
+check("a jacket, two tees and a hoodie, priced like real clothes", prices.length === 4 && prices.every((p) => p >= 15 && p <= 150) && ["Camo X Boxy Jacket", "Green Basic Tshirt", "Charcoal Classic Hoodie", "Brown Tshirt Basic"].every((n) => site.includes(n)))
+check("every picture is real, webp and under 120 KB", ["gb-hero", "gb-logo", "gb-camo", "gb-green", "gb-hoodie", "gb-brown"].every((n) => small(n) && site.includes(`/home/showcase/${n}.webp`)))
 check("Plain Weather and its pictures are gone", !/Plain Weather|plainweather|PlainWeather|\bpw-/.test(code(F.builders) + code(F.ideas)) && ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => !existsSync(pic(n))))
-check("the shop is white with no gradient", /\.ll\{[^}]*background:#fff;/.test(BUILDER_CSS) && !/\.ll[^{]*\{[^}]*gradient/.test(BUILDER_CSS))
-check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2 && /class="bm-ring wx-ring-a"/.test(wb) && /class="bm-ring wx-ring-b"/.test(wb) && /\.bm-ring\.wx-ring-b\{opacity:0\}/.test(BUILDER_CSS))
+check("the page is white", /\.gb\{[^}]*background:#fff;/.test(BUILDER_CSS))
+// Changed on purpose (landing round 11): two sites, so two pairs of rings.
+check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4 && /class="wx-sel wx-ring-a"/.test(wb) && /class="wx-sel wx-ring-b"/.test(wb) && /\.wx-sel\.wx-ring-b\{opacity:0\}/.test(BUILDER_CSS))
 
 console.log("\nThe Strength Room: a real emblem, a banner for a cover")
 const mark = cm.match(/<svg class="cx-mark"[\s\S]*?<\/svg>/)?.[0] ?? ""
@@ -69,9 +71,8 @@ const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
 check("three pill tabs on the grey track", IDEAS_TABS.map((t) => t.title).join() === "Website builder,OnePage editor,Community" && /\.ideas-tabs\{[^}]*border-radius:999px;background:#f1f1f2/.test(ideasCss) && (ideas.match(/role="tab"/g) ?? []).length === 3)
 check("the same autoplay clock (one 8.4 s moment per tab)", BUILDER_DURATION_MS === 8400 && /\.ideas\[data-run\] \.smk-clock\[data-on\]\{animation-play-state:running\}/.test(ideasCss))
 check("the picture keeps its 1280 x 752 shape, so the section keeps its height", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss) && /\.bm-frame>\.smk\{--w:1280\}/.test(BUILDER_CSS))
-check("nothing new moves: the store and the emblem are still pictures", !/@keyframes sxk-ll|@keyframes sxk-cx-mark/.test(BUILDER_CSS) && !/\.ll[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS)) // Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone with its pictures and the builder shows loudlib alone (tests/home-landing-r11-top.test.ts).
-// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone with its pictures and the builder shows loudlib alone (tests/home-landing-r11-top.test.ts).
-check("the alt text tells the new story", /loudlib/.test(IDEAS_TABS[0].alt) && !/Mondo Mango/.test(IDEAS_TABS[0].alt) && /barbell emblem/.test(IDEAS_TABS[2].alt) && !/Plain Weather/.test(IDEAS_TABS.map((t) => t.alt).join()))
+check("nothing new moves: the store and the emblem are still pictures", !/@keyframes sxk-gb|@keyframes sxk-cx-mark/.test(BUILDER_CSS) && !/\.gb[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS))
+check("the alt text tells the new story", /GodBless/.test(IDEAS_TABS[0].alt) && /barbell emblem/.test(IDEAS_TABS[2].alt) && !/Plain Weather/.test(IDEAS_TABS.map((t) => t.alt).join()))
 
 console.log("\nCopy")
 const all = code(F.ideas) + code(F.builders)

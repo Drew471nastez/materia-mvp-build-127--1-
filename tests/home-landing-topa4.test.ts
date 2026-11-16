@@ -74,7 +74,8 @@ check("The Strength Room in Pinch Grip Club's place", /a-strength\.webp/.test(al
 /* Changed on purpose (landing round 11): the owner asked for loudlib, their own sample pack store, and their own Tideline merch picture (a surf label's tees); still no surf coach, yoga or sourdough. */
 check("no yoga, surf coach or sourdough", !/stillwater|yoga|hemi|surf coach|lowtide|slowrise|sourdough/i.test(all))
 /* Changed on purpose (landing round 8): the owner did not like the nail artist, the coffee subscription or the language club; Mara Lind's bookings, Luca Brandt's Grade Club and Seed & Soil take their places (tests/home-landing-r8-rails.test.ts). */
-check("Gia Romano is there, and Gia's ebook is not Weeknight Pasta", /a-gia\.webp/.test(all) && !/weeknight/i.test(all + showcaseSrc))
+// Changed on purpose (landing round 12): the owner disliked Gia Romano's page and it is gone (tests/home-landing-r12-rails.test.ts).
+check("Gia Romano is gone, and no Weeknight Pasta", !/a-gia\.webp/.test(all) && !/weeknight/i.test(all + showcaseSrc))
 /* Changed on purpose (landing round 11): the owner did not like Kai Moreno and asked for loudlib in place of The Long Draft. */
 check("Kai Moreno and The Long Draft are gone, a podcast's OnePage and loudlib in their places", ["otc", "loud"].every((k) => all.includes(`/home/showcase/a-${k}.webp`)) && !/a-kai|a-draft|Kai Moreno|Long Draft/.test(all))
 check("every picture exists at its size's budget", SHOWCASE_EXAMPLES.every((e) => existsSync(join(root, "public", e.src)) && statSync(join(root, "public", e.src)).size < 120_000))

@@ -83,7 +83,8 @@ const turn = keyframes("cmc-orbit")
 // Changed on purpose (landing round 11): the height on the ring is in the products' own unit (--iw).
 check("a whole turn round the ring's vertical axis, out to the ring, turned back to face the viewer", /rotateY\(calc\(var\(--a\) \+ 0deg\)\) translate3d\(0,calc\(var\(--iw\) \* var\(--y\)\),var\(--r\)\) rotateY\(calc\(var\(--a\) \* -1 - 0deg\)\)/.test(turn) && /rotateY\(calc\(var\(--a\) \+ 360deg\)\) translate3d\(0,calc\(var\(--iw\) \* var\(--y\)\),var\(--r\)\) rotateY\(calc\(var\(--a\) \* -1 - 360deg\)\)/.test(turn))
 /* Changed on purpose (wave 17): the stage wakes a screen ahead (it popped in on an iPhone recording); still paused off screen beyond that and in a hidden tab. */
-check("  running by itself, slowly and evenly (linear, 44s a turn), paused off screen and in a hidden tab", /\.cmc-o\{animation:cmc-orbit 44s linear infinite;animation-play-state:paused\}/.test(css) && /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /const \[stageRef\] = useCommerceLive<HTMLDivElement>\("100% 0px", false\)/.test(src))
+// Changed on purpose (landing round 12): half a screen ahead, and paused once the cards cover the stage.
+check("  running by itself, slowly and evenly (linear, 44s a turn), paused off screen and in a hidden tab", /\.cmc-o\{animation:cmc-orbit 44s linear infinite;animation-play-state:paused\}/.test(css) && /\.cmc:not\(\[data-cmc-covered\]\) \.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /const \[stageRef\] = useCommerceLive<HTMLDivElement>\("50% 0px", false\)/.test(src))
 check("  will-change only while the stage is on screen", (css.match(/will-change:/g) ?? []).length === 1)
 check("  each starts at its own place on the ring, spread round it", FLOATS.every((f) => f.d.p >= 0 && f.d.p < 1) && new Set(FLOATS.map((f) => f.d.p)).size === FLOATS.length && FLOATS.slice(1).every((f, i) => f.d.p - FLOATS[i].d.p > 0.1) && /--a:calc\(var\(--p\) \* 360deg\)/.test(css))
 // Changed on purpose (landing round 11): the owner: the products must not overlap the phone. The ring is a 3D space of its own, set back by its radius and drawn under the phone, so a product passes beside and behind it, never across its screen.
@@ -101,7 +102,8 @@ check("plus the scroll: it turns the ring 26 degrees either way over the scene, 
 
 console.log("\n3. Physical and digital products a creator sells")
 const ids = FLOATS.map((f) => f.id)
-check("three physical (a tee, a cap, a tote) and four digital (the LUT pack, a course, an e-book, a Notion template)", ids.join() === "tee,luts,cap,course,tote,ebook,notion" && FLOATS.filter((f) => f.kind === "physical").length === 3 && FLOATS.filter((f) => f.kind === "digital").length === 4 && (stage.match(/data-kind="digital"/g) ?? []).length === 4)
+// Changed on purpose (landing round 12): totes are never on the page now; the third photograph is a beanie.
+check("three physical (a tee, a cap, a beanie) and four digital (the LUT pack, a course, an e-book, a Notion template)", ids.join() === "tee,luts,cap,course,beanie,ebook,notion" && FLOATS.filter((f) => f.kind === "physical").length === 3 && FLOATS.filter((f) => f.kind === "digital").length === 4 && (stage.match(/data-kind="digital"/g) ?? []).length === 4)
 check("  mixed round the ring: no two physical products next to each other", FLOATS.every((f, i) => f.kind === "digital" || FLOATS[(i + 1) % FLOATS.length].kind === "digital"))
 check("  the physical ones are photographs with their grounds cut away (webp with alpha, under 30 KB)", FLOATS.filter((f) => f.kind === "physical").every((f) => {
   const p = `public${f.img!.src}`
@@ -137,9 +139,11 @@ check("  paid covers the window and the seller's notice sits at its top right", 
 // Changed on purpose (landing round 11): the whole phone in the square, nothing panned.
 check("One-tap: the whole phone in the box, beside the three ways to pay", /\.cmv-phone\{left:1\.4em;top:1\.4em;--pw:calc\(100cqw \* 14 \/ 32\)\}/.test(phoneCss) && !/cmv-pan/.test(css))
 // Changed on purpose (landing round 11): square pictures fit the square box.
-check("currencies: both tiles and all seven chips", !/\.cv-pic\{aspect-ratio:4\/3\}/.test(phoneCss) && /\.cv-pic\{display:block;aspect-ratio:1;/.test(css) && !/\.cv-chip\{flex-direction:column/.test(css))
+// Changed on purpose (landing round 12): the square is drawn by padding, so nothing in it can make the tiles outgrow the picture.
+check("currencies: both tiles and all seven chips", !/\.cv-pic\{aspect-ratio:4\/3\}/.test(phoneCss) && /\.cv-pic\{position:relative;display:block;width:100%;height:0;padding-bottom:100%;/.test(css) && !/\.cv-chip\{flex-direction:column/.test(css))
 // Changed on purpose (landing round 11): re-laid for the square box.
-check("the reminder: the rail, the email and the Recovered tile", /\.cmv-mail\{left:1\.2em;width:18\.6em;/.test(phoneCss) && /\.cmv-got\{left:20\.6em;right:1\.2em;/.test(phoneCss))
+// Changed on purpose (landing round 12): the Recovered tile is gone; the email runs across the square.
+check("the reminder: the rail and the email", /\.cmv-mail\{left:1\.6em;right:1\.6em;/.test(phoneCss) && !/\.cmv-got/.test(phoneCss))
 
 console.log("\n8. Shorter lines under the cards' titles")
 const BEFORE: Record<string, number> = { convert: 93, tap: 94, currency: 74, recover: 113 }
@@ -158,10 +162,14 @@ check("the loops' shared settings never outrank a demo's own (so its timing appl
 
 console.log("\n10. The reminder: what it brought back")
 const rec = card("recover")
-check("a Recovered tile beside the email: an amount, a rising line, how many came back", /class="cmv-got"/.test(rec) && words(rec).includes("Recovered") && words(rec).includes("13 of 41 came back") && /<svg viewBox="0 0 120 56" preserveAspectRatio="none">/.test(rec) && /\.cmv-mail\{position:absolute;left:3\.2em;width:22\.4em;/.test(css) && /\.cmv-got\{position:absolute;left:26\.6em;right:3\.2em;/.test(css))
-check("  the sums: thirteen $32.00 tees, this one the thirteenth", 12 * 3200 === 38400 && 13 * 3200 === 41600 && TEE.price === "$32.00" && words(rec).includes("$384.00") && words(rec).includes("$416.00") && words(rec).includes("+$32.00"))
-check("  violet, never green, here or in the checks", /stroke="#a78bfa"/.test(rec) && !/#4ade80|#30d158|#22c55e|#16a34a|green/i.test(css + rec))
-check("  the line is drawn by sliding its cover away (transform), the amount steps up once paid (opacity)", onlyCompositor(keyframes("cmv-wipe")) && onlyCompositor(keyframes("cmv-n0")) && onlyCompositor(keyframes("cmv-n1")) && !/stroke-dashoffset/.test(css))
+// Changed on purpose (landing round 12): the owner: "get rid of the recovered chart/stats entirely".
+check("no Recovered tile: no amount, no line, no count", !/cmv-got/.test(rec) && !words(rec).includes("Recovered") && !words(rec).includes("came back") && !/viewBox="0 0 120 56"/.test(rec) && /\.cmv-mail\{position:absolute;left:8em;right:8em;/.test(css))
+// Changed on purpose (landing round 12): no sums, the tile is gone.
+check("  no sums left", TEE.price === "$32.00" && !words(rec).includes("$384.00") && !words(rec).includes("$416.00"))
+// Changed on purpose (landing round 12): no violet line to find, the chart is gone; still never green.
+check("  never green, here or in the checks", !/#4ade80|#30d158|#22c55e|#16a34a|green/i.test(css + rec))
+// Changed on purpose (landing round 12): the chart's loops are gone with it.
+check("  the chart's loops are gone, and nothing animates a stroke", !/@keyframes cmv-(wipe|n0|n1)\{/.test(css) && !/stroke-dashoffset/.test(css))
 check("  the email keeps the reminder's own words", read("lib/physical/email-templates.ts").includes("Still thinking it over?") && words(rec).includes("If the payment failed or something looked off, you can pick up where you left off."))
 
 console.log("\n11. Orbs over the four cards, barely visible")
