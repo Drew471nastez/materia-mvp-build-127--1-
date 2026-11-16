@@ -54,7 +54,8 @@ console.log("\n── AI tools: quieter dots, a slower, softer light ──")
   const rule = (sel: string) => (css.match(new RegExp(`(?:^|\\n|\\})${sel.replace(/[.[\]=()*+?^$|\\/]/g, "\\$&")}\\{([^}]*)\\}`)) ?? [])[1] ?? ""
   const dots = rule(".ait-dots")
   const alpha = Number(/rgba\(255,255,255,(\.\d+)\) 0/.exec(dots)?.[1] ?? 1)
-  check("the dots a third as strong: .085 (was .24)", alpha === 0.085, alpha)
+  // Changed on purpose (landing round 13): the owner: "still too strong", .055 (tests/home-landing-r13-lower.test.ts).
+  check("the dots a third as strong or less: .055 (was .24, then .085)", alpha === 0.055, alpha)
   const spin = rule(".ait-spin")
   // Changed on purpose (landing round 12, perf): the turn is put on only while live (no paused animation holding two layers off screen), pinned in tests/home-landing-r12-perf.test.ts.
   check("one lap in 26s (was 9s), linear, still off screen", /\.ait-tw\[data-live\] \.ait-spin\{animation:ait-spin 26s linear infinite\}/.test(css) && !/animation/.test(spin))
@@ -161,7 +162,8 @@ console.log("\n── Footer: a solid mark ──")
   const footer = renderToStaticMarkup(createElement(MarketingFooter))
   const mark = /<svg[^>]*data-storelib-logo="solid"[\s\S]*?<\/svg><\/svg>|<svg[^>]*data-storelib-logo="solid"[\s\S]*?<\/svg>/.exec(footer)?.[0] ?? ""
   check("the footer draws the solid mark at 40px, not the picture", /width="40" height="40"/.test(mark) && !/<img[^>]*data-storelib-logo/.test(footer))
-  check("a white square with the S cut out of it (a mask), no outline", /<rect width="200" height="200" rx="35" fill="currentColor" mask="url\(#storelib-solid-cut\)"/.test(footer) && /<mask id="storelib-solid-cut"/.test(footer) && /fill="#000"/.test(footer) && !/stroke=/.test(mark))
+  // Changed on purpose (landing round 13): the owner: a white S on a near black square with depth, a dark app icon (tests/home-landing-r13-lower.test.ts).
+  check("a solid mark, no picture, no drawn outline", /<rect width="200" height="200" rx="35" fill="url\(#storelib-solid-ground\)"/.test(footer) && !/stroke=/.test(mark))
   check("white on the footer's black", /color:#fff/.test(mark))
   check("every other place still draws the picture", /<img[^>]*data-storelib-logo=""/.test(renderToStaticMarkup(createElement(StorelibLogo, { size: 32 }))))
 }

@@ -99,7 +99,8 @@ check("the tee is $32 and the pack $29, as in section 3", HOW_PRODUCTS[1].priceC
 // Changed on purpose (landing round 9): three cards on flat lilac, paper and peach (the owner: "too grey").
 // Changed on purpose (landing round 11): one quiet near white ground a card, named for its card.
 // Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
-check("no grounds behind the pictures, nothing drifting", !/data-ground=/.test(how) && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
+// Changed on purpose (landing round 13): the owner asked for round 11's grey stages again, so each picture has its quiet ground; still nothing drifting.
+check("a quiet ground a picture, nothing drifting", (how.match(/data-ground="/g) ?? []).length === 3 && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
 // Changed on purpose (landing round 9): the owner asked for more colour: Storelib's violet (#8b5cf6) is the accent and the hearts are five colours; still no gradient of violet and no green.
 // Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
 check("no violet gradient in the section", !/gradient\([^)]*#(8b5cf6|7c3aed)/.test(howCss))
