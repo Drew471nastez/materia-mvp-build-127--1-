@@ -1,8 +1,9 @@
 import Image from "next/image"
 import type { CSSProperties } from "react"
 import { STORELIB_LOGO, STORELIB_LOGO_GROUND, STORELIB_LOGO_SHADOW, storelibLogoRadius } from "@/lib/brand/logo"
+import { STORELIB_S_PATH, STORELIB_S_TRANSFORM } from "@/components/storelib-mark"
 
-/* Landing round 11, the owner: "the Storelib icon in the footer should not be outlined like that". Round 9's white line art is gone; the footer draws the picture like every other place. */
+/* Landing round 11, the owner: "the Storelib icon in the footer should not be outlined like that". Round 9's white line art is gone. Landing round 12: the footer draws the solid mark (variant "solid", below); every other place draws the picture. */
 
 /**
  * ===========================================================================
@@ -41,6 +42,7 @@ export function StorelibLogo({
   fluid = false,
   unoptimized = false,
   style,
+  variant = "picture",
   ...rest
 }: {
   size: number
@@ -50,7 +52,45 @@ export function StorelibLogo({
   fluid?: boolean
   unoptimized?: boolean
   style?: CSSProperties
+  /**
+   * "solid": one flat colour, no picture (landing round 12, the owner, for
+   * the black marketing footer: a solid mark like Shopify's, not outlined
+   * and not the colour logo). The square is filled in `currentColor` (white
+   * by default) and the S is cut out of it, so the footer's own black shows
+   * through the letter, the way Shopify's white bag carries its S. Same box,
+   * same 7px corner, same letter (components/storelib-mark). Every other
+   * place draws the picture.
+   */
+  variant?: "picture" | "solid"
 } & { [data: `data-${string}`]: string | undefined }) {
+  if (variant === "solid") {
+    /* 200 units to the square, the corner the same share of it as the picture's. */
+    const corner = (storelibLogoRadius(size) * 200) / size
+    return (
+      <svg
+        {...rest}
+        viewBox="0 0 200 200"
+        width={size}
+        height={size}
+        role={alt ? "img" : undefined}
+        aria-label={alt || undefined}
+        aria-hidden={alt ? undefined : true}
+        focusable="false"
+        data-storelib-logo="solid"
+        className={className}
+        style={{ ...(fluid ? null : { width: size, height: size }), flexShrink: 0, color: "#fff", ...style }}
+      >
+        <mask id="storelib-solid-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200">
+          <rect width="200" height="200" fill="#fff" />
+          {/* The S in its own box, a fifth larger and centred, as it sits in the picture. data-keep-transform: globals.css flattens transforms inside a `.group` on touch screens, and this one places the S. */}
+          <svg x={43.3} y={31.6} width={113.4} height={136.8} viewBox="54 43 94.5 114" overflow="visible">
+            <path d={STORELIB_S_PATH} transform={STORELIB_S_TRANSFORM} fill="#000" data-keep-transform="" />
+          </svg>
+        </mask>
+        <rect width="200" height="200" rx={corner} fill="currentColor" mask="url(#storelib-solid-cut)" />
+      </svg>
+    )
+  }
   return (
     <Image
       {...rest}

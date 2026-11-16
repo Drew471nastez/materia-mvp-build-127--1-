@@ -83,7 +83,7 @@ console.log("\n── Connect your favorite apps: edge to edge ──")
   check("no solid white strip: the icons run the whole screen", !/--solid/.test(css) && !/1210px/.test(css))
   check("the fades are short ramps at the screen's edges", /\.rows::before,\s*\.rows::after \{[\s\S]*?width: clamp\(40px, 11vw, 220px\);/.test(css))
   // Changed on purpose (landing round 11): the owner asked for a smaller gap; the sets are longer, so 1/12 of the screen still never shows an icon twice.
-  check("no icon seen twice, at any width: a tile and its gap are at least 1/12 of the screen", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1) && /--gap: max\(20px, calc\(100vw \/ 12 - var\(--tile\)\)\);/.test(css))
+  check("no icon seen twice, at any width: a tile and its gap are at least 1/12 of the screen", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1) && /--gap: max\(20px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css)) // Changed on purpose (landing round 12): 1/13 of the screen now.
   check("standing still (reduced motion), the icons sit close again", /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.tile \{\s*margin-right: var\(--row-gap\);/.test(css))
   check("the heading in the shared box, set in like the showcase's", /<div class="home-wrap"><div class="[^"]*ml-\[var\(--home-head-inset,14px\)\]/.test(html) && !/max-w-\[1400px\]/.test(src))
 }

@@ -1552,6 +1552,8 @@ const SUITES = [
   "tests/home-landing-r12-rails.test.ts",
   /* Landing round 12, how: "See every sale as it happens." over the real /app dashboard (its figures rolling in and ticking up, every number agreeing), a $5 tip picked, paid and thanked on Ruben's creator page, and www.fernlyn.com typed over a store's front page with a green check; full width, no box round a picture. */
   "tests/home-landing-r12-how.test.ts",
+  /* Landing round 12, close: the AI tools card's dots a third as strong and its light slower and softer; the closing call's dots scattered (seeded) with an email field that goes straight to sign up (Dashboard when signed in); the plan cards off their grey ground with dark buttons and Grow's white pill; the apps' gap 1/13 of the screen; the footer's solid mark. */
+  "tests/home-landing-r12-close.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

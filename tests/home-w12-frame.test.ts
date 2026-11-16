@@ -110,7 +110,7 @@ async function main() {
     /* Changed on purpose (wave 13): the owner found it faded in and too tall. It is now a plain, short band: no card, no rise, no light, no receipts. */
     /* Changed on purpose (landing round 4): a new closing line on the dark close. */
     /* Changed on purpose (landing round 5): the owner asked to remove the "See creators on Storelib" button, so one way in is left. */
-    check("a headline, a line and one way in", /<h2[^>]*id="fcta-title"[^>]*>Start selling <em>what you make\.<\/em><\/h2>/.test(html) && /href="\/signup\?intent=sell"[^>]*>Start free/.test(html) && !/fcta-secondary/.test(html))
+    check("a headline, a line and one way in", /<h2[^>]*id="fcta-title"[^>]*>Start selling <em>what you make\.<\/em><\/h2>/.test(html) && /<form [^>]*action="\/signup" method="get"><input type="hidden" name="intent" value="sell"\/>[\s\S]*?<button type="submit" class="fcta-btn fcta-primary">Start free/.test(html) /* Changed on purpose (landing round 12): the way in is the email field, its button Start free */ && !/fcta-secondary/.test(html))
     check("the old Your next chapter starts here is not used", !/Your next chapter/.test(code("components/marketing/home/final-cta.tsx")))
     /* Changed on purpose (landing round 4): the section itself still has no fade or rise; its only motion is the dot grid's light (dot-field.tsx), paused off screen. */
     check("no fade, no rise, no animation at all", !/@keyframes|animation|opacity|IntersectionObserver|data-armed/.test(src))
@@ -135,7 +135,7 @@ async function main() {
     const html = renderToStaticMarkup(createElement(MarketingFooter))
     // Changed on purpose (landing round 9): the footer wears the white outline mark, not the violet picture.
     // Changed on purpose (landing round 11): the owner, "the Storelib icon in the footer should not be outlined": the app icon again.
-    check("dark, with the logo", /class="storelib-footer[^"]*text-white/.test(html) && /<StorelibLogo size=\{40\} \/>/.test(src))
+    check("dark, with the logo", /class="storelib-footer[^"]*text-white/.test(html) && /<StorelibLogo size=\{40\} variant="solid" \/>/.test(src)) // Changed on purpose (landing round 12): the footer draws the solid mark, still 40px.
     /* Changed on purpose (landing round 3): four columns, as in the owner's picture; the same links. */
     check("four link groups and the legal row", ["Product", "Sell", "Resources", "Support", "Legal"].every((g) => html.includes(`aria-label="${g}"`)))
     check("the links are the footer's real ones", ["/explore", "/pricing", "/alternatives", "/features", "/developers", "/blog", "/terms", "/privacy", "/faq", "/sell/digital-products"].every((h) => html.includes(`href="${h}"`)))
