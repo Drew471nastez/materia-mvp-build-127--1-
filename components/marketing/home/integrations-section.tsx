@@ -102,6 +102,10 @@
     gap      "reduce the horizontal gap between each icon a little more":
              a tile and its gap now take 1/12 of the screen, not 1/10.5
              (the module's --gap), possible because each set is longer.
+
+  Landing round 12, the owner: the gap "a little more" smaller again. A
+  tile and its gap take 1/13 of the screen: the shorter row has 14 tiles,
+  13 steps of 1/13 are exactly a screen, so no icon is still seen twice.
 */
 
 import { useEffect, useMemo, useRef, type CSSProperties, type ComponentType } from "react"
@@ -183,8 +187,8 @@ const SECONDS_PER_TILE = 4
 export const PLATFORM_INTEGRATION_APPS = ROWS.flatMap((r) => r.map((a) => ({ name: a.name, logo: a.logo ?? null })))
 /** The rows' sets, for tests: no row may be narrow enough to show a tile twice. */
 export const INTEGRATION_ROW_SIZES = ROWS.map((r) => r.length)
-/** A tile and its gap take at least this share of the screen's width (1 / 12 of it since landing round 11, integrations-section.module.css), for tests: a row of n tiles is then (n - 1) / 12 screens wide plus a tile. */
-export const INTEGRATION_STEP_SHARE = 1 / 12
+/** A tile and its gap take at least this share of the screen's width (1 / 13 of it since landing round 12, 1 / 12 in round 11, integrations-section.module.css), for tests: a row of n tiles is then (n - 1) / 13 screens wide plus a tile. */
+export const INTEGRATION_STEP_SHARE = 1 / 13
 
 function Icon({ app }: { app: App }) {
   if (app.tile) {

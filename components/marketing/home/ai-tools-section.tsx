@@ -84,6 +84,14 @@
  *     laptop keeps every line of the run at a looser line height (1.7) and
  *     pads by the screen's height a little more, about 580px at 1440x800
  *     (round 10: about 500).
+ *
+ * LANDING ROUND 12, THE OWNER: the dots "far too strong" and the light round
+ * the terminal "too heavy, too visible and too fast". The dots rest at .085
+ * (was .24). The light turns once in 26s (was 9s); its head is a soft lilac
+ * at .42 at most (was pure white) that fades out over 10 degrees instead of
+ * ending in a hard edge, its tail a long fade over about 80 degrees (was
+ * about 60), and the wide rim under it is at .16 (was .55), so
+ * it reads as a faint sheen sliding along the edge rather than a beam.
  */
 import type { CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
@@ -164,8 +172,8 @@ const AI_CSS = `
 .ait-wrap,[data-landing-story] .ait>.ait-wrap{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 .ait-card{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(32px,4vw,56px);align-items:center;padding:clamp(26px,4.4vw,64px);border-radius:clamp(21px,2.4vw,31px);background:#0e0d12;background-image:linear-gradient(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 30px 60px -40px rgba(24,16,48,.55);color:#fff;overflow:hidden}
 .ait-copy{position:relative;z-index:1;min-width:0}
-/* The card's dot field (landing round 11): clear on the copy's side, gone before the terminal and the edges. */
-.ait-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(circle,rgba(255,255,255,.24) 0,rgba(255,255,255,.24) 1px,transparent 1.35px);background-size:20px 20px;background-position:10px 10px;-webkit-mask-image:radial-gradient(70% 95% at 22% 50%,#000 30%,transparent 78%);mask-image:radial-gradient(70% 95% at 22% 50%,#000 30%,transparent 78%)}
+/* The card's dot field (landing round 11): clear on the copy's side, gone before the terminal and the edges. Landing round 12: a third as strong (.085, was .24). */
+.ait-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(circle,rgba(255,255,255,.085) 0,rgba(255,255,255,.085) 1px,transparent 1.35px);background-size:20px 20px;background-position:10px 10px;-webkit-mask-image:radial-gradient(70% 95% at 22% 50%,#000 30%,transparent 78%);mask-image:radial-gradient(70% 95% at 22% 50%,#000 30%,transparent 78%)}
 @media (max-width:1023px){.ait-dots{-webkit-mask-image:radial-gradient(110% 55% at 50% 22%,#000 30%,transparent 80%);mask-image:radial-gradient(110% 55% at 50% 22%,#000 30%,transparent 80%)}}
 .ait-marks{display:flex;align-items:center;gap:clamp(16px,1.6vw,22px);margin:0 0 clamp(22px,2.4vw,30px);padding:0;list-style:none}
 .ait-marks li{display:flex}
@@ -182,9 +190,9 @@ const AI_CSS = `
 .ait-tw{position:relative;min-width:0;isolation:isolate}
 .ait-beam,.ait-glow{position:absolute;z-index:0;pointer-events:none;overflow:hidden;contain:strict}
 .ait-beam{inset:-1.5px;border-radius:14.5px}
-.ait-glow{inset:-14px;border-radius:27px;opacity:.55;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-composite:intersect}
-.ait-spin{position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;background:conic-gradient(from 0deg,transparent 0deg,transparent 118deg,rgba(139,92,246,.0) 122deg,rgba(139,92,246,.55) 160deg,rgba(214,200,255,.95) 176deg,#fff 179.4deg,transparent 180deg,transparent 298deg,rgba(139,92,246,0) 302deg,rgba(139,92,246,.55) 340deg,rgba(214,200,255,.95) 356deg,#fff 359.4deg,transparent 360deg);will-change:transform;animation:ait-spin 9s linear infinite paused}
-.ait-glow .ait-spin{background:conic-gradient(from 0deg,transparent 0deg,transparent 140deg,rgba(139,92,246,.5) 168deg,rgba(196,176,255,.9) 179deg,transparent 180deg,transparent 320deg,rgba(139,92,246,.5) 348deg,rgba(196,176,255,.9) 359deg,transparent 360deg)}
+.ait-glow{inset:-14px;border-radius:27px;opacity:.16;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-composite:intersect}
+.ait-spin{position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;background:conic-gradient(from 0deg,rgba(139,92,246,0) 0deg,rgba(139,92,246,0) 90deg,rgba(139,92,246,.06) 120deg,rgba(150,112,250,.18) 146deg,rgba(190,170,255,.34) 162deg,rgba(220,210,255,.42) 170deg,rgba(220,210,255,0) 180deg,rgba(139,92,246,0) 270deg,rgba(139,92,246,.06) 300deg,rgba(150,112,250,.18) 326deg,rgba(190,170,255,.34) 342deg,rgba(220,210,255,.42) 350deg,rgba(220,210,255,0) 360deg);will-change:transform;animation:ait-spin 26s linear infinite paused}
+.ait-glow .ait-spin{background:conic-gradient(from 0deg,rgba(139,92,246,0) 0deg,rgba(139,92,246,0) 105deg,rgba(139,92,246,.3) 152deg,rgba(196,176,255,.6) 168deg,rgba(196,176,255,0) 180deg,rgba(139,92,246,0) 285deg,rgba(139,92,246,.3) 332deg,rgba(196,176,255,.6) 348deg,rgba(196,176,255,0) 360deg)}
 @keyframes ait-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .ait-tw[data-live] .ait-spin{animation-play-state:running}
 .ait-bar{display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.06)}

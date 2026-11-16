@@ -111,8 +111,8 @@ console.log("\n── the FAQ heading is not purple ──")
 console.log("\n── the footer draws the app icon ──")
 {
   const footer = renderToStaticMarkup(createElement(MarketingFooter))
-  check("the colourful logo picture, 40px", /<img[^>]*data-storelib-logo=""[^>]*>/.test(footer) && /width="40"/.test(/<img[^>]*data-storelib-logo=""[^>]*>/.exec(footer)?.[0] ?? "") && !/data-storelib-logo="outline"/.test(footer))
-  check("the outline drawing is gone from the logo component", !/outline|STORELIB_S_PATH|<svg/.test(code("components/brand/storelib-logo.tsx")))
+  check("a solid mark, 40px, not outlined", /<svg[^>]*data-storelib-logo="solid"[^>]*>/.test(footer) && /width="40"/.test(/<svg[^>]*data-storelib-logo="solid"[^>]*>/.exec(footer)?.[0] ?? "") && !/data-storelib-logo="outline"/.test(footer)) // Changed on purpose (landing round 12): the owner wants a solid mark like Shopify's, not the colour picture.
+  check("the outline drawing is gone from the logo component", !/outline/.test(code("components/brand/storelib-logo.tsx"))) // Changed on purpose (landing round 12): the component draws the solid mark from the S's curves, so it has an <svg> and the path again; still no outline.
 }
 
 console.log("\n── copy and registration ──")

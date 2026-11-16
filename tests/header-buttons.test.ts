@@ -185,7 +185,7 @@ console.log("\n7. the logo, a touch smaller in headers only")
   check("the public wishlist's header: 32 becomes 30.4", /<StorelibLogo size=\{30\.4\} \/>/.test(readCode("components/wishlist/public-wishlist-shell.tsx")) && five(32, 30.4))
   check("by size, not by a CSS scale on the logo", !/scale|matrix/.test(readCode("components/brand/storelib-logo.tsx")))
   // Changed on purpose (landing round 11): the footer's logo is the app icon again (the owner: not outlined), still 40px.
-  check("and the footer keeps its size", /<StorelibLogo size=\{40\} \/>/.test(readCode("components/marketing/footer.tsx")))
+  check("and the footer keeps its size", /<StorelibLogo size=\{40\} variant="solid" \/>/.test(readCode("components/marketing/footer.tsx"))) // Changed on purpose (landing round 12): the footer draws the solid mark, still 40px.
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
