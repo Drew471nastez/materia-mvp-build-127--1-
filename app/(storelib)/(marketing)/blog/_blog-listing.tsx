@@ -69,7 +69,7 @@ export default function BlogListing({
             <h2 id="blog-list-title" className={lead ? "text-[clamp(26px,2.5vw,36px)] font-medium leading-[1.15] tracking-[-0.035em] text-[#1a1a2e]" : "sr-only"}>
               {activeCategory ? `Articles in ${activeCategory}` : lead ? "More articles" : "Articles"}
             </h2>
-            <div className={`grid gap-x-[clamp(20px,2.2vw,40px)] gap-y-14 sm:grid-cols-2 min-[1024px]:grid-cols-3 min-[1600px]:grid-cols-4 ${lead ? "mt-8 sm:mt-10" : ""}`}>
+            <div className={`grid gap-x-[clamp(20px,2.2vw,40px)] gap-y-14 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3 min-[1600px]:grid-cols-4 ${lead ? "mt-8 sm:mt-10" : ""}`}>
               {/* With no large post above, the first card is the first screen's picture: loaded first, the rest lazily. */}
               {rest.map((post, i) => (post ? <PostCard key={post.id} post={post} headingLevel="h3" priority={!lead && i === 0} /> : null))}
             </div>
