@@ -1,14 +1,15 @@
 "use client"
 
-import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react"
+import { useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { PricingSection, type PaidCheckoutPlanId } from "@/components/marketing/pricing-section"
-import { FeaturesBadgesSection } from "@/components/marketing/features-badges-section"
-import { ProductMarquee } from "@/components/marketing/product-marquee"
-import { SplitFeaturesSection } from "@/components/marketing/split-features-section"
-import { ToolStackSection } from "@/components/marketing/tool-stack-section"
 import { FaqSection } from "@/components/marketing/faq-section"
 import { CtaSection } from "@/components/marketing/cta-section"
+import type { PlanCardAction } from "@/components/billing/plan-cards"
+import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { SheetStack } from "./pricing-sheets"
+import { PricingBento } from "./pricing-bento"
+import { ComparePlans } from "./compare-plans"
 
 /** Pro checkout sends the internal plan id "growth" (the $29 Stripe price), Scale sends SCALE_CHECKOUT_PLAN_ID (the existing $99 price). */
 type CheckoutPlanId = PaidCheckoutPlanId
@@ -28,8 +29,14 @@ function readUpgradeQuery(): { source?: string; returnTo?: string } {
   return { source: q.get("source") ?? undefined, returnTo }
 }
 
-/** `compare` is the "Compare Storelib" line, rendered on the server (components/alternatives/compare-strip) so its list stays out of this bundle. */
-export function PricingPageClient({ compare }: { compare?: ReactNode } = {}) {
+/*
+  LANDING ROUND 13, THE OWNER: no "Compare Storelib" line of links and no row
+  of four badges under the cards. The cards, then three sheets that rise over
+  them one after another as the page scrolls (./pricing-sheets): what comes
+  with a store (./pricing-bento), every feature plan by plan
+  (./compare-plans), and the questions. The closing call to action follows.
+*/
+export function PricingPageClient() {
   /*
     WHO IS SIGNED IN, AFTER HYDRATION. The server render is the signed out
     page; the header checks the session on mount and keeps this record in
@@ -102,8 +109,32 @@ export function PricingPageClient({ compare }: { compare?: ReactNode } = {}) {
       ? { onPlanSelect: handleLoggedInPlanSelect, loadingPlan }
       : undefined
 
+  /* The compare table's buttons do what the cards' buttons do: sign up, or straight to checkout for somebody signed in. */
+  const compareAction = (id: OfferedPlanId, label: string): PlanCardAction => {
+    if (id !== "free" && upgradeCallbacks) {
+      const paid = id as CheckoutPlanId
+      return {
+        label,
+        onClick: () => !upgradeCallbacks.loadingPlan && upgradeCallbacks.onPlanSelect(paid),
+        disabled: !!upgradeCallbacks.loadingPlan,
+        loading: upgradeCallbacks.loadingPlan === paid,
+      }
+    }
+    return { label, href: "/signup" }
+  }
+  const compareActions: Record<OfferedPlanId, PlanCardAction> = {
+    free: compareAction("free", "Start free"),
+    [PRO_CHECKOUT_PLAN_ID]: compareAction(PRO_CHECKOUT_PLAN_ID, "Get Grow"),
+    [SCALE_CHECKOUT_PLAN_ID]: compareAction(SCALE_CHECKOUT_PLAN_ID, "Get Pro"),
+  }
+
+  /*
+    No overflow on this wrapper: an overflow other than visible or clip would
+    make it the sheets' scroll container and stop them sticking. <html>
+    already clips anything too wide.
+  */
   return (
-    <div className="bg-white overflow-x-hidden">
+    <div className="bg-white">
       {/* Checkout error banner */}
       {checkoutError && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 text-sm font-medium px-5 py-3 rounded-xl shadow-lg max-w-[90vw]">
@@ -112,33 +143,27 @@ export function PricingPageClient({ compare }: { compare?: ReactNode } = {}) {
         </div>
       )}
 
-      {/* PRICING */}
-      {/* The plans' heading is this page's h1: /pricing had none (a browser agent and a screen reader look for one). */}
-      <PricingSection
-        headingLevel={1}
-        hideDetailsLink
-        headingOverride={isUpgradeMode ? "Choose a plan" : undefined}
-        subtitleOverride={isUpgradeMode ? "Grow is $29 a month. Cancel at any time from Billing." : undefined}
-        upgradeCallbacks={upgradeCallbacks}
+      <SheetStack
+        sheets={[
+          {
+            id: "plans",
+            tone: "light",
+            node: (
+              /* The plans' heading is this page's h1: /pricing had none (a browser agent and a screen reader look for one). */
+              <PricingSection
+                headingLevel={1}
+                hideDetailsLink
+                headingOverride={isUpgradeMode ? "Choose a plan" : undefined}
+                subtitleOverride={isUpgradeMode ? "Grow is $29 a month. Cancel at any time from Billing." : undefined}
+                upgradeCallbacks={upgradeCallbacks}
+              />
+            ),
+          },
+          { id: "included", tone: "dark", node: <PricingBento /> },
+          { id: "compare", tone: "light", node: <ComparePlans actions={compareActions} /> },
+          { id: "faq", tone: "light", node: <FaqSection editorial /> },
+        ]}
       />
-
-      {/* COMPARE STORELIB: a line of links to each comparison (lib/alternatives). */}
-      {compare}
-
-      {/* FEATURE BADGES - Launch in minutes, Cancel anytime, No coding, Get paid directly */}
-      <FeaturesBadgesSection />
-
-      {/* UNLIMITED POSSIBILITIES - Product categories marquee */}
-      <ProductMarquee />
-
-      {/* SPLIT FEATURES - Build Your One Page, Build Your Online Store */}
-      <SplitFeaturesSection />
-
-      {/* REPLACE YOUR ENTIRE TOOL STACK */}
-      <ToolStackSection />
-
-      {/* FAQ */}
-      <FaqSection />
 
       {/* CTA - Turn your ideas into income */}
       <CtaSection />

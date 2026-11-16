@@ -254,7 +254,8 @@ console.log("\nLinks into and out of the pages")
   check("the header draws on /alternatives and no longer links Compare", code("components/marketing/conditional-header.tsx").includes('p.startsWith("/alternatives/")') && !code("components/platform/platform-header-client.tsx").includes('label: "Compare"'))
   check("the phone menu has no Compare either", !/<span>Compare<\/span>/.test(code("components/platform/platform-header-client.tsx")))
   check("the footer links Compare and draws on these pages", code("components/marketing/footer.tsx").includes('{ label: "Compare", href: "/alternatives" }') && code("components/marketing/conditional-footer.tsx").includes('pathname.startsWith("/alternatives/")'))
-  check("/pricing carries the Compare Storelib line", code("app/(storelib)/(marketing)/pricing/page.tsx").includes("<CompareStrip />") && code("components/alternatives/compare-strip.tsx").includes("Compare Storelib"))
+  // Changed on purpose (landing round 13): the owner asked for the Compare Storelib line to go from /pricing; the comparisons stay reachable from the footer's Compare link (tests/home-landing-r13-pricing.test.ts).
+  check("/pricing no longer carries the Compare Storelib line", !code("app/(storelib)/(marketing)/pricing/page.tsx").includes("CompareStrip"))
   const gum = getAlternative("gumroad")!
   check("the Gumroad page names the importer only if its route exists", !gum.importer || existsSync(join(process.cwd(), "app/(storelib)/app/products/import/gumroad/page.tsx")))
 }

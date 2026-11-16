@@ -72,8 +72,8 @@ console.log("\n── Three plans, Grow in the middle ──")
   check("three cards: free, growth, pro, in that order", order.join() === "free,growth,pro", order)
   check("the middle card is Grow (id growth)", FEATURED_PLAN_ID === "growth" && order[1] === FEATURED_PLAN_ID)
   check("only the middle card is raised", (html.match(/data-plan-featured=""/g) ?? []).length === 1 && /data-plan-card="growth" data-plan-featured=""/.test(html))
-  /* Changed on purpose (landing round 12): Grow's button is the creators section's white pill with a purple round arrow, the side cards' the earnings section's dark button with its arrow. */
-  check("Grow's button is a white pill with a round arrow in Storelib purple", PLAN_PURPLE === "#7c3aed" && /data-plan-button="pill"/.test(cardHtml("growth")) && /data-plan-arrow=""[^>]*bg-\[#7c3aed\]/.test(cardHtml("growth")))
+  // Changed on purpose (landing round 13): the owner: "Get Grow" is a solid Storelib purple button, no white pill and no round arrow. The side cards keep the earnings section's dark button with its arrow.
+  check("Grow's button is solid Storelib purple, with no arrow", PLAN_PURPLE === "#7c3aed" && /data-plan-button="purple"/.test(cardHtml("growth")) && /class="[^"]*bg-\[#7c3aed\][^"]*text-white/.test(cardHtml("growth")) && !/data-plan-arrow/.test(cardHtml("growth")))
   check("the side cards' buttons are dark with an arrow, never purple", ["free", "pro"].every((id) => /data-plan-button="dark"[^>]*>|class="[^"]*bg-\[#0f0e13\][^"]*"[^>]*data-plan-button="dark"/.test(cardHtml(id)) && /<path d="M4 10h12M11 5l5 5-5 5"><\/path>/.test(cardHtml(id)) && !/bg-\[#7c3aed\]/.test(cardHtml(id))))
   check("the hero's primary button is the same purple", /background: #7c3aed/.test(read("components/marketing/hero.tsx")))
   check("no grey ground behind the cards any more", (html.match(/data-plan-ground=""/g) ?? []).length === 1 && !/data-plan-ground="" class="[^"]*bg-/.test(html)) // Changed on purpose (landing round 12): the owner: no light grey background behind the cards.
