@@ -73,7 +73,8 @@ console.log("\n── The page ──")
   /* Changed on purpose (landing round 7): the owner asked for the purple's dots more subtle and clean, so they are a little sparser there (gap 22). */
   check("a dot grid over the top of the purple, limited to about a screen and a half", /<ScrollRevealPanel tone="purple" arrive="rise">\s*<DotField tone="purple" fade="bottom"(?: gap=\{\d+\})? style=\{\{ height: "min\(100%, 1600px\)" \}\} \/>/.test(page)) // Changed on purpose (landing round 11): the owner wants the purple's dots "more visible", so the field reaches further down the sheet before it fades.
   // Changed on purpose (landing round 9): the owner moved the app up onto a white sheet; the closing call is alone above the footer, after the questions.
-  check("the close is dark (no purple): the closing call alone", /<\/LazySection>\s*<\/ScrollRevealPanel>\s*<ScrollRevealBackdrop>\s*<FinalCta \/>\s*<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page) && (page.match(/<ScrollRevealPanel tone="purple"/g) || []).length === 1)
+  /* Changed on purpose (landing round 13): the closing call is in a Suspense boundary of its own (no rebuild of the page on a late file). */
+  check("the close is dark (no purple): the closing call alone", /<\/LazySection>\s*<\/ScrollRevealPanel>\s*<ScrollRevealBackdrop>\s*<Suspense fallback=\{null\}><FinalCta \/><\/Suspense>\s*<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page) && (page.match(/<ScrollRevealPanel tone="purple"/g) || []).length === 1)
   check("the measured lazy heights are still written in", /LAZY_SECTION_HEIGHTS_CSS/.test(page))
 }
 

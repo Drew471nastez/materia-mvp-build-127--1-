@@ -124,6 +124,8 @@ const WATCHED = "section, [data-story-section]"
   its own decode queue, data-shown) and not the logo.
 */
 export const IMG_FADE_MS = 450
+/** Landing round 13: how far ahead of the screen a lazy picture is asked for (three screens either way). */
+export const PICTURE_AHEAD = "300% 0px 300% 0px"
 export const IMG_SKIP = ".build-showcase img,img[data-shown],img[data-storelib-logo],img[data-img-broken]"
 
 /** Pause decorative loops outside the viewport and in background tabs; give each section its entrance. */
@@ -365,9 +367,29 @@ export function LandingStory({ children }: { children: ReactNode }) {
             }
           })
         : null
+    /*
+      Landing round 13 (the owner's iPhone recording: a photo frame still empty as it scrolled on screen). A picture
+      marked loading="lazy" is asked for by Safari only when it is about to show, too late in a flick, so it arrived
+      empty and faded in on screen. Every lazy picture is asked for once it is within PICTURE_AHEAD of the screen.
+    */
+    const early =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver(
+            (entries) => {
+              for (const entry of entries) {
+                if (!entry.isIntersecting) continue
+                const img = entry.target as HTMLImageElement
+                early?.unobserve(img)
+                if (img.loading === "lazy") img.loading = "eager"
+              }
+            },
+            { rootMargin: PICTURE_AHEAD },
+          )
+        : null
     const pictures = (node: Element, fresh: boolean) => {
-      if (reduced) return
       const imgs = node instanceof HTMLImageElement ? [node] : node.getElementsByTagName("img")
+      if (early) for (const img of imgs) if (!img.complete && img.getAttribute("loading") === "lazy") early.observe(img)
+      if (reduced) return
       for (const img of imgs) {
         if (img.complete || "img" in img.dataset) continue
         if (fresh) holdPicture(img)
@@ -433,6 +455,7 @@ export function LandingStory({ children }: { children: ReactNode }) {
       reveal?.disconnect()
       ahead?.disconnect()
       firstLook?.disconnect()
+      early?.disconnect()
       root.removeEventListener("load", onPicture, true)
       root.removeEventListener("error", onPicture, true)
       root.removeEventListener("animationend", onFaded)

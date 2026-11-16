@@ -4,7 +4,6 @@
  */
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
-import { NEAR_MARGIN } from "@/components/marketing/home/near-gate"
 
 let failed = 0
 function check(name: string, ok: boolean) {
@@ -12,7 +11,6 @@ function check(name: string, ok: boolean) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}`)
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-const gate = read("components/marketing/home/near-gate.tsx")
 const page = read("app/(storelib)/(marketing)/page.tsx")
 const how = read("components/marketing/home/how-it-works.tsx")
 const integ = read("components/marketing/home/integrations-section.module.css")
@@ -21,14 +19,16 @@ const ait = read("components/marketing/home/ai-tools-section.tsx")
 const biz = read("components/marketing/home/business-carousel.tsx")
 const bizMocks = read("components/marketing/home/showcase-mocks/business-mocks.tsx")
 
-console.log("\n── one gate for loops off screen ──")
-check("mounted once on the home page", /import \{ NearGate \} from "@\/components\/marketing\/home\/near-gate"/.test(page) && (page.match(/<NearGate \/>/g) || []).length === 1)
-check("one IntersectionObserver over every lazy section box, a screen of margin each way", /querySelectorAll\("\[data-lazy-section\]"\)/.test(gate) && NEAR_MARGIN === "100% 0px 100% 0px" && (gate.match(/new IntersectionObserver/g) || []).length === 1)
-check("a far box is marked data-far", /toggleAttribute\("data-far", !e\.isIntersecting\)/.test(gate))
-check("only running, infinite, document-timeline CSS animations are paused", /a\.playState !== "running"/.test(gate) && /iterations === Infinity/.test(gate) && /a\.timeline !== document\.timeline/.test(gate) && /instanceof CSSAnimation/.test(gate))
-check("they are played again only where the stylesheet still says running", /wantsRunning\(a\)/.test(gate) && /animationPlayState/.test(gate))
-check("not a CSS rule over a whole section (that restyles every element at each crossing)", !/animation-play-state/.test(gate.replace(/\/\*[\s\S]*?\*\//g, "")))
-check("a section built after the first report is caught", /data-lazy-mounted/.test(gate) && /MutationObserver/.test(gate))
+/*
+ * Changed on purpose (landing round 13, the owner: carousels "don't autoplay at all, it's fully blocked"): the one
+ * gate for loops off screen (near-gate.tsx) is gone. It paused CSS loops through the Animations API, and once a
+ * loop is paused that way the browser stops following the section's own animation-play-state switches; a loop whose
+ * section gate still said paused at the moment it came back near was never played again (the apps rows, the
+ * possibilities, How it works, Make the work). Each section's own gate (data-commerce-live, data-live...) and
+ * LandingStory's rest are what hold loops off screen.
+ */
+console.log("\n── no gate that pauses loops through the Animations API ──")
+check("near-gate.tsx is gone and not mounted", !existsSync(join(process.cwd(), "components/marketing/home/near-gate.tsx")) && !/NearGate/.test(page))
 
 console.log("\n── fewer layers ──")
 check("how it works: the bars fill backwards, so a finished rise holds no layer", /\.cmh-o\{animation-duration:\.7s;[^\n]*animation-fill-mode:backwards/.test(how) && !/\.cmh-o\{[^\n]*animation-fill-mode:both/.test(how))

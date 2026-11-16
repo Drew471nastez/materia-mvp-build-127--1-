@@ -1448,6 +1448,7 @@ const SUITES = [
   "tests/home-smooth-wheel-r5.test.ts",
   /* Landing round 11 perf (layers and animations): one gate pauses the infinite loops of any lazy section far from the screen; finished fills, backface-visibility, a paint containment and a smaller, live-only rim light drop dozens of compositor layers; the smooth wheel reads no layout per wheel event. */
   "tests/home-landing-layers6.test.ts",
+  "tests/home-landing-r13.test.ts",
   /* Landing round 5 (top): the showcase is the browser's own snapping scroller on a touch screen or phone width (autoplay steps aside for a touch and comes back), its cards bigger and cut a little by the section's bottom edge; Make the work's new heading, no support labels, a Pilates course and a plain LUT pack cover; the globe's order notification stands in one place and only fades in and out, the globe capped at 60fps and 2x (1.5x on a low end phone) and a finger takes it only sideways. */
   "tests/home-landing-r5-top.test.ts",
   /* Landing round 5, middle: One store for everything you sell as it was before (no scroll pin, the clock, the grey stage); Ideas behind plain tabs with a candle studio's store and a paid strength coaching community; How it works without the cap, a bold drawn product sheet, calm grey and dark grounds, a simple dark domain card. */

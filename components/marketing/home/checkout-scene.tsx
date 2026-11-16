@@ -1958,15 +1958,10 @@ const DESK_CSS = u(`
 
 /* Round 11 (the owner: "you should not see the phone mockup through them; the cards should not be transparent"): the cards and the facts are solid; the products behind show only in the gaps between them. */
 const CARD_GROUND = "#111113"
-/* Built to convert on a phone: the window's design width (u), and how far its page scrolls to the shipping and to Pay (measured in the window, in u). */
-const CDX_NARROW = 380
-const CDX_S1 = 870
-/* Round 12: the picture is 4:3 on a phone, so the window shows 241u of its page, not 342u; it scrolls further to bring Pay (its foot at 1483u) up. */
-const CDX_S2 = 1250
 /* The tallest a card's picture is drawn (a 1440 x 800 screen shows a whole card with room to spare). */
 const VIS_CAP = "44svh"
 
-/* The cards and their mocks. Each mock is drawn in em of a 48 x 42 box (30 x 34 on a narrow screen), so it scales as one picture. */
+/* The cards and their mocks. Each mock is drawn in em of a 48 x 42 box on every screen, so it scales as one picture. */
 const CARDS_CSS = u(`
 .cmc-bento{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .cmc-card{position:relative;display:flex;flex-direction:column;gap:clamp(22px,2.4vw,32px);min-width:0;padding:clamp(24px,2.6vw,40px) clamp(24px,2.6vw,40px) clamp(20px,2.2vw,32px);border-radius:28px;background:${CARD_GROUND};border:1px solid rgba(255,255,255,.08);box-sizing:border-box;overflow:hidden;container-type:inline-size;--vis-cap:${VIS_CAP}}
@@ -2109,76 +2104,21 @@ const CARDS_CSS = u(`
   /*
    * Round 11 (the owner: on a phone the pictures were "broken and cut", "they
    * should not be a carousel: just normal stacked cards on phones"): one card
-   * under another, each picture whole. The picture is square, drawn in em of a
-   * 32 x 32 grid (a computer's is 48 x 42), and every demo is laid out again
-   * to fit inside it, nothing running off its edges.
+   * under another, each picture whole (round 13: the computer's picture,
+   * smaller, not a layout of its own).
    */
   .cmc-bento{grid-template-columns:minmax(0,1fr);gap:12px}
   .cmc-card{padding:22px 20px 20px;border-radius:24px;gap:20px}
   .cmc-card-copy h3{font-size:24px}
   .cmc-card-copy p{font-size:15px}
-  .cmc-vis{height:auto;aspect-ratio:1;margin:0 -6px;border-radius:16px}
-  .cmc-vis-in{font-size:calc(100cqw / 32);width:32em;height:32em;margin-left:-16em}
-  /* Round 12 (the owner: "on phones they must be 4:3 like on desktop"): Built to convert's picture is 4:3 here too, 32 x 24 em. */
-  .cmc-card[data-k=convert] .cmc-vis{aspect-ratio:4/3}
-  .cmc-card[data-k=convert] .cmc-vis-in{height:24em}
+  /* Landing round 13 (the owner: "like it's on desktop, but on mobile"): every picture is the computer's, 48 x 42 em, only smaller. */
+  .cmc-vis{height:auto;aspect-ratio:48/42;margin:0 -6px;border-radius:16px}
+  .cmc-vis-in{font-size:calc(100cqw / 48)}
   .cmc-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 16px;margin-top:12px;padding:24px 20px;border-radius:24px}
   .cmc-fact{padding-left:14px}
   .cmc-fact b{font-size:26px}
   .cmc-fact span{font-size:13.5px}
-  /*
-   * Built to convert: the same website checkout in a narrower window, whole in
-   * the square: the order on grey above the form, as checkout lays itself out
-   * at this width, and the page scrolled down through the form to Pay.
-   */
-  .cdx{left:1em;right:1em;top:1em;bottom:1em;aspect-ratio:auto;transform:none}
-  .cdx-win{--u:calc(100cqw / ${CDX_NARROW});--s1:${CDX_S1}u;--s2:${CDX_S2}u;font-size:14u}
-  .cdx-url{width:250u}
-  .cdx-head{padding:0 20u 0 18u}
-  .cdx-cont{display:none}
-  .cdx-white{display:none}
-  .cdx-view{background:#fff}
-  .cdx-grid{grid-template-columns:minmax(0,1fr)}
-  .cdx-sum{padding:26u 24u 22u;background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.06)}
-  .cdx-form{padding:26u 24u 60u}
-  .cdx-big{font-size:28u}
-  .cdx-lines{margin-top:18u;gap:12u}
-  .cdx-lines li{gap:12u}
-  .cdx-thumb{width:40u;height:40u}
-  .cdx-ctl,.cdx-tot{display:none}
-  .cmv-sale{right:1em;width:26em;top:1em;font-size:1.05em}
-  /* One-tap: the whole phone at the left, the three ways to pay beside it. */
-  .cmv-phone{left:1.4em;top:1.4em;--pw:calc(100cqw * 14 / 32)}
-  .tp{left:17.4em;right:1.4em;gap:.75em;--tp-step:3.75em}
-  .tp-btn{height:3em;border-radius:.6em}
-  .tp-ring{height:3.7em;border-radius:.9em}
-  .tp-apple .mk-apple{width:1.15em;height:1.15em}
-  .tp-apple .mk-pay{font-size:1.3em}
-  .tp-gpay .mk-g{width:1.12em;height:1.12em}
-  .tp-gpay .mk-gpay{font-size:1.26em}
-  .tp-card{padding:0 .7em;gap:.4em}
-  .tp-card>svg{display:none}
-  .tp-card-t{font-size:.95em}
-  .tp-brands{margin-right:1.7em;gap:.18em}
-  .tp-brands i{width:1.75em;height:1.2em}
-  .tp-ok{right:.55em;width:1.25em;height:1.25em;margin-top:-.625em}
-  .tp-ok::after{left:.42em;top:.24em;width:.32em;height:.55em}
-  .tp-pow{font-size:.8em}
-  /* Currencies: both tiles and the seven currencies, whole. */
-  .cv{padding:0 1.4em;gap:1.1em}
-  .cv-head{font-size:.95em}
-  .cv-tiles{gap:.8em}
-  .cv-tile{padding:.55em .55em .75em;border-radius:1em}
-  .cv-name{font-size:.9em;margin-top:.6em}
-  .cv-tee,.cv-luts{font-size:1.6em}
-  .cv-chip{gap:.3em;height:2.5em;font-size:.74em}
-  .cv-chip .cmv-flag{width:1.3em;height:.87em}
-  /* The reminder: the rail, and the email under it across the picture. */
-  .cmv-rec{font-size:1em}
-  .cmv-tl{left:2.2em;right:1.4em;top:2.4em}
-  .cmv-mail{left:1.6em;right:1.6em;top:7em;padding:1.2em 1.3em}
-  .cmv-mail-h{font-size:1.3em}
-  .cmv-mail p{font-size:.86em}
+  /* Landing round 13 (the owner: "it should be like it's on desktop, but on mobile"): Built to convert is the desktop window, the order beside the form, only smaller. Nothing here lays it out again. */
 }
 `)
 
@@ -2275,10 +2215,6 @@ const LOOP_CSS = u(`
   ${ON} .cmv-st3{animation-name:cmv-st3}
   ${ON} .cmv-mail{animation-name:cmv-mail;animation-timing-function:cubic-bezier(.16,1,.3,1)}
   ${ON} .cmv-mail-btn{animation-name:cmv-btn}
-  /* On a phone the order sits above the form, so it scrolls away with the page instead of staying beside it. */
-  @media (max-width:899px){
-    ${ON} .cdx-sum-in{animation-name:none}
-  }
 }
 @keyframes cdx-scroll{0%,${at(1.95)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.65,0,.35,1)}${at(2.95)},${at(3.45)}{transform:translate3d(0,calc(var(--s1) * -1),0);animation-timing-function:cubic-bezier(.65,0,.35,1)}${at(4.4)},${at(RESET)}{transform:translate3d(0,calc(var(--s2) * -1),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}
 @keyframes cdx-stick{0%,${at(1.95)}{transform:translate3d(0,0,0);animation-timing-function:cubic-bezier(.65,0,.35,1)}${at(2.95)},${at(3.45)}{transform:translate3d(0,max(0px,calc(var(--s1) - 62u)),0);animation-timing-function:cubic-bezier(.65,0,.35,1)}${at(4.4)},${at(RESET)}{transform:translate3d(0,max(0px,calc(var(--s2) - 62u)),0)}${at(RESET + 0.05)},100%{transform:translate3d(0,0,0)}}

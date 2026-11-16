@@ -114,10 +114,11 @@ check("the cards' box has no ground of its own", !/background/.test(rule(".cmc-c
 check("  each card is the same dark, solid, still with its hairline", /\.cmc-card\{[^}]*border-radius:28px;background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(css) && !/backdrop-filter/.test(css))
 
 console.log("\n5. Not oversized on a 1440 x 800 screen")
-check("a card's picture is 48 x 42 but never taller than 44svh", /\.cmc-card\{[^}]*container-type:inline-size;--vis-cap:44svh\}/.test(css) && /\.cmc-vis\{[^}]*height:min\(calc\(100cqw \* 42 \/ 48\),var\(--vis-cap\)\)/.test(css) && !/\.cmc-vis\{[^}]*aspect-ratio:48\/42/.test(css))
+check("a card's picture is 48 x 42 but never taller than 44svh", /\.cmc-card\{[^}]*container-type:inline-size;--vis-cap:44svh\}/.test(css) && /\.cmc-vis\{[^}]*height:min\(calc\(100cqw \* 42 \/ 48\),var\(--vis-cap\)\)/.test(css) && /* Changed on purpose (landing round 13): a phone uses the same 48 x 42 shape, as an aspect ratio. */ !/^\.cmc-vis\{[^}]*aspect-ratio:48\/42/m.test(css))
 check("  where capped, its drawing keeps its shape and sits in the middle (a 48 x 42 em box, its own container)", /\.cmc-vis-in\{position:absolute;left:50%;top:0;width:48em;height:42em;margin-left:-24em;font-size:min\(calc\(100cqw \/ 48\),calc\(var\(--vis-cap\) \/ 42\)\);[^}]*container-type:inline-size\}/.test(css))
 // Changed on purpose (landing round 11): on a phone the cards are stacked and each picture is a whole square, a 32 x 32 grid.
-check("  a phone draws a square picture on a 32 x 32 grid", /\.cmc-vis\{height:auto;aspect-ratio:1;/.test(css) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 32\);width:32em;height:32em;margin-left:-16em\}/.test(css))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's picture, only smaller, no layout of its own on a phone. */
+check("  a phone draws the computer's 48 x 42 picture, scaled", /\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(css) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 48\)\}/.test(css))
 // Changed on purpose (landing round 11): the settled phone's width (--pe) is the room one screen leaves under a two row headline; the big phone it starts as is a multiple of it.
 check("the stage itself stays one small screen tall (svh), the phone sized from it", /\.cmc-stage\{position:relative;height:100svh;/.test(css) && /--pe:min\(400px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css))
 

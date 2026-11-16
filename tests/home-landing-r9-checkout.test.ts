@@ -131,19 +131,21 @@ check("the screen's scale divides a registered length (computed to pixels first)
 console.log("\n7. On a phone: the computer's pictures in 4:3, adapted, not shrunk")
 // Changed on purpose (landing round 10): a computer's picture is capped in height (--vis-cap), so a phone sets its own height and grid box.
 // Changed on purpose (landing round 11): on a phone each card's picture is a whole square (the owner: pictures cut).
-check("a square picture box drawn on a 32 unit grid (a computer's is 48), so type stays near a computer's size", /\.cmc-vis\{height:auto;aspect-ratio:1;/.test(phoneCss) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 32\);width:32em;height:32em;margin-left:-16em\}/.test(phoneCss) && /\.cmc-vis\{[^}]*height:min\(calc\(100cqw \* 42 \/ 48\),var\(--vis-cap\)\)/.test(css))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): every picture is the computer's 48 x 42, only smaller. */
+check("a phone draws the computer's 48 x 42 picture, scaled", /\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(phoneCss) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 48\)\}/.test(phoneCss) && /\.cmc-vis\{[^}]*height:min\(calc\(100cqw \* 42 \/ 48\),var\(--vis-cap\)\)/.test(css))
 // Changed on purpose (landing round 11): the owner: "broken and cut" on a phone. The window is whole in the box, narrower, the order above the form.
-check("Built to convert: the website checkout's window, whole in the box, laid out again at a design width of 380", !/mcx/.test(css + co) && /\.cdx\{left:1em;right:1em;top:1em;bottom:1em;aspect-ratio:auto;transform:none\}/.test(phoneCss) && /--u:calc\(100cqw \/ 380\)/.test(phoneCss) && /--u:calc\(100cqw \/ 880\)/.test(css))
+check("Built to convert: the computer's checkout window on a phone too (design width 880, not laid out again)", !/mcx/.test(css + co) && !/\.cdx\{left:1em/.test(phoneCss) && !/--u:calc\(100cqw \/ 380\)/.test(css) && /--u:calc\(100cqw \/ 880\)/.test(css))
 // Changed on purpose (landing round 11): the whole window shows, so paid covers it and the notice sits at its top right.
-check("  paid covers the window and the seller's notice sits at its top right", !/\.cdx-paid\{right:auto/.test(phoneCss) && /\.cmv-sale\{right:1em;width:26em;top:1em/.test(phoneCss))
+check("  paid covers the window and the seller's notice sits where the computer's does", !/\.cdx-paid\{right:auto/.test(phoneCss) && !/\.cmv-sale\{right:1em;width:26em/.test(css))
 // Changed on purpose (landing round 11): the whole phone in the square, nothing panned.
-check("One-tap: the whole phone in the box, beside the three ways to pay", /\.cmv-phone\{left:1\.4em;top:1\.4em;--pw:calc\(100cqw \* 14 \/ 32\)\}/.test(phoneCss) && !/cmv-pan/.test(css))
+/* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's picture, only smaller, no layout of its own on a phone. */
+check("One-tap: the computer's picture, the phone beside the three ways to pay", !/\.cmv-phone\{left:1\.4em/.test(css) && !/cmv-pan/.test(css))
 // Changed on purpose (landing round 11): square pictures fit the square box.
 // Changed on purpose (landing round 12): the square is drawn by padding, so nothing in it can make the tiles outgrow the picture.
 check("currencies: both tiles and all seven chips", !/\.cv-pic\{aspect-ratio:4\/3\}/.test(phoneCss) && /\.cv-pic\{position:relative;display:block;width:100%;height:0;padding-bottom:100%;/.test(css) && !/\.cv-chip\{flex-direction:column/.test(css))
 // Changed on purpose (landing round 11): re-laid for the square box.
 // Changed on purpose (landing round 12): the Recovered tile is gone; the email runs across the square.
-check("the reminder: the rail and the email", /\.cmv-mail\{left:1\.6em;right:1\.6em;/.test(phoneCss) && !/\.cmv-got/.test(phoneCss))
+check("the reminder: the rail and the email, as on a computer", !/\.cmv-mail\{left:1\.6em;right:1\.6em;/.test(css) && !/\.cmv-got/.test(phoneCss))
 
 console.log("\n8. Shorter lines under the cards' titles")
 const BEFORE: Record<string, number> = { convert: 93, tap: 94, currency: 74, recover: 113 }

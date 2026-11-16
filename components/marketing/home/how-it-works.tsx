@@ -533,9 +533,46 @@ function useDashLive(root: RefObject<HTMLDivElement | null>) {
   }, [root])
 }
 
+/**
+ * Landing round 13 (the owner: "Understand your business" on a phone "should be like it's on desktop, but on
+ * mobile"): the dashboard is always drawn at least HOW_DASH_W wide, the computer's layout with its sidebar, and
+ * on a narrower screen it is scaled down as one picture. The drawing is its own container, so its container
+ * queries see the design width, not the phone's.
+ */
+export const HOW_DASH_W = 1100
+
+function useDashFit(fit: RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const box = fit.current
+    const inner = box?.firstElementChild as HTMLElement | null
+    if (!box || !inner) return
+    const apply = () => {
+      const w = box.clientWidth
+      if (!w || w >= HOW_DASH_W) {
+        box.removeAttribute("data-k")
+        box.style.removeProperty("--k")
+        box.style.removeProperty("--fh")
+        return
+      }
+      const k = w / HOW_DASH_W
+      box.setAttribute("data-k", "")
+      box.style.setProperty("--k", String(k))
+      box.style.setProperty("--fh", `${inner.offsetHeight * k}px`)
+    }
+    apply()
+    if (typeof ResizeObserver !== "function") return
+    const ro = new ResizeObserver(apply)
+    ro.observe(box)
+    ro.observe(inner)
+    return () => ro.disconnect()
+  }, [fit])
+}
+
 function DashScene() {
   const root = useRef<HTMLDivElement>(null)
+  const fit = useRef<HTMLDivElement>(null)
   useDashLive(root)
+  useDashFit(fit)
   const t = HOW_DASH_TEXT
   const tabs = [
     { key: "visitors", label: "Visitors", odo: t.visitors, change: howChange(HOW_DASH.visitors, HOW_DASH.prev.visitors), foot: `${(HOW_DASH.pageViews / 1000).toFixed(1)}K page views` },
@@ -550,6 +587,8 @@ function DashScene() {
     },
   ]
   return (
+    <div ref={fit} className="cmh-db-fit">
+      <div className="cmh-db-w">
     <div ref={root} className="cmh-db">
       {/* The header (components/app/sidebar): who you are, the search, the bell and settings, the logo. */}
       <div className="cmh-db-top">
@@ -656,6 +695,8 @@ function DashScene() {
             </span>
           </span>
         </span>
+      </div>
+    </div>
       </div>
     </div>
   )
@@ -884,6 +925,11 @@ const HOW_CSS = `
 .cmh-sc{position:absolute;inset:0;line-height:1.3;color:#18181b}
 
 /* ── 1. the dashboard: /app's home in its own sizes (dashboard-client, sidebar, metric-tab) ── */
+.cmh-db-fit{position:relative;display:block}
+.cmh-db-w{display:block;container-type:inline-size}
+.cmh-db-fit[data-k]{height:var(--fh)}
+.cmh-db-fit[data-k]>.cmh-db-w{width:${HOW_DASH_W}px;transform:scale(var(--k));transform-origin:0 0}
+.cmh-db-fit[data-k] .cmh-db{border-radius:calc(12px / var(--k))}
 .cmh-db{position:relative;display:block;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.08),0 30px 60px -36px rgba(24,24,27,.35);font-size:14px;line-height:1.35;color:#1a1a2e;transform:translateZ(0)}
 .cmh-db img{display:block}
 .cmh-db svg{display:block;flex:none}
