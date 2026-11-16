@@ -110,7 +110,12 @@ console.log("\nThe browser check and the suite list")
 const probe = read("scripts/check-landing-r11-rails.mjs")
 check("CDP touches on an iPhone 13, the rail's transform at the press and after it", /Input\.dispatchTouchEvent/.test(probe) && /"iPhone 13"/.test(probe) && /atPress/.test(probe) && /afterHandlers/.test(probe))
 check("hover at 1440 and the caption's place measured", /showcase-1440-hover/.test(probe) && /capBottom/.test(probe))
-check("this suite runs on push, after round 10's", /"tests\/home-landing-r10-checkout\.test\.ts",\s*\/\*[^*]*\*\/\s*"tests\/home-landing-r11-rails\.test\.ts",/.test(read("scripts/run-push-tests.mjs")))
+// Changed on purpose (landing round 11): other round 11 suites sit between the two now, so the check reads the order, not adjacency.
+{
+  const runner = read("scripts/run-push-tests.mjs")
+  const a = runner.indexOf('"tests/home-landing-r10-checkout.test.ts"'), b = runner.indexOf('"tests/home-landing-r11-rails.test.ts"')
+  check("this suite runs on push, after round 10's", a > 0 && b > a)
+}
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
