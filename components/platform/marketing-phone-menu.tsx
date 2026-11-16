@@ -32,8 +32,9 @@
   ACCESSIBILITY. The hamburger is the disclosure button (aria-expanded,
   aria-controls) and stays the X: Tab cycles the X and the menu's controls
   and nothing else, Escape closes and puts the focus back on the button, and
-  the rest of the page is inert while the menu is open (screen readers read
-  only the bar and the menu). Reduced motion: a short fade, no rise.
+  the rest of the page is hidden from screen readers while the menu is open
+  (they read only the bar and the menu). Reduced motion: a short fade, no
+  rise.
 */
 
 import type React from "react"
@@ -239,10 +240,12 @@ export function MarketingPhoneMenu({
   }, [open, buttonRef])
 
   /*
-    EVERYTHING BUT THE BAR AND THE MENU IS INERT while it is open, for a
-    screen reader. Set once the panel has faded in and lifted once it has
-    faded out, so the style work it asks of a long page never lands on a
-    frame of the fade.
+    EVERYTHING BUT THE BAR AND THE MENU IS HIDDEN FROM A SCREEN READER while
+    it is open (aria-hidden; the keyboard is already kept in by the Tab
+    cycle above). Not `inert`: inert is inherited, so setting it on the
+    landing restyled the whole page, measured 130ms on a phone at 4x CPU, a
+    visible hitch right after the fade; aria-hidden costs 1 to 3ms. Set once
+    the panel has faded in and lifted once it has faded out all the same.
   */
   useEffect(() => {
     const keep = [headerRef.current, panelRef.current?.parentElement].filter(Boolean) as HTMLElement[]
@@ -255,8 +258,8 @@ export function MarketingPhoneMenu({
           const parent: HTMLElement | null = el.parentElement
           if (!parent) break
           for (const sib of Array.from(parent.children) as HTMLElement[]) {
-            if (sib === el || keep.some((k) => sib.contains(k)) || sib.inert || /^(SCRIPT|STYLE|LINK|TEMPLATE)$/.test(sib.tagName)) continue
-            sib.inert = true
+            if (sib === el || keep.some((k) => sib.contains(k)) || sib.inert || sib.getAttribute("aria-hidden") === "true" || /^(SCRIPT|STYLE|LINK|TEMPLATE)$/.test(sib.tagName)) continue
+            sib.setAttribute("aria-hidden", "true")
             made.push(sib)
           }
           el = parent
@@ -266,7 +269,7 @@ export function MarketingPhoneMenu({
     return () => {
       window.clearTimeout(t)
       if (!made.length) return
-      window.setTimeout(() => { for (const el of made) el.inert = false }, CLOSE_MS + 20)
+      window.setTimeout(() => { for (const el of made) el.removeAttribute("aria-hidden") }, CLOSE_MS + 20)
     }
   }, [open, headerRef])
 
