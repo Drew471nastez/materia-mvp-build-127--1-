@@ -74,27 +74,44 @@ const portrait = (brand: string, label: string, alt: string, tone: string) => ({
   height: 1056,
   tone,
 })
+/*
+  LANDING ROUND 12, THE OWNER:
+  - Tideline first, in Plainspace's place; Plainspace where Ines Duarte was;
+    Ines last, where Tideline was.
+  - loudlib as the real loudlib.net looks (the owner's own screenshot; the
+    site turns a script away again): the purple sale bar, the dark header,
+    Bestselling and its boxed packs with their sale prices. The words, the
+    badges and the header are drawn again sharp at 1440; the box art is cut
+    from the screenshot.
+  - Plainspace's cover is a photograph of a calm desk, not black words.
+  - Off the Clock: Marcus at his microphone in the studio for his picture,
+    and the newsletter bell in the same white look as the share button.
+  - In Mara Lind's place Nora Quinn, a guitar and piano teacher in Galway, on
+    Paper; in Gia Romano's, Dami Okoro, a barber in Peckham, on Night with his
+    shop as the cover. Both PublicOnePage itself, photographed as before.
+  - Every card has a hairline edge (the stylesheet).
+*/
 /* Every caption is three words at most (the owner, waves 13 and 14). */
 const GROUPS = [
   [
-    wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store under a black cover, Your whole week. One calm page.: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates"),
+    wide("tideline", "Drop new merch", "Tideline's Storelib store, a surf label: its wave logo in black, a Coastal Hoodie for $48, a Surf Tee for $28 and a Breakwater Cap for $22 on light grey"),
     portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn", "#1a1a1d"),
     wide("app", "The Storelib app", "The Storelib app on an iPhone held over a knee in jeans: Good afternoon, Andrew, the week's visitors, revenue and orders, and one order waiting to ship"),
   ],
   [
-    wide("ines", "Sell travel guides", "Ines Duarte's website, a travel creator in Lisbon: a yellow tram on a sunny street, her Lisbon City Guide for $19, Portugal Presets, a coast road plan and a Saturday photo walk in Alfama"),
-    portrait("gia", "Sell your cookbook", "Gia Romano's OnePage on the Sunset theme, her photo across the top: her Pasta Sunday ebook for $18, a tagliatelle class on Saturday and photos of her dishes", "#8f3b28"),
+    wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store under a cover photo of a calm desk with a laptop and a plant: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates"),
+    portrait("dami", "Fill your bookings", "Dami Okoro's OnePage on the Night theme, a barber in Peckham, his shop as the cover: book a cut and beard for £38 or a skin fade for £28", "#0d1117"),
     wide("strength", "Run a community", "The Strength Room, Rina Castillo's paid strength coaching community on Storelib: its barbell emblem, the community card, the next live form check and the pinned post with the new program"),
   ],
   [
-    wide("loud", "Sell sample packs", "loudlib's Storelib store, a sample pack shop in the dark look under a purple sale bar: Serum Presets Vol 1, the Tech House Master Bundle and a drum kit, each as a boxed pack"),
-    portrait("otc", "Sell bonus episodes", "Off the Clock's OnePage on the Pop theme, Marcus Bell's podcast: bonus episodes for $5 a month, tickets to a live show in Leeds and season one uncut", "#1d3fd8"),
+    wide("loud", "Sell sample packs", "loudlib's Storelib store under a purple sale bar and a dark header: Bestselling, Serum Presets Vol 1 for €8,99, the Tech House Master Bundle for €19,98 and a drum kit, each a boxed pack"),
+    portrait("otc", "Sell bonus episodes", "Off the Clock's OnePage on the Pop theme, Marcus Bell at his microphone: bonus episodes for $5 a month, tickets to a live show in Leeds and season one uncut", "#1d3fd8"),
     wide("nightshift", "Build a club", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
   [
     wide("luca", "Sell subscriptions", "Luca Brandt's website, a colourist in Berlin: a graded desert road, Grade Club for $9 a month, the Cine Tones LUT Pack and a guide to grading night exteriors"),
-    portrait("mara", "Fill your bookings", "Mara Lind's OnePage, a Pilates teacher in Brooklyn: book a private session, photos of her classes, a home program and a class pack", "#b9c6ad"),
-    wide("tideline", "Drop new merch", "Tideline's Storelib store, a surf label: its wave logo in black, a Coastal Hoodie for $48, a Surf Tee for $28 and a Breakwater Cap for $22 on light grey"),
+    portrait("nora", "Sell music lessons", "Nora Quinn's OnePage on the Paper theme, a guitar and piano teacher in Galway: a First chords course for €49, a piano lesson on Zoom and a chord book", "#e4dfd4"),
+    wide("ines", "Sell travel guides", "Ines Duarte's website, a travel creator in Lisbon: a yellow tram on a sunny street, her Lisbon City Guide for $19, Portugal Presets, a coast road plan and a Saturday photo walk in Alfama"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
@@ -242,6 +259,8 @@ const CSS = `
 .build-showcase-pic {display:block;position:relative;width:100%;aspect-ratio:1440/990;margin:0;border-radius:7px;contain:paint;background:var(--showcase-tone,#151517);overflow:hidden}
 .build-showcase-slide[data-format="portrait"] .build-showcase-pic {aspect-ratio:540/1056}
 .build-showcase-pic img {display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
+/* Landing round 12, the owner: "a subtle, modern border, just a little". A 1px hairline of a neutral grey at 22% inside every card's edge, over the picture and under the caption: a light line on the dark pages, a faint grey one on the light ones. A still layer, nothing per frame. */
+.build-showcase-pic::after {content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(140,140,150,.22);pointer-events:none}
 /*
   THE CAPTION, LANDING ROUND 11 (the owner: "the text should not be under the
   card; it should be a bottom fade appearing smoothly over the bottom of the

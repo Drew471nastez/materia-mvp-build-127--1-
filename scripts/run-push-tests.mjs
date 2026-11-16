@@ -1548,6 +1548,8 @@ const SUITES = [
   "tests/home-landing-r12-top.test.ts",
   /* Landing round 12 (purple): the search results' favicons drawn as small marks (a fjord, a film strip, three lights), not letters; the map's turn on one 1.1s clock with an ease that leaves at rest, opaque cards at depths in one 3D stack, nothing reflowing; edge to edge on a phone. */
   "tests/home-landing-r12-purple.test.ts",
+  /* Landing round 12, rails: loudlib as loudlib.net looks, Plainspace's cover a photograph, Off the Clock's picture and white bell, Nora Quinn (Paper) and Dami Okoro (Night) for Mara Lind and Gia Romano, the new order, a hairline edge on every card; on a touch screen the rails move by the page's own frames so a finger never catches a compositor ahead of the page, and a finger is read from one road at a time. */
+  "tests/home-landing-r12-rails.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -126,7 +126,8 @@ assert.ok(/--showcase-card:min\(78vw,440px\)/.test(showcaseSrc) && /--showcase-g
   assert.ok(first / 390 > 0.7 && first / 390 < 0.8 && peek > 40 && peek < first / 2, `at 390 the first card is ${Math.round(first)}px and the next shows ${Math.round(peek)}px`)
 }
 // The corner of image 29: the radius overlaps the hero, a 1px top highlight that follows the curve, no side hairline.
-assert.ok(/--showcase-radius:clamp\(24px,2\.78vw,48px\)/.test(showcaseSrc) && /margin:calc\(var\(--showcase-radius\)\*-1\)/.test(showcaseSrc) && /box-shadow:inset 0 1px 0 rgba\(255,255,255,\.065\)/.test(showcaseSrc) && !/inset 0 0 0 1px/.test(showcaseSrc))
+/* Changed on purpose (landing round 12): the owner asked for a hairline edge on every card (.build-showcase-pic::after); the section itself still has no outline down its sides. */
+assert.ok(/--showcase-radius:clamp\(24px,2\.78vw,48px\)/.test(showcaseSrc) && /margin:calc\(var\(--showcase-radius\)\*-1\)/.test(showcaseSrc) && /box-shadow:inset 0 1px 0 rgba\(255,255,255,\.065\)/.test(showcaseSrc) && !/inset 0 0 0 1px/.test(showcaseSrc.replace(/\.build-showcase-pic::after \{[^}]*\}/, "")))
 // Nothing restyles the page while the rail moves (the heading no longer dims at each autoplay step).
 assert.ok(!/data-showcase-browsing/.test(showcaseSrc + read("components/marketing/use-showcase-motion.ts")))
 /* Changed on purpose (merge of main's round 60): the rail's motion moved to lib/ui/rail-motion, which the showcase's hook drives. */
