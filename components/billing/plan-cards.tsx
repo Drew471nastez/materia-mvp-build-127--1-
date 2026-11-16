@@ -25,9 +25,11 @@
  * LANDING ROUND 12, THE OWNER: no light grey ground behind the cards, so the
  * white cards sit on the page itself. Grow's icon is a line going up, not a
  * plant. Free and Pro get the home page's dark button with its arrow (the
- * earnings section's "Start earning", .cme-cta); Grow gets the white pill
- * with a purple round arrow at its end (the creators section's "Start
- * selling for free", .cc-cta). Grow's card is still the raised one.
+ * earnings section's "Start earning", .cme-cta). Grow's card is still the
+ * raised one.
+ *
+ * LANDING ROUND 13, THE OWNER: "Get Grow" is a solid Storelib purple button,
+ * no white pill and no round arrow. Free and Pro keep the dark button.
  *
  * EVERY WORD IS TRUE. The lines come from components/marketing/pricing-lines,
  * written from the tables that enforce them, and tests/pricing-cards-r5.test.ts
@@ -72,10 +74,10 @@ export interface PlanCardAction {
   current?: boolean
 }
 
-/** The plan in the middle, drawn raised with the white pill and its purple round arrow: Grow (id `growth`). */
+/** The plan in the middle, drawn raised with the solid purple button: Grow (id `growth`). */
 export const FEATURED_PLAN_ID: OfferedPlanId = PRO_CHECKOUT_PLAN_ID
 
-/** Storelib purple, the colour of the home page's primary button (components/marketing/hero), and of Grow's round arrow. */
+/** Storelib purple, the colour of the home page's primary button (components/marketing/hero), and of Grow's button. */
 export const PLAN_PURPLE = "#7c3aed"
 
 /** The icon in each plan's pill. */
@@ -125,27 +127,16 @@ function DarkArrow() {
   )
 }
 
-/** The purple round arrow at the end of the creators section's pill (creators-carousel.tsx, .cc-cta-ic). */
-function PillArrow({ compact }: { compact?: boolean }) {
-  return (
-    <span aria-hidden="true" data-plan-arrow="" className={`absolute right-1.5 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-[#7c3aed] text-white ${compact ? "h-7 w-7" : "h-8 w-8"}`}>
-      <svg viewBox="0 0 16 16" width="15" height="15" className="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-x-[2px] motion-reduce:transition-none">
-        <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </span>
-  )
-}
-
 function PlanButton({ action, featured, compact }: { action: PlanCardAction; featured: boolean; compact?: boolean }) {
   const live = !action.settled && !action.loading
   const className =
-    `group relative inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full ${featured && !action.settled ? (compact ? "px-10" : "px-11") : "px-5"} ` +
+    `group relative inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full px-5 ` +
     "text-[14px] no-underline select-none transition-[background-color,border-color,color,box-shadow] duration-200 " +
     "focus-visible:outline-none focus-visible:ring-4 " +
     (action.settled
       ? "border border-[#e4e4e7] bg-white font-medium text-[#6b7280] cursor-default"
       : featured
-        ? "bg-white font-semibold text-[#18181b] shadow-[inset_0_0_0_1px_rgba(24,24,27,0.12),0_1px_2px_rgba(24,24,27,0.06),0_8px_24px_-14px_rgba(76,29,149,0.35)] hover:bg-[#faf8ff] hover:shadow-[inset_0_0_0_1px_rgba(124,58,237,0.28),0_1px_2px_rgba(24,24,27,0.06),0_10px_28px_-14px_rgba(76,29,149,0.45)] focus-visible:ring-[#7c3aed]/25 disabled:cursor-not-allowed disabled:opacity-70"
+        ? "bg-[#7c3aed] font-semibold text-white shadow-[0_1px_2px_rgba(76,29,149,0.20),0_8px_20px_-12px_rgba(76,29,149,0.55)] hover:bg-[#6d28d9] active:bg-[#6d28d9] focus-visible:ring-[#7c3aed]/30 disabled:cursor-not-allowed disabled:opacity-70"
         : "bg-[#0f0e13] font-semibold text-white hover:bg-[#2a2833] active:bg-[#2a2833] focus-visible:ring-[#18181b]/20 disabled:cursor-not-allowed disabled:opacity-70")
   const content = action.loading ? (
     <>
@@ -155,10 +146,11 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
   ) : (
     <>
       <span className="min-w-0 truncate">{action.label}</span>
-      {live ? featured ? <PillArrow compact={compact} /> : <DarkArrow /> : null}
+      {/* Landing round 13: Grow's purple button carries no arrow; Free's and Pro's dark ones keep theirs. */}
+      {live && !featured ? <DarkArrow /> : null}
     </>
   )
-  const kind = action.settled ? "settled" : featured ? "pill" : "dark"
+  const kind = action.settled ? "settled" : featured ? "purple" : "dark"
 
   if (action.href && !action.disabled && !action.settled) {
     return (

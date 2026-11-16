@@ -10,7 +10,7 @@ import { AnimateOnScroll } from "./animate-on-scroll"
 const FAQS = [
   {
     q: "What is Storelib?",
-    a: "Storelib is one place for creators to sell what they make: digital products, merch, courses and memberships, with a link-in-bio page, an online store and product pages, and a marketplace that brings more buyers to you. No technical setup, and no stack of six tools.",
+    a: "Storelib is one place for creators to sell what they make: digital products, merch, courses and communities, with a link-in-bio page, an online store and product pages, and a marketplace that brings more buyers to you. No technical setup, and no stack of six tools.",
   },
   {
     q: "What can I sell on Storelib?",

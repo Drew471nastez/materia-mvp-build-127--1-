@@ -135,11 +135,12 @@ console.log("\n── Pricing cards ──")
   check("Grow's icon is a line going up, not a plant", /growth: TrendingUp,/.test(src) && !/Sprout/.test(src))
   const dark = (id: string) => /<a[^>]*class="[^"]*bg-\[#0f0e13\][^"]*text-white[^"]*"[^>]*data-plan-button="dark"/.test(card(id)) && /<path d="M4 10h12M11 5l5 5-5 5"><\/path>/.test(card(id))
   check("Start free and Get Pro: the earnings section's dark button and arrow", dark("free") && dark("pro") && /\.cme-cta\{[^}]*background:#0f0e13;color:#fff/.test(read("components/marketing/home/earnings-calculator.tsx")))
-  check("Get Grow: the creators section's white pill with the purple round arrow", /data-plan-button="pill"/.test(card("growth")) && /bg-white font-semibold text-\[#18181b\] shadow-\[inset_0_0_0_1px_rgba\(24,24,27,0\.12\)/.test(card("growth")) && /data-plan-arrow=""[^>]*rounded-full bg-\[#7c3aed\] text-white/.test(card("growth")) && /<path d="M3\.5 8h8\.5M8\.5 4\.5 12 8l-3\.5 3\.5"/.test(card("growth")))
+  // Changed on purpose (landing round 13): the owner: "Get Grow" is a solid Storelib purple button, no white pill and no round arrow (tests/home-landing-r13-pricing.test.ts).
+  check("Get Grow: a solid Storelib purple button, no round arrow", /data-plan-button="purple"/.test(card("growth")) && /bg-\[#7c3aed\] font-semibold text-white/.test(card("growth")) && !/data-plan-arrow/.test(card("growth")) && !/<path d="M3\.5 8h8\.5M8\.5 4\.5 12 8l-3\.5 3\.5"/.test(card("growth")))
   check("Grow's card still the raised one", /data-plan-card="growth" data-plan-featured=""/.test(html))
   const settled = renderToStaticMarkup(createElement(PlanCards, { actions: { ...actions, growth: { label: "Current plan", settled: true } }, compact: true }))
   check("a settled button stays quiet, with no arrow", /data-plan-button="settled"/.test(settled) && !/data-plan-arrow/.test(settled.slice(settled.indexOf('data-plan-card="growth"'), settled.indexOf('data-plan-card="pro"'))))
-  check("the arrows move by translate only, and not under reduced motion", /className="[^"]*transition duration-\[250ms\]/.test(src) && (src.match(/motion-reduce:transition-none/g) ?? []).length >= 2)
+  check("the arrows move by translate only, and not under reduced motion", /className="[^"]*transition duration-\[250ms\]/.test(src) && (src.match(/motion-reduce:transition-none/g) ?? []).length >= 1) // Changed on purpose (landing round 13): Grow's round arrow is gone, so the dark arrow is the one left to hold still.
 }
 
 console.log("\n── Apps: a smaller gap, still no icon seen twice ──")
