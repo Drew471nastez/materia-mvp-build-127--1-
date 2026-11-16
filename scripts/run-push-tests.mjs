@@ -1546,6 +1546,8 @@ const SUITES = [
   "tests/home-landing-r11-stability.test.ts",
   /* Landing round 12, top: the website builder's first site is the owner's GodBless store (offer bar, red wordmark, a summer photo hero, New Collection on light grey), still moving on to loudlib; the strip's digital store is Jonah Wells, a guitar teacher, laid out like a real store with photographs of what he sells. */
   "tests/home-landing-r12-top.test.ts",
+  /* Landing round 12 (purple): the search results' favicons drawn as small marks (a fjord, a film strip, three lights), not letters; the map's turn on one 1.1s clock with an ease that leaves at rest, opaque cards at depths in one 3D stack, nothing reflowing; edge to edge on a phone. */
+  "tests/home-landing-r12-purple.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -184,27 +184,54 @@ function GlobeCard({ live, reduced }: { live: boolean; reduced: boolean }) {
 /* ── SEO, GEO, AEO ───────────────────────────────────────────────────── */
 const QUERY = "cinematic LUT pack for Premiere Pro"
 /*
-  Landing round 11, the owner: the results "should also have favicons". Each
-  site its own small mark in its own colour, the way a real result shows it:
-  a 16px icon in Google's round 26px well. Drawn here (no files to load).
+  Landing round 11, the owner: the results "should also have favicons".
+  Landing round 12, the owner: they were "still letter tiles". Each site has
+  a small mark of its own now, the kind of icon a small studio draws for its
+  site: Nora Vik a fjord at dusk (two peaks, the water, a low sun), Frame and
+  Grain a strip of film with its sprocket holes, Colorist Notes the three
+  lights of a grade meeting in white. Flat shapes on a 16px grid so they stay
+  crisp in Google's round 26px well; no letters, no files to load, no real
+  brand.
 */
-const RESULTS = [
-  { site: "Nora Vik", favicon: { mark: "N", bg: "#1d5b5e", ink: "#f3efe6", round: false }, url: "noravik.example › luts", title: "Fjord LUTs: 24 cinematic looks for Premiere Pro", body: "Cube files for Premiere, DaVinci Resolve and Final Cut.", img: "lut-fog.webp" },
-  { site: "Frame & Grain", favicon: { mark: "fg", bg: "#d4712a", ink: "#fff8f0", round: false }, url: "frameandgrain.example › guides", title: "How to install a LUT pack in Premiere Pro", body: "Lumetri, Creative, Look, and the pack is in. Step by step.", img: "lut-neon.webp" },
-  { site: "Colorist Notes", favicon: { mark: "C", bg: "#b8322c", ink: "#ffffff", round: true }, url: "coloristnotes.example › film", title: "Film emulation LUTs that keep skin tones", body: "Warm film looks without orange faces, side by side.", img: "lut-autumn.webp" },
-]
-
-/** A site's favicon: its monogram on its own colour, a rounded square or a disc, 16px. */
-function Favicon({ mark, bg, ink, round }: { mark: string; bg: string; ink: string; round: boolean }) {
+function FjordIcon() {
   return (
-    <svg viewBox="0 0 16 16" width={16} height={16} className={s.favicon} aria-hidden="true" focusable="false">
-      {round ? <circle cx="8" cy="8" r="8" fill={bg} /> : <rect width="16" height="16" rx="3.5" fill={bg} />}
-      <text x="8" y="8" dy=".36em" textAnchor="middle" fill={ink} fontSize={mark.length > 1 ? 8.6 : 10.5} fontWeight={700} letterSpacing={mark.length > 1 ? "-0.04em" : undefined} fontFamily="inherit">
-        {mark}
-      </text>
+    <svg viewBox="0 0 16 16" width={16} height={16} className={s.favicon} aria-hidden="true" focusable="false" data-favicon="fjord">
+      <rect width="16" height="16" rx="3.5" fill="#173f48" />
+      <circle cx="11.6" cy="4.4" r="1.6" fill="#f0b36a" />
+      <path d="M1.5 11.5 5.6 5.2 7.9 8.5 9.6 6.6 14.5 11.5Z" fill="#f3efe6" />
+      <path d="M5.6 5.2 4.1 7.5 5.7 6.9 6.8 7.7Z" fill="#173f48" opacity=".3" />
+      <rect x="3" y="12.6" width="10" height="1" rx=".5" fill="#f3efe6" opacity=".5" />
     </svg>
   )
 }
+function FilmIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width={16} height={16} className={s.favicon} aria-hidden="true" focusable="false" data-favicon="film">
+      <rect width="16" height="16" rx="3.5" fill="#d9692a" />
+      <rect x="3.5" y="2" width="9" height="12" rx="1.3" fill="#1d1712" />
+      <rect x="5.7" y="4" width="4.6" height="3.5" rx=".5" fill="#f6c58f" />
+      <rect x="5.7" y="8.5" width="4.6" height="3.5" rx=".5" fill="#f6c58f" opacity=".55" />
+      <path d="M4.2 3.2h.9v1h-.9zM4.2 5.9h.9v1h-.9zM4.2 8.6h.9v1h-.9zM4.2 11.3h.9v1h-.9zM10.9 3.2h.9v1h-.9zM10.9 5.9h.9v1h-.9zM10.9 8.6h.9v1h-.9zM10.9 11.3h.9v1h-.9z" fill="#d9692a" />
+    </svg>
+  )
+}
+function LightsIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width={16} height={16} className={s.favicon} aria-hidden="true" focusable="false" data-favicon="lights">
+      <circle cx="8" cy="8" r="8" fill="#121317" />
+      <g style={{ isolation: "isolate" }}>
+        <circle cx="8" cy="6.1" r="3.4" fill="#ff3b30" style={{ mixBlendMode: "screen" }} />
+        <circle cx="6.15" cy="9.3" r="3.4" fill="#2bd45a" style={{ mixBlendMode: "screen" }} />
+        <circle cx="9.85" cy="9.3" r="3.4" fill="#2f6bff" style={{ mixBlendMode: "screen" }} />
+      </g>
+    </svg>
+  )
+}
+const RESULTS = [
+  { site: "Nora Vik", Icon: FjordIcon, url: "noravik.example › luts", title: "Fjord LUTs: 24 cinematic looks for Premiere Pro", body: "Cube files for Premiere, DaVinci Resolve and Final Cut.", img: "lut-fog.webp" },
+  { site: "Frame & Grain", Icon: FilmIcon, url: "frameandgrain.example › guides", title: "How to install a LUT pack in Premiere Pro", body: "Lumetri, Creative, Look, and the pack is in. Step by step.", img: "lut-neon.webp" },
+  { site: "Colorist Notes", Icon: LightsIcon, url: "coloristnotes.example › film", title: "Film emulation LUTs that keep skin tones", body: "Warm film looks without orange faces, side by side.", img: "lut-autumn.webp" },
+]
 
 function SearchCard() {
   return (
@@ -236,7 +263,7 @@ function SearchCard() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className={s.faviconWell}>
-                    <Favicon {...r.favicon} />
+                    <r.Icon />
                   </span>
                   <span className="min-w-0 leading-[1.2]">
                     <span className="block truncate text-[12.5px] text-[#ececf1]">{r.site}</span>
