@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type CSSProperties } from "react"
 import { StoryHeading } from "../story-heading"
 import { RAIL_AXIS, bindRailGesture } from "../rail-gesture"
 import { frameLeg, type FrameLeg } from "../rail-frames"
@@ -34,6 +34,17 @@ export const CREATORS: readonly CreatorCard[] = [
 ]
 
 export const CREATORS_HEADING = "Storelib is for creators. Whatever you make."
+
+/**
+ * LANDING ROUND 13, THE OWNER: the rail starts scrolled to the streamers'
+ * card. The cards keep their order (a loop has no first card); the rail
+ * simply starts this many cards along, the card before it peeking in at the
+ * left edge, and drifts on from there. The stylesheet draws that place before
+ * the script is there (--cc-from), and the script takes it over from its
+ * first measure, so the rail never steps when it comes alive.
+ */
+export const CREATORS_START = "streamers"
+const START_AT = Math.max(0, CREATORS.findIndex((c) => c.slug === CREATORS_START))
 
 const SIZES = "(max-width: 640px) 66vw, (max-width: 1280px) 24vw, 300px"
 
@@ -103,6 +114,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     let step = 1
     /* x: how far the rail has travelled left, in px, whenever no animation holds it. */
     let x = 0
+    let started = false
     let visible = typeof IntersectionObserver !== "function"
     let hovering = false
     let focused = false
@@ -134,8 +146,15 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       const second = cards[1]
       const copy = cards[count]
       if (!first || !second || !copy) return
-      step = second.offsetLeft - first.offsetLeft || 1
-      loop = copy.offsetLeft - first.offsetLeft
+      /* Landing round 13: read to the fraction of a px (offsetLeft is rounded), so a lap wraps exactly onto the copy and the start lands where the stylesheet drew it. The rail's transform moves every card alike, so the differences are its own. */
+      const left0 = first.getBoundingClientRect().left
+      step = second.getBoundingClientRect().left - left0 || 1
+      loop = copy.getBoundingClientRect().left - left0
+      /* The first measure puts the rail where the stylesheet already drew it: START_AT cards along. */
+      if (!started && loop > 0) {
+        started = true
+        x = START_AT * step
+      }
     }
     const live = () => visible && !document.hidden && !reduce.matches
     const cruise = () => (touch.matches ? 30 : 36)
@@ -397,7 +416,9 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       for (const twin of all) if (twin === img || twin.getAttribute("src") === img.getAttribute("src")) if (!twin.hasAttribute("data-shown")) twin.setAttribute("data-shown", now ? "now" : "")
     }
     const pending: HTMLImageElement[] = []
-    for (const img of track.querySelectorAll<HTMLImageElement>("li:not([aria-hidden]) img")) {
+    /* Landing round 13: in the order the rail shows them, from the card it starts on. */
+    const own = [...track.querySelectorAll<HTMLImageElement>("li:not([aria-hidden]) img")]
+    for (const img of [...own.slice(START_AT), ...own.slice(0, START_AT)]) {
       if (img.complete && img.naturalWidth > 0) show(img, true)
       else pending.push(img)
     }
@@ -508,7 +529,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
         aria-label="Creators who sell on Storelib"
         tabIndex={0}
       >
-        <ul ref={trackRef} className="cc-track">
+        <ul ref={trackRef} className="cc-track" style={{ "--cc-from": START_AT } as CSSProperties}>
           {renderSet(false)}
           {renderSet(true)}
         </ul>
@@ -542,7 +563,8 @@ export const CREATORS_CSS = `
 /* Landing round 8, the owner: "full width, not with a fade". The rail runs from one edge of the screen to the other at every width, with no mask; at rest its first card starts on the content edge (the showcase cards' edge, the shared box's gutter). */
 .cc-section{--cc-start:max(var(--cc-gutter),calc((100% - var(--home-max,2020px)) / 2 + var(--cc-gutter)))}
 .cc-viewport[data-dragging]{cursor:grabbing}
-.cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-start) 8px;list-style:none;backface-visibility:hidden}
+/* Landing round 13: before the script, the rail is drawn where it starts, --cc-from cards along (CREATORS_START); the script writes the same place as its own transform. */
+.cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-start) 8px;list-style:none;backface-visibility:hidden;transform:translate(calc((var(--cc-w) + var(--cc-gap)) * var(--cc-from,0) * -1))}
 .cc-card{flex:none;width:var(--cc-w);margin:0;padding:0}
 /* The card as it was before the product tiles: the photo, and on a soft shade at its foot the creator's name, their kind and what they sell. It stays still under the pointer. */
 .cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:23px;background:var(--cc-photo);isolation:isolate}

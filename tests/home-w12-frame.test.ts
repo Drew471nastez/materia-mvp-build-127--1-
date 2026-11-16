@@ -50,12 +50,14 @@ async function main() {
   {
     const removed = ["BentoGrid", "StatsBar", "ManageSection", "SplitFeaturesSection", "ToolStackSection", "FeaturesBadgesSection", "CtaSection", "CarouselSection"]
     check("none of the removed sections is on the page", removed.every((c) => !page.includes(c)), removed.filter((c) => page.includes(c)))
-    check("the hero and the showcase stay, first", page.indexOf("<Hero />") > 0 && page.indexOf("<Hero />") < page.indexOf("<BuildShowcase />"))
+    // Changed on purpose (landing round 13): the hero stays first; the showcase moved from under it to before pricing.
+    check("the hero stays, first, and the showcase stays", page.indexOf("<Hero />") > 0 && page.indexOf("<Hero />") < page.indexOf("<LazyEverythingInOnePlace />") && page.indexOf("<LazyBuildShowcase />") > 0)
     /* Changed on purpose (wave 12 integration): the slots are now the sections themselves, loaded by components/marketing/home/lazy-sections. */
     /* Changed on purpose (landing round 3): the owner asked for a new order by ground. The apps follow the audience on one white sheet, analytics and the map share a purple one, and the app closes the page with the final call. */
     // Changed on purpose (landing round 8): the business section is back after the ideas; the possibilities moved to just before what you could earn.
     // Changed on purpose (landing round 9): the owner moved the app up onto white (after the apps and the AI tools); the questions are last, then the closing call.
-    const order = ["<BuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAppAnywhere />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection", "<FinalCta />"]
+    // Changed on purpose (landing round 13): the showcase between what you could earn and pricing.
+    const order = ["<Hero />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAppAnywhere />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />", "<LazyBuildShowcase />", "<PricingSection", "<FaqSection", "<FinalCta />"]
     const at = order.map((s) => pageRaw.indexOf(s))
     check("the sections and the other tracks' slots in the owner's order", at.every((n, i) => n > 0 && (i === 0 || n > at[i - 1])), order.filter((_, i) => at[i] <= 0 || (i > 0 && at[i] <= at[i - 1])))
     check("pricing is kept, without its See full pricing button", /<PricingSection editorial hideDetailsLink \/>/.test(page) && /\{!hideDetailsLink && \(/.test(read("components/marketing/pricing-section.tsx")))

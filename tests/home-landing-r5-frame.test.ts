@@ -78,7 +78,8 @@ console.log("\n── The page ──")
   check("no cover watch and no hold anywhere", !/SheetCoverWatch|sheet-cover-watch|\bhold\b|holdOnPhone|lift=/.test(page))
   check("the cover watch file is gone", !existsSync(join(root, "components/marketing/sheet-cover-watch.tsx")))
 // Changed on purpose (landing round 8): no flat ground any more (the first white sheet rounds its own top over the showcase), and the purple sheet rises.
-  check("the grounds are still there: two dark stretches around the sheets, one purple", (page.match(/<ScrollRevealBackdrop>/g) || []).length === 3 && (page.match(/<ScrollRevealPanel tone="purple" arrive="rise">/g) || []).length === 1 && !/arrive="flat"/.test(page))
+  // Changed on purpose (landing round 13): a fourth dark stretch, the showcase's, before pricing.
+  check("the grounds are still there: the dark stretches around the sheets, one purple", (page.match(/<ScrollRevealBackdrop>/g) || []).length === 4 && (page.match(/<ScrollRevealPanel tone="purple" arrive="rise">/g) || []).length === 1 && !/arrive="flat"/.test(page))
 }
 
 console.log("\n── The header keeps one height ──")
