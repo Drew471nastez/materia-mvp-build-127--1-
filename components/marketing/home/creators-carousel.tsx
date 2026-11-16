@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { StoryHeading } from "../story-heading"
 import { RAIL_AXIS, bindRailGesture } from "../rail-gesture"
+import { frameLeg, type FrameLeg } from "../rail-frames"
 import type { SectionStyle } from "./lazy-section"
 
 export type CreatorCard = {
@@ -125,7 +126,8 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
      * transform per frame the hand moved. Taking the motion back (a press, a
      * hover, a resize) reads the rail's place once, at that moment.
      */
-    let motion: { anim: Animation; kind: "in" | "cruise" | "out" | "coast" | "nudge"; t0: number; ms: number; speed: number } | null = null
+    /* Landing round 12: on a touch screen a leg is run by the page's own frames (rail-frames.ts), so a finger catches the rail exactly where it is drawn. */
+    let motion: { anim: Animation | FrameLeg; frames: boolean; kind: "in" | "cruise" | "out" | "coast" | "nudge"; t0: number; ms: number; speed: number } | null = null
 
     const measure = () => {
       const cards = track.querySelectorAll<HTMLElement>("[data-idx]")
@@ -160,9 +162,26 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
      * animation cancelled. One place, drawn once: nothing moves under the
      * finger.
      */
+    /*
+     * LANDING ROUND 12 (the owner, again: "on touch, when the finger goes down
+     * to swipe, it glitches and stutters left and right before it swipes").
+     * Pausing pins the page's clock, but in WebKit the compositor that draws
+     * the animation runs in another process, ahead of it: the place read
+     * here could be behind what was on screen, and the rail stepped back
+     * before it followed the finger. On a touch screen the motion is now the
+     * page's own frames (rail-frames.ts): the place last written is what is
+     * drawn, and it is kept as it is.
+     */
     const halt = () => {
       if (!motion) return
       const { anim } = motion
+      if (motion.frames) {
+        x = (anim as FrameLeg).at()
+        motion = null
+        paint()
+        anim.cancel()
+        return
+      }
       anim.pause()
       const m = getComputedStyle(track).transform
       if (m && m !== "none") x = -new DOMMatrixReadOnly(m).m41
@@ -179,11 +198,21 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
         return
       }
       const from = wrap(x)
-      const anim = track.animate([{ transform: tf(from) }, { transform: tf(from + by) }], kind === "cruise" ? { duration: ms, iterations: Infinity, easing: "linear" } : { duration: ms, easing })
-      motion = { anim, kind, t0: performance.now(), ms, speed }
-      x = from + by
-      if (kind !== "cruise") paint()
-      else x = from
+      const frames = touch.matches
+      let anim: Animation | FrameLeg
+      if (frames) {
+        /* Written each frame (paint wraps it round the loop). */
+        anim = frameLeg(from, by, ms, kind === "cruise" ? "linear" : easing, (v) => {
+          x = v
+          paint()
+        }, kind === "cruise")
+      } else {
+        anim = track.animate([{ transform: tf(from) }, { transform: tf(from + by) }], kind === "cruise" ? { duration: ms, iterations: Infinity, easing: "linear" } : { duration: ms, easing })
+        x = from + by
+        if (kind !== "cruise") paint()
+        else x = from
+      }
+      motion = { anim, frames, kind, t0: performance.now(), ms, speed }
       if (!live()) anim.pause()
       anim.onfinish = () => {
         if (motion?.anim !== anim) return

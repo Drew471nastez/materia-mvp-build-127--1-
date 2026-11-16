@@ -47,7 +47,8 @@ check("the axis is decided after 4px, across only when clearly more across than 
 /* Changed on purpose (landing round 9): the same rule, in rail-gesture.ts. */
 check("down is the page's: the rail lets go at once, and vertical pans are the browser's", /if \(d\.axis === "y"\) \{\s*end\(t, false\)\s*return false/.test(gesture) && /\.build-showcase-track\[data-rail-ready\] \{overflow:visible;touch-action:pan-y pinch-zoom/.test(css))
 /* Changed on purpose (landing round 9): in rail-gesture.ts, for a mouse or a pen (a finger's touch events need no capture). */
-check("pointer capture only once the rail has the gesture", /if \(travel\(e\.clientX, e\.clientY, e\.timeStamp\) && !was && !held\?\.finger\) \{\s*try \{\s*el\.setPointerCapture\(e\.pointerId\)/.test(gesture) && !/setPointerCapture/.test(hook))
+// Changed on purpose (landing round 12): travel() says which road a move came by ("pointer" or "touch"): a finger is read from one road at a time (rail-gesture.ts).
+check("pointer capture only once the rail has the gesture", /if \(travel\(e\.clientX, e\.clientY, e\.timeStamp, "pointer"\) && !was && !held\?\.finger\) \{\s*try \{\s*el\.setPointerCapture\(e\.pointerId\)/.test(gesture) && !/setPointerCapture/.test(hook))
 /* Changed on purpose (landing round 9): the gesture hands the rail its dx from the point the axis was decided. */
 check("1:1 from where the axis was decided, no jump for the slop", /d\.startX = x\s*d\.samples = \[\{ t, cx: x \}\]\s*h\.start\(\)/.test(gesture) && /h\.move\(x - d\.startX\)/.test(gesture) && /if \(drag\) drag\.fromX = x/.test(hook) && /x = resist\(drag\.fromX - dx\)/.test(hook))
 check("drawn once a frame, only in a frame the pointer moved, as a transform", /if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(hook) && /el\.style\.transform = `translate3d\(/.test(hook))
@@ -96,11 +97,13 @@ console.log("\nThe showcase's pages")
 const all = SHOWCASE_EXAMPLES.map((e) => `${e.src} ${e.label} ${e.alt}`).join(" ")
 const html = renderToStaticMarkup(createElement(BuildShowcase))
 check("the nail artist, the coffee subscription and the language club are gone, pictures too", !/nails by bea|northline|nordline|charla/i.test(all + showcase + html) && ["bea", "northline", "charla"].every((k) => !existsSync(`public/home/showcase/a-${k}.webp`)))
-check("Mara Lind's bookings, a 9:16 OnePage", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-mara.webp" && e.format === "portrait" && e.label === "Fill your bookings"))
+// Changed on purpose (landing round 12): the owner disliked Mara Lind; the bookings are Dami Okoro's, a barber, on the Night theme.
+check("bookings, a 9:16 OnePage (Dami Okoro since round 12)", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-dami.webp" && e.format === "portrait" && e.label === "Fill your bookings") && !SHOWCASE_EXAMPLES.some((e) => /mara/i.test(e.src + e.alt)))
 check("Luca Brandt's Grade Club subscription with the Cine Tones LUT Pack", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-luca.webp" && e.label === "Sell subscriptions" && /Cine Tones LUT Pack/.test(e.alt)))
 /* Changed on purpose (landing round 11): the owner asked for the Storelib app photograph in Seed & Soil's place. */
 check("the Storelib app photograph in the gardening community's place", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-app.webp" && e.label === "The Storelib app") && !SHOWCASE_EXAMPLES.some((e) => /seedsoil/.test(e.src)))
-check("Plainspace's store under its new black cover", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-plainspace.webp" && /black cover/.test(e.alt)))
+// Changed on purpose (landing round 12): the owner disliked the black cover with its words; a photograph of a calm desk.
+check("Plainspace's store under its cover photo", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-plainspace.webp" && /cover photo of a calm desk/.test(e.alt) && !/black cover|One calm page/.test(e.alt)))
 check("every picture is a webp at its size, under 120 KB", SHOWCASE_EXAMPLES.every((e) => existsSync(`public${e.src}`) && e.src.endsWith(".webp") && statSync(`public${e.src}`).size < 120_000))
 check("twelve different pictures, captions three words at most", new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size === 12 && SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3))
 check("no banned names, words or em dashes", !/nadia brooks|the loop\b|lasalle|static bloom|wildcamp|enthusiasts|\bfans?\b/i.test(all) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(all) && !/—/.test(all))

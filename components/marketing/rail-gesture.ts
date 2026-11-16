@@ -67,8 +67,14 @@ export type RailGestureHandlers = {
   release: (r: RailRelease) => void
 }
 
-/* finger: a touch, read from touch events (touchId) and pointer events (pointerId) alike. */
-type Held = { finger: boolean; touchId: number | null; pointerId: number | null; startX: number; startY: number; axis: "x" | "y" | null; samples: Array<{ t: number; cx: number }> }
+/*
+  finger: a touch, read from touch events (touchId) and pointer events (pointerId) alike. road: which of the two its
+  moves are read from (landing round 12). Its pointer moves come first (Chrome sends no touchmove in its own slop); once
+  its first touchmove comes, only touch moves are read. Two roads read at once could disagree by the rounding of one
+  (WebKit's touches are whole pixels, its pointers are not) or arrive in either order, and the rail would step back
+  and forth between them.
+*/
+type Held = { finger: boolean; touchId: number | null; pointerId: number | null; startX: number; startY: number; axis: "x" | "y" | null; road: "touch" | "pointer" | null; samples: Array<{ t: number; cx: number }> }
 
 /** Reads presses, drags and throws on `el`. Returns `held` (a pointer is down on the rail) and `destroy`. */
 export function bindRailGesture(el: HTMLElement, h: RailGestureHandlers): { held: () => boolean; destroy: () => void } {
@@ -79,14 +85,25 @@ export function bindRailGesture(el: HTMLElement, h: RailGestureHandlers): { held
 
   const begin = (finger: boolean, x: number, y: number, t: number) => {
     if (h.press(finger) === false) return null
-    held = { finger, touchId: null, pointerId: null, startX: x, startY: y, axis: null, samples: [{ t, cx: x }] }
+    held = { finger, touchId: null, pointerId: null, startX: x, startY: y, axis: null, road: null, samples: [{ t, cx: x }] }
     suppressClick = false
     return held
   }
   /* Returns true once the gesture is the rail's. */
-  const travel = (x: number, y: number, t: number) => {
+  const travel = (x: number, y: number, t: number, road: "touch" | "pointer") => {
     const d = held
     if (!d) return false
+    /* A finger's pointer moves, once its touch moves have begun: the same moves again, by the other road. */
+    if (d.finger && d.road === "touch" && road === "pointer") return d.axis === "x"
+    if (d.finger && d.road === "pointer" && road === "touch") {
+      /* The switch: the touch move of the same moment as the last pointer move is the same place, whatever its rounding. */
+      const last = d.samples[d.samples.length - 1]
+      if (d.axis === "x" && last && Math.abs(t - last.t) < 8) {
+        d.startX += x - last.cx
+        last.cx = x
+      }
+    }
+    if (d.finger) d.road = road
     if (!d.axis) {
       d.axis = railAxis(x - d.startX, y - d.startY)
       if (!d.axis) return false
@@ -138,7 +155,7 @@ export function bindRailGesture(el: HTMLElement, h: RailGestureHandlers): { held
     const t = find(e.touches, held.touchId)
     if (!t) return
     /* Across: the rail's, so the page must not scroll too. Down: never cancelled. */
-    if (travel(t.clientX, t.clientY, e.timeStamp) && e.cancelable) e.preventDefault()
+    if (travel(t.clientX, t.clientY, e.timeStamp, "touch") && e.cancelable) e.preventDefault()
   }
   const onTouchEnd = (e: TouchEvent) => {
     if (!held || !held.finger || !find(e.changedTouches, held.touchId)) return
@@ -164,7 +181,7 @@ export function bindRailGesture(el: HTMLElement, h: RailGestureHandlers): { held
     if (!held || e.pointerId !== held.pointerId) return
     const was = held.axis
     /* A mouse or a pen keeps the drag outside the rail once it is the rail's. A finger needs no capture: its touch events stay with the rail. */
-    if (travel(e.clientX, e.clientY, e.timeStamp) && !was && !held?.finger) {
+    if (travel(e.clientX, e.clientY, e.timeStamp, "pointer") && !was && !held?.finger) {
       try {
         el.setPointerCapture(e.pointerId)
       } catch {}

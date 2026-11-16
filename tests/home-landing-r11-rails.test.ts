@@ -56,7 +56,8 @@ const brand = (e: { src: string }) => e.src.match(/a-([a-z]+)\.webp$/)![1]
 
 console.log("\nThe showcase's cards, the owner's picks")
 check("twelve cards, wide, OnePage, wide, in four groups", SHOWCASE_EXAMPLES.length === 12 && SHOWCASE_EXAMPLES.every((e, i) => e.format === (i % 3 === 1 ? "portrait" : "wide")))
-check("the order", SHOWCASE_EXAMPLES.map(brand).join(",") === "plainspace,satori,app,ines,gia,strength,loud,otc,nightshift,luca,mara,tideline", SHOWCASE_EXAMPLES.map(brand))
+// Changed on purpose (landing round 12): Tideline first, Plainspace where Ines was, Ines last; Dami Okoro for Gia Romano, Nora Quinn for Mara Lind.
+check("the order", SHOWCASE_EXAMPLES.map(brand).join(",") === "tideline,satori,app,plainspace,dami,strength,loud,otc,nightshift,luca,nora,ines", SHOWCASE_EXAMPLES.map(brand))
 check("gone: Studio Marlow, Pinch Grip Club, The Long Draft, Second Shift, Kai Moreno, Seed & Soil (and their files)", !/marlow|pinch grip|pinchgrip|long draft|a-draft|second shift|a-shift|kai moreno|a-kai|seed & soil|seedsoil/i.test(all) && ["marlow", "pinchgrip", "draft", "shift", "kai", "seedsoil"].every((b) => !existsSync(`public/home/showcase/a-${b}.webp`)))
 check("none of the round's banned names", !/Nadia Brooks|The Loop|LaSalle|Nails by Bea|Nordline|Charla Circle|Static Bloom|Maren Holt|enthusiasts|ceramics/i.test(all + src))
 check("The Strength Room is a wide (4:3 on a phone) card", SHOWCASE_EXAMPLES.some((e) => brand(e) === "strength" && e.format === "wide" && /The Strength Room/.test(e.alt)))
@@ -65,7 +66,8 @@ check("Tideline's merch store, with a caption for what it shows", SHOWCASE_EXAMP
 check("a new OnePage, a podcast's, in the photographer's place", SHOWCASE_EXAMPLES.some((e) => brand(e) === "otc" && e.format === "portrait" && /Off the Clock/.test(e.alt) && /Pop theme/.test(e.alt)))
 check("the Storelib app photograph (Run your business from anywhere) as a card", SHOWCASE_EXAMPLES.some((e) => brand(e) === "app" && e.label === "The Storelib app"))
 const sunset = THEME_TEMPLATES.find((t) => t.id === "sunset") as unknown as { profile_layout?: string; theme_config: { header_layout?: string } } | undefined
-check("Gia Romano on a real OnePage theme with a hero layout: Sunset", !!sunset && sunset.profile_layout === "hero" && sunset.theme_config.header_layout === "hero" && SHOWCASE_EXAMPLES.some((e) => brand(e) === "gia" && /Sunset theme/.test(e.alt) && e.tone === "#8f3b28"))
+// Changed on purpose (landing round 12): the owner disliked Gia Romano's page; it is gone (the Sunset theme itself is still a hero theme).
+check("Gia Romano is gone; Sunset is still a hero theme", !!sunset && sunset.profile_layout === "hero" && sunset.theme_config.header_layout === "hero" && !SHOWCASE_EXAMPLES.some((e) => brand(e) === "gia" || /Gia Romano/.test(e.alt)))
 check("captions three words at most, no banned words, no em dash", SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3) && !/unlock|elevate|seamless|powerful|effortlessly|supercharge|transform|—/i.test(all))
 
 console.log("\nThe files: the sizes drawn, small")
