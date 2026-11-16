@@ -1386,8 +1386,18 @@ const OVERLAP = "56svh"
 const SETTLE = 44
 /* Round 10: where the phone and the ring step back under the cards (svh of scroll into the hold), how faint and how small they end. The cards' top edge comes on screen at 44svh. Round 11: fainter, the cards are solid now and the products show only in the gaps. */
 const RECEDE = [48, 100] as const
-const RECEDE_TO = 0.45
+/*
+ * Wave 18 (the owner: the products "a little lower in brightness, just a
+ * little"): the ring is drawn at RING_DIM, one opacity on the ring's own layer
+ * (it already fades behind the cards, so no new layer and no filter). Over the
+ * section's black, an opacity is a brightness: 12% darker. Behind the cards it
+ * ends at RECEDE_TO, the old 45% made the same touch darker.
+ */
+const RING_DIM = 0.88
+const RECEDE_TO = 0.4
 const RECEDE_SCALE = 0.92
+/* The phone's blurred copy behind the cards: 30% of round 11's faded strength (0.45), the phone is not a product and keeps its brightness. */
+const PHONE_SOFT_TO = 0.135
 /* The headline fades before the cards' top edge reaches it. */
 const COPY_OUT = [86, 116] as const
 /* Each word's stretch of the hold: a fifth of it, each starting a little after the one before, the last done as the phone lands. */
@@ -1418,10 +1428,13 @@ const ringBox = (deg: number) => `translate3d(0,0,calc(var(--r) * -1)) rotateX(v
  * Depth, over one turn (0% is the ring's nearest point, behind the phone; a
  * quarter turn either way is beside it; half way is the far side). SHARP_UNTIL
  * is where the sharp object starts to give way to its blurred copy, SOFT_FROM
- * where only the copy is left.
+ * where only the copy is left. Wave 18 (the reference: the products float
+ * out of focus round the phone): the sharp stretch is narrower, so an object
+ * is sharp only as it comes out from behind the phone and soft for most of
+ * the turn, beside the phone included.
  */
-const SHARP_UNTIL = 26
-const SOFT_FROM = 40
+const SHARP_UNTIL = 12
+const SOFT_FROM = 30
 const DEPTH_FAR = 0.5
 
 const ORBIT_CSS = `
@@ -1441,12 +1454,12 @@ ${FLOATS.map((f) => (f.m ? `  .cmc-o[data-f="${f.id}"]{${spotVars(f.m, f)}}` : "
 /* Round 11: the phone starts big and low, rising from the stage's foot, and settles smaller under the headline. */
 @keyframes cmc-settle{from{transform:translate3d(0,var(--y0),0) scale(1)}to{transform:translate3d(0,var(--y1),0) scale(var(--ps))}}
 @keyframes cmc-word{from{opacity:0;transform:translate3d(0,.55em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmc-recede{from{opacity:1;transform:scale(1)}to{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}}
+@keyframes cmc-recede{from{opacity:${RING_DIM};transform:scale(1)}to{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}}
 @keyframes cmc-back{from{transform:scale(1)}to{transform:scale(${RECEDE_SCALE})}}
 @keyframes cmc-out{from{opacity:1}to{opacity:0}}
 @keyframes cmc-in{from{opacity:0}to{opacity:1}}
 /* The phone is the brightest thing on the stage: behind the cards its blurred copy comes up to only 30% of the ring's faded strength, so the products lead. */
-@keyframes cmc-in-half{from{opacity:0}to{opacity:${f3(0.3 * RECEDE_TO)}}}
+@keyframes cmc-in-half{from{opacity:0}to{opacity:${f3(PHONE_SOFT_TO)}}}
 `
 
 /* The digital products, drawn as objects. Each is sized in its own container units, so it is the same picture at any size. */
@@ -1526,14 +1539,22 @@ const SCENE_CSS = `
  * headline, its foot on the stage's). --r is the ring's radius, --pp its
  * perspective, --cy the height of its centre, --tilt its lean, --iw the
  * products' unit of size.
+ *
+ * Wave 18 (the owner: the heading was "glued" to the site header): --hd is
+ * the header's own height (63px at 390, 69px at 1440, measured) and --tt the
+ * air under it, 24 to 40px on a phone and 28 to 72px on a computer (about
+ * 30px and 54px on a 664 and a 900 tall screen; it was 12px and 25px). On a
+ * phone the ring is narrower (50vw) and its products larger and higher, so
+ * they float round the phone on the screen instead of off its edges, as in
+ * the reference.
  */
 .cmc-stage{position:relative;height:100svh;overflow:hidden;
-  --hd:60px;--tt:clamp(12px,2.2svh,24px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(12px,2svh,20px);
+  --hd:64px;--tt:clamp(24px,4.6svh,40px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(12px,2svh,20px);
   --fs:clamp(27px,8.2vw,40px);
   --pe:min(68vw,300px,calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
   --big:1.24;--ps:${f3(1 / 1.24)};--pw:calc(var(--pe) * var(--big));
   --y0:38svh;--y1:calc(var(--hd) + var(--tt) + var(--fs) * 2.1 + var(--gap));
-  --r:min(64vw,340px);--pp:calc(var(--r) * 3);--cy:58svh;--tilt:-14deg;--iw:var(--pe)}
+  --r:min(50vw,300px);--pp:calc(var(--r) * 3);--cy:52svh;--tilt:-14deg;--iw:calc(var(--pe) * 1.45)}
 .cmc-copy{position:absolute;z-index:4;left:var(--edge);right:var(--edge);top:calc(var(--hd) + var(--tt));text-align:center}
 .cmc-title{margin:0 auto;font-size:var(--fs);font-weight:300;line-height:1.04;letter-spacing:-.045em;color:#fff}
 .cmc-row{display:block;white-space:nowrap}
@@ -1561,7 +1582,7 @@ const SCENE_CSS = `
  * viewer, and dims with depth. Transform and opacity only, no shadow, no
  * filter.
  */
-.cmc-ring{position:absolute;z-index:2;inset:0;pointer-events:none;perspective:var(--pp);perspective-origin:50% var(--cy)}
+.cmc-ring{position:absolute;z-index:2;inset:0;pointer-events:none;perspective:var(--pp);perspective-origin:50% var(--cy);opacity:${RING_DIM}}
 .cmc-orbit{position:absolute;left:50%;top:var(--cy);width:0;height:0;transform-style:preserve-3d;transform:${ringBox(0)}}
 .cmc-o{position:absolute;left:0;top:0;display:block;width:calc(var(--iw) * var(--s));margin-left:calc(var(--iw) * var(--s) / -2);margin-top:calc(var(--iw) * var(--s) * var(--ar) / -2);transform-style:preserve-3d;--a:calc(var(--p) * 360deg);transform:${ringAt(0)}}
 .cmc-face{position:relative;display:block;transform:rotateX(calc(var(--tilt) * -1))}
@@ -1581,7 +1602,7 @@ const SCENE_CSS = `
 ${ORBIT_CSS}
 ${THINGS_CSS}
 @media (min-width:900px){
-  .cmc-stage{--hd:68px;--tt:clamp(14px,2.8svh,36px);--pb:clamp(14px,2.2svh,28px);--gap:clamp(16px,2.6svh,32px);
+  .cmc-stage{--hd:69px;--tt:clamp(28px,6svh,72px);--pb:clamp(14px,2.2svh,28px);--gap:clamp(16px,2.6svh,32px);
     --fs:clamp(36px,min(4.3vw,7.2svh),68px);
     --pe:min(400px,calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
     --big:1.72;--ps:${f3(1 / 1.72)};--y0:40svh;

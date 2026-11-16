@@ -81,7 +81,8 @@ check("the stage is held by sticky for one screen, the cards pulled up 56svh", /
 // Changed on purpose (landing round 7): the phone is centred under the headline; up to 390px wide on a computer.
 // Changed on purpose (landing round 9): the owner: "the phone is bigger".
 // Changed on purpose (landing round 11): the settled phone is up to 400px; it starts bigger.
-check("the phone is a little bigger on a computer (up to 400px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{--hd:68px;[^}]*--pe:min\(400px,/.test(css))
+// Changed on purpose (wave 18): --hd is the header's measured 69px at 1440 and --tt the air under it is larger: the heading was glued to the header.
+check("the phone is a little bigger on a computer (up to 400px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{--hd:69px;[^}]*--pe:min\(400px,/.test(css))
 // Changed on purpose (landing round 7): One-tap is the page's Apple Pay, the wallet's sheet and Payment complete.
 // Changed on purpose (landing round 11): the in-page checkout's moves.
 check("the One-tap demo's moves are transform and opacity", ["ic-pay", "ic-sheet", "ap-sheet", "ap-done", "ic-done"].every((k) => keyframes(k) && onlyCompositor(keyframes(k))))
