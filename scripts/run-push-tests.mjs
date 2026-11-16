@@ -1572,6 +1572,8 @@ const SUITES = [
   "tests/home-landing-r13-ideas.test.ts",
   /* Landing round 13, the lower page: How it works back in round 11's grey stages (narrow, wide, narrow) with round 12's pictures, the dashboard scaled whole into its stage; the AI tools dots lighter; the closing call's dots subtler, drifting by themselves, the pointer eased; the footer's logo a white S on a near black square with depth. */
   "tests/home-landing-r13-lower.test.ts",
+  /* Landing round 13, business: "Five ways to get paid" with one softer accent word; digital is the mobility course and Ancestral Kitchen in one order; physical a line of store designs turning in perspective, endless, transform and opacity only, paused off screen; the community banner is its photograph, no green; the phone's row of cards kept. */
+  "tests/home-landing-r13-business.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

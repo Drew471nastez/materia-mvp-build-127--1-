@@ -32,7 +32,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "")
 const SECTION = "components/marketing/home/business-carousel.tsx"
 const MOCKS = "components/marketing/home/showcase-mocks/business-mocks.tsx"
 const { BUSINESS_HEADING, BUSINESS_SUB, BUSINESS_SLIDES, BUSINESS_STYLES, BusinessCarousel, BUSINESS_RAIL_QUERY } = Section
-const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, CourseScene, ClubScene, CoachScene, DIGITAL_PRODUCT, PHYSICAL_PRODUCT } = Mocks
+const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, CourseScene, ClubScene, CoachScene } = Mocks
 const css = (BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? "").replace(/\/\*[\s\S]*?\*\//g, "")
 const mocks = BUSINESS_MOCK_CSS.replace(/\/\*[\s\S]*?\*\//g, "")
 const desk = mocks.split("@media(max-width:767px)")[0]
@@ -47,31 +47,24 @@ const BANNED = /unlock|elevate|seamless|powerful|effortless|supercharge|transfor
 
 console.log("\nHeading and line kept")
 {
-  check("the heading and its line are round 11's", BUSINESS_HEADING === "One store, every kind of product" && BUSINESS_SUB === "Downloads, merch, courses, communities and calls, each with checkout." && BUSINESS_SUB.split(/\s+/).length <= 10)
+  // Changed on purpose (landing round 13): the owner asked for a new heading and line (tests/home-landing-r13-business.test.ts).
+  check("the heading and its line are round 13's", BUSINESS_HEADING === "Five ways to get paid" && BUSINESS_SUB.split(/\s+/).length <= 10)
   check("five kinds in the same order", BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
 }
 
-console.log("\nDigital: one e-book on its page, not a row of covers or presets")
+/*
+  Changed on purpose (landing round 13): the owner replaced round 12's digital and physical scenes. Digital is
+  the mobility course and Ancestral Kitchen; physical is a line of store designs turning in
+  perspective (one loop, on the compositor). Both are pinned in tests/home-landing-r13-business.test.ts.
+  What stays from round 12: no presets and no merch.
+*/
+console.log("\nDigital and physical: round 12's retirements stay")
 {
-  check("Slow Mornings by Ana Folau, $16", DIGITAL_PRODUCT.name === "Slow Mornings" && DIGITAL_PRODUCT.kind === "E-book" && DIGITAL_PRODUCT.price === "$16" && digital.includes("by Ana Folau · 96 pages · PDF and EPUB"))
-  check("no presets, no Lightroom, no row of covers anywhere in the section", !/preset|Lightroom|Highland|bd-rail|bd-track|bd-slot|DIGITAL_PRODUCTS|DIGITAL_STEP_S/i.test(code(MOCKS) + code(SECTION) + digital) && !/presets/i.test(BUSINESS_SLIDES[0].line))
-  check("its cover: a real photograph under a printed title band, with the light along the spine", /class="be-cover"><img src="\/home\/showcase\/bz-ebook\.webp"[^>]*loading="eager"[\s\S]*?class="be-cover-band"><i>Ana Folau<\/i><b>Slow Mornings<\/b><em>40 breakfasts worth waking for<\/em>/.test(digital) && /\.be-cover::before\{[^}]*linear-gradient\(to right/.test(desk))
-  check("a page from inside behind it: its own photograph, a recipe in the book's serif, a page number", /class="be-page"><img src="\/home\/showcase\/bz-eggs\.webp"[\s\S]*?<b>Soft eggs on rye<\/b>[\s\S]*?class="be-page-n">14</.test(digital) && small("bz-eggs") && small("bz-ebook"))
-  check("the buy card lists the four chapters with their pages", (digital.match(/<li><i>\d<\/i><b>[^<]+<\/b><em>p\. \d+<\/em><\/li>/g) ?? []).length === 4)
-  check("the moment is in the button: Buy, Downloading the PDF over a fill, Downloaded", /class="bs-btn bs-press be-buy"><span class="be-fill"><\/span><span class="a">Buy for \$16<\/span><span class="b">[\s\S]*?Downloading Slow-Mornings\.pdf<\/span><span class="c">[\s\S]*?Downloaded<\/span>/.test(digital))
-  check("at rest (reduced motion) it stands downloaded: Buy and Downloading hidden, the fill hidden", /\.be-buy>\.a,\.be-buy>\.b\{opacity:0\}/.test(desk) && /\.be-fill\{[^}]*opacity:0\}/.test(desk))
-  check("the fill grows by transform (scaleX), not width", /@keyframes be-fill\{0%\{opacity:1;transform:scaleX\(0\)\}/.test(motion) && !/be-fill\{[^}]*width:\s*\d/.test(motion))
-}
-
-console.log("\nPhysical: one product photographed, not merch")
-{
-  check("Night Face Oil by Marisol Vega, $38, three sizes, 30 ml picked", PHYSICAL_PRODUCT.name === "Night Face Oil" && PHYSICAL_PRODUCT.price === "$38" && PHYSICAL_PRODUCT.options.join() === "15 ml,30 ml,50 ml" && PHYSICAL_PRODUCT.options[PHYSICAL_PRODUCT.pick] === "30 ml")
+  check("no presets, no Lightroom, no row of covers anywhere in the section", !/preset|Lightroom|Highland|bd-rail|bd-track|bd-slot|DIGITAL_STEP_S/i.test(code(MOCKS) + code(SECTION) + digital) && !/presets/i.test(BUSINESS_SLIDES[0].line))
   check("no tee, cap, tote or print left in the scene or its pictures", !/bz-tee|bz-cap|bz-tote|bz-print|Studio Tee|Studio Cap|Market Tote|Field Study|PHYSICAL_PRODUCTS|TeeScene/.test(code(MOCKS) + code(SECTION) + physical) && !["bz-tee", "bz-cap", "bz-tote", "bz-print", "bz-presets", "bz-drums"].some((n) => existsSync(pic(n))))
-  check("one real photograph, small, used for the main view, two details and the cart note", (physical.match(/<img src="\/home\/showcase\/bz-oil\.webp"/g) ?? []).length === 5 && small("bz-oil"), (physical.match(/<img src="\/home\/showcase\/bz-oil\.webp"/g) ?? []).length)
-  check("the gallery: three thumbnails, the first ringed, the details are the same photograph cropped by transform", (physical.match(/class="bo-thumb bo-thumb-[abc]"/g) ?? []).length === 3 && /\.bo-thumb-a::after\{[^}]*box-shadow:inset 0 0 0 2u #18181b/.test(desk.replace(/calc\(([\d.]+)\*var\(--u\)\)/g, "$1u")) && /\.bo-thumb-b \.smk-pic\{[^}]*transform:scale\(/.test(desk))
-  check("its card: name, maker, price, a line, the size picker, shipping and the button", ["Night Face Oil", "by Marisol Vega · Small batch, cold pressed", "$38", "Three drops before bed.", "Ships in 2 days, tracked", "Add to cart", "Added to cart"].every((w) => physical.includes(w)))
-  check("the moment: the size ringed, the button pressed, Added to cart, the cart note", /\.bz-on \.bo-ring\{animation:bz-pop /.test(motion) && /\.bz-on \.bs-oil \.bs-press\{animation:bz-press /.test(motion) && /\.bz-on \.bs-oil \.bs-swap \.b\{animation:bz-in /.test(motion) && /\.bz-on \.bo-added\{animation:bz-rise /.test(motion))
-  check("the turns are the usual length again (no loop inside a scene)", BUSINESS_SLIDES.every((s) => s.ms === undefined) && !/infinite/.test(motion))
+  check("the download moment is still in the button: Pay, Downloading over a fill, done", /class="bs-btn bs-press be-buy"><span class="be-fill"><\/span><span class="a">Pay \$113<\/span>/.test(digital) && /@keyframes be-fill\{0%\{opacity:1;transform:scaleX\(0\)\}/.test(motion))
+  check("one loop only, the store designs' walk", (motion.match(/infinite/g) ?? []).length === 1 && /\.bt-card\{animation:bt-walk [\d.]+s linear var\(--d,0s\) infinite both\}/.test(motion))
+  void small
 }
 
 console.log("\nEvery moment on the compositor")
