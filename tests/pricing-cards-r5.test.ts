@@ -77,7 +77,7 @@ console.log("\n── Three plans, Grow in the middle ──")
   check("the side cards' buttons are dark with an arrow, never purple", ["free", "pro"].every((id) => /data-plan-button="dark"[^>]*>|class="[^"]*bg-\[#0f0e13\][^"]*"[^>]*data-plan-button="dark"/.test(cardHtml(id)) && /<path d="M4 10h12M11 5l5 5-5 5"><\/path>/.test(cardHtml(id)) && !/bg-\[#7c3aed\]/.test(cardHtml(id))))
   check("the hero's primary button is the same purple", /background: #7c3aed/.test(read("components/marketing/hero.tsx")))
   check("no grey ground behind the cards any more", (html.match(/data-plan-ground=""/g) ?? []).length === 1 && !/data-plan-ground="" class="[^"]*bg-/.test(html)) // Changed on purpose (landing round 12): the owner: no light grey background behind the cards.
-  check("each card has a soft grey top panel with a pill", (html.match(/data-plan-panel=""/g) ?? []).length === 3 && (html.match(/data-plan-pill=""/g) ?? []).length === 3)
+  check("each card has a top panel with a pill (white since landing round 12)", (html.match(/data-plan-panel=""/g) ?? []).length === 3 && (html.match(/data-plan-pill=""/g) ?? []).length === 3)
   check("one column on a phone, three from md up", /grid-cols-1 md:grid-cols-3/.test(html))
   check("the price reads with /month beside it", (html.match(/\/month/g) ?? []).length >= 3)
   check("the price one step heavier than the reference (semibold), not bold", /data-plan-price=""[^>]*>\s*<span class="[^"]*font-semibold/.test(html) && !/data-plan-price=""[^>]*>\s*<span class="[^"]*font-(bold|extrabold)/.test(html))

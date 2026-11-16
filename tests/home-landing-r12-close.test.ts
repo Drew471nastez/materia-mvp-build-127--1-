@@ -171,5 +171,11 @@ console.log("\n── registered ──")
   check("this suite runs on push, after round 11's", /"tests\/home-landing-r11-stability\.test\.ts",[\s\S]{0,8000}"tests\/home-landing-r12-close\.test\.ts",/.test(runner))
 }
 
+
+console.log("\n── pricing: no grey panel inside the cards ──")
+{
+  const cards = read("components/billing/plan-cards.tsx")
+  check("the top panel is white with a hairline, no #f4f4f5", /data-plan-panel="" className=\{`flex flex-col rounded-t-\[18px\] border-b border-\[#ececef\] bg-white/.test(cards) && !/bg-\[#f4f4f5\]/.test(cards))
+}
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

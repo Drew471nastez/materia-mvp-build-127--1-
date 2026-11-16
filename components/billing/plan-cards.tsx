@@ -229,9 +229,10 @@ function PlanCard({
           : "shadow-[0_1px_2px_rgba(24,24,27,0.04)]"
       } ${pick ? "cursor-pointer" : ""}`}
     >
-      <div data-plan-panel="" className={`flex flex-col rounded-[18px] bg-[#f4f4f5] ${compact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5 sm:px-6 sm:pb-6"}`}>
+      {/* Landing round 12, the owner: no light grey on the cards either. The top panel is white, set off from the lines by a hairline. */}
+      <div data-plan-panel="" className={`flex flex-col rounded-t-[18px] border-b border-[#ececef] bg-white ${compact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5 sm:px-6 sm:pb-6"}`}>
         <div className="flex items-center justify-between gap-3">
-          <span data-plan-pill="" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white pl-2.5 pr-3 shadow-[0_1px_2px_rgba(24,24,27,0.06)]">
+          <span data-plan-pill="" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white pl-2.5 pr-3 ring-1 ring-[#e7e7e9]">
             <Icon className="h-[15px] w-[15px] text-[#18181b]" strokeWidth={1.75} aria-hidden="true" />
             <Name className="text-[13.5px] font-medium leading-none text-[#18181b]">{plan.name}</Name>
           </span>
