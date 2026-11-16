@@ -42,7 +42,7 @@ check("the dark header has no backdrop filter (a solid bar)", !/backdrop-blur/.t
 
 const layout = read("app/(storelib)/(marketing)/layout.tsx")
 const gate = read("components/marketing/document-ready.tsx")
-check("the page slot in <main> is a Suspense boundary (a late page or code file never makes React begin <main> twice)", /<main className="flex-1">\s*<Suspense fallback=\{null\}>\{children\}<\/Suspense>\s*<\/main>/.test(layout))
+check("the page slot in <main> goes through a component, with no Suspense (a late page never makes React begin <main> twice; redirects stay real)", /<main className="flex-1">\s*<DocumentReady>\{children\}<\/DocumentReady>\s*<\/main>/.test(layout) && (layout.replace(/\/\*[\s\S]*?\*\//g, "").match(/<Suspense/g) ?? []).length === 1)
 check("nothing under the marketing layout hydrates before the document has arrived", /<DocumentReady>\s*<div className="flex min-h-svh flex-col marketing-flex-wrapper">/.test(layout) && /document\.readyState !== "loading"/.test(gate) && /DOMContentLoaded/.test(gate) && /if \(wait\) use\(wait\)/.test(gate))
 
 console.log(`\n${failed ? `${failed} failed` : "all passed"}`)

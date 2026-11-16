@@ -102,11 +102,13 @@ export default async function MarketingLayout({
         the one mechanism by which anything inside main could paint over the
         footer at all. Both reasons point the same way.
       */}
-      {/* Landing round 14: the page slot is a Suspense boundary. The page arrives as a piece of its own; when it (or
-          a code file it needs) was late, React began <main> twice and lost its place in the server's HTML (#418, the
-          whole page drawn again). A boundary waits for its content and starts from its own first element. */}
+      {/* Landing round 14: the page slot goes through a component, not straight into <main>. The page arrives as a
+          piece of its own; when it (or a code file it needs) was late, React began <main> twice and lost its place in
+          the server's HTML (#418, the whole page drawn again). A component that waits for its children is begun again
+          safely; an element is not. Not a Suspense boundary: a redirect from a layout below must stay a real 308
+          (tests/profile-one-page.test.ts). */}
       <main className="flex-1">
-        <Suspense fallback={null}>{children}</Suspense>
+        <DocumentReady>{children}</DocumentReady>
       </main>
 
       {/*
