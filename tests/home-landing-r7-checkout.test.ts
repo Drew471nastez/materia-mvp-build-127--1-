@@ -100,7 +100,8 @@ check("the stage holds one screen and the cards are pulled 56svh up over it, abo
 // Changed on purpose (landing round 9): the ring cannot fade (opacity would flatten its 3D space) and the headline stays over the cards; the phone alone dims under them.
 // Changed on purpose (landing round 10): the phone and the ring step back together on the scroll timeline (the wrap round the 3D space fades, the space itself is untouched); no black veil.
 // Changed on purpose (landing round 11): the phone's box and the ring's step back together.
-check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc-phone-wrap,\.cmc-ring\{animation:cmc-recede linear both;animation-timeline:--cmc-t;/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
+// Changed on purpose (landing round 11): the phone's box steps back without fading (cmc-back), the ring fades (cmc-recede).
+check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;/.test(css) && /\.cmc-ring\{animation:cmc-recede linear both;animation-timeline:--cmc-t;/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
 // Changed on purpose (landing round 8): the transition is on each card.
 // Changed on purpose (landing round 9): the phone's move is the scroll timeline's now.
 // Changed on purpose (landing round 10): no veil to transition.

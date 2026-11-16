@@ -66,7 +66,8 @@ const ruleIn = (sheet: string, sel: string) => sheet.match(new RegExp(`(?:^|[\\n
 
 console.log("\n1. The ring: wider, under the phone, soft round the back")
 check("the ring is its own 3D space, drawn before the phone and under it (z 2 to the phone's 3)", /^class="cmc-stage"><div class="cmc-copy">[\s\S]*?<\/div><div class="cmc-ring" aria-hidden="true"><div class="cmc-orbit">[\s\S]*<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise">/.test(stage) && /\.cmc-ring\{position:absolute;z-index:2;inset:0;pointer-events:none;perspective:var\(--pp\);perspective-origin:50% var\(--cy\)\}/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css))
-check("  under the phone, its shape in solid black, carried as the phone is and stepping back with it, never faded: nothing shows through the phone as it goes soft", /<\/div><\/div><div class="cmc-shade" aria-hidden="true"><span><\/span><\/div><div class="cmc-phone-wrap">/.test(stage) && /\.cmc-shade > span\{animation:cmc-settle cubic-bezier\(\.4,0,\.2,1\) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain 44svh\}/.test(tl) && /\.cmc-shade\{animation:cmc-back linear both;/.test(tl) && /^from\{transform:scale\(1\)\}to\{transform:scale\(0\.92\)\}$/.test(keyframes("cmc-back")) && /\.cmc-shade > span::before\{[^}]*background:#000\}/.test(css) && !/\.cmc-shade[^{]*\{[^}]*opacity/.test(css))
+// Changed on purpose (landing round 11, the ring fix): the shade was a twin box beside the phone running copies of its animations, and a product showed through the fading phone (1440 x 800, "Shoot Planner" over the screen). It is in the phone's own box now; the wrap only steps back.
+check("  under the phone, its shape in solid black, in the phone's own box under it, never faded: nothing shows through the phone as it goes soft", /<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && (stage.match(/cmc-shade/g) ?? []).length === 1 && /\.cmc-shade\{position:absolute;inset:0;display:block;border-radius:calc\(var\(--pw\) \* \.178\);background:#000;pointer-events:none\}/.test(css) && !/\.cmc-shade[^{]*\{[^}]*(opacity|animation)/.test(css))
 check("  the phone's world holds no products and no 3D: nothing can be sorted in front of its screen", !/class="cmc-world">[^]*?class="cmc-o"/.test(stage.slice(stage.indexOf('class="cmc-phone-wrap"'))) && !/\.cmc-world\{[^}]*preserve-3d/.test(css))
 check("  set back by its radius, so its nearest point is level with the phone, then leaning and turning", /\.cmc-orbit\{position:absolute;left:50%;top:var\(--cy\);width:0;height:0;transform-style:preserve-3d;transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(0deg\)\}/.test(css))
 check("wider: 44vw (up to 880px) on a computer, 64vw (up to 340px) on a phone, the perspective three radii", /--r:min\(44vw,880px\)/.test(desk) && /--r:min\(64vw,340px\);--pp:calc\(var\(--r\) \* 3\)/.test(css))
@@ -76,6 +77,23 @@ check("  on the ring's own clock, from each object's place, linear, paused off s
 check("  dimmer round the back too (half), full beside the phone", /^0%,26%,74%,100%\{opacity:1\}50%\{opacity:0\.5\}$/.test(keyframes("cmc-depth")))
 check("the copies are blurred harder now (0.085 of the width), small webp files with alpha", /const SIGMA = \{ object: 0\.085,/.test(read("scripts/bake-checkout-soft.mjs")) && Object.keys(SOFT).every((k) => existsSync(`public/home/commerce/soft-${k}.webp`) && statSync(`public/home/commerce/soft-${k}.webp`).size < 4 * 1024))
 check("  the bake script knows the new parts (the depth copy hidden, the sharp layer flat)", /\.cmc-soft,\.cmc-far\{display:none!important\}/.test(read("scripts/bake-checkout-soft.mjs")) && /\.cmc-near,/.test(read("scripts/bake-checkout-soft.mjs")))
+
+console.log("\n1b. The ring fix: no product ever over the phone's screen")
+/*
+ * The owner's rule. Measured on the dev server (scratchpad cs-ring/probe.mjs and live.mjs, Playwright Chromium):
+ * 24 places on the ring x 12 scroll stops (big phone at entry, shrinking, settled, cards arriving and over) at
+ * 390 x 844, 1440 x 800 and 1920 x 1080. Every product box that meets the screen's box was hit-tested
+ * (elementsFromPoint: the phone before any product, 9 points each), and the screen's pixels compared with the ring
+ * drawn and hidden, frozen and with the ring running on the compositor. Numbers in the round's report.
+ */
+const ringAt = stage.indexOf('class="cmc-ring"')
+const phoneAt = stage.indexOf('class="cmc-phone-wrap"')
+check("the ring comes before the phone in the stage, outside the phone's box, and no product is inside the phone's box", ringAt > 0 && phoneAt > ringAt && !/class="cmc-o"/.test(stage.slice(phoneAt)) && !/class="cmc-phone-wrap"/.test(stage.slice(ringAt, stage.indexOf('class="cmc-orbit"'))))
+check("  the ring's layer is below the phone's (z 2 to 3) and neither shares a 3D space with the other", /\.cmc-ring\{position:absolute;z-index:2;/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css) && !/\.cmc-(ring|phone-wrap|world|rise)\{[^}]*preserve-3d/.test(css))
+check("  the shade moves only with the phone: no animation, transform or z-index of its own", !/\.cmc-shade[^{]*\{[^}]*(animation|transform|z-index)/.test(css) && /class="cmc-rise"><span class="cmc-shade"/.test(stage))
+check("  the ring is set back by its radius: every product is behind the phone's plane", /\.cmc-orbit\{[^}]*transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX/.test(css) && /^from\{transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(-26deg\)\}to\{transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(26deg\)\}$/.test(keyframes("cmc-spin")))
+check("  nothing that sits over the shade fades but the phone: the wrap, the world and the rise keep full opacity", !/\.cmc-(phone-wrap|world|rise)\{[^}]*animation:cmc-(recede|out|in)\b/.test(tl) && /\.cmc-sharp,\.cmc-rise > \.cmc-phone\{animation:cmc-out/.test(tl))
+check("  the phone's blurred copy ends at 30% of the ring's faded strength, as it looked when the wrap faded", /^from\{opacity:0\}to\{opacity:0\.135\}$/.test(keyframes("cmc-in-half")))
 
 console.log("\n2. The phone: big as the section arrives, smaller under a two row headline")
 check("the settled phone is the room one screen leaves under the headline; the big one a multiple of it", /--pe:min\(68vw,300px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css) && /--big:1\.72;--ps:0\.581;--y0:40svh/.test(desk) && /--big:1\.24;--ps:0\.806;/.test(css))
@@ -102,7 +120,7 @@ check("  dark, in app/theme-dark.css's colours", /\.ic-sheet\{[^}]*background:#1
 const sheetK = keyframes("ic-sheet")
 check("  the loop starts and ends with the window open, so it never jumps as it starts over", /^0%,[\d.]+%\{transform:translate3d\(0,0,0\)/.test(sheetK) && /,100%\{transform:translate3d\(0,0,0\)\}$/.test(sheetK) && !/\.ic-sheet\{[^}]*transform/.test(css.slice(0, css.indexOf("@keyframes"))))
 check("  every move of it transform and opacity", ["ic-t1", "ic-t2", "ic-pay", "ic-buy", "ic-dim", "ic-sheet", "ic-form", "ic-done", "ap-dim", "ap-sheet", "ap-side", "ap-done"].every((k) => onlyCompositor(keyframes(k))))
-check("  the full page checkout stays the phone on the stage", /class="cmc-rise"><div class="cmc-phone"[\s\S]*?class="pc"/.test(stage) && !/data-dark/.test(stage))
+check("  the full page checkout stays the phone on the stage", /class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"[\s\S]*?class="pc"/.test(stage) && !/data-dark/.test(stage))
 
 console.log("\n5. On a phone: four stacked cards, every picture whole")
 check("one card under another, no sideways scroll or snap anywhere", /\.cmc-bento\{grid-template-columns:minmax\(0,1fr\);gap:12px\}/.test(phoneCss) && !/scroll-snap|overflow-x:auto|touch-action:pan-x/.test(css))
@@ -115,7 +133,8 @@ check("  Local in 7 currencies kept, both tiles and all seven currencies", /Loca
 console.log("\n6. Solid: the cards and the facts")
 check("the cards' ground is solid #111113, no alpha, no backdrop", /const CARD_GROUND = "#111113"/.test(src) && /\.cmc-card\{[^}]*background:#111113;/.test(css) && !/CARD_ALPHA|rgba\(17,17,19,0\.\d+\)/.test(src) && !/backdrop-filter/.test(css))
 check("  the facts sit on a solid strip of the same ground and hairline", /\.cmc-facts\{[^}]*border-radius:28px;background:#111113;border:1px solid rgba\(255,255,255,\.08\)\}/.test(css))
-check("  the products still turn in the gaps, fainter (45%) behind them", /to\{opacity:0\.45;/.test(keyframes("cmc-recede")) && /\.cmc-phone-wrap,\.cmc-ring\{animation:cmc-recede/.test(tl))
+// Changed on purpose (landing round 11, the ring fix): only the ring fades; the phone's box steps back without fading, so the shade under the phone stays solid.
+check("  the products still turn in the gaps, fainter (45%) behind them", /to\{opacity:0\.45;/.test(keyframes("cmc-recede")) && /\.cmc-ring\{animation:cmc-recede linear both;/.test(tl) && /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain 48svh contain 100svh\}/.test(tl) && /^from\{transform:scale\(1\)\}to\{transform:scale\(0\.92\)\}$/.test(keyframes("cmc-back")))
 check("the orbs stay as subtle as round 9 left them", /rgba\(139,92,246,\.085\)/.test(css) && /rgba\(255,255,255,\.035\)/.test(css))
 
 console.log("\n7. Performance")
@@ -126,7 +145,8 @@ check("nothing per frame in script: no scroll listener, rAF, layout read, timer 
 console.log("\nCopy and the push suite")
 const all = words(co)
 check("no banned words, no em dash, no banned samples", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform/i.test(all) && !/—/.test(all) && !/Nadia|The Loop|LaSalle|Nails by Bea|Nordline|Charla|Static Bloom|Maren|Studio Marlow|Kai Moreno|[Cc]eramics|[Ee]nthusiasts|\bfans\b/.test(src + all))
-check("registered in the push suite, after round 10's", /"tests\/home-landing-r10-checkout\.test\.ts",[\s\S]{0,1200}"tests\/home-landing-r11-checkout\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
+// Changed on purpose (landing round 11, the ring fix): more round 11 suites now sit between the two entries.
+check("registered in the push suite, after round 10's", /"tests\/home-landing-r10-checkout\.test\.ts",[\s\S]{0,4000}"tests\/home-landing-r11-checkout\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

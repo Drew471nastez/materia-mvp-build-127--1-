@@ -14,10 +14,10 @@
  *                    a tee, a cap and a tote (photographs with their grounds
  *                    cut away) and digital products drawn as objects (the
  *                    Cine Tones LUT Pack's box, an e-book, a course card, a
- *                    Notion template). One CSS 3D space holds the phone and
- *                    the ring, so the browser sorts them: a product passes
- *                    behind the phone, dimmer and smaller, and in front of
- *                    it, nearer and larger. The ring turns by itself, slowly
+ *                    Notion template). Round 11: the ring is its own 3D
+ *                    space in a layer under the phone, set back so a product
+ *                    swings out beside the phone and passes behind it, never
+ *                    across its screen (see Orbit). The ring turns by itself, slowly
  *                    (paused off screen), and the page's scroll turns it a
  *                    little further
  *   3. the headline  the stage holds for about a screen (position: sticky,
@@ -349,13 +349,11 @@ export function CheckoutScene() {
           </div>
 
           <Orbit />
-          {/* The phone's shape in black under it, moving with it but never fading: as the phone goes soft behind the cards, no product shows through it. */}
-          <div className="cmc-shade" aria-hidden="true">
-            <span />
-          </div>
           <div className="cmc-phone-wrap">
             <div className="cmc-world">
               <div className="cmc-rise">
+                {/* The phone's shape in black, in the phone's own box under it and never fading: as the phone goes soft behind the cards, no product shows through it. */}
+                <span className="cmc-shade" aria-hidden="true" />
                 <Phone label={`Storelib's checkout page on a phone (an iPhone): ${LUTS.title} by ${SELLER}, ${LUTS.price}, with Apple Pay and Google Pay.`} />
                 <img className="cmc-soft cmc-phone-soft" src={`${IMG}/soft-phone.webp`} alt="" width={SOFT.phone.w} height={SOFT.phone.h} loading="lazy" decoding="async" />
               </div>
@@ -1421,8 +1419,8 @@ ${FLOATS.map((f) => (f.m ? `  .cmc-o[data-f="${f.id}"]{${spotVars(f.m, f)}}` : "
 @keyframes cmc-back{from{transform:scale(1)}to{transform:scale(${RECEDE_SCALE})}}
 @keyframes cmc-out{from{opacity:1}to{opacity:0}}
 @keyframes cmc-in{from{opacity:0}to{opacity:1}}
-/* The phone is the brightest thing on the stage: behind the cards its blurred copy comes up to only 30%, so the products lead. */
-@keyframes cmc-in-half{from{opacity:0}to{opacity:.3}}
+/* The phone is the brightest thing on the stage: behind the cards its blurred copy comes up to only 30% of the ring's faded strength, so the products lead. */
+@keyframes cmc-in-half{from{opacity:0}to{opacity:${f3(0.3 * RECEDE_TO)}}}
 `
 
 /* The digital products, drawn as objects. Each is sized in its own container units, so it is the same picture at any size. */
@@ -1502,10 +1500,16 @@ const SCENE_CSS = `
 .cmc-phone-wrap{position:absolute;z-index:3;left:50%;top:0;width:var(--pw);height:calc(var(--pw) * 2.07);margin-left:calc(var(--pw) / -2)}
 .cmc-world{position:relative;width:100%;height:100%;transform-origin:50% 0;transform:translate3d(0,var(--y1),0) scale(var(--ps))}
 .cmc-rise{position:relative}
-/* The phone's shape in solid black, under the phone and over the ring, carried exactly as the phone is (the same box, the same settle), stepping back with it but never fading. */
-.cmc-shade{position:absolute;z-index:3;left:50%;top:0;width:var(--pw);height:calc(var(--pw) * 2.07);margin-left:calc(var(--pw) / -2);pointer-events:none}
-.cmc-shade > span{position:relative;display:block;width:100%;height:100%;transform-origin:50% 0;transform:translate3d(0,var(--y1),0) scale(var(--ps))}
-.cmc-shade > span::before{content:"";position:absolute;inset:1.5%;border-radius:calc(var(--pw) * .16);background:#000}
+/*
+ * The phone's shape in solid black, under the phone and over the ring. Round
+ * 11 fix (the owner: a product must never cross the phone's screen): it sits
+ * in the phone's own box, so the very transforms that carry the phone carry
+ * it. A twin beside the phone running the same animations could fall a frame
+ * behind while scrolling and let a product show through the fading phone.
+ * Nothing over it fades but the phone itself: the wrap only steps back
+ * (cmc-back), the ring alone fades (cmc-recede).
+ */
+.cmc-shade{position:absolute;inset:0;display:block;border-radius:calc(var(--pw) * .178);background:#000;pointer-events:none}
 
 /*
  * The ring, under the phone (z 2 to the phone's 3). Its box (cmc-ring) gives
@@ -1562,15 +1566,14 @@ ${THINGS_CSS}
     .cmc-stage{position:sticky;top:0}
     .cmc-track > .cmc-cards{margin-top:calc(${DWELL} - ${OVERLAP})}
     .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
-    .cmc-shade > span{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
-    .cmc-shade{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
     /*
      * Round 10: the stage stays held behind the cards. As they come up the
      * phone and the ring step back (a little smaller, faded to ${RECEDE_TO}) and
      * go soft (each sharp object fades into its blurred copy), the headline
      * fades before the cards reach it, and the ring keeps turning behind them.
      */
-    .cmc-phone-wrap,.cmc-ring{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
+    .cmc-phone-wrap{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
+    .cmc-ring{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
     .cmc-sharp,.cmc-rise > .cmc-phone{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
     .cmc-soft{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
     .cmc-phone-soft{animation-name:cmc-in-half}
