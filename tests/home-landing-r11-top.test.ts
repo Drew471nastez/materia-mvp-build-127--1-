@@ -1,17 +1,17 @@
 /**
  * ===========================================================================
  *  HOME, LANDING ROUND 11 (TOP): A SECOND SITE AND A SECOND ONEPAGE IN THE
- *  EDITORS, PRODUCT SHOTS FOR MONDO MANGO, A LITTLE DEPTH ON THE FRAME, AND
+ *  EDITORS, PRODUCT SHOTS FOR THE FIRST SITE, A LITTLE DEPTH ON THE FRAME, AND
  *  A DIGITAL PRODUCT STORE IN THE STRIP
  * ===========================================================================
  * components/marketing/home/ideas-come-to-life.tsx, showcase-mocks/builder-mocks.tsx
  * and everything-in-one-place.tsx.
  *
  * The owner, after round 10:
- *   1. Mondo Mango: "I don't like the physical product examples; make
+ *   1. the builder's first site: "I don't like the physical product examples; make
  *      something more like the 2nd image as the products" (bold product shots
  *      of boxes, strong titles, sale badges), and "I also don't like the hero
- *      of Mondo Mango; add something else more realistic, smooth, clean";
+ *      of it; add something else more realistic, smooth, clean";
  *   2. "in the website builder, after some time another template should
  *      appear, e.g. the loudlib website", the switch "very smooth";
  *   3. "Add Idris Kane as another OnePage in the OnePage editor pill, but more
@@ -29,7 +29,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_STORES, EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
 import * as Ideas from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, IdrisPage, LoudlibSite, MondoMangoSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, IdrisPage, LoudlibSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -63,21 +63,16 @@ const webp = (p: string, kb: number) => {
   return b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP" && statSync(f).size < kb * 1024
 }
 
-console.log("\n── 1. Mondo Mango: product shots of boxes, a clean studio hero ──")
-const site = renderToStaticMarkup(createElement(MondoMangoSite))
-const hero = site.slice(site.indexOf('class="mg-hero"'), site.indexOf('class="mg-shop"'))
-check("the hero is one studio picture of the game, the words on it", /src="\/home\/showcase\/mm-studio\.webp"[^>]*width="1600" height="534"/.test(hero) && (hero.match(/<img /g) ?? []).length === 1 && /<b>Game night, but louder\.<\/b>/.test(hero))
-check("no orange block, no sticker, no wall photograph left", !/mg-sticker|mg-wall|mm-hero|Wear it loud/.test(site + BUILDER_CSS))
-check("four products, each a shot of its box", ["mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => site.includes(`/home/showcase/${n}.webp`) && webp(`home/showcase/${n}.webp`, 60)))
-check("the old garment photos are gone", !/mm-(crew|cap|tee|tote)/.test(site + read(F.builders)) && !existsSync(join(root, "public/home/showcase/mm-crew.webp")))
-check("two are on sale, the old price struck through", (site.match(/class="mg-sale">On sale</g) ?? []).length === 2 && /<s>€35<\/s>€29/.test(site))
-check("the studio picture is small", webp("home/showcase/mm-studio.webp", 120))
+console.log("\n── 1. The builder's first site ──")
+// Changed on purpose (landing round 12): the owner dropped round 11's first site entirely (its box shots and studio hero are deleted); the first site is their own GodBless store, pinned in tests/home-landing-r12-top.test.ts.
+check("the earlier site's pictures are gone", ["mm-studio", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))))
 
 console.log("\n── 2. The website builder moves on to loudlib ──")
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 const ll = renderToStaticMarkup(createElement(LoudlibSite))
 check("both sites stand in the one canvas, the second hidden at first", /class="smk-frame wx-site bm-s1"/.test(wb) && /class="smk-frame wx-site bm-s2"/.test(wb) && /\.bm-s2\{opacity:0\}/.test(BUILDER_CSS))
-check("the bar's name and the published address change with it", /<span class="bm-s1">Mondo Mango<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">mondomango\.shop<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
+// Changed on purpose (landing round 12): the first site is GodBless, published at its storelib.com address.
+check("the bar's name and the published address change with it", /<span class="bm-s1">GodBless<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">godbless\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
 check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /class="ll-bar">Sale 60% off all products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Tech House Master Bundle 2025/.test(ll) && /class="ll-h">Bestselling/.test(ll))
 check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-midi", "ll-hero"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On sale</g) ?? []).length === 3)
 check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
@@ -115,14 +110,10 @@ check("its styles are round 8's", createHash("sha256").update(BUILDER_CSS.slice(
 
 console.log("\n── 6. A digital product store in the strip ──")
 const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
-const noor = EVERYTHING_STORES.find((s) => s.key === "noor")
+// Changed on purpose (landing round 12): the owner found round 11's digital store "really bad"; Jonah Wells, a guitar teacher laid out like Fieldwork with photographs of what he sells, takes its place (tests/home-landing-r12-top.test.ts).
 check("Soft Ground and Kiln Goods are gone", !/Kiln Goods|Soft Ground|soft-ground|kiln-/.test(JSON.stringify(EVERYTHING_STORES) + html + code(read(F.ev))))
-check("Noor Haddad's store sells digital products", noor?.kind === "merch" && !!noor.digital && noor.products.map((p) => p.name).join() === "Saltwater Presets,Shoot to Invoice,Client Shoot Planner,Night Drive LUTs")
-check("its covers are real webps, with the small copies", !!noor && noor.kind === "merch" && noor.products.every((p) => webp(p.src.replace(/^\//, ""), 60) && webp(p.src.replace(/^\//, "").replace(/\.webp$/, "-240.webp"), 40)))
-const dg = html.slice(html.indexOf('data-digital=""'), html.indexOf('data-digital=""') + 3000)
-check("a different heading: a dark band with her name, what she sells and Instant download", /<span class="ev-dg-band"><span class="ev-dg-top"><span class="ev-dg-mark">Noor Haddad<\/span><span>Cart \(0\)<\/span><\/span><span class="ev-dg-head"><b>Presets and guides<\/b>/.test(dg) && /<i>Instant download<\/i>/.test(dg))
-check("the band is as tall as the other stores' header, the covers in the same grid", /\.ev-dg-band\{[^}]*height:calc\(214 \* var\(--r\)\)/.test(evCss) && /\.ev-dg-band \+ \.ev-mc-grid\{margin-top:calc\(24 \* var\(--r\)\)\}/.test(evCss))
-check("one is reduced, its old price struck through", /<span class="ev-mc-price"><s>\$39<\/s>\$29<\/span>/.test(dg))
+check("a store of digital products is still in the strip", EVERYTHING_STORES.some((s) => s.kind === "merch" && s.products.some((p) => !!p.format)))
+check("one is reduced, its old price struck through", /<span class="ev-mc-price"><s>\$19<\/s>\$14<i>PDF<\/i><\/span>/.test(html))
 check("still three stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 3 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
 
 console.log("\n── Copy ──")

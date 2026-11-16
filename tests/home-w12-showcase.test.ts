@@ -181,7 +181,8 @@ assert.ok(/\.smk-clock\{[^}]*opacity:0/.test(pills) && /\.smk-clock\[data-on\]\{
 // Changed on purpose (landing round 5): section 6 is back on the invisible clock too (the round 4 scroll pin is gone).
 for (const f of ["ideas-come-to-life.tsx"]) {
   const s = read(`components/marketing/home/${f}`)
-  assert.ok(s.includes("onAnimationEnd={t.advance}") && s.includes('className="smk-clock"') && s.includes("animation-play-state:running"))
+  // Changed on purpose (landing round 12): since round 11 the clock ends a scene first (onClockEnd), and t.advance() moves the tab after the last scene (tests/home-landing-r11-top.test.ts).
+  assert.ok(s.includes("onAnimationEnd={onClockEnd}") && s.includes("else t.advance()") && s.includes('className="smk-clock"') && s.includes("animation-play-state:running"))
   assert.ok(s.includes("prefers-reduced-motion:reduce"))
   assert.ok(!/progress|Pause|setPlaying/.test(s), `${f}: no progress line or pause button`)
 }

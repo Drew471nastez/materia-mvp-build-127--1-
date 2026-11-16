@@ -17,7 +17,7 @@
  *   6. ideas: the picture a little smaller on a computer;
  *   7. ideas: the shadow at the foot that came in "stutterish" on a tab change
  *      and was cut by the section's box, gone;
- *   8. Mondo Mango "has too many images"; The Strength Room stays as it is.
+ *   8. the builder's store "has too many images"; The Strength Room stays as it is.
  *
  * Measured on the real page in the dev server (Chromium, iPhone 13, CDP touch
  * sequences; before is round 8's code on the same machine):
@@ -56,7 +56,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_STORES, EVERYTHING_STYLES, PIECE_SIZES } from "@/components/marketing/home/everything-in-one-place"
 import { SWIPE_CLEAR, SWIPE_SLOP, swipeAxis } from "@/components/marketing/home/everything-globe"
 import { IDEAS_STYLES, IDEAS_TABS, IdeasComeToLife } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, MondoMangoSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, GodBlessSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -154,14 +154,14 @@ check("from 768px the picture is smaller than the shared width, centred", /@medi
 check("a phone keeps the full width", /width:100%/.test(frame) && !/@media\(max-width:767px\)\{[^}]*\.ideas-frame/.test(ideasCss))
 check("the picture keeps its shape", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss))
 
-console.log("\n── 8. Mondo Mango: one picture in the hero ──")
-// Changed on purpose (landing round 11): the hero is one studio picture of the game (no orange block, no sticker), the products are shots of the boxes; tests/home-landing-r11-top.test.ts pins it.
-const site = renderToStaticMarkup(createElement(MondoMangoSite))
-const hero = site.slice(site.indexOf('class="mg-hero"'), site.indexOf('class="mg-shop"'))
-check("the hero has one picture", (hero.match(/<img /g) ?? []).length === 1 && /src="\/home\/showcase\/mm-studio\.webp"[^>]*width="1600" height="534"/.test(hero))
+console.log("\n── 8. The builder's store: one picture in the hero ──")
+// Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
+const site = renderToStaticMarkup(createElement(GodBlessSite))
+const hero = site.slice(site.indexOf('class="gb-hero"'), site.indexOf('class="gb-shop"'))
+check("the hero has one picture", (hero.match(/<img /g) ?? []).length === 1 && /src="\/home\/showcase\/gb-hero\.webp"[^>]*width="2200" height="623"/.test(hero))
 check("the whole store: the wordmark, one hero picture and four products", (site.match(/<img /g) ?? []).length === 6)
 check("the rings are as they were", (renderToStaticMarkup(createElement(WebsiteBuilderMock)).match(/<em>Selected<\/em>/g) ?? []).length === 4)
-check("nothing new moves", !/\.mg[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS))
+check("nothing new moves", !/\.gb[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS))
 
 console.log("\n── 8. The Strength Room is intact ──")
 const cm = renderToStaticMarkup(createElement(CommunityMock))
