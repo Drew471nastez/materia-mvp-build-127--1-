@@ -101,7 +101,8 @@ check("the track's photos are .webp", own.length > 0 && own.every((f) => f.endsW
 check("the track's photos stay under 6 MB together, 400 KB each", ownBytes <= 6 * 1024 * 1024 && own.every((f) => statSync(join(root, "public/home/platform", f)).size <= 400 * 1024), ownBytes)
 /* Changed on purpose (wave 13): the section's visual is the owner's own photograph of the app, in public/home/app. */
 /* Changed on purpose (landing round 9): the photograph gave way to a drawn stage; its pictures are 96px thumbnails, lazy, async and sized. */
-check("the app's pictures are lazy, async and sized", ((html["app-anywhere"] ?? "").match(/<img[^>]*src="\/home\/app\/order-(tee|lut)\.webp"[^>]*>/g) ?? []).length >= 3 && ((html["app-anywhere"] ?? "").match(/<img[^>]*>/g) ?? []).every((t) => /width="96" height="96"/.test(t) && /loading="lazy"/.test(t) && /decoding="async"/.test(t)))
+/* Changed on purpose (landing round 11): the owner's photograph is back; one picture, lazy, async and sized at its 4:3. */
+check("the app's pictures are lazy, async and sized", ((html["app-anywhere"] ?? "").match(/<img[^>]*src="\/home\/app\/storelib-app-720\.webp"[^>]*>/g) ?? []).length === 1 && ((html["app-anywhere"] ?? "").match(/<img[^>]*>/g) ?? []).every((t) => /width="1280" height="960"/.test(t) && /loading="lazy"/.test(t) && /decoding="async"/.test(t)))
 {
   const appFiles = readdirSync(join(root, "public/home/app"))
   check("the app photo is .webp, each file under 120 KB", appFiles.length >= 2 && appFiles.every((f) => f.endsWith(".webp") && statSync(join(root, "public/home/app", f)).size <= 120 * 1024), appFiles)
@@ -111,7 +112,8 @@ check("every <img> carries width and height", [...page.matchAll(/<img [^>]*>/g)]
 console.log("\n── truth: integrations ──")
 const ALIAS: Record<string, string> = { "Tag Manager": "Google Tag Manager" }
 /* Not catalog rows: the payments Storelib's checkout runs on (Stripe, with its wallets) and the bookings calendar (lib/google-calendar). */
-const RUNS_ON = new Set(["Stripe", "Apple Pay", "Google Pay", "Google Calendar", "PostHog"])
+/* Changed on purpose (landing round 11): the owner asked for Instagram, Spotify, Apple Music and YouTube; a one page embeds them (lib/onepage/embed-address.ts, lib/onepage/instagram-*.ts). */
+const RUNS_ON = new Set(["Stripe", "Apple Pay", "Google Pay", "Google Calendar", "PostHog", "Instagram", "Spotify", "Apple Music", "YouTube"])
 const byName = new Map(INTEGRATIONS.map((i) => [i.name, i]))
 for (const a of PLATFORM_INTEGRATION_APPS) {
   const name = ALIAS[a.name] ?? a.name

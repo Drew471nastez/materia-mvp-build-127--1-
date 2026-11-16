@@ -80,9 +80,11 @@ check("  the words fade and lift, transform and opacity only", /@keyframes cmc-w
 check("the stage is held by sticky for one screen, the cards pulled up 56svh", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(100svh - 56svh\)\}/.test(css))
 // Changed on purpose (landing round 7): the phone is centred under the headline; up to 390px wide on a computer.
 // Changed on purpose (landing round 9): the owner: "the phone is bigger".
-check("the phone is a little bigger on a computer (up to 400px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{--hd:68px;[^}]*--pw:min\(400px,/.test(css))
+// Changed on purpose (landing round 11): the settled phone is up to 400px; it starts bigger.
+check("the phone is a little bigger on a computer (up to 400px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{--hd:68px;[^}]*--pe:min\(400px,/.test(css))
 // Changed on purpose (landing round 7): One-tap is the page's Apple Pay, the wallet's sheet and Payment complete.
-check("the One-tap demo's moves are transform and opacity", ["pc-press", "ap-sheet", "ap-done", "pc-paid"].every((k) => keyframes(k) && onlyCompositor(keyframes(k))))
+// Changed on purpose (landing round 11): the in-page checkout's moves.
+check("the One-tap demo's moves are transform and opacity", ["ic-pay", "ic-sheet", "ap-sheet", "ap-done", "ic-done"].every((k) => keyframes(k) && onlyCompositor(keyframes(k))))
 // Changed on purpose (landing round 8): no tabs and no autoplay: the four demos are cards, each running while it is on screen.
 check("nothing plays by itself on a timer: no autoplay to hold", !/setTimeout|setInterval/.test(src))
 /* Changed on purpose (landing round 9): the hold is written only under prefers-reduced-motion:no-preference (with scroll timelines), so reduced motion has no hold to undo; it still lays the cards flat and stops every motion. */
@@ -91,10 +93,12 @@ check("reduced motion: nothing held, nothing moving", /@media \(prefers-reduced-
 
 console.log("\nThe tabs are tabs again, not pills")
 // Changed on purpose (landing round 8): the tabs became a grid of cards that slides up over the phone, as in the owner's recording.
-check("four cards in a grid, two across on a computer, a row to swipe on a phone", /\.cmc-bento\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:16px\}/.test(css) && /scroll-snap-type:x mandatory/.test(css))
+// Changed on purpose (landing round 11): stacked on a phone, not a row to swipe.
+check("four cards in a grid, two across on a computer, stacked on a phone", /\.cmc-bento\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:16px\}/.test(css) && /\.cmc-bento\{grid-template-columns:minmax\(0,1fr\);gap:12px\}/.test(css))
 // Changed on purpose (landing round 8): cards, not tabs.
 // Changed on purpose (landing round 10): the cards' ground is a little see-through, so the products behind show faintly.
-check("  each a dark card with its label, its title, a line and its demo", (co.match(/class="cmc-card-l"/g) ?? []).length === 4 && (co.match(/class="cmc-vis"/g) ?? []).length === 4 && /border-radius:28px;background:rgba\(17,17,19,0\.66\)/.test(rule(".cmc-card")))
+// Changed on purpose (landing round 11): solid now.
+check("  each a dark card with its label, its title, a line and its demo", (co.match(/class="cmc-card-l"/g) ?? []).length === 4 && (co.match(/class="cmc-vis"/g) ?? []).length === 4 && /border-radius:28px;background:#111113/.test(rule(".cmc-card")))
 // Changed on purpose (landing round 8): cards, not tabs.
 check("  no pill anywhere in the cards", !/999px/.test(rule(".cmc-card") + rule(".cmc-bento")))
 

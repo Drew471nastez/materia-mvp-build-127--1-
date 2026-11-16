@@ -129,7 +129,7 @@ export default function StorelibLanding() {
         {/* PURPLE SHEET: 13 AnalyticsShowcase alone (landing round 9: the map left it for the white sheet under it). Landing round 8: it rises over the white above as the page scrolls (transform only, nothing held). */}
         <ScrollRevealPanel tone="purple" arrive="rise">
           {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
-          <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1100px)" }} />
+          <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1600px)" }} />
           <LazyAnalyticsShowcase />
         </ScrollRevealPanel>
 

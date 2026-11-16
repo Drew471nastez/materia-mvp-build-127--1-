@@ -126,7 +126,7 @@ check("reduced motion: a still grid, one copy, no transitions", () => {
 
 /* Changed on purpose (landing round): the owner did not like the bump on hover; a card stays still under the pointer (no lift, no zoom), and its foot is the shade with the name, the kind and what they sell, as before the product tiles. */
 check("cards: still under the pointer, the creator's words on a shade inside the photo, no product tile", () => {
-  assert.ok(!/:hover \.cc-(body|img|photo|card)/.test(CREATORS_CSS) && !/\.cc-img\{[^}]*transition/.test(CREATORS_CSS))
+  assert.ok(!/:hover \.cc-(body|img|photo|card)/.test(CREATORS_CSS) && !/(^|\n|\})\.cc-img\{[^}]*transition/.test(CREATORS_CSS)) /* Changed on purpose (landing round 11): only the decoded photo's arrival eases in, under [data-cc-ready]. */
   assert.ok(!/--cc-on|data-shape|data-active|transition:border-radius/.test(CREATORS_CSS + read(SRC)))
   assert.ok(!/\.cc-(body|photo)\{[^}]*(translate3d|translateZ)/.test(CREATORS_CSS))
   assert.ok(/\.cc-shade\{position:absolute;inset:0;background:linear-gradient\(to top/.test(CREATORS_CSS) && /\.cc-meta\{position:absolute/.test(CREATORS_CSS))

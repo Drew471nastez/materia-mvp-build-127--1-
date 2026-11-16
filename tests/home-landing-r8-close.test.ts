@@ -98,11 +98,13 @@ console.log("\n── the close: dots, motion, the footer's edge ──")
 {
   const dots = read("components/marketing/home/dot-field.tsx")
   const cta = read("components/marketing/home/final-cta.tsx")
-  check("a little more visible, only a little", DOT_FIELD_TONES.dark.rest === 0.19 && DOT_FIELD_TONES.dark.lit === 0.46 && DOT_FIELD_TONES.purple.rest === 0.12)
-  check("round dots in 32 levels", /ctx\.arc\(b\[j\], b\[j \+ 1\], DOT_R, 0, Math\.PI \* 2\)/.test(dots) && /const LEVELS = 32/.test(dots) && !/ctx\.rect\(/.test(dots))
+  // Changed on purpose (landing round 11): the closing call "more visible" (0.34 / 0.68); the purple sheet rests at 0.17 (its own track).
+  check("more visible, and the purple its own", DOT_FIELD_TONES.dark.rest === 0.34 && DOT_FIELD_TONES.dark.lit === 0.68 && DOT_FIELD_TONES.purple.rest === 0.17)
+  check("round dots in 32 levels", /ctx\.arc\(b\[j\], b\[j \+ 1\], colour\.r, 0, Math\.PI \* 2\)/.test(dots) && /const LEVELS = 32/.test(dots) && !/ctx\.rect\(/.test(dots))
   check("moves by itself, follows the mouse while it is over the field", /const WANDER = 0\.6/.test(dots) && /goal = tone === "dark" \? WANDER/.test(dots) && /hasAim && mx > -40 && my > -40 && mx < w \+ 40 && my < h \+ 40/.test(dots))
   check("60 a second whenever it runs, paused off screen and in a hidden tab", /if \(last && t - last < 12\) return/.test(dots) && /IntersectionObserver/.test(dots) && /visibilitychange/.test(dots))
-  check("the field fades out before the call's foot", /<DotField fade="close" \/>/.test(cta) && /\.dotf\[data-fade="close"\]\{-webkit-mask-image:radial-gradient\(115% 80% at 50% 38%,#000 32%,transparent 76%\)/.test(DOT_FIELD_CSS))
+  // Changed on purpose (landing round 11): the owner: "more visible at the bottom as well": clear down to the foot, only the last 56px fade.
+  check("the field runs on to the call's foot, its last 56px fading", /<DotField fade="close" \/>/.test(cta) && /\.dotf\[data-fade="close"\]\{-webkit-mask-image:linear-gradient\(#000 calc\(100% - 56px\),transparent\),radial-gradient\(120% 135% at 50% 42%/.test(DOT_FIELD_CSS))
   check("the footer starts on the call's black and has a top edge: a hairline faded at both ends", /footer\.storelib-footer\{background-color:#050506;background-image:radial-gradient\([^;]*linear-gradient\(180deg,#050506 0%/.test(cta) && /footer\.storelib-footer::before\{content:"";background:linear-gradient\(90deg,transparent 4%,rgba\(255,255,255,\.07\) 22%,rgba\(255,255,255,\.16\) 50%/.test(cta))
   check("no banned words or em dashes in what changed", [cta, dots, read("components/marketing/faq-section.tsx"), read("components/marketing/home/integrations-section.tsx")].every((s) => !BANNED.test(s)))
 }

@@ -65,6 +65,24 @@
              "edges" and well before the bottom, so the section's dots are
              gone by the time the footer starts.
 
+  Landing round 11, the owner, of the closing call: "the pattern dots
+  should be more smooth and clean and more visible at the bottom as well"
+  (the AI tools card got a still grid of the same dots, in its own file).
+  So:
+
+    visible  the dark tone rests at 0.34 (was 0.19) and lights to 0.68
+             (was 0.46), and the trough of the flow keeps 45% of a
+             dot (was 30%); the purple sheet's tone is unchanged.
+    clean    each dot stands still on its point of the grid: the flow and
+             the light change only its brightness (the parting under the
+             light stays). A sub-pixel drift of a 0.8px dot is what read as
+             shimmer. And the canvas is drawn at up to 2 device pixels per
+             CSS pixel (was 1.5), so a dot is a round dot on a phone's
+             screen, not a soft blur scaled up.
+    bottom   fade="close" keeps the field to the section's foot: faded at
+             the sides, clear down the middle to the bottom, and only the
+             last 56px fade out, so no edge meets the footer's hairline.
+
   Put <DotField /> as the first child of a dark block that is a stacking
   context (position plus z-index, or isolation: isolate); it fills it,
   behind everything else (z-index -1, pointer-events: none). `style` can
@@ -79,7 +97,7 @@ import { useEffect, useRef, type CSSProperties } from "react"
 export const DOT_FIELD_CSS = `
 .dotf{position:absolute;inset:0;z-index:-1;overflow:clip;pointer-events:none}
 .dotf[data-fade="edges"]{-webkit-mask-image:radial-gradient(120% 90% at 50% 45%,#000 35%,transparent 80%);mask-image:radial-gradient(120% 90% at 50% 45%,#000 35%,transparent 80%)}
-.dotf[data-fade="close"]{-webkit-mask-image:radial-gradient(115% 80% at 50% 38%,#000 32%,transparent 76%);mask-image:radial-gradient(115% 80% at 50% 38%,#000 32%,transparent 76%)}
+.dotf[data-fade="close"]{-webkit-mask-image:linear-gradient(#000 calc(100% - 56px),transparent),radial-gradient(120% 135% at 50% 42%,#000 42%,transparent 82%);-webkit-mask-composite:source-in;mask-image:linear-gradient(#000 calc(100% - 56px),transparent),radial-gradient(120% 135% at 50% 42%,#000 42%,transparent 82%);mask-composite:intersect}
 .dotf[data-fade="bottom"]{-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 45%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 45%,transparent 100%)}
 .dotf canvas{display:block;width:100%;height:100%;opacity:0;transition:opacity .9s ease-out}
 .dotf[data-drawn] canvas{opacity:1}
@@ -90,14 +108,21 @@ export const DOT_FIELD_CSS = `
  * The dots' colour per ground, how bright they rest at the crest of the flow
  * and how bright the light makes them. Round 7: neutral white on the purple
  * too (the owner: nothing purple on the purple, not even light purple).
+ * `r` is a dot's radius in CSS px; `ride` how far a dot rides the flow (1 is
+ * under a pixel). Landing round 11, the owner, of the purple sheet: the dots
+ * "more smooth, clean and more visible". So on purple they rest at 0.17 (was
+ * 0.12) and light to 0.4 (was 0.32), a touch rounder (0.95px), and ride the
+ * flow half as far, so a dot no longer shimmers as it crosses a device pixel;
+ * the bands of light carry the motion. The dark tone is unchanged.
  */
 export const DOT_FIELD_TONES = {
-  dark: { rgb: "255,255,255", rest: 0.19, lit: 0.46 },
-  purple: { rgb: "255,255,255", rest: 0.12, lit: 0.32 },
+  /* Landing round 11: the closing call's dots a little more visible and standing on their points (ride 0); the purple sheet's brighter, rounder and steadier (its own track). */
+  dark: { rgb: "255,255,255", rest: 0.34, lit: 0.68, r: 0.8, ride: 0 },
+  purple: { rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 },
 } as const
 
 /** Largest device pixel ratio the canvas is drawn at. */
-export const DOT_FIELD_MAX_DPR = 1.5
+export const DOT_FIELD_MAX_DPR = 2
 /** Radius of the light around the pointer, in CSS px. */
 const RADIUS = 180
 /** How quickly the light follows the pointer, per 60Hz frame (0..1). */
@@ -107,10 +132,8 @@ const PART = 6
 const LEVELS = 32
 /** How strong the light is on its own path, with no mouse over the field. */
 const WANDER = 0.6
-/** A dot's radius, in CSS px. */
-const DOT_R = 0.8
-/** The darkest a dot gets in the trough of the flow, as a share of its crest. */
-const TROUGH = 0.3
+/** The darkest a dot gets in the trough of the flow, as a share of its crest (landing round 11: the dark tone 0.45, was 0.3; the purple sheet as it was). */
+const TROUGH = { dark: 0.45, purple: 0.3 } as const
 
 /** A repeatable random number in [0, 1) for a pair of integers. */
 function hash(x: number, y: number) {
@@ -177,6 +200,7 @@ export function DotField({
     const ctx = canvas?.getContext("2d", { alpha: true })
     if (!box || !canvas || !ctx) return
     const colour = DOT_FIELD_TONES[tone]
+    const trough = TROUGH[tone]
     const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const fine = typeof window.matchMedia === "function" && window.matchMedia("(hover: hover) and (pointer: fine)").matches
 
@@ -223,8 +247,8 @@ export function DotField({
       } else {
         tx = w * (0.5 + 0.32 * Math.sin(t * 0.00011))
         ty = h * (0.42 + 0.26 * Math.sin(t * 0.000083 + 1.3))
-        /* The purple sheet keeps its quieter wander (round 7); the closing call's light is out on its own. */
-        goal = tone === "dark" ? WANDER : fine ? 0.35 : 0.5
+        /* The purple sheet keeps a quieter wander (round 7), a little stronger since round 11; the closing call's light is out on its own. */
+        goal = tone === "dark" ? WANDER : fine ? 0.45 : 0.55
       }
       const k = 1 - Math.pow(1 - FOLLOW, dt / 16.67)
       if (!started) {
@@ -241,17 +265,17 @@ export function DotField({
       const r2 = RADIUS * RADIUS
       for (let i = 0, j = 0; i < points.length; i += 4, j += 2) {
         const flow = flowAt(waves[j], waves[j + 1], t)
-        /* Each dot rides the current by under a pixel. */
-        let x = points[i] + (flow - 0.5) * 0.8
-        let y = points[i + 1] + (flow - 0.5) * 1.4
-        let a = colour.rest * points[i + 2] * (TROUGH + (1 - TROUGH) * flow * flow)
+        /* Each dot rides the current by under a pixel on the purple; on the closing call it stands on its point (ride 0) and the flow is its brightness only. */
+        let x = points[i] + (flow - 0.5) * 0.8 * colour.ride
+        let y = points[i + 1] + (flow - 0.5) * 1.4 * colour.ride
+        let a = colour.rest * points[i + 2] * (trough + (1 - trough) * flow * flow)
         const dx = x - lightX
         const dy = y - lightY
         const d2 = dx * dx + dy * dy
         if (d2 < r2 && strength > 0.01) {
           const d = Math.sqrt(d2) || 1
           const f = (1 - d / RADIUS) * (1 - d / RADIUS) * strength
-          a += (colour.lit - colour.rest * TROUGH) * f
+          a += (colour.lit - colour.rest * trough) * f
           x += (dx / d) * PART * f
           y += (dy / d) * PART * f
         }
@@ -269,8 +293,8 @@ export function DotField({
         ctx.fillStyle = `rgba(${colour.rgb},${((l / (LEVELS - 1)) * colour.lit).toFixed(3)})`
         ctx.beginPath()
         for (let j = 0; j < b.length; j += 2) {
-          ctx.moveTo(b[j] + DOT_R, b[j + 1])
-          ctx.arc(b[j], b[j + 1], DOT_R, 0, Math.PI * 2)
+          ctx.moveTo(b[j] + colour.r, b[j + 1])
+          ctx.arc(b[j], b[j + 1], colour.r, 0, Math.PI * 2)
         }
         ctx.fill()
       }

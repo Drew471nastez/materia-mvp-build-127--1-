@@ -98,21 +98,16 @@ console.log("\n── questions: a centred column of grey rows ──")
   check("no banned words or em dashes in the section", !BANNED.test(src))
 }
 
-console.log("\n── footer: the white outline mark ──")
+console.log("\n── footer: the app icon (outline undone in round 11) ──")
 {
+  // Changed on purpose (landing round 11): the owner, "the Storelib icon in the footer should not be outlined like that". The footer draws the colourful app icon again and the outline variant is gone from the logo component.
   const footerSrc = read("components/marketing/footer.tsx")
   const logoSrc = read("components/brand/storelib-logo.tsx")
   const footer = renderToStaticMarkup(createElement(MarketingFooter))
-  const mark = renderToStaticMarkup(createElement(StorelibLogo, { size: 40, variant: "outline" }))
-  check("the footer asks the one logo component for its outline", /<StorelibLogo size=\{40\} variant="outline" \/>/.test(footerSrc) && (footerSrc.match(/<StorelibLogo\b/g) ?? []).length === 1)
-  check("drawn as an inline SVG: no picture, no violet", /<svg[^>]*data-storelib-logo="outline"/.test(footer) && !/<img[^>]*data-storelib-logo/.test(footer) && !/storelib-logo-v2|#7b5cf|#8b5cf6|#8B56FA/i.test(mark))
-  check("line art in white: no fill, a white stroke", /fill="none"/.test(mark) && /stroke="currentColor"/.test(mark) && /color:#fff/.test(mark) && !/fill="(?!none)/.test(mark))
-  check("the S is the mark's own curves, inside a rounded square", mark.includes(`d="${STORELIB_S_PATH}"`) && /<rect [^>]*rx="35"/.test(mark) && /viewBox="0 0 200 200"/.test(mark))
-  check("40px square, named Storelib for a reader", /width="40" height="40"/.test(mark) && /role="img" aria-label="Storelib"/.test(mark))
+  check("the footer draws the one logo picture at 40px", /<StorelibLogo size=\{40\} \/>/.test(footerSrc) && (footerSrc.match(/<StorelibLogo\b/g) ?? []).length === 1 && /<img[^>]*data-storelib-logo=""/.test(footer))
+  check("no outline anywhere: the variant is gone", !/variant/.test(logoSrc) && !/data-storelib-logo="outline"/.test(footer) && !/STORELIB_S_PATH/.test(logoSrc) && STORELIB_S_PATH.length > 0)
   check("the wordmark beside it is white", /<span class="text-xl font-bold text-white">Storelib<\/span>/.test(footer))
-  check("every other place still draws the picture", /variant = "picture"/.test(logoSrc) && /src=\{STORELIB_LOGO\}/.test(logoSrc) && /<img[^>]*data-storelib-logo=""/.test(renderToStaticMarkup(createElement(StorelibLogo, { size: 32 }))))
-  const others = ["components/marketing/header.tsx", "components/storefront/seller-footer.tsx"].filter((f) => { try { return /variant="outline"/.test(read(f)) } catch { return false } })
-  check("the outline is the marketing footer's alone", others.length === 0, others)
+  check("every place draws the picture", /src=\{STORELIB_LOGO\}/.test(logoSrc) && /<img[^>]*data-storelib-logo=""/.test(renderToStaticMarkup(createElement(StorelibLogo, { size: 32 }))))
 }
 
 console.log("\n── registered ──")

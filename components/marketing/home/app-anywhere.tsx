@@ -20,31 +20,22 @@
 
   Round 4, the owner: no purple ground; it opened the page's dark close.
 
-  LANDING ROUND 9, THE OWNER: the section is white and sits earlier in the
-  page, on a white sheet ("the section should be white"; "as I scroll down,
-  make sure the section comes in more smooth and clean"; "add a visual
-  motion graphic, clean and smooth"). So:
-    ground   white, drawn by the section's own classes, so it reads the
-             same wherever the page puts it. The heading is in its light
-             form, the badges are black on white.
-    stage    one wide black card (<Stage>), always solid, so nothing blank
-             or flashing arrives with the scroll: only what is inside it
-             eases in, once. A phone with the app's Home stands at the
-             centre of thin concentric rings; Sales, Orders, Visitors and
-             Payouts drift a little along the rings, beside the phone on a
-             wide screen and above and below it on a narrow one.
-    the loop every five seconds something lands on the phone: an order, a
-             payout, people in the store. A notice drops in at the top of
-             the screen, a ring of light runs outward, and the chip it is
-             about lights up. One 15 s CSS loop, transform and opacity
-             only, paused off screen and in a background tab (m.loop);
-             under reduced motion it stands still on the order.
-    under it the three points in a row, the badges beside them.
-  The owner's photograph of the app (public/home/app/storelib-app-*.webp) is
-  not drawn here any more.
+  Landing round 9 drew a black stage instead: a drawn phone on rings, with
+  chips and notices (commit 031e4c6f8).
+
+  LANDING ROUND 11, THE OWNER: "'Run your business from anywhere' should be
+  how it was before, the image and things". So it is round 8's section again
+  (031e4c6f8^): the owner's photograph of the app, large, and beside it the
+  heading, the line, the three points between hairlines and the store
+  badges. What stays from round 9: it is on the white sheet (the heading in
+  its light form, the hairlines dark on white, the badges black), in the
+  page's one width (.home-wrap), and it comes in smoothly: the photograph
+  and the points rise into place once (platform's .reveal, transform and
+  opacity), and the picture itself fades in only once it is decoded, over a
+  still grey box of its own 4:3 shape, so nothing pops and nothing shifts.
 */
 
-import { useRef, type CSSProperties } from "react"
+import { useEffect, useRef, type CSSProperties, type RefObject } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { SiApple } from "@/components/icons/brand/SiApple"
 import { usePlatformSection } from "./platform-motion"
@@ -105,158 +96,73 @@ function GooglePlayBadge() {
 
 const POINTS = ["A ping for every sale", "Orders, products and numbers", "Your community, in your pocket"]
 
-/* ── The stage ───────────────────────────────────────────────────────── */
-
-/** What drifts on the rings. `on` is which notice lights it (0 the order, 1 the payout, 2 the visitors). */
-export const APP_CHIPS = [
-  { label: "Orders", on: 0, slot: "a" },
-  { label: "Sales", on: 0, slot: "b", late: true },
-  { label: "Payouts", on: 1, slot: "c" },
-  { label: "Visitors", on: 2, slot: "d" },
-] as const
-
-/** The notices that land on the phone, one every five seconds. */
-export const APP_NOTICES = [
-  { title: "New order", line: "Midnight Studio Tee, $32.00", img: "/home/app/order-tee.webp" },
-  { title: "Payout sent", line: "$268.40 is on its way to your bank", img: null },
-  { title: "14 people in your store", line: "Most of them came from Instagram", img: null },
-] as const
-
-/** Seconds: the whole loop, and how long after its start each notice lands. */
-export const APP_LOOP_S = 15
-const noticeAt = (i: number) => 0.6 + i * (APP_LOOP_S / APP_NOTICES.length)
-const noticeDelay = (i: number) => `${noticeAt(i)}s`
-
-const ORDERS = [
-  { name: "Midnight Studio Tee", price: "$32.00", img: "/home/app/order-tee.webp" },
-  { name: "Cine Tones LUT Pack", price: "$29.00", img: "/home/app/order-lut.webp" },
-]
-
-function Phone() {
-  return (
-    <div className={s.phone}>
-      <div className={s.screen}>
-        <div className={s.island} />
-        <div className={s.appTop}>
-          <span className={s.appHello}>Good afternoon</span>
-          <span className={s.appRange}>Today</span>
-        </div>
-        <div className={s.stats}>
-          <span className={s.stat}>
-            <span className={s.statLabel}>Visitors</span>
-            <span className={s.statValue}>318</span>
-          </span>
-          <span className={s.stat}>
-            <span className={s.statLabel}>Sales</span>
-            <span className={s.statValue}>
-              $412
-              <span className={`${s.plus} ${m.loop}`} style={{ animationDelay: noticeDelay(0) }}>
-                +$32
-              </span>
-            </span>
-          </span>
-          <span className={s.stat}>
-            <span className={s.statLabel}>Orders</span>
-            <span className={s.statValue}>9</span>
-          </span>
-        </div>
-        <svg className={s.chart} viewBox="0 0 200 74" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M0 62 C18 60 26 44 44 46 S70 58 86 40 S112 14 130 24 S156 40 172 20 S192 8 200 10 V74 H0 Z" fill="rgba(139,92,246,0.12)" />
-          <path d="M0 62 C18 60 26 44 44 46 S70 58 86 40 S112 14 130 24 S156 40 172 20 S192 8 200 10" fill="none" stroke="#8b5cf6" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        </svg>
-        <div className={s.orders}>
-          <span className={s.ordersTitle}>Latest orders</span>
-          {ORDERS.map((o) => (
-            <span key={o.name} className={s.order}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={o.img} alt="" width={96} height={96} loading="lazy" decoding="async" className={s.orderImg} />
-              <span className={s.orderName}>{o.name}</span>
-              <span className={s.orderPrice}>{o.price}</span>
-            </span>
-          ))}
-        </div>
-        <div className={s.tabbar}>
-          <span data-on="" />
-          <span />
-          <span />
-          <span />
-        </div>
-        {APP_NOTICES.map((n, i) => (
-          <div key={n.title} className={`${s.notice} ${m.loop}`} data-notice={i} style={{ animationDelay: noticeDelay(i) }}>
-            {n.img ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={n.img} alt="" width={96} height={96} loading="lazy" decoding="async" className={s.noticeImg} />
-            ) : (
-              <span className={s.noticeMark} data-kind={i === 1 ? "payout" : "live"} />
-            )}
-            <span className={s.noticeText}>
-              <span className={s.noticeTitle}>{n.title}</span>
-              <span className={s.noticeLine}>{n.line}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function Stage() {
-  return (
-    <div className={s.card} data-app-stage="" role="img" aria-label="The Storelib app on a phone: today's visitors, sales and orders, and a new order arriving">
-      <div className={`${m.reveal} ${s.rings}`} aria-hidden="true">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span key={i} className={s.ring} data-ring={i} />
-        ))}
-        <span className={`${s.arc} ${m.loop}`} data-ring={1} />
-        <span className={`${s.arc} ${m.loop}`} data-ring={3} />
-        {APP_NOTICES.map((n, i) => (
-          <span key={n.title} className={`${s.pulse} ${m.loop}`} style={{ animationDelay: noticeDelay(i) }} />
-        ))}
-      </div>
-      <div className={`${m.reveal} ${s.orbits}`} style={{ "--i": 3 } as CSSProperties} aria-hidden="true">
-        {APP_CHIPS.map((c, i) => (
-          <span key={c.label} className={`${s.arm} ${m.loop}`} data-slot={c.slot}>
-            <span className={`${s.turn} ${m.loop}`}>
-              <span className={s.chip}>
-                {c.label}
-                <span className={`${s.lit} ${m.loop}`} data-first={i === 0 ? "" : undefined} style={{ animationDelay: `${noticeAt(c.on) + ("late" in c ? 0.55 : 0.25)}s` }}>
-                  {c.label}
-                </span>
-              </span>
-            </span>
-          </span>
-        ))}
-      </div>
-      <div className={`${m.reveal} ${s.phoneWrap}`} style={{ "--i": 1 } as CSSProperties} aria-hidden="true">
-        <Phone />
-      </div>
-    </div>
-  )
+/**
+ * The photograph fades in once the browser has decoded it (data-ready on its
+ * box), never half drawn. A picture already decoded (from the cache) shows at
+ * once; without script the stylesheet shows it anyway.
+ */
+function usePhotoReady(box: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const el = box.current
+    const img = el?.querySelector("img")
+    if (!el || !img) return
+    let gone = false
+    const ready = () => {
+      if (!gone) el.setAttribute("data-ready", "")
+    }
+    if (img.complete && img.naturalWidth) {
+      ready()
+      return
+    }
+    const onLoad = () => {
+      if (typeof img.decode === "function") img.decode().then(ready, ready)
+      else ready()
+    }
+    img.addEventListener("load", onLoad, { once: true })
+    img.addEventListener("error", ready, { once: true })
+    return () => {
+      gone = true
+      img.removeEventListener("load", onLoad)
+      img.removeEventListener("error", ready)
+    }
+  }, [box])
 }
 
 export function AppAnywhere() {
   const ref = useRef<HTMLElement>(null)
+  const photo = useRef<HTMLDivElement>(null)
   usePlatformSection(ref)
+  usePhotoReady(photo)
   return (
     <section ref={ref} id="app-anywhere" aria-labelledby="app-anywhere-title" className={`${m.root} ${s.section} py-[var(--home-pad,clamp(72px,9vw,128px))]`}>
-      {/* The page's one width (.home-wrap): the card's edges on the showcase cards' edges, the heading set in like the showcase's. */}
-      <div className="home-wrap">
-        <div className={s.head}>
-          <StoryHeading id="app-anywhere-title" text="Run your business from anywhere" accent={["anywhere"]} />
-          <p className={`mt-5 max-w-[56ch] ${s.lede}`}>Your sales, orders and visitors on your phone, wherever you are.</p>
+      {/* The page's one width (.home-wrap): the photograph's left edge on the showcase cards' left edge, the words set in like the showcase heading. */}
+      <div className={`home-wrap ${s.grid}`}>
+        <div ref={photo} className={`${m.reveal} ${s.photo}`} data-app-photo="" style={{ "--i": 1 } as CSSProperties}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/home/app/storelib-app-720.webp"
+            srcSet="/home/app/storelib-app-720.webp 720w, /home/app/storelib-app-1280.webp 1280w"
+            sizes="(min-width: 2020px) 1000px, (min-width: 1024px) 52vw, calc(100vw - 40px)"
+            width={1280}
+            height={960}
+            alt="The Storelib app's Home on a phone: visitors, revenue, orders and the week's chart"
+            loading="lazy"
+            decoding="async"
+            className={s.img}
+          />
         </div>
 
-        <Stage />
-
-        <div className={s.foot}>
-          <ul className={s.points}>
-            {POINTS.map((title) => (
-              <li key={title} className={s.point}>
+        <div className={s.copy}>
+          <StoryHeading id="app-anywhere-title" text="Run your business from anywhere" accent={["anywhere"]} />
+          <p className={`mt-5 max-w-[44ch] ${s.lede}`}>Your sales, orders and visitors on your phone, wherever you are.</p>
+          <ul className={`${s.points} mt-8`}>
+            {POINTS.map((title, i) => (
+              <li key={title} className={`${m.reveal} ${s.point}`} style={{ "--i": i + 2 } as CSSProperties}>
                 {title}
               </li>
             ))}
           </ul>
-          <div className={`${s.badges} flex flex-wrap items-center gap-3 sm:gap-4`}>
+          <div className={`${m.reveal} mt-9 flex flex-wrap items-center gap-3 sm:gap-4`} style={{ "--i": 5 } as CSSProperties}>
             <AppStoreBadge />
             <GooglePlayBadge />
           </div>

@@ -110,12 +110,14 @@ console.log("\n── the close and the dot field ──")
   const cta = read(`${DIR}/final-cta.tsx`)
   const src = read(`${DIR}/dot-field.tsx`)
   check('"what you make" a little lighter', /\.fcta-title em\{font-style:normal;color:#b6b3c1\}/.test(cta))
-  check("one canvas, the device pixel ratio capped at 1.5", DOT_FIELD_MAX_DPR === 1.5 && /<canvas ref=\{canvasRef\}/.test(src))
+  // Changed on purpose (landing round 11): capped at 2, so a dot is a round dot on a phone's screen (the owner: "smooth and clean").
+  check("one canvas, the device pixel ratio capped at 2", DOT_FIELD_MAX_DPR === 2 && /<canvas ref=\{canvasRef\}/.test(src))
   const pts = dotFieldPoints(1200, 600, 18)
   /* Changed on purpose (landing round 7): the owner asked for the pattern "smooth, flowing ... clean": an even grid with a current of light flowing through it. */
   check("an even grid, every point of it", pts.length / 4 === (Math.floor(1200 / 18) + 1) * (Math.floor(600 / 18) + 1), { dots: pts.length / 4 })
   // Changed on purpose (landing round 8): the closing call's dots a little more visible, still under a fifth at rest and a half lit.
-  check("subtle: resting dots under a fifth, lit under a half", Object.values(DOT_FIELD_TONES).every((t) => t.rest <= 0.2 && t.lit <= 0.48))
+  // Changed on purpose (landing round 11): the owner: "more visible"; the dark tone rests at 0.34 and lights to 0.68.
+  check("subtle: resting dots under two fifths, lit under seven tenths", Object.values(DOT_FIELD_TONES).every((t) => t.rest <= 0.35 && t.lit <= 0.7))
   check("the earnings tile drops its icon before its word is cut", /@container \(max-width:136px\)\{\.cme-kind-i\{display:none\}/.test(EARNINGS_STYLES.map((s) => s.css).join("")))
   check("the pointer is followed with a lerp in the loop, a mouse only", /lightX \+= \(tx - lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src))
   check("no React state, no layout read in the loop", !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const draw"), src.indexOf("const resize"))))

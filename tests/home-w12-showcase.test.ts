@@ -115,7 +115,8 @@ assert.ok(/\.build-showcase-slide figcaption \{[^}]*opacity:0;[^}]*transition:op
 assert.ok(/@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1/.test(showcaseSrc), "and shows only under a resting mouse, never while dragging")
 /* Changed on purpose (landing round 6): the caption is a line under the picture, so on a touch screen (no hover) it is simply shown; with a mouse only the hover shows it. */
 assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 2, "no other rule shows it")
-assert.ok(/@media\(hover:none\),\(pointer:coarse\)\{\.build-showcase-slide figcaption\{opacity:1;transition:none\}\}/.test(showcaseSrc), "a touch screen shows it, under its card")
+/* Changed on purpose (landing round 11): the caption is a fade over the card's bottom; a touch screen shows it, and its words, always. */
+assert.ok(/@media\(hover:none\),\(pointer:coarse\)\{\.build-showcase-slide figcaption\{opacity:1;transition:none\}\.build-showcase-slide figcaption span\{transform:none;transition:none\}\}/.test(showcaseSrc), "a touch screen shows it over its card")
 // On a phone: the row starts on the heading's gutter, the first card about three quarters wide, the next peeking, 8px apart.
 /* Changed on purpose (landing round 6): the owner's reference, every phone card a 4:3 card 78% of the screen wide, 10px apart. */
 assert.ok(/--showcase-card:min\(78vw,440px\)/.test(showcaseSrc) && /--showcase-gap:10px;gap:var\(--showcase-gap\)/.test(showcaseSrc) && /padding-inline:var\(--showcase-gutter/.test(showcaseSrc))
@@ -133,7 +134,8 @@ const motion = read("components/marketing/use-showcase-motion.ts") + read("lib/u
 assert.ok(motion.includes("prefers-reduced-motion") && motion.includes("IntersectionObserver") && motion.includes("document.hidden"))
 /* Added (wave 14): the pictures stay lazy in the markup, and all twelve are fetched and decoded once the section is on screen, so a card brought in by a swipe or autoplay is never empty (it was, for a few frames, at 4x CPU). */
 /* Changed on purpose (landing round 9): the owner: "the images appear very stutterish ... they take too much performance". Not all twelve at once any more: from a screen before the section arrives, two at a time, each shown once decoded. */
-assert.ok(/rootMargin: "900px 0px"/.test(motion) && motion.includes('img.loading = "eager"') && motion.includes("img.decode().then(shown, shown)") && /next\(\)\s*next\(\)/.test(motion))
+/* Changed on purpose (landing round 11): "the images appear too abruptly": from two screens ahead, three at a time (SHOWCASE_PRELOAD). */
+assert.ok(/rootMargin: `\$\{SHOWCASE_PRELOAD\.marginPx\}px 0px`/.test(motion) && motion.includes('img.loading = "eager"') && motion.includes("img.decode().then(shown, shown)") && /for \(let i = 0; i < SHOWCASE_PRELOAD\.parallel; i\+\+\) next\(\)/.test(motion))
 
 /* ---- section 4: builder previews. Changed on purpose (landing round 4, the owner): thin pill tabs again over one picture at a time (Website builder, OnePage editor, Community), the same drawing on a phone. */
 assert.deepEqual(

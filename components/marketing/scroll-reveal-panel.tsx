@@ -51,14 +51,22 @@ import type { CSSProperties, ReactNode } from "react"
   its own colour all the way up. Browsers without scroll-driven animations
   and visitors who ask for less motion get the plain lap.
 
-  LANDING ROUND 9: AND SO DOES EVERY TOUCH SCREEN (the owner, on an iPhone:
-  "sometimes when I reach certain sections they stutter"). The rise is a
-  whole sheet, a screen and a half of cards, moved against the scroll. A
-  phone scrolls on its own thread; where the browser runs a scroll-driven
-  animation on the page's thread (Safari), the sheet is placed a frame or
-  more late and trembles as it comes up, and everything inside it with it
-  (measured in WebKit at iPhone 13: the sheet's heading moved 97px against
-  the page in three steps of up to 61px). A computer keeps the rise.
+  LANDING ROUND 9 kept the rise to a mouse and gave phones the plain lap:
+  where the browser ran the scroll-driven animation on the page's thread
+  (Safari), the sheet was placed a frame late and trembled.
+
+  LANDING ROUND 11, THE OWNER: "the purple section should come up as you
+  scroll down as an actual sheet modal, very smooth and clean". So every
+  screen rises again, phones too, and the rise is made gentle enough that a
+  frame late is a pixel or two, not a tremble: the sheet starts SHEET_RISE
+  lower and comes up over SHEET_RISE_SPAN of scroll (it was 50svh), eased in
+  and out along the scroll, so it never starts or stops with a jolt, and at
+  its fastest it moves about a third as fast as the page against the block
+  above. Still transform alone, still nothing held (no sticky, nothing
+  waits), and the block above never moves: its run on (the rise plus the
+  radius) is fixed in svh, which the URL bar does not change. Browsers
+  without scroll-driven animations and visitors who ask for less motion get
+  the sheet simply there, lying over the block above by its corners.
 
   A purple sheet sets the band colours the sections inside read
   (--band-ink, --band-muted, --band-line) and is also [data-band="purple"],
@@ -68,6 +76,12 @@ import type { CSSProperties, ReactNode } from "react"
 export type SheetTone = "white" | "purple"
 
 const BLOCK = ":is([data-sheet],[data-sheet-backdrop])"
+/** Landing round 11: how much lower the rising sheet starts, on every screen (svh: the URL bar never changes it). */
+export const SHEET_RISE = "clamp(88px,13svh,150px)"
+/** Landing round 11: over how much scroll it comes up (round 8: 50svh). */
+export const SHEET_RISE_SPAN = "75svh"
+/** Landing round 11: eased in and out along the scroll, so it starts and settles softly. */
+export const SHEET_RISE_EASE = "cubic-bezier(.45,0,.4,1)"
 
 export const SHEET_CSS = `
 ${BLOCK}{--srp-r:clamp(22px,4.2vw,48px);--srp-pad:clamp(10px,1.8vw,28px);--srp-rise:0px;--srp-next-rise:0px;position:relative;isolation:isolate}
@@ -86,9 +100,9 @@ ${BLOCK}+${BLOCK}::before{content:"";position:absolute;z-index:2147483647;left:0
 [data-sheet]:has(+${BLOCK}){padding-bottom:calc(var(--srp-pad) + var(--srp-r) + var(--srp-next-rise))}
 [data-sheet-backdrop]:has(+${BLOCK}){padding-bottom:calc(var(--srp-r) + var(--srp-next-rise))}
 @supports (animation-timeline:view()) {
-  @media (prefers-reduced-motion:no-preference) and (hover:hover) and (pointer:fine) {
-    ${BLOCK}:has(+[data-sheet-rise]){--srp-next-rise:clamp(96px,14svh,160px)}
-    [data-sheet-rise]{--srp-rise:clamp(96px,14svh,160px);animation:srp-rise linear both;animation-timeline:view();animation-range:cover var(--srp-rise) cover calc(var(--srp-rise) + 50svh)}
+  @media (prefers-reduced-motion:no-preference) {
+    ${BLOCK}:has(+[data-sheet-rise]){--srp-next-rise:${SHEET_RISE}}
+    [data-sheet-rise]{--srp-rise:${SHEET_RISE};animation:srp-rise both;animation-timing-function:${SHEET_RISE_EASE};animation-timeline:view();animation-range:cover var(--srp-rise) cover calc(var(--srp-rise) + ${SHEET_RISE_SPAN})}
   }
 }
 @keyframes srp-rise{from{transform:translate3d(0,var(--srp-rise),0)}to{transform:translate3d(0,0,0)}}

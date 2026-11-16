@@ -89,6 +89,26 @@ export const FLUNG_AHEAD = "150% 0px 150% 0px"
 
 const WATCHED = "section, [data-story-section]"
 
+/*
+  THE PICTURES, ALL OF THEM (landing round 11, the owner on an iPhone:
+  "all sections, graphics and images appear too abruptly"). One mechanism for
+  every picture on the home page: a picture that is not there yet when the
+  script first meets it is held clear (data-img="wait") and fades in once the
+  browser has its pixels (data-img="in", after decode()), on IMG_FADE_MS.
+  One capture-phase load listener on the page's root hears every picture,
+  however deep, so no section wires its own. A picture already complete is
+  left alone (no fade, no flash). At first, only a picture the first report
+  puts below the screen is held (one already on screen may be half drawn, and
+  hiding it would be a flash); a picture a section adds later is new and
+  unpainted, so it is held as it arrives. The fade is an animation, not a
+  transition, so it never replaces a picture's own transitions, and the mark
+  is taken off when it ends. Opacity only: its box is reserved
+  by its own width and height, so nothing moves. Not the showcase's (it has
+  its own decode queue, data-shown) and not the logo.
+*/
+export const IMG_FADE_MS = 450
+export const IMG_SKIP = ".build-showcase img,img[data-shown],img[data-storelib-logo],img[data-img-broken]"
+
 /** Pause decorative loops outside the viewport and in background tabs; give each section its entrance. */
 export function LandingStory({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -107,7 +127,8 @@ export function LandingStory({ children }: { children: ReactNode }) {
       if (away) {
         const running = section
           .getAnimations({ subtree: true })
-          .filter((a) => a.playState === "running" && a.timeline === document.timeline)
+          /* Landing round 11: a picture's fade in (IMG_FADE_MS) runs out away from the screen too, so it is never still fading when it arrives. */
+          .filter((a) => a.playState === "running" && a.timeline === document.timeline && (a as CSSAnimation).animationName !== "landing-img-in")
         for (const a of running) a.pause()
         if (running.length) resting.set(section, running)
       } else {
@@ -241,8 +262,59 @@ export function LandingStory({ children }: { children: ReactNode }) {
     if (reveal) window.addEventListener("scroll", onScroll, { passive: true })
     const revealed = new WeakSet<Element>()
 
-    const discover = (node: Node) => {
+    /* The pictures (IMG_FADE_MS). */
+    const imgShow = (img: HTMLImageElement) => {
+      if (img.dataset.img !== "wait") return
+      const go = () => {
+        if (img.dataset.img !== "wait") return
+        img.dataset.img = "in"
+      }
+      if (typeof img.decode === "function") img.decode().then(go, go)
+      else go()
+    }
+    const onPicture = (event: Event) => {
+      const img = event.target
+      if (img instanceof HTMLImageElement) imgShow(img)
+    }
+    /* Faded in: the mark goes, so nothing of it stays on the picture (its own opacity, its own animations). */
+    const onFaded = (event: AnimationEvent) => {
+      const img = event.target
+      if (img instanceof HTMLImageElement && event.animationName === "landing-img-in" && img.dataset.img === "in") delete img.dataset.img
+    }
+    root.addEventListener("load", onPicture, true)
+    root.addEventListener("error", onPicture, true)
+    root.addEventListener("animationend", onFaded)
+    const holdPicture = (img: HTMLImageElement) => {
+      if (img.complete || img.matches(IMG_SKIP)) return
+      img.dataset.img = "wait"
+      /* It may have finished between the check and now (a cached file). */
+      if (img.complete) imgShow(img)
+    }
+    const firstLook =
+      typeof IntersectionObserver === "function" && !reduced
+        ? new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+              const img = entry.target as HTMLImageElement
+              firstLook?.unobserve(img)
+              const box = entry.boundingClientRect
+              const skipped = box.width === 0 && box.height === 0
+              if (!entry.isIntersecting && (skipped || box.top > innerHeight)) holdPicture(img)
+            }
+          })
+        : null
+    const pictures = (node: Element, fresh: boolean) => {
+      if (reduced) return
+      const imgs = node instanceof HTMLImageElement ? [node] : node.getElementsByTagName("img")
+      for (const img of imgs) {
+        if (img.complete || "img" in img.dataset) continue
+        if (fresh) holdPicture(img)
+        else firstLook?.observe(img)
+      }
+    }
+
+    const discover = (node: Node, fresh = false) => {
       if (!(node instanceof Element)) return
+      pictures(node, fresh)
       /* Landing round 9 (the owner: lag; the frame pass counted 58 animations running off screen in one section): every section is watched, not only the ones marked, so every animation in it rests while it is away. */
       const candidates = node.matches(WATCHED)
         ? [node, ...node.querySelectorAll(WATCHED)]
@@ -279,7 +351,7 @@ export function LandingStory({ children }: { children: ReactNode }) {
     const additions = new MutationObserver((records) => {
       let removed = false
       for (const record of records) {
-        record.addedNodes.forEach(discover)
+        record.addedNodes.forEach((node) => discover(node, true))
         if (record.removedNodes.length) removed = true
       }
       if (removed)
@@ -295,6 +367,10 @@ export function LandingStory({ children }: { children: ReactNode }) {
       observer?.disconnect()
       reveal?.disconnect()
       ahead?.disconnect()
+      firstLook?.disconnect()
+      root.removeEventListener("load", onPicture, true)
+      root.removeEventListener("error", onPicture, true)
+      root.removeEventListener("animationend", onFaded)
       window.removeEventListener("scroll", onScroll)
       additions.disconnect()
       document.removeEventListener("visibilitychange", sync)
@@ -326,8 +402,19 @@ export function LandingStory({ children }: { children: ReactNode }) {
   Landing round 9: shorter (500ms, it was 650, and the delays 90 and 170),
   and on a phone or any touch screen nothing moves: the heading fades as one
   piece, its words stay where they are, and a block only fades (380ms).
+
+  Landing round 11, the owner on an iPhone: sections "appear too abruptly,
+  stuttering". 380ms of a plain fade read as a blink. On a phone or touch
+  screen a block now comes up TOUCH_RISE_PX as it fades, over TOUCH_MS, on a
+  calm curve with a soft start (TOUCH_EASE), and a heading fades as one piece
+  over the same. Still once: a block is let go after it shows and never
+  hidden again, scrolling back up or down.
 */
 const EASE = "cubic-bezier(.22,1,.36,1)"
+/** Landing round 11: the entrance on a phone or touch screen. */
+export const TOUCH_MS = 700
+export const TOUCH_RISE_PX = 12
+export const TOUCH_EASE = "cubic-bezier(.25,.6,.3,1)"
 export const REVEAL_CSS = `
 [data-landing-story] .story-heading:not([data-story-showcase]):not(.ideas-h) [data-story-word]{display:inline-block;padding-block:.08em;margin-block:-.08em}
 @media (prefers-reduced-motion:no-preference){
@@ -342,11 +429,16 @@ export const REVEAL_CSS = `
   [data-landing-story] [data-reveal-now],[data-landing-story] [data-reveal-now] [class*="__reveal"]{transition:none!important}
   [data-landing-story] [data-reveal-now][data-story-reveal]{opacity:1!important;transform:none!important}
   @media (max-width:767px),(hover:none) and (pointer:coarse){
-    [data-landing-story] [data-reveal][data-reveal]{transition:opacity .38s ease-out;translate:none}
-    [data-landing-story] .story-heading[data-reveal="wait"]{opacity:0}
+    [data-landing-story] [data-reveal][data-reveal]{transition:opacity ${TOUCH_MS}ms ${TOUCH_EASE} var(--reveal-delay,0ms),translate ${TOUCH_MS}ms ${TOUCH_EASE} var(--reveal-delay,0ms)}
+    [data-landing-story] [data-reveal="wait"][data-reveal="wait"]{translate:0 ${TOUCH_RISE_PX}px}
+    [data-landing-story] .story-heading[data-reveal][data-reveal]{transition:opacity ${TOUCH_MS}ms ${TOUCH_EASE}}
+    [data-landing-story] .story-heading[data-reveal="wait"][data-reveal="wait"]{opacity:0;translate:none}
     [data-landing-story] .story-heading[data-reveal] [data-story-word][data-story-word]{transition:none;opacity:1;translate:none}
   }
+  [data-landing-story] img[data-img="wait"]{opacity:0}
+  [data-landing-story] img[data-img="in"]{animation:landing-img-in ${IMG_FADE_MS}ms ease-out}
 }
+@keyframes landing-img-in{from{opacity:0}}
 `
 
 /*

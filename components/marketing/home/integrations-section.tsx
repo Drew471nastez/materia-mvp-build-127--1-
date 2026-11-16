@@ -87,6 +87,21 @@
              and a dead start each time a wheel scroll carried a row under
              the pointer. A row glides to a stop and back now (its playback
              rate eased, as the possibilities' rows do).
+
+  LANDING ROUND 11, THE OWNER:
+    more     "add Instagram, Spotify, Apple Music, YouTube and Meta as
+             well". A one page embeds Spotify, Apple Music and YouTube
+             (lib/onepage/embed-address.ts) and shows Instagram posts and
+             a profile (lib/onepage/instagram-*.ts), so each is a real
+             connection. Instagram and Apple Music are their app icons
+             drawn whole (./integration-marks); Spotify is the green mark
+             on black, YouTube the red play button on white. Meta was
+             already here as Meta Pixel, in one flat blue that did not read
+             as Meta; it is Meta's own mark now, in Meta's blue gradient
+             (MetaMark), and not shown twice.
+    gap      "reduce the horizontal gap between each icon a little more":
+             a tile and its gap now take 1/12 of the screen, not 1/10.5
+             (the module's --gap), possible because each set is longer.
 */
 
 import { useEffect, useMemo, useRef, type CSSProperties, type ComponentType } from "react"
@@ -95,7 +110,9 @@ import { SiAftership } from "@/components/icons/brand/SiAftership"
 import { SiBrevo } from "@/components/icons/brand/SiBrevo"
 import { SiPinterest } from "@/components/icons/brand/SiPinterest"
 import { SiPosthog } from "@/components/icons/brand/SiPosthog"
-import { ApplePayMark, GoogleAdsMark, GoogleCalendarMark, GooglePayMark, StripeMark, TikTokMark } from "./integration-marks"
+import { SiSpotify } from "@/components/icons/brand/SiSpotify"
+import { SiYoutube } from "@/components/icons/brand/SiYoutube"
+import { AppleMusicTile, ApplePayMark, GoogleAdsMark, GoogleCalendarMark, GooglePayMark, InstagramTile, MetaMark, StripeMark, TikTokMark } from "./integration-marks"
 import { KitLogo, KlaviyoLogo, MailerLiteLogo } from "./email-platform-logos"
 import { usePlatformSection } from "./platform-motion"
 import m from "./platform.module.css"
@@ -129,14 +146,16 @@ const ROWS: App[][] = [
     { name: "Apple Pay", bg: "#000000", mark: ApplePayMark, scale: 0.6 },
     { name: "Google Pay", bg: "#ffffff", mark: GooglePayMark, scale: 0.64 },
     { name: "Klaviyo", bg: "#ffffff", tile: KlaviyoLogo },
+    { name: "Instagram", bg: "#e1306c", tile: InstagramTile },
     { name: "TikTok Pixel", bg: "#000000", mark: TikTokMark, scale: 0.6 },
-    { name: "Meta Pixel", bg: "#ffffff", logo: "/integrations/meta.svg", scale: 0.62 },
+    { name: "Meta Pixel", bg: "#ffffff", mark: MetaMark, scale: 0.62 },
     { name: "Omnisend", bg: "#83ed80", logo: "/home/apps/omnisend.webp", fit: "cover" },
     { name: "Google Analytics", bg: "#ffffff", logo: "/integrations/google-analytics.svg", scale: 0.54 },
     { name: "Pinterest Tag", bg: "#e60023", icon: SiPinterest, color: "#ffffff" },
     { name: "Printful", bg: "#ffffff", logo: "/integrations/printful.svg", scale: 0.74 },
     { name: "Shippo", bg: "#2f4450", logo: "/home/apps/shippo.webp", fit: "cover" },
     { name: "Google Ads", bg: "#ffffff", mark: GoogleAdsMark, scale: 0.54 },
+    { name: "Spotify", bg: "#000000", icon: SiSpotify, color: "#1ed760", scale: 0.62 },
     { name: "MailerLite", bg: "#ffffff", tile: MailerLiteLogo },
   ],
   [
@@ -145,10 +164,12 @@ const ROWS: App[][] = [
     { name: "Kit", bg: "#44b1ff", tile: KitLogo },
     { name: "Tag Manager", bg: "#ffffff", logo: "/integrations/google-tag-manager.svg", scale: 0.56 },
     { name: "ShipStation", bg: "#11003a", logo: "/home/apps/shipstation.svg", fit: "cover" },
+    { name: "YouTube", bg: "#ffffff", icon: SiYoutube, color: "#ff0000", scale: 0.66 },
     { name: "Brevo", bg: "#0b996e", icon: SiBrevo, color: "#ffffff" },
     { name: "Gelato", bg: "#ffffff", logo: "/home/apps/gelato.webp", scale: 0.6 },
     { name: "CJ Dropshipping", bg: "#ff7700", logo: "/home/apps/cj-dropshipping.svg", fit: "cover" },
     { name: "Microsoft Clarity", bg: "#ffffff", logo: "/home/apps/microsoft-clarity.webp", scale: 0.6 },
+    { name: "Apple Music", bg: "#fa233b", tile: AppleMusicTile },
     { name: "PostHog", bg: "#eeefe9", icon: SiPosthog, color: "#1d1f27" },
     { name: "AfterShip", bg: "#ff6b2b", icon: SiAftership, color: "#ffffff" },
     { name: "EasyPost", bg: "#ffffff", logo: "/home/apps/easypost.svg", scale: 0.6 },
@@ -162,8 +183,8 @@ const SECONDS_PER_TILE = 4
 export const PLATFORM_INTEGRATION_APPS = ROWS.flatMap((r) => r.map((a) => ({ name: a.name, logo: a.logo ?? null })))
 /** The rows' sets, for tests: no row may be narrow enough to show a tile twice. */
 export const INTEGRATION_ROW_SIZES = ROWS.map((r) => r.length)
-/** A tile and its gap take at least this share of the screen's width (1 / 10.5 of it, integrations-section.module.css), for tests: a row of n tiles is then (n - 1) / 10.5 screens wide plus a tile. */
-export const INTEGRATION_STEP_SHARE = 1 / 10.5
+/** A tile and its gap take at least this share of the screen's width (1 / 12 of it since landing round 11, integrations-section.module.css), for tests: a row of n tiles is then (n - 1) / 12 screens wide plus a tile. */
+export const INTEGRATION_STEP_SHARE = 1 / 12
 
 function Icon({ app }: { app: App }) {
   if (app.tile) {
@@ -181,7 +202,8 @@ function Icon({ app }: { app: App }) {
   const Glyph = app.icon
   if (Glyph) {
     return (
-      <span className={s.mark}>
+      /* A glyph fills 54% of its tile unless it says otherwise (YouTube's play button is wider on its own icon). */
+      <span className={s.mark} style={app.scale ? { width: `${app.scale * 100}%`, height: `${app.scale * 100}%` } : undefined}>
         <Glyph className={s.glyph} color={app.color} />
       </span>
     )

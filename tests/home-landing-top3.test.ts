@@ -133,7 +133,8 @@ console.log("\n── Half of the examples ship in a box ──")
 const PHYSICAL = /^(Merch|T-shirts|Hoodies|Vinyl records|Mugs|Tote bags|Posters|Candles|Art prints|Ceramics|Zines|Hats|Jewelry|Signed books|Phone cases|Stickers)$/
 const chips = MARQUEE_ROWS.flatMap((r) => r.items.map((c) => c.label))
 const physical = chips.filter((c) => PHYSICAL.test(c)).length
-check("the possibilities: close to half are physical, in two rows", MARQUEE_ROWS.length === 2 && physical / chips.length >= 0.4 && physical / chips.length <= 0.6, { physical, of: chips.length })
+// Changed on purpose (landing round 11): the owner asked for more digital products and no ceramics or totes; a few physical ones stay.
+check("the possibilities: mostly digital with a few physical, in two rows", MARQUEE_ROWS.length === 2 && physical >= 2 && physical / chips.length <= 0.25, { physical, of: chips.length })
 check("no chip twice", new Set(chips).size === chips.length)
 /* Changed on purpose (landing round 6): the strip shows merch stores and creators' link pages as the owner's reference does; the product card above still shows merch, a download, a course and a community. */
 check("the strip's stores sell physical pieces, priced", EVERYTHING_STORES.some((s) => s.kind === "merch" && s.products.every((p) => /^\$\d+$/.test(p.price))))

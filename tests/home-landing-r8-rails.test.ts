@@ -77,14 +77,17 @@ check("autoplay only on screen, in a visible tab, with motion allowed", /const c
 check("arrow keys, Home and End move it; Space pauses autoplay", /e\.key === "ArrowRight" \? index \+ 1/.test(hook) && /e\.key === "Home" \? 0/.test(hook) && /if \(e\.key === " "\)/.test(hook))
 
 console.log("\nThe showcase: the caption on hover, as it was")
-check("a mouse shows it on hover, never while dragging", /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1;transition-duration:460ms\}\}/.test(css))
-check("the caption line under the picture is unchanged", /\.build-showcase-slide figcaption \{height:44px;padding-top:14px;box-sizing:border-box;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:15px;font-weight:500;line-height:20px;letter-spacing:-\.005em;color:#d4d4d8;opacity:0;pointer-events:none;transition:opacity 380ms cubic-bezier\(\.33,0,\.2,1\)\}/.test(css))
+/* Changed on purpose (landing round 11): the caption is a scrim over the card's bottom; on hover it fades in and its words rise. */
+check("a mouse shows it on hover, never while dragging", /@media\(hover:hover\) and \(pointer:fine\)\{\.build-showcase-track:not\(\[data-dragging\]\) \.build-showcase-slide:hover figcaption\{opacity:1;transition-duration:480ms\}/.test(css))
+/* Changed on purpose (landing round 11): no line under the picture any more; the caption is a fade over its bottom. */
+check("the caption is laid over the picture's bottom, hidden until a hover", /\.build-showcase-slide figcaption \{position:absolute;[^}]*opacity:0;pointer-events:none;transition:opacity 420ms/.test(css))
 check("dragging marks the rail, so the caption stays away under a moving pointer", /el\.dataset\.dragging = "true"/.test(hook) && /delete el\.dataset\.dragging/.test(hook))
 
 console.log("\nThe showcase on a phone: OnePages their own shape, stores 4:3")
 check("a store or website card is 4:3", /\.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone))
 /* Changed on purpose (landing round 9): the owner: "Keep OnePages as they are". The card is the page's own 540 x 1056, as on a desktop, not cut to 9:16. */
-check("a OnePage card is the page's own shape (540 x 1056), 0.6328 of a 4:3 card's width", /\.build-showcase-slide\[data-format="portrait"\]\{flex-basis:calc\(var\(--showcase-card\)\*\.6328\);width:calc\(var\(--showcase-card\)\*\.6328\)\}/.test(phone) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:540\/1056\}/.test(phone) && !/aspect-ratio:9\/16/.test(css))
+/* Changed on purpose (landing round 11): "the OnePages should have the same height as the 4:3 images": still the page's own shape, 0.3835 of a 4:3 card's width, so as tall as one. */
+check("a OnePage card is the page's own shape (540 x 1056), as tall as a 4:3 card", /\.build-showcase-slide\[data-format="portrait"\]\{flex-basis:calc\(var\(--showcase-card\)\*\.3835\);width:calc\(var\(--showcase-card\)\*\.3835\)\}/.test(phone) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic\{aspect-ratio:540\/1056\}/.test(phone) && !/aspect-ratio:9\/16/.test(css))
 check("the cards stand on one top line", /\.build-showcase-track\{--showcase-gap:10px;gap:var\(--showcase-gap\);align-items:flex-start;/.test(phone))
 check("the page fills its card from the top, no phone screen stood inside a card", /\.build-showcase-pic img\{object-position:50% 0\}/.test(phone) && !/left:27%;top:9%;width:46%/.test(phone))
 check("desktop keeps its groups", /grid-template-columns:256fr 90fr 256fr/.test(css) && /\.build-showcase-slide\[data-format="portrait"\] \.build-showcase-pic \{aspect-ratio:540\/1056\}/.test(css))
@@ -95,7 +98,8 @@ const html = renderToStaticMarkup(createElement(BuildShowcase))
 check("the nail artist, the coffee subscription and the language club are gone, pictures too", !/nails by bea|northline|nordline|charla/i.test(all + showcase + html) && ["bea", "northline", "charla"].every((k) => !existsSync(`public/home/showcase/a-${k}.webp`)))
 check("Mara Lind's bookings, a 9:16 OnePage", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-mara.webp" && e.format === "portrait" && e.label === "Fill your bookings"))
 check("Luca Brandt's Grade Club subscription with the Cine Tones LUT Pack", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-luca.webp" && e.label === "Sell subscriptions" && /Cine Tones LUT Pack/.test(e.alt)))
-check("Seed & Soil, a community for growing food in small spaces", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-seedsoil.webp" && e.label === "Run a community"))
+/* Changed on purpose (landing round 11): the owner asked for the Storelib app photograph in Seed & Soil's place. */
+check("the Storelib app photograph in the gardening community's place", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-app.webp" && e.label === "The Storelib app") && !SHOWCASE_EXAMPLES.some((e) => /seedsoil/.test(e.src)))
 check("Plainspace's store under its new black cover", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-plainspace.webp" && /black cover/.test(e.alt)))
 check("every picture is a webp at its size, under 120 KB", SHOWCASE_EXAMPLES.every((e) => existsSync(`public${e.src}`) && e.src.endsWith(".webp") && statSync(`public${e.src}`).size < 120_000))
 check("twelve different pictures, captions three words at most", new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size === 12 && SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3))

@@ -1,7 +1,8 @@
 import Image from "next/image"
 import type { CSSProperties } from "react"
-import { STORELIB_S_PATH, STORELIB_S_TRANSFORM } from "@/components/storelib-mark"
 import { STORELIB_LOGO, STORELIB_LOGO_GROUND, STORELIB_LOGO_SHADOW, storelibLogoRadius } from "@/lib/brand/logo"
+
+/* Landing round 11, the owner: "the Storelib icon in the footer should not be outlined like that". Round 9's white line art is gone; the footer draws the picture like every other place. */
 
 /**
  * ===========================================================================
@@ -39,7 +40,6 @@ export function StorelibLogo({
   priority = false,
   fluid = false,
   unoptimized = false,
-  variant = "picture",
   style,
   ...rest
 }: {
@@ -50,54 +50,7 @@ export function StorelibLogo({
   fluid?: boolean
   unoptimized?: boolean
   style?: CSSProperties
-  /**
-   * "outline": the same mark as white line art, no violet (landing round 9,
-   * the owner, for the black marketing footer: "a white outline version, not
-   * the colourful purple one"). The square's edge and the S are both drawn as
-   * lines in `currentColor`, from the letter's real curves
-   * (components/storelib-mark), in the same box and corner as the picture.
-   * Nothing to download. Every other place draws the picture.
-   */
-  variant?: "picture" | "outline"
 } & { [data: `data-${string}`]: string | undefined }) {
-  if (variant === "outline") {
-    /* 200 units to the square: the corner as the same share of it as the picture's, the lines 1.5px at 40px. */
-    const unit = 200 / size
-    const stroke = Math.max(1.25, size / 27) * unit
-    const corner = storelibLogoRadius(size) * unit
-    return (
-      <svg
-        {...rest}
-        viewBox="0 0 200 200"
-        width={size}
-        height={size}
-        role={alt ? "img" : undefined}
-        aria-label={alt || undefined}
-        aria-hidden={alt ? undefined : true}
-        focusable="false"
-        data-storelib-logo="outline"
-        className={className}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={stroke}
-        strokeLinejoin="round"
-        style={{ ...(fluid ? null : { width: size, height: size }), flexShrink: 0, color: "#fff", overflow: "visible", ...style }}
-      >
-        <rect x={stroke / 2} y={stroke / 2} width={200 - stroke} height={200 - stroke} rx={corner} />
-        {/*
-          The S in its own box (x 55 to 147.4, y 44 to 155.9 of the letter's
-          200 units), drawn a fifth larger and centred, as it sits in the
-          picture: an inner viewBox sizes it, so its line is divided by the
-          same fifth to stay as thick as the square's.
-          data-keep-transform: globals.css flattens transforms inside a
-          `.group` on touch screens, and this one places the S.
-        */}
-        <svg x={43.3} y={31.6} width={113.4} height={136.8} viewBox="54 43 94.5 114" overflow="visible">
-          <path d={STORELIB_S_PATH} transform={STORELIB_S_TRANSFORM} strokeWidth={stroke / 1.2} data-keep-transform="" />
-        </svg>
-      </svg>
-    )
-  }
   return (
     <Image
       {...rest}

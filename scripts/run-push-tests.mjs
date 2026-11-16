@@ -1524,6 +1524,24 @@ const SUITES = [
   "tests/home-landing-r10-top.test.ts",
   /* Landing round 10, checkout: the stage stays held behind the cards, the phone and the ring stepping back and going soft under them (each cross fades to a blurred copy baked as a small webp, opacity only, no filter), the cards a little see-through; a card's picture capped at 44svh for a 1440 x 800 screen. */
   "tests/home-landing-r10-checkout.test.ts",
+  /* Landing round 11, close: pricing covers at natural contrast, Scale in steel blue, lighter card shadow, filled ink checks; Instagram, Spotify, Apple Music, YouTube and Meta's own mark among the apps at a smaller gap; the possibilities mostly digital with real photos. */
+  "tests/home-landing-r11-close.test.ts",
+  /* Landing round 11, business: "Sell what you make" with a line under it of at most ten words, the Low Room Drums sample pack in place of the Notion calendar, four physical products turning (tee, cap, tote, print) with the buy card following, Applied AI Club under a green banner with its own logo; the stage, the index, courses and bookings kept. */
+  "tests/home-landing-r11-business.test.ts",
+  /* Landing round 11, rails: the owner's new showcase cards (a travel site, The Strength Room 4:3, loudlib, Tideline, a podcast OnePage, the app photo, Gia on Sunset), the caption as a fade over the card, phone OnePages as tall as a 4:3 card, pictures decoded ahead and eased in, a finger freezes the creators rail where it is. */
+  "tests/home-landing-r11-rails.test.ts",
+  /* Landing round 11 (purple): a line icon per analytics report and a favicon per search result, the purple's dots brighter and calmer, the map as "Sell to buyers worldwide." with a column of flags, a stack of product cards, an order pill and Shipped words by the dots, the phone's pan back as the map's own transform, a taller card. */
+  "tests/home-landing-r11-purple.test.ts",
+  /* Landing round 11, top: the website builder moves on from Mondo Mango (a party card game, product shots of its boxes, a studio hero) to loudlib, the OnePage editor from Desmond to Idris Kane, each a cross fade on the autoplay clock; a little depth on the ideas frame; Noor Haddad's digital product store in place of Soft Ground. */
+  "tests/home-landing-r11-top.test.ts",
+  /* Landing round 11, frame: the purple sheet rises on phones too (transform only, scroll-driven, eased over 75svh), headings ink more gently, every picture fades in once decoded, a calmer 700ms entrance on touch, no purple in the FAQ heading, the app icon back in the footer. */
+  "tests/home-landing-r11-frame.test.ts",
+  /* Landing round 11, lower: the app section is round 8's photograph and points again on white; a light runs round the AI tools terminal and the card carries the dot field; How it works has new pictures (a tips list, bars and a reading, his website whose address closes to his own domain); the closing call's dots brighter, crisper and down to its foot, the section a little shorter. */
+  "tests/home-landing-r11-lower.test.ts",
+  /* Landing round 11, checkout: the phone starts big and low and settles smaller under a two row headline; the products go round on a wider ring of their own under the phone, never across it, soft round the back; the cards and the facts solid; One-tap is the dark in-page checkout; on a phone the four cards stacked, each picture whole; the Recovered chart kept. */
+  "tests/home-landing-r11-checkout.test.ts",
+  /* Landing round 11, stability: no section above the screen changes height in front of a Safari reader (no scroll anchoring there): real heights kept exactly, server-drawn boxes measured while idle, and a box that changes above the screen held by the scroll in the same frame (by its own top margin mid-fling). */
+  "tests/home-landing-r11-stability.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

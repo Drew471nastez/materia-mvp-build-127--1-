@@ -37,7 +37,8 @@ console.log("\nBack on the page, right after the ideas section")
 
 console.log("\nA clearer, simpler heading")
 {
-  check("the heading is a short question, not the old line", BUSINESS_HEADING === "What will you sell?" && !read(SECTION).includes("One store for everything you sell."))
+  // Changed on purpose (landing round 11): the owner did not like "What will you sell?"; the heading is "One store, every kind of product" (tests/home-landing-r11-business.test.ts).
+  check("the heading is short, not the old line", (BUSINESS_HEADING as string) === "One store, every kind of product" && !read(SECTION).includes("One store for everything you sell."))
   // Changed on purpose (landing round 10): the line under the heading is gone ("it doesn't make sense").
   const words = `${BUSINESS_HEADING} ${BUSINESS_SLIDES.map((s) => s.alt).join(" ")}`
   check("no banned words, no em dash, no 'fans' or 'enthusiasts'", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|\bfans\b|enthusiast/i.test(words) && !/—/.test(words + read(MOCKS)))
@@ -69,7 +70,8 @@ console.log("\nMoving scenes, transform and opacity only")
   /* Changed on purpose (landing round 9): the digital row eases each glide inside its keyframes, so a timing function may stand beside transform and opacity. */
   const props = new Set(frames.flatMap((m) => [...m[2].matchAll(/([a-z-]+):/g)].map((p) => p[1])).filter((p) => p !== "animation-timing-function"))
   check("every keyframe animates only transform and opacity", frames.length >= 15 && [...props].every((p) => p === "transform" || p === "opacity"), [...props])
-  check("each scene has its own moment", [/\.bd-track\{animation:bd-run/, /\.bs-swap \.b\{animation:bz-in/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
+  // Changed on purpose (landing round 11): the physical scene's button swaps on a loop as long as one product's turn (bt-swap-b), since four products go in the cart one after another.
+  check("each scene has its own moment", [/\.bd-track\{animation:bd-run/, /\.bs-swap \.b\{animation:bt-swap-b/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
   check("the moments run only on the chosen scene (and the one fading out)", /className=\{on \? "biz-slide bz-on" : "biz-slide"\}/.test(read(SECTION)) && /const on = state === "active" \|\| state === "leaving"/.test(read(SECTION)))
   check("nothing in the scenes is a transition (every change is one of those keyframes)", !/transition:/.test(BUSINESS_MOCK_CSS))
 }
@@ -78,7 +80,7 @@ console.log("\nThe five examples")
 {
   /* Changed on purpose (landing round 9): digital is five covers in a row, physical is the shared black tee. */
   const brain = renderToStaticMarkup(createElement(DigitalScene))
-  check("digital: five real-looking covers in a row, no Second Brain tablet", ["Cine Tones LUT Pack", "Content Calendar", "Slow Sundays", "Highland Presets", "Orlo Grotesk"].every((n) => brain.includes(n)) && !/Second Brain|bs-tablet|bz-brain/.test(code(MOCKS)))
+  check("digital: five real-looking covers in a row, no Second Brain tablet", /* Changed on purpose (landing round 11): the Content Calendar ("not cool") is now the Low Room Drums sample pack. */ ["Cine Tones LUT Pack", "Low Room Drums", "Slow Sundays", "Highland Presets", "Orlo Grotesk"].every((n) => brain.includes(n)) && !/Second Brain|bs-tablet|bz-brain/.test(code(MOCKS)))
   const phones = renderToStaticMarkup(createElement(TeeScene))
   check("physical: the Midnight Studio Tee on a calm ground, no headphones on yellow", phones.includes("Midnight Studio Tee") && phones.includes("bz-tee.webp") && /\.bs-tee\{background:#eeedea\}/.test(BUSINESS_MOCK_CSS) && !/headphones|#f5c518|hp-tee|Tour Tee/i.test(code(MOCKS)))
   const course = renderToStaticMarkup(createElement(CourseScene))
@@ -93,7 +95,8 @@ console.log("\nThe five examples")
   check("every photograph is a small webp (under 120 KB)", pics.every((p) => existsSync(p) && statSync(p).size < 120 * 1024), pics.filter((p) => !existsSync(p) || statSync(p).size >= 120 * 1024))
   const every = brain + phones + course + club + coach
   /* Changed on purpose (landing round 9): the covers in the digital row (.bc-still) load with the scene; clipped by the row's rail, a lazy one was only asked for as it slid in. */
-  check("every picture is sized, and lazy but for the covers in the moving row", !/<img(?![^>]*(?:loading="lazy"|class="bc-still"))[^>]*>/.test(every) && !/<img(?![^>]*width=)[^>]*>/.test(every))
+  // Changed on purpose (landing round 11): the four physical products turn in place too, so their pictures (smk-pic bt-pic, and the same files in the card and the note) load with the scene.
+  check("every picture is sized, and lazy but for the covers in the moving row and the physical products", !/<img(?![^>]*(?:loading="lazy"|class="bc-still"|loading="eager"[^>]*class="smk-pic))[^>]*>/.test(every) && !/<img(?![^>]*width=)[^>]*>/.test(every))
   check("the scenes are pictures: labelled, nothing inside takes the pointer", BUSINESS_SLIDES.every((s) => s.alt.length > 60) && /\.biz-stage \.smk\{pointer-events:none/.test(sectionCss))
   /* Changed on purpose (landing round 9): the stage stands beside the index on a computer, so it is drawn at 1040 x 600. */
   // Changed on purpose (landing round 10): "the height is too big, reduce it just a little, 5 to 10%": 1100 x 570.

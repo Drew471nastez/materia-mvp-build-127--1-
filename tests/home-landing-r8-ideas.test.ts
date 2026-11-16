@@ -47,19 +47,19 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 const cm = renderToStaticMarkup(createElement(CommunityMock))
 
 console.log("\nThe website builder shows Mondo Mango, a bold, colourful merch label")
-check("its name in the builder's bar, its own address in Publish", wb.includes('<b class="wx-name">Mondo Mango</b>') && wb.includes("<b>mondomango.shop</b>"))
+// Changed on purpose (landing round 11): the owner did not like the garments or the hero: Mondo Mango sells a party card game, product shots of its boxes under one studio picture, and the builder moves on to loudlib (tests/home-landing-r11-top.test.ts).
+check("its name in the builder's bar, its own address in Publish", wb.includes('<span class="bm-s1">Mondo Mango</span>') && wb.includes('<span class="bm-s1">mondomango.shop</span>'))
 check("a wordmark in the middle of the header, drawn as a picture (no webfont to load)", /class="smk-pic mg-logo"/.test(site) && site.includes("/home/showcase/mm-logo.webp") && /\.mg-logo\{position:absolute;left:50%;top:50%;[^}]*background:none!important;transform:translate\(-50%,-50%\)\}/.test(BUILDER_CSS) && !/fonts\.googleapis|Shrikhand|@font-face/.test(BUILDER_CSS + read(F.builders)))
-check("the header's links, small and tracked: Shop all, Drop 03, About, Search, Bag (2)", ["Shop all", "Drop 03", "About", "Search", "Bag (2)"].every((w) => site.includes(w)) && /\.mg-links\{[^}]*letter-spacing:\.16em;text-transform:uppercase/.test(BUILDER_CSS))
-/* Changed on purpose (landing round 9): "Mondo Mango has too many images": mm-hero is one photograph beside the label's orange, no longer a wall of seven. */
-check("a cover: one photograph in the hero", (site.match(/mm-hero\.webp/g) ?? []).length === 1 && /class="smk-pic mg-wall"/.test(site) && !/pw-hero|Everyday cotton|Porto/.test(site + read(F.builders)))
-check("a round yellow sticker on the wall: Drop 03, out now", /class="mg-sticker"><b>Drop 03<\/b><i>out now<\/i>/.test(site) && /\.mg-sticker\{[^}]*border-radius:50%;background:#ffc928;color:#2338e8;transform:rotate\(-12deg\)/.test(BUILDER_CSS))
-const prices = [...site.matchAll(/<em>(€\d+)<\/em>/g)].map((m) => Number(m[1].slice(1)))
-check("the drop: a crewneck, a trucker cap, a tee and a tote, priced like real merch", prices.length === 4 && prices.every((p) => p >= 20 && p <= 90) && ["Logo Crewneck", "Trucker Cap", "Logo Tee", "Market Tote"].every((n) => site.includes(n)))
-check("colour swatches under each piece", (site.match(/<span class="mg-dots">/g) ?? []).length === 4 && (site.match(/<i style="background:#/g) ?? []).length >= 8)
-check("every picture is real, webp and under 120 KB", ["mm-hero", "mm-logo", "mm-crew", "mm-cap", "mm-tee", "mm-tote"].every((n) => small(n) && site.includes(`/home/showcase/${n}.webp`)))
+check("the header's links, small and tracked", ["Shop all", "Expansions", "How to play", "Search", "Bag (2)"].every((w) => site.includes(w)) && /\.mg-links\{[^}]*letter-spacing:\.16em;text-transform:uppercase/.test(BUILDER_CSS))
+check("a cover: one studio picture in the hero", (site.match(/mm-studio\.webp/g) ?? []).length === 1 && /class="smk-pic mg-studio"/.test(site) && !/pw-hero|Everyday cotton|Porto|mg-wall|mg-sticker/.test(site + read(F.builders)))
+const prices = [...site.matchAll(/<span class="mg-price">(?:<s>€\d+<\/s>)?€(\d+)<\/span>/g)].map((m) => Number(m[1]))
+// Changed on purpose (landing round 11, lead): the owner turned down an "After Dark" product in round 5, so the expansion is Late Round.
+check("the game, its expansion, a family edition and a bundle, priced like real games", prices.length === 4 && prices.every((p) => p >= 15 && p <= 90) && ["Mondo Mango", "Late Round expansion", "Family Edition", "The Whole Crate"].every((n) => site.includes(n)))
+check("every picture is real, webp and under 120 KB", ["mm-studio", "mm-logo", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => small(n) && site.includes(`/home/showcase/${n}.webp`)))
 check("Plain Weather and its pictures are gone", !/Plain Weather|plainweather|PlainWeather|\bpw-/.test(code(F.builders) + code(F.ideas)) && ["pw-hero", "pw-tee-white", "pw-tee-black", "pw-hoodie", "pw-cap"].every((n) => !existsSync(pic(n))))
 check("the page is white with no gradient", /\.mg\{[^}]*background:#fff;/.test(BUILDER_CSS) && !/\.mg[^{]*\{[^}]*gradient/.test(BUILDER_CSS))
-check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2 && /class="mg-ring wx-ring-a"/.test(wb) && /class="mg-ring wx-ring-b"/.test(wb) && /\.mg-ring\.wx-ring-b\{opacity:0\}/.test(BUILDER_CSS))
+// Changed on purpose (landing round 11): two sites, so two pairs of rings.
+check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4 && /class="mg-ring wx-ring-a"/.test(wb) && /class="mg-ring wx-ring-b"/.test(wb) && /\.mg-ring\.wx-ring-b\{opacity:0\}/.test(BUILDER_CSS))
 
 console.log("\nThe Strength Room: a real emblem, a banner for a cover")
 const mark = cm.match(/<svg class="cx-mark"[\s\S]*?<\/svg>/)?.[0] ?? ""
