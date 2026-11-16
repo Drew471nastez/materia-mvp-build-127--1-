@@ -37,7 +37,8 @@ const rule = (sel: string) => desk.match(new RegExp(`(?:^|\\n)${sel.replace(/[.*
 console.log("\nNo line under the heading")
 {
   // Changed on purpose (landing round 11): the owner asked for a new heading and a subheading of at most ten words; the old round 10 line stays gone.
-  check("the heading is the new short line", (BUSINESS_HEADING as string) === "One store, every kind of product" && html.includes('id="biz-title"'))
+  // Changed on purpose (landing round 13): the owner asked for a better heading; "Five ways to get paid" (tests/home-landing-r13-business.test.ts).
+  check("the heading is the new short line", (BUSINESS_HEADING as string) === "Five ways to get paid" && html.includes('id="biz-title"'))
   check("the round 10 line under the heading stays gone; round 11's own line is at most ten words", !/Each one gets its own page and checkout|Downloads, things you ship/.test(code(SECTION)) && String((Section as Record<string, unknown>).BUSINESS_SUB).split(/\s+/).length <= 10)
   check("the heading block holds the heading and that one line", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><p class="biz-sub">[^<]+<\/p><\/div><div class="biz-body">/.test(html))
 }
@@ -51,8 +52,9 @@ console.log("\nA shorter stage, every scene the same picture")
   check("the index is still five equal rows as tall as the stage", /\.biz-tabs\{display:grid;grid-template-rows:repeat\(5,minmax\(0,1fr\)\)/.test(css))
   // Each scene inside the new 570 high drawing: nothing reaches past its bottom.
   // Changed on purpose (landing round 12): digital is one e-book (cover 360 high from 96, its page from 122, 348 high) and physical one oil (its photograph 26 from top and bottom); both end inside the stage.
-  check("digital: the cover and the page end inside the stage, the card (448) centred", rule(".be-cover").includes(`top:${U(96)};width:${U(268)};height:${U(360)}`) && 96 + 360 < 570 && rule(".be-page").includes(`top:${U(122)};width:${U(268)};height:${U(348)}`) && 122 + 348 < 570 && rule(".be-card").includes(`right:${U(64)};top:50%;height:${U(448)}`))
-  check("physical: the photograph 26 from top and bottom, the card (404) centred", rule(".bo-main").includes(`top:${U(26)};bottom:${U(26)}`) && rule(".bo-card").includes(`right:${U(56)};top:50%;width:${U(392)};height:${U(404)}`) && 404 < 570)
+  // Changed on purpose (landing round 13): digital is two tiles and an order (404 tall, 83 from the top); physical is a line of store designs (420 tall, centred).
+  check("digital: the two tiles and the order end inside the stage", rule(".bd-tile").includes(`top:${U(83)};width:${U(318)};height:${U(404)}`) && rule(".bd-card").includes(`top:${U(83)};width:${U(324)};height:${U(404)}`) && 83 + 404 < 570)
+  check("physical: the line of store designs is centred and inside the stage", rule(".bt-stage").includes(`width:${U(336)};height:${U(420)}`) && 420 < 570)
   check("course: the card 22 from top and bottom, the player 248 high", rule(".bs-ccard").includes(`top:${U(22)};bottom:${U(22)};width:${U(720)}`) && rule(".bp-player").includes(`height:${U(248)}`))
   check("community: the club's page 26 from top and bottom, the feed beside it from the same line", rule(".bs-com").includes(`left:${U(56)};top:${U(26)};bottom:${U(26)};width:${U(520)}`) && rule(".bs-feed").includes(`left:${U(616)};right:${U(56)};top:${U(26)}`))
   check("booking: the coach photo full height, the card (460) centred", rule(".bs-coach-photo").includes(`top:0;bottom:0;width:${U(540)}`) && rule(".bs-book").includes(`right:${U(64)};top:50%;width:${U(440)};height:${U(460)}`) && 460 < 570)
@@ -64,7 +66,7 @@ console.log("\nRound 9 kept as designed")
   check("the ring is still the clock and autoplay still runs", /e\.animationName === "biz-ring-b"\) advance\(\)/.test(code(SECTION)) && /const run = t\.run && !held/.test(code(SECTION)))
   const scenes = [DigitalScene, TeeScene, CourseScene, ClubScene, CoachScene].map((s) => renderToStaticMarkup(createElement(s))).join("")
   // Changed on purpose (landing round 12): digital is Slow Mornings and physical Night Face Oil (the owner disliked the covers and the tee).
-  check("the five scenes say the same things", /* Changed on purpose (landing round 11): Applied AI Club and the tee stay, now among others. */ ["Slow Mornings", "Night Face Oil", "Mixing in key, for new DJs", "Applied AI Club", "Talia Moreno", "Booked for Thu 19, 17:30"].every((w) => scenes.includes(w)))
+  check("the five scenes say the same things", /* Changed on purpose (landing round 11): Applied AI Club and the tee stay, now among others. */ /* Changed on purpose (landing round 13): Ancestral Kitchen and the store designs (bt-sora) replace Slow Mornings and Night Face Oil. */ ["Ancestral Kitchen", "bt-sora", "Mixing in key, for new DJs", "Applied AI Club", "Talia Moreno", "Booked for Thu 19, 17:30"].every((w) => scenes.includes(w)))
   check("no banned words or em dashes in what changed", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(BUSINESS_HEADING + BUSINESS_SLIDES.map((s) => s.alt).join(" ")))
 }
 

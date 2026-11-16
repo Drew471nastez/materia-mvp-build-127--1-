@@ -87,7 +87,8 @@ check("every tile stands on a calm ground in Storelib's colours, nothing driftin
   // Changed on purpose (landing round 9): three cards on flat lilac, paper and peach (the owner: "too grey").
   // Changed on purpose (landing round 11): one quiet near white ground a card, named for its card.
   // Changed on purpose (landing round 12): the pictures sit straight on the section (no grounds), the domain types itself over a store (tests/home-landing-r12-how.test.ts).
-  assert.deepEqual([...how.matchAll(/class="cmh-stage" data-picture="(\w+)"/g)].map((m) => m[1]), ["business", "tips", "domain"])
+  // Changed on purpose (landing round 13): round 11's grounds and row again (narrow, wide, narrow), round 12's pictures inside.
+  assert.deepEqual([...how.matchAll(/class="cmh-stage" data-ground="(\w+)"/g)].map((m) => m[1]), ["tips", "business", "domain"])
   assert.ok(!/cmh-gl|cmh-drift/.test(how + howCss))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss) && howCss.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}"))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss))

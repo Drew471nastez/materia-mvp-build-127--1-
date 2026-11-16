@@ -56,7 +56,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_STORES, EVERYTHING_STYLES, PIECE_SIZES } from "@/components/marketing/home/everything-in-one-place"
 import { SWIPE_CLEAR, SWIPE_SLOP, swipeAxis } from "@/components/marketing/home/everything-globe"
 import { IDEAS_STYLES, IDEAS_TABS, IdeasComeToLife } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, GodBlessSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, SteezSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -156,10 +156,12 @@ check("the picture keeps its shape", /\.ideas-mock\{aspect-ratio:1280\/752;/.tes
 
 console.log("\n── 8. The builder's store: one picture in the hero ──")
 // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
-const site = renderToStaticMarkup(createElement(GodBlessSite))
-const hero = site.slice(site.indexOf('class="gb-hero"'), site.indexOf('class="gb-shop"'))
-check("the hero has one picture", (hero.match(/<img /g) ?? []).length === 1 && /src="\/home\/showcase\/gb-hero\.webp"[^>]*width="2200" height="623"/.test(hero))
-check("the whole store: the wordmark, one hero picture and four products", (site.match(/<img /g) ?? []).length === 6)
+// Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
+const site = renderToStaticMarkup(createElement(SteezSite))
+const hero = site.slice(site.indexOf('class="stz-hero"'), site.indexOf('class="stz-shop"'))
+check("the hero has one picture (and the wordmark)", (hero.match(/<img /g) ?? []).length === 2 && /src="\/home\/showcase\/stz-hero\.webp"[^>]*width="1800" height="800"/.test(hero))
+// Changed on purpose (landing round 13): Steez draws the wordmark, its two slideshow photos and four products.
+check("the whole store: the wordmark, two slideshow pictures and four products", (site.match(/<img /g) ?? []).length === 7)
 check("the rings are as they were", (renderToStaticMarkup(createElement(WebsiteBuilderMock)).match(/<em>Selected<\/em>/g) ?? []).length === 4)
 check("nothing new moves", !/\.gb[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS))
 

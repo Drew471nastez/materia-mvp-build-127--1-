@@ -33,7 +33,8 @@
 /** The dots' colour per ground, how bright they rest at the crest of the flow and how bright the light makes them (see dot-field.tsx for the history of each number). `r` is a dot's radius in CSS px; `ride` how far a dot rides the flow. */
 export const DOT_FIELD_TONES = {
   /* Landing round 11: the closing call's dots a little more visible and standing on their points (ride 0); the purple sheet's brighter, rounder and steadier (its own track). */
-  dark: { rgb: "255,255,255", rest: 0.34, lit: 0.68, r: 0.8, ride: 0 },
+  /* Landing round 13, the owner: the closing call "more subtle overall": rests at 0.24 (was 0.34), lights to 0.5 (was 0.68). */
+  dark: { rgb: "255,255,255", rest: 0.24, lit: 0.5, r: 0.8, ride: 0 },
   purple: { rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 },
 } as const
 
@@ -98,15 +99,32 @@ export type FieldConfig = {
   within: number | null
   /** The least ms between two draws, with a mouse and without. */
   frameMs: readonly [number, number]
+  /**
+   * Landing round 13, the closing call only (the owner: "by default move
+   * subtly", the pointer "smoother and cleaner, eased, no snapping"):
+   * `drift` px each dot wanders on a slow loop of its own (about `driftMs` a
+   * loop, give or take a third, from its phase); `ease2` follows the pointer
+   * through two easings in a row, so the light starts gently and settles;
+   * `reach` px outside the box over which the pointer's pull fades out
+   * instead of switching at an edge (used in place of `within`). Zero / false
+   * / null on the other looks, which draw as before.
+   */
+  drift: number
+  driftMs: number
+  ease2: boolean
+  reach: number | null
 }
+
+/** The closing call's calm (landing round 13): see FieldConfig.drift. */
+export const DOT_FIELD_CALM = { drift: 1.6, driftMs: 14000, follow: 0.085, reach: 160, part: 4 } as const
 
 const single = (tone: "dark" | "purple"): FieldConfig => ({
   mode: "single",
   maxDpr: DOT_FIELD_MAX_DPR,
   levels: LEVELS,
   radius: RADIUS,
-  follow: FOLLOW,
-  part: PART,
+  follow: tone === "dark" ? DOT_FIELD_CALM.follow : FOLLOW,
+  part: tone === "dark" ? DOT_FIELD_CALM.part : PART,
   rate: [0.00038, 0.00016],
   bend: 1.7,
   rideX: 0.8,
@@ -126,6 +144,10 @@ const single = (tone: "dark" | "purple"): FieldConfig => ({
   alone: tone === "dark" ? [WANDER, WANDER] : [0.45, 0.55],
   within: 40,
   frameMs: [12, 12],
+  drift: tone === "dark" ? DOT_FIELD_CALM.drift : 0,
+  driftMs: DOT_FIELD_CALM.driftMs,
+  ease2: tone === "dark",
+  reach: tone === "dark" ? DOT_FIELD_CALM.reach : null,
 })
 
 /** One config object for each look: the closing call's, the purple sheet's, and How it works'. */
@@ -158,6 +180,10 @@ export const DOT_FIELD_CONFIGS: Record<FieldKind, FieldConfig> = {
     within: null,
     /* 60 a second while a mouse is in the section (a 120Hz screen draws every other frame), 30 otherwise. */
     frameMs: [12, 30],
+    drift: 0,
+    driftMs: 0,
+    ease2: false,
+    reach: null,
   },
 }
 
@@ -337,6 +363,9 @@ type Field = {
   hasAim: boolean
   lightX: number
   lightY: number
+  /* The first of the two easings (FieldConfig.ease2). */
+  midX: number
+  midY: number
   strength: number
   started: boolean
   covered: boolean
@@ -375,10 +404,13 @@ export function createDotEngine(host: DotEngineHost) {
     let goal: number
     const mx = f.aimX - f.pageX
     const my = f.aimY - f.pageY
-    if (f.hasAim && (c.within === null || (mx > -c.within && my > -c.within && mx < f.w + c.within && my < f.h + c.within))) {
+    /* How near the box the pointer is: with `reach`, its pull fades over that many px outside the box. */
+    const out = Math.max(0, -mx, mx - f.w, -my, my - f.h)
+    const pull = c.reach !== null ? Math.max(0, 1 - out / c.reach) : 1
+    if (f.hasAim && pull > 0 && (c.reach !== null || c.within === null || (mx > -c.within && my > -c.within && mx < f.w + c.within && my < f.h + c.within))) {
       tx = mx
       ty = my
-      goal = 1
+      goal = pull * pull * (3 - 2 * pull)
     } else {
       tx = f.w * (c.pathX[0] + c.pathX[1] * Math.sin(t * c.pathX[2]))
       ty = f.h * (c.pathY[0] + c.pathY[1] * Math.sin(t * c.pathY[2] + c.pathY[3]))
@@ -386,9 +418,14 @@ export function createDotEngine(host: DotEngineHost) {
     }
     const k = 1 - Math.pow(1 - c.follow, dt / 16.67)
     if (!f.started) {
-      f.lightX = tx
-      f.lightY = ty
+      f.lightX = f.midX = tx
+      f.lightY = f.midY = ty
       f.started = true
+    } else if (c.ease2) {
+      f.midX += (tx - f.midX) * k
+      f.midY += (ty - f.midY) * k
+      f.lightX += (f.midX - f.lightX) * k
+      f.lightY += (f.midY - f.lightY) * k
     } else {
       f.lightX += (tx - f.lightX) * k
       f.lightY += (ty - f.lightY) * k
@@ -415,11 +452,22 @@ export function createDotEngine(host: DotEngineHost) {
     const rideX = c.rideX
     const rideY = c.rideY
     const ride = c.ride
+    const drift = f.reduced ? 0 : c.drift
+    const driftW = c.driftMs ? (Math.PI * 2) / c.driftMs : 0
     for (let i = tile.i0; i < tile.i1; i += 5) {
       const flow = 0.5 + 0.5 * Math.sin(d[i + 3] - t * ra + c.bend * Math.sin(d[i + 4] + t * rb))
       /* Each dot rides the current by under a pixel; on the closing call it stands on its point (ride 0) and the flow is its brightness only. */
       let x = d[i] + (flow - 0.5) * rideX * ride
       let y = d[i + 1] + (flow - 0.5) * rideY * ride
+      if (drift) {
+        /* Landing round 13: each dot on its own slow loop, its pace from its phase (two thirds to four thirds of the base). */
+        const q = d[i] * 0.6180339 + d[i + 1] * 0.3819661
+        const u = q - Math.floor(q)
+        const w = driftW * (0.67 + 0.66 * u)
+        const pa = u * 6.2831853
+        x += drift * Math.sin(t * w + pa)
+        y += drift * Math.cos(t * w * 0.83 + pa * 1.7)
+      }
       const fade = d[i + 2]
       let a = isSingle ? c.rest * fade * (c.trough + (1 - c.trough) * flow * flow) : fade * (c.trough + (1 - c.trough) * flow * flow)
       let glow = 0
@@ -583,6 +631,8 @@ export function createDotEngine(host: DotEngineHost) {
         hasAim: false,
         lightX: 0,
         lightY: 0,
+        midX: 0,
+        midY: 0,
         strength: 0,
         started: false,
         covered: false,

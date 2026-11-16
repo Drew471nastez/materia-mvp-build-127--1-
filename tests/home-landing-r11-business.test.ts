@@ -47,7 +47,7 @@ const small = (n: string) => { const p = `public/home/showcase/${n}.webp`; retur
 
 console.log("\nA new heading and a line under it")
 {
-  check("the heading is no longer the question", (BUSINESS_HEADING as string) !== "What will you sell?" && /* Lead (landing round 11): "Sell what you make" is already section 3's heading, so this one names what the section shows. */ BUSINESS_HEADING === "One store, every kind of product" && !html.includes("What will you sell"))
+  check("the heading is no longer the question", (BUSINESS_HEADING as string) !== "What will you sell?" && /* Lead (landing round 11): "Sell what you make" is already section 3's heading, so this one names what the section shows. */ /* Changed on purpose (landing round 13): "Five ways to get paid". */ BUSINESS_HEADING === "Five ways to get paid" && !html.includes("What will you sell"))
   check("the subheading is at most ten words", typeof BUSINESS_SUB === "string" && BUSINESS_SUB.trim().split(/\s+/).length <= 10, BUSINESS_SUB)
   check("it stands under the heading, in the heading block", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><p class="biz-sub">[^<]+<\/p><\/div><div class="biz-body">/.test(html))
   check("it is a quiet line: body size, grey, set close under the heading", /\.biz-sub\{margin:clamp\(8px,\.9vw,14px\) 0 0;[^}]*font-size:clamp\(16px,1\.25vw,19px\);[^}]*color:#65616e\}/.test(css))
@@ -60,18 +60,21 @@ console.log("\nDigital: no calendar")
   check("no Notion template or Content Calendar anywhere in the scene", !/Content Calendar|Notion/.test(d) && !/bc-notion|bc-month|DAYS_ON/.test(code(MOCKS)))
   // Changed on purpose (landing round 12): one e-book in place of the row with the sample pack; its line names no presets.
   check("the index line no longer says templates (or presets)", !/template|preset/i.test(BUSINESS_SLIDES[0].line))
-  check("the photographs are small (under 120 KB)", small("bz-ebook") && small("bz-eggs"))
+  // Changed on purpose (landing round 13): the e-book's pictures are gone; the store designs are pinned in tests/home-landing-r13-business.test.ts.
+  check("the photographs are small (under 120 KB)", small("bz-ai-club") && !small("bz-ebook") && !small("bz-eggs"))
 }
 
 console.log("\nCommunities: a green banner with the club's own logo")
 {
   const c = renderToStaticMarkup(createElement(ClubScene))
-  check("the banner is the club's green, not white or black", /\.bs-com-cover\{[^}]*background:#123227;/.test(rule(".bs-com-cover") ? `.bs-com-cover{${rule(".bs-com-cover")}}` : ""))
-  check("the page under it is a pale green, not white", rule(".bs-com").includes("background:#f3f6ef") && !/background:#fff[;}]/.test(rule(".bs-com")))
-  check("its photograph is laid into the green (luminosity, static)", /mix-blend-mode:luminosity/.test(rule(".bs-com-pic")))
+  // Changed on purpose (landing round 13): the owner disliked the green. The banner is the club's photograph under a soft ink shade; the page under it a quiet warm grey, still not white.
+  check("the banner is the photograph, no green", !/#123227|#d9f969|#f3f6ef|#e4ebdc/.test(mocks) && /linear-gradient\(to right,rgba\(17,17,20,\.82\)/.test(mocks))
+  check("the page under it is a quiet grey, not white", rule(".bs-com").includes("background:#f5f5f3") && !/background:#fff[;}]/.test(rule(".bs-com")))
+  check("its photograph is static, in its own colours (no blend)", !/mix-blend-mode/.test(rule(".bs-com-pic")))
   check("a real logo: a drawn mark (svg) and the wordmark beside it, no letter in a box", /class="bs-com-logo"><svg viewBox="0 0 32 32"[\s\S]*?<\/svg><b>applied<i>ai<\/i>club<\/b>/.test(c) && !/bs-com-mark/.test(c + code(MOCKS)))
   check("another heading in the cover: the club's promise, not its name again", /class="bs-com-word"><b>Build one AI tool a week<\/b><i>Live builds every Wednesday at 6 pm<\/i>/.test(c) && !c.includes("Build something real with AI"))
-  check("the join button wears the club's green", /\.bs-com-head \.bs-btn\{[^}]*background:#123227\}/.test(mocks))
+  // Changed on purpose (landing round 13): the button is the page's ink, like every other scene's.
+  check("the join button wears the page's ink", /\.bs-com-head \.bs-btn\{height:calc\(42\*var\(--u\)\);margin:0\}/.test(mocks))
   check("the club, its host, its members and its feed stay", ["Applied AI Club", "Hosted by Sam Adeyemi", "2,480 members", "Live build: an inbox agent", "Priya N."].every((w) => c.includes(w)))
 }
 

@@ -115,8 +115,14 @@ export function PricingSection({
   */
   /* Landing round 3: on the home page the section sits on the white sheet with the calculator and the questions, so it is white there, with no rules above and below. */
   /* Landing round 10, the owner (a MacBook Air at 100%, about 1440x800): on a laptop that short the home section pads 64px a side, not 96, so the heading and the three cards fit in one screen. */
+  /*
+    LANDING ROUND 13, /pricing (the owner): no light grey behind the cards, and
+    the heading and its line much bigger, a confident page title with a large
+    line under it. White, no rules; the page's sheets rise over it
+    (app/(storelib)/(marketing)/pricing/pricing-sheets.tsx).
+  */
   return (
-    <section data-story-section={editorial ? "pricing" : undefined} className={editorial ? "bg-white py-20 sm:py-24 [@media(min-width:1024px)_and_(max-height:900px)]:!py-16" : "py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]"} id="pricing">
+    <section data-story-section={editorial ? "pricing" : undefined} className={editorial ? "bg-white py-20 sm:py-24 [@media(min-width:1024px)_and_(max-height:900px)]:!py-16" : "bg-white pt-[clamp(48px,7vw,112px)] pb-16 sm:pb-24"} id="pricing">
       <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [&_[data-plan-ground]]:!max-w-none" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
         <AnimateOnScroll variant="blur-in">
           {/*
@@ -131,13 +137,13 @@ export function PricingSection({
             cards show monthly prices and no pill (hideInterval below);
             /pricing keeps its pill.
           */}
-          <div data-pricing-head="" className={editorial ? "story-section-heading !mx-0 !mb-10 w-full pl-[var(--home-head-inset)] !text-left" : "text-center max-w-[640px] mx-auto mb-10 sm:mb-12"}>
+          <div data-pricing-head="" className={editorial ? "story-section-heading !mx-0 !mb-10 w-full pl-[var(--home-head-inset)] !text-left" : "text-center max-w-[1100px] mx-auto mb-12 sm:mb-16"}>
             {editorial ? <StoryHeading text={headingOverride || "Pricing & Plans"} accent={["Plans"]} /> : (
-            <Heading className="text-[clamp(28px,4vw,40px)] font-semibold leading-[1.15] tracking-tight text-[#1a1a2e]">
+            <Heading data-pricing-title="" className="text-[clamp(46px,7.4vw,112px)] font-medium leading-[0.98] tracking-[-0.05em] text-[#18181b] text-balance">
               {headingOverride || "Pricing & Plans"}
             </Heading>)}
 
-            <p className="mt-3 text-[16px] leading-relaxed text-[#6b7280] text-balance">
+            <p data-pricing-sub="" className={editorial ? "mt-3 text-[16px] leading-relaxed text-[#6b7280] text-balance" : "mx-auto mt-5 max-w-[34ch] text-[clamp(18px,1.9vw,28px)] leading-[1.35] tracking-[-0.015em] text-[#52525b] text-balance sm:mt-7"}>
               {subtitleOverride || "Free to start. Upgrade when you grow."}
             </p>
           </div>

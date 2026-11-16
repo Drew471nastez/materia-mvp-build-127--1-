@@ -22,7 +22,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_STORES, EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
 import * as Ideas from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, GodBlessSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -69,39 +69,21 @@ check("no Mondo Mango in the code, the comments or the alt text", !/mondo|mango/
 check("its pictures are deleted", ["mm-studio", "mm-logo", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))))
 check("none of its styles are left", !/\.mg[-{]|mg-ring/.test(BUILDER_CSS))
 
-console.log("\n── 2. GodBless, drawn after the owner's live store ──")
-const site = renderToStaticMarkup(createElement(GodBlessSite))
-const hero = site.slice(site.indexOf('class="gb-hero"'), site.indexOf('class="gb-shop"'))
-check("the black bar with the summer offer", /<p class="gb-bar">40% OFF \+ FREE SHIPPING THIS SUMMER<\/p>/.test(site) && /\.gb-bar\{[^}]*background:#111;color:#fff/.test(BUILDER_CSS))
-check("Home, Shop all, About us on the left, Home underlined", /<span class="gb-links"><b>Home<\/b><span>Shop all<\/span><span>About us<\/span><\/span>/.test(site) && /text-transform:uppercase/.test(rule(BUILDER_CSS, ".gb-links")) && /box-shadow:inset 0 -1u 0 #111|box-shadow:inset 0 calc\(-1\*var\(--u\)\) 0 #111/.test(rule(BUILDER_CSS, ".gb-links b")))
-check("the red wordmark in the middle, as a picture", /class="smk-pic gb-logo"/.test(site) && site.includes("/home/showcase/gb-logo.webp") && /left:50%;top:50%/.test(rule(BUILDER_CSS, ".gb-logo")))
-check("Search, Account and Cart (0) on the right", /<span class="gb-links gb-right"><span>Search<\/span><span>Account<\/span><span>Cart \(0\)<\/span><\/span>/.test(site))
-check("the hero is one photograph with the stars, the name, the line and Explore", (hero.match(/<img /g) ?? []).length === 1 && hero.includes("/home/showcase/gb-hero.webp") && /Trusted by 1,250\+/.test(hero) && /<b>GodBless Summer Club<\/b>/.test(hero) && /Discover our featured brand highlight and exclusive drops\./.test(hero) && /<em>Explore<\/em>/.test(hero))
-check("four and a half stars", (hero.match(/<svg /g) ?? []).length === 5 && (hero.match(/class="gb-half"/g) ?? []).length === 1 && /clip-path:inset\(0 50% 0 0\)/.test(rule(BUILDER_CSS, ".gb .gb-stars .gb-half")))
-check("Explore is a square white key", /background:#fff;color:#111/.test(rule(BUILDER_CSS, ".gb-pitch em")) && !/border-radius/.test(rule(BUILDER_CSS, ".gb-pitch em")))
-check("New Collection with a square black View all", /<p class="gb-h"><b>New Collection<\/b><span>View all<\/span><\/p>/.test(site) && /background:#111;color:#fff/.test(rule(BUILDER_CSS, ".gb-h span")) && !/border-radius/.test(rule(BUILDER_CSS, ".gb-h span")))
-const names = [...site.matchAll(/<span class="gb-card">[\s\S]*?<b>([^<]+)<\/b><span class="gb-price">([^<]+)<\/span>/g)].map((m) => `${m[1]} ${m[2]}`)
-check("the owner's four pieces at their prices", names.join() === "Camo X Boxy Jacket $99.00,Green Basic Tshirt $59.00,Charcoal Classic Hoodie $89.00,Brown Tshirt Basic $29.00", names)
-check("on light grey, square, the name and price centred", /background:#f0f0f0/.test(rule(BUILDER_CSS, ".gb-img")) && !/border-radius/.test(rule(BUILDER_CSS, ".gb-img")) && /text-align:center/.test(rule(BUILDER_CSS, ".gb-card")))
-check("headings in the store's condensed face, a small subset that ships with the page", /@font-face\{font-family:"GB Oswald";src:url\(\/home\/fonts\/gb-oswald\.woff2\) format\("woff2"\)/.test(BUILDER_CSS) && /var\(--gb-head\)/.test(rule(BUILDER_CSS, ".gb-pitch b")) && readFileSync(join(root, "public/home/fonts/gb-oswald.woff2")).subarray(0, 4).toString() === "wOF2" && statSync(join(root, "public/home/fonts/gb-oswald.woff2")).size < 16 * 1024)
-
-console.log("\n── Crisp at 2x, and small ──")
-/* The site is drawn 1024u wide in a canvas 986 of the frame's 1280; the frame is at most about 1370px wide (1920 screen). So 1u is at most about 1.03 CSS px, and 2x needs about 2.06 image px per u. */
-const hero2x = webp("home/showcase/gb-hero.webp", 120)
-check("the hero photo is 2x for 1024u (at least 2100px wide) and small", !!hero2x && hero2x.w >= 2100 && Math.abs(hero2x.w / hero2x.h - 1024 / 290) < 0.05, hero2x)
-check("each piece is 2x for its 231u by 236u box", ["gb-camo", "gb-green", "gb-hoodie", "gb-brown"].every((n) => { const s = webp(`home/showcase/${n}.webp`, 40); return !!s && s.w >= 470 && s.h >= 480 }))
-const logo = webp("home/showcase/gb-logo.webp", 30)
-check("the wordmark has at least 3 pixels for every u of its 26u height", !!logo && logo.h >= 78, logo)
-check("height and the box: 1024u wide in the frame, as before", /\.wx-site>\.smk\{--w:1024\}/.test(BUILDER_CSS) && /height:calc\(290\*var\(--u\)\)/.test(rule(BUILDER_CSS, ".gb-hero")) && /height:calc\(236\*var\(--u\)\)/.test(rule(BUILDER_CSS, ".gb-img")))
+// Changed on purpose (landing round 13): the owner asked for the website builder's example to be "actually accurate":
+// GodBless is replaced by their Materia Steez theme, drawn from its export, and GodBless's pictures and font are deleted.
+// Sections 2 and "Crisp at 2x" pinned GodBless and are retired; tests/home-landing-r13-ideas.test.ts pins Steez.
+console.log("\n── 2. GodBless is gone (landing round 13) ──")
+check("its pictures and its font are deleted", ["gb-hero", "gb-logo", "gb-camo", "gb-green", "gb-hoodie", "gb-brown"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))) && !existsSync(join(root, "public/home/fonts/gb-oswald.woff2")))
+check("none of its styles are left", !/\.gb[-{ ]|GB Oswald/.test(BUILDER_CSS))
 
 console.log("\n── 3. Still moves on to loudlib, on the clock ──")
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-check("GodBless first, loudlib second, in the one canvas", /class="smk-frame wx-site bm-s1"[^>]*><div class="smk"[^>]*><div class="gb">/.test(wb) && /class="smk-frame wx-site bm-s2"[^>]*><div class="smk"[^>]*><div class="ll">/.test(wb))
-check("the bar's name and the published address change with it", /<span class="bm-s1">GodBless<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">godbless\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
-check("the builder rings the Hero and the products on both", (wb.match(/class="wx-sel wx-ring-a"/g) ?? []).length === 2 && (wb.match(/class="wx-sel wx-ring-b"/g) ?? []).length === 2 && /\.wx-sel\{position:absolute;inset:0;box-shadow:inset 0 0 0 calc\(2\*var\(--u\)\) #3b82f6/.test(BUILDER_CSS))
+// Changed on purpose (landing round 13): the first site is Steez (class "stz"), not GodBless.
+check("Steez first, loudlib second, in the one canvas", /class="smk-frame wx-site bm-s1"[^>]*><div class="smk"[^>]*><div class="stz">/.test(wb) && /class="smk-frame wx-site bm-s2"[^>]*><div class="smk"[^>]*><div class="ll">/.test(wb))
+check("the bar's name and the published address change with it", /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">steez\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
+check("the builder rings the first section and the products on both", (wb.match(/class="wx-sel wx-ring-a"/g) ?? []).length === 2 && (wb.match(/class="wx-sel wx-ring-b"/g) ?? []).length === 2)
 check("the cross fade is opacity only, with two scenes on the tab", /\[data-scene="1"\] \.bm-s1\{opacity:0\}/.test(BUILDER_CSS) && Ideas.IDEAS_TABS[0].scenes === 2)
-check("the alt text tells it", /First GodBless, a streetwear store/.test(Ideas.IDEAS_TABS[0].alt) && /Then loudlib/.test(Ideas.IDEAS_TABS[0].alt))
-check("motion in the new site: none of its own (the rings and cursor are the builder's)", !/@keyframes gb|\.gb[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS))
+check("the alt text tells it", /First Steez/.test(Ideas.IDEAS_TABS[0].alt) && /Then loudlib/.test(Ideas.IDEAS_TABS[0].alt))
 
 console.log("\n── 4. Jonah Wells, a guitar teacher's digital store ──")
 const html = renderToStaticMarkup(createElement(EverythingInOnePlace))

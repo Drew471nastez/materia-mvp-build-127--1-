@@ -42,7 +42,8 @@ console.log("\nThe tab control: words and a ring, not pills with a line")
   check("it turns on transform alone, paused unless the section runs", /@keyframes biz-ring-a\{0%\{transform:rotate\(-180deg\)\}50%,100%\{transform:rotate\(0deg\)\}\}/.test(css) && /\.biz\[data-auto\] \.biz-ring b\{animation:biz-ring-a var\(--biz-ms,6500ms\) linear both paused\}/.test(css) && /\.biz\[data-auto\]\[data-run\] \.biz-ring b\{animation-play-state:running\}/.test(css))
   // Changed on purpose (landing round 11): physical turns through its four products too, so it has its own length as well.
   // Changed on purpose (landing round 12): no scene loops any more (one e-book, one oil), so every turn is the usual length.
-  check("every kind's turn is the usual length", BUSINESS_SLIDE_MS === 6500 && BUSINESS_SLIDES.every((s) => s.ms === undefined) && html.includes(`--biz-ms:${BUSINESS_SLIDE_MS}ms`))
+  // Changed on purpose (landing round 13): physical's turn is four moves of its line of store designs; the others the usual length.
+  check("every kind's turn is the usual length but physical's", BUSINESS_SLIDE_MS === 6500 && BUSINESS_SLIDES.every((s) => s.id === "physical" ? s.ms === 9600 : s.ms === undefined) && html.includes(`--biz-ms:${BUSINESS_SLIDE_MS}ms`))
   const src = code(SECTION)
   check("autoplay stays: picking a word never stops it; hover, a finger, off screen and a hidden tab hold it", /onClick=\{\(\) => go\(i\)\}/.test(src) && !/t\.select\(/.test(src) && /\{\.\.\.t\.hoverProps\}/.test(src) && /onPointerDown=\{hold\}/.test(src) && /const run = t\.run && !held/.test(src) && /data-live=\{t\.live \|\| undefined\}/.test(src))
   check("arrow keys move along the row and down the index", /NEXT_KEYS = \["ArrowRight", "ArrowDown"\]/.test(src) && /PREV_KEYS = \["ArrowLeft", "ArrowUp"\]/.test(src))
@@ -68,10 +69,12 @@ console.log("\nThe layout: an index beside the stage, a row over it on a phone")
 console.log("\nDigital and physical: what round 9 removed stays removed")
 {
   const d = renderToStaticMarkup(createElement(DigitalScene))
-  check("digital is one e-book with its buy card", d.includes("Slow Mornings") && (d.match(/class="bs-card be-card"/g) ?? []).length === 1)
+  // Changed on purpose (landing round 13): two digital products and one order card.
+  check("digital is two products with one order card", d.includes("Ancestral Kitchen") && d.includes("Daily Mobility") && (d.match(/class="bs-card bd-card"/g) ?? []).length === 1)
   check("the Second Brain tablet is gone, with its pictures", !/Second Brain|bs-tablet|bn-|Brain/.test(code(MOCKS)) && ["cover", "daily", "work", "health", "goals"].every((n) => !existsSync(`public/home/showcase/bz-brain-${n}.webp`)))
   const t = renderToStaticMarkup(createElement(TeeScene))
-  check("physical: a size is ringed and it goes in the cart", t.includes("--k:1") && /\.bz-on \.bo-ring\{animation:bz-pop/.test(BUSINESS_MOCK_CSS) && t.includes("Added to cart") && /30 ml · \$38/.test(t))
+  // Changed on purpose (landing round 13): physical is six store designs in a line, each a sixth of the loop apart.
+  check("physical: six store designs, a step apart", (t.match(/class="bt-card"/g) ?? []).length === 6 && t.includes("--d:-2.4s"))
   check("the headphones and the yellow are gone", !/headphone|HN1|Halfnote|#f5c518|bs-spot/i.test(code(MOCKS)) && !existsSync("public/home/showcase/bz-headphones.webp"))
 }
 
@@ -80,7 +83,8 @@ console.log("\nCommunity: a real banner. Courses and bookings kept")
   const c = renderToStaticMarkup(createElement(ClubScene))
   // Changed on purpose (landing round 11): the owner wanted another heading in the cover, a colour that is not white, and a real logo: a green banner, the club's logo, its promise as the heading.
   check("the banner: the club's photograph, its logo, its line set large and its host", /class="bs-com-cover">.*bz-ai-club\.webp.*class="bs-com-logo".*class="bs-com-word"><b>Build one AI tool a week<\/b>.*Hosted by Sam Adeyemi/.test(c))
-  check("the photograph runs into the banner's green under the words", /\.bs-com-cover::after\{[^}]*linear-gradient\(to right,#123227 30%/.test(BUSINESS_MOCK_CSS))
+  // Changed on purpose (landing round 13): no green: a soft ink shade from the left under the words.
+  check("the photograph runs under a soft ink shade where the words stand", /\.bs-com-cover::after\{[^}]*linear-gradient\(to right,rgba\(17,17,20,\.82\)/.test(BUSINESS_MOCK_CSS))
   check("the rest of the club as it was: the event, three spaces, three posts", c.includes("Live build: an inbox agent") && (c.match(/class="bs-post"/g) ?? []).length === 3 && c.includes("Join for $12"))
   const course = renderToStaticMarkup(createElement(CourseScene))
   check("course kept: Tomás Reyes, the DJ photo, $79, four lessons", course.includes("Mixing in key, for new DJs") && course.includes("bz-dj.webp") && course.includes("$79") && (course.match(/<li/g) ?? []).length === 4)
@@ -101,7 +105,8 @@ console.log("\nSmooth and clean")
   const every = [DigitalScene, TeeScene, CourseScene, ClubScene, CoachScene].map((s) => renderToStaticMarkup(createElement(s))).join("")
   // Changed on purpose (landing round 12): no moving row of covers; the digital and physical photographs load with their scene (on a phone the scenes stand in a row that slides).
   check("every picture is sized and decoded off the main thread; all lazy but the digital and physical photographs", !/<img(?![^>]*width=)[^>]*>/.test(every) && !/<img(?![^>]*decoding="async")[^>]*>/.test(every) && !/<img(?![^>]*(?:loading="lazy"|loading="eager"[^>]*class="smk-pic))[^>]*>/.test(every))
-  const pics = ["bz-oil", "bz-ebook", "bz-eggs", "bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
+  // Changed on purpose (landing round 13): the oil and e-book photographs are gone with their scenes.
+  const pics = ["bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
   check("every photograph is a small webp (under 120 KB)", pics.every((p) => existsSync(p) && statSync(p).size < 120 * 1024), pics.filter((p) => !existsSync(p) || statSync(p).size >= 120 * 1024))
   const words = `${BUSINESS_SLIDES.map((s) => `${s.alt} ${s.line}`).join(" ")} ${every.replace(/<[^>]+>/g, " ")}`
   check("no banned words, names or em dashes", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|\bfans\b|enthusiast|Nadia Brooks|The Loop|LaSalle|Nails by Bea|Nordline|Charla Circle|Static Bloom|Maren Holt|Harbor yarn|Weeknight Pasta|sourdough|Golden Hour|Drawing Basics|Saturday Run Club|Dust & Tape|Elena Ruiz|Shopify|Liquid/i.test(words) && !/—/.test(words + read(MOCKS) + read(SECTION)))

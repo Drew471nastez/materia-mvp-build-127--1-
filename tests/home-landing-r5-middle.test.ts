@@ -20,7 +20,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { IdeasComeToLife, IDEAS_STYLES } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, GodBlessSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, SteezSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
 import { CNAME_TARGET, DEFAULT_A } from "@/lib/custom-domains/hostname"
 import { sheetButtonLabel } from "@/lib/onepage/product-block"
@@ -67,12 +67,14 @@ check("the row keeps round 4's height (30px pills in a 4px track, 38px), so the 
 
 console.log("\nThe website builder: a real small store")
 // Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
-const site = renderToStaticMarkup(createElement(GodBlessSite))
+const site = renderToStaticMarkup(createElement(SteezSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
-check("GodBless in the builder with its own address", site.includes("New Collection") && wb.includes("GodBless") && wb.includes("godbless.storelib.com"))
-check("its pictures exist, are webp and small", ["gb-hero", "gb-logo", "gb-camo", "gb-green", "gb-hoodie", "gb-brown"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
-check("the shop on white", /\.gb\{[^}]*background:#fff/.test(BUILDER_CSS))
+// Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
+check("Steez in the builder with its own address", site.includes("Summer Madness") && wb.includes("Steez") && wb.includes("steez.storelib.com"))
+check("its pictures exist, are webp and small", ["stz-hero", "stz-logo", "stz-summer", "stz-p-navy", "stz-p-orange", "stz-p-red", "stz-p-lilac"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
+// Changed on purpose (landing round 13): the site is Steez (.stz).
+check("the shop on white", /\.stz\{[^}]*background:#fff/.test(BUILDER_CSS))
 check("no Saltmoor left", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/sm-hero.webp"))
 check("no Field Day, no caps left", !/Field Day|FIELD|fielddaysupply|fd-cap|Marigold/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/fd-hero.webp"))
 
@@ -99,7 +101,8 @@ check("the tee is $32 and the pack $29, as in section 3", HOW_PRODUCTS[1].priceC
 // Changed on purpose (landing round 9): three cards on flat lilac, paper and peach (the owner: "too grey").
 // Changed on purpose (landing round 11): one quiet near white ground a card, named for its card.
 // Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
-check("no grounds behind the pictures, nothing drifting", !/data-ground=/.test(how) && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
+// Changed on purpose (landing round 13): the owner asked for round 11's grey stages again, so each picture has its quiet ground; still nothing drifting.
+check("a quiet ground a picture, nothing drifting", (how.match(/data-ground="/g) ?? []).length === 3 && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
 // Changed on purpose (landing round 9): the owner asked for more colour: Storelib's violet (#8b5cf6) is the accent and the hearts are five colours; still no gradient of violet and no green.
 // Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
 check("no violet gradient in the section", !/gradient\([^)]*#(8b5cf6|7c3aed)/.test(howCss))
