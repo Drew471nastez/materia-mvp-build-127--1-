@@ -108,10 +108,10 @@ console.log("\n── earnings: tiles, not pills ──")
 console.log("\n── the close and the dot field ──")
 {
   const cta = read(`${DIR}/final-cta.tsx`)
-  const src = read(`${DIR}/dot-field.tsx`)
+  const src = ["dot-field.tsx", "dot-field-engine.ts", "dot-field-mount.ts", "dot-field-driver.ts"].map((f) => read(`components/marketing/home/${f}`)).join("\n") /* Changed on purpose (landing round 6 perf): the field is drawn by the shared engine in a worker (dot-field-engine.ts, dot-field-mount.ts, dot-field-driver.ts); these pins read the four files together. */
   check('"what you make" a little lighter', /\.fcta-title em\{font-style:normal;color:#b6b3c1\}/.test(cta))
   // Changed on purpose (landing round 11): capped at 2, so a dot is a round dot on a phone's screen (the owner: "smooth and clean").
-  check("one canvas, the device pixel ratio capped at 2", DOT_FIELD_MAX_DPR === 2 && /<canvas ref=\{canvasRef\}/.test(src))
+  check("one canvas, the device pixel ratio capped at 2", DOT_FIELD_MAX_DPR === 2 && /document\.createElement\("canvas"\)/.test(src))
   const pts = dotFieldPoints(1200, 600, 18)
   /* Changed on purpose (landing round 7): the owner asked for the pattern "smooth, flowing ... clean": an even grid with a current of light flowing through it. */
   check("an even grid, every point of it", pts.length / 4 === (Math.floor(1200 / 18) + 1) * (Math.floor(600 / 18) + 1), { dots: pts.length / 4 })
@@ -119,12 +119,12 @@ console.log("\n── the close and the dot field ──")
   // Changed on purpose (landing round 11): the owner: "more visible"; the dark tone rests at 0.34 and lights to 0.68.
   check("subtle: resting dots under two fifths, lit under seven tenths", Object.values(DOT_FIELD_TONES).every((t) => t.rest <= 0.35 && t.lit <= 0.7))
   check("the earnings tile drops its icon before its word is cut", /@container \(max-width:136px\)\{\.cme-kind-i\{display:none\}/.test(EARNINGS_STYLES.map((s) => s.css).join("")))
-  check("the pointer is followed with a lerp in the loop, a mouse only", /lightX \+= \(tx - lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src))
-  check("no React state, no layout read in the loop", !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const draw"), src.indexOf("const resize"))))
-  check("paused off screen and in a hidden tab; one still frame under reduced motion", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /cancelAnimationFrame/.test(src) && /&& !reduced/.test(src))
+  check("the pointer is followed with a lerp in the loop, a mouse only", /f\.lightX \+= \(tx - f\.lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src))
+  check("no React state, no layout read in the loop", !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const drawTile"), src.indexOf("const settle"))))
+  check("paused off screen and in a hidden tab; one still frame under reduced motion", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /cancelAnimationFrame/.test(src) && /if \(fine && !reduced\)/.test(src))
 /* Changed on purpose (landing round 7): the flow moves on every screen: 60 frames a second while a mouse moves the light, 30 when only the slow flow moves. */
   // Changed on purpose (landing round 8): 60 a second whenever it runs; the wandering light stepped at 30.
-  check("at most 60 frames a second", /if \(last && t - last < 12\) return/.test(src))
+  check("at most 60 frames a second", /f\.last && t - f\.last < f\.cfg\.frameMs\[/.test(src))
   check("its props kept: gap, fade, tone, className, style", /gap = 18,\s*fade = "edges",\s*tone = "dark",\s*className,\s*style,/.test(src) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
 }
 

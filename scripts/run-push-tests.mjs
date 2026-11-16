@@ -1540,6 +1540,8 @@ const SUITES = [
   "tests/home-landing-r11-frame.test.ts",
   /* Landing round 11, lower: the app section is round 8's photograph and points again on white; a light runs round the AI tools terminal and the card carries the dot field; How it works has new pictures (a tips list, bars and a reading, his website whose address closes to his own domain); the closing call's dots brighter, crisper and down to its foot, the section a little shorter. */
   "tests/home-landing-r11-lower.test.ts",
+  /* Landing round 6 (performance): the three dot fields drawn by one engine in a worker, tiles, a covered sheet pauses them, the mouse posted once a frame. */
+  "tests/home-landing-dotworker6.test.ts",
   /* Landing round 11, checkout: the phone starts big and low and settles smaller under a two row headline; the products go round on a wider ring of their own under the phone, never across it, soft round the back; the cards and the facts solid; One-tap is the dark in-page checkout; on a phone the four cards stacked, each picture whole; the Recovered chart kept. */
   "tests/home-landing-r11-checkout.test.ts",
   /* Landing round 11, stability: no section above the screen changes height in front of a Safari reader (no scroll anchoring there): real heights kept exactly, server-drawn boxes measured while idle, and a box that changes above the screen held by the scroll in the same frame (by its own top margin mid-fling). */
