@@ -75,7 +75,7 @@ console.log("\n── The corners are never cut ──")
 console.log("\n── The page ──")
 {
   const page = code("app/(storelib)/(marketing)/page.tsx")
-  check("no cover watch and no hold anywhere", !/SheetCoverWatch|sheet-cover-watch|\bhold\b|holdOnPhone|lift=/.test(page))
+  check("no cover watch and no hold anywhere", !/SheetCoverWatch|sheet-cover-watch|\bhold\b|holdOnPhone|lift=/.test(page.replace(/sheet-hold/g, ""))) /* Changed on purpose (landing round 14): the owner asked for the pricing sheet to rise over a held showcase (SheetHold, components/marketing/home/sheet-hold.tsx); that one hold is allowed, nothing else is held. */
   check("the cover watch file is gone", !existsSync(join(root, "components/marketing/sheet-cover-watch.tsx")))
 // Changed on purpose (landing round 8): no flat ground any more (the first white sheet rounds its own top over the showcase), and the purple sheet rises.
   // Changed on purpose (landing round 13): a fourth dark stretch, the showcase's, before pricing.

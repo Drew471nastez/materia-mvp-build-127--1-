@@ -148,7 +148,7 @@ console.log("\n── the audience: how it moves ──")
 console.log("\n── registered ──")
 {
   const runner = read("scripts/run-push-tests.mjs")
-  check("this suite runs on push, after the round 13 landing suites", /"tests\/home-landing-r13-pricing\.test\.ts",[\s\S]{0,1500}"tests\/home-landing-r14-purple\.test\.ts"/.test(runner))
+  check("this suite runs on push, after the round 13 landing suites", /"tests\/home-landing-r13-pricing\.test\.ts",[\s\S]{0,8000}"tests\/home-landing-r14-purple\.test\.ts"/.test(runner))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

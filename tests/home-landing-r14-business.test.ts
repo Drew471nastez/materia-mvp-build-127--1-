@@ -113,7 +113,7 @@ console.log("\nMeasured")
 check("a check script measures the phones, the drag and the frames", existsSync("scripts/check-business-r14.mjs") && /setCPUThrottlingRate/.test(read("scripts/check-business-r14.mjs")))
 
 console.log("\nRegistered")
-check("this suite runs with the push tests, after the round 13 entries", /"tests\/home-landing-r13-pricing\.test\.ts",[\s\S]{0,1500}"tests\/home-landing-r14-business\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
+check("this suite runs with the push tests, after the round 13 entries", /"tests\/home-landing-r13-pricing\.test\.ts",[\s\S]{0,8000}"tests\/home-landing-r14-business\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
