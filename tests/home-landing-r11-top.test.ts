@@ -29,7 +29,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_STORES, EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
 import * as Ideas from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, IdrisPage, LoudlibSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, LoudlibSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -72,7 +72,8 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 const ll = renderToStaticMarkup(createElement(LoudlibSite))
 check("both sites stand in the one canvas, the second hidden at first", /class="smk-frame wx-site bm-s1"/.test(wb) && /class="smk-frame wx-site bm-s2"/.test(wb) && /\.bm-s2\{opacity:0\}/.test(BUILDER_CSS))
 // Changed on purpose (landing round 12): the first site is GodBless, published at its storelib.com address.
-check("the bar's name and the published address change with it", /<span class="bm-s1">GodBless<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">godbless\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
+// Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
+check("the bar's name and the published address change with it", /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">steez\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
 check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /class="ll-bar">Sale 60% off all products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Tech House Master Bundle 2025/.test(ll) && /class="ll-h">Bestselling/.test(ll))
 check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-midi", "ll-hero"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On sale</g) ?? []).length === 3)
 check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
@@ -81,21 +82,19 @@ check("with reduced motion it simply changes", /@media\(prefers-reduced-motion:r
 
 console.log("\n── The autoplay plays each scene, then the next tab ──")
 const src = code(read(F.ideas))
-check("the website builder and the OnePage editor have two scenes, the community one", Ideas.IDEAS_TABS.map((t) => t.scenes).join() === "2,2,1")
+// Changed on purpose (landing round 13): the owner removed Idris Kane; the OnePage editor shows Desmond Ayo alone, one scene (tests/home-landing-r13-ideas.test.ts).
+check("the website builder has two scenes, the OnePage editor and the community one", Ideas.IDEAS_TABS.map((t) => t.scenes).join() === "2,1,1")
 check("the clock restarts for each scene", /key=\{`\$\{t\.index\}-\$\{scene\}`\}/.test(src) && /onAnimationEnd=\{onClockEnd\}/.test(src))
 check("a scene that is not the last moves the scene on, the last moves the tab on", /if \(scene \+ 1 < IDEAS_TABS\[t\.index\]\.scenes\) setShown\(\{ index: t\.index, scene: scene \+ 1 \}\)\s*else t\.advance\(\)/.test(src))
 check("the leaving panel keeps its scene while it fades, and goes back to the first at rest", /data-scene=\{i === shown\.index \? shown\.scene : 0\}/.test(src) && /const fading = \[\.\.\.t\.states\.values\(\)\]\.includes\("leaving"\)\s*if \(shown\.index !== t\.index && !fading\) setShown\(\{ index: t\.index, scene: 0 \}\)/.test(src) && !/setTimeout|setInterval/.test(src))
 const ideas = renderToStaticMarkup(createElement(Ideas.IdeasComeToLife))
 check("the first panel starts on its first scene", /id="ideas-panel-website"[^>]*data-scene="0"/.test(ideas))
 
-console.log("\n── 3. Idris Kane in the OnePage editor ──")
+console.log("\n── 3. Idris Kane is gone (landing round 13) ──")
+// Changed on purpose (landing round 13): the owner removed Idris Kane; the OnePage editor shows Desmond Ayo alone, one scene (tests/home-landing-r13-ideas.test.ts).
 const ope = renderToStaticMarkup(createElement(OnePageEditorMock))
-const ik = renderToStaticMarkup(createElement(IdrisPage))
-check("two Links columns and two pages, Desmond's first", /class="ope-panel bm-s1"/.test(ope) && /class="ope-panel bm-s2"/.test(ope) && ope.indexOf("Desmond Ayo") < ope.indexOf("Idris Kane") && /class="ope-page bm-s2"><div class="dp ik">/.test(ope))
-check("his page is Storelib's Hero header: the photo melting into the page, the name with the badge over it", /class="ik-hero"><img[^>]*src="\/home\/showcase\/ik-portrait\.webp"/.test(ik) && /class="ik-tick"/.test(ik) && /mask-image:linear-gradient\(#000 0%,#000 46%/.test(rule(BUILDER_CSS, ".ik-hero")) && /margin-top:-74u|margin-top:calc\(-74\*var\(--u\)\)/.test(rule(BUILDER_CSS, ".ik-head")))
-check("his blocks: link buttons, prints, the signup the editor turns on, the showreel", /<b>Portfolio<\/b>/.test(ik) && /<b>Book a shoot<\/b>/.test(ik) && /Prints and photo books/.test(ik) && /class="dp-btn dp-new"/.test(ik) && /class="dp-video dp-after"/.test(ik))
-check("the same script runs on his page (switch on, signup in, scroll)", /\.ope-off \.ope-sw-on,\[data-mock-live\] \.ope-phone \.dp-new/.test(BUILDER_CSS) && (ope.match(/class="ope-card ope-off"/g) ?? []).length === 2)
-check("his pictures exist and are small", webp("home/showcase/ik-portrait.webp", 60) && webp("home/showcase/ik-av.webp", 30))
+check("one Links column and one page, Desmond's", (ope.match(/class="ope-panel"/g) ?? []).length === 1 && !/Idris|ope-page|class="dp ik"/.test(ope) && !/\.ik[-{ ]/.test(BUILDER_CSS))
+check("his pictures are deleted", ["ik-portrait", "ik-av", "ik-print", "ik-print-128"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))))
 
 console.log("\n── 4. A little depth on the frame ──")
 const frame = rule(ideasCss, ".ideas-frame")

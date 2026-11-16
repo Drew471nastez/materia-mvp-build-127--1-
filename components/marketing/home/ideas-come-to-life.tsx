@@ -65,6 +65,14 @@ export const IDEAS_HEADING = "See your ideas come to life."
   the owner's own GodBless store (builder-mocks.tsx GodBlessSite): the
   offer bar, the red wordmark, a summer photo for the hero and New
   Collection on light grey. It still cross fades to loudlib on the clock.
+
+  Landing round 13 (the owner): the website builder "needs to actually be
+  accurate": the first site is the owner's Materia Steez theme, drawn from its
+  export (builder-mocks.tsx SteezSite), starting at the Summer Madness '26
+  slideshow (no Steez Club), then the t-shirts carousel, which the canvas
+  scrolls into view when the builder selects it. Two scenes still: loudlib
+  stays as the second, a Storelib theme beside an imported one. The OnePage
+  editor shows Desmond Ayo alone (Idris Kane is gone), one scene.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
 /** How long each heading stays, in seconds; the three take turns in one CSS loop. */
@@ -83,16 +91,16 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First GodBless, a streetwear store: the summer offer bar, the red wordmark, three friends in the sun in the hero under Trusted by 1,250+ and GodBless Summer Club, and New Collection with a camo jacket, a green tee, a charcoal hoodie and a brown tee on models. Then loudlib, a sample pack store: a purple sale bar, a dark header, the new bundle over a club photo, and the bestselling packs as black boxes. Each time the Hero, then the products are selected, then Publish changes puts it live.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First Steez, a streetwear store on the Materia Steez theme: the free shipping bar, the white STEEZ wordmark over a photo of four skaters on a sidewalk, Summer Madness '26 with Explore, then four tees on models with their prices and View all. Then loudlib, a sample pack store: a purple sale bar, a dark header, the new bundle over a club photo, and the bestselling packs as black boxes. Each time the first section, then the products are selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
     scenes: 2,
   },
   {
     id: "onepage",
     title: "OnePage editor",
-    alt: "Storelib's OnePage editor: Desmond Ayo's links, his pack of 14 film LUTs, a free LUT and a grade review call on the Links tab, beside his live page on the Ember theme, as his email signup block is switched on and saved. Then Idris Kane's page, a photographer's: his photo melting into a dark page, his portfolio, bookings, prints and showreel, as his email signup is switched on.",
+    alt: "Storelib's OnePage editor: Desmond Ayo's links, his pack of 14 film LUTs, a free LUT and a grade review call on the Links tab, beside his live page on the Ember theme, as his email signup block is switched on and saved.",
     Mock: OnePageEditorMock,
-    scenes: 2,
+    scenes: 1,
   },
   {
     id: "community",

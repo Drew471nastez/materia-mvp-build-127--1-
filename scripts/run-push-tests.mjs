@@ -1562,6 +1562,8 @@ const SUITES = [
   "tests/home-landing-r12-checkout.test.ts",
   /* Landing round 12, perf: the same page, cheaper. The analytics globe reads the scroll after the frame; the analytics and Everything cards pause their loops on their own more than a screen away; no permanent will-change on the orbs, the engines strip, the Everything grounds, the creators rail or a resting sheet's scrim; the AI tools light on squares as wide as the rim's diagonal, turning only while live; the Ideas thumbnails from small copies. */
   "tests/home-landing-r12-perf.test.ts",
+  /* Landing round 13, ideas: the website builder draws the owner's Materia Steez theme from its export (the Summer Madness '26 slideshow, the t-shirts carousel scrolled into view when selected, Summer Collection; its sections' schema names in the sidebar), GodBless and its files gone; the OnePage editor shows Desmond alone, his page fitting the phone without a scroll; Unlimited possibilities half way back to its larger phone sizes. */
+  "tests/home-landing-r13-ideas.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -35,7 +35,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { AI_TOOLS_STYLES } from "@/components/marketing/home/ai-tools-section"
-import { DesmondPage, IdrisPage, OnePageEditorMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { DesmondPage, OnePageEditorMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -137,15 +137,17 @@ console.log("\n── Everything ──")
 
 console.log("\n── Ideas: small thumbnails ──")
 {
-  const html = renderToStaticMarkup(createElement("div", null, createElement(OnePageEditorMock), createElement(DesmondPage), createElement(IdrisPage)))
+  const html = renderToStaticMarkup(createElement("div", null, createElement(OnePageEditorMock), createElement(DesmondPage)))
   const srcs = [...html.matchAll(/src="([^"]+)"/g)].map((m) => m[1])
   const tiles = [...html.matchAll(/<span class="ope-tile"><img[^>]*src="([^"]+)"/g)].map((m) => m[1])
   const packs = [...html.matchAll(/<span class="dp-pack"><img[^>]*src="([^"]+)"/g)].map((m) => m[1])
-  check("every block tile draws a small copy", tiles.length >= 4 && tiles.every((s) => /-(128|208)\.webp$/.test(s)), tiles)
+  /* Changed on purpose (landing round 13): Idris Kane is gone, so only Desmond's two picture tiles are left. */
+  check("every block tile draws a small copy", tiles.length >= 2 && tiles.every((s) => /-(128|208)\.webp$/.test(s)), tiles)
   check("every product pack draws a small copy", packs.length >= 2 && packs.every((s) => /-128\.webp$/.test(s)), packs)
   check("the full size photos are gone from the tiles and packs", !srcs.some((s) => /\/(dr-neon|ik-print|lt-street)\.webp$/.test(s)), srcs.filter((s) => /dr-neon|ik-print|lt-street/.test(s)))
-  check("the videos keep their photos", srcs.includes("/home/showcase/lp-f2.webp") && srcs.includes("/home/showcase/lt-field.webp"))
-  for (const f of ["dr-neon-128", "ik-print-128", "lt-street-128", "lt-field-128", "lp-f2-208"]) {
+  // Changed on purpose (landing round 13): the owner removed Idris Kane; the OnePage editor shows Desmond Ayo alone, one scene (tests/home-landing-r13-ideas.test.ts).
+  check("the videos keep their photos", srcs.includes("/home/showcase/lp-f2.webp"))
+  for (const f of ["dr-neon-128", "lp-f2-208"]) {
     const size = statSync(join(root, `public/home/showcase/${f}.webp`)).size
     check(`${f}.webp is there and small (${size} bytes)`, size > 300 && size < 16000)
   }

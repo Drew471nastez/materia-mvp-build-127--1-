@@ -45,6 +45,7 @@ import {
   Undo2,
   UserRound,
   Users,
+  X,
 } from "lucide-react"
 import { SiInstagram } from "@/components/icons/brand/SiInstagram"
 import { SiTiktok } from "@/components/icons/brand/SiTiktok"
@@ -66,8 +67,8 @@ import { MockFrame, Pic, u } from "./frame"
                       tree-parts.tsx's grid, the page itself with the blue
                       ring and its "Selected" chip (sections/_shared.tsx), and
                       Publish's own panel (publish-panel.tsx). The site is
-                      GodBless, the owner's own streetwear store (round 12),
-                      then loudlib (round 11).
+                      the owner's Materia Steez theme (round 13), then
+                      loudlib (round 11).
     OnePage editor    components/onepage/onepage-editor.tsx and tabs/links-tab:
                       undo and redo, the Links / Design / Products pill row
                       and Settings, Save and Share your OnePage; the Links tab
@@ -114,31 +115,48 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-/* ================================================================ The sites in the website builder: GodBless, then loudlib */
+/* ================================================================ The sites in the website builder: Steez, then loudlib */
 /*
-  Landing round 12 (the owner: the earlier example goes entirely, for "something more realistic, cool and clean",
-  their own GodBless store): drawn after the live store. The black bar with the summer offer, the white header with its menu,
-  the red GODBless wordmark in the middle and Search, Account and Cart; a full width photo for the hero (three
-  friends in the sun, chains and a basketball) with the stars and "Trusted by 1,250+", "GodBless Summer Club" set in
-  the store's condensed face and a square Explore key; then New Collection with a square View all, the pieces as model
-  shots on light grey with the name and price centred under them. Pexels photographs (public/home/showcase/gb-*.webp,
-  2x for the size they are drawn at); Oswald, the store's heading face, as a small subset (public/home/fonts/gb-oswald.woff2, only the
-  letters a store like this sets).
+  Landing round 13 (the owner: the website builder example "needs to actually be accurate"): GodBless goes, and the
+  first site is the owner's own Materia Steez theme (1.2.0), drawn from its export: templates/index.json for the
+  order of the home page, config/settings_data.json for the colours and type, snippets/demo-image.liquid for the
+  pictures the theme ships with. The Steez Club slideshow is left out, as the owner asked, so the page starts with
+  the Summer Madness '26 slideshow.
+
+    announcement  announcement-bar-basic: #111, white, 34px, "FREE SHIPPING THIS SUMMER", a close key.
+    header        transparent over the slideshow (white words and icons), the white STEEZ wordmark in the middle
+                  (EDEN_2.png, 90px wide), the menu on the left, search, account and cart on the right.
+    slideshow     640px tall, the theme's demo photo (Untitled_design_8.png), a 29% black overlay, the words at
+                  the bottom centre: NEW COLLECTION (12px), Summer Madness '26 (66px, Instrument Sans 600,
+                  -0.034em), EXPLORE on the scheme's taupe key (#847265, border #bab6b1, radius 2).
+    products      products-carousel, the t-shirts collection: no heading, four to a row, 5px apart, 66px above and
+                  below, portrait (3:4) shots with 4px corners, the name and the price centred under them, the
+                  progress bar, then "View all" (#111, square).
+    slideshow     DISCOVER, SUMMER COLLECTION (60px), SHOP MENS and SHOP WOMENS, over the theme's demo photo of
+                  a man by a black car (0a18c0d1...jpg), a 16% overlay.
+
+  The site is drawn as the 1440px desktop page at 1024u (so 1px of the theme is 0.711u). Headings in Instrument
+  Sans (the theme's own font files, subset to Latin, public/home/fonts/stz-instrument-*.woff2), body in
+  Montserrat (the theme's body setting, montserrat_n4, subset the same way). The export has no product photos, so
+  the four tees are Pexels studio shots (free licence) of the same kind: a model in a plain tee on light grey.
+  The canvas shows the slideshow first; when the builder selects the products the page scrolls them into view,
+  as the real canvas does, with a transform.
 */
 type Product = { pic: string; name: string; price: string; was?: string }
-const GB_PRODUCTS: Product[] = [
-  { pic: "gb-camo", name: "Camo X Boxy Jacket", price: "$99.00" },
-  { pic: "gb-green", name: "Green Basic Tshirt", price: "$59.00" },
-  { pic: "gb-hoodie", name: "Charcoal Classic Hoodie", price: "$89.00" },
-  { pic: "gb-brown", name: "Brown Tshirt Basic", price: "$29.00" },
+const STZ_PRODUCTS: Product[] = [
+  { pic: "stz-p-navy", name: "Navy Box Logo Tee", price: "$38.00" },
+  { pic: "stz-p-orange", name: "Orange Classic Tee", price: "$34.00" },
+  { pic: "stz-p-red", name: "Red Oversized Tee", price: "$42.00" },
+  { pic: "stz-p-lilac", name: "Lilac Heavy Tee", price: "$40.00" },
 ]
+const STZ_MENU = ["Home", "Shop", "Products", "Contact"]
 
 /** A product in a store's grid: its shot, a sale badge when it is reduced, the name and the price. */
-function ShopCard({ p, cls }: { p: Product; cls: string }) {
+function ShopCard({ p, cls, w = 480, h = 480 }: { p: Product; cls: string; w?: number; h?: number }) {
   return (
     <span className={`${cls}-card`}>
       <span className={`${cls}-img`}>
-        <Pic n={p.pic} w={480} h={480} />
+        <Pic n={p.pic} w={w} h={h} />
         {p.was && <i className={`${cls}-sale`}>On sale</i>}
       </span>
       <b>{p.name}</b>
@@ -150,79 +168,78 @@ function ShopCard({ p, cls }: { p: Product; cls: string }) {
   )
 }
 
-const GB_STAR = "M12 2.8l2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"
-/** Four and a half stars, as the store's hero badge draws them (its rating is 4.5). */
-function GbStars() {
-  return (
-    <span className="gb-stars">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <svg key={i} viewBox="0 0 24 24" aria-hidden="true">
-          {i === 4 && <path d={GB_STAR} className="gb-empty" />}
-          <path d={GB_STAR} className={i === 4 ? "gb-half" : undefined} />
-        </svg>
-      ))}
-    </span>
-  )
-}
-
 /**
- * GodBless, the owner's streetwear store, open in the website builder: the offer bar, the header around the red
- * wordmark, the summer photo for a hero, then New Collection. `rings` outlines the Hero, then the products, the way
- * the builder rings the section it has selected.
+ * Steez, the owner's Materia Steez theme, open in the website builder: the announcement bar, the transparent header
+ * over the Summer Madness '26 slideshow, the t-shirts carousel, then the Summer Collection slideshow. `rings`
+ * outlines the slideshow, then the products, the way the builder rings the section it has selected.
  */
-export function GodBlessSite({ rings = false }: { rings?: boolean }) {
+export function SteezSite({ rings = false }: { rings?: boolean }) {
   return (
-    <div className="gb">
-      <p className="gb-bar">40% OFF + FREE SHIPPING THIS SUMMER</p>
-      <div className="gb-nav">
-        <span className="gb-links">
-          <b>Home</b>
-          <span>Shop all</span>
-          <span>About us</span>
-        </span>
-        <Pic n="gb-logo" w={577} h={104} className="gb-logo" />
-        <span className="gb-links gb-right">
-          <span>Search</span>
-          <span>Account</span>
-          <span>Cart (0)</span>
-        </span>
-      </div>
-      <div className="gb-hero">
-        <Pic n="gb-hero" w={2200} h={623} className="gb-photo" />
-        <span className="gb-pitch">
-          <span className="gb-trust">
-            <GbStars />
-            Trusted by 1,250+
-          </span>
-          <b>GodBless Summer Club</b>
-          <span className="gb-line">Discover our featured brand highlight and exclusive drops.</span>
-          <em>Explore</em>
-        </span>
-        <span className="gb-dots">
-          <i />
-          <i />
-        </span>
-        {rings && (
-          <span className="wx-sel wx-ring-a">
-            <em>Selected</em>
-          </span>
-        )}
-      </div>
-      <div className="gb-shop">
-        <p className="gb-h">
-          <b>New Collection</b>
-          <span>View all</span>
+    <div className="stz">
+      <div className="stz-page">
+        <p className="stz-bar">
+          FREE SHIPPING THIS SUMMER
+          <X className="stz-x" />
         </p>
-        <div className="gb-grid">
-          {GB_PRODUCTS.map((p) => (
-            <ShopCard key={p.name} p={p} cls="gb" />
-          ))}
-        </div>
-        {rings && (
-          <span className="wx-sel wx-ring-b">
-            <em>Selected</em>
+        <div className="stz-hero">
+          <Pic n="stz-hero" w={1800} h={800} className="stz-photo" />
+          <div className="stz-nav">
+            <span className="stz-menu">
+              {STZ_MENU.map((m) => (
+                <span key={m}>
+                  {m}
+                  {m === "Shop" && <i>Hot</i>}
+                </span>
+              ))}
+            </span>
+            <Pic n="stz-logo" w={200} h={87} className="stz-logo" />
+            <span className="stz-icons">
+              <Search />
+              <UserRound />
+              <span className="stz-cart">
+                <ShoppingBag />
+                <i>0</i>
+              </span>
+            </span>
+          </div>
+          <span className="stz-pitch">
+            <span className="stz-sub">NEW COLLECTION</span>
+            <b>Summer Madness &apos;26</b>
+            <em>EXPLORE</em>
           </span>
-        )}
+          {rings && (
+            <span className="wx-sel wx-ring-a">
+              <em>Selected</em>
+            </span>
+          )}
+        </div>
+        <div className="stz-shop">
+          <div className="stz-grid">
+            {STZ_PRODUCTS.map((p) => (
+              <ShopCard key={p.name} p={p} cls="stz" w={480} h={640} />
+            ))}
+          </div>
+          <span className="stz-progress">
+            <i />
+          </span>
+          <span className="stz-all">View all</span>
+          {rings && (
+            <span className="wx-sel wx-ring-b">
+              <em>Selected</em>
+            </span>
+          )}
+        </div>
+        <div className="stz-hero stz-summer">
+          <Pic n="stz-summer" w={1200} h={533} className="stz-photo" />
+          <span className="stz-pitch">
+            <span className="stz-sub">DISCOVER</span>
+            <b>SUMMER COLLECTION</b>
+            <span className="stz-keys">
+              <em>SHOP MENS</em>
+              <em>SHOP WOMENS</em>
+            </span>
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -304,14 +321,37 @@ export function LoudlibSite({ rings = false }: { rings?: boolean }) {
 /* ================================================================ Website builder */
 /** A section row of the Page group: its blocks' chevron (when it has blocks), the grip, the name; `hl` marks the selected one. */
 type TreeRow = { name: string; twisty?: boolean; hl?: string }
-const TREE_PAGE: TreeRow[] = [
-  { name: "Hero", twisty: true, hl: "wx-hl-a" },
-  { name: "Featured products", twisty: true, hl: "wx-hl-b" },
-  { name: "Lookbook", twisty: true },
-  { name: "Reviews", twisty: true },
-  { name: "FAQ", twisty: true },
-  { name: "Newsletter" },
-]
+/*
+  Landing round 13: each site has its own tree, cross faded with it. Steez's rows are what the builder calls an
+  imported theme's sections, the names in their schemas (lib/website-builder/section-name.ts): the header group's
+  announcement bar and header, the home page in the template's order without the Steez Club slideshow, and the
+  footer. loudlib, a Storelib theme, keeps its own. Both header groups hold two rows, so the rows the cursor and
+  the rings point at stand at the same height in both.
+*/
+type Tree = { header: string[]; page: TreeRow[] }
+const STEEZ_TREE: Tree = {
+  header: ["Announcement Bar Basic", "Header"],
+  page: [
+    { name: "Slideshow", twisty: true, hl: "wx-hl-a" },
+    { name: "Products carousel", twisty: true, hl: "wx-hl-b" },
+    { name: "Slideshow", twisty: true },
+    { name: "Products carousel", twisty: true },
+    { name: "Collection List", twisty: true },
+    { name: "Countdown Timer Flip", twisty: true },
+    { name: "Category Banners", twisty: true },
+  ],
+}
+const LOUDLIB_TREE: Tree = {
+  header: ["Announcement bar", "Header"],
+  page: [
+    { name: "Hero", twisty: true, hl: "wx-hl-a" },
+    { name: "Featured products", twisty: true, hl: "wx-hl-b" },
+    { name: "Lookbook", twisty: true },
+    { name: "Reviews", twisty: true },
+    { name: "FAQ", twisty: true },
+    { name: "Newsletter" },
+  ],
+}
 
 /** One line of the sidebar's tree (components/website-builder/editor/tree-parts.tsx): the chevron column, the mark column, the name. */
 function Row({ name, twisty, hl }: TreeRow) {
@@ -362,6 +402,29 @@ function AddRow() {
   )
 }
 
+/** The sidebar's tree for one site: the header group, the page's sections, the footer. */
+function SiteTree({ tree, className }: { tree: Tree; className: string }) {
+  return (
+    <div className={`wx-tree ${className}`}>
+      <p className="wx-group">Header</p>
+      {tree.header.map((n) => (
+        <ChromeRow key={n} name={n} Icon={PanelTop} />
+      ))}
+      <AddRow />
+      <i className="wx-rule" />
+      <p className="wx-group">Page</p>
+      <AddRow />
+      {tree.page.map((r, i) => (
+        <Row key={`${r.name}-${i}`} {...r} />
+      ))}
+      <AddRow />
+      <i className="wx-rule" />
+      <p className="wx-group">Footer</p>
+      <ChromeRow name="Footer" Icon={PanelBottom} />
+    </div>
+  )
+}
+
 function WbTabs() {
   return (
     <span className="wx-tabs">
@@ -387,7 +450,7 @@ function WbBar() {
           <ArrowLeftToLine />
         </span>
         <b className="wx-name">
-          <span className="bm-s1">GodBless</span>
+          <span className="bm-s1">Steez</span>
           <span className="bm-s2">loudlib</span>
         </b>
         <i className="wx-live" />
@@ -456,7 +519,7 @@ function PublishPanel() {
       <span className="wx-pub-url">
         <Globe />
         <b className="wx-pub-host">
-          <span className="bm-s1">godbless.storelib.com</span>
+          <span className="bm-s1">steez.storelib.com</span>
           <span className="bm-s2">loudlib.net</span>
         </b>
         <Copy />
@@ -487,23 +550,14 @@ export function WebsiteBuilderMock() {
       <WbBar />
       <aside className="wx-side">
         <WbTabs />
-        <p className="wx-group">Header</p>
-        <ChromeRow name="Header" Icon={PanelTop} />
-        <AddRow />
-        <i className="wx-rule" />
-        <p className="wx-group">Page</p>
-        <AddRow />
-        {TREE_PAGE.map((r) => (
-          <Row key={r.name} {...r} />
-        ))}
-        <AddRow />
-        <i className="wx-rule" />
-        <p className="wx-group">Footer</p>
-        <ChromeRow name="Footer" Icon={PanelBottom} />
+        <div className="wx-trees">
+          <SiteTree tree={STEEZ_TREE} className="bm-s1" />
+          <SiteTree tree={LOUDLIB_TREE} className="bm-s2" />
+        </div>
       </aside>
       <div className="wx-canvas">
         <MockFrame label="" className="wx-site bm-s1">
-          <GodBlessSite rings />
+          <SteezSite rings />
         </MockFrame>
         {/* Landing round 11: the second site the tab moves on to (data-scene, ideas-come-to-life.tsx), cross faded in the same canvas. */}
         <MockFrame label="" className="wx-site bm-s2">
@@ -667,9 +721,9 @@ export function DesmondPage() {
 }
 
 /** The Links tab's column: the profile (photo, name, bio, social chips), Add, and the blocks with their switches. */
-function OpePanel({ av, name, bio, blocks, className }: { av: string; name: string; bio: string; blocks: Block[]; className: string }) {
+function OpePanel({ av, name, bio, blocks }: { av: string; name: string; bio: string; blocks: Block[] }) {
   return (
-    <div className={`ope-panel ${className}`}>
+    <div className="ope-panel">
       <div className="ope-profile">
         <Pic n={av} w={240} h={240} className="ope-av" />
         <span>
@@ -703,91 +757,6 @@ function OpePanel({ av, name, bio, blocks, className }: { av: string; name: stri
           <OpeBlock key={b.t} b={b} />
         ))}
       </div>
-    </div>
-  )
-}
-
-/*
-  Landing round 11 (the owner: "Add Idris Kane as another OnePage in the OnePage editor pill, but more realistic,
-  adapted to how Storelib is"): the photographer from the store strip, on Storelib's own Hero header
-  (components/onepage/public-onepage.tsx): his photo across the top melting into the page (a mask, as
-  HERO_FADE_MASK does), the name with the verified badge over the melted part, the bio, the social row, then his
-  blocks as the dark theme draws them: wide link buttons with their icons, a product card, the email signup the
-  editor turns on, and his showreel.
-*/
-const IDRIS_BIO = "Photographer and film director. Shooting in London and Lisbon."
-const IDRIS_BLOCKS: Block[] = [
-  { t: "Portfolio", s: "idriskane.com", pic: "lt-street-128", clicks: "3.9k" },
-  { t: "Book a shoot", s: "Booking form", Icon: Calendar, clicks: "418" },
-  { t: "Prints and photo books", s: "From $45", pic: "ik-print-128", clicks: "1.2k" },
-  { t: "Studio notes", s: "Email signup", Icon: Mail, off: true },
-  { t: "Showreel 2026", s: "vimeo.com/idriskane", pic: "lt-field-128", clicks: "5.3k" },
-]
-
-export function IdrisPage() {
-  return (
-    <div className="dp ik">
-      <span className="dp-corner dp-share">
-        <Share />
-      </span>
-      <span className="dp-corner dp-bell">
-        <Bell />
-      </span>
-      <span className="ik-hero">
-        <Pic n="ik-portrait" w={600} h={640} />
-      </span>
-      <div className="ik-head">
-        <h3>
-          Idris Kane
-          <svg className="ik-tick" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2.5l2.4 1.8 3 .1.9 2.8 2.4 1.8-.9 2.9.9 2.9-2.4 1.8-.9 2.8-3 .1L12 21.5l-2.4-1.8-3-.1-.9-2.8-2.4-1.8.9-2.9-.9-2.9 2.4-1.8.9-2.8 3-.1L12 2.5Z" fill="#3b82f6" />
-            <path d="M8.2 12.2l2.5 2.5 5-5.2" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </h3>
-        <p>{IDRIS_BIO}</p>
-        <span className="ik-socials">
-          {SOCIALS.slice(0, 3).map(([k, M]) => (
-            <i key={k}>
-              <M />
-            </i>
-          ))}
-          <i>
-            <Mail />
-          </i>
-        </span>
-      </div>
-      <span className="ik-btn">
-        <Globe /> <b>Portfolio</b>
-      </span>
-      <span className="ik-btn">
-        <Calendar /> <b>Book a shoot</b>
-      </span>
-      <span className="dp-prod">
-        <span className="dp-pack">
-          <Pic n="ik-print-128" w={128} h={160} />
-        </span>
-        <span className="dp-prod-t">
-          <b>Prints and photo books</b>
-          <i>Signed, on cotton rag paper</i>
-        </span>
-        <strong>$45</strong>
-      </span>
-      <span className="dp-btn dp-new">
-        <span className="dp-signup">
-          <b>Studio notes, once a month</b>
-          <span className="dp-form">
-            <span className="dp-input">Your email</span>
-            <span className="dp-sub">Subscribe</span>
-          </span>
-        </span>
-      </span>
-      <span className="dp-video dp-after">
-        <Pic n="lt-field" w={640} h={400} />
-        <span className="dp-vplay">
-          <Play fill="currentColor" strokeWidth={0} />
-        </span>
-        <em>Showreel 2026 · 2:14</em>
-      </span>
     </div>
   )
 }
@@ -829,18 +798,12 @@ export function OnePageEditorMock() {
           </span>
         </span>
       </div>
-      <OpePanel av="lp-av" name="Desmond Ayo" bio="Colourist in Lisbon. Film looks for Premiere, Resolve and Final Cut." blocks={DESMOND_BLOCKS} className="bm-s1" />
-      {/* Landing round 11: Idris Kane's page, the second the tab moves on to (data-scene, ideas-come-to-life.tsx). */}
-      <OpePanel av="ik-av" name="Idris Kane" bio={IDRIS_BIO} blocks={IDRIS_BLOCKS} className="bm-s2" />
+      {/* Landing round 13 (the owner): Idris Kane is gone; the tab shows Desmond's page alone, one scene. */}
+      <OpePanel av="lp-av" name="Desmond Ayo" bio="Colourist in Lisbon. Film looks for Premiere, Resolve and Final Cut." blocks={DESMOND_BLOCKS} />
       <div className="ope-stage">
         <div className="ope-phone">
           <MockFrame w={390} ratio="287/607" label="" className="ope-screen">
-            <span className="ope-page bm-s1">
-              <DesmondPage />
-            </span>
-            <span className="ope-page bm-s2">
-              <IdrisPage />
-            </span>
+            <DesmondPage />
           </MockFrame>
         </div>
       </div>
@@ -1052,44 +1015,56 @@ export const BUILDER_CSS = u(`
 .bm-frame>.smk{--w:1280}
 .bm-cursor{position:absolute;z-index:30;width:22u!important;height:22u!important;opacity:0;filter:drop-shadow(0 2u 3u rgba(0,0,0,.25));pointer-events:none}
 
-/* ---------- the site (its own design width). Landing round 12: GodBless, the owner's own streetwear store, drawn after the live one. */
+/* ---------- the site (its own design width). Landing round 13: the owner's Materia Steez theme, its 1440px home page drawn at 1024u (1px of the theme = .711u), its settings in the comment above SteezSite. */
 .wx-canvas .wx-site{position:absolute;inset:0}
 .wx-site>.smk{--w:1024}
-@font-face{font-family:"GB Oswald";src:url(/home/fonts/gb-oswald.woff2) format("woff2");font-weight:400 600;font-display:swap}
-.gb{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#111;font-family:var(--font-inter,Inter),Inter,sans-serif;--gb-head:"GB Oswald","Oswald","Arial Narrow",sans-serif}
-.gb-bar{flex:none;height:26u;display:grid;place-items:center;background:#111;color:#fff;font-size:9.5u;letter-spacing:.02em}
-.gb-nav{flex:none;position:relative;height:56u;display:flex;align-items:center;justify-content:space-between;padding:0 72u}
-.gb-links{display:flex;gap:20u;font-family:var(--gb-head);font-size:10u;font-weight:500;letter-spacing:.03em;text-transform:uppercase}
-.gb-links b{font-weight:500;box-shadow:inset 0 -1u 0 #111;padding-bottom:3u;margin-bottom:-4u}
-.gb-right{gap:14u;font-size:9u}
-.gb-logo{position:absolute;left:50%;top:50%;width:144u!important;height:26u!important;object-fit:contain;background:none!important;transform:translate(-50%,-50%)}
-.gb-hero{position:relative;flex:none;height:290u;display:flex;align-items:flex-end;background:#3a3127;color:#fff;overflow:hidden}
-.gb-photo{position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover;background:none!important}
-/* The theme's overlay on the photo (34% in its settings), deeper on the left where the words stand: over the photo, under the words and the builder's ring. */
-.gb-hero::before{content:"";position:absolute;z-index:1;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.52),rgba(0,0,0,.22) 55%,rgba(0,0,0,.06)),rgba(0,0,0,.1)}
-.gb-hero .wx-sel{z-index:3}
-.gb-pitch{position:relative;z-index:2;display:flex;flex-direction:column;align-items:flex-start;padding:0 0 46u 104u}
-.gb-trust{display:flex;align-items:center;gap:8u;font-size:8.5u;font-weight:500}
-.gb .gb-stars{display:flex;gap:1u}
-.gb .gb-stars svg{width:10u;height:10u;fill:#fff}
-.gb .gb-stars .gb-empty{fill:rgba(255,255,255,.35)}
-.gb .gb-stars .gb-half{clip-path:inset(0 50% 0 0)}
-.gb-pitch b{margin-top:9u;font-family:var(--gb-head);font-size:42u;font-weight:500;line-height:1.05;letter-spacing:-.005em}
-.gb-line{margin-top:8u;font-size:9.5u;color:rgba(255,255,255,.92)}
-.gb-pitch em{margin-top:20u;padding:10u 17u;background:#fff;color:#111;font-family:var(--gb-head);font-size:8.5u;font-style:normal;font-weight:500;letter-spacing:.04em;text-transform:uppercase;line-height:1}
-.gb-dots{position:absolute;z-index:2;left:50%;bottom:20u;display:flex;gap:4u;transform:translateX(-50%)}
-.gb-dots i{width:18u;height:2u;background:rgba(255,255,255,.45)}
-.gb-dots i:first-child{background:#fff}
-.gb-shop{position:relative;flex:1 0 auto;padding:26u 40u 30u}
-.gb-h{display:flex;justify-content:space-between;align-items:center}
-.gb-h b{font-family:var(--gb-head);font-size:22u;font-weight:600;letter-spacing:-.005em}
-.gb-h span{padding:9u 16u;background:#111;color:#fff;font-size:9.5u;font-weight:600;line-height:1}
-.gb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5u;margin-top:16u}
-.gb-card{display:grid;align-content:start;justify-items:center;gap:3u;text-align:center}
-.gb-img{position:relative;display:block;width:100%;height:236u;background:#f0f0f0;overflow:hidden}
-.gb-img img{width:100%!important;height:100%!important;object-fit:cover;background:none!important}
-.gb-card>b{margin-top:8u;font-family:var(--gb-head);font-size:10.5u;font-weight:500;white-space:nowrap}
-.gb-price{font-family:var(--gb-head);font-size:9.5u;font-weight:500;color:#111}
+@font-face{font-family:"STZ Instrument";src:url(/home/fonts/stz-instrument-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"STZ Instrument";src:url(/home/fonts/stz-instrument-600.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"STZ Montserrat";src:url(/home/fonts/stz-montserrat-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"STZ Montserrat";src:url(/home/fonts/stz-montserrat-500.woff2) format("woff2");font-weight:500;font-display:swap}
+.stz{position:absolute;inset:0;background:#fff;color:#1f1f1f;overflow:hidden;font-family:"STZ Montserrat",Montserrat,var(--font-inter,Inter),sans-serif;--stz-head:"STZ Instrument","Instrument Sans",var(--font-inter,Inter),sans-serif}
+.stz-page{display:flex;flex-direction:column}
+.stz-bar{position:relative;flex:none;height:24u;display:grid;place-items:center;background:#111;color:#fff;font-size:10u;font-weight:400}
+.stz .stz-x{position:absolute;right:14u;top:7u;width:10u;height:10u;color:#fff}
+.stz-hero{position:relative;flex:none;height:455u;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;background:#2c2a27;color:#fff;overflow:hidden}
+.stz-photo{position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover;background:none!important}
+/* The slide's overlay: 29% black on Summer Madness, 16% on Summer Collection (overlay_opacity). Over the photo, under the words and the builder's ring. */
+.stz-hero::before{content:"";position:absolute;z-index:1;inset:0;background:rgba(0,0,0,.29)}
+.stz-summer::before{background:rgba(0,0,0,.16)}
+.stz-hero .wx-sel{z-index:4}
+/* The header, transparent over the first slide: white words and icons, the wordmark in the middle (logo-center). */
+.stz-nav{position:absolute;z-index:3;inset:0 0 auto;height:50u;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 21u;color:#fff}
+.stz-menu{display:flex;gap:21u;font-family:var(--stz-head);font-size:11.4u;font-weight:500;letter-spacing:-.01em}
+.stz-menu>span{position:relative}
+.stz-menu i{position:absolute;left:100%;top:-7u;margin-left:2u;padding:1.5u 4u;border-radius:999u;background:#353535;color:#fff;font-size:6.5u;font-style:normal;font-weight:500;line-height:1.1}
+.stz-logo{width:64u!important;height:28u!important;object-fit:contain;background:none!important}
+.stz-icons{display:flex;justify-content:flex-end;align-items:center;gap:16u}
+.stz .stz-icons svg{width:14u;height:14u;stroke-width:1.7}
+.stz-cart{position:relative;display:grid}
+.stz-cart i{position:absolute;right:-6u;top:-5u;display:grid;place-items:center;width:11u;height:11u;border-radius:50%;background:#131d2e;color:#fff;font-size:6.5u;font-style:normal;font-weight:500}
+.stz-pitch{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;padding:0 21u 68u;text-align:center}
+.stz-sub{font-family:var(--stz-head);font-size:8.5u;font-weight:500;letter-spacing:.04em}
+.stz-pitch b{margin-top:7u;font-family:var(--stz-head);font-size:47u;font-weight:600;line-height:1.1;letter-spacing:-.034em}
+.stz-pitch em{margin-top:20u;padding:10u 18.5u;border:1u solid #bab6b1;border-radius:1.4u;background:#847265;color:#fff;font-size:10u;font-style:normal;font-weight:500;line-height:1;letter-spacing:.02em}
+.stz-summer{justify-content:center}
+.stz-summer .stz-pitch{padding:0 21u}
+.stz-summer .stz-pitch b{font-size:42.7u}
+.stz-keys{display:flex;gap:10u}
+.stz-summer .stz-pitch em{border-color:#292929;background:#ebebeb;color:#000}
+/* products-carousel: no heading, 4 to a row, 5px apart, 66px above and below, 3:4 shots with 4px corners, centred name and price, the progress bar, View all. */
+.stz-shop{position:relative;flex:none;display:flex;flex-direction:column;align-items:center;padding:47u 11u}
+.stz-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3.5u;width:100%}
+.stz-card{display:grid;align-content:start;justify-items:center;text-align:center}
+.stz-img{position:relative;display:block;width:100%;aspect-ratio:3/4;border-radius:3u;background:#eceae8;overflow:hidden}
+.stz-img img{width:100%!important;height:100%!important;object-fit:cover;background:none!important}
+.stz-card>b{margin-top:10.7u;font-family:var(--stz-head);font-size:10.7u;font-weight:600;letter-spacing:-.01em;color:#000;white-space:nowrap}
+.stz-price{margin-top:3.5u;font-size:10.7u;color:#1f1f1f}
+.stz-progress{position:relative;width:142u;height:1.5u;margin-top:27u;background:#ebebeb}
+.stz-progress i{position:absolute;inset:0 auto 0 0;width:36%;background:#121212}
+.stz-all{margin-top:24u;padding:10u 18.5u;background:#111;color:#fff;font-size:10u;font-weight:500;line-height:1}
+/* The canvas scrolls the products into view when the builder selects them (transform only). */
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .stz-page{animation:sxk-stz-scroll var(--bm-t) var(--bm-ease) infinite both}}
+@keyframes sxk-stz-scroll{0%,20%{transform:none}30%,93%{transform:translateY(-440u)}99%,100%{transform:none}}
 .ll-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14u;margin-top:12u}
 .ll-card{display:grid;align-content:start;gap:3u}
 .ll-img{position:relative;display:block;height:200u;border-radius:12u;background:#fff;overflow:hidden}
@@ -1127,10 +1102,10 @@ export const BUILDER_CSS = u(`
 .bm-s2{opacity:0}
 [data-scene="1"] .bm-s1{opacity:0}
 [data-scene="1"] .bm-s2{opacity:1}
-.wx-name,.wx-pub-host{display:grid}
+.wx-name,.wx-pub-host,.wx-trees{display:grid}
+.wx-trees>.wx-tree{grid-area:1/1}
 .wx-name>span,.wx-pub-host>span{grid-area:1/1}
 .wx-pub-host>span{font-weight:400}
-.ope-page{position:absolute;inset:0;display:block}
 @media(prefers-reduced-motion:reduce){.bm-s1,.bm-s2{transition:none}}
 .wx-sel{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
 .wx-sel em{position:absolute;left:8u;top:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
@@ -1203,7 +1178,8 @@ export const BUILDER_CSS = u(`
 .wx-pub-go>span{grid-area:1/1;display:flex;align-items:center;justify-content:center;gap:8u}
 .wx-go-b,.wx-go-c{opacity:0}
 .wx-spin{width:16u!important;height:16u!important}
-.wx-cur{left:120u;top:326u}
+/* Landing round 13: both trees hold two header rows, so the products row (where the cursor clicks) is 34u lower than in round 12; the Publish targets are 34u further up to match. */
+.wx-cur{left:120u;top:360u}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-cur{animation:sxk-wx-cur var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-hl-a .wx-row-on,[data-mock-live] .wx-ring-a{animation:sxk-wx-a var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-hl-b .wx-row-on,[data-mock-live] .wx-ring-b{animation:sxk-wx-b var(--bm-t) var(--bm-ease) infinite both}}
@@ -1216,7 +1192,7 @@ export const BUILDER_CSS = u(`
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-pub-was{animation:sxk-wx-was var(--bm-t) linear infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-spin{animation:sxk-wx-spin var(--bm-t) linear infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-publish i{animation:sxk-wx-dot var(--bm-t) linear infinite both}}
-@keyframes sxk-wx-cur{0%{opacity:0;transform:translate(420u,140u)}5%{opacity:1}18%{transform:none}20%{transform:scale(.86)}22%,27%{transform:none}42%{transform:translate(1094u,-305u)}44%{transform:translate(1094u,-305u) scale(.86)}46%,49%{transform:translate(1094u,-305u)}58%{transform:translate(1028u,-14u)}60%{transform:translate(1028u,-14u) scale(.86)}62%,82%{opacity:1;transform:translate(1028u,-14u)}90%,100%{opacity:0;transform:translate(1028u,-14u)}}
+@keyframes sxk-wx-cur{0%{opacity:0;transform:translate(420u,140u)}5%{opacity:1}18%{transform:none}20%{transform:scale(.86)}22%,27%{transform:none}42%{transform:translate(1094u,-339u)}44%{transform:translate(1094u,-339u) scale(.86)}46%,49%{transform:translate(1094u,-339u)}58%{transform:translate(1028u,-48u)}60%{transform:translate(1028u,-48u) scale(.86)}62%,82%{opacity:1;transform:translate(1028u,-48u)}90%,100%{opacity:0;transform:translate(1028u,-48u)}}
 @keyframes sxk-wx-a{0%,19%{opacity:1}22%,94%{opacity:0}100%{opacity:1}}
 @keyframes sxk-wx-b{0%,19%{opacity:0}22%,94%{opacity:1}100%{opacity:0}}
 @keyframes sxk-wx-press{0%,43%{transform:none}44.5%{transform:scale(.94)}46%,100%{transform:none}}
@@ -1288,14 +1264,12 @@ export const BUILDER_CSS = u(`
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-sw-on,[data-mock-live] .ope-phone .dp-new{animation:sxk-op-on var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-off .ope-face{animation:sxk-op-face var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-phone .dp-after{animation:sxk-op-after var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-phone .dp{animation:sxk-op-scroll var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-saved{animation:sxk-op-saved var(--bm-t) var(--bm-ease) infinite both}}
 @media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-dirty{animation:sxk-op-dirty var(--bm-t) var(--bm-ease) infinite both}}
 @keyframes sxk-op-cur{0%{opacity:0;transform:translate(-300u,-160u)}6%{opacity:1}24%{transform:none}26%{transform:scale(.86)}28%,34%{transform:none}52%{transform:translate(348u,-535u)}54%{transform:translate(348u,-535u) scale(.86)}56%,66%{opacity:1;transform:translate(348u,-535u)}74%,100%{opacity:0;transform:translate(348u,-535u)}}
 @keyframes sxk-op-knob{0%,25%{transform:none}29%,94%{transform:translateX(16u)}100%{transform:none}}
 @keyframes sxk-op-on{0%,25%{opacity:0}30%,94%{opacity:1}100%{opacity:0}}
 @keyframes sxk-op-face{0%,25%{opacity:.5}30%,94%{opacity:1}100%{opacity:.5}}
-@keyframes sxk-op-scroll{0%,29%{transform:none}40%,90%{transform:translateY(-130u)}98%,100%{transform:none}}
 @keyframes sxk-op-after{0%,27%{transform:translateY(-104u)}36%,94%{transform:none}100%{transform:translateY(-104u)}}
 @keyframes sxk-op-saved{0%,26%{opacity:.6}28%,54%{opacity:0}57%,100%{opacity:.6}}
 @keyframes sxk-op-dirty{0%,26%{opacity:0}28%,54%{opacity:1}57%,100%{opacity:0}}
@@ -1339,37 +1313,11 @@ export const BUILDER_CSS = u(`
 .dp-form{display:flex;gap:6u}
 .dp-input{flex:1;display:flex;align-items:center;height:38u;padding:0 14u;border-radius:999u;background:rgba(255,255,255,.08);font-size:13u;font-weight:400;color:#c2b5a6}
 .dp-sub{display:grid;place-items:center;padding:0 15u;border-radius:999u;background:#f6b062;color:#1b1612;font-size:13u;font-weight:700}
-.dp-video{position:relative;display:block;width:100%;height:186u;margin-top:12u;border-radius:20u;overflow:hidden}
+/* Landing round 13 (the owner: his page "not cut off", his head sitting well): the phone no longer scrolls when the signup opens, so the photo, name and corners stay put; the video is 156u (was 186u) so the whole page, video included, stands in the phone with the signup on. */
+.dp-video{position:relative;display:block;width:100%;height:156u;margin-top:12u;border-radius:20u;overflow:hidden}
 .dp-video>em{position:absolute;left:14u;bottom:12u;color:#fff;font-size:12.5u;font-style:normal;font-weight:600;text-shadow:0 1u 4u rgba(0,0,0,.6)}
 .dp-vplay{position:absolute;left:50%;top:50%;width:46u;height:46u;margin:-23u 0 0 -23u;border-radius:50%;display:grid;place-items:center;background:#f6b062;color:#1b1612}
 .dp-vplay svg{width:16u;height:16u;margin-left:2u}
-
-/* ---------- Idris Kane's OnePage (landing round 11): the dark theme on the Hero header */
-.dp.ik{padding:0 20u 30u;background:#0b0b0c;color:#fff}
-.dp.ik::before{display:none}
-.ik .dp-corner{z-index:2;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1u rgba(255,255,255,.18);color:#fff}
-.ik-hero{display:block;flex:none;width:calc(100% + 40u);margin:0 -20u;aspect-ratio:8/9;overflow:hidden;-webkit-mask-image:linear-gradient(#000 0%,#000 46%,rgba(0,0,0,.79) 62%,rgba(0,0,0,.4) 78%,rgba(0,0,0,.07) 94%,transparent);mask-image:linear-gradient(#000 0%,#000 46%,rgba(0,0,0,.79) 62%,rgba(0,0,0,.4) 78%,rgba(0,0,0,.07) 94%,transparent)}
-.ik-hero img{width:100%!important;height:100%!important;object-fit:cover;object-position:50% 30%;background:#151517!important}
-.ik-head{z-index:1;display:flex;flex-direction:column;align-items:center;margin-top:-74u;text-align:center}
-.ik-head h3{display:flex;align-items:center;gap:7u;font-size:30u;font-weight:700;letter-spacing:-.02em;line-height:1.1}
-.ik .ik-tick{width:22u;height:22u}
-.ik-head p{max-width:290u;margin-top:7u!important;font-size:13.5u;line-height:1.5;color:#a3a1a8}
-.ik-socials{display:flex;gap:10u;margin:14u 0 6u}
-.ik-socials i{display:grid;place-items:center;width:40u;height:40u;border-radius:50%;background:rgba(242,179,91,.14);color:#f2b35b}
-.ik-socials svg{width:16u;height:16u;fill:currentColor}
-.ik-socials i:last-child svg{fill:none}
-.ik-btn{display:flex;align-items:center;width:100%;height:54u;margin-top:12u;padding:0 16u;border-radius:14u;background:#17171a;box-shadow:inset 0 0 0 1u #2a2a2e;font-size:14.5u;font-weight:500}
-.ik-btn svg{width:20u;height:20u;color:#f2b35b}
-.ik-btn b{flex:1;margin-right:20u;font-weight:500;text-align:center}
-.ik .dp-prod{margin-top:12u;border-radius:14u;background:#17171a;box-shadow:inset 0 0 0 1u #2a2a2e}
-.ik .dp-pack{width:64u;height:64u;border-radius:10u}
-.ik .dp-prod-t i{color:#a3a1a8}
-.ik .dp-prod strong{background:#f2b35b;color:#141414}
-.ik .dp-btn.dp-new{border-radius:14u;background:#17171a;box-shadow:inset 0 0 0 1u #2a2a2e}
-.ik .dp-signup b{color:#fff}
-.ik .dp-input{color:#8d8b93}
-.ik .dp-sub,.ik .dp-vplay{background:#f2b35b;color:#141414}
-.ik .dp-video{border-radius:14u}
 
 /* ---------- inside a community: The Strength Room (components/community/member) */
 .cx{background:#f8f9fa;color:#1a1a2e}
