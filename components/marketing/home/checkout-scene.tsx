@@ -13,7 +13,7 @@
  *   2. the products  what a creator sells, going round the phone on a ring:
  *                    a tee, a cap and a beanie (photographs with their grounds
  *                    cut away) and digital products drawn as objects (the
- *                    Cine Tones LUT Pack's box, an e-book, a course card, a
+ *                    Cine Tones LUT Pack's box, a course card, Daily Mobility, a
  *                    Notion template). Round 11: the ring is its own 3D
  *                    space in a layer under the phone, set back so a product
  *                    swings out beside the phone and passes behind it, never
@@ -94,8 +94,11 @@ export const CHECKOUT_HEADING = "Checkout that turns a tap into a sale"
  * a beanie (round 12: totes are off the page; this is the 705 beanie the page
  * already has, public/home/sell-map/705-beanie.webp), cut out here as
  * obj-cap.webp and obj-beanie.webp. Four digital products drawn here as
- * objects: the LUT pack's box with the section's own cover, an e-book, a
- * course card and a Notion template. No frames, no shadows, no filters.
+ * objects: the LUT pack's box with the section's own cover, a course card,
+ * Daily Mobility (round 14, in place of the Color Notes e-book: the video
+ * course the page already sells, its still cut to a round cornered tile as
+ * obj-mobility.webp from public/home/sell-map/mobility-course.webp) and a
+ * Notion template. No frames, no shadows, no filters.
  *
  * `p` is where an object starts on the ring (0 to 1 of a turn), `y` its
  * height on it and `s` its width, both in units of the phone's width (--pw).
@@ -106,12 +109,12 @@ type Spot = { p: number; y: number; s: number }
 type Thing = { id: string; kind: "physical" | "digital"; img?: { src: string; w: number; h: number }; ar: number; rz: number; d: Spot; m: Spot | null }
 /* `ar` is an object's height over its width, `rz` its lean in degrees. */
 export const FLOATS: readonly Thing[] = [
-  { id: "tee", kind: "physical", img: { src: `${IMG}/obj-tee.webp`, w: 363, h: 520 }, ar: 520 / 363, rz: 4, d: { p: 0.06, y: -0.1, s: 0.5 }, m: { p: 0.1, y: -0.06, s: 0.3 } },
-  { id: "luts", kind: "digital", ar: 0.92, rz: -6, d: { p: 0.2, y: 0.12, s: 0.42 }, m: { p: 0.3, y: 0.1, s: 0.25 } },
-  { id: "cap", kind: "physical", img: { src: `${IMG}/obj-cap.webp`, w: 360, h: 231 }, ar: 231 / 360, rz: -8, d: { p: 0.35, y: -0.14, s: 0.5 }, m: { p: 0.5, y: -0.1, s: 0.3 } },
-  { id: "course", kind: "digital", ar: 0.87, rz: 5, d: { p: 0.49, y: 0.1, s: 0.54 }, m: { p: 0.7, y: 0.08, s: 0.33 } },
+  { id: "tee", kind: "physical", img: { src: `${IMG}/obj-tee.webp`, w: 363, h: 520 }, ar: 520 / 363, rz: 4, d: { p: 0.06, y: -0.1, s: 0.5 }, m: { p: 0.1, y: -0.85, s: 0.32 } },
+  { id: "luts", kind: "digital", ar: 0.92, rz: -6, d: { p: 0.2, y: 0.12, s: 0.42 }, m: { p: 0.3, y: 0, s: 0.28 } },
+  { id: "cap", kind: "physical", img: { src: `${IMG}/obj-cap.webp`, w: 360, h: 231 }, ar: 231 / 360, rz: -8, d: { p: 0.35, y: -0.14, s: 0.5 }, m: { p: 0.5, y: -0.5, s: 0.32 } },
+  { id: "course", kind: "digital", ar: 0.87, rz: 5, d: { p: 0.49, y: 0.1, s: 0.54 }, m: { p: 0.7, y: 0.12, s: 0.34 } },
   { id: "beanie", kind: "physical", img: { src: `${IMG}/obj-beanie.webp`, w: 288, h: 338 }, ar: 338 / 288, rz: 6, d: { p: 0.63, y: -0.08, s: 0.4 }, m: null },
-  { id: "ebook", kind: "digital", ar: 4 / 3, rz: 7, d: { p: 0.77, y: 0.14, s: 0.34 }, m: { p: 0.9, y: 0.12, s: 0.21 } },
+  { id: "mobility", kind: "digital", ar: 5 / 4, rz: 7, d: { p: 0.77, y: 0.14, s: 0.36 }, m: { p: 0.9, y: -0.25, s: 0.27 } },
   { id: "notion", kind: "digital", ar: 0.84, rz: -4, d: { p: 0.91, y: -0.04, s: 0.42 }, m: null },
 ]
 /*
@@ -128,7 +131,7 @@ export const SOFT: Readonly<Record<string, { w: number; h: number }>> = {
   cap: { w: 112, h: 83 },
   course: { w: 112, h: 100 },
   beanie: { w: 112, h: 126 },
-  ebook: { w: 112, h: 139 },
+  mobility: { w: 112, h: 132 },
   notion: { w: 112, h: 94 },
 }
 /** One turn of the ring, in seconds. */
@@ -274,7 +277,7 @@ function useNear(rootRef: React.RefObject<HTMLElement | null>) {
   }, [rootRef])
 }
 
-/** A digital product as an object: the LUT pack's box, an e-book, a course card, a Notion template. */
+/** A digital product as an object: the LUT pack's box, a course card, Daily Mobility (a video course), a Notion template. */
 function DigitalThing({ id }: { id: string }) {
   if (id === "luts")
     return (
@@ -282,17 +285,12 @@ function DigitalThing({ id }: { id: string }) {
         <EbookCover />
       </span>
     )
-  if (id === "ebook")
+  if (id === "mobility")
     return (
-      <span className="cmt cmt-book">
-        <span className="cmt-book-k">E-book</span>
-        <span className="cmt-book-t">
-          Color
-          <br />
-          Notes
-        </span>
-        <span className="cmt-book-s">A field guide to grading video</span>
-        <span className="cmt-book-a">{SELLER}</span>
+      <span className="cmt cmt-mob">
+        <img src={`${IMG}/obj-mobility.webp`} alt="" width={400} height={500} loading="lazy" decoding="async" />
+        <span className="cmt-mob-t">Daily Mobility</span>
+        <span className="cmt-mob-s">Video course · 21 lessons</span>
       </span>
     )
   if (id === "course")
@@ -1410,6 +1408,19 @@ const PHONE_OUT = [RECEDE[0], 80] as const
 const SHADE_OUT = [80, 86] as const
 /* The headline fades before the cards' top edge reaches it. */
 const COPY_OUT = [86, 116] as const
+/*
+ * Round 14, phones (under 900px): the cards follow the stage with no gap, so
+ * their top edge (under its 72px of padding) comes on screen about
+ * PHONE_CARDS_IN svh into the hold and covers the black under the phone.
+ * They reach the phone's foot near 40svh and its middle near 64svh: the ring
+ * and the phone step back from 40svh, the phone is gone at 62svh, its shade
+ * just after, and the headline fades before the cards reach it.
+ */
+const PHONE_CARDS_MT = "0svh"
+const PHONE_CARDS_IN = 10
+const PHONE_RECEDE = [40, 92] as const
+const PHONE_PHONE_OUT = 62
+const PHONE_COPY_OUT = [66, 90] as const
 /* Each word's stretch of the hold: a fifth of it, each starting a little after the one before, the last done as the phone lands. */
 const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `${NEAR} .cmc-w[data-w="${i}"]{animation-range:contain ${f3(5 + i * 2.6)}svh contain ${f3(SETTLE - 18.2 + i * 2.6)}svh}`).join("\n    ")
 /*
@@ -1451,6 +1462,15 @@ const ringBox = (deg: number) => `translate3d(0,0,calc(var(--r) * -1)) rotateX(v
  * is sharp only as it comes out from behind the phone and soft for most of
  * the turn, beside the phone included.
  */
+/*
+ * Round 14: the phone's width under 900px and the ring's radius there. At
+ * 360, 390 and 430 wide this leaves about 90 to 105px each side of the phone,
+ * and a product a quarter turn round stands in that gap, its far edge a few px
+ * inside the screen.
+ */
+const PHONE_PE = "50vw,230px"
+const PHONE_R = "54vw"
+
 const SHARP_UNTIL = 12
 const SOFT_FROM = 30
 const DEPTH_FAR = 0.5
@@ -1487,12 +1507,12 @@ const THINGS_CSS = `
 .cmt-box .ebc{width:100%;height:100%;border-radius:2.5%}
 .cmt-box::before{content:"";position:absolute;inset:0;z-index:2;border-radius:2.5%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
 .cmt-box::after{content:"";position:absolute;left:100%;top:0;bottom:0;width:8.5%;background:linear-gradient(90deg,#26262b,#111113);transform-origin:0 50%;transform:skewY(-32deg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
-/* An e-book: a paper cover, set in type. */
-.cmt-book{aspect-ratio:3/4;display:flex;flex-direction:column;padding:9% 8% 8% 11%;border-radius:1.5% 4% 4% 1.5%;background:linear-gradient(90deg,#d8d1c0,#ece6d8 5%,#ece6d8);color:#161514}
-.cmt-book-k{font-size:5cqw;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#6d675a}
-.cmt-book-t{margin-top:9cqw;font-size:20cqw;font-weight:800;line-height:.9;letter-spacing:-.045em}
-.cmt-book-s{margin-top:6cqw;font-size:5.6cqw;line-height:1.3;color:#4a463d}
-.cmt-book-a{margin-top:auto;padding-top:4cqw;border-top:1px solid rgba(22,21,20,.28);font-size:5cqw;font-weight:600}
+/* Daily Mobility (round 14): the video course's own still, cut to a 4:5 tile with its corners round (obj-mobility.webp), its name on the dark mat at its foot. */
+.cmt-mob{aspect-ratio:4/5;color:#fff}
+.cmt-mob img{display:block;width:100%;height:100%;-webkit-user-drag:none}
+.cmt-mob-t,.cmt-mob-s{position:absolute;left:8%;right:8%;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cmt-mob-t{bottom:13%;font-size:9.4cqw;font-weight:600;letter-spacing:-.02em}
+.cmt-mob-s{bottom:6%;font-size:5.6cqw;color:rgba(255,255,255,.82)}
 /* A course: its first frame with Play on it, the title, how far along. */
 .cmt-course{padding:4% 4% 5%;border-radius:calc(var(--iw) * .03);background:#fff;color:#16161a}
 .cmt-course-pic{position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:calc(var(--iw) * .02);background:#0a0a0b}
@@ -1563,14 +1583,25 @@ const SCENE_CSS = `
  * phone the ring is narrower (50vw) and its products larger and higher, so
  * they float round the phone on the screen instead of off its edges, as in
  * the reference.
+ *
+ * Round 14, phones (the owner: "a giant empty black space at the top" and the
+ * products not visible): under 900px the phone no longer starts big and low.
+ * It is drawn at its settled size and place from the first frame, under a
+ * headline that is simply there, so the section arrives with the headline and
+ * the phone, not a screen of black. The phone is narrower (PHONE_PE) and the
+ * ring wider (PHONE_R), its centre at the phone's foot and leaning more
+ * (-20deg), so a product clears the phone's edge and stays on the screen and
+ * the ring's near side passes under the phone, where the screen was black;
+ * the phone's spots (FLOATS[].m) stand higher and lower along its side. The
+ * cards follow the stage with no empty hold (PHONE_CARDS_MT).
  */
 .cmc-stage{position:relative;height:100svh;overflow:hidden;
   --hd:64px;--tt:clamp(24px,4.6svh,40px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(12px,2svh,20px);
   --fs:clamp(27px,8.2vw,40px);
-  --pe:min(68vw,300px,calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
-  --big:1.24;--ps:${f3(1 / 1.24)};--pw:calc(var(--pe) * var(--big));
-  --y0:38svh;--y1:calc(var(--hd) + var(--tt) + var(--fs) * 2.1 + var(--gap));
-  --r:min(50vw,300px);--pp:calc(var(--r) * 3);--cy:52svh;--tilt:-14deg;--iw:calc(var(--pe) * 1.45)}
+  --pe:min(${PHONE_PE},calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
+  --big:1;--ps:1;--pw:calc(var(--pe) * var(--big));
+  --y0:var(--y1);--y1:calc(var(--hd) + var(--tt) + var(--fs) * 2.1 + var(--gap));
+  --r:${PHONE_R};--pp:calc(var(--r) * 3);--cy:calc(var(--y1) + var(--pe) * 2.07);--tilt:-20deg;--iw:calc(var(--pe) * 1.45)}
 .cmc-copy{position:absolute;z-index:4;left:var(--edge);right:var(--edge);top:calc(var(--hd) + var(--tt));text-align:center}
 .cmc-title{margin:0 auto;font-size:var(--fs);font-weight:300;line-height:1.04;letter-spacing:-.045em;color:#fff}
 .cmc-row{display:block;white-space:nowrap}
@@ -1633,6 +1664,17 @@ ${THINGS_CSS}
   .cmc-far{animation:cmc-far ${TURN_S}s linear infinite;animation-delay:calc(var(--p) * -${TURN_S}s);animation-play-state:paused}
   .cmc:not([data-cmc-covered]) .cmc-stage[data-commerce-live] .cmc-o{animation-play-state:running;will-change:transform}
   .cmc:not([data-cmc-covered]) .cmc-stage[data-commerce-live] :is(.cmc-face,.cmc-near,.cmc-far){animation-play-state:running}
+  /*
+   * Round 14, phones (the owner: the motion must not cost frames on a phone):
+   * round the back the ring is hidden by the phone, so the sharp to soft cross
+   * fade there is work nobody sees. Under 900px each product is its sharp
+   * object alone (dimming with depth) and its one soft copy for behind the
+   * cards: two layers and two clock loops fewer per product.
+   */
+  @media (max-width:899px){
+    .cmc-far{display:none}
+    .cmc-near{animation:none}
+  }
 
   /*
    * With scroll timelines (the compositor runs them, nothing per frame in
@@ -1644,7 +1686,12 @@ ${THINGS_CSS}
     .cmc[data-story-section] > .cmc-track.cmc-track{view-timeline:--cmc-t block}
     .cmc-stage{position:sticky;top:0}
     .cmc-track > .cmc-cards{margin-top:calc(${DWELL} - ${OVERLAP})}
-    ${NEAR} .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
+    /* Round 14: from 900px only. On a phone the phone and the headline are in place from the first frame (no black screen as the section arrives). */
+    @media (min-width:900px){
+      ${NEAR} .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain 0svh contain ${SETTLE}svh}
+      ${NEAR} .cmc-w{animation:cmc-word cubic-bezier(.2,.7,.3,1) both;animation-timeline:--cmc-t}
+      ${wordRanges()}
+    }
     /*
      * Round 10: the stage stays held behind the cards. As they come up the
      * ring steps back (a little smaller, faded to ${RECEDE_TO}) and goes soft
@@ -1662,8 +1709,21 @@ ${THINGS_CSS}
     ${NEAR} .cmc-orbit{animation:cmc-spin linear both;animation-timeline:--cmc-t;animation-range:${SPIN_RANGE}}
     ${NEAR} .cmc-face{animation:cmc-unspin linear both,cmc-depth ${TURN_S}s linear infinite;animation-timeline:--cmc-t,auto;animation-range:${SPIN_RANGE};animation-delay:0s,calc(var(--p) * -${TURN_S}s);animation-play-state:running,paused}
     ${NEAR}:not([data-cmc-covered]) .cmc-stage[data-commerce-live] .cmc-face{animation-play-state:running,running}
-    ${NEAR} .cmc-w{animation:cmc-word cubic-bezier(.2,.7,.3,1) both;animation-timeline:--cmc-t}
-    ${wordRanges()}
+    /*
+     * Round 14, phones: nothing settles, so the empty hold before the cards
+     * (black under the phone) is cut. The cards follow the stage straight on
+     * (their top comes on screen ${PHONE_CARDS_IN}svh into the hold, not 54svh) and
+     * the phone and ring step back on the phone's own ranges, timed to the
+     * cards as before: the phone gone by the time they reach its middle.
+     */
+    @media (max-width:899px){
+      .cmc-track > .cmc-cards{margin-top:${PHONE_CARDS_MT}}
+      ${NEAR} :is(.cmc-phone-wrap,.cmc-ring){animation-range:contain ${PHONE_RECEDE[0]}svh contain ${PHONE_RECEDE[1]}svh}
+      ${NEAR} :is(.cmc-sharp,.cmc-soft){animation-range:contain ${PHONE_RECEDE[0]}svh contain ${PHONE_RECEDE[1] - 8}svh}
+      ${NEAR} .cmc-rise > .cmc-phone{animation-range:contain ${PHONE_RECEDE[0]}svh contain ${PHONE_PHONE_OUT}svh}
+      ${NEAR} .cmc-shade{animation-range:contain ${PHONE_PHONE_OUT}svh contain ${PHONE_PHONE_OUT + 6}svh}
+      ${NEAR} .cmc-copy{animation-range:contain ${PHONE_COPY_OUT[0]}svh contain ${PHONE_COPY_OUT[1]}svh}
+    }
   }
 }
 
