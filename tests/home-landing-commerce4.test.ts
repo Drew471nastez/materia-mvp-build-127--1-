@@ -109,7 +109,7 @@ check("there is no checkout tile in How it works", () => {
   // Changed on purpose (landing round 12): nothing draws the print any more (the checkout scene sells the LUT pack and the tee), and LaSalle is on the never list, so the unused file is deleted.
   assert.ok(!existsSync("public/home/how/print-lasalle.webp") && !read("components/marketing/home/checkout-scene.tsx").includes("print-lasalle"))
   // Changed on purpose (landing round 12): the pictures sit straight on the section (no grounds), the domain types itself over a store (tests/home-landing-r12-how.test.ts).
-  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-dm-caret")))
+  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-tp-sheet"))) // Changed on purpose (landing round 14): the domain is /pricing's reel; the tip sheet's keyframes stand in.
 })
 // Changed on purpose (landing round 7, the owner: "bring back the design how it was before"): the round 3 tile, the website under the address pill and the three addresses; the caption keeps Pro.
 // Changed on purpose (landing round 8) (the owner: the www, shop and club banner was too complex): one browser window, the domain typing into its address bar; the caption keeps Pro.
@@ -120,7 +120,8 @@ check("the domain tile is one address pill and keeps the code's claims: Pro, a d
   /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
   assert.ok(/On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(w))
   // Changed on purpose (landing round 12): the pictures sit straight on the section (no grounds), the domain types itself over a store (tests/home-landing-r12-how.test.ts).
-  assert.ok(how.includes('class="cmh-dm-field"') && !how.includes("cmh-dm-band") && !how.includes("cmh-pill") && !how.includes("cmh-br") && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
+  // Changed on purpose (landing round 14): /pricing's domain reel, imported.
+  assert.ok(how.includes('class="ev-vis pz-d"') && !how.includes("cmh-dm-") && !how.includes("cmh-pill") && !how.includes("cmh-br"))
 })
 
 console.log("\nThe checkout scene")

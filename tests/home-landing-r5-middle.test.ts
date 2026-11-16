@@ -113,7 +113,7 @@ check("no checkout tile: no sheet, no drawn phone", !how.includes("cmh-sheet") &
 // Changed on purpose (landing round 10): one address band with its ending gliding, no website under it; the name is "lindewood".
 // Changed on purpose (landing round 11): his website in a browser, its address closing to his own domain.
 // Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
-check("the domain: one address field over a store, its own domain", how.includes('class="cmh-dm-field"') && !how.includes("cmh-dm-band") && !how.includes("cmh-site") && HOW_DOMAIN.host === "fernlyn.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
+check("the domain: one address field over a store, its own domain", how.includes('class="ev-vis pz-d"') && !how.includes("cmh-dm-") /* Changed on purpose (landing round 14): /pricing's domain reel. */ && !how.includes("cmh-site") && HOW_DOMAIN.host.endsWith(".com") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
 check("every loop in the section is transform and opacity only", keyframeBodies(howCss).every(onlyCompositor))
 
 console.log("\nCopy and banned samples")

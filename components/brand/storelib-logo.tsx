@@ -22,7 +22,16 @@ export const STORELIB_SOLID = {
   edge: 1,
   edgeTop: 0.2,
   edgeBottom: 0.05,
+  /** Landing round 14, the owner: "the white S a little smaller inside the dark square, just a little": its box at 0.9 of the picture's (113.4 x 136.8 of 200 units), centred. */
+  letter: 0.9,
 } as const
+
+/** The S's box in the solid mark's 200 unit square: the picture's box scaled by STORELIB_SOLID.letter about the centre. */
+export const STORELIB_SOLID_S = (() => {
+  const w = +(113.4 * STORELIB_SOLID.letter).toFixed(2)
+  const h = +(136.8 * STORELIB_SOLID.letter).toFixed(2)
+  return { x: +((200 - w) / 2).toFixed(2), y: +((200 - h) / 2).toFixed(2), w, h }
+})()
 
 /** The ring between a 200 unit square with corner `r` and the same square `inset` units in: two rounded rectangles, filled evenodd. */
 function roundedRing(r: number, inset: number) {
@@ -134,8 +143,8 @@ export function StorelibLogo({
         <rect width="200" height="200" rx={corner} fill="url(#storelib-solid-sheen)" />
         {/* The edge is the ring between the square and the square one hairline in (a fill, evenodd), so it stays one hairline at any size and is never a drawn outline. */}
         <path d={roundedRing(corner, (STORELIB_SOLID.edge * 200) / size)} fill="url(#storelib-solid-edge)" fillRule="evenodd" />
-        {/* The S in its own box, a fifth larger and centred, as it sits in the picture, in white (currentColor). data-keep-transform: globals.css flattens transforms inside a `.group` on touch screens, and this one places the S. */}
-        <svg x={43.3} y={31.6} width={113.4} height={136.8} viewBox="54 43 94.5 114" overflow="visible">
+        {/* The S in its own box, centred, a tenth smaller than it sits in the picture since landing round 14 (STORELIB_SOLID_S), in white (currentColor). data-keep-transform: globals.css flattens transforms inside a `.group` on touch screens, and this one places the S. */}
+        <svg x={STORELIB_SOLID_S.x} y={STORELIB_SOLID_S.y} width={STORELIB_SOLID_S.w} height={STORELIB_SOLID_S.h} viewBox="54 43 94.5 114" overflow="visible">
           <path d={STORELIB_S_PATH} transform={STORELIB_S_TRANSFORM} fill="currentColor" data-keep-transform="" />
         </svg>
       </svg>

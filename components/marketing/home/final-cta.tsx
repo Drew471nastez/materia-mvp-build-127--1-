@@ -70,6 +70,13 @@ import { DotField } from "./dot-field"
             field (it cannot know), so a signed in visitor could see it for a
             frame only if this section were on screen before the page
             hydrated; it is the last section, so in practice it never is.
+
+  Landing round 14, the owner: the dots "a little more visible, just a
+  little" (the dark tone rests at 0.28 and lights to 0.56, was 0.24 and 0.5);
+  the pointer "smoother and cleaner" (dot-field-engine.ts, FieldConfig.soft:
+  a wider light with no point at its middle and no edge, a slower glide, a
+  smaller parting that opens as a smooth hollow); and "a bit taller on
+  phones": 108px above and 100px below under 640px (was 76 and 68).
 */
 const STYLES = `
 .fcta{position:relative;isolation:isolate;background:transparent;color:#fff;padding:clamp(76px,8.4vw,128px) var(--home-edge,clamp(20px,5.15vw,84px)) clamp(68px,7.6vw,116px)}
@@ -98,6 +105,7 @@ const STYLES = `
 .fcta-error{margin:10px 0 0;font-size:14px;color:#fca5a5;text-align:center}
 .fcta-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media(max-width:639px){
+  .fcta{padding-top:108px;padding-bottom:100px}
   .fcta-actions{flex-direction:column;align-items:stretch;width:100%;max-width:360px}
   .fcta-actions .fcta-btn{width:100%}
   .fcta-form{max-width:400px;margin-top:30px}
