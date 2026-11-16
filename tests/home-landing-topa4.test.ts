@@ -69,11 +69,14 @@ const BANNED = /weeknight pasta|heavyweight|sourdough|golden hour|wheel throwing
 console.log("\n── The showcase under the hero ──")
 const all = SHOWCASE_EXAMPLES.map((e) => `${e.src} ${e.label} ${e.alt}`).join(" ")
 check("twelve pictures, four groups of a wide, a OnePage and a wide", SHOWCASE_EXAMPLES.length === 12 && SHOWCASE_EXAMPLES.every((e, i) => e.format === (i % 3 === 1 ? "portrait" : "wide")))
-check("Pinch Grip Club stays", /pinchgrip/.test(all))
-check("no yoga, surf coach, sample packs or sourdough", !/stillwater|yoga|hemi|surf|lowtide|slowrise|sourdough/i.test(all))
+/* Changed on purpose (landing round 11): the owner asked for The Strength Room community as a 4:3 card in Pinch Grip Club's place. */
+check("The Strength Room in Pinch Grip Club's place", /a-strength\.webp/.test(all) && !/pinchgrip/.test(all))
+/* Changed on purpose (landing round 11): the owner asked for loudlib, their own sample pack store, and their own Tideline merch picture (a surf label's tees); still no surf coach, yoga or sourdough. */
+check("no yoga, surf coach or sourdough", !/stillwater|yoga|hemi|surf coach|lowtide|slowrise|sourdough/i.test(all))
 /* Changed on purpose (landing round 8): the owner did not like the nail artist, the coffee subscription or the language club; Mara Lind's bookings, Luca Brandt's Grade Club and Seed & Soil take their places (tests/home-landing-r8-rails.test.ts). */
 check("Gia Romano is there, and Gia's ebook is not Weeknight Pasta", /a-gia\.webp/.test(all) && !/weeknight/i.test(all + showcaseSrc))
-check("the creators of round 4 that stay are there: Kai Moreno's prints and The Long Draft", ["kai", "draft"].every((k) => all.includes(`/home/showcase/a-${k}.webp`)))
+/* Changed on purpose (landing round 11): the owner did not like Kai Moreno and asked for loudlib in place of The Long Draft. */
+check("Kai Moreno and The Long Draft are gone, a podcast's OnePage and loudlib in their places", ["otc", "loud"].every((k) => all.includes(`/home/showcase/a-${k}.webp`)) && !/a-kai|a-draft|Kai Moreno|Long Draft/.test(all))
 check("every picture exists at its size's budget", SHOWCASE_EXAMPLES.every((e) => existsSync(join(root, "public", e.src)) && statSync(join(root, "public", e.src)).size < 120_000))
 check("the retired pictures are gone", ["stillwater", "hemi", "lowtide", "slowrise"].every((k) => !existsSync(join(root, `public/home/showcase/a-${k}.webp`))))
 check("captions are three words at most", SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3))

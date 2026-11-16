@@ -149,7 +149,7 @@ console.log("\nCommerce: the sections render on the server")
 
   const map = renderToStaticMarkup(createElement(SellEverywhereMap))
   /* Changed on purpose (landing round): the owner asked for a heading without "fans". */
-  check("map: its heading and a labelled map", map.includes("Your store never closes.") && !/\bfans?\b/i.test(map.replace(/<style[\s\S]*?<\/style>/g, "")) && /role="img" aria-label="A world map/.test(map))
+  check("map: its heading and a labelled map", map.includes("Sell to buyers worldwide.") && !/\bfans?\b/i.test(map.replace(/<style[\s\S]*?<\/style>/g, "")) && /role="img" aria-label="A world map/.test(map)) // Changed on purpose (landing round 11): a new heading.
   check("map: the dots are not in the HTML (built on the client)", !/M\d+(\.5)? \d+(\.5)?h0/.test(map))
   /* Changed on purpose (landing round): the owner asked that switching country change the money only, so the countries are ones checkout charges in their own currency (USD, GBP, JPY, CAD, EUR, AUD), each written that country's way. */
   /* Changed on purpose (landing round 4): the owner asked for the product to change with the country, so each country has its own product and price (USD, EUR, JPY, CAD, AUD). */
@@ -210,7 +210,8 @@ console.log("\nCommerce: motion and performance rules")
   // Changed on purpose (landing round 10): the cards are inside the track, starting the overlap short of the stage's foot, so the stage stays held behind them.
   check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0\}/.test(src.checkout) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(\$\{DWELL\} - \$\{OVERLAP\}\)\}/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
-  check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pw:min\(/.test(src.checkout))
+  // Changed on purpose (landing round 11): the settled phone's width is --pe, the big one a multiple of it, both from the viewport.
+  check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pe:min\(/.test(src.checkout))
   check("checkout: keyframes animate transform and opacity only", [...src.checkout.matchAll(/@keyframes [\w-]+\{([^@]*?)\}\}/g)].every((m) => !/(width|height|top|left|margin|background|box-shadow|filter)\s*:/.test(m[1])))
   check("kit: counting writes text, not React state", src.kit.includes("node.textContent = next"))
   check("no section names the reference site", Object.values(src).every((s) => !/shopify|fourthwall/i.test(s)))
@@ -243,7 +244,7 @@ console.log("\nCommerce: images")
   // Changed on purpose (landing round 8): the tee in place of the apron and the bench (the LUT pack's still is section 3's file).
   // Changed on purpose (landing round 9): the white tee and the lesson still are deleted with their cards.
   // Changed on purpose (landing round 10): the workshop picture went with his website on the domain card.
-  check("public/home/how holds the cap and print and the woodshop's avatar, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,linde-avatar.webp,print-lasalle.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  check("public/home/how holds the cap and print and the woodshop's avatar, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,linde-avatar.webp,linde-turning.webp,print-lasalle.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles) // Changed on purpose (landing round 11): the workshop photograph on his website in the domain card.
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   /* Changed on purpose (wave 17): the checkout's two tiny avatars (pc-av, cdx-av) load and decode at once, so they are never blank when the scene scrolls in on an iPhone. */
   const avatars = (all.match(/<img className="(pc|cdx)-av"[^>]*>/g) ?? []).filter((t) => !/loading=|decoding=/.test(t)).length

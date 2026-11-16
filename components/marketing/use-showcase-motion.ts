@@ -63,6 +63,9 @@ export const SHOWCASE_GESTURE = {
 /** Autoplay: a card every intervalMs, back only idleMs after the reader's last input, its own step a slow soft ease. */
 export const SHOWCASE_AUTOPLAY = { intervalMs: 4200, idleMs: 5000, stepMs: 900, rewindMs: 1300, easing: "cubic-bezier(.45,0,.2,1)" } as const
 
+/** Landing round 11: the pictures are fetched and decoded from this far ahead of the section, this many at a time. */
+export const SHOWCASE_PRELOAD = { marginPx: 1600, parallel: 3 } as const
+
 const PHONE = "(max-width: 767px)"
 
 /**
@@ -430,13 +433,19 @@ export function useShowcaseMotion() {
       else if (img.complete) shown()
       else img.addEventListener("load", shown, { once: true })
     }
+    /*
+      Landing round 11 (the owner: "as I scroll down, the images of this
+      section appear too abruptly and glitchy"): the decoding starts two
+      screens ahead (SHOWCASE_PRELOAD.marginPx), three at a time, so by the
+      time the rail is on screen its pictures are ready and each one eases in
+      (opacity and a 2.5% zoom settling, the stylesheet) rather than popping.
+    */
     const warm = () => {
       if (warmed) return
       warmed = true
-      next()
-      next()
+      for (let i = 0; i < SHOWCASE_PRELOAD.parallel; i++) next()
     }
-    const near = typeof IntersectionObserver === "function" ? new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && warm(), { rootMargin: "900px 0px" }) : null
+    const near = typeof IntersectionObserver === "function" ? new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && warm(), { rootMargin: `${SHOWCASE_PRELOAD.marginPx}px 0px` }) : null
     if (section) near?.observe(section)
 
     const seen =

@@ -39,9 +39,11 @@ console.log("\nThe headings fill as one soft wave of colour, from one number")
   check("the fallback measures nothing on a frame (no getBoundingClientRect, no getComputedStyle)", !/getBoundingClientRect|getComputedStyle|offsetTop|offsetHeight/.test(fallback))
   check("the fallback has no scroll listener and no frame: one observer marks a heading inked", fallback.length > 200 && !/addEventListener|requestAnimationFrame|scrollY|setProperty/.test(fallback) && (fallback.match(/new IntersectionObserver\(/g) ?? []).length === 1 && /node\.setAttribute\("data-story-inked", ""\)/.test(fallback))
   check("on screen or already passed, then let go", /!entry\.isIntersecting && entry\.boundingClientRect\.bottom >= 0\) continue/.test(fallback) && /observer\?\.unobserve\(node\)/.test(fallback))
-  check("the stylesheet runs the one number from 0 to 1 as a transition", /\[data-story-js\] > span \{--story-progress:0\}/.test(src) && /\[data-story-js\]\[data-story-inked\] > span \{--story-progress:1\}/.test(src) && /transition:--story-progress 1\.1s/.test(src))
+  // Changed on purpose (landing round 11): the owner wanted the fill "more smooth, buttery": the fallback's transition is 1.8s on a softer curve (it was 1.1s).
+  check("the stylesheet runs the one number from 0 to 1 as a transition", /\[data-story-js\] > span \{--story-progress:0\}/.test(src) && /\[data-story-js\]\[data-story-inked\] > span \{--story-progress:1\}/.test(src) && /transition:--story-progress \$\{INK_FALLBACK_MS\}ms/.test(src))
   check("browsers with scroll-driven animations still need no script per frame", /function inkedByCss/.test(src) && /CSS\.supports\("animation-timeline: view\(\)"\)/.test(src))
-  check("each word changes only colour, along a smoothstep, overlapping the next words", /--word-on:clamp\(0,\(var\(--story-progress,0\) \* \(var\(--word-count\) \+ 2\.4\) - var\(--word-index\)\) \/ 2\.4,1\)/.test(STORY_CSS) && /3 - 2 \* var\(--word-on\)/.test(STORY_CSS) && /color:color-mix\(in oklab,var\(--word-target\) var\(--word-mix\),var\(--story-muted\)\)/.test(STORY_CSS))
+  // Changed on purpose (landing round 11): each word takes four words of the wave to fill (it was 2.4), a softer ramp.
+  check("each word changes only colour, along a smoothstep, overlapping the next words", /--word-on:clamp\(0,\(var\(--story-progress,0\) \* \(var\(--word-count\) \+ 4\) - var\(--word-index\)\) \/ 4,1\)/.test(STORY_CSS) && /3 - 2 \* var\(--word-on\)/.test(STORY_CSS) && /color:color-mix\(in oklab,var\(--word-target\) var\(--word-mix\),var\(--story-muted\)\)/.test(STORY_CSS))
   check("the hard-edged gradient wipe per word is turned off where color-mix works", /@supports \(color:color-mix\(in oklab,red 50%,blue\)\)/.test(STORY_CSS) && /background:none;-webkit-background-clip:border-box;background-clip:border-box/.test(STORY_CSS))
   check("its selector outranks the showcase heading's own gradient rule in app/globals.css", /\.story-heading\[data-story-heading\] \[data-story-word\]\[data-story-word\]/.test(STORY_CSS))
   check("forced colours still get plain text", /forced-colors:active\)[^}]*color:CanvasText/.test(STORY_CSS))
@@ -79,7 +81,8 @@ console.log("\nIdeas, pricing, the questions and the app in the page's one width
   const pricing = read("components/marketing/pricing-section.tsx")
   // Changed on purpose (landing round 8): the heading is stated left aligned outright (no auto margins, full width, !text-left).
   // Changed on purpose (landing round 9): the home page has no Monthly and Yearly pill any more (the owner: chosen when paying), so nothing places one.
-  check("pricing: the shared box on the home page, cards edge to edge in it, the heading at the inset", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\] \[&_\[data-plan-cards\]\]:!max-w-none"/.test(pricing) && /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
+  /* Changed on purpose (pricing round 5): the cards sit on their own grey ground now, so the ground is what spans the box edge to edge. */
+  check("pricing: the shared box on the home page, cards edge to edge in it, the heading at the inset", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\] \[&_\[data-plan-ground\]\]:!max-w-none"/.test(pricing) && /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
   check("pricing: /pricing keeps its own centred column", /"max-w-\[1240px\] mx-auto px-4 sm:px-6"/.test(pricing))
   const faq = read("components/marketing/faq-section.tsx")
   // Changed on purpose (landing round 8): no grey box any more; the questions sit in the shared width, the heading at the inset.
@@ -87,12 +90,14 @@ console.log("\nIdeas, pricing, the questions and the app in the page's one width
   check("questions: in the shared width, no grey box, one centred column", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(faq) && /style=\{\{ background: "transparent" \}\}/.test(faq) && /data-faq-column="" className="!mx-auto w-full !max-w-\[880px\] !px-0"/.test(faq))
   const app = read("components/marketing/home/app-anywhere.tsx")
   // Changed on purpose (landing round 9): no two column grid any more; the heading, one wide stage and the points sit in the shared box, one under the other.
-  check("app: everything in the shared box (no 1400px column, no section gutter)", /<div className="home-wrap">/.test(app) && !/max-w-\[1400px\]/.test(app) && !/px-\[var\(--landing-gutter/.test(app))
+  // Changed on purpose (landing round 11): round 8's two columns again (the photograph and the words), in the shared box.
+  check("app: everything in the shared box (no 1400px column, no section gutter)", /<div className=\{`home-wrap \$\{s\.grid\}`\}>/.test(app) && !/max-w-\[1400px\]/.test(app) && !/px-\[var\(--landing-gutter/.test(app))
   // Changed on purpose (landing round 9): one column at every width; the heading's inset is in the module (.head).
-  check("app: the heading at the inset", /className=\{s\.head\}/.test(app) && /\.head \{\s*padding-left: var\(--home-head-inset, 14px\);/.test(read("components/marketing/home/app-anywhere.module.css")))
+  // Changed on purpose (landing round 11): the words' column carries the inset on a phone, where it sits over the photograph's edge.
+  check("app: the heading at the inset", /className=\{s\.copy\}/.test(app) && /\.copy \{[^}]*padding-left: var\(--home-head-inset, 0px\);/.test(read("components/marketing/home/app-anywhere.module.css")))
   // Changed on purpose (landing round 9): the photograph is gone (a drawn stage takes its place); its pictures are two 96px thumbnails at their drawn size.
-  /* Changed on purpose (wave 17): the stage's 96px pictures load with the section and decode as drawn (no lazy, no async): on an iPhone flick the phone came in without them. */
-  check("app: no large photo; the stage's pictures are small and sized", !/storelib-app-/.test(app.replace(/\/\*[\s\S]*?\*\//g, "")) && /width=\{96\} height=\{96\} className/.test(app) && !/loading="lazy"|decoding="async"/.test(app))
+  // Changed on purpose (landing round 11): the owner: "how it was before, the image and things": his photograph is back, sized, lazy and async.
+  check("app: the owner's photograph, sized, lazy and async", /src="\/home\/app\/storelib-app-720\.webp"/.test(app) && /width=\{1280\}\s*height=\{960\}/.test(app) && /loading="lazy"\s*decoding="async"/.test(app))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

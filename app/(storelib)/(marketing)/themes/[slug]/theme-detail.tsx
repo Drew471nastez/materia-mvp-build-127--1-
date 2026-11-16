@@ -99,7 +99,7 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
             )}
           </div>
         </div>
-        {listing.tier === "pro" ? <p className="mt-3 text-[14px] text-[#6b7280]">Included with the <Link href="/pricing" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2">Pro plan</Link>.</p> : null}
+        {listing.tier === "pro" ? <p className="mt-3 text-[14px] text-[#6b7280]">Included with the <Link href="/pricing" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2">Grow and Pro plans</Link>.</p> : null}
 
         {/* ── Live preview ─────────────────────────────────────── */}
         <section aria-label="Preview" className="mt-8">

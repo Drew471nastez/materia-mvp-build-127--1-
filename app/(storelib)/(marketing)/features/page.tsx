@@ -131,7 +131,7 @@ export default async function FeaturesPage() {
           <div className="grid gap-10 lg:grid-cols-[1fr_1fr]">
             <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <table className="w-full border-collapse text-left">
-                <caption className="sr-only">Storelib Free and Pro</caption>
+                <caption className="sr-only">Storelib Free and Grow</caption>
                 <thead>
                   <tr className="border-b border-[#eef0f2] bg-[#f8f9fa] text-[13px]">
                     <th scope="col" className="px-4 py-3 font-medium text-[#6b7280]"><span className="sr-only">Plan detail</span></th>

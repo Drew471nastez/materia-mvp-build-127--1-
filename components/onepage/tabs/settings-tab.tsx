@@ -492,7 +492,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
           description={hasPaidPlan ? tt("A check mark beside your name") : tt("A check mark beside your name. Saving it needs a paid plan")}
           checked={enabled}
           onChange={(on) => updateSettings({ verified_badge_enabled: on, ...(on ? { verified_badge_type: type } : {}) } as never)}
-          extra={<ProMark title={hasPaidPlan ? tt("Included in your plan") : "Pro"} />}
+          extra={<ProMark title={hasPaidPlan ? tt("Included in your plan") : "Grow"} />}
         />
         {enabled ? (
           <div className="space-y-1.5">
@@ -525,7 +525,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     )
   }
 
-  // Internal "growth" is sold as Pro; internal "pro" is sold as Scale.
+  // Internal "growth" is sold as Grow; internal "pro" is sold as Pro.
   // Each plan is described by its fee, from the same table that charges it.
   const currentPlanKey: PlanId = userPlan === "growth" || userPlan === "pro" ? userPlan : "free"
   const proOffer = offeredPlan(PRO_CHECKOUT_PLAN_ID)
@@ -576,7 +576,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         )}
       </div>
 
-      {/* The plans: only for Free. Moving between Pro and Scale is done on the upgrade page. */}
+      {/* The plans: only for Free. Moving between Grow and Pro is done on the upgrade page. */}
       {!planLoading && !hasPaidPlan ? (
         <div data-settings-plans="">
           <PlanCards

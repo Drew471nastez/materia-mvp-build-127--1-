@@ -71,7 +71,7 @@ console.log("\n── The page ──")
   check("the hero and showcase are not held, and Make the work sits on a white sheet under them", /<ScrollRevealBackdrop>\s*<Hero \/>\s*<BuildShowcase \/>\s*<\/ScrollRevealBackdrop>\s*<ScrollRevealPanel tone="white">\s*<LazyEverythingInOnePlace \/>/.test(page))
   check("the later grounds are sheets over plain blocks, nothing held", /<ScrollRevealBackdrop>\s*<LazyCheckoutScene \/>/.test(page) && /<ScrollRevealPanel tone="white">\s*<LazyAudienceOwnership \/>/.test(page) && /<ScrollRevealPanel tone="purple" arrive="rise">/.test(page) && !/\bhold\b/.test(page))
   /* Changed on purpose (landing round 7): the owner asked for the purple's dots more subtle and clean, so they are a little sparser there (gap 22). */
-  check("a dot grid over the top of the purple, limited to about a screen", /<ScrollRevealPanel tone="purple" arrive="rise">\s*<DotField tone="purple" fade="bottom"(?: gap=\{\d+\})? style=\{\{ height: "min\(100%, 1100px\)" \}\} \/>/.test(page))
+  check("a dot grid over the top of the purple, limited to about a screen and a half", /<ScrollRevealPanel tone="purple" arrive="rise">\s*<DotField tone="purple" fade="bottom"(?: gap=\{\d+\})? style=\{\{ height: "min\(100%, 1600px\)" \}\} \/>/.test(page)) // Changed on purpose (landing round 11): the owner wants the purple's dots "more visible", so the field reaches further down the sheet before it fades.
   // Changed on purpose (landing round 9): the owner moved the app up onto a white sheet; the closing call is alone above the footer, after the questions.
   check("the close is dark (no purple): the closing call alone", /<\/LazySection>\s*<\/ScrollRevealPanel>\s*<ScrollRevealBackdrop>\s*<FinalCta \/>\s*<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page) && (page.match(/<ScrollRevealPanel tone="purple"/g) || []).length === 1)
   check("the measured lazy heights are still written in", /LAZY_SECTION_HEIGHTS_CSS/.test(page))
@@ -100,7 +100,8 @@ console.log("\n── Run your business from anywhere ──")
   // Changed on purpose (landing round 9): the owner wants the section white, earlier in the page; it draws its own white ground by its own class, with one black stage in it.
   check("white by its own class (no purple ground), wherever the page puts it", !/#7c3aed|purple/i.test(src) && !/\$\{m\.root\} bg-white/.test(src) && /className=\{`\$\{m\.root\} \$\{s\.section\}/.test(src) && /\.section \{\s*background: #fff;\s*color: #18181b;/.test(css))
   // Changed on purpose (landing round 9): on white the heading is in its light form, the hairlines are dark, and the picture is a black stage with thin rings.
-  check("the heading in its light form, faint dark hairlines, a black stage with thin rings", /accent=\{\["anywhere"\]\} \/>/.test(src) && /border-bottom: 1px solid rgba\(24, 24, 27, 0\.09\)/.test(css) && /\.card \{[^}]*background: #09090b/.test(css) && /border: 1px solid rgba\(255, 255, 255, 0\.085\)/.test(css))
+  // Changed on purpose (landing round 11): the owner's photograph again (round 8's section), on the white; no black stage.
+  check("the heading in its light form, faint dark hairlines, the owner's photograph", /accent=\{\["anywhere"\]\} \/>/.test(src) && /border-bottom: 1px solid rgba\(24, 24, 27, 0\.09\)/.test(css) && /storelib-app-720\.webp/.test(src) && !/\.card \{/.test(css))
 }
 
 console.log("\n── The closing call ──")

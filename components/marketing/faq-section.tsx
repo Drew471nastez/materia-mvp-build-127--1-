@@ -22,7 +22,7 @@ const FAQS = [
   },
   {
     q: "Can I use my own domain?",
-    a: "Yes, on Pro ($29 a month) and Scale ($99 a month). Your store lives at yourname.com.",
+    a: "Yes, on Grow ($29 a month) and Pro ($99 a month). Your store lives at yourname.com.",
   },
   {
     q: "How fast do I get paid?",
@@ -140,7 +140,8 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
         <div data-faq-column="" className="!mx-auto w-full !max-w-[880px] !px-0">
           <AnimateOnScroll variant="fade-up">
             <div className="story-section-heading !mx-auto !mb-9 w-full !text-center sm:!mb-12">
-              <StoryHeading text="Frequently asked questions" accent={["questions"]} />
+              {/* Landing round 11, the owner: "the questions should not be purple". No accent word: the whole heading inks to the dark text colour. */}
+              <StoryHeading text="Frequently asked questions" />
             </div>
             <div className="faq-list faq-rows">{items}</div>
             <p className="faq-more">

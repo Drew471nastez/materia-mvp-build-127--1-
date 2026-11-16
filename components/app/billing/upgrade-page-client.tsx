@@ -297,6 +297,7 @@ export function UpgradePageClient({
         <PlanCards
           actions={{ free: actionFor("free"), growth: actionFor("growth"), pro: actionFor("pro") }}
           lead={currentPlanId === "free" ? "growth" : undefined}
+          contactSales
         />
 
         {/* The plans side by side, row by row, and the questions people ask before choosing. */}

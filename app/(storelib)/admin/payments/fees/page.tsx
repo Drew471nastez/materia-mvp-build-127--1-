@@ -86,16 +86,16 @@ export default function FeesPage() {
             <p>{(state.active.freeMicroRate * 100).toFixed(2)}%</p>
           </div>
           <div>
-            <p className="text-[#6b6b76]">Pro standard</p>
+            <p className="text-[#6b6b76]">Grow standard</p>
             <p>{(state.active.paidStandardRate * 100).toFixed(2)}% + fixed</p>
-            <p className="mt-2 text-[#6b6b76]">Pro micro</p>
+            <p className="mt-2 text-[#6b6b76]">Grow micro</p>
             <p>{(state.active.paidMicroRate * 100).toFixed(2)}%</p>
           </div>
           <div>
             {/* Scale (plan id pro). A version stored before Scale had its own rate has none: the code's rate applies. */}
-            <p className="text-[#6b6b76]">Scale standard</p>
+            <p className="text-[#6b6b76]">Pro standard</p>
             <p>{((state.active.scaleStandardRate ?? SCALE_STANDARD_RATE) * 100).toFixed(2)}% + fixed{state.active.scaleStandardRate == null ? " (code default)" : ""}</p>
-            <p className="mt-2 text-[#6b6b76]">Scale micro</p>
+            <p className="mt-2 text-[#6b6b76]">Pro micro</p>
             <p>{((state.active.scaleMicroRate ?? SCALE_MICRO_RATE) * 100).toFixed(2)}%</p>
           </div>
         </div>

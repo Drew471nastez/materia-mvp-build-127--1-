@@ -91,7 +91,8 @@ async function main() {
   check("search reads the name and the author, any case", filterListings(many, { q: "KAI" }).map((l) => l.slug).join() === "d" && filterListings(many, { q: "pin" }).map((l) => l.slug).join() === "p")
   check("a category narrows", filterListings(many, { category: "music" }).map((l) => l.slug).join() === "p")
   check("sort by name and by price (free, then Pro, then paid)", sortListings(many, "name").map((l) => l.slug).join() === "d,f,p" && sortListings(many, "price").map((l) => l.slug).join() === "f,p,d")
-  check("the badge says Free, the price, or Pro", tierLabel(many[0]) === "Free" && tierLabel(many[2]) === "$49" && tierLabel(many[1]) === "Pro")
+  /* Changed on purpose (pricing round 5): themes included from the $29 plan up say Grow. */
+  check("the badge says Free, the price, or Grow", tierLabel(many[0]) === "Free" && tierLabel(many[2]) === "$49" && tierLabel(many[1]) === "Grow")
   check("a slug is lower case words and dashes", slugify("Studio Noir: Édition 2") === "studio-noir-edition-2")
   check("the live preview draws built-in themes and Storelib packages, not Shopify ones", hasLivePreview(builtin[0]) && hasLivePreview(listing({})) && !hasLivePreview(listing({ packageKind: "shopify" })))
 

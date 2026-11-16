@@ -59,12 +59,12 @@ export const STATIC_POST_BODIES: Record<string, StaticPostBody> = {
       "When you're evaluating platforms to sell your digital products, one number matters more than almost anything else: the transaction fee. It might seem like a small detail, but over time, those percentages add up to a massive difference in your earnings.",
       "## The Math Behind Transaction Fees",
       "Let's say you sell a digital product for $50. Here's what you'd keep on different platforms:",
-      "**Platform charging 15%:** You keep $42.50 per sale\n**Platform charging 10%:** You keep $45.00 per sale\n**Storelib (5% + $0.25 on Free, 3% + $0.25 on Pro):** You keep $47.25 to $48.25 per sale",
+      "**Platform charging 15%:** You keep $42.50 per sale\n**Platform charging 10%:** You keep $45.00 per sale\n**Storelib (5% + $0.25 on Free, 3% + $0.25 on Grow):** You keep $47.25 to $48.25 per sale",
       "Now multiply that by hundreds or thousands of sales. On a modest 500 sales per year at $50 each ($25,000 in revenue), the difference is **about $2,400 to $2,900 a year** compared to the highest-fee platform.",
       "## Why Most Platforms Charge So Much",
       "Many platforms justify high fees by bundling in features you may not need, or simply because creators don't comparison-shop. Storelib takes a different approach: we believe creators should keep the vast majority of their earnings.",
       "## The Storelib Fee Structure",
-      "**Free Plan:** 5% + $0.25 per transaction, with no monthly fee.\n**Pro Plan ($29/month):** 3% + $0.25 per transaction, plus your own domain, the verified badge and no Storelib branding.\nThe $0.25 applies to orders of $4.00 or more.",
+      "**Free Plan:** 5% + $0.25 per transaction, with no monthly fee.\n**Grow Plan ($29/month):** 3% + $0.25 per transaction, plus your own domain, the verified badge and no Storelib branding.\nThe $0.25 applies to orders of $4.00 or more.",
       "## The Bottom Line",
       "Every dollar you save on fees is a dollar you can reinvest in your business. Over the lifetime of your creator career, choosing a low-fee platform like Storelib can mean tens of thousands of dollars in additional earnings."
     ]

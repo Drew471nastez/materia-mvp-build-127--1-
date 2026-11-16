@@ -59,7 +59,8 @@ console.log("\nThe small pictures load with their section and are drawn with it"
   const imgs = html.match(/<img[^>]*>/g) ?? []
   check("the apps' marks: sized, not lazy, not async", imgs.length > 10 && imgs.every((t) => /width="90" height="90"/.test(t) && !/loading="lazy"/.test(t) && !/decoding="async"/.test(t)))
   const app = code(`${DIR}/app-anywhere.tsx`)
-  check("the app's thumbnails: not lazy, not async", (app.match(/<img [^>]*width=\{96\} height=\{96\}[^>]*>/g) ?? []).length === 2 && !/loading="lazy"|decoding="async"/.test(app))
+  /* Changed on purpose (wave 17, after landing round 11): the app section is the owner's photograph again (round 11's choice, lazy and async, faded in once decoded), so there are no thumbnails to load at once. */
+  check("the app section: round 11's one photograph, sized, no thumbnails left to wait for", (app.match(/<img [^>]*width=\{96\} height=\{96\}[^>]*>/g) ?? []).length === 0 && /storelib-app-720\.webp/.test(app))
   const audience = code(`${DIR}/audience-ownership.tsx`)
   check("the faces: not async", /width=\{44\} height=\{44\} className=\{s\.face\}/.test(audience) && !/decoding="async"/.test(audience))
 }

@@ -4,6 +4,7 @@ import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/
 import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
+import { SmoothWheel } from "@/components/marketing/smooth-wheel"
 import { LazySection } from "@/components/marketing/home/lazy-section"
 import {
   LazyEverythingInOnePlace,
@@ -78,6 +79,8 @@ export default function StorelibLanding() {
 
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
+      {/* A desktop mouse wheel glides, as the Materia theme's smooth scroll does (components/marketing/smooth-wheel.tsx). */}
+      <SmoothWheel />
       <LandingStory>
         {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). The page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). */}
         <ScrollRevealBackdrop>
@@ -126,7 +129,7 @@ export default function StorelibLanding() {
         {/* PURPLE SHEET: 13 AnalyticsShowcase alone (landing round 9: the map left it for the white sheet under it). Landing round 8: it rises over the white above as the page scrolls (transform only, nothing held). */}
         <ScrollRevealPanel tone="purple" arrive="rise">
           {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
-          <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1100px)" }} />
+          <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1600px)" }} />
           <LazyAnalyticsShowcase />
         </ScrollRevealPanel>
 

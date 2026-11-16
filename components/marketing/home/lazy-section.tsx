@@ -125,6 +125,114 @@ const IDLE_ROOM_MS = 12
  */
 const CALM_MS = 260
 
+/*
+ * Landing round 11 (the owner, on an iPhone: headings and pictures jump and
+ * stutter while scrolling up and down). SAFARI HAS NO SCROLL ANCHORING
+ * (overflow-anchor is not in WebKit), so a box above the screen that grows or
+ * shrinks moves everything on screen by as much, in one frame. Chromium
+ * anchors the scroll and hid it. A skipped box shows the height it was given
+ * (the placeholder, measured in Chromium) until it is first drawn, and WebKit
+ * draws most sections a few pixels off that (measured at 390: the checkout
+ * 12px, the map 13, pricing 47, the questions 29). So:
+ *
+ *   every box's real height is learned once, as early as it can be (in idle
+ *   slots, usually long before the reader gets near: keepHeight, settleNext),
+ *   and kept exactly as its contain-intrinsic-size, unrounded, so drawing it
+ *   and skipping it again never changes it (watchDraw keeps the height it was
+ *   drawn at as it leaves, read from the observer's entry, no layout);
+ *
+ *   where the browser does not anchor the scroll, a box wholly above the
+ *   screen that changes height anyway (one never drawn: the page put back
+ *   halfway down on a reload, or flung past) is held (holdAbove): in the
+ *   frame it changed, before it is painted, the page is scrolled by the same
+ *   amount, so nothing on screen moves. Never during a fling (a script scroll
+ *   on iOS stops a fling dead): then the box takes the difference in its own
+ *   top margin, above the screen, so nothing below it moves either, and the
+ *   margin is traded for a scroll once the page stands still.
+ */
+/** The browser keeps what is on screen in place when something above it changes size (Chromium, Firefox; not WebKit). */
+const anchored = () => typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("overflow-anchor", "auto")
+const calm = () => performance.now() - lastScroll >= CALM_MS
+/** Boxes whose height on the page is their real one: drawn at least once, or measured and kept. */
+const known = new WeakSet<Element>()
+
+/** The box keeps `height` while it is skipped, exactly. */
+function keepHeight(box: HTMLElement, height: number) {
+  if (!(height > 0)) return
+  box.style.containIntrinsicSize = `auto ${height}px`
+  known.add(box)
+}
+
+/*
+ * The scroll moved by a box's change. WebKit keeps the page's scroll in whole
+ * pixels and drops the fraction of a scrollBy (a section 0.56px shorter moved
+ * the screen by 0.56px, and a few of those added up to 1.5px), so the
+ * fractions are carried until they make a pixel.
+ */
+let carried = 0
+function scrollWith(d: number) {
+  carried += d
+  const whole = Math.round(carried)
+  if (!whole) return
+  carried -= whole
+  window.scrollBy(0, whole)
+}
+
+const heights = new WeakMap<Element, number>()
+/** How much of a box's change in height its top margin is holding, until a calm moment. */
+const owed = new Map<HTMLElement, number>()
+let holdWatch: ResizeObserver | null = null
+/**
+ * Watches a box's height where the browser does not anchor the scroll. A
+ * ResizeObserver reports after layout and before paint, so what it changes
+ * lands in the same frame as the change it answers.
+ */
+function holdAbove(el: HTMLElement) {
+  if (typeof ResizeObserver !== "function" || anchored()) return () => {}
+  hookScroll()
+  holdWatch ??= new ResizeObserver((entries) => {
+    for (const e of entries) {
+      const box = e.target as HTMLElement
+      const h = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height
+      const was = heights.get(box)
+      heights.set(box, h)
+      if (was === undefined || Math.abs(h - was) < 0.25) continue
+      /* Only a box that was wholly above the screen: one on screen changed in front of the reader (a question opened), and the page stays where it is. */
+      if (box.getBoundingClientRect().top + was > 0) continue
+      if (calm()) scrollWith(h - was)
+      else {
+        const m = (owed.get(box) ?? 0) + h - was
+        owed.set(box, m)
+        box.style.marginTop = `${-m}px`
+        idle(settleOwed)
+      }
+    }
+  })
+  holdWatch.observe(el)
+  return () => {
+    holdWatch?.unobserve(el)
+    heights.delete(el)
+    owed.delete(el)
+  }
+}
+
+/** Once the page stands still, each held margin goes and the scroll moves by as much (nothing on screen moves), while that box's top is off screen. */
+function settleOwed() {
+  if (!calm()) return idle(settleOwed)
+  let left = false
+  for (const [box, m] of owed) {
+    const top = box.getBoundingClientRect().top
+    if (top > -1 && top < window.innerHeight + 1) {
+      left = true
+      continue
+    }
+    owed.delete(box)
+    box.style.marginTop = ""
+    if (top < 0) scrollWith(m)
+  }
+  if (left) window.setTimeout(() => idle(settleOwed), 500)
+}
+
 /**
  * A stylesheet a section draws as `<style href precedence>`. Listed beside
  * the section (lazySection's `styles`), it is put in <head> while the browser
@@ -385,6 +493,18 @@ function layOutInSlices(box: HTMLElement, done: () => void): () => void {
  * auto gives it (layout, paint and style), so nothing it draws looks
  * different; further away it is auto again and costs a frame nothing.
  */
+/*
+ * Landing round 11 (the owner, on an iPhone: images "appear too abruptly"):
+ * a box being drawn ahead also asks for its pictures then. A picture marked
+ * loading="lazy" was left to the browser's own distance, which in Safari is
+ * a fraction of a screen, so it arrived (and faded in, landing-story.tsx
+ * IMG_FADE_MS) with the section already on screen. From LAZY_DRAW_AHEAD it
+ * is decoded before the reader gets there.
+ */
+function eagerPictures(box: HTMLElement) {
+  for (const img of box.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')) img.loading = "eager"
+}
+
 let drawWatch: IntersectionObserver | null = null
 function watchDraw(el: HTMLElement) {
   if (typeof IntersectionObserver !== "function") return () => {}
@@ -393,15 +513,50 @@ function watchDraw(el: HTMLElement) {
       for (const e of entries) {
         const box = e.target as HTMLElement
         if (!box.style.contentVisibility) continue
-        if (e.isIntersecting) slicing.get(box)?.()
+        if (e.isIntersecting) {
+          slicing.get(box)?.()
+          eagerPictures(box)
+        }
+        /* Landing round 11: leaving, it keeps exactly the height it was drawn at (the entry has it, no layout read), so skipping it changes nothing. */
+        if (!e.isIntersecting && box.style.contentVisibility === "visible" && e.boundingClientRect.height > 0) box.style.containIntrinsicSize = `auto ${e.boundingClientRect.height}px`
         box.style.contentVisibility = e.isIntersecting ? "visible" : "auto"
         box.style.contain = e.isIntersecting ? "layout paint style" : ""
+        if (e.isIntersecting) known.add(box)
       }
     },
     { rootMargin: LAZY_DRAW_AHEAD },
   )
   drawWatch.observe(el)
   return () => drawWatch?.unobserve(el)
+}
+
+/*
+ * Landing round 11: a server-drawn box (LazySection: possibilities, pricing,
+ * the questions) is laid out once in a calm idle slot, nearest first, and its
+ * real height kept (keepHeight), so it is right long before the reader gets
+ * there. It was left at its guessed height until first drawn: pricing is
+ * 47px shorter in WebKit than the guess.
+ */
+const unsettled = new Set<HTMLElement>()
+let settling = false
+function settleNext(deadline?: IdleDeadline) {
+  for (const b of unsettled) if (known.has(b) || !b.isConnected) unsettled.delete(b)
+  if (!unsettled.size) return void (settling = false)
+  if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(settleNext)
+  const box = [...unsettled].sort((a, b) => farness(a) - farness(b))[0]
+  const was = box.style.contentVisibility
+  box.style.contentVisibility = "visible"
+  const height = box.getBoundingClientRect().height
+  box.style.contentVisibility = was
+  keepHeight(box, height)
+  unsettled.delete(box)
+  idle(settleNext)
+}
+function settleLater(box: HTMLElement) {
+  unsettled.add(box)
+  if (settling) return
+  settling = true
+  void afterLoad().then(() => idle(settleNext))
 }
 
 /**
@@ -643,6 +798,12 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
       }
     }, [Section])
 
+    /* Landing round 11: from its first frame, empty or mounted (React keeps the same box), held while it is above the screen (holdAbove). */
+    useEffect(() => {
+      const el = ref.current
+      return el ? holdAbove(el) : undefined
+    }, [])
+
     /*
      * Mounted: the same box stays around the section, now letting the
      * browser skip it while it is off screen (content-visibility: auto, as
@@ -663,12 +824,14 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
       if (!Section || !el || options.contain === false) return
       let live = true
       const unwatch = watchDraw(el)
-      const stopSlicing = layOutInSlices(el, () => {
+      /* Landing round 11: kept exactly (it was rounded, a fraction of a pixel off when drawn). */
+      const keep = () => {
         const inner = live ? el.firstElementChild : null
         if (!inner) return
         const height = inner.getBoundingClientRect().height
-        if (height > 0) el.style.containIntrinsicSize = `auto ${Math.round(height)}px`
-      })
+        keepHeight(el, height)
+      }
+      const stopSlicing = layOutInSlices(el, keep)
       return () => {
         live = false
         unwatch()
@@ -716,7 +879,17 @@ export function LazySection({
   useEffect(() => {
     const el = ref.current
     if (sticky || !el) return
-    return watchDraw(el)
+    /* Landing round 11: and laid out once in a calm moment, its real height kept (settleNext). */
+    settleLater(el)
+    const unwatch = watchDistance(el)
+    const undraw = watchDraw(el)
+    const unhold = holdAbove(el)
+    return () => {
+      unsettled.delete(el)
+      unwatch()
+      undraw()
+      unhold()
+    }
   }, [sticky])
   const style: CSSProperties | undefined = sticky ? undefined : { contentVisibility: "auto", containIntrinsicSize: `auto ${minHeight}` }
   return (

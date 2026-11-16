@@ -1,633 +1,91 @@
 /*
-  Section 15, the app (landing round 9: white, with one black stage). The
-  section draws its own ground, so it reads the same on any sheet of the
-  page. Only transform and opacity move; every loop carries platform's
-  .loop, which pauses it off screen and in a background tab and removes it
-  under reduced motion.
+  Section 15, the app (landing round 11: round 8's photograph and points,
+  on the white sheet). The section draws its own white ground, so it reads
+  the same on any sheet. Only transform and opacity move: the reveal (platform
+  .reveal) and the photograph's fade once it is decoded.
 */
 
 .section {
   background: #fff;
   color: #18181b;
 }
-.head {
-  padding-left: var(--home-head-inset, 14px);
-  margin-bottom: clamp(28px, 3.4vw, 52px);
+
+/* The photograph first and large on a computer, the words beside it; on a phone the words lead and the photograph follows. */
+.grid {
+  display: grid;
+  align-items: center;
+  gap: 40px;
 }
+.copy {
+  min-width: 0;
+  order: -1;
+  padding-left: var(--home-head-inset, 0px);
+}
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+    gap: clamp(48px, 5.5vw, 96px);
+  }
+  .copy {
+    order: 0;
+    padding-left: 0;
+  }
+}
+
 .lede {
   font-size: clamp(16px, 1.4vw, 19px);
   line-height: 1.6;
   color: #6b6874;
 }
 
-/*
-  THE STAGE. Everything in it is sized from its height (--h): the phone,
-  the rings' radii, and how far out the chips sit. The card itself never
-  fades or moves, so a fast scroll never meets an empty box.
-*/
-.card {
-  /* Landing round 10, the owner (a MacBook Air at 100%, about 1440x800): the stage was 547px there, 68% of the screen. It is held to 62% of the screen's height too (496px at 800, 620 as before at 1920x1080). */
-  --h: clamp(440px, min(38vw, 62svh), 620px);
-  --ph: calc(var(--h) - 76px);
-  --pw: calc(var(--ph) * 0.487);
-  /* Where the chips ride: the second and the fourth ring. */
-  --near: calc(var(--h) * 0.56);
-  --far: calc(var(--h) * 0.82);
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  height: var(--h);
-  border-radius: clamp(22px, 2.4vw, 34px);
-  background: #09090b radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.02) 34%, rgba(255, 255, 255, 0) 62%);
-  color: #fafafa;
-  contain: layout paint;
-}
-@media (max-width: 899px) {
-  .card {
-    --h: 580px;
-    --ph: calc(var(--h) - 196px);
-    --near: calc(var(--h) * 0.405);
-    --far: calc(var(--h) * 0.405);
-  }
-}
-
-.rings,
-.orbits,
-.phoneWrap {
-  position: absolute;
-  inset: 0;
-}
-
-/* Thin rings round the phone's centre; the card cuts the outer ones. */
-.ring,
-.arc,
-.pulse {
-  --d: calc(var(--h) * 0.76);
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: var(--d);
-  height: var(--d);
-  margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.085);
-  pointer-events: none;
-}
-.ring[data-ring="1"],
-.arc[data-ring="1"] {
-  --d: calc(var(--h) * 1.12);
-}
-.ring[data-ring="2"] {
-  --d: calc(var(--h) * 1.38);
-  border-color: rgba(255, 255, 255, 0.065);
-}
-.ring[data-ring="3"],
-.arc[data-ring="3"] {
-  --d: calc(var(--h) * 1.64);
-  border-color: rgba(255, 255, 255, 0.065);
-}
-.ring[data-ring="4"] {
-  --d: calc(var(--h) * 2.02);
-  border-color: rgba(255, 255, 255, 0.045);
-}
-@media (max-width: 899px) {
-  .ring[data-ring="0"] {
-    --d: calc(var(--h) * 0.6);
-  }
-  .ring[data-ring="1"],
-  .arc[data-ring="1"] {
-    --d: calc(var(--h) * 0.81);
-  }
-  .ring[data-ring="2"] {
-    --d: calc(var(--h) * 1.02);
-  }
-  .ring[data-ring="3"],
-  .arc[data-ring="3"] {
-    --d: calc(var(--h) * 1.24);
-  }
-  .ring[data-ring="4"] {
-    --d: calc(var(--h) * 1.5);
-  }
-}
-/* A brighter quarter of a ring, going round slowly. */
-.arc {
-  border-color: transparent;
-  border-top-color: rgba(255, 255, 255, 0.42);
-  animation: turn 26s linear infinite;
-}
-.arc[data-ring="3"] {
-  border-top-color: rgba(255, 255, 255, 0.26);
-  animation-duration: 38s;
-  animation-direction: reverse;
-}
-@keyframes turn {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-/* The ring of light a notice sends out: it is the widest ring, grown from the phone. */
-.pulse {
-  --d: calc(var(--h) * 1.7);
-  border: 1.5px solid rgba(255, 255, 255, 0.5);
-  opacity: 0;
-  transform: scale(0.3);
-  animation: pulse 15s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
-}
-@keyframes pulse {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  1.5% {
-    opacity: 0.7;
-  }
-  14% {
-    opacity: 0;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1);
-  }
-}
-
-/*
-  THE CHIPS. An arm reaches from the centre out to a ring and sways a few
-  degrees; the chip at its end turns back by the same angle, so it stays
-  level while it drifts along the ring.
-*/
-.arm {
-  --a: 0deg;
-  --sw: 6deg;
-  --r: var(--near);
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: var(--r);
-  height: 0;
-  transform-origin: 0 0;
-  transform: rotate(var(--a));
-  animation: sway 11s ease-in-out infinite alternate;
-}
-.turn {
-  position: absolute;
-  left: 100%;
-  top: 0;
-  width: 0;
-  height: 0;
-  transform: rotate(calc(-1 * var(--a)));
-  animation: unsway 11s ease-in-out infinite alternate;
-}
-@keyframes sway {
-  from {
-    transform: rotate(calc(var(--a) - var(--sw)));
-  }
-  to {
-    transform: rotate(calc(var(--a) + var(--sw)));
-  }
-}
-@keyframes unsway {
-  from {
-    transform: rotate(calc(var(--sw) - var(--a)));
-  }
-  to {
-    transform: rotate(calc(-1 * var(--a) - var(--sw)));
-  }
-}
-/* Beside the phone on a wide stage: Orders and Sales on the near ring, Payouts and Visitors on the far one. */
-.arm[data-slot="a"] {
-  --a: 14deg;
-}
-.arm[data-slot="b"] {
-  --a: 194deg;
-}
-.arm[data-slot="b"],
-.arm[data-slot="b"] .turn {
-  animation-duration: 13s;
-  animation-delay: -4s;
-}
-.arm[data-slot="c"] {
-  --a: -17deg;
-  --r: var(--far);
-  --sw: 4.5deg;
-}
-.arm[data-slot="c"],
-.arm[data-slot="c"] .turn {
-  animation-duration: 15s;
-  animation-delay: -7s;
-}
-.arm[data-slot="d"] {
-  --a: 163deg;
-  --r: var(--far);
-  --sw: 4.5deg;
-}
-.arm[data-slot="d"],
-.arm[data-slot="d"] .turn {
-  animation-duration: 12s;
-  animation-delay: -2s;
-}
-/* Above and below it on a narrow one. */
-@media (max-width: 899px) {
-  .arm {
-    --sw: 3.5deg;
-  }
-  .arm[data-slot="a"] {
-    --a: -66deg;
-  }
-  .arm[data-slot="b"] {
-    --a: -114deg;
-  }
-  .arm[data-slot="c"] {
-    --a: 66deg;
-  }
-  .arm[data-slot="d"] {
-    --a: 114deg;
-  }
-}
-.chip {
-  position: absolute;
-  left: 0;
-  top: 0;
-  transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
-  height: 34px;
-  padding: 0 15px;
-  border-radius: 999px;
-  background: #151517;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1;
-  white-space: nowrap;
-  color: #8e8b98;
-}
-/* The same chip, lit: white with dark words, shown for as long as its notice is on the phone. */
-.lit {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border-radius: inherit;
-  background: #fff;
-  color: #09090b;
-  opacity: 0;
-  animation: lit 15s ease infinite;
-}
-@keyframes lit {
-  0% {
-    opacity: 0;
-  }
-  2.4% {
-    opacity: 1;
-  }
-  21% {
-    opacity: 1;
-  }
-  26% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-/* ── The phone ───────────────────────────────────────────────────────── */
-.phoneWrap {
-  display: grid;
-  place-items: center;
-}
-.phone {
-  position: relative;
-  box-sizing: border-box;
-  width: var(--pw);
-  height: var(--ph);
-  padding: calc(var(--pw) * 0.034);
-  border-radius: calc(var(--pw) * 0.17);
-  background: #1d1d20;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-    0 0 0 1px #000;
-}
-.screen {
-  position: relative;
-  overflow: hidden;
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  border-radius: calc(var(--pw) * 0.138);
-  background: #f6f6f8;
-  color: #18181b;
-  text-align: left;
-}
-.island {
-  flex: none;
-  width: 30cqw;
-  height: 8.6cqw;
-  margin: 4.2cqw auto 0;
-  border-radius: 999px;
-  background: #0b0b0d;
-}
-.appTop {
-  flex: none;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 11.5cqw 7cqw 0;
-}
-.appHello {
-  font-size: 7.4cqw;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-.appRange {
-  font-size: 4.4cqw;
-  font-weight: 500;
-  color: #8a8794;
-}
-.stats {
-  flex: none;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 2.4cqw;
-  padding: 5cqw 7cqw 0;
-}
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 1.6cqw;
-  padding: 3.6cqw 3.4cqw;
-  border-radius: 4.4cqw;
-  background: #fff;
-  box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.06);
-}
-.statLabel {
-  font-size: 3.7cqw;
-  font-weight: 500;
-  line-height: 1;
-  color: #8a8794;
-}
-.statValue {
-  position: relative;
-  font-size: 6.7cqw;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-/* What the order added, rising off the figure and gone. */
-.plus {
-  position: absolute;
-  left: 0;
-  bottom: 100%;
-  font-size: 3.9cqw;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #16a34a;
-  opacity: 0;
-  animation: plus 15s ease-out infinite;
-}
-@keyframes plus {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 90%, 0);
-  }
-  3% {
-    opacity: 1;
-  }
-  12% {
-    opacity: 1;
-  }
-  17% {
-    opacity: 0;
-    transform: translate3d(0, -40%, 0);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(0, -40%, 0);
-  }
-}
-.chart {
-  flex: 1 1 0;
-  min-height: 0;
-  display: block;
-  width: 86cqw;
-  margin: 6cqw 7cqw 0;
-}
-.orders {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 2.4cqw;
-  padding: 5cqw 7cqw 0;
-}
-.ordersTitle {
-  font-size: 4.2cqw;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1;
-  color: #55525e;
-}
-.order {
-  display: flex;
-  align-items: center;
-  gap: 3.4cqw;
-  padding: 2.8cqw 3.4cqw 2.8cqw 2.8cqw;
-  border-radius: 4.4cqw;
-  background: #fff;
-  box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.06);
-  font-size: 4.3cqw;
-  line-height: 1;
-}
-.orderImg,
-.noticeImg {
-  flex: none;
-  width: 11cqw;
-  height: 11cqw;
-  border-radius: 2.8cqw;
-  object-fit: cover;
-  background: #0a0a0b;
-}
-.orderName {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-}
-.orderPrice {
-  flex: none;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: #55525e;
-}
-.tabbar {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 58cqw;
-  margin: 5cqw auto 6cqw;
-  padding: 3.4cqw 6cqw;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.07);
-}
-.tabbar span {
-  width: 5.4cqw;
-  height: 5.4cqw;
-  border-radius: 1.7cqw;
-  background: #d9d8de;
-}
-.tabbar span[data-on] {
-  background: #18181b;
-}
-
-/* A notice at the top of the screen: it drops in, stays, and leaves the way it came. */
-.notice {
-  position: absolute;
-  left: 3.6cqw;
-  right: 3.6cqw;
-  top: 3.6cqw;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 3.2cqw;
-  padding: 3.4cqw 4cqw 3.4cqw 3.4cqw;
-  border-radius: 7cqw;
-  background: #18181b;
-  color: #fff;
-  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55);
-  opacity: 0;
-  transform: translate3d(0, -130%, 0);
-  animation: notice 15s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-}
-@keyframes notice {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, -130%, 0);
-  }
-  3.6% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-  22% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-  25.5% {
-    opacity: 0;
-    transform: translate3d(0, -130%, 0);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(0, -130%, 0);
-  }
-}
-.noticeMark {
-  flex: none;
-  position: relative;
-  width: 11cqw;
-  height: 11cqw;
-  border-radius: 2.8cqw;
-  background: #2b2b30;
-}
-.noticeMark::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 3.6cqw;
-  height: 3.6cqw;
-  border-radius: 50%;
-  background: #4ade80;
-}
-/* The payout: an arrow out, drawn with two borders. */
-.noticeMark[data-kind="payout"]::after {
-  width: 3.4cqw;
-  height: 3.4cqw;
-  border-radius: 0;
-  background: none;
-  border-top: 0.9cqw solid #fff;
-  border-right: 0.9cqw solid #fff;
-  transform: translate(-12%, 12%);
-}
-.noticeText {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5cqw;
-  min-width: 0;
-}
-.noticeTitle {
-  font-size: 4.5cqw;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  line-height: 1;
-}
-.noticeLine {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 3.8cqw;
-  line-height: 1.1;
-  color: #b4b1bd;
-}
-
-/* ── Under the stage: the three points, the badges beside them ───────── */
-.foot {
-  display: grid;
-  gap: 26px;
-  margin-top: clamp(22px, 2.4vw, 34px);
-  padding-inline: var(--home-head-inset, 14px);
-}
+/* The three points: titles only, divided by faint hairlines, no marks. */
 .points {
-  display: grid;
-  margin: 0;
+  max-width: 460px;
+  margin-bottom: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid rgba(24, 24, 27, 0.09);
 }
 .point {
-  padding: 15px 0;
+  padding: 16px 0;
   border-bottom: 1px solid rgba(24, 24, 27, 0.09);
-  font-size: clamp(16px, 1.3vw, 19px);
+  font-size: clamp(17px, 1.5vw, 20px);
   font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.35;
   color: #18181b;
 }
-@media (min-width: 900px) {
-  .foot {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: 40px;
-  }
-  .points {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px clamp(24px, 3vw, 52px);
-  }
-  .point {
-    padding: 0;
-    border: 0;
-  }
-  /* A dot between the points, where a rule sat between them on a phone. */
-  .point + .point::before {
-    content: "";
-    display: inline-block;
-    width: 4px;
-    height: 4px;
-    margin-right: clamp(24px, 3vw, 52px);
-    border-radius: 50%;
-    background: #c9c7d1;
-    vertical-align: middle;
+
+/*
+  The photograph, at its own 4:3 shape so the box is there before the file.
+  The box is a still grey (the photo's own denim, lightened) with a hairline;
+  the picture fades in over it once decoded (data-ready), never half drawn.
+*/
+.photo {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: clamp(19px, 2.4vw, 31px);
+  background: #e9ecf1;
+  box-shadow: inset 0 0 0 1px rgba(24, 24, 27, 0.05);
+  transform: translateZ(0);
+}
+.img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 650ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.photo[data-ready] .img {
+  opacity: 1;
+}
+@media (scripting: none) {
+  .img {
+    opacity: 1;
   }
 }
 
@@ -645,15 +103,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .badge {
+  .badge,
+  .img {
     transition: none;
-  }
-  /* Standing still on the order: its notice down, its chips lit. */
-  .notice[data-notice="0"] {
-    opacity: 1;
-    transform: none;
-  }
-  .lit[data-first] {
-    opacity: 1;
   }
 }

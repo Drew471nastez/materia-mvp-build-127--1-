@@ -45,18 +45,18 @@ console.log("\n── AI tools: the card fits a laptop screen with room to spare
   const at = css.indexOf(LAPTOP)
   const block = at < 0 ? "" : css.slice(at, css.indexOf("\n}\n", at))
   check("a short laptop has its own block", block.length > 0)
-  check("the card pads less there, by the screen's height", /\.ait-card\{padding:clamp\(32px,5\.5svh,64px\) clamp\(40px,4\.4vw,64px\)\}/.test(block))
-  check("the terminal runs the phone's 16 lines at the phone's line height", /\.ait-nophone\{display:none\}/.test(block) && /\.ait-body\{padding:14px 18px 16px;line-height:1\.62\}/.test(block) && /\.ait-line\{min-height:1\.62em\}/.test(block))
-  const last = AI_TOOLS_SCRIPT.map((l) => l.phone === false).lastIndexOf(true)
-  check("with the phone's timing for the lines after the gap", AI_TOOLS_SCRIPT.every((_, i) => (i > last) === new RegExp(`\\.ait-l${i}\\{animation-name:ait-m${i}\\}`).test(block)))
+  // Changed on purpose (landing round 11): the owner: "the height is too short now, make it a little more natural": every line of the run at line height 1.7, the card padding a little more by the screen's height (about 590px at 1440x800, was about 500).
+  check("the card pads a little less there, by the screen's height", /\.ait-card\{padding:clamp\(40px,7svh,64px\) clamp\(40px,4\.4vw,64px\)\}/.test(block))
+  check("the terminal keeps all its lines there, at line height 1.7", !/\.ait-nophone\{display:none\}/.test(block) && /\.ait-body\{padding:16px 18px 18px;line-height:1\.7\}/.test(block) && /\.ait-line\{min-height:1\.7em\}/.test(block))
+  check("so the lines keep the desktop's timing there", !/animation-name:ait-m/.test(block) && AI_TOOLS_SCRIPT.length === 18)
   check("its type stays the desktop's 13px", !/font-size/.test(block) && /\.ait-body\{padding:16px 18px 20px;font:13px\/1\.75/.test(css))
 }
 
-console.log("\n── the app: the stage held to 62svh ──")
+// Changed on purpose (landing round 11): the stage is gone (the owner's photograph is back, at its own 4:3, so its height follows its width and never the screen's).
+console.log("\n── the app: the photograph at its own 4:3 ──")
 {
   const css = read(`${DIR}/app-anywhere.module.css`)
-  check("min(38vw, 62svh) between 440 and 620px: 496px at 1440x800, 620 at 1920x1080", /--h: clamp\(440px, min\(38vw, 62svh\), 620px\);/.test(css))
-  check("a phone keeps its own fixed stage", /@media \(max-width: 899px\) \{\s*\.card \{\s*--h: 580px;/.test(css))
+  check("no stage held to the screen's height; the photograph's box is its own 4:3", !/--h: clamp/.test(css) && /\.photo \{[^}]*aspect-ratio: 4 \/ 3;/.test(css))
 }
 
 console.log("\n── analytics: two rows that fit ──")
@@ -74,8 +74,8 @@ console.log("\n── the map: heading and card in one screen ──")
   const at = src.indexOf(LAPTOP)
   const block = at < 0 ? "" : src.slice(at, src.indexOf("\n}\n", at))
   check("a short laptop block", block.length > 0)
-  check("a smaller product card, the copy closer, less padding", /\.cmm-prod\{width:196px\}/.test(block) && /\.cmm-copy\{margin-top:28px\}/.test(block) && /\.cmm-card\{min-height:0;padding:24px 0 28px\}/.test(block) && /\.cmm-head\{margin-bottom:32px\}/.test(block))
-  check("elsewhere as before", /\.cmm-prod\{width:224px;/.test(src) && /\.cmm-copy\{position:relative;z-index:2;margin:44px 0 0 /.test(src) && /padding:30px 0 36px;min-height:500px\}/.test(src))
+  check("a smaller product card, the copy closer, less padding", /\.cmm-stage\{--cmm-w:204px;--cmm-peek:72px\}/.test(block) && /\.cmm-copy\{margin-top:32px\}/.test(block) && /\.cmm-card\{min-height:540px;padding:36px 0 34px\}/.test(block)) // Changed on purpose (landing round 11): the owner: the map "too short now"; 540px on a short laptop, the heading on one line.
+  check("elsewhere a 220px card and 560px", /\.cmm-stage\{position:relative;--cmm-w:220px;/.test(src) && /\.cmm-copy\{position:relative;z-index:2;margin:40px 0 0 /.test(src) && /padding:44px 0 40px;min-height:560px/.test(src)) // Changed on purpose (landing round 11): the stack and a taller card.
 }
 
 console.log("\n── pricing and earnings ──")

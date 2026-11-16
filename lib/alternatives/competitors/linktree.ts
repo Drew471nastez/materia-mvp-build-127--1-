@@ -53,7 +53,7 @@ export const linktree: Competitor = {
   ],
   storelibLimits: [
     { text: "No affiliate storefront with partner brands like Linktree Shops.", code: "lib/attribution/touch.ts" },
-    { text: `On Storelib every sale pays a fee, ${STORELIB.proFee} on Pro at the lowest. Linktree's paid plans charge a flat monthly price and list 0% per sale.`, code: "lib/payments/fees/defaults.ts" },
+    { text: `On Storelib every sale pays a fee, ${STORELIB.proFee} on Grow at the lowest. Linktree's paid plans charge a flat monthly price and list 0% per sale.`, code: "lib/payments/fees/defaults.ts" },
     { text: "Payouts go through Stripe to banks in the US, UK, EEA, Canada and Switzerland only.", code: "lib/payments/stripe/payout-regions.ts" },
   ],
   features: [
@@ -127,14 +127,14 @@ export const linktree: Competitor = {
   moving: {
     products: "Copy your links into your OnePage in the same order. A product you sold through Linktree is added on Storelib as a digital product with its file.",
     customers: "Download your subscriber list from Linktree if you collected one. Storelib has no list import, so email them your new page from the tool you use now.",
-    domain: "Change the link in your bios to storelib.me/yourname. If your Linktree used your own domain, connect that domain to a Storelib website on Pro.",
+    domain: "Change the link in your bios to storelib.me/yourname. If your Linktree used your own domain, connect that domain to a Storelib website on Grow.",
   },
   faqs: [
     { q: "Is Storelib a link in bio tool like Linktree?", a: "Yes. Your OnePage at storelib.me/yourname holds your links, socials and an email sign up, and it can sell your products directly." },
     { q: "Is selling cheaper on Storelib than on Linktree?", a: `It depends on how much you sell. Linktree Pro is $17 a month billed monthly and lists 0% fees on sales. Storelib Free has no monthly fee and takes ${STORELIB.freeFee} a sale. With a few sales a month Storelib costs less; past a few hundred dollars a month, Linktree's flat price does. The calculator shows the point for your price.` },
-    { q: "Can I sell on Storelib's free plan?", a: "Yes. Free can sell digital products and courses with no monthly fee. You add a card only if you upgrade to Pro." },
+    { q: "Can I sell on Storelib's free plan?", a: "Yes. Free can sell digital products and courses with no monthly fee. You add a card only if you upgrade to Grow." },
     { q: "Does Storelib have affiliate products like Linktree Shops?", a: "No. Storelib sells your own products. Linktree Shops is a reason to stay if partner commissions are your income." },
-    { q: "Can I use my own domain for the bio link?", a: STORELIB.proCustomDomain ? "Your own domain connects on Pro." : "Not on the current plans." },
+    { q: "Can I use my own domain for the bio link?", a: STORELIB.proCustomDomain ? "Your own domain connects on Grow." : "Not on the current plans." },
   ],
   visuals: ["onepage", "creator", "dashboard"],
   sources: [

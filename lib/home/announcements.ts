@@ -382,10 +382,10 @@ export const RULES: readonly Rule[] = [
       const { feeFreeCents, feeProCents } = p.sales.last30
       return {
         tone: "offer",
-        eyebrow: tt("Pro plan"),
-        title: tt("Pro would have saved you {amount}", { amount: money(proSaving(p)) }),
-        line: tt("Fees, 30 days: {amount} on Free, {amount2} on Pro.", { amount: money(feeFreeCents), amount2: money(feeProCents + PRO_PRICE_CENTS) }),
-        cta: tt("See Pro"),
+        eyebrow: tt("Grow plan"),
+        title: tt("Grow would have saved you {amount}", { amount: money(proSaving(p)) }),
+        line: tt("Fees, 30 days: {amount} on Free, {amount2} on Grow.", { amount: money(feeFreeCents), amount2: money(feeProCents + PRO_PRICE_CENTS) }),
+        cta: tt("See Grow"),
         href: "/app/settings/billing/upgrade",
       }
     },
@@ -462,7 +462,7 @@ export const RULES: readonly Rule[] = [
     applies: (p) => isPaidPlan(p.plan) && p.websitePublished && !p.hasDomain,
     write: () => ({
       tone: "next",
-      eyebrow: tt("Included in Pro"),
+      eyebrow: tt("Included in Grow"),
       title: tt("Connect your domain"),
       line: tt("Put your website on yourname.com."),
       cta: tt("Connect domain"),
@@ -476,10 +476,10 @@ export const RULES: readonly Rule[] = [
     applies: (p) => !isPaidPlan(p.plan) && p.websitePublished && !p.hasDomain && !proSaves(p),
     write: () => ({
       tone: "offer",
-      eyebrow: tt("Pro plan"),
+      eyebrow: tt("Grow plan"),
       title: tt("Put your site on yourname.com"),
       line: tt("Your own domain, and 3% fees instead of 5%."),
-      cta: tt("See Pro"),
+      cta: tt("See Grow"),
       href: "/app/settings/billing/upgrade",
     }),
   },
@@ -492,10 +492,10 @@ const FALLBACK_FREE: Rule = {
   applies: (p) => !isPaidPlan(p.plan),
   write: () => ({
     tone: "offer",
-    eyebrow: tt("Pro plan"),
+    eyebrow: tt("Grow plan"),
     title: tt("Keep more of every sale"),
     line: tt("3% fees instead of 5%, and your own domain."),
-    cta: tt("See Pro"),
+    cta: tt("See Grow"),
     href: "/app/settings/billing/upgrade",
   }),
 }

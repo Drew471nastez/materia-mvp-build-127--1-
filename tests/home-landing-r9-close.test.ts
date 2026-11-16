@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { PLAN_ART, PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { STORELIB_S_PATH } from "@/components/storelib-mark"
 import { FaqSection } from "@/components/marketing/faq-section"
@@ -55,43 +55,28 @@ function hueSat(hex: string): { h: number; s: number; l: number } {
   const h = (max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60
   return { h, s: d / (1 - Math.abs(2 * l - 1)), l }
 }
-const buttonHex = (id: keyof typeof PLAN_ART) => /bg-\[(#[0-9a-f]{6})\]/.exec(PLAN_ART[id].button)?.[1] ?? ""
-const num = (f: string, name: string) => Number(new RegExp(`${name}\\(([\\d.]+)\\)`).exec(f)?.[1] ?? NaN)
 
 console.log("\n── pricing: no pill on the home page ──")
 {
   const pricing = read("components/marketing/pricing-section.tsx")
   const cards = read("components/billing/plan-cards.tsx")
   check("the home page's section asks for no pill, /pricing does not", /hideInterval=\{editorial\}/.test(pricing) && !/data-plan-interval-row/.test(pricing))
-  check("without the pill the cards are monthly, whatever was held", /const interval = hideInterval \? "monthly" : controlled \?\? own/.test(cards) && /\{hideInterval \? null : inSection \? \(/.test(cards))
+  /* Changed on purpose (pricing round 5): the heading row and the pill row are drawn apart now, the pill row skipped when hidden. */
+  check("without the pill the cards are monthly, whatever was held", /const interval = hideInterval \? "monthly" : controlled \?\? own/.test(cards) && /\{hideInterval \? null : \(/.test(cards))
   const actions = { free: { label: "Start free", href: "/signup" }, growth: { label: "Get Pro", href: "/signup" }, pro: { label: "Get Scale", href: "/signup" } } as Record<"free" | "growth" | "pro", PlanCardAction>
   const home = renderToStaticMarkup(createElement(PlanCards, { actions, hideInterval: true, interval: "yearly" }))
   const full = renderToStaticMarkup(createElement(PlanCards, { actions }))
   check("drawn: no radio group, no pill row, three cards", !/role="radiogroup"|data-plan-interval-row|data-interval-option/.test(home) && (home.match(/data-plan-card="/g) ?? []).length === 3)
   check("every other surface still draws the pill with both options", /role="radiogroup"/.test(full) && /data-interval-option="monthly"/.test(full) && /data-interval-option="yearly"/.test(full))
-  check("the cards are otherwise the same markup", home.includes(full.slice(full.indexOf("<div data-plan-cards"), full.indexOf("<div data-plan-cards") + 400)))
+  /* Changed on purpose (pricing round 5): the cards sit inside their grey ground now, so the comparison starts there. */
+  check("the cards are otherwise the same markup", home.includes(full.slice(full.indexOf("<div data-plan-ground"), full.indexOf("<div data-plan-ground") + 400)))
 }
 
 console.log("\n── pricing: Scale's colour, the covers ──")
 {
-  const scale = PLAN_ART.pro
-  const all = Object.values(scale).join(" ")
-  const hexes = [...all.matchAll(/#[0-9a-f]{6}/g)].map((m) => m[0])
-  const hues = hexes.map(hueSat)
-  /* Green and teal are 70 to 200 degrees, pink and magenta 280 to 345. */
-  check("nothing on Scale is green or teal", hues.every((c) => c.s < 0.12 || c.h < 70 || c.h > 200), hexes)
-  check("nor pink or violet", hues.every((c) => c.s < 0.12 || c.h < 255 || c.h > 345) && !/hue-rotate\(-80deg\)|#0f6b66|#7c3aed|#6d28d9/.test(all), hexes)
-  const [free, pro, sc] = [buttonHex("free"), buttonHex("growth"), buttonHex("pro")].map(hueSat)
-  const apart = Math.min(Math.abs(sc.h - pro.h), 360 - Math.abs(sc.h - pro.h))
-  check("Scale's button is a colour of its own: far from Pro's violet on the wheel, not Free's black", apart >= 120 && sc.s > 0.3 && free.s < 0.1 && sc.l > free.l + 0.12, { free, pro, sc })
-  check("Scale is a warm bronze", sc.h >= 20 && sc.h <= 45, sc)
-  check("the three covers are three different pictures of colour", new Set(Object.values(PLAN_ART).map((a) => a.filter)).size === 3 && new Set(Object.values(PLAN_ART).map((a) => a.ground)).size === 3)
-  /* Round 8's values: brightness 0.9 / 0.62 / 0.55, contrast 1.12 / 1.16 / 1.14, grain 0.05. */
-  const was = { free: [0.9, 1.12], growth: [0.62, 1.16], pro: [0.55, 1.14] } as const
-  const step = (Object.keys(was) as (keyof typeof was)[]).map((id) => ({ id, b: num(PLAN_ART[id].filter, "brightness"), c: num(PLAN_ART[id].filter, "contrast"), g: PLAN_ART[id].grain }))
-  check("every cover darker than round 8, by a step and not by half", step.every((s) => s.b < was[s.id][0] && s.b >= was[s.id][0] * 0.8 && s.b >= 0.5), step)
-  check("contrast up a little on each", step.every((s) => s.c > was[s.id][1] && s.c <= was[s.id][1] + 0.12), step)
-  check("the grain up a little, the same on all three", step.every((s) => s.g > 0.05 && s.g <= 0.1) && new Set(step.map((s) => s.g)).size === 1, step)
+  /* Changed on purpose (pricing round 5): the $99 plan is named Pro now and the cards have no covers (the owner's reference picture: white cards, a grey panel, one purple button on the middle card), so the checks on the covers' colours, dimming and grain are retired; tests/pricing-cards-r5.test.ts pins the new cards. */
+  const cards = read("components/billing/plan-cards.tsx")
+  check("no cover pictures, colours or grain left on the cards", !/PLAN_ART|PLAN_GRAIN|feTurbulence|hue-rotate/.test(cards))
 }
 
 console.log("\n── questions: a centred column of grey rows ──")
@@ -113,21 +98,16 @@ console.log("\n── questions: a centred column of grey rows ──")
   check("no banned words or em dashes in the section", !BANNED.test(src))
 }
 
-console.log("\n── footer: the white outline mark ──")
+console.log("\n── footer: the app icon (outline undone in round 11) ──")
 {
+  // Changed on purpose (landing round 11): the owner, "the Storelib icon in the footer should not be outlined like that". The footer draws the colourful app icon again and the outline variant is gone from the logo component.
   const footerSrc = read("components/marketing/footer.tsx")
   const logoSrc = read("components/brand/storelib-logo.tsx")
   const footer = renderToStaticMarkup(createElement(MarketingFooter))
-  const mark = renderToStaticMarkup(createElement(StorelibLogo, { size: 40, variant: "outline" }))
-  check("the footer asks the one logo component for its outline", /<StorelibLogo size=\{40\} variant="outline" \/>/.test(footerSrc) && (footerSrc.match(/<StorelibLogo\b/g) ?? []).length === 1)
-  check("drawn as an inline SVG: no picture, no violet", /<svg[^>]*data-storelib-logo="outline"/.test(footer) && !/<img[^>]*data-storelib-logo/.test(footer) && !/storelib-logo-v2|#7b5cf|#8b5cf6|#8B56FA/i.test(mark))
-  check("line art in white: no fill, a white stroke", /fill="none"/.test(mark) && /stroke="currentColor"/.test(mark) && /color:#fff/.test(mark) && !/fill="(?!none)/.test(mark))
-  check("the S is the mark's own curves, inside a rounded square", mark.includes(`d="${STORELIB_S_PATH}"`) && /<rect [^>]*rx="35"/.test(mark) && /viewBox="0 0 200 200"/.test(mark))
-  check("40px square, named Storelib for a reader", /width="40" height="40"/.test(mark) && /role="img" aria-label="Storelib"/.test(mark))
+  check("the footer draws the one logo picture at 40px", /<StorelibLogo size=\{40\} \/>/.test(footerSrc) && (footerSrc.match(/<StorelibLogo\b/g) ?? []).length === 1 && /<img[^>]*data-storelib-logo=""/.test(footer))
+  check("no outline anywhere: the variant is gone", !/variant/.test(logoSrc) && !/data-storelib-logo="outline"/.test(footer) && !/STORELIB_S_PATH/.test(logoSrc) && STORELIB_S_PATH.length > 0)
   check("the wordmark beside it is white", /<span class="text-xl font-bold text-white">Storelib<\/span>/.test(footer))
-  check("every other place still draws the picture", /variant = "picture"/.test(logoSrc) && /src=\{STORELIB_LOGO\}/.test(logoSrc) && /<img[^>]*data-storelib-logo=""/.test(renderToStaticMarkup(createElement(StorelibLogo, { size: 32 }))))
-  const others = ["components/marketing/header.tsx", "components/storefront/seller-footer.tsx"].filter((f) => { try { return /variant="outline"/.test(read(f)) } catch { return false } })
-  check("the outline is the marketing footer's alone", others.length === 0, others)
+  check("every place draws the picture", /src=\{STORELIB_LOGO\}/.test(logoSrc) && /<img[^>]*data-storelib-logo=""/.test(renderToStaticMarkup(createElement(StorelibLogo, { size: 32 }))))
 }
 
 console.log("\n── registered ──")

@@ -28,11 +28,11 @@
 import type { PlanId } from "./plans"
 import { dataOrThrow } from "@/lib/net/service-error"
 
-/** Every tier an admin can assign, all three on sale: Free, Pro (`growth`) and Scale (`pro`, $99). */
+/** Every tier an admin can assign, all three on sale: Free, Grow (`growth`, $29) and Pro (`pro`, $99). */
 export const ASSIGNABLE_PLANS: readonly { id: PlanId; label: string }[] = [
   { id: "free", label: "Free" },
-  { id: "growth", label: "Pro" },
-  { id: "pro", label: "Scale, $99" },
+  { id: "growth", label: "Grow, $29" },
+  { id: "pro", label: "Pro, $99" },
 ]
 
 export function isAssignablePlan(v: unknown): v is PlanId {

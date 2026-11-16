@@ -2664,8 +2664,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 loadingPlan: planCheckoutLoading,
                 ctaLabels: {
                   free: tt("Start free"),
-                  growth: tt("Get Pro"),
-                  pro: tt("Get Scale"),
+                  growth: tt("Get Grow"),
+                  pro: tt("Get Pro"),
                 },
               }}
             />

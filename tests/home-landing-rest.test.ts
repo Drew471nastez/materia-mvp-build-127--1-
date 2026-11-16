@@ -80,9 +80,11 @@ console.log("\n── Run your business from anywhere ──")
 
 console.log("\n── Pricing ──")
 {
+  /* Changed on purpose (pricing round 5): the plans read Free, Grow ($29) and Pro ($99); every card on every surface draws one set of lines, five at most, each with its icon, "card rates" in place of "fees"; Free no longer shows a greyed line. */
   const lines = publicPlanLines()
-  const all = Object.values(lines).flatMap((l) => [...l.features, ...l.excluded])
-  check("the same names and prices", OFFERED_PLANS.map((p) => `${p.name} ${p.price}`).join(", ") === "Free $0, Pro $29, Scale $99")
+  const all = Object.values(lines).flat().map((l) => l.text)
+  const has = (id: keyof typeof lines, t: string) => lines[id].some((l) => l.text === t)
+  check("the same names and prices", OFFERED_PLANS.map((p) => `${p.name} ${p.price}`).join(", ") === "Free $0, Grow $29, Pro $99")
   check("no technical rules on the public cards (no GB, no pages each, no counts of AI edits)", !all.some((l) => /\bGB\b|\bMB\b|pages each|\d+\s*AI edits|file storage/i.test(l)), all)
   check("no banned words or em dashes", !all.some((l) => BANNED.test(l) || l.includes("—")))
 
@@ -90,38 +92,38 @@ console.log("\n── Pricing ──")
   const free = siteLimits("free")
   const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
   const scale = siteLimits(SCALE_CHECKOUT_PLAN_ID)
-  check("each fee is the fee table's", lines.free.features.includes(getFeeDescription("free")) && lines[PRO_CHECKOUT_PLAN_ID].features.includes(`Lower fee: ${getFeeDescription(PRO_CHECKOUT_PLAN_ID)}`) && lines[SCALE_CHECKOUT_PLAN_ID].features.includes(`Lowest fee: ${getFeeDescription(SCALE_CHECKOUT_PLAN_ID)}`))
+  const rateOf = (id: string) => getFeeDescription(id).replace(" per sale", "")
+  check("each rate is the fee table's", has("free", `Card rates: ${rateOf("free")}`) && has(PRO_CHECKOUT_PLAN_ID, `Lower card rates: ${rateOf(PRO_CHECKOUT_PLAN_ID)}`) && has(SCALE_CHECKOUT_PLAN_ID, `Lowest card rates: ${rateOf(SCALE_CHECKOUT_PLAN_ID)}`))
   const rate = (s: string) => Number(/([\d.]+)%/.exec(s)?.[1])
   check("lower and lowest are so", rate(getFeeDescription(PRO_CHECKOUT_PLAN_ID)) < rate(getFeeDescription("free")) && rate(getFeeDescription(SCALE_CHECKOUT_PLAN_ID)) < rate(getFeeDescription(PRO_CHECKOUT_PLAN_ID)))
-  check("Free's websites are its own number", lines.free.features.includes(`Your creator page and ${free.maxSites} websites`))
-  check("Free claims no domain and shows it greyed; Pro claims one only because it has it", !lines.free.features.includes("Your own domain") && lines.free.excluded.join() === (free.customDomain ? "" : "Your own domain") && lines[PRO_CHECKOUT_PLAN_ID].features.includes("Your own domain") === pro.customDomain)
-  check("no branding only where the plan removes it", lines[PRO_CHECKOUT_PLAN_ID].features.includes("No Storelib branding") === pro.removeBranding && !lines.free.features.includes("No Storelib branding"))
-  check("website counts are the tables'", lines[PRO_CHECKOUT_PLAN_ID].features.includes(`Up to ${pro.maxSites} websites`) && lines[SCALE_CHECKOUT_PLAN_ID].features.includes(`Up to ${scale.maxSites} websites`))
-  check("more and most AI edits are so", (!lines[PRO_CHECKOUT_PLAN_ID].features.includes("More AI edits each month") || pro.aiEditsPerMonth > free.aiEditsPerMonth) && (!lines[SCALE_CHECKOUT_PLAN_ID].features.includes("The most AI edits each month") || (scale.aiEditsPerMonth > pro.aiEditsPerMonth && scale.aiEditsPerMonth >= Math.max(free.aiEditsPerMonth, pro.aiEditsPerMonth))))
-  check("the most room for files is so", !lines[SCALE_CHECKOUT_PLAN_ID].features.includes("The most room for your files") || Object.values(PLAN_LIMITS).every((l) => l.storageQuotaBytes <= PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes))
+  check("Free's websites are its own number", has("free", `Your creator page and ${free.maxSites} websites`))
+  check("Free claims no domain; Grow claims one only because it has it", !has("free", "Your own domain") && has(PRO_CHECKOUT_PLAN_ID, "Your own domain") === pro.customDomain)
+  check("no branding only where the plan removes it", has(PRO_CHECKOUT_PLAN_ID, "No Storelib branding") === pro.removeBranding && !has("free", "No Storelib branding"))
+  check("website counts are the tables'", !has(SCALE_CHECKOUT_PLAN_ID, `Up to ${scale.maxSites} websites`) || scale.maxSites > pro.maxSites)
+  check("the most AI edits is so", !has(SCALE_CHECKOUT_PLAN_ID, "The most AI edits each month") || (scale.aiEditsPerMonth > pro.aiEditsPerMonth && scale.aiEditsPerMonth >= Math.max(free.aiEditsPerMonth, pro.aiEditsPerMonth)))
+  check("the most room for files is so", !has(SCALE_CHECKOUT_PLAN_ID, "The most room for your files") || Object.values(PLAN_LIMITS).every((l) => l.storageQuotaBytes <= PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes))
+  check("five lines at most on each card", Object.values(lines).every((l) => l.length <= 5))
 
   /* The lines every plan has, each tied to the code that provides it (as tests/pricing-plans.test.ts ties the app's). */
   const exists = (f: string) => existsSync(join(root, f))
   const products = read("app/(storelib)/app/products/new/product-editor.tsx")
   const shared: Record<string, boolean> = {
-    "Sell unlimited digital products and courses": /"digital" \| "course"/.test(products) && !/maxProducts|max_products|productLimit/.test(read("lib/billing/plans.ts") + read("lib/storage/plans.ts")),
+    "Unlimited products and courses": /"digital" \| "course"/.test(products) && !/maxProducts|max_products|productLimit/.test(read("lib/billing/plans.ts") + read("lib/storage/plans.ts")),
     "Get paid straight to your bank": /stripe_account_id/.test(read("lib/checkout/fulfil-payment.ts")) && exists("app/(storelib)/app/payouts/payouts-client.tsx"),
     "Email your customers": exists("app/(storelib)/app/emails/page.tsx") && exists("app/api/email/send/route.ts"),
-    "See your sales and visitors": exists("app/(storelib)/app/analytics/page.tsx"),
     /* Changed on purpose (OnePage production audit, ED-1): the gate lets a plan that could not be read through (the save route asks the plan itself), and is still growth or pro. */
     "Verified badge on your page": /const userHasPro = !planConfirmed \|\| userPlan === "growth" \|\| userPlan === "pro"/.test(read("components/onepage/onepage-editor.tsx")),
     "Everything in Free": true,
-    "Everything in Pro": true,
+    "Everything in Grow": true,
   }
-  const fromTables = (l: string) => /% \+ \$0\.25 per sale$/.test(l) || /^Your creator page and \d+ websites$/.test(l) || /^Up to \d+ websites$/.test(l) || ["Your own domain", "No Storelib branding", "More AI edits each month", "The most AI edits each month", "The most room for your files"].includes(l)
+  const fromTables = (l: string) => /card rates: [\d.]+% \+ \$0\.25$/i.test(l) || /^Your creator page and \d+ websites$/.test(l) || /^Up to \d+ websites$/.test(l) || ["Your own domain", "No Storelib branding", "The most AI edits each month", "The most room for your files"].includes(l)
   for (const l of all) check(`"${l}" is from a table or backed by the code`, fromTables(l) || shared[l] === true)
   check("nothing the old cards were warned off (custom code, Shopify, API, priority, physical)", !all.some((l) => /custom code|shopify|api|priority|white.?label|physical/i.test(l)))
 
   const section = read("components/marketing/pricing-section.tsx")
   const cards = read("components/billing/plan-cards.tsx")
-  check("the public cards (home and /pricing) get these lines and the quiet tick; onboarding keeps its own", /lines=\{PUBLIC_LINES\} tick="ink"/.test(section) && /<PlanCards compact actions=\{actions\} \/>/.test(section))
-  check("the quiet tick is one thin stroke in grey, no plan colour, no circle", /function InkTick\(\)/.test(cards) && /text-\[#3f3f46\]/.test(cards) && /strokeWidth=\{1\.6\}/.test(cards) && !/rounded-full[^"]*data-plan-tick/.test(cards))
-  check("every other surface draws the plan's lines and checks as before", /\(lines\?\.features \?\? plan\.features\)/.test(cards) && /tick = "plan"/.test(cards))
+  check("every surface draws these lines (the cards read them, nothing is handed in)", /const PLAN_LINES = publicPlanLines\(\)/.test(cards) && /<PlanCards compact actions=\{actions\} \/>/.test(section) && !/lines=\{/.test(section))
+  check("each line has a thin line icon in grey", /strokeWidth=\{1\.5\}/.test(cards) && /text-\[#3f3f46\]/.test(cards))
   check("/pricing still renders the section", /<PricingSection\b/.test(read("app/(storelib)/(marketing)/pricing/pricing-client.tsx")))
 }
 
@@ -148,7 +150,8 @@ console.log("\n── Your AI tools work here too ──")
   check("paused until on screen, and the tab visible", /animation-play-state:paused/.test(css) && /\.ait-term\[data-live\] \.ait-line,\.ait-term\[data-live\] \.ait-cover,\.ait-term\[data-live\] \.ait-caret\{animation-play-state:running\}/.test(css) && /new IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /document\.hidden/.test(src))
   check("reduced motion shows the finished terminal, still", /@media \(prefers-reduced-motion:reduce\)\{\s*\.ait-line\{animation:none!important;opacity:1;transform:none\}\s*\.ait-cover\{display:none\}/.test(css))
   check("no scroll listener, no per-frame state", !/addEventListener\("scroll"|requestAnimationFrame|useState/.test(src))
-  check("not loud: no backdrop blur, no glow, the card a quiet dark with a deep purple corner", !/backdrop-filter|filter:\s*blur|radial-gradient/.test(css) && /\.ait-card\{[^}]*linear-gradient\(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%\)/.test(css))
+  // Changed on purpose (landing round 11): the owner asked for a light running round the terminal; its soft rim fades by a still mask, not a blur, and the dot field's mask is a radial gradient.
+  check("not loud: no blur at all, the card a quiet dark with a deep purple corner", !/backdrop-filter|filter:\s*blur/.test(css) && /\.ait-glow\{[^}]*mask-image:linear-gradient/.test(css) && /\.ait-card\{[^}]*linear-gradient\(125deg,#0d0c10 0%,#100e16 46%,#1b1430 100%\)/.test(css))
   check("the corners a pixel tighter than the page's 32px", /\.ait-card\{[^}]*border-radius:clamp\(21px,2\.4vw,31px\)/.test(css))
   check("words: no em dash, banned word or fans", !/—/.test(text(html) + AI_TOOLS_SCRIPT.map((l) => l.text).join(" ")) && !BANNED.test(text(html)) && !/\bfans?\b/i.test(text(html)))
 

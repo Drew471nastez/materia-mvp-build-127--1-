@@ -30,13 +30,13 @@ type SellerPlan = "free" | "growth" | "pro"
 
 const PLAN_NAMES: Record<SellerPlan, string> = {
   free: "Free",
-  growth: "Pro",
-  pro: "Scale",
+  growth: "Grow",
+  pro: "Pro",
 }
 
 /**
- * The fee tier for a plan id: Free pays Free's rate, Pro (id `growth`) the
- * paid rate, and Scale (id `pro`, wave 13) its own, lower one.
+ * The fee tier for a plan id: Free pays Free's rate, Grow (id `growth`) the
+ * paid rate, and Pro (id `pro`, the engine's "scale" tier) its own, lower one.
  */
 export function toStorelibPlan(plan: SellerPlan): StorelibSellerPlan {
   return plan === "pro" ? "scale" : plan === "growth" ? "paid" : "free"

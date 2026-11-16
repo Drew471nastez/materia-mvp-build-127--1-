@@ -167,7 +167,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     const canceled = searchParams.get("canceled")
 
     if (success === "1" || success === "true") {
-      showNotification("success", tt("You are on Pro now"))
+      showNotification("success", tt("You are on Grow now"))
       window.history.replaceState({}, "", "/app/settings/billing")
       router.refresh()
     } else if (setupSuccess === "1" || setupSuccess === "true") {
@@ -335,7 +335,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   }
 
   // Use live state (updated by client-side actions). Named for people, not by
-  // id: internal "growth" is sold as Pro, and internal "pro" as Scale.
+  // id: internal "growth" is sold as Grow, and internal "pro" as Pro.
   const currentPlan = withPlanLabel(liveCurrentPlan)
   const subscription = liveSubscription
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
@@ -502,7 +502,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 <div className={cn("mt-auto flex-col gap-2.5 pt-5 sm:flex-row sm:flex-wrap", readOnly ? "hidden" : "flex")}>
                   {(currentPlan.id === "free" || subscription?.status === "canceled") && !isSubscribed && (
                     <Link href="/app/settings/billing/upgrade" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] no-underline sm:flex-1")}>
-                      {subscription?.status === "canceled" ? tt("Start Pro again") : tt("Upgrade to Pro")}
+                      {subscription?.status === "canceled" ? tt("Start Grow again") : tt("Upgrade to Grow")}
                     </Link>
                   )}
                   {isEnding && (
@@ -511,7 +511,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                       {tt("Resume plan")}
                     </button>
                   )}
-                  {/* Moving between Pro and Scale is done from the plan cards below (the upgrade page). */}
+                  {/* Moving between Grow and Pro is done from the plan cards below (the upgrade page). */}
                   {isSubscribed && (
                     <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] whitespace-nowrap sm:flex-1")}>
                       {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -551,7 +551,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   <div className="mt-4 rounded-[14px] border border-dashed border-[#d9dbe0] bg-[#fafafb] px-4 py-6 text-center">
                     <CreditCard className="mx-auto h-6 w-6 text-[#9ca3af]" aria-hidden />
                     <p className="mt-2 text-[14px] font-medium text-[#1a1a2e]">{tt("No card on file")}</p>
-                    <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Add one to pay for Pro.")}</p>
+                    <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Add one to pay for your plan.")}</p>
                   </div>
                 )}
 
@@ -593,11 +593,11 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   {pendingPlan ? <>{tt(", then {name} at {amount}/month", { name: pendingPlan.name, amount: formatPlanPrice(pendingPlan.price_cents) })}</> : null}.
                 </p>
               ) : subscription?.current_period_end && subscription.cancel_at_period_end ? (
-                <p className="text-[13px] text-[#7a5200]">{tt("No more charges. Pro ends on {date}.", { date: formatDateLong(subscription.current_period_end) })}</p>
+                <p className="text-[13px] text-[#7a5200]">{tt("No more charges. {name} ends on {date}.", { name: currentPlan.name, date: formatDateLong(subscription.current_period_end) })}</p>
               ) : subscription?.status === "canceled" ? (
                 <p className="text-[13px] text-[#6b7280]">
                   {tt("Your subscription was canceled.")}{" "}
-                  <Link href="/app/settings/billing/upgrade" className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("Start Pro again")}</Link>
+                  <Link href="/app/settings/billing/upgrade" className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("Start Grow again")}</Link>
                 </p>
               ) : (
                 <p className="text-[13px] text-[#6b7280]">{tt("No subscription. Free has no monthly charge.")}</p>

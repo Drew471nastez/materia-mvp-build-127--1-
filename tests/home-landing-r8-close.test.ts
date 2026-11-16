@@ -23,7 +23,6 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
 import { PLATFORM_INTEGRATION_APPS, CORNER_DOT_ALPHA, cornerDot } from "@/components/marketing/home/integrations-section"
 import { TikTokMark, GoogleCalendarMark, TIKTOK_NUDGE } from "@/components/marketing/home/integration-marks"
-import { PLAN_ART } from "@/components/billing/plan-cards"
 import { DOT_FIELD_CSS, DOT_FIELD_TONES } from "@/components/marketing/home/dot-field"
 
 let passed = 0
@@ -83,14 +82,8 @@ console.log("\n── pricing: left, teal, clean pictures ──")
   const cards = read("components/billing/plan-cards.tsx")
   check("the heading stated left aligned on the home page", /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
   check("the small print starts at the same edge on the home page", /editorial \? "pl-\[var\(--home-head-inset\)\] text-left" : "text-center"/.test(pricing))
-  const scale = PLAN_ART.pro
-  // Changed on purpose (landing round 9): the owner did not want Scale green either, so the teal is gone (tests/home-landing-r9-close.test.ts pins the new colour).
-  check("Scale is not teal, violet or pink", !/hue-rotate\(-80deg\)|#0f6b66/.test(Object.values(scale).join(" ")) && !/#7c3aed|#6d28d9|#5b21b6|#2a0f63|#1c0a45/.test(Object.values(scale).join(" ")))
-  const contrast = (f: string) => Number(/contrast\(([\d.]+)\)/.exec(f)?.[1] ?? 0)
-  check("every picture's contrast above 1, no longer dimmed below half", Object.values(PLAN_ART).every((a) => contrast(a.filter) > 1.1 && Number(/brightness\(([\d.]+)\)/.exec(a.filter)?.[1]) >= 0.5), Object.values(PLAN_ART).map((a) => a.filter))
-  // Changed on purpose (landing round 9): the owner asked for a little more grain (0.05 to 0.08), still under half of the 0.2 it was.
-  check("the grain under half of what it was", Object.values(PLAN_ART).every((a) => a.grain <= 0.08))
-  check("the pictures sent at quality 90, a quality next.config serves", /quality=\{90\}/.test(cards) && /qualities: \[[^\]]*\b90\b/.test(read("next.config.mjs")))
+  /* Changed on purpose (pricing round 5): the owner asked for the cards drawn like a reference picture, with no cover pictures, colours or grain, so the checks on the pictures (Scale's colour, contrast, grain, quality) are retired; tests/pricing-cards-r5.test.ts pins the new cards. */
+  check("the cards no longer draw cover pictures", !/next\/image|data-plan-picture|data-plan-grain/.test(cards))
 }
 
 console.log("\n── questions: no grey box ──")
@@ -105,11 +98,13 @@ console.log("\n── the close: dots, motion, the footer's edge ──")
 {
   const dots = read("components/marketing/home/dot-field.tsx")
   const cta = read("components/marketing/home/final-cta.tsx")
-  check("a little more visible, only a little", DOT_FIELD_TONES.dark.rest === 0.19 && DOT_FIELD_TONES.dark.lit === 0.46 && DOT_FIELD_TONES.purple.rest === 0.12)
-  check("round dots in 32 levels", /ctx\.arc\(b\[j\], b\[j \+ 1\], DOT_R, 0, Math\.PI \* 2\)/.test(dots) && /const LEVELS = 32/.test(dots) && !/ctx\.rect\(/.test(dots))
+  // Changed on purpose (landing round 11): the closing call "more visible" (0.34 / 0.68); the purple sheet rests at 0.17 (its own track).
+  check("more visible, and the purple its own", DOT_FIELD_TONES.dark.rest === 0.34 && DOT_FIELD_TONES.dark.lit === 0.68 && DOT_FIELD_TONES.purple.rest === 0.17)
+  check("round dots in 32 levels", /ctx\.arc\(b\[j\], b\[j \+ 1\], colour\.r, 0, Math\.PI \* 2\)/.test(dots) && /const LEVELS = 32/.test(dots) && !/ctx\.rect\(/.test(dots))
   check("moves by itself, follows the mouse while it is over the field", /const WANDER = 0\.6/.test(dots) && /goal = tone === "dark" \? WANDER/.test(dots) && /hasAim && mx > -40 && my > -40 && mx < w \+ 40 && my < h \+ 40/.test(dots))
   check("60 a second whenever it runs, paused off screen and in a hidden tab", /if \(last && t - last < 12\) return/.test(dots) && /IntersectionObserver/.test(dots) && /visibilitychange/.test(dots))
-  check("the field fades out before the call's foot", /<DotField fade="close" \/>/.test(cta) && /\.dotf\[data-fade="close"\]\{-webkit-mask-image:radial-gradient\(115% 80% at 50% 38%,#000 32%,transparent 76%\)/.test(DOT_FIELD_CSS))
+  // Changed on purpose (landing round 11): the owner: "more visible at the bottom as well": clear down to the foot, only the last 56px fade.
+  check("the field runs on to the call's foot, its last 56px fading", /<DotField fade="close" \/>/.test(cta) && /\.dotf\[data-fade="close"\]\{-webkit-mask-image:linear-gradient\(#000 calc\(100% - 56px\),transparent\),radial-gradient\(120% 135% at 50% 42%/.test(DOT_FIELD_CSS))
   check("the footer starts on the call's black and has a top edge: a hairline faded at both ends", /footer\.storelib-footer\{background-color:#050506;background-image:radial-gradient\([^;]*linear-gradient\(180deg,#050506 0%/.test(cta) && /footer\.storelib-footer::before\{content:"";background:linear-gradient\(90deg,transparent 4%,rgba\(255,255,255,\.07\) 22%,rgba\(255,255,255,\.16\) 50%/.test(cta))
   check("no banned words or em dashes in what changed", [cta, dots, read("components/marketing/faq-section.tsx"), read("components/marketing/home/integrations-section.tsx")].every((s) => !BANNED.test(s)))
 }

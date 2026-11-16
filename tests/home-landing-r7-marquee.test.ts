@@ -69,7 +69,8 @@ console.log("\n── Unlimited possibilities: photos and words ──")
   check("reduced motion: still, one copy, no fades", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.um-track\{animation:none[\s\S]*\.um-copy\[aria-hidden\]\{display:none\}[\s\S]*\.um-row::before,\.um-row::after\{display:none\}/.test(src))
   check("the photos are on the page from the start, at low priority (no square popping in as it drifts on screen)", !/loading="lazy"/.test(html) && /fetchPriority="low"/i.test(html))
   const physical = items.filter((i) => /^(Merch|Hoodies|Vinyl records|Art prints|Candles|Ceramics|Jewelry|Tote bags)$/.test(i.label)).length
-  check("close to half are things that ship", physical / items.length >= 0.4 && physical / items.length <= 0.6, { physical, of: items.length })
+  // Changed on purpose (landing round 11): the owner asked for more digital products ("don't add ceramics, or totes"); a few things that ship stay.
+  check("mostly digital, a few things that ship", physical >= 2 && physical / items.length <= 0.25, { physical, of: items.length })
   check("communities, never memberships", items.some((i) => i.label === "Communities") && !items.some((i) => /membership/i.test(i.label)))
   check("the heading on the shared width, set in like the showcase's", /\.um-head\{[^}]*max-width:var\(--home-max,2020px\)[^}]*padding-inline:calc\(var\(--home-edge,[^)]*\)\) \+ var\(--home-head-inset,14px\)\)/.test(src) && /<header class="um-head">/.test(html))
 }
@@ -81,7 +82,8 @@ console.log("\n── Connect your favorite apps: edge to edge ──")
   const html = renderToStaticMarkup(createElement(IntegrationsSection))
   check("no solid white strip: the icons run the whole screen", !/--solid/.test(css) && !/1210px/.test(css))
   check("the fades are short ramps at the screen's edges", /\.rows::before,\s*\.rows::after \{[\s\S]*?width: clamp\(40px, 11vw, 220px\);/.test(css))
-  check("no icon seen twice, at any width: a tile and its gap are at least 1/10.5 of the screen", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1) && /--gap: max\(20px, calc\(100vw \/ 10\.5 - var\(--tile\)\)\);/.test(css))
+  // Changed on purpose (landing round 11): the owner asked for a smaller gap; the sets are longer, so 1/12 of the screen still never shows an icon twice.
+  check("no icon seen twice, at any width: a tile and its gap are at least 1/12 of the screen", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1) && /--gap: max\(20px, calc\(100vw \/ 12 - var\(--tile\)\)\);/.test(css))
   check("standing still (reduced motion), the icons sit close again", /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.tile \{\s*margin-right: var\(--row-gap\);/.test(css))
   check("the heading in the shared box, set in like the showcase's", /<div class="home-wrap"><div class="[^"]*ml-\[var\(--home-head-inset,14px\)\]/.test(html) && !/max-w-\[1400px\]/.test(src))
 }

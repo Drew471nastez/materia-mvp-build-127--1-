@@ -9,7 +9,7 @@ type Item = { label: string; photo: string }
   WHAT CREATORS SELL, IN TWO ROWS (landing round, the owner: "keep only 2
   rows, not 3"). Edge to edge, one moving left and one right. Communities,
   never Memberships: memberships were folded into communities
-  (tests/memberships-folded). About half of them are things that ship.
+  (tests/memberships-folded). Mostly digital, a few things that ship (round 11).
 
   Landing round 7, the owner: no more pills. Each thing is a photograph on a
   rounded square, tilted a few degrees (every third one turned into a
@@ -34,28 +34,41 @@ type Item = { label: string; photo: string }
              thing: printed totes on a rack, a lesson on a laptop, colour
              scopes on a screen, a record on a deck, friends out together,
              site layouts on a monitor.
+
+  Landing round 11, the owner: "don't add ceramics, or totes or whatever;
+  add more digital products like before", and photos that clearly show the
+  thing rather than stock moods. The list leans digital again, as it did
+  before round 4 (presets, sample packs, ebooks, LUTs, fonts, Procreate
+  brushes, stock footage, music, templates, podcasts, courses, coaching,
+  communities), with three things that ship (merch, art prints, hoodies)
+  and tickets. Candles, ceramics, jewelry, totes and vinyl are gone. New
+  photos from Unsplash (free licence), each the thing itself: Lightroom's
+  Develop panel, a lit pad controller, a Kindle in hand, a colour graded
+  timeline, a letterpress type case, a painting on an iPad with a pencil,
+  a cinema camera, a recording studio. Still never "Memberships"
+  (tests/memberships-folded: memberships live inside communities).
 */
 const ROW_1: Item[] = [
-  { label: "Merch", photo: "merch" },
-  { label: "Online courses", photo: "courses" },
   { label: "Presets", photo: "presets" },
-  { label: "Vinyl records", photo: "vinyl" },
-  { label: "Communities", photo: "communities" },
-  { label: "Art prints", photo: "prints" },
-  { label: "Coaching", photo: "coaching" },
-  { label: "Candles", photo: "candles" },
+  { label: "Online courses", photo: "courses" },
+  { label: "Merch", photo: "merch" },
+  { label: "Sample packs", photo: "samples" },
   { label: "Ebooks", photo: "ebooks" },
+  { label: "Communities", photo: "communities" },
+  { label: "LUTs", photo: "luts" },
+  { label: "Coaching", photo: "coaching" },
+  { label: "Fonts", photo: "fonts" },
 ]
 const ROW_2: Item[] = [
   { label: "Music", photo: "music" },
-  { label: "Hoodies", photo: "hoodies" },
   { label: "Templates", photo: "templates" },
-  { label: "Ceramics", photo: "ceramics" },
+  { label: "Art prints", photo: "prints" },
   { label: "Podcasts", photo: "podcasts" },
+  { label: "Procreate brushes", photo: "brushes" },
   { label: "Event tickets", photo: "tickets" },
-  { label: "Jewelry", photo: "jewelry" },
+  { label: "Stock footage", photo: "footage" },
+  { label: "Hoodies", photo: "hoodies" },
   { label: "Workshops", photo: "workshops" },
-  { label: "Tote bags", photo: "totes" },
 ]
 
 export const MARQUEE_ROWS = [

@@ -115,7 +115,7 @@ export const USE_CASES: readonly UseCase[] = [
     ],
     steps: [
       { title: "Make the product", text: "In Products, press New product and choose Digital product. Give it a title, a description and a cover.", shot: shot("editor-media", "The Storelib product editor's Photos and video card, with three demo cover images") },
-      { title: "Upload the files", text: `Drop your files into Digital Files. Up to ${free.filesPerProduct} files on Free and ${pro.filesPerProduct} on Pro, each up to ${PRODUCT_FILE_LIMIT}.`, shot: shot("editor-files", "The Digital Files card in the Storelib product editor, with two demo zip files") },
+      { title: "Upload the files", text: `Drop your files into Digital Files. Up to ${free.filesPerProduct} files on Free and ${pro.filesPerProduct} on Grow, each up to ${PRODUCT_FILE_LIMIT}.`, shot: shot("editor-files", "The Digital Files card in the Storelib product editor, with two demo zip files") },
       { title: "Set the price", text: "A fixed price, a crossed out compare at price, or pay what you want above a minimum. A price of 0 makes it free.", shot: shot("editor-pricing", "The Pricing card in the Storelib product editor: a $29 price and a $39 compare at price") },
       { title: "Publish and share", text: "Publish, then share the product link, your creator page at storelib.com/yourname or your OnePage at storelib.me/yourname." },
     ],
@@ -179,7 +179,7 @@ export const USE_CASES: readonly UseCase[] = [
       { q: "Can students see their progress?", a: "Yes. The player marks finished lessons and opens the course where the student stopped." },
       { q: "Can I give certificates or quizzes?", a: "Not today. A course on Storelib is lessons, notes, files and progress." },
       { q: "Can a course be part of a paid community?", a: "A community can have its own classroom with lessons for members. A course sold as a product is bought once." },
-      { q: "Is there a limit on lessons?", a: `No fixed number. Uploaded videos count toward your file storage: ${free.storage} on Free and ${pro.storage} on Pro.` },
+      { q: "Is there a limit on lessons?", a: `No fixed number. Uploaded videos count toward your file storage: ${free.storage} on Free and ${pro.storage} on Grow.` },
     ],
     help: ["/help/products/create-a-product", "/help/products/pricing", "/help/email/automations", "/help/orders-and-payouts/fees"],
     alternatives: ["kajabi", "podia", "stan-store", "gumroad", "whop", "skool"],
@@ -192,7 +192,7 @@ export const USE_CASES: readonly UseCase[] = [
     ...named("communities"),
     seo: {
       title: "Run a free or paid online community | Storelib",
-      description: `Start a community on Storelib with a feed, chat, events and paid plans billed monthly or yearly. ${free.communities} communities on Free, more on Pro.`,
+      description: `Start a community on Storelib with a feed, chat, events and paid plans billed monthly or yearly. ${free.communities} communities on Free, more on Grow.`,
       h1: "Run a community on Storelib",
     },
     lede: "A community on Storelib is a place your members visit: posts, chat, events and files, free or paid.",
@@ -220,7 +220,7 @@ export const USE_CASES: readonly UseCase[] = [
       { title: "Example: a private group", text: "A coach keeps a private, invite only community for clients, with a yearly plan." },
     ],
     faqs: [
-      { q: "How many communities can I have?", a: `${free.communities} on Free. On Pro, as many as you like.` },
+      { q: "How many communities can I have?", a: `${free.communities} on Free. On Grow, as many as you like.` },
       { q: "Can I connect Discord or Telegram?", a: "No. A Storelib community has its own feed and chat. There is no Discord or Telegram integration." },
       { q: "What currency are plans in?", a: "Community plans are priced and paid in US dollars." },
       { q: "Can members pay once instead of monthly?", a: "Yes. A plan can be recurring, monthly or yearly, or a one time price." },
@@ -236,7 +236,7 @@ export const USE_CASES: readonly UseCase[] = [
     ...named("creator-website"),
     seo: {
       title: "Creator website builder with a built in store | Storelib",
-      description: `Build a website that sells your products, on yourname.storelib.com or your own domain. ${free.websites} websites on Free, ${pro.websites} on Pro with your own domain.`,
+      description: `Build a website that sells your products, on yourname.storelib.com or your own domain. ${free.websites} websites on Free, ${pro.websites} on Grow with your own domain.`,
       h1: "Build a creator website on Storelib",
     },
     lede: "A website on Storelib comes with its store already in it: your products, the cart and checkout.",
@@ -247,14 +247,14 @@ export const USE_CASES: readonly UseCase[] = [
     ],
     delivery: [
       { title: "Products appear on their own", text: "Products you publish show on your website without being added by hand. The cart and checkout are built in." },
-      { title: "Your own domain on Pro", text: `On Free your site is at yourname.storelib.com. On Pro you connect a domain you own${pro.removeBranding ? " and can hide the Storelib branding" : ""}.` },
+      { title: "Your own domain on Grow", text: `On Free your site is at yourname.storelib.com. On Grow you connect a domain you own${pro.removeBranding ? " and can hide the Storelib branding" : ""}.` },
       { title: "Themes, including Shopify's", text: "Start from a Storelib theme, or upload a Shopify theme's zip and it becomes a Storelib theme. Most of a theme comes across; the Developer Hub lists what does not." },
       { title: "Languages and currencies", text: "Add a language and the site is translated, products included. Visitors in the countries you choose can see and pay in their own currency." },
     ],
     steps: [
       { title: "Pick a theme", text: "Open Websites, press New website and choose a theme, or upload one." },
       { title: "Edit the pages", text: "Change sections, text and pictures in the editor and check the phone layout with the preview switch.", shot: hero("editor", "The Storelib website builder with a demo streetwear store open") },
-      { title: "Publish, then add your domain", text: "Publish to yourname.storelib.com. On Pro, connect your own domain from Settings, Domains.", shot: hero("street", "A demo streetwear store on Storelib, on a computer and a phone") },
+      { title: "Publish, then add your domain", text: "Publish to yourname.storelib.com. On Grow, connect your own domain from Settings, Domains.", shot: hero("street", "A demo streetwear store on Storelib, on a computer and a phone") },
     ],
     example: { priceCents: 4000, what: "a $40 order on your website" },
     examples: [
@@ -262,8 +262,8 @@ export const USE_CASES: readonly UseCase[] = [
       { title: "Example: a store with prints and files", text: "A photographer sells prints that ship and preset packs that download, from one website and one checkout." },
     ],
     faqs: [
-      { q: "How many websites can I make?", a: `${free.websites} on Free with ${free.pagesPerWebsite} pages each, and ${pro.websites} on Pro with ${pro.pagesPerWebsite} pages each.` },
-      { q: "Can I use my own domain?", a: free.ownDomain ? "Yes, on every plan." : "Yes, on Pro. On Free your website is at yourname.storelib.com." },
+      { q: "How many websites can I make?", a: `${free.websites} on Free with ${free.pagesPerWebsite} pages each, and ${pro.websites} on Grow with ${pro.pagesPerWebsite} pages each.` },
+      { q: "Can I use my own domain?", a: free.ownDomain ? "Yes, on every plan." : "Yes, on Grow. On Free your website is at yourname.storelib.com." },
       { q: "Can I bring my Shopify theme?", a: "You can upload a Shopify theme's zip and Storelib turns it into a theme for your website. Your Shopify products and customers do not come with it." },
       { q: "Do I need a website to sell?", a: "No. Your creator page and OnePage sell your products too. A website is for when you want your own address and design." },
     ],

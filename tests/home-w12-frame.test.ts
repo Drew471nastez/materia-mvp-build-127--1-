@@ -116,7 +116,8 @@ async function main() {
     check("no fade, no rise, no animation at all", !/@keyframes|animation|opacity|IntersectionObserver|data-armed/.test(src))
     check("no card, no light, no floating receipts", !/fcta-card|fcta-light|fcta-chip|border-radius:clamp/.test(src) && /<section class="fcta" data-final-cta=""/.test(html))
     /* Changed on purpose (landing round 4): the closing call ends the page's dark close, with room for its mark and dot grid (at most 152px). */
-    check("its padding is bounded: at most 152px top and bottom", /\.fcta\{[^}]*background:transparent;[^}]*padding:clamp\(88px,10vw,152px\)[^}]*clamp\(80px,9vw,136px\)/.test(src))
+    // Changed on purpose (landing round 11): the owner: "too much height, reduce it just a little": at most 128px above and 116px below.
+    check("its padding is bounded: at most 128px top and 116px bottom", /\.fcta\{[^}]*background:transparent;[^}]*padding:clamp\(76px,8\.4vw,128px\)[^}]*clamp\(68px,7\.6vw,116px\)/.test(src))
     check("the buttons are 44px or more on a phone", /\.fcta-btn\{[^}]*height:54px/.test(src))
   }
 
@@ -133,7 +134,8 @@ async function main() {
     const { MarketingFooter, APP_STORE_HREF } = await import("@/components/marketing/footer")
     const html = renderToStaticMarkup(createElement(MarketingFooter))
     // Changed on purpose (landing round 9): the footer wears the white outline mark, not the violet picture.
-    check("dark, with the logo", /class="storelib-footer[^"]*text-white/.test(html) && /<StorelibLogo size=\{40\} variant="outline" \/>/.test(src))
+    // Changed on purpose (landing round 11): the owner, "the Storelib icon in the footer should not be outlined": the app icon again.
+    check("dark, with the logo", /class="storelib-footer[^"]*text-white/.test(html) && /<StorelibLogo size=\{40\} \/>/.test(src))
     /* Changed on purpose (landing round 3): four columns, as in the owner's picture; the same links. */
     check("four link groups and the legal row", ["Product", "Sell", "Resources", "Support", "Legal"].every((g) => html.includes(`aria-label="${g}"`)))
     check("the links are the footer's real ones", ["/explore", "/pricing", "/alternatives", "/features", "/developers", "/blog", "/terms", "/privacy", "/faq", "/sell/digital-products"].every((h) => html.includes(`href="${h}"`)))
@@ -211,7 +213,8 @@ async function main() {
     const src = code("components/marketing/home/lazy-section.tsx")
     check("a mounted lazy section stays in its box, which the browser skips off screen", /data-lazy-mounted=""/.test(src) && /contentVisibility: "auto"/.test(src) && /containIntrinsicSize: `auto \$\{options\.minHeight\}`/.test(src))
     /* Changed on purpose (wave 14): laid out in slices (layOutInSlices), then its height kept as before. */
-    check("right after mounting it is laid out in idle slots and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /el\.style\.containIntrinsicSize = `auto \$\{Math\.round\(height\)\}px`/.test(src))
+    /* Changed on purpose (landing round 11): the real height is kept exactly, unrounded (keepHeight), so a box drawn again is not a fraction of a pixel off. */
+    check("right after mounting it is laid out in idle slots and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /box\.style\.containIntrinsicSize = `auto \$\{height\}px`/.test(src) && /keepHeight\(el, height\)/.test(src))
     const css = read("app/globals.css")
     const heading = code("components/marketing/story-heading.tsx")
     check("headings ink and rise from scroll-driven animations where the browser has them (no script per frame)", /@property --story-progress/.test(css) && /animation-timeline:--story-heading/.test(css) && /@keyframes story-heading-rise \{from\{transform:translate3d\(0,12px,0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(css) && /function inkedByCss/.test(heading) && /data-story-js/.test(heading))
@@ -240,7 +243,7 @@ async function main() {
     check("idle work waits until the page has stopped scrolling", /const CALM_MS = \d+/.test(src) && /since < CALM_MS/.test(src) && /addEventListener\("scroll", \(\) => \(lastScroll = performance\.now\(\)\), \{ passive: true, capture: true \}\)/.test(src))
     check("the idle chain mounts the waiting section nearest the screen first", /farness\(a\) - farness\(b\)/.test(src))
     check("a box hydrates empty, as the server drew it, even when its code arrived first (no hydration mismatch on a slow network)", /useSyncExternalStore\(noSubscription, drawnInBrowser, drawnOnServer\)/.test(src) && /useState<ComponentType<P> \| null>\(\(\) => \(browserDrawn \? cached : null\)\)/.test(src))
-    check("a mounted section is laid out ahead a slice at a time (no long task), and all at once if it comes near first", /const SLICE_ELEMENTS = \d+/.test(src) && /g\.style\.contentVisibility = "hidden"/.test(src) && /if \(e\.isIntersecting\) slicing\.get\(box\)\?\.\(\)/.test(src) && /const stopSlicing = layOutInSlices\(el,/.test(src))
+    check("a mounted section is laid out ahead a slice at a time (no long task), and all at once if it comes near first", /const SLICE_ELEMENTS = \d+/.test(src) && /g\.style\.contentVisibility = "hidden"/.test(src) && /* Changed on purpose (landing round 11): the same branch also asks for the box's pictures (eagerPictures). */ /if \(e\.isIntersecting\) \{\s*slicing\.get\(box\)\?\.\(\)/.test(src) && /const stopSlicing = layOutInSlices\(el,/.test(src))
     const globe = code("components/marketing/home/everything-globe.tsx")
     /* Changed on purpose (wave 14 integration): main fixed the same crash first, by drawing a second run on a fresh canvas instead of keeping the worker per canvas; main's version is kept, so this checks that. */
     check("the globe never asks a canvas it already handed to a worker for a context again (a second run gets a fresh canvas)", /const handedOver = new WeakSet<HTMLCanvasElement>\(\)/.test(globe) && /handedOver\.add\(canvas\)/.test(globe) && /if \(handedOver\.has\(canvas\)\) \{[\s\S]{0,200}canvas\.replaceWith\(fresh\)/.test(globe))

@@ -39,7 +39,8 @@ console.log("\nThe tab control: words and a ring, not pills with a line")
   check("one ring, on the chosen word, drawn as two turning halves", (html.match(/class="biz-ring"/g) ?? []).length === 1 && /<span class="biz-ring"[^>]*><i class="a"><b><\/b><\/i><i class="b"><b><\/b><\/i><\/span>/.test(html))
   check("the ring is the clock: its second half closing brings the next kind", /e\.animationName === "biz-ring-b"\) advance\(\)/.test(code(SECTION)) && /onAnimationEnd=\{turnEnd\}/.test(code(SECTION)))
   check("it turns on transform alone, paused unless the section runs", /@keyframes biz-ring-a\{0%\{transform:rotate\(-180deg\)\}50%,100%\{transform:rotate\(0deg\)\}\}/.test(css) && /\.biz\[data-auto\] \.biz-ring b\{animation:biz-ring-a var\(--biz-ms,6500ms\) linear both paused\}/.test(css) && /\.biz\[data-auto\]\[data-run\] \.biz-ring b\{animation-play-state:running\}/.test(css))
-  check("each kind's turn is its own length (digital shows three covers)", BUSINESS_SLIDE_MS === 6500 && BUSINESS_SLIDES[0].ms === Math.round(DIGITAL_STEP_S * 3000 + 500) && html.includes(`--biz-ms:${BUSINESS_SLIDES[0].ms}ms`) && BUSINESS_SLIDES.slice(1).every((s) => s.ms === undefined))
+  // Changed on purpose (landing round 11): physical turns through its four products too, so it has its own length as well.
+  check("each kind's turn is its own length (digital shows three covers, physical four products)", BUSINESS_SLIDE_MS === 6500 && BUSINESS_SLIDES[0].ms === Math.round(DIGITAL_STEP_S * 3000 + 500) && html.includes(`--biz-ms:${BUSINESS_SLIDES[0].ms}ms`) && typeof BUSINESS_SLIDES[1].ms === "number" && BUSINESS_SLIDES.slice(2).every((s) => s.ms === undefined))
   const src = code(SECTION)
   check("autoplay stays: picking a word never stops it; hover, a finger, off screen and a hidden tab hold it", /onClick=\{\(\) => go\(i\)\}/.test(src) && !/t\.select\(/.test(src) && /\{\.\.\.t\.hoverProps\}/.test(src) && /onPointerDown=\{hold\}/.test(src) && /const run = t\.run && !held/.test(src) && /data-live=\{t\.live \|\| undefined\}/.test(src))
   check("arrow keys move along the row and down the index", /NEXT_KEYS = \["ArrowRight", "ArrowDown"\]/.test(src) && /PREV_KEYS = \["ArrowLeft", "ArrowUp"\]/.test(src))
@@ -62,7 +63,8 @@ console.log("\nThe layout: an index beside the stage, a row over it on a phone")
 console.log("\nDigital: covers in a slow row")
 {
   const d = renderToStaticMarkup(createElement(DigitalScene))
-  check("five products: a LUT pack, a Notion template, an e-book, a preset pack, a font", DIGITAL_PRODUCTS.map((p) => p.id).join() === "lut,notion,book,presets,font" && DIGITAL_PRODUCTS.every((p) => d.includes(p.name) && d.includes(p.price)))
+  // Changed on purpose (landing round 11): the Notion template ("not cool") is a sample pack.
+  check("five products: a LUT pack, a sample pack, an e-book, a preset pack, a font", DIGITAL_PRODUCTS.map((p) => p.id).join() === "lut,drums,book,presets,font" && DIGITAL_PRODUCTS.every((p) => d.includes(p.name) && d.includes(p.price)))
   check("the shared Cine Tones LUT Pack leads, $29, on its black cover with the graded still", DIGITAL_PRODUCTS[0].name === "Cine Tones LUT Pack" && DIGITAL_PRODUCTS[0].price === "$29" && d.includes("/home/everything/lut-still.webp") && /\.bc-lut\{background:#0a0a0b\}/.test(BUSINESS_MOCK_CSS))
   check("the row carries the set and the covers round its ends, so it starts again unseen", (d.match(/class="bd-slot"/g) ?? []).length === 8 && /const SLOTS = \[4, 0, 1, 2, 3, 4, 0, 1\]/.test(read(MOCKS)))
   check("one buy card, a page for each product stacked in it", (d.match(/class="bs-card bd-card"/g) ?? []).length === 1 && (d.match(/class="bd-info"/g) ?? []).length === 5)
@@ -77,15 +79,17 @@ console.log("\nPhysical: the Midnight Studio Tee")
 {
   const t = renderToStaticMarkup(createElement(TeeScene))
   check("the shared black tee, $32, on a calm ground the photograph shares", t.includes("Midnight Studio Tee") && t.includes("$32") && t.includes("bz-tee.webp") && /\.bs-tee\{background:#eeedea\}/.test(BUSINESS_MOCK_CSS))
-  check("a size is picked (the ring comes to rest on M) and it goes in the cart", ["XS", "S", "M", "L", "XL"].every((s) => t.includes(`<i>${s}</i>`)) && /\.bt-ring\{[^}]*transform:translate3d\(calc\(\(100% \+ calc\(8\*var\(--u\)\)\) \* 2\),0,0\)\}/.test(BUSINESS_MOCK_CSS) && /\.bz-on \.bt-ring\{animation:bt-size/.test(BUSINESS_MOCK_CSS) && t.includes("Added to cart") && t.includes("Size M · $32"))
+  // Changed on purpose (landing round 11): the tee is the first of four products in turn; each has its option ringed (--k, M for the tee) and goes in the cart.
+  check("a size is picked (the ring comes to rest on M) and it goes in the cart", ["XS", "S", "M", "L", "XL"].every((s) => t.includes(`<i>${s}</i>`)) && /\.bt-ring\{[^}]*transform:translate3d\(calc\(\(100% \+ calc\(8\*var\(--u\)\)\) \* var\(--k\)\),0,0\)\}/.test(BUSINESS_MOCK_CSS) && t.includes("--k:2") && /\.bz-on \.bt-ring\{animation:bt-pick/.test(BUSINESS_MOCK_CSS) && t.includes("Added to cart") && /M · \$32/.test(t))
   check("the headphones and the yellow are gone", !/headphone|HN1|Halfnote|#f5c518|bs-spot/i.test(code(MOCKS)) && !existsSync("public/home/showcase/bz-headphones.webp"))
 }
 
 console.log("\nCommunity: a real banner. Courses and bookings kept")
 {
   const c = renderToStaticMarkup(createElement(ClubScene))
-  check("the banner: the club's photograph, its mark, its name set large, its line and its host", /class="bs-com-cover">.*bz-ai-club\.webp.*class="bs-com-mark".*class="bs-com-word"><b>Applied AI Club<\/b><i>Build something real with AI, every week<\/i>.*Hosted by Sam Adeyemi/.test(c))
-  check("the photograph runs into the banner's black under the words", /\.bs-com-cover::after\{[^}]*linear-gradient\(to right,#0c0d10 28%/.test(BUSINESS_MOCK_CSS))
+  // Changed on purpose (landing round 11): the owner wanted another heading in the cover, a colour that is not white, and a real logo: a green banner, the club's logo, its promise as the heading.
+  check("the banner: the club's photograph, its logo, its line set large and its host", /class="bs-com-cover">.*bz-ai-club\.webp.*class="bs-com-logo".*class="bs-com-word"><b>Build one AI tool a week<\/b>.*Hosted by Sam Adeyemi/.test(c))
+  check("the photograph runs into the banner's green under the words", /\.bs-com-cover::after\{[^}]*linear-gradient\(to right,#123227 30%/.test(BUSINESS_MOCK_CSS))
   check("the rest of the club as it was: the event, three spaces, three posts", c.includes("Live build: an inbox agent") && (c.match(/class="bs-post"/g) ?? []).length === 3 && c.includes("Join for $12"))
   const course = renderToStaticMarkup(createElement(CourseScene))
   check("course kept: Tomás Reyes, the DJ photo, $79, four lessons", course.includes("Mixing in key, for new DJs") && course.includes("bz-dj.webp") && course.includes("$79") && (course.match(/<li/g) ?? []).length === 4)
@@ -104,8 +108,9 @@ console.log("\nSmooth and clean")
   check("the moments run only with motion allowed", /@media\(prefers-reduced-motion:no-preference\)\{\n\.bz-on/.test(BUSINESS_MOCK_CSS) && !/\n\.bz-on[^\n]*animation/.test(BUSINESS_MOCK_CSS.split("@media(prefers-reduced-motion:no-preference){")[0]))
   const every = [DigitalScene, TeeScene, CourseScene, ClubScene, CoachScene].map((s) => renderToStaticMarkup(createElement(s))).join("")
   const stills = every.match(/<img[^>]*class="bc-still"[^>]*>/g) ?? []
-  check("every picture is sized and decoded off the main thread; all lazy but the covers in the moving row", !/<img(?![^>]*width=)[^>]*>/.test(every) && !/<img(?![^>]*decoding="async")[^>]*>/.test(every) && !/<img(?![^>]*(?:loading="lazy"|class="bc-still"))[^>]*>/.test(every))
-  check("the row's covers load with the scene (clipped by the rail, a lazy one would arrive mid glide)", stills.length === 4 && stills.every((i) => /loading="eager"/.test(i)))
+  // Changed on purpose (landing round 11): the physical products turn in place as well, so their pictures load with the scene; the sample pack's cover has a still too, so the eight slots now carry six (it stands twice, round the row's end).
+  check("every picture is sized and decoded off the main thread; all lazy but the covers in the moving row and the physical products", !/<img(?![^>]*width=)[^>]*>/.test(every) && !/<img(?![^>]*decoding="async")[^>]*>/.test(every) && !/<img(?![^>]*(?:loading="lazy"|class="bc-still"|loading="eager"[^>]*class="smk-pic))[^>]*>/.test(every))
+  check("the row's covers load with the scene (clipped by the rail, a lazy one would arrive mid glide)", stills.length === 6 && stills.every((i) => /loading="eager"/.test(i)))
   const pics = ["bz-tee", "bz-ebook", "bz-presets", "bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
   check("every photograph is a small webp (under 120 KB)", pics.every((p) => existsSync(p) && statSync(p).size < 120 * 1024), pics.filter((p) => !existsSync(p) || statSync(p).size >= 120 * 1024))
   const words = `${BUSINESS_SLIDES.map((s) => `${s.alt} ${s.line}`).join(" ")} ${every.replace(/<[^>]+>/g, " ")}`

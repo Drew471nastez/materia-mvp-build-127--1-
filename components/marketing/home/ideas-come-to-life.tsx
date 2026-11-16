@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, type ComponentType } from "react"
+import { memo, useState, type ComponentType } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
 import { BUILDER_CSS, BUILDER_DURATION_MS, CommunityMock, OnePageEditorMock, WebsiteBuilderMock } from "./showcase-mocks/builder-mocks"
@@ -49,6 +49,21 @@ export const IDEAS_HEADING = "See your ideas come to life."
   1440x800 laptop the tabs and the whole picture stand in one screen. The
   editor inside is drawn in the frame's own width, so it shrinks whole. A
   phone keeps the full width.
+
+  Landing round 11 (the owner): the Website builder tab moves on, "very
+  smoothly", from Mondo Mango to a second site, loudlib (the owner's own
+  store, a dark sample pack shop), and the OnePage editor tab from Desmond
+  Ayo's page to Idris Kane's, both inside the same editor. A tab has
+  `scenes`: the autoplay clock runs once per scene, and at the end of one
+  that is not the last the panel's data-scene goes up and the editor's
+  contents cross fade (opacity only, builder-mocks.tsx .bm-s1/.bm-s2); the
+  editor's own chrome stays. The panel that leaves keeps its scene while it
+  fades out, and is set back to the first only once it is at rest. Mondo
+  Mango sells a party card game now, product shots of its boxes, under a
+  clean studio picture. The frame gets a little depth: one soft layered
+  shadow on the frame that never changes, so nothing comes and goes when a
+  tab or a scene changes, and it ends inside the section's own padding,
+  so the lazy box never cuts it.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
 /** How long each heading stays, in seconds; the three take turns in one CSS loop. */
@@ -59,26 +74,31 @@ type IdeasTab = {
   title: string
   alt: string
   Mock: ComponentType
+  /** How many scripted moments the tab plays before the next tab (landing round 11). */
+  scenes: number
 }
 
 export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of Mondo Mango's home page in the sidebar, and the page itself, a bright merch label's store: its orange wordmark, an orange hero with one photograph of the drop, and a crewneck, a trucker cap, a tee and a tote with the wordmark printed on them. The Hero, then the Featured products section is selected, then Publish changes puts it live.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First Mondo Mango, a party card game's store: its orange wordmark, a studio picture of the game in the hero, and the game, its expansion, a family edition and a bundle as product shots of their boxes. Then loudlib, a sample pack store: a purple sale bar, a dark header, the new bundle over a club photo, and the bestselling packs as black boxes. Each time the Hero, then the products are selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
+    scenes: 2,
   },
   {
     id: "onepage",
     title: "OnePage editor",
-    alt: "Storelib's OnePage editor: Desmond Ayo's links, his pack of 14 film LUTs, a free LUT and a grade review call on the Links tab, beside his live page on the Ember theme, as his email signup block is switched on and saved.",
+    alt: "Storelib's OnePage editor: Desmond Ayo's links, his pack of 14 film LUTs, a free LUT and a grade review call on the Links tab, beside his live page on the Ember theme, as his email signup block is switched on and saved. Then Idris Kane's page, a photographer's: his photo melting into a dark page, his portfolio, bookings, prints and showreel, as his email signup is switched on.",
     Mock: OnePageEditorMock,
+    scenes: 2,
   },
   {
     id: "community",
     title: "Community",
     alt: "Inside The Strength Room, a paid Storelib community where coach Rina Castillo runs strength training for women: its barbell emblem, the community card with the name in heavy yellow on the cover, the next live form check, the space chips, and the pinned post with the new program getting a like while a member writes a new post.",
     Mock: CommunityMock,
+    scenes: 1,
   },
 ]
 
@@ -106,6 +126,16 @@ function Accented({ text }: { text: string }) {
 export function IdeasComeToLife() {
   const t = useAutoTabs(IDEAS_TABS.length)
   const n = IDEAS_TABS.length
+  /* The scene a tab is on (landing round 11). The panel that is leaving keeps the one it showed until it is at rest. */
+  const [shown, setShown] = useState({ index: 0, scene: 0 })
+  const scene = shown.index === t.index ? shown.scene : 0
+  /* Once the old panel has faded out (no panel is leaving), the scene follows the new tab: set while rendering, no timer of its own. */
+  const fading = [...t.states.values()].includes("leaving")
+  if (shown.index !== t.index && !fading) setShown({ index: t.index, scene: 0 })
+  const onClockEnd = () => {
+    if (scene + 1 < IDEAS_TABS[t.index].scenes) setShown({ index: t.index, scene: scene + 1 })
+    else t.advance()
+  }
   return (
     <section
       ref={t.rootRef}
@@ -157,11 +187,11 @@ export function IdeasComeToLife() {
       </div>
       {/* The autoplay clock: one scripted moment, then the next tab. Invisible, and paused while unseen (use-auto-tabs.ts). */}
       <span
-        key={t.index}
+        key={`${t.index}-${scene}`}
         className="smk-clock"
         data-on={t.playing || undefined}
         style={{ animationDuration: `${BUILDER_DURATION_MS}ms` }}
-        onAnimationEnd={t.advance}
+        onAnimationEnd={onClockEnd}
         aria-hidden="true"
       />
       <div className="ideas-stage" {...t.hoverProps}>
@@ -179,6 +209,7 @@ export function IdeasComeToLife() {
                 className="ideas-panel"
                 data-pane={state}
                 data-mock-live={(state === "active" && t.live) || undefined}
+                data-scene={i === shown.index ? shown.scene : 0}
               >
                 <IdeasMock i={i} />
               </div>
@@ -228,7 +259,8 @@ const CSS = `
 .ideas[data-run] .smk-clock[data-on]{animation-play-state:running}
 [data-landing-story] .ideas>.ideas-stage,.ideas-stage{position:relative;display:grid;max-width:var(--home-max,2020px);margin:0 auto;padding:0 var(--home-edge,clamp(20px,5.15vw,84px));box-sizing:border-box}
 /* Landing round 9: one frame for every panel, with the corners and a hairline; no shadow anywhere, so nothing comes and goes at the foot when a tab changes and nothing is there for the lazy box to cut. Landing round 10: from 768px it is 78% of the shared width, and no wider than a frame (1280/752) as tall as the screen less 170px (the tabs, their gap and a margin), centred. */
-.ideas-frame{grid-area:1/1;display:grid;box-sizing:border-box;width:100%;justify-self:center;border:1px solid #e3e3e6;border-radius:clamp(9px,1.3vw,17px);overflow:hidden;background:#fff}
+.ideas-frame{grid-area:1/1;display:grid;box-sizing:border-box;width:100%;justify-self:center;border:1px solid #e3e3e6;border-radius:clamp(9px,1.3vw,17px);overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.04),0 6px 16px -6px rgba(16,24,40,.08),0 22px 44px -22px rgba(16,24,40,.16)}
+/* Landing round 11 (the owner: "a little more depth, just a little"): the shadow above sits on the frame, which never changes or moves, so a tab or a scene changing never touches it; the shadow reaches 22px under the frame, inside the section's own padding below it, so the section's box never cuts it and no height changes. */
 @media(min-width:768px){.ideas-frame{width:min(78%,calc((100svh - 170px) * 1280 / 752))}}
 .ideas-panel{grid-area:1/1;background:#fff;transition:opacity .55s cubic-bezier(.2,.7,.2,1)}
 .ideas-panel[data-pane="active"]{z-index:2;animation:ideas-in .55s cubic-bezier(.2,.7,.2,1) both}

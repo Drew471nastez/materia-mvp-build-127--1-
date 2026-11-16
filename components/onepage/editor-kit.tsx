@@ -430,7 +430,7 @@ export function RangeRow({
 }
 
 /** A small mark for a paid feature, as Linktree's bolt: a dark circle with a lightning bolt. */
-export function ProMark({ title = "Pro" }: { title?: string }) {
+export function ProMark({ title = "Grow" }: { title?: string }) {
   return (
     <span title={title} aria-label={title} className="grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e]/80 text-white">
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3" aria-hidden>

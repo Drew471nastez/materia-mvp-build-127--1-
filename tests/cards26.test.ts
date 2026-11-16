@@ -164,7 +164,7 @@ async function main() {
   /* ── The rule ────────────────────────────────────────────────────────── */
   console.log("\nthe rule")
   check("a deleted or scheduled community takes no place; an archived one still does", takesCommunitySlot({}) && !takesCommunitySlot({ deleted: true }) && !takesCommunitySlot({ deleting: true }) && takesCommunitySlot({ deleting: false }))
-  check("Keep's refusal is a plain sentence with the plan's number", KEEP_LIMIT_TEXT.includes(String(FREE_COMMUNITY_LIMIT)) && /Delete one or upgrade to Pro/.test(KEEP_LIMIT_TEXT))
+  check("Keep's refusal is a plain sentence with the plan's number", KEEP_LIMIT_TEXT.includes(String(FREE_COMMUNITY_LIMIT)) && /Delete one or upgrade to Grow/.test(KEEP_LIMIT_TEXT)) /* Changed on purpose (pricing round 5): the $29 plan reads "Grow" now. */
 
   /* ── Places on the Free plan ─────────────────────────────────────────── */
   console.log("\nplaces")

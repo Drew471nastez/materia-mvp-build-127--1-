@@ -71,11 +71,24 @@ function createHeadingInk() {
  * shakes. The colour may trail by a frame; nobody sees that. The rule names
  * the class alone (three times, for weight), so a heading a section writes
  * itself (the ideas' turning lines) stands still too.
+ *
+ * Landing round 11, the owner: "the filling of the headings should be more
+ * smooth, clean, buttery; not fast or too direct". Each word now takes
+ * WORD_SPREAD words of the wave to fill (it was 2.4), so about four words are
+ * on their way at any moment and none snaps from grey to ink; the scroll it
+ * fills over is longer (app/globals.css, "story-heading-ink": from the moment
+ * the heading enters, to 70% of the screen); and the fallback's transition is
+ * INK_FALLBACK_MS on a softer curve (it was 1.1s).
  */
+/** Landing round 11: how many words of the wave one word takes to fill. */
+export const WORD_SPREAD = 4
+/** Landing round 11: the fallback's ink, as one transition. */
+export const INK_FALLBACK_MS = 1800
+export const INK_FALLBACK_EASE = "cubic-bezier(.33,0,.2,1)"
 export const STORY_CSS = `
 @supports (color:color-mix(in oklab,red 50%,blue)) {
   .story-heading[data-story-heading] [data-story-word][data-story-word] {
-    --word-on:clamp(0,(var(--story-progress,0) * (var(--word-count) + 2.4) - var(--word-index)) / 2.4,1);
+    --word-on:clamp(0,(var(--story-progress,0) * (var(--word-count) + ${WORD_SPREAD}) - var(--word-index)) / ${WORD_SPREAD},1);
     --word-mix:calc(var(--word-on) * var(--word-on) * (3 - 2 * var(--word-on)) * 100%);
     background:none;-webkit-background-clip:border-box;background-clip:border-box;
     color:color-mix(in oklab,var(--word-target) var(--word-mix),var(--story-muted));
@@ -86,7 +99,7 @@ export const STORY_CSS = `
 .story-heading[data-story-heading][data-story-js] > span {--story-progress:0}
 .story-heading[data-story-heading][data-story-js][data-story-inked] > span {--story-progress:1}
 @media (prefers-reduced-motion:no-preference) {
-  .story-heading[data-story-heading][data-story-js] > span {transition:--story-progress 1.1s cubic-bezier(.3,0,.25,1)}
+  .story-heading[data-story-heading][data-story-js] > span {transition:--story-progress ${INK_FALLBACK_MS}ms ${INK_FALLBACK_EASE}}
 }
 @media (hover:none) and (pointer:coarse) {
   .story-heading.story-heading.story-heading {animation:none;transform:none}

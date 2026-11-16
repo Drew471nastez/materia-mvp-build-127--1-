@@ -20,7 +20,7 @@ import assert from "node:assert/strict"
 import { existsSync, readFileSync } from "node:fs"
 import { createElement } from "react"
 import { renderToString } from "react-dom/server"
-import { HowItWorks, HOW_DOMAIN, HOW_ENDINGS, HOW_IT_WORKS_STYLES } from "../components/marketing/home/how-it-works"
+import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES } from "../components/marketing/home/how-it-works"
 import { CheckoutScene, CHECKOUT_STYLES } from "../components/marketing/home/checkout-scene"
 import { DOMAIN_PURPOSES, CNAME_TARGET, cleanHostname, hostnameProblem, servingHost } from "../lib/custom-domains/hostname"
 import { siteLimits } from "../lib/sites/plan"
@@ -73,10 +73,11 @@ console.log("\nYour own domain")
 // Changed on purpose (landing round 8) (the owner: the www, shop and club banner was "too complex", and the black card the odd one out): one browser window on a light ground, his domain typing into the address bar over his website.
 // Changed on purpose (landing round 9): the owner liked the card, not its design: one address pill over his website on a peach ground, no browser window.
 // Changed on purpose (landing round 10): the owner: "more simple and clean, similar to Ready for Google and AI search": one address on a white band, its ending gliding through, no website, no ticks.
-check("the tile: one address on a band, its ending gliding, on a light ground", () => {
-  assert.ok(how.includes('class="cmh-dm-band"') && !how.includes("cmh-pill") && !how.includes("cmh-site") && !how.includes("cmh-br") && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
-  assert.ok(how.includes(`<span class="cmh-dm-name">${HOW_DOMAIN.name}</span>`) && `${HOW_DOMAIN.name}${HOW_ENDINGS[1]}` === HOW_DOMAIN.host)
-  assert.ok(/data-ground="peach"/.test(how) && !/data-ground="night"/.test(how))
+// Changed on purpose (landing round 11): the owner disliked the pictures again: his website in a browser, the address closing from lindewood.storelib.com to lindewood.com, on a warm near white ground.
+check("the tile: his website in a browser, its address closing to his own domain, on a light ground", () => {
+  assert.ok(how.includes('class="cmh-dm-win"') && how.includes('class="cmh-dm-page"') && !how.includes("cmh-dm-band") && !how.includes("cmh-pill") && !how.includes("cmh-dm-row"))
+  assert.ok(how.includes(`<span class="cmh-dm-name">${HOW_DOMAIN.name}</span>`) && `${HOW_DOMAIN.name}.com` === HOW_DOMAIN.host && `${HOW_DOMAIN.name}.storelib.com` === HOW_DOMAIN.before)
+  assert.ok(/data-ground="domain"/.test(how) && !/data-ground="night"/.test(how))
   assert.ok(!/backdrop-filter|blur\(/.test(howCss), "no glass")
   assert.ok(/Use your own domain/.test(words(how)))
 })
@@ -104,7 +105,8 @@ check("the caption's claims are the code's: Pro, a domain you own, HTTPS follows
   const w = words(how)
   const cap = w.slice(w.indexOf("Use your own domain"))
   // Changed on purpose (landing round 9): one short line; DNS and HTTPS are ticked in the picture.
-  assert.ok(/On Pro, point a domain you own at your site\. HTTPS is set up for you\./.test(cap))
+  /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
+  assert.ok(/On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(cap))
   assert.ok(!/DNS found|HTTPS on/.test(w)) // Changed on purpose (landing round 10): no ticks in the picture; the lock on the band stays.
   assert.equal(siteLimits("free").customDomain, false)
   assert.equal(siteLimits("pro").customDomain, true)
@@ -117,17 +119,18 @@ check("the caption's claims are the code's: Pro, a domain you own, HTTPS follows
   assert.ok(existsSync("components/app/settings/domains-panel.tsx") && /slowingPoll/.test(read("components/app/settings/domains-panel.tsx")), "and it is asked again without the creator pressing anything")
 })
 // Changed on purpose (landing round 10): one reel of endings and one turning light, no ticks.
-check("its motion: the reel glides a step at a time, transform and opacity only, paused off screen, still when motion is reduced", () => {
+// Changed on purpose (landing round 11): ".storelib" fades, ".com" closes over it, the lock turns violet, the address fades back to start.
+check("its motion: the address closes, transform and opacity only, paused off screen, still when motion is reduced", () => {
   // Changed on purpose (landing round 8): the letters come one after another, then the lock; no ticks.
   // Changed on purpose (landing round 9): no typing; the address swaps, then the lock turns violet, then DNS and HTTPS tick.
-  const keys = ["cmh-reel", "cmh-spin"]
+  const keys = ["cmh-dm-cut", "cmh-dm-com", "cmh-dm-on", "cmh-dm-text"]
   for (const k of keys) {
     const m = howCss.match(new RegExp(`@keyframes ${k}\\{([\\s\\S]*?\\})\\}`))
     assert.ok(m, k)
     const props = [...m![1].matchAll(/([a-z-]+):/g)].map((x) => x[1])
     assert.ok(props.every((p) => p === "opacity" || p === "transform"), `${k}: ${props.join(",")}`)
   }
-  assert.ok(/class="cmh-a cmh-dm-reel"/.test(how) && /class="cmh-a cmh-dm-light"/.test(how))
+  assert.ok(/class="cmh-a cmh-dm-cut"/.test(how) && /class="cmh-a cmh-dm-com"/.test(how) && /class="cmh-a cmh-dm-on"/.test(how))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss))
   assert.ok(/\[data-commerce-live\] \.cmh-a\{animation-play-state:running!important\}/.test(howCss))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss)) /* Changed on purpose (landing round 4): no spinner any more. */
@@ -187,14 +190,16 @@ check("the demos are dark cards in a grid, not pills: no coloured chips", () => 
   const grid = rule(coCss, ".cmc-bento")
   assert.ok(/display:grid/.test(grid) && !/999px/.test(grid))
   // Changed on purpose (landing round 10): the same dark, a little see-through, so the products going round behind the cards show faintly.
-  assert.ok(/\.cmc-card\{[^}]*border-radius:28px;background:rgba\(17,17,19,0\.66\)/.test(coCss) && !/\.cmc-card\{[^}]*999px/.test(coCss))
+  // Changed on purpose (landing round 11): the cards are solid (the owner: not transparent).
+  assert.ok(/\.cmc-card\{[^}]*border-radius:28px;background:#111113/.test(coCss) && !/\.cmc-card\{[^}]*999px/.test(coCss))
   assert.equal((co.match(/class="cmc-card"/g) ?? []).length, 4)
   assert.equal((co.match(/role="tab"/g) ?? []).length, 0)
 })
 check("on black the cards are dark surfaces: the panel, the price card, the email, the receipt, the seller's note", () => {
   /* Changed on purpose (landing round 8): the cards are the surfaces (cmc-card), the price tiles (cv-tile) and the email dark on them; the wallet rows became the wallets' own black buttons. */
   // Changed on purpose (landing round 10): see above.
-  assert.ok(/\.cmc-card\{[^}]*background:rgba\(17,17,19,0\.66\);border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
+  // Changed on purpose (landing round 11): the cards are solid.
+  assert.ok(/\.cmc-card\{[^}]*background:#111113;border:1px solid rgba\(255,255,255,\.08\)/.test(coCss))
   assert.ok(/\.cmv-mail\{[^}]*background:#1a1a1e/.test(coCss) && /\.cv-tile\{[^}]*background:#1a1a1e/.test(coCss))
   assert.ok(/\.cmv-sale\{[^}]*background:#26262b/.test(coCss))
   for (const sel of [".cv-tile", ".cmv-mail", ".tp-btn", ".cmv-sale", ".cv-chips", ".cmc-vis"]) assert.ok(!/background:(#fff|#f[0-9a-f]{5}|rgba\(24[0-9],)/.test(rule(coCss, sel)), sel)

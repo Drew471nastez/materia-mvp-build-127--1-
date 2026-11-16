@@ -132,7 +132,7 @@ export const FEES = {
   sameFeeOnExplore: true,
 } as const
 
-/** Pro's lower rate covers its price from about this much in monthly sales, rounded up to $10 (the same sum as lib/billing/plans planQuestions). */
+/** Grow's lower rate covers its price from about this much in monthly sales, rounded up to $10 (the same sum as lib/billing/plans planQuestions). */
 export function proBreakEvenDollars(): number {
   const saved = FREE_STANDARD_RATE - PAID_STANDARD_RATE
   return saved > 0 ? Math.ceil(PRO_PRICE_CENTS / 100 / saved / 10) * 10 : 0
@@ -205,7 +205,7 @@ export const PRODUCT_TYPES: readonly Fact[] = [
     id: "digital",
     label: "Digital downloads",
     status: "yes",
-    text: `Files people download: ebooks, templates, presets, sample packs, fonts. Unlimited products on every plan, up to ${P.free.filesPerProduct} files each on Free and ${P.pro.filesPerProduct} on Pro, each file up to ${PRODUCT_FILE_LIMIT}.`,
+    text: `Files people download: ebooks, templates, presets, sample packs, fonts. Unlimited products on every plan, up to ${P.free.filesPerProduct} files each on Free and ${P.pro.filesPerProduct} on Grow, each file up to ${PRODUCT_FILE_LIMIT}.`,
     source: "lib/storage/plans.ts",
     help: "/help/products/files-and-delivery",
   },
@@ -220,7 +220,7 @@ export const PRODUCT_TYPES: readonly Fact[] = [
     id: "communities",
     label: "Communities",
     status: "yes",
-    text: `Free or paid, public or private, with a feed, chat, announcements, resources and events. ${P.free.communities} communities on Free, as many as you like on Pro.`,
+    text: `Free or paid, public or private, with a feed, chat, announcements, resources and events. ${P.free.communities} communities on Free, as many as you like on Grow.`,
     source: "lib/communities/plan-limit.ts",
     flag: "communities",
   },
@@ -255,7 +255,7 @@ export const STOREFRONTS: readonly Fact[] = [
     id: "website",
     label: "Website builder",
     status: "yes",
-    text: `Multi page websites with themes, sections and a store. ${P.free.websites} websites of ${P.free.pagesPerWebsite} pages on Free, ${P.pro.websites} of ${P.pro.pagesPerWebsite} pages on Pro.`,
+    text: `Multi page websites with themes, sections and a store. ${P.free.websites} websites of ${P.free.pagesPerWebsite} pages on Free, ${P.pro.websites} of ${P.pro.pagesPerWebsite} pages on Grow.`,
     source: "lib/sites/plan.ts",
     help: "/help/website-builder/build-your-website",
   },
@@ -263,7 +263,7 @@ export const STOREFRONTS: readonly Fact[] = [
     id: "domain",
     label: "Your own domain",
     status: P.free.ownDomain ? "yes" : "partial",
-    text: P.free.ownDomain ? "Connect a domain you own on every plan." : "Connect a domain you own on Pro. On Free your website is at yourname.storelib.com.",
+    text: P.free.ownDomain ? "Connect a domain you own on every plan." : "Connect a domain you own on Grow. On Free your website is at yourname.storelib.com.",
     source: "lib/sites/plan.ts",
     help: "/help/website-builder/custom-domain",
   },
@@ -457,5 +457,5 @@ export const WHO_FOR =
 export function storelibSummary(flags?: Partial<Record<FactFlag, boolean>>): string {
   const sells = ["digital products", "courses", ...(flags?.communities === false ? [] : ["communities"]), ...(flags?.physical === false ? [] : ["physical goods"])]
   const list = `${sells.slice(0, -1).join(", ")} and ${sells.at(-1)}`
-  return `Storelib is a platform for selling ${list} from your own website, a creator page and a link in bio page. Free has no monthly fee and takes ${P.free.feeLabel} a sale. Pro costs ${P.pro.price} a month and takes ${P.pro.feeLabel}. Stripe's card processing is extra on both, and payouts go to your bank through Stripe.`
+  return `Storelib is a platform for selling ${list} from your own website, a creator page and a link in bio page. Free has no monthly fee and takes ${P.free.feeLabel} a sale. Grow costs ${P.pro.price} a month and takes ${P.pro.feeLabel}. Stripe's card processing is extra on both, and payouts go to your bank through Stripe.`
 }

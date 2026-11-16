@@ -12,7 +12,7 @@ export const dashboardRo: Record<string, string> = {
   "nav.creatorPage": "Pagina de creator",
   "nav.websiteBuilder": "Website",
   "nav.unlockBenefits": "Deblochează mai multe beneficii",
-  "nav.upgradeToPro": "Treci la Pro",
+  "nav.upgradeToPro": "Treci la Grow",
   // Settings entries surfaced in the sidebar
   "settings.billing": "Facturare",
   "settings.signOut": "Deconectare",
@@ -44,7 +44,7 @@ export const dashboardRo: Record<string, string> = {
   "dashboard.viewAnalytics": "Vezi statistici",
   "dashboard.viewAnalyticsDesc": "Vezi cum performează magazinul tău",
   // Announcement bar
-  "dashboard.tryProFree": "Încearcă Pro",
+  "dashboard.tryProFree": "Încearcă Grow",
   "dashboard.proSubtitle": "planul nostru cel mai popular pentru creatori de conținut și afaceri.",
   "dashboard.completeSetup": "Finalizează configurarea",
   "dashboard.stepsRemaining": "pași rămași pentru a începe.",
@@ -138,7 +138,7 @@ export const dashboardRo: Record<string, string> = {
   // Promo banner
   "dashboard.trackRealtime": "Urmărește ce funcționează în timp real",
   "dashboard.optimizeSales": "Folosește panoul pentru a optimiza și a vinde mai mult.",
-  "dashboard.unlockGrowth": "Planul Pro",
+  "dashboard.unlockGrowth": "Planul Grow",
   "dashboard.growthDesc": "Comision de 3% în loc de 5% și 25 GB de spațiu în loc de 1 GB.",
   "dashboard.features": "Funcții",
   "dashboard.addCustomDomain": "Adaugă domeniu personalizat",

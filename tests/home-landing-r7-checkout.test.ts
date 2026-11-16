@@ -76,13 +76,15 @@ console.log("\nCentred, and the phone rises as it comes up the screen")
 // Changed on purpose (landing round 10): the cards' rule is a plain class (they are inside the track).
 check("the headline is centred at the top, on a computer too (no copy column beside the phone)", /text-align:center/.test(rule(".cmc-copy")) && !/text-align:left/.test(css.slice(css.indexOf("@media (min-width:900px)"), css.indexOf(".cmc-cards{position:relative"))))
 // Changed on purpose (landing round 9): the phone's box is its big size, centred in the stage, with both margins in one declaration.
-check("the phone is centred (left 50%, half its width back)", /left:50%/.test(rule(".cmc-phone-wrap")) && /margin:calc\(var\(--pw\) \* -1\.035\) 0 0 calc\(var\(--pw\) \/ -2\)/.test(rule(".cmc-phone-wrap")) && !/right:max/.test(css))
+// Changed on purpose (landing round 11): the phone's box is the big phone's, at the stage's top; the world inside carries it down.
+check("the phone is centred (left 50%, half its width back)", /left:50%/.test(rule(".cmc-phone-wrap")) && /margin-left:calc\(var\(--pw\) \/ -2\)/.test(rule(".cmc-phone-wrap")) && !/right:max/.test(css))
 // Changed on purpose (landing round 9): the headline and the phone are revealed by the scroll timeline (the owner's choreography), so the observer watches the cards only.
 check("one observer watches the cards; no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 1 && /root\.querySelector\("\.cmc-cards"\)/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
 // Changed on purpose (landing round 9): one part (the cards), so the attribute is named.
 check("armed only while wholly below the screen, so a part already on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /* Changed on purpose (wave 17): only a mouse arms the cards; on a touch screen they ride in with their ground, which had come up over the phone empty (the owner's recording, a dark shade sweeping over the phone). */ /const arm = matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)\.matches/.test(src) && /if \(!arm \|\| root\.hasAttribute\("data-cmc-over-armed"\)\) root\.setAttribute\("data-cmc-over", ""\)/.test(src))
 // Changed on purpose (landing round 9): the owner: the phone comes first, big, and comes down as the page scrolls; a scroll timeline of transform, no transition.
-check("the phone comes down and a little smaller over the hold: transform only, no opacity flash", /@keyframes cmc-settle\{from\{transform:translate3d\(0,0,0\)\}to\{transform:translate3d\(0,var\(--down\),0\)\}\}/.test(css) && /@keyframes cmc-shrink\{from\{transform:scale\(1\)\}to\{transform:scale\(var\(--ps\)\)\}\}/.test(css) && !/data-cmc-in/.test(css))
+// Changed on purpose (landing round 11): it starts big and low and settles smaller under the headline, one transform.
+check("the phone settles smaller over the hold: transform only, no opacity flash", /@keyframes cmc-settle\{from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}to\{transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}\}/.test(css) && !/data-cmc-in/.test(css))
 // Changed on purpose (landing round 9): one watched part, so there is no other part to ask about; the observer reports the cards' box afresh on every crossing.
 check("a jump past the section and back: the cards re-arm below the screen and play when they arrive", /* Changed on purpose (wave 17): only a mouse arms the cards; on a touch screen they ride in with their ground, which had come up over the phone empty (the owner's recording, a dark shade sweeping over the phone). */ /root\.removeAttribute\("data-cmc-over"\)\s*if \(arm\) root\.setAttribute\("data-cmc-over-armed", ""\)/.test(src))
 check("the phone is dimmed under a black veil, never made see-through (the ring would show through it)", !/\.cmc\[data-cmc-over\] \.cmc-rise\{opacity/.test(css))
@@ -97,7 +99,9 @@ check("the stage holds one screen and the cards are pulled 56svh up over it, abo
 // Changed on purpose (landing round 8): each card slides up on its own, staggered, as the grid in the owner's recording does.
 // Changed on purpose (landing round 9): the ring cannot fade (opacity would flatten its 3D space) and the headline stays over the cards; the phone alone dims under them.
 // Changed on purpose (landing round 10): the phone and the ring step back together on the scroll timeline (the wrap round the 3D space fades, the space itself is untouched); no black veil.
-check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc-phone-wrap\{animation:cmc-recede linear both;animation-timeline:--cmc-t;/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
+// Changed on purpose (landing round 11): the phone's box and the ring's step back together.
+// Changed on purpose (landing round 11): the phone's box steps back without fading (cmc-back), the ring fades (cmc-recede).
+check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;/.test(css) && /\.cmc-ring\{animation:cmc-recede linear both;animation-timeline:--cmc-t;/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
 // Changed on purpose (landing round 8): the transition is on each card.
 // Changed on purpose (landing round 9): the phone's move is the scroll timeline's now.
 // Changed on purpose (landing round 10): no veil to transition.
@@ -117,14 +121,17 @@ check("one turn, transform only, in 3D", onlyCompositor(lap) && /rotateY/.test(l
 /* Changed on purpose (wave 17): the stage wakes a screen ahead (it popped in on an iPhone recording); still paused off screen beyond that and in a hidden tab. */
 check("the ring's turn paused until the stage is on screen in a visible tab", /\.cmc-o\{animation:cmc-orbit [^}]*animation-play-state:paused\}/.test(css) && /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /useCommerceLive<HTMLDivElement>\("100% 0px", false\)/.test(src))
 // Changed on purpose (landing round 9): the ring is in the phone's own 3D space and comes with it.
-check("the ring is in the phone's 3D space and moves with it", /class="cmc-world"><div class="cmc-orbit"/.test(co) && /\.cmc-world\{[^}]*transform-style:preserve-3d/.test(css))
+// Changed on purpose (landing round 11): the owner: never across the phone. The ring is its own space, drawn under the phone.
+check("the ring is its own 3D space, drawn under the phone", /<div class="cmc-ring" aria-hidden="true"><div class="cmc-orbit">/.test(co) && /\.cmc-orbit\{[^}]*transform-style:preserve-3d/.test(css) && co.indexOf('class="cmc-ring"') < co.indexOf('class="cmc-phone-wrap"'))
 
 console.log("\nThe dot grid, very faint")
 check("1px dots at 7% white (was 13%), masked toward the edges", /rgba\(255,255,255,\.07\) 1px/.test(rule(".cmc-dots")) && /mask-image/.test(rule(".cmc-dots")) && !/rgba\(255,255,255,\.13\)/.test(css))
 
 console.log("\nOne-tap payments and Checkout reminders: smooth and clean")
-const tap = ["pc-press", "pc-touch", "ap-dim", "ap-sheet", "ap-side", "ap-done", "pc-paid", "pc-ring", "pc-paidt"]
-check("One-tap: the page's Apple Pay pressed, the wallet's sheet up, Done, Payment complete, each transform and opacity", tap.every((k) => onlyCompositor(keyframes(k))) && words(co).includes("Confirm with Side Button") && words(co).includes("Payment complete") && words(co).includes(`${LUTS.price} paid. Opening your receipt`))
+// Changed on purpose (landing round 11): the One-tap demo is the in-page checkout, dark.
+const tap = ["ic-t1", "ic-t2", "ic-pay", "ic-buy", "ic-dim", "ic-sheet", "ic-form", "ic-done", "ap-dim", "ap-sheet", "ap-side", "ap-done"]
+// Changed on purpose (landing round 11): the in-page checkout's Pay with Apple Pay, the wallet's sheet, Done, the window's Payment complete.
+check("One-tap: Pay with Apple Pay pressed, the wallet's sheet up, Done, Payment complete, each transform and opacity", tap.every((k) => onlyCompositor(keyframes(k))) && words(co).includes("Confirm with Side Button") && words(co).includes("Payment complete") && words(co).includes("We sent your receipt and your access to sam.rivera@mail.com."))
 check("  the round 5 ring, swapped labels and moving card field are gone", !/ck-ring|ck-w-g|rc-cardf|cmv-lift|cmv-after/.test(css))
 const rec = ["cmv-rec", "cmv-fill", "cmv-st1", "cmv-st2", "cmv-st3", "cmv-mail", "cmv-btn"]
 check("Reminders: a rail that fills (scaleX), the email up, the button pressed, one fade for the loop", rec.every((k) => onlyCompositor(keyframes(k))) && /scaleX/.test(keyframes("cmv-fill")))

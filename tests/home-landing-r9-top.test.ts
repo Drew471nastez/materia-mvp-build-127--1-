@@ -143,25 +143,25 @@ check("on a phone too: nothing sets them left again", !/text-align:left|justify-
 console.log("\n── 6 and 7. Ideas: a smaller picture in one still frame ──")
 const frame = rule(ideasCss, ".ideas-frame")
 check("every panel stands in one frame", /<div class="ideas-stage"><div class="ideas-frame"><div id="ideas-panel-website" role="tabpanel"/.test(ideas) && (ideas.match(/class="ideas-frame"/g) ?? []).length === 1)
-check("the frame has the corners and a hairline, and no shadow", /border:1px solid #e3e3e6;border-radius:clamp\(9px,1\.3vw,17px\);overflow:hidden;background:#fff/.test(frame) && !/box-shadow/.test(frame))
+// Changed on purpose (landing round 11): "a little more depth, just a little": one soft layered shadow on the frame, which never changes, so a switch still only cross fades what is inside it.
+check("the frame has the corners and a hairline, and one still shadow", /border:1px solid #e3e3e6;border-radius:clamp\(9px,1\.3vw,17px\);overflow:hidden;background:#fff;box-shadow:0 1px 2px/.test(frame))
 check("no panel has a shadow, a radius or a clip of its own", /\.ideas-panel\{grid-area:1\/1;background:#fff;transition:opacity \.55s cubic-bezier\(\.2,\.7,\.2,1\)\}/.test(ideasCss) && !/\.ideas-panel[^{]*\{[^}]*box-shadow/.test(ideasCss))
-check("nothing in the section has a shadow the lazy box could cut, but the chosen tab's 2px", (ideasCss.match(/box-shadow:/g) ?? []).length === 1 && /\.ideas-tab::before\{[^}]*box-shadow:0 1px 2px/.test(ideasCss))
+// Changed on purpose (landing round 11): the frame's shadow reaches 22px down, inside the section's own padding (80px under the frame at 1440x800), so the lazy box never cuts it.
+check("nothing in the section has a shadow but the chosen tab's 2px and the frame's", (ideasCss.match(/box-shadow:/g) ?? []).length === 2 && /\.ideas-tab::before\{[^}]*box-shadow:0 1px 2px/.test(ideasCss) && /0 22px 44px -22px/.test(frame))
 check("a switch only cross fades: the new panel over the old, both on white", /\.ideas-panel\[data-pane="active"\]\{z-index:2;animation:ideas-in \.55s/.test(ideasCss) && /\.ideas-panel\[data-pane="leaving"\]\{z-index:1\}/.test(ideasCss) && /@keyframes ideas-in\{from\{opacity:0\}\}/.test(ideasCss))
 // Changed on purpose (landing round 10): the owner: still "too big", "reduce it a little more"; 78% of the shared width, capped by the screen's height (tests/home-landing-r10-top.test.ts).
 check("from 768px the picture is smaller than the shared width, centred", /@media\(min-width:768px\)\{\.ideas-frame\{width:min\(78%,/.test(ideasCss) && /justify-self:center/.test(frame))
 check("a phone keeps the full width", /width:100%/.test(frame) && !/@media\(max-width:767px\)\{[^}]*\.ideas-frame/.test(ideasCss))
 check("the picture keeps its shape", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss))
 
-console.log("\n── 8. Mondo Mango: one photograph ──")
+console.log("\n── 8. Mondo Mango: one picture in the hero ──")
+// Changed on purpose (landing round 11): the hero is one studio picture of the game (no orange block, no sticker), the products are shots of the boxes; tests/home-landing-r11-top.test.ts pins it.
 const site = renderToStaticMarkup(createElement(MondoMangoSite))
 const hero = site.slice(site.indexOf('class="mg-hero"'), site.indexOf('class="mg-shop"'))
-check("the hero has one photograph", (hero.match(/<img /g) ?? []).length === 1 && /src="\/home\/showcase\/mm-hero\.webp"[^>]*width="960" height="726"/.test(hero))
-check("the whole store: the wordmark, one hero photograph and four pieces", (site.match(/<img /g) ?? []).length === 6)
-check("beside it the label's orange with three plain lines", /<span class="mg-pitch"><b>Wear it loud\.<\/b><i>Heavy cotton crewnecks, caps and tees, made in small runs\.<\/i><em>Shop the drop<\/em><\/span>/.test(hero) && /\.mg-hero\{[^}]*background:#ff5b14\}/.test(BUILDER_CSS))
-check("the sticker and the rings are as they were", /class="mg-sticker"><b>Drop 03<\/b><i>out now<\/i>/.test(hero) && (renderToStaticMarkup(createElement(WebsiteBuilderMock)).match(/<em>Selected<\/em>/g) ?? []).length === 2)
-check("the photograph is real, webp and small", statSync(join(root, "public/home/showcase/mm-hero.webp")).size < 120 * 1024 && read("public/home/showcase/mm-hero.webp").slice(0, 4) === "RIFF")
-check("no gradient, nothing new moves", !/\.mg[^{]*\{[^}]*(gradient|animation|transition)/.test(BUILDER_CSS))
-check("the alt text tells it", /an orange hero with one photograph of the drop/.test(IDEAS_TABS[0].alt) && !/wall of colour/.test(IDEAS_TABS[0].alt))
+check("the hero has one picture", (hero.match(/<img /g) ?? []).length === 1 && /src="\/home\/showcase\/mm-studio\.webp"[^>]*width="1600" height="534"/.test(hero))
+check("the whole store: the wordmark, one hero picture and four products", (site.match(/<img /g) ?? []).length === 6)
+check("the rings are as they were", (renderToStaticMarkup(createElement(WebsiteBuilderMock)).match(/<em>Selected<\/em>/g) ?? []).length === 4)
+check("nothing new moves", !/\.mg[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS))
 
 console.log("\n── 8. The Strength Room is intact ──")
 const cm = renderToStaticMarkup(createElement(CommunityMock))
