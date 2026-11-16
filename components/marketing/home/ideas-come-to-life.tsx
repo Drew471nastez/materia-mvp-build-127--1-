@@ -26,9 +26,7 @@ export const IDEAS_HEADING = "See your ideas come to life."
   Plain Weather, and the line under the heading is shorter.
 
   Landing round 8 (the owner): the merch brand "more bold, more colorful,
-  more funky, like a real Storelib store": Mondo Mango, a fat wordmark over
-  a wall of colour photographs and the drop on white, the wordmark printed
-  on each piece. The Strength Room gets a real emblem and a cover with its
+  more funky, like a real Storelib store". The Strength Room gets a real emblem and a cover with its
   name in heavy yellow. The tabs and the autoplay are as they were.
 
   Landing round 9 (the owner): the heading, the line under it and the pill
@@ -39,8 +37,7 @@ export const IDEAS_HEADING = "See your ideas come to life."
   its own wide shadow, so a switch laid one shadow over another and took it
   away again, and the lazy box (paint containment) cut it at the foot. The
   panels now stand in one frame that never changes, a hairline border and no
-  shadow, so a switch only cross fades what is inside it. Mondo Mango's hero
-  is one photograph.
+  shadow, so a switch only cross fades what is inside it.
 
   Landing round 10 (the owner): the picture is still "too big" on a computer,
   "reduce it a little more, but keep the things", and the line under the
@@ -51,19 +48,23 @@ export const IDEAS_HEADING = "See your ideas come to life."
   phone keeps the full width.
 
   Landing round 11 (the owner): the Website builder tab moves on, "very
-  smoothly", from Mondo Mango to a second site, loudlib (the owner's own
+  smoothly", from the first site to a second, loudlib (the owner's own
   store, a dark sample pack shop), and the OnePage editor tab from Desmond
   Ayo's page to Idris Kane's, both inside the same editor. A tab has
   `scenes`: the autoplay clock runs once per scene, and at the end of one
   that is not the last the panel's data-scene goes up and the editor's
   contents cross fade (opacity only, builder-mocks.tsx .bm-s1/.bm-s2); the
   editor's own chrome stays. The panel that leaves keeps its scene while it
-  fades out, and is set back to the first only once it is at rest. Mondo
-  Mango sells a party card game now, product shots of its boxes, under a
-  clean studio picture. The frame gets a little depth: one soft layered
-  shadow on the frame that never changes, so nothing comes and goes when a
-  tab or a scene changes, and it ends inside the section's own padding,
-  so the lazy box never cuts it.
+  fades out, and is set back to the first only once it is at rest. The
+  frame gets a little depth: one soft layered shadow on the frame that
+  never changes, so nothing comes and goes when a tab or a scene changes,
+  and it ends inside the section's own padding, so the lazy box never cuts
+  it.
+
+  Landing round 12 (the owner): the first site in the website builder is
+  the owner's own GodBless store (builder-mocks.tsx GodBlessSite): the
+  offer bar, the red wordmark, a summer photo for the hero and New
+  Collection on light grey. It still cross fades to loudlib on the clock.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
 /** How long each heading stays, in seconds; the three take turns in one CSS loop. */
@@ -82,7 +83,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First Mondo Mango, a party card game's store: its orange wordmark, a studio picture of the game in the hero, and the game, its expansion, a family edition and a bundle as product shots of their boxes. Then loudlib, a sample pack store: a purple sale bar, a dark header, the new bundle over a club photo, and the bestselling packs as black boxes. Each time the Hero, then the products are selected, then Publish changes puts it live.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First GodBless, a streetwear store: the summer offer bar, the red wordmark, three friends in the sun in the hero under Trusted by 1,250+ and GodBless Summer Club, and New Collection with a camo jacket, a green tee, a charcoal hoodie and a brown tee on models. Then loudlib, a sample pack store: a purple sale bar, a dark header, the new bundle over a club photo, and the bestselling packs as black boxes. Each time the Hero, then the products are selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
     scenes: 2,
   },

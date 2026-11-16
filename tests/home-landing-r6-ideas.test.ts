@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { IdeasComeToLife, IDEAS_STYLES, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
-import { MondoMangoSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { GodBlessSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let failed = 0
 let passed = 0
@@ -62,13 +62,15 @@ console.log("\nThe line under the heading")
 check("no line under the heading any more", !/class="ideas-sub"/.test(ideas) && !/No code, nothing to install/.test(ideas))
 
 console.log("\nThe website builder's merch brand")
-// Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
-const site = renderToStaticMarkup(createElement(MondoMangoSite))
+// Changed on purpose (landing round 8): the owner wanted the merch brand "more bold, more colorful, more funky, like a real Storelib store".
+// Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
+const site = renderToStaticMarkup(createElement(GodBlessSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-// Changed on purpose (landing round 11): the bar and Publish name Mondo Mango, then loudlib (a cross fade); the prices sit under each box's shot; two sites, so two pairs of rings.
-check("Plain Weather is gone, Mondo Mango is in the bar and in Publish", !/Plain Weather|plainweather|pw-/.test(code(F.builders)) && wb.includes('<span class="bm-s1">Mondo Mango</span>') && wb.includes('<span class="bm-s1">mondomango.shop</span>'))
-check("four products priced in euros", [...site.matchAll(/<span class="mg-price">(<s>€\d+<\/s>)?€\d+<\/span>/g)].length === 4)
-check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4 && /class="mg-ring wx-ring-a"/.test(wb) && /class="mg-ring wx-ring-b"/.test(wb))
+// Changed on purpose (landing round 11): the bar and Publish name the first site, then loudlib (a cross fade); two sites, so two pairs of rings.
+// Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
+check("Plain Weather is gone, GodBless is in the bar and in Publish", !/Plain Weather|plainweather|pw-/.test(code(F.builders)) && wb.includes('<span class="bm-s1">GodBless</span>') && wb.includes('<span class="bm-s1">godbless.storelib.com</span>'))
+check("four products priced in dollars", [...site.matchAll(/<span class="gb-price">\$\d+\.00<\/span>/g)].length === 4)
+check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4 && /class="wx-sel wx-ring-a"/.test(wb) && /class="wx-sel wx-ring-b"/.test(wb))
 check("the Saltmoor store and its pictures are gone", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && ["sm-hero", "sm-bergamot", "sm-glass", "sm-votive", "sm-pillar"].every((n) => !existsSync(`public/home/showcase/${n}.webp`)))
 
 console.log("\nCopy")

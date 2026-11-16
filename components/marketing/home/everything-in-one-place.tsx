@@ -412,11 +412,14 @@ function ProductSlides() {
   buttons with their icons. The stores never stand side by side.
 
   Landing round 11 (the owner: "Soft Ground (Kiln Goods): make it a digital product store, like the product being a
-  digital product store, with a different heading/hero"): in its place a photographer's store of digital products,
-  Noor Haddad's. A dark band for a header with her name and the cart, a line saying what she sells and that it
-  downloads at once, then the products as their real covers (rendered, public/home/everything/stores/dg-*.webp): a
-  preset pack with its before and after, an e-book, a Notion template and a pack of video LUTs, one of them reduced.
-  The band is as tall as the other stores' header and title, so the pieces line up with theirs.
+  digital product store, with a different heading/hero"): in its place a store of digital products.
+
+  Landing round 12 (the owner: round 11's digital store is "really bad"; "something more realistic, cool and clean",
+  a store that looks shipped, with real product imagery, not flat tiles): Jonah Wells, a guitar teacher, laid out
+  the way Fieldwork is (a real Storelib store: menu, centred wordmark and cart on the cover photo, the drop's name at
+  its foot), the cover a photograph of him playing in his room, the drop's name in white over its darker foot.
+  What he sells are photographs, not rendered covers: a fingerstyle video course, a tab book (reduced), amp presets
+  and backing tracks, each with what it is after the price. Pexels photography (public/home/everything/stores/jonah-*).
 */
 type MerchStore = {
   kind: "merch"
@@ -424,9 +427,19 @@ type MerchStore = {
   brand: string
   /** The drop's name, as its two lines: the first sits left, the second right. */
   title: readonly [string, string]
-  products: ReadonlyArray<{ src: string; name: string; price: string; /** The price before a sale (landing round 11). */ was?: string }>
-  /** Landing round 11: a store of digital products, with its own dark header band in place of the title. */
-  digital?: { line: string; note: string }
+  products: ReadonlyArray<{
+    src: string
+    name: string
+    price: string
+    /** The price before a sale (landing round 11). */
+    was?: string
+    /** What a digital product is, after the price (landing round 12): "Video course", "PDF". */
+    format?: string
+  }>
+  /** The line under the drop's name in place of the count of pieces (landing round 12). */
+  note?: string
+  /** Landing round 12: the drop's name in white over a darker foot of the cover photo. */
+  ink?: "light"
   /** Landing round 8: a store laid out like a real Storelib store, its menu and cart around a centred wordmark; landing round 10: they stand on the cover photo, with the drop's name. */
   hero?: string
 }
@@ -513,15 +526,17 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
   },
   {
     kind: "merch",
-    key: "noor",
-    brand: "Noor Haddad",
-    title: ["Presets and", "guides"],
-    digital: { line: "Lightroom presets, video LUTs and guides from my shoots on the coast.", note: "Instant download" },
+    key: "jonah",
+    brand: "Jonah Wells",
+    title: ["Guitar lessons", "and tabs"],
+    hero: `${ST}/jonah-cover.webp`,
+    note: "Instant download",
+    ink: "light",
     products: [
-      { src: `${ST}/dg-saltwater.webp`, name: "Saltwater Presets", price: "$29", was: "$39" },
-      { src: `${ST}/dg-book.webp`, name: "Shoot to Invoice", price: "$18" },
-      { src: `${ST}/dg-planner.webp`, name: "Client Shoot Planner", price: "$12" },
-      { src: `${ST}/dg-luts.webp`, name: "Night Drive LUTs", price: "$24" },
+      { src: `${ST}/jonah-fingerstyle.webp`, name: "Fingerstyle Basics", price: "$49", format: "Video course" },
+      { src: `${ST}/jonah-tabs.webp`, name: "Blues Licks Tab Book", price: "$14", was: "$19", format: "PDF" },
+      { src: `${ST}/jonah-amp.webp`, name: "Amp Tones Vol 2", price: "$18", format: "Presets" },
+      { src: `${ST}/jonah-tracks.webp`, name: "Backing Tracks", price: "$12", format: "24 tracks" },
     ],
   },
   {
@@ -555,41 +570,15 @@ function Price({ p }: { p: MerchStore["products"][number] }) {
     <span className="ev-mc-price">
       {p.was ? <s>{p.was}</s> : null}
       {p.price}
+      {p.format ? <i>{p.format}</i> : null}
     </span>
   )
 }
 
 function MerchCard({ s }: { s: MerchStore }) {
-  if (s.digital)
-    return (
-      <div className="ev-st ev-mc" data-store="" data-digital="">
-        <span className="ev-dg-band">
-          <span className="ev-dg-top">
-            <span className="ev-dg-mark">{s.brand}</span>
-            <span>Cart (0)</span>
-          </span>
-          <span className="ev-dg-head">
-            <b>
-              {s.title[0]} {s.title[1]}
-            </b>
-            <span>{s.digital.line}</span>
-            <i>{s.digital.note}</i>
-          </span>
-        </span>
-        <span className="ev-mc-grid">
-          {s.products.map((p) => (
-            <span key={p.name} className="ev-mc-item">
-              <Img eager piece className="ev-mc-img" src={p.src} w={360} h={450} />
-              <span className="ev-mc-name">{p.name}</span>
-              <Price p={p} />
-            </span>
-          ))}
-        </span>
-      </div>
-    )
   if (s.hero)
     return (
-      <div className="ev-st ev-mc" data-store="">
+      <div className="ev-st ev-mc" data-store="" data-ink={s.ink}>
         <span className="ev-ms-cover">
           <Img eager className="ev-ms-hero" src={s.hero} w={780} h={464} />
           <span className="ev-ms-top">
@@ -600,7 +589,7 @@ function MerchCard({ s }: { s: MerchStore }) {
           <span className="ev-ms-drop">
             <b>{s.title[0]}</b>
             <b>{s.title[1]}</b>
-            <i>{s.products.length} pieces</i>
+            <i>{s.note ?? `${s.products.length} pieces`}</i>
           </span>
         </span>
         <span className="ev-mc-grid">
@@ -608,7 +597,7 @@ function MerchCard({ s }: { s: MerchStore }) {
             <span key={p.name} className="ev-mc-item">
               <Img eager piece className="ev-mc-img" src={p.src} w={360} h={450} />
               <span className="ev-mc-name">{p.name}</span>
-              <span className="ev-mc-price">{p.price}</span>
+              <Price p={p} />
             </span>
           ))}
         </span>
@@ -1370,15 +1359,16 @@ const CSS = `
 .ev-mc[data-store] .ev-mc-img{border-radius:${r(10)}}
 .ev-mc-price s{margin-right:${r(6)};color:#9a9a9a}
 
-/* Landing round 11: a store of digital products. A dark band as tall as the other stores' header and title: her name and the cart, what she sells in one plain heading and a line, and that it downloads at once; the covers below in the same grid. */
-.ev-dg-band{position:relative;display:flex;flex-direction:column;flex:none;height:${r(214)};padding:${r(22)} ${r(22)} 0;box-sizing:border-box;background:#101315;color:#fff}
-.ev-dg-top{display:flex;align-items:center;justify-content:space-between;font-size:${r(11)};letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.7)}
-.ev-dg-mark{font-size:${r(19)};font-weight:700;letter-spacing:-.02em;text-transform:none;color:#fff}
-.ev-dg-head{display:flex;flex-direction:column;align-items:flex-start;margin-top:auto;padding-bottom:${r(24)}}
-.ev-dg-head b{font-size:${r(34)};font-weight:700;line-height:1;letter-spacing:-.035em}
-.ev-dg-head span{max-width:${r(300)};margin-top:${r(10)};font-size:${r(13.5)};line-height:1.4;color:rgba(255,255,255,.66)}
-.ev-dg-head i{margin-top:${r(14)};padding:${r(6)} ${r(11)};border-radius:999px;background:rgba(255,255,255,.12);font-size:${r(11.5)};font-style:normal;font-weight:600;letter-spacing:.02em}
-.ev-dg-band + .ev-mc-grid{margin-top:${r(24)}}
+/* Landing round 12: a digital product says what it is after its price; a cover whose foot is darker carries the drop's name in white over a soft shade (Jonah Wells). */
+.ev-mc-price i{font-style:normal}
+.ev-mc-price i::before{content:"\\00b7";margin:0 ${r(5)}}
+.ev-mc[data-ink="light"] .ev-ms-cover::before{content:"";position:absolute;z-index:1;inset:0 0 62%;background:linear-gradient(rgba(12,10,8,.5),rgba(12,10,8,0))}
+.ev-mc[data-ink="light"] .ev-ms-cover::after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(rgba(12,10,8,0),rgba(12,10,8,.62))}
+.ev-mc[data-ink="light"] .ev-ms-hero{object-position:50% 0}
+.ev-mc[data-ink="light"] .ev-ms-top{z-index:2;color:rgba(255,255,255,.88)}
+.ev-mc[data-ink="light"] .ev-ms-mark{color:#fff}
+.ev-mc[data-ink="light"] .ev-ms-drop{z-index:1;color:#fff}
+.ev-mc[data-ink="light"] .ev-ms-drop i{color:rgba(255,255,255,.82)}
 
 /* A creator's link page: a dark, blurred photo, the name big in the page's colour, the icons, two buttons, the products. */
 .ev-lp{align-items:stretch;padding:${r(48)} ${r(24)} 0;color:#fff;text-align:center}

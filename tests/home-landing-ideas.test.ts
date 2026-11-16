@@ -111,11 +111,11 @@ console.log("\nSecond pass: the website builder as it really is, without Ask Sto
   const words = Object.values(src).map(visible).join("\n")
   check("no Loose florals, no Brush and Bloom, anywhere in these sections", !/loose florals|brush (&amp;|&|and) bloom|\bbloom\b/i.test(words))
   // Changed on purpose (landing round 6): "a more simple and clean merch brand": Plain Weather, a small apparel label.
-  // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
-// Changed on purpose (landing round 11): Mondo Mango sells a party card game now (product shots of its boxes), then the builder moves on to loudlib; tests/home-landing-r11-top.test.ts pins both.
-  check("the site is a real looking brand (Mondo Mango, then loudlib)", html.includes("Mondo Mango") && html.includes("Game night, but louder.") && html.includes("loudlib"))
+  // Changed on purpose (landing round 8): the owner wanted the merch brand "more bold, more colorful, more funky, like a real Storelib store".
+  // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
+  check("the site is a real looking brand (GodBless, then loudlib)", html.includes("GodBless") && html.includes("GodBless Summer Club") && html.includes("loudlib"))
   check("no Storelib AI key beside Publish (no logo, no Ask Storelib)", !/data-storelib-logo|bm-logo|wx-ask|Ask Storelib/.test(html) && !/StorelibLogo|StorelibTile/.test(visible(src.builders)))
-  check("the bar: Back, the name, Preview, the page pill, undo, redo, the inspector, Publish", ["Mondo Mango", "Preview", "Home", "Publish"].every((w) => html.includes(w)) && /class="wx-key wx-inspect"/.test(html))
+  check("the bar: Back, the name, Preview, the page pill, undo, redo, the inspector, Publish", ["GodBless", "Preview", "Home", "Publish"].every((w) => html.includes(w)) && /class="wx-key wx-inspect"/.test(html))
   check("the sidebar's Header, Page and Footer groups with Add section in its raised key (tree-parts.tsx)", /Header<\/p>[\s\S]*Page<\/p>[\s\S]*Footer<\/p>/.test(html) && (html.match(/class="wx-add-key"/g) ?? []).length === 3 && (html.match(/class="wx-badge"/g) ?? []).length === 2)
   check("Theme's tab wears the Settings icon, as the editor's does", /<span>[^<]*<svg[^>]*lucide-settings[^>]*>[\s\S]*?<\/svg> Theme<\/span>/.test(html))
 // Changed on purpose (landing round 11): two sites in the canvas, each with its two rings.
