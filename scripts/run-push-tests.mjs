@@ -1544,6 +1544,8 @@ const SUITES = [
   "tests/home-landing-r11-checkout.test.ts",
   /* Landing round 11, stability: no section above the screen changes height in front of a Safari reader (no scroll anchoring there): real heights kept exactly, server-drawn boxes measured while idle, and a box that changes above the screen held by the scroll in the same frame (by its own top margin mid-fling). */
   "tests/home-landing-r11-stability.test.ts",
+  /* Landing round 12 (purple): the search results' favicons drawn as small marks (a fjord, a film strip, three lights), not letters; the map's turn on one 1.1s clock with an ease that leaves at rest, opaque cards at depths in one 3D stack, nothing reflowing; edge to edge on a phone. */
+  "tests/home-landing-r12-purple.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
