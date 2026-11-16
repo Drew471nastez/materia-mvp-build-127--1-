@@ -48,7 +48,8 @@ console.log("\nLoops run from a screen ahead")
   const motion = code(`${DIR}/platform-motion.tsx`)
   check("data-platform-live is true a screen ahead; the script loops keep their own margin", /const value = String\(\(near \|\| onScreen\) && !document\.hidden && !reduced\)/.test(motion) && /const live = onScreen && !document\.hidden && !reduced/.test(motion))
   const ai = code(`${DIR}/ai-tools-section.tsx`)
-  check("the terminal runs a screen before it arrives", /\{ rootMargin: LIVE_AHEAD \}/.test(ai) && !/threshold: 0\.25/.test(ai))
+  /* Changed on purpose (landing round 12, perf): a screen ahead, once all of the terminal is within it (wholeInside), pinned in tests/home-landing-r12-perf.test.ts. */
+  check("the terminal runs a screen before it arrives", /\{ rootMargin: LIVE_AHEAD, threshold: \[0, 0\.995\] \}/.test(ai) && !/threshold: 0\.25/.test(ai))
   const audience = code(`${DIR}/audience-ownership.tsx`)
   check("the contacts run a screen before they arrive", /\{ rootMargin: LIVE_AHEAD \}/.test(audience) && !/threshold: 0\.35/.test(audience))
 }

@@ -141,7 +141,21 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     const live = () => visible && !document.hidden && !reduce.matches
     const cruise = () => (touch.matches ? 30 : 36)
     const wrap = (v: number) => (loop > 0 ? ((v % loop) + loop) % loop : v)
-    const tf = (v: number) => `translate3d(${(-v).toFixed(2)}px,0,0)`
+    /*
+     * LANDING ROUND 12 (perf). The rail was its own layer for good
+     * (will-change in the stylesheet, and a 3D translate is a layer by
+     * itself): 1.6M px on a phone and 3.0M at 1440, held all the way down the
+     * page. Now the place is a flat translate, and the layer is asked for
+     * (promote) only while the rail is live: on screen, in a visible tab,
+     * motion allowed. That is when it drifts, glides and is dragged, so it
+     * never builds a layer on the first frame of a move; off screen it is
+     * painted flat and holds nothing.
+     */
+    const tf = (v: number) => `translate(${(-v).toFixed(2)}px)`
+    const promote = () => {
+      const want = live() ? "transform" : ""
+      if (track.style.willChange !== want) track.style.willChange = want
+    }
 
     const paint = () => {
       paintFrame = 0
@@ -274,6 +288,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     }
     /* Shown or hidden (scrolled away, another tab): whatever is moving pauses where it is, and goes on from there. */
     const resume = () => {
+      promote()
       if (!motion) return update()
       if (live()) motion.anim.play()
       else motion.anim.pause()
@@ -353,6 +368,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       }
     }
     const sync = () => {
+      promote()
       halt()
       measure()
       paint()
@@ -392,7 +408,8 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       if (!img) return
       img.loading = "eager"
       const done = () => {
-        show(img, false)
+        /* Landing round 12 (perf): decoded while the rail is still off screen, it is simply there; the ease in is for a photo that arrives in sight (the audit found 34 to 48 of these fades running two screens away). */
+        show(img, !visible)
         next()
       }
       if (typeof img.decode === "function") img.decode().then(done, done)
@@ -526,7 +543,7 @@ export const CREATORS_CSS = `
 /* Landing round 8, the owner: "full width, not with a fade". The rail runs from one edge of the screen to the other at every width, with no mask; at rest its first card starts on the content edge (the showcase cards' edge, the shared box's gutter). */
 .cc-section{--cc-start:max(var(--cc-gutter),calc((100% - var(--home-max,2020px)) / 2 + var(--cc-gutter)))}
 .cc-viewport[data-dragging]{cursor:grabbing}
-.cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-start) 8px;list-style:none;will-change:transform;backface-visibility:hidden}
+.cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-start) 8px;list-style:none;backface-visibility:hidden}
 .cc-card{flex:none;width:var(--cc-w);margin:0;padding:0}
 /* The card as it was before the product tiles: the photo, and on a soft shade at its foot the creator's name, their kind and what they sell. It stays still under the pointer. */
 .cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:23px;background:var(--cc-photo);isolation:isolate}
