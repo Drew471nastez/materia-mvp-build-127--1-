@@ -86,7 +86,8 @@ check("every tile stands on a calm ground in Storelib's colours, nothing driftin
   // Changed on purpose (landing round 8): three grey and one black "doesn't work for the eye" (the owner); four light tints of one family.
   // Changed on purpose (landing round 9): three cards on flat lilac, paper and peach (the owner: "too grey").
   // Changed on purpose (landing round 11): one quiet near white ground a card, named for its card.
-  assert.deepEqual([...how.matchAll(/class="cmh-stage" data-ground="(\w+)"/g)].map((m) => m[1]), ["tips", "business", "domain"])
+  // Changed on purpose (landing round 12): the pictures sit straight on the section (no grounds), the domain types itself over a store (tests/home-landing-r12-how.test.ts).
+  assert.deepEqual([...how.matchAll(/class="cmh-stage" data-picture="(\w+)"/g)].map((m) => m[1]), ["business", "tips", "domain"])
   assert.ok(!/cmh-gl|cmh-drift/.test(how + howCss))
   assert.ok(/\.cmh-a\{[^}]*animation-play-state:paused!important/.test(howCss) && howCss.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}"))
   assert.ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}/.test(howCss))
@@ -94,7 +95,8 @@ check("every tile stands on a calm ground in Storelib's colours, nothing driftin
 // Changed on purpose (landing round 9): no product card (it repeated section 3); the first card is the tip card, and every caption is a title and one short line.
 check("the first card takes tips, and every caption is a title and one short line", () => {
   assert.equal((how.match(/class="cmh-a cmh-pc"/g) ?? []).length, 0)
-  for (const t of ["Take tips", "Tips", "This month"]) assert.ok(words(how).includes(t), t) // Changed on purpose (landing round 11): the tip card is Ruben's list of tips, not the visitor's button.
+  // Changed on purpose (landing round 12): the tip card is a visitor tipping on his page: Leave a tip, Tip $5, the thank you.
+  for (const t of ["Take tips", "Leave a tip", "Tip $5", "Thank you for the $5 tip."]) assert.ok(words(how).includes(t), t) // Changed on purpose (landing round 11): the tip card is Ruben's list of tips, not the visitor's button.
   for (const m of how.matchAll(/<p class="cmh-cap">([\s\S]*?)<\/p>/g)) assert.ok(words(m[1]).trim().split(" ").length <= 17, m[1])
 })
 // Changed on purpose (landing round 5): the owner wanted the sheet's title and price bigger and bolder, and no cap; the OnePage and its sheet are drawn in HTML with the print.
@@ -103,8 +105,10 @@ check("there is no checkout tile in How it works", () => {
   for (const f of ["op-nadia.webp", "op-nadia-sheet.webp"]) assert.ok(!how.includes(f) && !existsSync(`public/home/how/${f}`), f)
   assert.ok(!how.includes("cmh-sheet") && !/Checkout without leaving your page/.test(words(how)) && !how.includes("print-lasalle"))
   assert.equal(sheetButtonLabel("Check out", "$45.00", true), "Check out · $45.00")
-  assert.ok(statSync("public/home/how/print-lasalle.webp").size < 30 * 1024, "the checkout scene still uses the print")
-  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-dm-com"))) // Changed on purpose (landing round 11): the address closing, not the reel. // Changed on purpose (landing round 10): the reel of endings, no lock keyframes. // Changed on purpose (landing round 9): the lock on the address pill. // Changed on purpose (landing round 8): the lock in the address bar, not the pill's tick.
+  // Changed on purpose (landing round 12): nothing draws the print any more (the checkout scene sells the LUT pack and the tee), and LaSalle is on the never list, so the unused file is deleted.
+  assert.ok(!existsSync("public/home/how/print-lasalle.webp") && !read("components/marketing/home/checkout-scene.tsx").includes("print-lasalle"))
+  // Changed on purpose (landing round 12): the pictures sit straight on the section (no grounds), the domain types itself over a store (tests/home-landing-r12-how.test.ts).
+  assert.ok(!/@keyframes cmh-sheet|@keyframes cmh-dim/.test(howCss) && onlyCompositor(keyframes(howCss, "cmh-dm-caret")))
 })
 // Changed on purpose (landing round 7, the owner: "bring back the design how it was before"): the round 3 tile, the website under the address pill and the three addresses; the caption keeps Pro.
 // Changed on purpose (landing round 8) (the owner: the www, shop and club banner was too complex): one browser window, the domain typing into its address bar; the caption keeps Pro.
@@ -114,7 +118,8 @@ check("the domain tile is one address pill and keeps the code's claims: Pro, a d
   const w = words(how)
   /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
   assert.ok(/On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(w))
-  assert.ok(how.includes('class="cmh-dm-win"') && !how.includes("cmh-dm-band") && !how.includes("cmh-pill") && !how.includes("cmh-br") && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row")) // Changed on purpose (landing round 10): one address band, no pill over a website. // Changed on purpose (landing round 11): his website in a browser, its address closing to his own domain.
+  // Changed on purpose (landing round 12): the pictures sit straight on the section (no grounds), the domain types itself over a store (tests/home-landing-r12-how.test.ts).
+  assert.ok(how.includes('class="cmh-dm-field"') && !how.includes("cmh-dm-band") && !how.includes("cmh-pill") && !how.includes("cmh-br") && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-row"))
 })
 
 console.log("\nThe checkout scene")
