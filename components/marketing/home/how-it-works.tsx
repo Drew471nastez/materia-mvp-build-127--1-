@@ -58,6 +58,9 @@ import type { SectionStyle } from "./lazy-section"
 import type { DomainPurpose } from "@/lib/custom-domains/hostname"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
+/* The dashboard's logo loads like the section's other pictures: lazily, decoded off the main thread. */
+const LOGO_LAZY = { loading: "lazy", decoding: "async" } as const
+
 const HOW = "/home/how"
 
 /** Landing round 12 (the owner: a better heading). What the three pictures below are, in their order. */
@@ -764,7 +767,7 @@ function DashScene() {
           <Lucide d={L_BELL} />
           <Lucide d={L_GEAR} className="cmh-db-gear" />
           <i />
-          <StorelibLogo size={26} unoptimized loading="lazy" decoding="async" />
+          <StorelibLogo size={26} unoptimized {...LOGO_LAZY} />
           <b>Storelib</b>
         </span>
       </div>

@@ -20,7 +20,7 @@ export type CreatorCard = {
  * orange ground), Photographers and Fitness are Pexels photos (free licence),
  * cropped and stored the same way. */
 export const CREATORS: readonly CreatorCard[] = [
-  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lena Marsh", alt: "A video editor at a dark desk, cutting a clip on a wide monitor, a phone charging beside it" },
+  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & courses", name: "Lena Marsh", alt: "A video editor at a dark desk, cutting a clip on a wide monitor, a phone charging beside it" },
   { slug: "musicians", kind: "Musicians", sells: "Songs, vinyl & lessons", name: "Jules Arden", alt: "A musician in profile, a cap on and locs falling, lit in deep red" },
   { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Clara Whitfield", alt: "An open book in a slant of window light on a dark sofa" },
   { slug: "educators", kind: "Educators", sells: "Online courses", name: "Teo Alvarez", alt: "Teo in his sunlit painting studio, an apron on and a brush in hand" },
@@ -556,7 +556,7 @@ export const CREATORS_CSS = `
 .cc-photo::after{content:"";position:absolute;inset:0;background:url(/home/creators/grain.webp) 0 0/96px 96px;opacity:.55;pointer-events:none}
 .cc-shade,.cc-meta{z-index:1}
 /* On a phone the rail needs only the first five of the second copy to loop (five cards are wider than any phone): a third less to draw and keep. */
-@media(max-width:767px){.cc-card[aria-hidden="true"]:nth-child(n+18){display:none}}
+@media(max-width:767px){.cc-card[aria-hidden="true"]:nth-child(n+17){display:none}}
 .cc-meta{position:absolute;left:20px;right:20px;bottom:18px;display:grid;gap:3px;color:#fff}
 .cc-who{font-size:12px;font-weight:500;opacity:.72;letter-spacing:.01em}
 .cc-kind{font-size:clamp(22px,1.9vw,26px);font-weight:500;letter-spacing:-.035em;line-height:1.1}

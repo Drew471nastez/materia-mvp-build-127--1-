@@ -100,7 +100,8 @@ check("creators: decoded from two screens ahead, three at a time", CREATORS_PREL
 check("creators: a photo and its copy shown once decoded, easing in; one already there shown at once", /\.cc-track\[data-cc-ready\] \.cc-img\{opacity:0;transform:scale\(1\.025\)/.test(CREATORS_CSS) && /\.cc-img\[data-shown\]\{opacity:1;transform:none\}/.test(CREATORS_CSS) && /twin\.getAttribute\("src"\) === img\.getAttribute\("src"\)/.test(creators) && /if \(img\.complete && img\.naturalWidth > 0\) show\(img, true\)/.test(creators))
 check("creators: hidden only once the script is there; reduced motion shows them still", /track\.dataset\.ccReady = ""/.test(creators) && /\.cc-track\[data-cc-ready\] \.cc-img\{opacity:1;transform:none;transition:none\}/.test(CREATORS_CSS))
 const rail = renderToStaticMarkup(createElement(CreatorsCarousel))
-check("creators: the markup still lazy and sized (24 photos)", (rail.match(/<img class="cc-img"[^>]*loading="lazy"/g) ?? []).length === 24)
+// Changed on purpose (landing round 12): the podcasters card is gone on main (11 kinds), so 22 photos.
+check("creators: the markup still lazy and sized (22 photos)", (rail.match(/<img class="cc-img"[^>]*loading="lazy"/g) ?? []).length === 22)
 
 console.log("\nA finger on the creators rail freezes it where it is")
 const halt = creators.slice(creators.indexOf("const halt = () => {"), creators.indexOf("/* One leg of motion"))

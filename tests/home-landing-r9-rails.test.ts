@@ -154,7 +154,8 @@ check("the mouse is listened to passively", /section\.addEventListener\("pointer
 console.log("\nStorelib is for creators")
 const rail = renderToStaticMarkup(createElement(CreatorsCarousel))
 const creator = (slug: string) => CREATORS.find((c) => c.slug === slug)!
-check("the owner's photos: a man's portrait on orange, a photographer in silhouette, dumbbells in black and white", /orange/.test(creator("musicians").alt) && /silhouette/.test(creator("photographers").alt) && /dumbbell/.test(creator("fitness").alt) && /black and white/.test(creator("fitness").alt))
+// Changed on purpose (landing round 12): the owner's newer photographs on main; the musician is lit in deep red now.
+check("the owner's photos: a musician in deep red, a photographer in silhouette, dumbbells in black and white", /deep red/.test(creator("musicians").alt) && /silhouette/.test(creator("photographers").alt) && /dumbbell/.test(creator("fitness").alt) && /black and white/.test(creator("fitness").alt))
 check("their names changed with them", creator("musicians").name === "Jules Arden" && creator("photographers").name === "Noa Price" && creator("fitness").name === "Cole Whitaker")
 check("each at the sizes the card draws: 400 x 500 and 720 x 900 webp", ["musicians", "photographers", "fitness"].every((s) => webpSize(`public/home/creators/${s}-400.webp`).w === 400 && webpSize(`public/home/creators/${s}-400.webp`).h === 500 && webpSize(`public/home/creators/${s}-720.webp`).w === 720 && webpSize(`public/home/creators/${s}-720.webp`).h === 900 && statSync(`public/home/creators/${s}-720.webp`).size < 90_000))
 check("a very subtle grain on every card: one shared tile, no filter, no blend mode", /\.cc-photo::after\{content:"";position:absolute;inset:0;background:url\(\/home\/creators\/grain\.webp\) 0 0\/96px 96px;opacity:\.55;pointer-events:none\}/.test(CREATORS_CSS) && !/filter:|mix-blend-mode|feTurbulence/.test(CREATORS_CSS))
@@ -162,8 +163,9 @@ check("the tile is 192px (two device px a grain on a 2x screen) and under 20 KB"
 check("the shade and the words sit over the grain", /\.cc-shade,\.cc-meta\{z-index:1\}/.test(CREATORS_CSS))
 /* Changed on purpose (landing round 11): "make sure the images are smooth and clean": three at a time from two screens ahead (CREATORS_PRELOAD), each shown once decoded. */
 check("the photos are decoded ahead, three at a time, from two screens before the rail arrives", /track\.querySelectorAll<HTMLImageElement>\("li:not\(\[aria-hidden\]\) img"\)/.test(creators) && /img\.decode\(\)\.then\(done, done\)/.test(creators) && /\{ rootMargin: `\$\{CREATORS_PRELOAD\.marginPx\}px 0px` \}/.test(creators))
-check("still lazy and sized in the markup", (rail.match(/<img class="cc-img"[^>]*loading="lazy"[^>]*>/g) ?? []).length === 24 && (rail.match(/width="400" height="500"/g) ?? []).length === 24)
-check("on a phone only five of the second copy are kept: a third less to draw", /@media\(max-width:767px\)\{\.cc-card\[aria-hidden="true"\]:nth-child\(n\+18\)\{display:none\}\}/.test(CREATORS_CSS) && CREATORS.length === 12)
+// Changed on purpose (landing round 12): 11 kinds since the podcasters card went, so 22 photos.
+check("still lazy and sized in the markup", (rail.match(/<img class="cc-img"[^>]*loading="lazy"[^>]*>/g) ?? []).length === 22 && (rail.match(/width="400" height="500"/g) ?? []).length === 22)
+check("on a phone only five of the second copy are kept: a third less to draw", /@media\(max-width:767px\)\{\.cc-card\[aria-hidden="true"\]:nth-child\(n\+17\)\{display:none\}\}/.test(CREATORS_CSS) && CREATORS.length === 11) // Changed on purpose (landing round 12): 11 kinds, so the second copy starts at 12 and n+17 keeps five.
 check("the finger leads 1:1, drawn once a frame", /x = drag\.fromX - dx\s*if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(creators))
 check("a throw coasts; a finger that only rested holds the rail a moment; the page's scroll holds nothing", /const heldStill = !dragged && axis === null && finger && !cancelled/.test(creators) && /holdUntil = dragged \|\| heldStill \? performance\.now\(\) \+ RESUME_AFTER_MS : performance\.now\(\)/.test(creators) && /if \(dragged && Math\.abs\(throwSpeed\) > 40 && live\(\)\) coast\(throwSpeed\)/.test(creators))
 
