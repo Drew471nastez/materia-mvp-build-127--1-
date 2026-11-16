@@ -160,6 +160,14 @@
  *  - on a phone the card is the screen's width, no rounded inset, and the
  *    map window has no rounded clip (one less mask on a moving layer).
  *
+ * LANDING ROUND 14, THE OWNER: the product carousel "a little too far
+ * left; centre it properly", and on a phone "not full width any more". From
+ * 1024px the flags and the stack span one column (--cmm-col), the same
+ * width the map starts at, and the stack centres in what the flags leave
+ * (it hugged the flags, with dead space before the map). On a phone the
+ * card is inset again with the page's edges and rounded corners, the map's
+ * window inset in it with its rounded clip, as before round 12.
+ *
  * MOTION. No render per country: a few attributes written every 3s while
  * the section is on screen and the tab is visible. Everything that moves
  * (the highlight, the cards, the pill's words, the labels, the ring, the
@@ -468,8 +476,11 @@ const MAP_CSS = `
 [data-commerce-live] .cmm-grid{animation-play-state:running}
 @keyframes cmm-grid{from{transform:translate3d(0,0,0)}to{transform:translate3d(24px,24px,0)}}
 
+/* Landing round 14: the left column's width, read by the map (where it starts) and by the flags and the stack (where they end), so the stack
+   centres in the room between the flags and the map, not hugging the flags with dead space before the map. */
+.cmm-card{--cmm-col:clamp(500px,calc(24vw + 160px),640px)}
 /* The map: everything right of the stack, running a little off the card's right edge. */
-.cmm-world{position:absolute;z-index:0;left:clamp(420px,33vw,600px);right:-3%;top:50%;transform:translate3d(0,-52%,0)}
+.cmm-world{position:absolute;z-index:0;left:var(--cmm-col);right:-3%;top:50%;transform:translate3d(0,-52%,0)}
 .cmm-map{position:relative;aspect-ratio:240/90}
 @media (min-width:640px){.cmm-map{transform:none!important}}
 .cmm-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
@@ -494,6 +505,10 @@ const MAP_CSS = `
 
 /* The flags: a column of square tiles; the lit tile slides to the country in turn. */
 .cmm-side{position:relative;z-index:1;width:max-content;margin-left:clamp(28px,2.6vw,44px);display:flex;align-items:center;gap:clamp(4px,1vw,16px)}
+@media (min-width:1024px){
+  .cmm-side{box-sizing:border-box;width:calc(var(--cmm-col) - clamp(28px,2.6vw,44px));gap:0}
+  .cmm-stage{margin:0 auto}
+}
 .cmm-flags{position:relative;display:grid;grid-auto-rows:48px;gap:8px;margin:0;padding:0;list-style:none}
 .cmm-flag{position:relative;width:48px;height:48px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:14px;background:rgba(255,255,255,.035);opacity:.5;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity ${MOVE}ms ${SOFT}}
 .cmm-flag[data-on]{opacity:1}
@@ -547,7 +562,7 @@ const MAP_CSS = `
 .cmm-copy p{margin:8px 0 0;font-size:15px;line-height:1.55;color:#a3a1ad}
 @media (min-width:1024px) and (max-width:1279px){
   .cmm-stage{--cmm-w:200px;--cmm-peek:66px}
-  .cmm-world{left:400px}
+  .cmm-card{--cmm-col:440px}
 }
 @media (min-width:1024px) and (max-height:900px){
   .cmm-head{margin-bottom:32px}
@@ -562,9 +577,10 @@ const MAP_CSS = `
   .cmm-copy{order:3;margin:30px 22px 0;max-width:none}
 }
 @media (max-width:639px){
-  /* Landing round 12: the card is the screen's width, edge to edge, and so is the map's window (no rounded clip on the moving map). */
-  .cmm-card{margin:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) * -1);border-radius:0;box-shadow:none;padding-top:12px}
-  .cmm-world{aspect-ratio:1/${VIEW_H};margin:0;border-radius:0}
+  /* Landing round 14, the owner: not full width any more. The inset card with the page's edges and its rounded corners, as before round 12;
+     the map's window inset in it with its own rounded clip. */
+  .cmm-card{border-radius:21px}
+  .cmm-world{aspect-ratio:1/${VIEW_H}}
   .cmm-world::before,.cmm-world::after{content:"";position:absolute;z-index:2;top:0;bottom:0;width:9%;pointer-events:none}
   .cmm-world::before{left:0;background:linear-gradient(90deg,#0f0f12,rgba(15,15,18,0))}
   .cmm-world::after{right:0;background:linear-gradient(270deg,#0f0f12,rgba(15,15,18,0))}
