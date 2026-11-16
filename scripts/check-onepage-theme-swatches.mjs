@@ -84,7 +84,7 @@ for (const width of [390, 1440]) {
   check("each card draws two of its theme's buttons, both whole inside the card", cards.every((c) => c.buttons.length === 2 && c.buttons.every(Boolean)), cards.filter((c) => c.buttons.length !== 2 || !c.buttons.every(Boolean)).map((c) => c.id).join())
   const heroes = cards.filter((c) => c.layout === "hero")
   check(`a Classic card draws the profile disc and no Hero mark (${cards.length - heroes.length})`, cards.filter((c) => c.layout === "classic").every((c) => c.disc && !c.heroPicture && !c.heroMark))
-  check(`a Hero card draws a real photo fading into the page, no pill in its corner (${heroes.length})`, heroes.length >= 3 && heroes.every((c) => c.heroPicture && !c.heroMark && !c.disc), heroes.map((c) => c.id).join())
+  check(`a Hero card draws a glow of its colours fading into the page, no pill in its corner (${heroes.length})`, heroes.length >= 3 && heroes.every((c) => c.heroPicture && !c.heroMark && !c.disc), heroes.map((c) => c.id).join())
   check("nothing of the creator's is drawn on a card", cards.every((c) => c.own === 0))
 
   if (!phone) {

@@ -1586,9 +1586,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         />
       )}
 
-      {/* Round AR: once the profile has scrolled away, a slim bar with the creator's picture and name (components/onepage/hero-scroll); round AS, on every header layout, with the badge. */}
+      {/*
+        NO BAR AS THE PAGE SCROLLS. The owner: "get rid completely of the header as you scroll down". Round AR's slim
+        bar with the creator's picture and name is off on every screen; the component still runs the Hero picture's
+        darkening as it scrolls (heroEffect), which is the page itself, not the bar.
+      */}
       <HeroTopBar
-        enabled={safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b))}
+        enabled={false}
         heroEffect={heroScrollEffect((safeTheme as any).header_layout, heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) && safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b)))}
         name={sellerName}
         avatarUrl={avatar_url}

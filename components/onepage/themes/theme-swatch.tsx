@@ -18,8 +18,9 @@
  *             draws the cover as a band, the disc on its edge, as the page does.
  *   Hero      the top half is a picture that fades into the wallpaper
  *             (the page's own HERO_FADE_MASK), "Aa" on the fade, then the
- *             buttons: the shape a Hero page has. The picture is a real portrait,
- *             so a Hero card reads as a Hero without a label.
+ *             buttons: the shape a Hero page has. The picture is a glow of the
+ *             theme's own colours, so a Hero card reads as one without a label
+ *             and without a person.
  *
  * The wallpaper is the page's own layers (its colour, gradient or photo,
  * noise, pattern, a skin's scene) at a phone's width, so a pattern's cells
@@ -93,10 +94,6 @@ export function swatchButtonStyle(theme: ButtonThemeLike): React.CSSProperties {
   }
 }
 
-/** The portrait every Hero card shows, in place of the creator's photo (the same picture on every card, so the themes are what differs). */
-/* Unsplash photo-1544005313-94ddf0286df2 (Unsplash License), kept in public/images so it is served with the app. */
-export const HERO_SAMPLE_PHOTO = "/images/onepage/hero-sample.jpg"
-
 /** `thumb` is the address of a theme's own picture (its wallpaper photo or cover) at a card's size. `hero` draws the Hero layout. */
 export function ThemeSwatch({ c: given, thumb, hero = false }: { c: Look; thumb: (url: string) => string; hero?: boolean }) {
   /* The colours the page will really draw (lib/onepage/contrast readableTheme). */
@@ -108,6 +105,8 @@ export function ThemeSwatch({ c: given, thumb, hero = false }: { c: Look; thumb:
   const cover = hero ? null : coverImageOf(c)
   const left = !hero && headerAlignOf(c) === "left"
   const theme = c as ButtonThemeLike
+  /* The Hero band's glow: the theme's button colour, or its ink where it has none. */
+  const accent: string = (c.button_color as string) || text
   const look = avatarLook(c as never, false)
   /* A skin's scene keeps the screen's height it was made for; a plain wallpaper is spread over the card, so a gradient shows whole. */
   const wallHeight = skinSceneOf(c) ? SCREEN_HEIGHT : SWATCH_HEIGHT
@@ -156,15 +155,21 @@ export function ThemeSwatch({ c: given, thumb, hero = false }: { c: Look; thumb:
 
       {hero ? (
         /*
-          The Hero: a real photo full bleed, fading into the wallpaper with the
-          page's own HERO_FADE_MASK. The owner: show "that it's a hero instead of
-          displaying the pill shape" and make it "more realistic". A blurred
-          figure in the theme's tones read as a placeholder; a portrait reads
-          as the page a creator's photo makes.
+          The Hero: a band of light full bleed, fading into the wallpaper with the page's HERO_FADE_MASK. The owner:
+          no person on the cards ("not that girl and not the man or woman"), "more smooth and clean". It is the
+          theme's own colours: its button colour glowing from the top over a wash of its ink, so a Hero card reads
+          as a picture over the page without showing anyone.
         */
-        <span data-ts-hero="" className="absolute left-0 top-0 block w-full overflow-hidden" style={{ height: 330, maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, backgroundColor: `color-mix(in srgb, ${text} 14%, ${bg})` }}>
-          <img src={thumb(HERO_SAMPLE_PHOTO)} alt="" draggable={false} loading="eager" decoding="async" data-ts-hero-photo="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: "50% 22%" }} />
-        </span>
+        <span
+          data-ts-hero=""
+          className="absolute left-0 top-0 block w-full"
+          style={{
+            height: 330,
+            background: `radial-gradient(70% 55% at 30% 18%, color-mix(in srgb, ${accent} 70%, #ffffff) 0%, transparent 70%), radial-gradient(80% 60% at 78% 34%, color-mix(in srgb, ${accent} 55%, ${bg}) 0%, transparent 72%), linear-gradient(180deg, color-mix(in srgb, ${text} 22%, ${bg}) 0%, color-mix(in srgb, ${accent} 30%, ${bg}) 100%)`,
+            maskImage: HERO_FADE_MASK,
+            WebkitMaskImage: HERO_FADE_MASK,
+          }}
+        />
       ) : null}
 
       {cover ? (
