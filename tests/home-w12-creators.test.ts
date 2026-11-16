@@ -42,7 +42,8 @@ const text = (html: string) => html.replace(/<!-- -->/g, "").replace(/<style[\s\
 const SRC = "components/marketing/home/creators-carousel.tsx"
 /* Changed on purpose (landing round): the sale notification and its primitive are gone. */
 const MOTION: string[] = []
-const KINDS = ["YouTubers", "Musicians", "Authors", "Educators", "Influencers", "Podcasters", "Artists", "Streamers", "Coaches", "Agencies", "Photographers", "Fitness"]
+/* Changed on purpose (landing round 11): podcasters are off the rail (the owner). */
+const KINDS = ["YouTubers", "Musicians", "Authors", "Educators", "Influencers", "Artists", "Streamers", "Coaches", "Agencies", "Photographers", "Fitness"]
 
 const light = renderToString(createElement(CreatorsCarousel))
 const dark = renderToString(createElement(CreatorsCarousel, { tone: "dark" }))

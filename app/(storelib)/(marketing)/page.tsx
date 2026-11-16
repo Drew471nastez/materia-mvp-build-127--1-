@@ -136,8 +136,8 @@ export default function StorelibLanding() {
           {/* 14 SellEverywhere world map. Landing round 9, the owner: it sits on white, right after the purple. */}
           <LazySellEverywhereMap />
 
-          {/* 5 UNLIMITED POSSIBILITIES (frame). Landing round 8: moved here from between the ideas and the creators (the owner: it sat inside "Storelib is for creators"); what you can sell, then what it could earn. Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. */}
-          <LazySection name="possibilities" minHeight="clamp(380px, 23vw + 254px, 720px)">
+          {/* 5 UNLIMITED POSSIBILITIES (frame). Landing round 8: moved here from between the ideas and the creators (the owner: it sat inside "Storelib is for creators"); what you can sell, then what it could earn. Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. Wave 18: smaller on a phone (the heading and the photos), measured 324 to 359px from 360 to 767 wide, so below 768 the box is 6.7vw + 310px; from 768 it is as it was. */}
+          <LazySection name="possibilities" minHeight="min(calc(6.7vw + 310px + clamp(0px, (100vw - 767px) * 100000, 100000px)), clamp(380px, 23vw + 254px, 720px))">
             <ProductMarquee />
           </LazySection>
 

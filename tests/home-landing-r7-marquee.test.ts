@@ -120,6 +120,17 @@ console.log("\n── Words ──")
   check("no banned sample content", !/weeknight pasta|sourdough|golden hour|wheel throwing|drawing basics|run club|\bfans?\b/i.test(words))
 }
 
+console.log("\n── Wave 18: smaller on a phone ──")
+{
+  // The owner: on a phone "the text not so huge, the icons a little smaller (just a little)". Only below 768px.
+  const src = code("components/marketing/product-marquee.tsx")
+  const phone = src.match(/@media\(max-width:767px\)\{\n[\s\S]*?\n\}/)?.[0] ?? ""
+  check("the heading is about 30px at 390 (was 36px)", /\.um \.story-heading\{font-size:clamp\(26px,7\.7vw,34px\)\}/.test(phone))
+  check("the photos about 13% smaller at 390 (47px, was 54px), never larger than before", /\.um-row\{--pic:clamp\(42px,12vw,54px\)\}/.test(phone))
+  check("the line and the labels a point smaller", /\.um-sub\{[^}]*font-size:15px/.test(phone) && /\.um-item\{[^}]*font-size:16px/.test(phone))
+  check("a computer keeps its sizes", /\.um-row\{--pic:clamp\(54px,5\.6vw,108px\);/.test(src) && /\.um-item\{[^}]*font-size:clamp\(18px,1\.75vw,31px\)/.test(src))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
   console.log(failures.map((f) => `  - ${f}`).join("\n"))

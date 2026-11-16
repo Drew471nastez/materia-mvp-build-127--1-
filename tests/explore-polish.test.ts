@@ -184,7 +184,8 @@ async function main() {
     check("their dark counterparts on the dark bar", /ring-1 ring-white\/15 shadow-\[0_1px_2px_rgba\(0,0,0,0\.35\),0_4px_10px_-4px_rgba\(0,0,0,0\.5\)\]/.test(header))
     const trigger = header.slice(header.indexOf('data-header-avatar=""'), header.indexOf("</button>", header.indexOf('data-header-avatar=""')))
     check("the ring is outside the picture: the inner border is gone from the computer's photo", trigger.includes("<AppAvatar") && !/border border-gray-200/.test(trigger))
-    check("the phone's sheet is as it was", /size=\{42\} className="border border-gray-200"/.test(header))
+    /* Changed on purpose (wave 18): the marketing phone menu is full screen in the bar's colours, so its photo takes the bar's hairline ring (the computer's ring stays as above). */
+    check("the phone menu's photo has the bar's hairline ring", /size=\{40\} className=\{buyerHeaderLight \? "ring-1 ring-black\/\[0\.06\]" : "ring-1 ring-white\/\[0\.12\]"\}/.test(header))
   }
 
   console.log("\n4. The back above the pictures on a computer")

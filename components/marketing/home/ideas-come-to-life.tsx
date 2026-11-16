@@ -85,7 +85,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
     title: "Website builder",
     alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First GodBless, a streetwear store: the summer offer bar, the red wordmark, three friends in the sun in the hero under Trusted by 1,250+ and GodBless Summer Club, and New Collection with a camo jacket, a green tee, a charcoal hoodie and a brown tee on models. Then loudlib, a sample pack store: a purple sale bar, a dark header, the new bundle over a club photo, and the bestselling packs as black boxes. Each time the Hero, then the products are selected, then Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
-    scenes: 2,
+    scenes: 1,
   },
   {
     id: "onepage",

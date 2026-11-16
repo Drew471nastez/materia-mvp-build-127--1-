@@ -119,7 +119,8 @@ console.log("\nSecond pass: the website builder as it really is, without Ask Sto
   check("the sidebar's Header, Page and Footer groups with Add section in its raised key (tree-parts.tsx)", /Header<\/p>[\s\S]*Page<\/p>[\s\S]*Footer<\/p>/.test(html) && (html.match(/class="wx-add-key"/g) ?? []).length === 3 && (html.match(/class="wx-badge"/g) ?? []).length === 2)
   check("Theme's tab wears the Settings icon, as the editor's does", /<span>[^<]*<svg[^>]*lucide-settings[^>]*>[\s\S]*?<\/svg> Theme<\/span>/.test(html))
 // Changed on purpose (landing round 11): two sites in the canvas, each with its two rings.
-  check("the selected section's chip says Selected (sections/_shared.tsx)", (html.match(/<em>Selected<\/em>/g) ?? []).length === 4)
+  // Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone with its pictures and the builder shows loudlib alone (tests/home-landing-r11-top.test.ts). One site, so two rings.
+  check("the selected section's chip says Selected (sections/_shared.tsx)", (html.match(/<em>Selected<\/em>/g) ?? []).length === 2)
   check("Publish opens its own panel and puts the change live", ["Changes since published 2 days ago", "Website URL", "No security issues found", "Publish changes", "Publishing", "Published just now"].every((w) => html.includes(w)))
 }
 

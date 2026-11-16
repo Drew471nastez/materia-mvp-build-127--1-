@@ -86,12 +86,14 @@ console.log("\n4 and 5. the phone menu, logged out")
   const sheet = fn(header, "GuestSheetActions")
   check("one component for both menus", sheet.length > 0)
   check("Sign up first, filled purple, not blue", /data-menu-sign-up=""[^>]*bg-violet-600/.test(sheet) && !/blue-|#2563eb|#3b82f6|#4f46e5/i.test(sheet))
-  check("Discover outlined with its compass, to /explore", /go\("\/explore"\)\}\s*data-menu-discover=""[^>]*border border-/.test(sheet) && /<Compass /.test(sheet))
-  check("or Log in outlined, to /login", /go\("\/login"\)\}\s*data-menu-log-in=""[^>]*border border-/.test(sheet))
+  /* Changed on purpose (wave 18): the owner's full-screen menu lists "Sign up / Log in" at its foot, as the reference has Log in over Start now; Discover is a row of the menu's list (below). */
+  check("Log in always there, outlined in the bar's colours, to /login", /go\("\/login"\)\}\s*data-menu-log-in=""[^>]*sheetOutline\(light\)/.test(sheet) && /const sheetOutline = [\s\S]{0,120}border border-\[#d0d4db\][\s\S]{0,200}border border-white/.test(header))
+  check("Log in above Sign up, the one to press nearest the thumb", sheet.indexOf("data-menu-log-in") < sheet.indexOf("data-menu-sign-up"))
   check("Sell on Storelib as purple text, to sign up for selling", /go\(GUEST_SELL\)\}\s*data-menu-sell=""[^>]*text-violet-600/.test(sheet))
   check("the buttons take the shared corner", /SHEET_BUTTON =\s*"[^"]*rounded-action/.test(header))
   /* Changed on purpose: e6a207bd (admin toggle to hide Discover) offers Discover only while the marketplace is on, and Log in in its place otherwise. */
-  check("the marketing menu has Discover", /<GuestSheetActions second=\{exploreMarketplaceOn \? "discover" : "login"\}/.test(header))
+  /* Changed on purpose (wave 18): Discover moved from the foot's buttons into the full-screen menu's list, still only while the marketplace is on. */
+  check("the marketing menu has Discover", /<GuestSheetActions link=\{guestLink\} light=\{buyerHeaderLight\}/.test(header) && /exploreMarketplaceOn \? \[\{ href: "\/explore", label: "Discover"/.test(header))
   /* Round 3: Explore's hamburger is the navigator, whose signed out foot is Log in and Start creating (lib/nav/places-shared navigatorModel). */
   check("Explore's menu is the navigator, with Log in and Start creating", /<PlaceNavigator\b/.test(header) && /key: "log-in", label: "Log in", href: "\/login"/.test(readCode("lib/nav/places-shared.ts")))
   check("and neither keeps the old Sign in and black Discover pair", !/data-menu-sign-in|bg-gray-900 text-white/.test(header))
@@ -111,7 +113,8 @@ console.log("\n6. signed in")
     /export const sellingLabel = \(state: SellerState\) => \(state === "started" \? "Finish setting up your store" : "Become a seller"\)/.test(header) && /setSellerState\(access\.state\)/.test(header))
   check("a profile that could not be read does not undo what the creators row says",
     /if \(profileErr\) \{[\s\S]{0,700}?const state = sellerAccessFrom\(\{ creator: creatorData, profile: null \}\)\.state\s*setIsCreator\(state === "seller"\)\s*setHasCompletedSellerOnboarding\(state === "seller"\)/.test(header))
-  check("it is a calm row, not a badge: a pale violet ground, the height of its neighbours", /data-become-seller=""\s*className="[^"]*rounded-xl bg-\[#f5f3ff\] px-4 py-3\.5 text-base font-medium text-violet-700/.test(header))
+  /* Changed on purpose (wave 18): at the foot of the dark full-screen menu a pale violet slab was the loudest thing there; it is the outlined button of the bar's colours with the store in purple. */
+  check("it is a calm row, not a badge: the outlined button, the height of its neighbours", /data-become-seller=""\s*className=\{cn\(SHEET_BUTTON, "gap-2\.5", sheetOutline\(light\)\)\}/.test(header))
   /* Round 7: the phone's account sheet is its own component (AccountSheet), shared with a community's bar, and takes the seller answer as `seller`. */
   check("a seller gets Dashboard there instead", (header.match(/hasCompletedSellerOnboarding \? \(/g) ?? []).length + (fn(header, "AccountSheet").match(/\{seller \? \(/g) ?? []).length >= 3 && /<AccountSheet[\s\S]{0,500}seller=\{hasCompletedSellerOnboarding\}/.test(header))
   /*

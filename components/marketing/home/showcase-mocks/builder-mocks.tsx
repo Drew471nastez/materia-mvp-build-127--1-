@@ -1122,14 +1122,11 @@ export const BUILDER_CSS = u(`
 .ll-shop{position:relative;flex:1 0 auto;padding:22u 24u 30u}
 .ll-h{text-align:center;font-size:24u;font-style:italic;font-weight:800;letter-spacing:-.01em;text-transform:uppercase;color:#14202b}
 
-/* Landing round 11: two sites in the builder, two pages in the OnePage editor. The tab shows the first, then (data-scene="1" on its panel, set on the autoplay clock) cross fades to the second; only opacity moves. */
+/* Landing round 11: two pages in the OnePage editor (wave 18: the builder shows one site, loudlib). The tab shows the first, then (data-scene="1" on its panel, set on the autoplay clock) cross fades to the second; only opacity moves. */
 .bm-s1,.bm-s2{transition:opacity .7s cubic-bezier(.4,0,.2,1)}
 .bm-s2{opacity:0}
 [data-scene="1"] .bm-s1{opacity:0}
 [data-scene="1"] .bm-s2{opacity:1}
-.wx-name,.wx-pub-host{display:grid}
-.wx-name>span,.wx-pub-host>span{grid-area:1/1}
-.wx-pub-host>span{font-weight:400}
 .ope-page{position:absolute;inset:0;display:block}
 @media(prefers-reduced-motion:reduce){.bm-s1,.bm-s2{transition:none}}
 .wx-sel{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
