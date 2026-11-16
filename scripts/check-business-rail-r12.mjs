@@ -2,7 +2,8 @@
  * Landing round 12: measures the "One store, every kind of product" section
  * on phones (its row of cards) and on computers, against a running server.
  *
- *   node scripts/check-business-rail-r12.mjs [base url, default http://localhost:3000]
+ *   node scripts/check-business-rail-r12.mjs [base url, default http://localhost:3000] [phones]
+ *   ("phones" skips the computers)
  *
  * For each phone width (360, 390, 430) it reports:
  *  - the section's height against the screen, and whether the heading, the
@@ -27,10 +28,13 @@ const PHONES = [
   [390, 844],
   [430, 932],
 ]
-const COMPUTERS = [
-  [1440, 900],
-  [1920, 1080],
-]
+const COMPUTERS =
+  process.argv[3] === "phones"
+    ? []
+    : [
+        [1440, 900],
+        [1920, 1080],
+      ]
 
 async function open(browser, w, h, phone) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone })
@@ -126,17 +130,26 @@ try {
       }
       requestAnimationFrame(tick)
     })
+    /* Touch events straight into the browser's input (CDP), so its own scroller handles them, as under a finger: down, twelve moves of 22px a frame, up. */
     const cdp = await ctx.newCDPSession(page)
+    const y = Math.round(box.y + box.height * 0.6)
+    const x0 = Math.round(w * 0.82)
     const t0 = Date.now()
-    await cdp.send("Input.synthesizeScrollGesture", { x: Math.round(box.x + box.width * 0.8), y: Math.round(box.y + box.height * 0.6), xDistance: -Math.round(w * 0.7), yDistance: 0, speed: 1600, gestureSourceType: "touch", repeatCount: 1 })
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: x0, y }] })
+    for (let i = 1; i <= 12; i++) {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x0 - i * 22, y }] })
+      await page.waitForTimeout(16)
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
     const gestureMs = Date.now() - t0
-    await page.waitForTimeout(900)
+    await page.waitForTimeout(1200)
     const swipe = await page.evaluate(() => {
       const f = window.__f
       const gaps = f.slice(1).map((t, i) => t - f[i])
       const rail = document.querySelector(".biz-rail")
       const pitch = rail.children[1].offsetLeft - rail.children[0].offsetLeft
-      return { frames: f.length, longestGapMs: Math.round(Math.max(...gaps) * 10) / 10, over20ms: gaps.filter((g) => g > 20).length, restsAt: Math.round((rail.scrollLeft / pitch) * 100) / 100 }
+      const playing = [...rail.querySelectorAll(".biz-slide")].map((s) => (s.classList.contains("bz-on") ? "1" : "0")).join("")
+      return { frames: f.length, longestGapMs: Math.round(Math.max(...gaps) * 10) / 10, over20ms: gaps.filter((g) => g > 20).length, restsAt: Math.round((rail.scrollLeft / pitch) * 100) / 100, playing }
     })
     console.log(`\n${w} x ${h}`, JSON.stringify(m))
     console.log("  overflow:", each.length ? each.join("; ") : "none")
