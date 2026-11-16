@@ -211,7 +211,8 @@ async function main() {
     const src = code("components/marketing/home/lazy-section.tsx")
     check("a mounted lazy section stays in its box, which the browser skips off screen", /data-lazy-mounted=""/.test(src) && /contentVisibility: "auto"/.test(src) && /containIntrinsicSize: `auto \$\{options\.minHeight\}`/.test(src))
     /* Changed on purpose (wave 14): laid out in slices (layOutInSlices), then its height kept as before. */
-    check("right after mounting it is laid out in idle slots and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /el\.style\.containIntrinsicSize = `auto \$\{Math\.round\(height\)\}px`/.test(src))
+    /* Changed on purpose (landing round 11): the real height is kept exactly, unrounded (keepHeight), so a box drawn again is not a fraction of a pixel off. */
+    check("right after mounting it is laid out in idle slots and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /box\.style\.containIntrinsicSize = `auto \$\{height\}px`/.test(src) && /keepHeight\(el, height\)/.test(src))
     const css = read("app/globals.css")
     const heading = code("components/marketing/story-heading.tsx")
     check("headings ink and rise from scroll-driven animations where the browser has them (no script per frame)", /@property --story-progress/.test(css) && /animation-timeline:--story-heading/.test(css) && /@keyframes story-heading-rise \{from\{transform:translate3d\(0,12px,0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(css) && /function inkedByCss/.test(heading) && /data-story-js/.test(heading))
