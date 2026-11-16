@@ -107,7 +107,8 @@ const CSS = `
 .um-row::before,.um-row::after{content:"";position:absolute;top:-30px;bottom:-30px;z-index:1;width:clamp(44px,13vw,260px);pointer-events:none}
 .um-row::before{left:0;background:linear-gradient(90deg,#fff,rgba(255,255,255,.82) 30%,rgba(255,255,255,.4) 64%,rgba(255,255,255,0))}
 .um-row::after{right:0;background:linear-gradient(270deg,#fff,rgba(255,255,255,.82) 30%,rgba(255,255,255,.4) 64%,rgba(255,255,255,0))}
-.um-track{display:flex;width:max-content;will-change:transform;backface-visibility:hidden;animation:um-left var(--um-s,64s) linear infinite}
+/* Landing round 11 perf: contain: paint. With the track a layer of its own (it slides on the compositor), every picture on it was a layer of its own too (54 of them): they overlapped it. Paint containment keeps them in the track's layer. The padding and the equal negative margin give the hover ring (the pictures lift and show a ring 15px outside) the room it needs inside the clip, and change no layout. */
+.um-track{display:flex;width:max-content;padding-block:24px;margin-block:-24px;contain:paint;will-change:transform;backface-visibility:hidden;animation:um-left var(--um-s,64s) linear infinite}
 .um-row[data-dir="right"] .um-track{animation-name:um-right}
 .um-copy{display:flex;align-items:center;margin:0;padding:0;list-style:none;flex:none}
 .um-item{flex:none;display:flex;align-items:center;gap:clamp(14px,1.35vw,25px);margin-right:clamp(40px,4.8vw,92px);white-space:nowrap;font-size:clamp(18px,1.75vw,31px);font-weight:500;line-height:1;letter-spacing:-.025em;color:#18181b}

@@ -129,13 +129,13 @@ console.log("\n── The questions ──")
 
 console.log("\n── The dot grid ──")
 {
-  const src = code("components/marketing/home/dot-field.tsx")
+  const src = ["dot-field.tsx", "dot-field-engine.ts", "dot-field-mount.ts", "dot-field-driver.ts"].map((f) => code(`components/marketing/home/${f}`)).join("\n") /* Changed on purpose (landing round 6 perf): the field is drawn by the shared engine in a worker (dot-field-engine.ts, dot-field-mount.ts, dot-field-driver.ts); these pins read the four files together. */
   const props = [...keyframes(DOT_FIELD_CSS).matchAll(/([a-z-]+):/g)].map((m) => m[1])
   /* Changed on purpose (landing round 5): the dot field is one canvas now (scattered dots, a light that follows the mouse), so its CSS has no keyframes; the canvas fades in once. */
   check("no CSS animation: the canvas draws the motion, the CSS only fades it in once", props.length === 0 && /\.dotf canvas\{[^}]*transition:opacity/.test(DOT_FIELD_CSS))
-  check("one canvas, scattered dots drawn in batches by alpha, the device pixel ratio capped", /<canvas ref=\{canvasRef\}/.test(src) && /Math\.min\(DOT_FIELD_MAX_DPR/.test(src) && /ctx\.fill\(\)/.test(src))
+  check("one canvas, scattered dots drawn in batches by alpha, the device pixel ratio capped", /document\.createElement\("canvas"\)/.test(src) && /Math\.min\(f\.cfg\.maxDpr/.test(src) && /ctx\.fill\(\)/.test(src))
   check("runs only on screen and with the tab visible; no React state", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /cancelAnimationFrame/.test(src) && !/useState/.test(src))
-  check("still under reduced motion; behind the content; takes no pointer", /&& !reduced/.test(src) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
+  check("still under reduced motion; behind the content; takes no pointer", /if \(fine && !reduced\)/.test(src) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

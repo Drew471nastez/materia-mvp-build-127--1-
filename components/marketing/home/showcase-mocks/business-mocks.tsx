@@ -423,8 +423,8 @@ export function CoachScene() {
 const E = "cubic-bezier(.22,1,.36,1)"
 const MOTION = `
 @media(prefers-reduced-motion:no-preference){
-.bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s both}
-.bz-on .bs-coach-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
+.bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s backwards}
+.bz-on .bs-coach-pic,.bz-on .bo-main-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
 
 .bz-on .bd-tile-0{animation:bz-rise .8s ${E} both}
 .bz-on .bd-tile-1{animation:bz-rise .8s ${E} .08s both}
@@ -451,7 +451,7 @@ const MOTION = `
 .bz-on .bs-ring-day{animation:bz-day 2.2s ${E} .9s both}
 .bz-on .bs-ring-time{animation:bz-time 1.6s ${E} 2.2s both}
 .bz-on .bs-coach .bs-press{animation:bz-press .36s ease 3.9s both}
-.bz-on .bs-booked{animation:bz-rise .6s ${E} 4.2s both}
+.bz-on .bs-booked{animation:bz-rise .6s ${E} 4.2s backwards}
 }
 @keyframes bz-rise{from{opacity:0;transform:translate3d(0,18u,0)}}
 @keyframes bz-push{from{transform:scale(1.05)}}

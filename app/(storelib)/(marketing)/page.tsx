@@ -4,6 +4,7 @@ import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/
 import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
+import { NearGate } from "@/components/marketing/home/near-gate"
 import {
   LazyEverythingInOnePlace,
   LazyIdeasComeToLife,
@@ -82,6 +83,8 @@ export default function StorelibLanding() {
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
       {/* Landing round 12, the owner: the wheel glide was "too smooth and delayed". The page scrolls natively, in real time (tests/home-smooth-wheel-r5.test.ts). */}
+      {/* One safety net for loops off screen: the infinite CSS loops of every lazy section far from the screen are paused (components/marketing/home/near-gate.tsx). */}
+      <NearGate />
       <LandingStory>
         {/* DARK: 1 HERO. The page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). Landing round 13, the owner: the showcase is no longer right under the hero; it is further down, before pricing. */}
         <ScrollRevealBackdrop>

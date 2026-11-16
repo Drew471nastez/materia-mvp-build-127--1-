@@ -66,6 +66,8 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } fr
 import type { SectionStyle } from "./lazy-section"
 import type { DomainPurpose } from "@/lib/custom-domains/hostname"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { mountDotField } from "./dot-field-mount"
+import { HOW_FIELD } from "./dot-field-engine"
 
 /* The dashboard's logo loads like the section's other pictures: lazily, decoded off the main thread. */
 const LOGO_LAZY = { loading: "lazy", decoding: "async" } as const
@@ -155,235 +157,33 @@ function useCardsLive(grid: RefObject<HTMLElement | null>) {
 }
 
 /* ── the dot field behind the heading ── */
-/** Distance between dots, the largest device pixel ratio drawn, and how the dots look on white. */
-export const HOW_FIELD = { gap: 20, maxDpr: 1.5, ink: "24,24,27", rest: 0.15, lit: "124,58,237", litAlpha: 0.6, radius: 170, part: 5 } as const
-const LEVELS = 20
+/** Distance between dots, the largest device pixel ratio drawn, and how the dots look on white (the engine's, dot-field-engine.ts; the worker cannot import this file). */
+export { HOW_FIELD }
 
 /**
- * A field of faint dots on the white ground, one canvas. An even grid; a
- * slow wave of two long sines bent into each other shades it, so bands of
- * dots drift across like a current; a soft violet light wanders through it
- * on its own and, while a mouse is over the section, glides after the mouse
- * (a dt-timed lerp, no jump), the dots under it parting a little. The fade
- * toward the cards and the sides is each dot's own brightness, worked out
- * on resize, so there is no mask to composite. It runs only on screen in a
- * visible tab, at up to 60 frames a second with a mouse and 30 without one.
- * Reduced motion: one still frame.
+ * A field of faint dots on the white ground. An even grid; a slow wave of two
+ * long sines bent into each other shades it, so bands of dots drift across
+ * like a current; a soft violet light wanders through it on its own and,
+ * while a mouse is over the section, glides after the mouse (a dt-timed lerp,
+ * no jump), the dots under it parting a little. The fade toward the cards and
+ * the sides is each dot's own brightness, worked out on resize, so there is
+ * no mask to composite.
+ *
+ * Landing round 6: it is drawn by the shared engine (dot-field-engine.ts) in a
+ * worker, on canvases the page hands over (dot-field-mount.ts), so the page's
+ * thread draws nothing: it only tells the engine when the field is on screen,
+ * its size, and (a mouse only, at most once a frame) where the mouse is over
+ * the section. Reduced motion: one still frame.
  */
 function HowField({ host }: { host: RefObject<HTMLElement | null> }) {
   const boxRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const box = boxRef.current
-    const canvas = canvasRef.current
     const section = host.current
-    const ctx = canvas?.getContext("2d", { alpha: true })
-    if (!box || !canvas || !ctx || !section) return
-    const mm = typeof window.matchMedia === "function" ? window.matchMedia.bind(window) : null
-    const reduced = !!mm?.("(prefers-reduced-motion: reduce)").matches
-    const fine = !!mm?.("(hover: hover) and (pointer: fine)").matches
-    const F = HOW_FIELD
-    let w = 0
-    let h = 0
-    let dpr = 1
-    /* x, y, brightness, wave a, wave b: five numbers a dot. */
-    let dots = new Float32Array(0)
-    let boxLeft = 0
-    let boxTop = 0
-    let aimX = 0
-    let aimY = 0
-    let hasAim = false
-    let lightX = 0
-    let lightY = 0
-    let strength = 0
-    let started = false
-    const ink: number[][] = Array.from({ length: LEVELS }, () => [])
-    const lit: number[][] = Array.from({ length: LEVELS }, () => [])
-
-    /* The field's place on the page (not on the screen), so a scroll never moves it. */
-    const place = () => {
-      const r = box.getBoundingClientRect()
-      boxLeft = r.left + window.scrollX
-      boxTop = r.top + window.scrollY
-    }
-    const draw = (t: number, dt: number) => {
-      let tx: number
-      let ty: number
-      let goal: number
-      if (hasAim) {
-        tx = aimX - boxLeft
-        ty = aimY - boxTop
-        goal = 1
-      } else {
-        tx = w * (0.5 + 0.34 * Math.sin(t * 0.00013))
-        ty = h * (0.36 + 0.2 * Math.sin(t * 0.000097 + 1.3))
-        goal = 0.55
-      }
-      const k = 1 - Math.pow(1 - 0.08, dt / 16.67)
-      if (!started) {
-        lightX = tx
-        lightY = ty
-        started = true
-      } else {
-        lightX += (tx - lightX) * k
-        lightY += (ty - lightY) * k
-      }
-      strength += (goal - strength) * k * 0.6
-      for (let l = 0; l < LEVELS; l++) {
-        ink[l].length = 0
-        lit[l].length = 0
-      }
-      const r2 = F.radius * F.radius
-      for (let i = 0; i < dots.length; i += 5) {
-        const flow = 0.5 + 0.5 * Math.sin(dots[i + 3] - t * 0.0004 + 1.7 * Math.sin(dots[i + 4] + t * 0.00017))
-        let x = dots[i] + (flow - 0.5) * 1.2
-        let y = dots[i + 1] + (flow - 0.5) * 1.8
-        const fade = dots[i + 2]
-        const a = fade * (0.3 + 0.7 * flow * flow)
-        let glow = 0
-        const dx = x - lightX
-        const dy = y - lightY
-        const d2 = dx * dx + dy * dy
-        if (d2 < r2 && strength > 0.01) {
-          const d = Math.sqrt(d2) || 1
-          const f = (1 - d / F.radius) * (1 - d / F.radius) * strength
-          glow = f * fade
-          x += (dx / d) * F.part * f
-          y += (dy / d) * F.part * f
-        }
-        const level = Math.round(a * (1 - glow) * (LEVELS - 1))
-        if (level > 0) ink[level].push(x, y)
-        const g = Math.round(glow * (LEVELS - 1))
-        if (g > 0) lit[g].push(x, y)
-      }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, w, h)
-      for (let pass = 0; pass < 2; pass++) {
-        const set = pass ? lit : ink
-        const rgb = pass ? F.lit : F.ink
-        const top = pass ? F.litAlpha : F.rest
-        const rad = pass ? 1.15 : 0.9
-        for (let l = 1; l < LEVELS; l++) {
-          const b = set[l]
-          if (!b.length) continue
-          ctx.fillStyle = `rgba(${rgb},${((l / (LEVELS - 1)) * top).toFixed(3)})`
-          ctx.beginPath()
-          for (let j = 0; j < b.length; j += 2) {
-            ctx.moveTo(b[j] + rad, b[j + 1])
-            ctx.arc(b[j], b[j + 1], rad, 0, 6.2832)
-          }
-          ctx.fill()
-        }
-      }
-    }
-    const resize = () => {
-      const nw = box.clientWidth
-      const nh = box.clientHeight
-      if (!nw || !nh || (nw === w && nh === h)) return
-      w = nw
-      h = nh
-      dpr = Math.min(F.maxDpr, window.devicePixelRatio || 1)
-      canvas.width = Math.round(w * dpr)
-      canvas.height = Math.round(h * dpr)
-      const cols = Math.floor(w / F.gap) + 1
-      const rows = Math.floor(h / F.gap) + 1
-      const ox = (w - (cols - 1) * F.gap) / 2
-      const oy = (h - (rows - 1) * F.gap) / 2
-      dots = new Float32Array(cols * rows * 5)
-      let n = 0
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const x = ox + c * F.gap
-          const y = oy + r * F.gap
-          /* Full for the top half, gone by the bottom; soft at the sides and the very top. */
-          const down = Math.min(1, Math.max(0, (1 - y / h) / 0.5))
-          const side = Math.min(1, Math.min(x, w - x) / Math.min(160, w * 0.16))
-          const up = Math.min(1, y / 40 + 0.35)
-          dots[n++] = x
-          dots[n++] = y
-          dots[n++] = down * down * (0.4 + 0.6 * side) * up
-          dots[n++] = x * 0.0052 + y * 0.0033
-          dots[n++] = y * 0.0041 - x * 0.0017
-        }
-      }
-      place()
-      draw(performance.now(), 16.67)
-      box.setAttribute("data-drawn", "")
-    }
-
-    let raf = 0
-    let last = 0
-    let near = false
-    const frame = (t: number) => {
-      raf = requestAnimationFrame(frame)
-      /* 60 a second while a mouse is in the section (a 120Hz screen draws every other frame), 30 otherwise. */
-      if (last && t - last < (hasAim ? 12 : 30)) return
-      const dt = last ? Math.min(64, t - last) : 16.67
-      last = t
-      draw(t, dt)
-    }
-    const run = () => {
-      const go = near && document.visibilityState !== "hidden" && !reduced
-      if (go && !raf) {
-        last = 0
-        raf = requestAnimationFrame(frame)
-      } else if (!go && raf) {
-        cancelAnimationFrame(raf)
-        raf = 0
-      }
-    }
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse") return
-      aimX = e.clientX + window.scrollX
-      aimY = e.clientY + window.scrollY
-      hasAim = true
-    }
-    const onEnter = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse") return
-      place()
-      onMove(e)
-    }
-    const onLeave = () => {
-      hasAim = false
-    }
-
-    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null
-    ro?.observe(box)
-    resize()
-    const io =
-      typeof IntersectionObserver === "function"
-        ? new IntersectionObserver(([e]) => {
-            near = e.isIntersecting
-            if (near) place()
-            run()
-          })
-        : null
-    if (io) io.observe(box)
-    else {
-      near = true
-      run()
-    }
-    document.addEventListener("visibilitychange", run)
-    if (fine && !reduced) {
-      section.addEventListener("pointerenter", onEnter)
-      section.addEventListener("pointermove", onMove, { passive: true })
-      section.addEventListener("pointerleave", onLeave)
-    }
-    return () => {
-      cancelAnimationFrame(raf)
-      ro?.disconnect()
-      io?.disconnect()
-      document.removeEventListener("visibilitychange", run)
-      section.removeEventListener("pointerenter", onEnter)
-      section.removeEventListener("pointermove", onMove)
-      section.removeEventListener("pointerleave", onLeave)
-    }
+    if (!box || !section) return
+    return mountDotField(box, { kind: "how", gap: HOW_FIELD.gap, pointer: section })
   }, [host])
-  return (
-    <div ref={boxRef} className="cmh-field" aria-hidden="true">
-      <canvas ref={canvasRef} />
-    </div>
-  )
+  return <div ref={boxRef} className="cmh-field" aria-hidden="true" />
 }
 
 export function HowItWorks() {
@@ -1120,8 +920,8 @@ const HOW_CSS = `
 .cmh-in{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin-inline:auto;padding-inline:var(--home-edge,clamp(20px,5.15vw,84px))}
 /* The dots behind the heading: the head of the section only, gone by the pictures (the fade is each dot's own brightness). */
 .cmh-field{position:absolute;z-index:-1;left:0;right:0;top:0;height:min(100%,clamp(420px,46vw,640px));overflow:clip;pointer-events:none}
-.cmh-field canvas{display:block;width:100%;height:100%;opacity:0;transition:opacity .9s ease-out}
-.cmh-field[data-drawn] canvas{opacity:1}
+.cmh-field canvas{position:absolute;left:0;display:block;width:100%;opacity:0;transition:opacity .9s ease-out}
+.cmh-field canvas[data-drawn]{opacity:1}
 /* Section 3's heading: two tones, the lead dark and the rest grey; it starts --home-head-inset in from the pictures' edge. */
 .cmh-h{margin:0 0 clamp(32px,4.4vw,60px);padding-left:var(--home-head-inset,14px);font-size:clamp(34px,4.6vw,64px);font-weight:500;line-height:1.05;letter-spacing:-.045em;color:#18181b;text-wrap:balance}
 .cmh-h-mute{display:block;color:#8e8c96}
@@ -1153,7 +953,8 @@ const HOW_CSS = `
 .cmh-a{animation-duration:8s;animation-timing-function:${EASE};animation-iteration-count:infinite;animation-fill-mode:both;animation-play-state:paused!important}
 [data-commerce-live] .cmh-a{animation-play-state:running!important}
 /* What plays once, the first time its card is seen. */
-.cmh-o{animation-duration:.7s;animation-timing-function:${EASE};animation-fill-mode:both;animation-play-state:paused}
+/* Landing round 11 perf: fill backwards, not both. Each bar's last keyframe is its resting style, so after it has risen there is nothing to hold, and a finished animation that still held a fill kept a layer for each of the 60 bars for good. */
+.cmh-o{animation-duration:.7s;animation-timing-function:${EASE};animation-fill-mode:backwards;animation-play-state:paused}
 [data-seen] .cmh-o{animation-play-state:running}
 .cmh-sc{position:absolute;inset:0;line-height:1.3;color:#18181b}
 

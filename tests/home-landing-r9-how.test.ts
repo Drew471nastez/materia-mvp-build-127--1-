@@ -32,6 +32,11 @@ const read = (p: string) => readFileSync(p, "utf8")
 const FILE = "components/marketing/home/how-it-works.tsx"
 const src = read(FILE)
 const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1")
+/* Changed on purpose (landing round 6 perf): the field is drawn by the shared engine in a worker; the page's side is dot-field-mount.ts (canvases are made there, not in the markup). */
+const strip = (f: string) => read(`components/marketing/home/${f}`).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1")
+const MOUNT = strip("dot-field-mount.ts")
+const DRIVER = strip("dot-field-driver.ts")
+const ENGINE = strip("dot-field-engine.ts")
 const how = renderToStaticMarkup(createElement(HowItWorks))
 const css = HOW_IT_WORKS_STYLES.map((s) => s.css).join("\n")
 const text = how.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<!-- -->/g, "").replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&#x27;/g, "'").replace(/\s+/g, " ")
@@ -85,12 +90,12 @@ console.log("\n5. Use your own domain")
 
 console.log("\n6. The heading and the ground")
 // Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard, a tip flow and a typed domain, full width on the section; tests/home-landing-r12-how.test.ts pins them. Retired here: "a new two tone heading".
-check("a dot field behind the head of the section, behind the words, taking no pointer", /<div class="cmh-field" aria-hidden="true"><canvas><\/canvas><\/div>/.test(how) && /\.cmh-field\{position:absolute;z-index:-1;[^}]*pointer-events:none\}/.test(css) && /\.cmh\{position:relative;isolation:isolate/.test(css))
+check("a dot field behind the head of the section, behind the words, taking no pointer", /<div class="cmh-field" aria-hidden="true"><\/div>/.test(how) && /\.cmh-field\{position:absolute;z-index:-1;[^}]*pointer-events:none\}/.test(css) && /\.cmh\{position:relative;isolation:isolate/.test(css))
 // Changed on purpose (landing round 10): the domain card's endings fade through a still mask; the dot field still has none.
 // Changed on purpose (landing round 11): the owner disliked the pictures; new ones, one white panel each on a quiet ground (tests/home-landing-r11-lower.test.ts). The masks are on the tip list's still window and the dot field has none.
 check("subtle and cheap: faint dots, at most 1.5 device pixels a pixel, no mask", HOW_FIELD.rest <= 0.2 && HOW_FIELD.maxDpr <= 1.5 && HOW_FIELD.gap >= 18 && !/mask/.test(rule(".cmh-field") + rule(".cmh-field canvas")) && [...css.matchAll(/([^{}\n]+)\{[^}]*mask-image/g)].every((m) => m[1] === ".cmh-tip-win"))
-check("it stops off screen and in a hidden tab, stands still for reduced motion, and follows a mouse only", /near && document\.visibilityState !== "hidden" && !reduced/.test(code) && /cancelAnimationFrame\(raf\)/.test(code) && /if \(fine && !reduced\) \{\s*section\.addEventListener\("pointerenter"/.test(code))
-// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard, a tip flow and a typed domain, full width on the section; tests/home-landing-r12-how.test.ts pins them. Retired here: "its place is read on resize".
+check("it stops off screen and in a hidden tab, stands still for reduced motion, and follows a mouse only", /new IntersectionObserver/.test(MOUNT) && /visibilitychange/.test(DRIVER) && /f\.reduced/.test(ENGINE) && /if \(fine && !reduced\)/.test(MOUNT) && /mountDotField\(box, \{ kind: "how", gap: HOW_FIELD\.gap, pointer: section \}\)/.test(code))
+check("its place is read on resize and as a mouse comes in, never in the frame", (MOUNT.match(/getBoundingClientRect/g) ?? []).length === 1 && !/getBoundingClientRect/.test(code.slice(code.indexOf("function HowField"), code.indexOf("\nfunction ", code.indexOf("function HowField") + 20))) && !/getBoundingClientRect/.test(MOUNT.slice(MOUNT.indexOf("const flush"), MOUNT.indexOf("const onMove"))) && !MOUNT.includes('"scroll"') && !/useState/.test(code.slice(code.indexOf("function HowField"), code.indexOf("\nfunction ", code.indexOf("function HowField") + 20))))
 
 console.log("\n7. Smooth")
 // Changed on purpose (landing round 10): the domain card has two keyframes now (the reel and the light), not six.

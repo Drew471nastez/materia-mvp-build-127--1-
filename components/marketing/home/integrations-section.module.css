@@ -182,6 +182,7 @@
   cursor: default;
   -webkit-tap-highlight-color: transparent;
 }
+/* Landing round 11 perf: the face has no backface-visibility setting. The turn (FLIP in the tsx) goes from 0 to 90 degrees and on from -90 to 0, so the back of the icon is never shown, and the setting made every icon (and each picture on it) a layer of its own, about 55 layers. */
 .inner {
   position: absolute;
   inset: 0;
@@ -189,7 +190,6 @@
   place-items: center;
   overflow: hidden;
   border-radius: 24%;
-  backface-visibility: hidden;
   box-shadow: 0 10px 22px -14px rgba(17, 17, 26, 0.32);
 }
 /* A hairline only round a light icon, where white would meet the white page. */

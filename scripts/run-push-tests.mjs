@@ -1446,6 +1446,8 @@ const SUITES = [
   "tests/home-landing-frame4.test.ts",
   /* Round 5: the home page's desktop mouse wheel glided like the Materia theme's smooth scroll. Landing round 12: removed ("too smooth and delayed"); the pins hold that the browser's own scroll runs. */
   "tests/home-smooth-wheel-r5.test.ts",
+  /* Landing round 11 perf (layers and animations): one gate pauses the infinite loops of any lazy section far from the screen; finished fills, backface-visibility, a paint containment and a smaller, live-only rim light drop dozens of compositor layers; the smooth wheel reads no layout per wheel event. */
+  "tests/home-landing-layers6.test.ts",
   /* Landing round 5 (top): the showcase is the browser's own snapping scroller on a touch screen or phone width (autoplay steps aside for a touch and comes back), its cards bigger and cut a little by the section's bottom edge; Make the work's new heading, no support labels, a Pilates course and a plain LUT pack cover; the globe's order notification stands in one place and only fades in and out, the globe capped at 60fps and 2x (1.5x on a low end phone) and a finger takes it only sideways. */
   "tests/home-landing-r5-top.test.ts",
   /* Landing round 5, middle: One store for everything you sell as it was before (no scroll pin, the clock, the grey stage); Ideas behind plain tabs with a candle studio's store and a paid strength coaching community; How it works without the cap, a bold drawn product sheet, calm grey and dark grounds, a simple dark domain card. */
@@ -1540,6 +1542,8 @@ const SUITES = [
   "tests/home-landing-r11-frame.test.ts",
   /* Landing round 11, lower: the app section is round 8's photograph and points again on white; a light runs round the AI tools terminal and the card carries the dot field; How it works has new pictures (a tips list, bars and a reading, his website whose address closes to his own domain); the closing call's dots brighter, crisper and down to its foot, the section a little shorter. */
   "tests/home-landing-r11-lower.test.ts",
+  /* Landing round 6 (performance): the three dot fields drawn by one engine in a worker, tiles, a covered sheet pauses them, the mouse posted once a frame. */
+  "tests/home-landing-dotworker6.test.ts",
   /* Landing round 11, checkout: the phone starts big and low and settles smaller under a two row headline; the products go round on a wider ring of their own under the phone, never across it, soft round the back; the cards and the facts solid; One-tap is the dark in-page checkout; on a phone the four cards stacked, each picture whole; the Recovered chart kept. */
   "tests/home-landing-r11-checkout.test.ts",
   /* Landing round 11, stability: no section above the screen changes height in front of a Safari reader (no scroll anchoring there): real heights kept exactly, server-drawn boxes measured while idle, and a box that changes above the screen held by the scroll in the same frame (by its own top margin mid-fling). */

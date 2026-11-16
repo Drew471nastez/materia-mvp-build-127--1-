@@ -415,7 +415,7 @@ const CSS = `
 .biz-stage{position:relative;display:grid;border-radius:clamp(14px,1.4vw,22px);overflow:hidden;isolation:isolate;background:#f0eff1;-webkit-tap-highlight-color:transparent}
 .biz-stage .smk{pointer-events:none;user-select:none;-webkit-user-select:none}
 .biz-slide{grid-area:1/1;border-radius:inherit;overflow:hidden;transition:opacity .6s cubic-bezier(.2,.7,.2,1)}
-.biz-slide[data-pane="active"]{z-index:2;animation:biz-in .6s cubic-bezier(.2,.7,.2,1) both}
+.biz-slide[data-pane="active"]{z-index:2;animation:biz-in .6s cubic-bezier(.2,.7,.2,1) backwards}
 .biz-slide[data-pane="leaving"]{z-index:1}
 .biz-slide[data-pane="next"]{z-index:0;opacity:0;pointer-events:none;transition:none}
 /* A scene put away is hidden, not content-visibility:hidden: Chrome does not restart the moments of a subtree that comes back from being skipped, so a scene shown a second time stood empty. */

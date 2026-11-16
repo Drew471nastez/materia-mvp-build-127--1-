@@ -77,13 +77,13 @@ console.log("\n── analytics: an icon per report, a favicon per result ──
 
 console.log("\n── the purple's dots: more visible, smoother ──")
 {
-  const dots = read(`${DIR}/dot-field.tsx`)
+  const dots = ["dot-field.tsx", "dot-field-engine.ts", "dot-field-mount.ts", "dot-field-driver.ts"].map((f) => read(`components/marketing/home/${f}`)).join("\n") /* Changed on purpose (landing round 6 perf): the field is drawn by the shared engine in a worker (dot-field-engine.ts, dot-field-mount.ts, dot-field-driver.ts); these pins read the four files together. */
   const page = read("app/(storelib)/(marketing)/page.tsx")
   const p = DOT_FIELD_TONES.purple
   check("brighter on purple: 0.17 at rest (was 0.12), 0.4 lit (was 0.32), still white", p.rest === 0.17 && p.lit === 0.4 && p.rgb === "255,255,255")
   check("a touch rounder on purple; the dark tone is the lower track's (same round)", p.r === 0.95 && DOT_FIELD_TONES.dark.r === 0.8)
-  check("the dots ride the flow half as far on purple (no shimmer across a device pixel)", p.ride === 0.5 && /\(flow - 0\.5\) \* 0\.8 \* colour\.ride/.test(dots) && /\(flow - 0\.5\) \* 1\.4 \* colour\.ride/.test(dots))
-  check("the light wanders a little stronger on purple", /goal = fine \? 0\.45 : 0\.55/.test(dots)) // Changed on purpose (landing round 13): the closing call has its own branch (DOT_FIELD_CALM), so the purple sheet's wander is written on its own; the same values.
+  check("the dots ride the flow half as far on purple (no shimmer across a device pixel)", p.ride === 0.5 && /\(flow - 0\.5\) \* rideX \* ride/.test(dots) && /\(flow - 0\.5\) \* rideY \* ride/.test(dots) && /rideX: 0\.8,\s*rideY: 1\.4/.test(dots))
+  check("the light wanders a little stronger on purple", /alone: tone === "dark" \? \[WANDER, WANDER\] : \[0\.45, 0\.55\]/.test(dots))
   check("the field reaches 1600px down the sheet (was 1100)", /<DotField tone="purple" fade="bottom" gap=\{22\} style=\{\{ height: "min\(100%, 1600px\)" \}\} \/>/.test(page))
 }
 

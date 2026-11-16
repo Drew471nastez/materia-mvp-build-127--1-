@@ -73,7 +73,7 @@ console.log("\n── analytics: other shapes, nothing purple on the purple ─�
 
 console.log("\n── the dot field: even, flowing, following the mouse ──")
 {
-  const src = read(`${DIR}/dot-field.tsx`)
+  const src = ["dot-field.tsx", "dot-field-engine.ts", "dot-field-mount.ts", "dot-field-driver.ts"].map((f) => read(`components/marketing/home/${f}`)).join("\n") /* Changed on purpose (landing round 6 perf): the field is drawn by the shared engine in a worker (dot-field-engine.ts, dot-field-mount.ts, dot-field-driver.ts); these pins read the four files together. */
   const page = read("app/(storelib)/(marketing)/page.tsx")
   const cta = read(`${DIR}/final-cta.tsx`)
   const pts = dotFieldPoints(1200, 600, 18)
@@ -85,13 +85,13 @@ console.log("\n── the dot field: even, flowing, following the mouse ──")
   // Changed on purpose (landing round 8): the closing call's dots a little more visible (dark 0.19 / 0.46), the purple unchanged.
   // Changed on purpose (landing round 11): the closing call is brighter (0.34 / 0.68), the purple sheet 0.17 / 0.4.
   check("subtle, and neutral white on the purple", DOT_FIELD_TONES.purple.rgb === "255,255,255" && DOT_FIELD_TONES.purple.rest <= 0.17 && DOT_FIELD_TONES.purple.lit <= 0.4 && DOT_FIELD_TONES.dark.rest <= 0.35 && DOT_FIELD_TONES.dark.lit <= 0.7) // Changed on purpose (landing round 11): the owner: the purple's dots "more visible".
-  check("follows the mouse with a lerp, wanders by itself without one", /lightX \+= \(tx - lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src) && /Math\.sin\(t \* 0\.00011\)/.test(src))
+  check("follows the mouse with a lerp, wanders by itself without one", /f\.lightX \+= \(tx - f\.lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src) && /pathX: \[0\.5, 0\.32, 0\.00011\]/.test(src))
   // Changed on purpose (landing round 11): at most 2 device pixels a CSS pixel, so the dots are crisp on a phone.
-  check("one canvas at no more than 2 device pixels per CSS pixel", DOT_FIELD_MAX_DPR === 2 && /Math\.min\(DOT_FIELD_MAX_DPR/.test(src) && /<canvas ref=\{canvasRef\}/.test(src))
+  check("one canvas at no more than 2 device pixels per CSS pixel", DOT_FIELD_MAX_DPR === 2 && /Math\.min\(f\.cfg\.maxDpr/.test(src) && /document\.createElement\("canvas"\)/.test(src))
   // Changed on purpose (landing round 8): the light wanders on its own now, so it draws at up to 60 a second whenever it runs (at 30 it stepped).
-  check("at most 60 frames a second, evenly", /if \(last && t - last < 12\) return/.test(src) && /waves\[j\] = points\[i\] \* 0\.0052/.test(src))
-  check("paused off screen and in a hidden tab, one still frame under reduced motion, no state, no layout read in the loop", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /&& !reduced/.test(src) && !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const draw"), src.indexOf("const resize"))))
-  check("on the purple sheet, a little sparser there, and under the closing call", /<DotField tone="purple" fade="bottom" gap=\{22\}/.test(page) && /<DotField fade="close" scatter \/>/.test(cta)) // Changed on purpose (landing round 12): scattered dots under the closing call. // Changed on purpose (landing round 8): the closing call's field fades out before its foot.
+  check("at most 60 frames a second, evenly", /f\.last && t - f\.last < f\.cfg\.frameMs\[/.test(src) && /dots\[j\+\+\] = x \* 0\.0052 \+ y \* 0\.0033/.test(src))
+  check("paused off screen and in a hidden tab, one still frame under reduced motion, no state, no layout read in the loop", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /if \(fine && !reduced\)/.test(src) && !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const drawTile"), src.indexOf("const settle"))))
+  check("on the purple sheet, a little sparser there, and under the closing call", /<DotField tone="purple" fade="bottom" gap=\{22\}/.test(page) && /<DotField fade="close" scatter \/>/.test(cta)) // Changed on purpose (landing round 8): the closing call's field fades out before its foot.
   check("the field keeps its CSS: behind, no pointer, no CSS animation", /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS) && !/@keyframes/.test(DOT_FIELD_CSS))
   check("the closing call in the page's one width", /padding:clamp\(76px,8\.4vw,128px\) var\(--home-edge,/.test(cta)) // Changed on purpose (landing round 11): a little less height.
 }

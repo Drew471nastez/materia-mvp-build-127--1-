@@ -83,22 +83,24 @@
              the sides, clear down the middle to the bottom, and only the
              last 56px fade out, so no edge meets the footer's hairline.
 
+  Landing round 6 (performance, the owner: the page lags and stutters): the
+  drawing left the page's thread. The engine is dot-field-engine.ts (no DOM;
+  every number above lives there, one config object per look), run in a Web
+  Worker on OffscreenCanvases (dot-field-worker.ts, started by
+  dot-field-driver.ts) and on this thread only where the browser cannot hand a
+  canvas over. This file keeps the markup and the CSS; dot-field-mount.ts is
+  the page's side: it makes the canvases (tiles of 640px, so a tall box is
+  never one huge canvas and what is off screen is neither drawn nor looped),
+  observes visibility and size, sends the mouse at most once a frame, and
+  pauses the field under a sheet that covers it.
+
   Landing round 12, the owner, of the closing call: the dots are "too
   regular" (straight rows and columns): scatter them. <DotField scatter />
-  draws them from dotFieldScatter: seeded Poisson disc sampling, every dot
-  at least 0.8 of the gap from the next, so they spread evenly with no rows,
-  no columns and no clumps, each with a brightness of its own. The seed is
-  fixed, so a box of a given size always gets the same field. The purple
-  sheet keeps its grid.
-
-  Landing round 13, the owner, of the closing call: the dots should "move
-  subtly by default, a slow gentle drift", be "more subtle overall", and the
-  pointer should feel "smoother and cleaner, eased, no snapping". So the dark
-  tone rests at 0.24 and lights to 0.5 (was 0.34 and 0.68), every dot
-  breathes on a small slow loop of its own, and the light eases after the
-  mouse through two easings with a pull that fades in near the box
-  (DOT_FIELD_CALM). Still one canvas, two sines more a dot. The purple sheet
-  draws exactly as before.
+  draws them from dotFieldScatter (in the engine, dot-field-engine.ts):
+  seeded Poisson disc sampling, every dot at least 0.8 of the gap from the
+  next, so they spread evenly with no rows, no columns and no clumps, each
+  with a brightness of its own. The seed is fixed, so a box of a given size
+  always gets the same field. The purple sheet keeps its grid.
 
   Put <DotField /> as the first child of a dark block that is a stacking
   context (position plus z-index, or isolation: isolate); it fills it,
@@ -110,206 +112,29 @@
 */
 
 import { useEffect, useRef, type CSSProperties } from "react"
+import { mountDotField } from "./dot-field-mount"
+import { DOT_FIELD_MAX_DPR, DOT_FIELD_SEED, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints, dotFieldScatter } from "./dot-field-engine"
+
+/** The tones, the largest device pixel ratio and the dots' maths live in the engine (worker safe); re-exported here, where they were. */
+export { DOT_FIELD_MAX_DPR, DOT_FIELD_SEED, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints, dotFieldScatter }
 
 export const DOT_FIELD_CSS = `
 .dotf{position:absolute;inset:0;z-index:-1;overflow:clip;pointer-events:none}
 .dotf[data-fade="edges"]{-webkit-mask-image:radial-gradient(120% 90% at 50% 45%,#000 35%,transparent 80%);mask-image:radial-gradient(120% 90% at 50% 45%,#000 35%,transparent 80%)}
 .dotf[data-fade="close"]{-webkit-mask-image:linear-gradient(#000 calc(100% - 56px),transparent),radial-gradient(120% 135% at 50% 42%,#000 42%,transparent 82%);-webkit-mask-composite:source-in;mask-image:linear-gradient(#000 calc(100% - 56px),transparent),radial-gradient(120% 135% at 50% 42%,#000 42%,transparent 82%);mask-composite:intersect}
 .dotf[data-fade="bottom"]{-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 45%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 45%,transparent 100%)}
-.dotf canvas{display:block;width:100%;height:100%;opacity:0;transition:opacity .9s ease-out}
-.dotf[data-drawn] canvas{opacity:1}
+.dotf canvas{position:absolute;left:0;display:block;width:100%;opacity:0;transition:opacity .9s ease-out}
+.dotf canvas[data-drawn]{opacity:1}
 @media (prefers-reduced-motion:reduce){.dotf canvas{transition:none}}
 `
-
-/**
- * The dots' colour per ground, how bright they rest at the crest of the flow
- * and how bright the light makes them. Round 7: neutral white on the purple
- * too (the owner: nothing purple on the purple, not even light purple).
- * `r` is a dot's radius in CSS px; `ride` how far a dot rides the flow (1 is
- * under a pixel). Landing round 11, the owner, of the purple sheet: the dots
- * "more smooth, clean and more visible". So on purple they rest at 0.17 (was
- * 0.12) and light to 0.4 (was 0.32), a touch rounder (0.95px), and ride the
- * flow half as far, so a dot no longer shimmers as it crosses a device pixel;
- * the bands of light carry the motion. The dark tone is unchanged.
- */
-export const DOT_FIELD_TONES = {
-  /* Landing round 11: the closing call's dots a little more visible and standing on their points (ride 0); the purple sheet's brighter, rounder and steadier (its own track). */
-  /* Landing round 13, the owner: the closing call "more subtle overall": rests at 0.24 (was 0.34), lights to 0.5 (was 0.68). */
-  dark: { rgb: "255,255,255", rest: 0.24, lit: 0.5, r: 0.8, ride: 0 },
-  purple: { rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 },
-} as const
-
-/** Largest device pixel ratio the canvas is drawn at. */
-export const DOT_FIELD_MAX_DPR = 2
-/** Radius of the light around the pointer, in CSS px. */
-const RADIUS = 180
-/** How quickly the light follows the pointer, per 60Hz frame (0..1). */
-const FOLLOW = 0.075
-/** How far the dots part under the light, in CSS px. */
-const PART = 6
-const LEVELS = 32
-/** How strong the light is on its own path, with no mouse over the field. */
-const WANDER = 0.6
-/** The darkest a dot gets in the trough of the flow, as a share of its crest (landing round 11: the dark tone 0.45, was 0.3; the purple sheet as it was). */
-const TROUGH = { dark: 0.45, purple: 0.3 } as const
-
-/**
- * The closing call's own motion (landing round 13, the owner: "by default,
- * move subtly, a slow gentle drift, breathing", and the pointer "smoother and
- * cleaner, eased, no snapping"). The purple sheet does none of this.
- *
- *   drift    every dot wanders on a small slow loop of its own around its
- *            point, `drift` px at most, once in `periodS` seconds give or
- *            take a third (its own pace, from its phase), so the field
- *            breathes without anything marching. Under a fiftieth of a pixel
- *            a frame: no shimmer.
- *   follow   the light follows the pointer through two easings in a row
- *            (`follow` each, per 60Hz frame), so it starts gently, glides and
- *            settles, instead of leaping off at full speed and slowing.
- *   reach    how near the field the mouse must be to draw the light: the
- *            pull fades over `reach` px outside the box rather than
- *            switching on and off at its edge, and the mouse's place is
- *            kept on the screen and read with the scroll, so scrolling
- *            under a still mouse never leaves the light behind.
- *   part     how far the dots part under the light, in px, with a falloff
- *            that is flat at its centre and at its rim (no point, no ring).
- */
-export const DOT_FIELD_CALM = { drift: 1.6, periodS: 14, follow: 0.085, reach: 160, part: 4 } as const
-
-/** A repeatable random number in [0, 1) for a pair of integers. */
-function hash(x: number, y: number) {
-  const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
-  return h - Math.floor(h)
-}
-
-/**
- * The dots for a box: x, y (CSS px), a brightness (0..1) and a phase, four
- * numbers per dot. An even grid of `gap` px, centred so the margins match.
- */
-export function dotFieldPoints(width: number, height: number, gap: number): Float32Array {
-  const cols = Math.floor(width / gap) + 1
-  const rows = Math.floor(height / gap) + 1
-  const ox = (width - (cols - 1) * gap) / 2
-  const oy = (height - (rows - 1) * gap) / 2
-  const out = new Float32Array(cols * rows * 4)
-  let i = 0
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      out[i++] = ox + c * gap
-      out[i++] = oy + r * gap
-      out[i++] = 1
-      out[i++] = hash(c + 9.7, r + 1.3) * Math.PI * 2
-    }
-  }
-  return out
-}
-
-/** A small seeded random number generator (mulberry32): the same seed, the same numbers, on every machine. */
-function seeded(seed: number) {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = a
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-/** The seed the scattered field is drawn from: fixed, so a box of a given size always gets the same dots. */
-export const DOT_FIELD_SEED = 1207
-
-/**
- * The dots for a box, scattered (landing round 12, the owner, of the closing
- * call: the dots "too regular, straight rows and columns"). Poisson disc
- * sampling (Bridson): every dot at least 0.8 of `gap` from every other, so
- * the field reads as evenly spread, about as dense as the grid, but with no
- * rows, no columns and no clumps. Each dot also gets its own brightness
- * (0.55 to 1), so it does not read as a stamped pattern. Seeded
- * (DOT_FIELD_SEED): the same box always gets the same dots. Same four numbers
- * per dot as dotFieldPoints.
- */
-export function dotFieldScatter(width: number, height: number, gap: number, seed = DOT_FIELD_SEED): Float32Array {
-  const rand = seeded(seed)
-  const r = gap * 0.8
-  const r2 = r * r
-  const cell = r / Math.SQRT2
-  const cols = Math.ceil(width / cell)
-  const rows = Math.ceil(height / cell)
-  const grid = new Int32Array(cols * rows).fill(-1)
-  const xs: number[] = []
-  const ys: number[] = []
-  const active: number[] = []
-  const add = (x: number, y: number) => {
-    const i = xs.length
-    xs.push(x)
-    ys.push(y)
-    active.push(i)
-    grid[Math.floor(y / cell) * cols + Math.floor(x / cell)] = i
-  }
-  const free = (x: number, y: number) => {
-    const cx = Math.floor(x / cell)
-    const cy = Math.floor(y / cell)
-    for (let gy = Math.max(0, cy - 2); gy <= Math.min(rows - 1, cy + 2); gy++) {
-      for (let gx = Math.max(0, cx - 2); gx <= Math.min(cols - 1, cx + 2); gx++) {
-        const j = grid[gy * cols + gx]
-        if (j < 0) continue
-        const dx = xs[j] - x
-        const dy = ys[j] - y
-        if (dx * dx + dy * dy < r2) return false
-      }
-    }
-    return true
-  }
-  if (width > 0 && height > 0) add(rand() * width, rand() * height)
-  while (active.length) {
-    const k = Math.floor(rand() * active.length)
-    const p = active[k]
-    let placed = false
-    for (let n = 0; n < 24; n++) {
-      const a = rand() * Math.PI * 2
-      const d = r * (1 + rand())
-      const x = xs[p] + Math.cos(a) * d
-      const y = ys[p] + Math.sin(a) * d
-      if (x < 0 || y < 0 || x >= width || y >= height || !free(x, y)) continue
-      add(x, y)
-      placed = true
-      break
-    }
-    if (!placed) {
-      active[k] = active[active.length - 1]
-      active.pop()
-    }
-  }
-  const out = new Float32Array(xs.length * 4)
-  for (let i = 0, o = 0; i < xs.length; i++) {
-    out[o++] = xs[i]
-    out[o++] = ys[i]
-    out[o++] = 0.55 + 0.45 * rand()
-    out[o++] = rand() * Math.PI * 2
-  }
-  return out
-}
-
-/**
- * The flow at a point and time, 0..1: two long waves, the second bending the
- * first, so the bright bands drift diagonally and curl slowly.
- */
-export function dotFieldFlow(x: number, y: number, t: number): number {
-  return flowAt(x * 0.0052 + y * 0.0033, y * 0.0041 - x * 0.0017, t)
-}
-/** The flow from a dot's two precomputed wave phases. */
-function flowAt(a: number, b: number, t: number): number {
-  return 0.5 + 0.5 * Math.sin(a - t * 0.00038 + 1.7 * Math.sin(b + t * 0.00016))
-}
 
 export function DotField({
   gap = 18,
   fade = "edges",
   tone = "dark",
+  scatter = false,
   className,
   style,
-  scatter = false,
 }: {
   /** Distance between dots in CSS pixels. Default 18. */
   gap?: number
@@ -317,240 +142,17 @@ export function DotField({
   fade?: "edges" | "bottom" | "close" | "none"
   /** "dark" for a near-black ground, "purple" for the brand purple. */
   tone?: "dark" | "purple"
-  className?: string
-  style?: CSSProperties
   /** Scattered dots (seeded Poisson disc, dotFieldScatter) in place of the even grid: the closing call, since landing round 12. */
   scatter?: boolean
+  className?: string
+  style?: CSSProperties
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     const box = ref.current
-    const canvas = canvasRef.current
-    const ctx = canvas?.getContext("2d", { alpha: true })
-    if (!box || !canvas || !ctx) return
-    const colour = DOT_FIELD_TONES[tone]
-    const trough = TROUGH[tone]
-    const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const fine = typeof window.matchMedia === "function" && window.matchMedia("(hover: hover) and (pointer: fine)").matches
-
-    let w = 0
-    let h = 0
-    let dpr = 1
-    let points = new Float32Array(0)
-    /* Each dot's phase in the two waves, two numbers per dot, from its place. */
-    let waves = new Float32Array(0)
-    /* The box's top left on the page (CSS px), read on resize and now and then while the mouse moves, never in the loop. */
-    let pageX = 0
-    let pageY = 0
-    let placedAt = 0
-    const place = () => {
-      const r = box.getBoundingClientRect()
-      pageX = r.left + window.scrollX
-      pageY = r.top + window.scrollY
-      placedAt = performance.now()
-    }
-
-    /* The pointer in page coordinates, where the hand is; the light glides after it. The closing call keeps it on the screen instead (DOT_FIELD_CALM reach) and adds the scroll as it draws. */
-    let aimX = 0
-    let aimY = 0
-    let hasAim = false
-    let lightX = 0
-    let lightY = 0
-    /* The closing call's first easing: the light follows this, and this follows the aim. */
-    let midX = 0
-    let midY = 0
-    let strength = 0
-    let started = false
-    const calm = tone === "dark"
-    const C = DOT_FIELD_CALM
-    /* Each dot's own pace round its loop, from its phase: once in periodS seconds, give or take a third. */
-    const driftW = (Math.PI * 2) / (C.periodS * 1000)
-
-    const buckets: number[][] = Array.from({ length: LEVELS }, () => [])
-
-    const draw = (t: number, dt: number) => {
-      /* Where the light is: the mouse (followed), or a slow wander of its own. */
-      let tx: number
-      let ty: number
-      let goal: number
-      const wx = w * (0.5 + 0.32 * Math.sin(t * 0.00011))
-      const wy = h * (0.42 + 0.26 * Math.sin(t * 0.000083 + 1.3))
-      if (calm) {
-        /* The closing call: the mouse's pull fades out over `reach` px outside the box, so nothing switches at an edge; the scroll is read here (no layout). */
-        const mx = aimX + window.scrollX - pageX
-        const my = aimY + window.scrollY - pageY
-        const out = Math.max(0, -mx, mx - w, -my, my - h)
-        const pull = hasAim ? Math.max(0, 1 - out / C.reach) : 0
-        const p = pull * pull * (3 - 2 * pull)
-        tx = wx + (mx - wx) * p
-        ty = wy + (my - wy) * p
-        goal = WANDER + (1 - WANDER) * p
-      } else {
-        /* The mouse, while it is over the field (its place is known: no layout read here). */
-        const mx = aimX - pageX
-        const my = aimY - pageY
-        if (hasAim && mx > -40 && my > -40 && mx < w + 40 && my < h + 40) {
-          tx = mx
-          ty = my
-          goal = 1
-        } else {
-          tx = wx
-          ty = wy
-          /* The purple sheet keeps a quieter wander (round 7), a little stronger since round 11. */
-          goal = fine ? 0.45 : 0.55
-        }
-      }
-      const k = 1 - Math.pow(1 - (calm ? C.follow : FOLLOW), dt / 16.67)
-      if (!started) {
-        lightX = midX = tx
-        lightY = midY = ty
-        started = true
-      } else if (calm) {
-        /* Two easings in a row: a gentle start, a glide, a soft stop. */
-        midX += (tx - midX) * k
-        midY += (ty - midY) * k
-        lightX += (midX - lightX) * k
-        lightY += (midY - lightY) * k
-      } else {
-        lightX += (tx - lightX) * k
-        lightY += (ty - lightY) * k
-      }
-      strength += (goal - strength) * k * 0.6
-
-      for (const b of buckets) b.length = 0
-      const r2 = RADIUS * RADIUS
-      for (let i = 0, j = 0; i < points.length; i += 4, j += 2) {
-        const flow = flowAt(waves[j], waves[j + 1], t)
-        /* Each dot rides the current by under a pixel on the purple; on the closing call it stands on its point (ride 0) and the flow is its brightness only. */
-        let x = points[i] + (flow - 0.5) * 0.8 * colour.ride
-        let y = points[i + 1] + (flow - 0.5) * 1.4 * colour.ride
-        if (calm) {
-          /* The closing call's breathing: a small slow loop round the dot's point, at its own pace. */
-          const ph = points[i + 3]
-          const wt = t * driftW * (0.75 + 0.5 * (ph / 6.2832))
-          x += Math.sin(wt + ph) * C.drift
-          y += Math.sin(wt * 0.83 + ph * 1.7 + 1.1) * C.drift
-        }
-        let a = colour.rest * points[i + 2] * (trough + (1 - trough) * flow * flow)
-        const dx = x - lightX
-        const dy = y - lightY
-        const d2 = dx * dx + dy * dy
-        if (d2 < r2 && strength > 0.01) {
-          const d = Math.sqrt(d2) || 1
-          /* The closing call: flat at the centre and at the rim, (1 - (d/R)^2)^2; the purple sheet as it was. */
-          const q = calm ? 1 - d2 / r2 : 1 - d / RADIUS
-          const f = q * q * strength
-          a += (colour.lit - colour.rest * trough) * f
-          x += (dx / d) * (calm ? C.part : PART) * f
-          y += (dy / d) * (calm ? C.part : PART) * f
-        }
-        if (x < -2 || y < -2 || x > w + 2 || y > h + 2) continue
-        const level = Math.min(LEVELS - 1, Math.round((a / colour.lit) * (LEVELS - 1)))
-        if (level <= 0) continue
-        buckets[level].push(x, y)
-      }
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, w, h)
-      for (let l = 1; l < LEVELS; l++) {
-        const b = buckets[l]
-        if (!b.length) continue
-        ctx.fillStyle = `rgba(${colour.rgb},${((l / (LEVELS - 1)) * colour.lit).toFixed(3)})`
-        ctx.beginPath()
-        for (let j = 0; j < b.length; j += 2) {
-          ctx.moveTo(b[j] + colour.r, b[j + 1])
-          ctx.arc(b[j], b[j + 1], colour.r, 0, Math.PI * 2)
-        }
-        ctx.fill()
-      }
-    }
-
-    const resize = () => {
-      const nw = box.clientWidth
-      const nh = box.clientHeight
-      if (!nw || !nh) return
-      if (nw === w && nh === h) return
-      w = nw
-      h = nh
-      dpr = Math.min(DOT_FIELD_MAX_DPR, window.devicePixelRatio || 1)
-      canvas.width = Math.round(w * dpr)
-      canvas.height = Math.round(h * dpr)
-      points = scatter ? dotFieldScatter(w, h, gap) : dotFieldPoints(w, h, gap)
-      waves = new Float32Array((points.length / 4) * 2)
-      for (let i = 0, j = 0; i < points.length; i += 4, j += 2) {
-        waves[j] = points[i] * 0.0052 + points[i + 1] * 0.0033
-        waves[j + 1] = points[i + 1] * 0.0041 - points[i] * 0.0017
-      }
-      place()
-      draw(performance.now(), 16.67)
-      box.setAttribute("data-drawn", "")
-    }
-
-    let raf = 0
-    let last = 0
-    let near = false
-    const frame = (t: number) => {
-      raf = requestAnimationFrame(frame)
-      /* At most 60 a second, always (a 120Hz screen draws every other frame, evenly): the light wanders on its own now, and at 30 it stepped. The first frame after a start always draws. */
-      if (last && t - last < 12) return
-      const dt = last ? Math.min(64, t - last) : 16.67
-      last = t
-      draw(t, dt)
-    }
-    const run = () => {
-      const go = near && document.visibilityState !== "hidden" && !reduced
-      if (go && !raf) {
-        last = 0
-        raf = requestAnimationFrame(frame)
-      } else if (!go && raf) {
-        cancelAnimationFrame(raf)
-        raf = 0
-      }
-    }
-
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse") return
-      aimX = calm ? e.clientX : e.clientX + window.scrollX
-      aimY = calm ? e.clientY : e.clientY + window.scrollY
-      hasAim = true
-      if (e.timeStamp - placedAt > 500) place()
-    }
-    const onLeave = () => {
-      hasAim = false
-    }
-
-    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null
-    ro?.observe(box)
-    resize()
-
-    const io =
-      typeof IntersectionObserver === "function"
-        ? new IntersectionObserver(([e]) => {
-            near = e.isIntersecting
-            if (near) place()
-            run()
-          })
-        : null
-    if (io) io.observe(box)
-    else {
-      near = true
-      run()
-    }
-    document.addEventListener("visibilitychange", run)
-    if (fine && !reduced) {
-      window.addEventListener("pointermove", onMove, { passive: true })
-      document.documentElement.addEventListener("pointerleave", onLeave)
-    }
-    return () => {
-      cancelAnimationFrame(raf)
-      ro?.disconnect()
-      io?.disconnect()
-      document.removeEventListener("visibilitychange", run)
-      window.removeEventListener("pointermove", onMove)
-      document.documentElement.removeEventListener("pointerleave", onLeave)
-    }
+    if (!box) return
+    return mountDotField(box, { kind: tone, gap, scatter, pointer: "window" })
   }, [gap, tone, scatter])
 
   return (
@@ -558,7 +160,6 @@ export function DotField({
       <style href="dot-field" precedence="default">
         {DOT_FIELD_CSS}
       </style>
-      <canvas ref={canvasRef} />
     </div>
   )
 }
