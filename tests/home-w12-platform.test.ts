@@ -113,7 +113,8 @@ console.log("\n── truth: integrations ──")
 const ALIAS: Record<string, string> = { "Tag Manager": "Google Tag Manager" }
 /* Not catalog rows: the payments Storelib's checkout runs on (Stripe, with its wallets) and the bookings calendar (lib/google-calendar). */
 /* Changed on purpose (landing round 11): the owner asked for Instagram, Spotify, Apple Music and YouTube; a one page embeds them (lib/onepage/embed-address.ts, lib/onepage/instagram-*.ts). */
-const RUNS_ON = new Set(["Stripe", "Apple Pay", "Google Pay", "Google Calendar", "PostHog", "Instagram", "Spotify", "Apple Music", "YouTube"])
+/* Changed on purpose (landing round 14): the gap about half needed longer rows; Google Sheets takes a OnePage's signups (lib/onepage/integrations), a OnePage embeds SoundCloud (app/api/onepage/soundcloud), a website's code syncs with GitHub (app/api/github). */
+const RUNS_ON = new Set(["Stripe", "Apple Pay", "Google Pay", "Google Calendar", "PostHog", "Instagram", "Spotify", "Apple Music", "YouTube", "Google Sheets", "SoundCloud", "GitHub"])
 const byName = new Map(INTEGRATIONS.map((i) => [i.name, i]))
 for (const a of PLATFORM_INTEGRATION_APPS) {
   const name = ALIAS[a.name] ?? a.name

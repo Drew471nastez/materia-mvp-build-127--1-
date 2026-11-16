@@ -114,10 +114,11 @@ check("the stage holds the centring and the perspective, the card only leans", /
 
 console.log("\n── make the work: a store that looks like you ──")
 /* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
-check("merch stores and link pages, each drawn whole in the markup, twice over", EVERYTHING_STORES.length >= 6 && (html.match(/class="ev-st ev-mc"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "merch").length * 2 && (html.match(/class="ev-st ev-lp"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "link").length * 2)
+// Changed on purpose (landing round 14): each page is drawn once in the strip (it was twice over).
+check("merch stores and link pages, each drawn whole in the markup, once", EVERYTHING_STORES.length >= 6 && (html.match(/class="ev-st ev-mc"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "merch").length && (html.match(/class="ev-st ev-lp"/g) ?? []).length === EVERYTHING_STORES.filter((s) => s.kind === "link").length)
 check("drawn at a phone's 390px and scaled", /--r:calc\(var\(--card-w\) \/ 390\)/.test(css))
 /* Changed on purpose (landing round 8): link pages carry their creator's photo, and a profile OnePage has one photo. */
-check("every store picture is local, exists and is small", EVERYTHING_STORES.flatMap((st) => (st.kind === "merch" ? st.products.map((p) => p.src) : st.kind === "link" ? [st.ground, st.avatar, ...st.products] : [st.photo])).every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024))
+check("every store picture is local, exists and is small", EVERYTHING_STORES.flatMap((st) => (st.kind === "merch" ? st.products.map((p) => p.src) : st.kind === "link" ? [st.ground, st.avatar, ...st.products] : st.kind === "product" ? [st.avatar, st.cover] : [])) /* Changed on purpose (landing round 14): Liam Bailey's product page brings his photo and cover; Satori Studio's picture is the showcase's own. */.every((u) => u.startsWith("/home/") && existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120 * 1024))
 /* Changed on purpose (landing round 4): the owner wants to drag the strip, so its drift is a Web Animation from script that a hand can take over (tests/home-landing-topa4). */
 /* Changed on purpose (landing round 7): the keyframes are a plain string from 0. */
 /* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
@@ -131,7 +132,8 @@ console.log("\n── make the work: real support ──")
 check("three requests: two to support, one from a buyer", EVERYTHING_SUPPORT.length === 3 && EVERYTHING_SUPPORT.filter((x) => x.replyAv === null).length === 2 && EVERYTHING_SUPPORT.filter((x) => x.replyAv !== null).length === 1)
 check("no inbox switch", !/class="ev-c-tab/.test(html))
 check("Storelib answers with its mark, the creator in the dark bubble", /StorelibLogo size=\{96\} alt="" fluid className="ev-c-av ev-c-logo"/.test(src) && /\.ev-c-dark\{background:#111113;color:#fff\}/.test(css))
-check("the requests take turns by themselves on one CSS clock, paused off screen", /\.ev-c-thread\{[^}]*animation:ev-thread 30s/.test(css) && /\.ev\[data-platform-live="false"\] \.ev-loop/.test(css))
+// Changed on purpose (landing round 14): one thread plays at a time, moved on by Support's timer every 10s near the screen; each part plays once (tests/home-landing-r14-everything.test.ts).
+check("the requests take turns by themselves, one at a time, paused off screen", /\.ev-c\[data-turning\] \.ev-c-thread\[data-on\]\{animation:ev-c-in/.test(css) && /\.ev\[data-platform-live="false"\] \.ev-loop/.test(css))
 check("the thread compacts wherever the card is narrow, so it always fits", /\.ev-c\{[^}]*container-type:inline-size\}/.test(css) && /@container \(max-width:480px\)\{/.test(css))
 
 console.log("\n── corners and small print ──")

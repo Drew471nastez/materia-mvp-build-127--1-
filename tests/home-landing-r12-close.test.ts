@@ -147,7 +147,7 @@ console.log("\n── Pricing cards ──")
 console.log("\n── Apps: a smaller gap, still no icon seen twice ──")
 {
   const css = read("components/marketing/home/integrations-section.module.css")
-  check("1/13 of the screen per tile and gap (was 1/12), 6px least on a phone (was 8)", INTEGRATION_STEP_SHARE === 1 / 13 && /--gap: max\(20px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css) && /--gap: max\(6px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css))
+  check("1/13 of the screen per tile and gap (was 1/12), 6px least on a phone (was 8)", INTEGRATION_STEP_SHARE === 1 / 15 && /--gap: max\(10px, calc\(100vw \/ 15 - var\(--tile\)\)\);/.test(css) && /--gap: max\(6px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css)) // Changed on purpose (landing round 14): the gap about half on a computer, 1/15 of the screen, 10px least; a phone keeps 1/13 and 6px.
   check("each set still more than a screen plus a tile", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1), INTEGRATION_ROW_SIZES)
   /* At the widths the owner looks at: the set's width against the screen plus a tile. */
   const ok = [390, 1024, 1440, 1920, 2560].every((vw) => {

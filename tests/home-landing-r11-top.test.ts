@@ -111,9 +111,10 @@ console.log("\n── 6. A digital product store in the strip ──")
 const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
 // Changed on purpose (landing round 12): the owner found round 11's digital store "really bad"; Jonah Wells, a guitar teacher laid out like Fieldwork with photographs of what he sells, takes its place (tests/home-landing-r12-top.test.ts).
 check("Soft Ground and Kiln Goods are gone", !/Kiln Goods|Soft Ground|soft-ground|kiln-/.test(JSON.stringify(EVERYTHING_STORES) + html + code(read(F.ev))))
-check("a store of digital products is still in the strip", EVERYTHING_STORES.some((s) => s.kind === "merch" && s.products.some((p) => !!p.format)))
-check("one is reduced, its old price struck through", /<span class="ev-mc-price"><s>\$19<\/s>\$14<i>PDF<\/i><\/span>/.test(html))
-check("still three stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 3 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
+// Changed on purpose (landing round 14): the store of downloads (Jonah Wells) gave way to Liam Bailey's real product page, a download itself, at its live price (tests/home-landing-r14-everything.test.ts); two stores now.
+check("a downloadable product is still in the strip", EVERYTHING_STORES.some((s) => s.kind === "product"))
+check("its price as the live page shows it", /<span class="ev-pp-price">\$11\.87<\/span>/.test(html))
+check("still two stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 2 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
 
 console.log("\n── Copy ──")
 const all = code(read(F.ev)) + code(read(F.ideas)) + code(read(F.builders))

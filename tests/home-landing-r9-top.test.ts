@@ -111,8 +111,9 @@ check("a drag on the globe reads no layout", !/getBoundingClientRect/.test(onMov
 
 console.log("\n── 1. The size drawn ──")
 const pieces = EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [...s.products] : []))
-check("every piece in the strip has a 240px picture, small", pieces.length === 18 && pieces.every((p) => existsSync(join(root, "public", p.replace(/\.webp$/, "-240.webp"))) && statSync(join(root, "public", p.replace(/\.webp$/, "-240.webp"))).size < 12 * 1024))
-check("a phone is offered the 240px one, a 2x computer the 360px one", (html.match(/srcSet="[^"]*-240\.webp 240w, [^"]*\.webp 360w" sizes="\(max-width:767px\) 80px, 150px"/g) ?? []).length === pieces.length * 2 && PIECE_SIZES === "(max-width:767px) 80px, 150px")
+// Changed on purpose (landing round 14): Jonah Wells's four pieces left with his store, and each page is drawn once in the strip, not twice.
+check("every piece in the strip has a 240px picture, small", pieces.length === 14 && pieces.every((p) => existsSync(join(root, "public", p.replace(/\.webp$/, "-240.webp"))) && statSync(join(root, "public", p.replace(/\.webp$/, "-240.webp"))).size < 12 * 1024))
+check("a phone is offered the 240px one, a 2x computer the 360px one", (html.match(/srcSet="[^"]*-240\.webp 240w, [^"]*\.webp 360w" sizes="\(max-width:767px\) 80px, 150px"/g) ?? []).length === pieces.length && PIECE_SIZES === "(max-width:767px) 80px, 150px")
 check("every picture in the strip keeps its width and height, so nothing shifts when it arrives", [...html.slice(html.indexOf("data-ev-strip"), html.indexOf("ev-globe")).matchAll(/<img [^>]*>/g)].every((m) => /width="\d+" height="\d+"/.test(m[0]) && /decoding="async"/.test(m[0])))
 
 console.log("\n── 3. Real support: pink, orange and red again ──")
@@ -124,7 +125,7 @@ check("the thread's shadow is warm again", /box-shadow:0 30px 60px -34px rgba\(8
 console.log("\n── 4. Kaia Moon's buttons ──")
 const kaiaAt = html.indexOf('class="ev-lp-ground" src="/home/everything/stores/kaia-bg.webp"')
 const kaia = html.slice(html.lastIndexOf('<div class="ev-st ev-lp"', kaiaAt), html.indexOf('src="/home/everything/stores/kaia-tape.webp"', kaiaAt))
-check("only her page is marked", (html.match(/data-hype="true"/g) ?? []).length === 2 && /class="ev-st ev-lp" data-hype="true"/.test(kaia) && EVERYTHING_STORES.filter((s) => s.kind === "link" && s.hype).length === 1)
+check("only her page is marked", (html.match(/data-hype="true"/g) ?? []).length === 1 && /class="ev-st ev-lp" data-hype="true"/.test(kaia) && EVERYTHING_STORES.filter((s) => s.kind === "link" && s.hype).length === 1)
 check("Shop merch and Tour dates, as before", /<span class="ev-lp-btn">Shop merch<\/span><span class="ev-lp-btn">Tour dates<\/span>/.test(kaia))
 const hype = rule(css, ".ev-lp[data-hype] .ev-lp-btn")
 check("fatter: taller, fully round, set heavy, never squeezed by the column", /^\.ev-lp\[data-hype\] \.ev-lp-btn\{flex:none;/.test(hype) && /height:calc\(66 \* var\(--r\)\)/.test(hype) && /border-radius:calc\(33 \* var\(--r\)\)/.test(hype) && /font-weight:800/.test(hype) && /font-size:calc\(19 \* var\(--r\)\)/.test(hype))
