@@ -586,7 +586,7 @@ console.log("\n7. Endings in plain words, with what can be done next\n")
 
   const base = { ...emptyRunState(), usage: { iterations: 200, usd: 19.9, inputTokens: 0, outputTokens: 0, activeMs: 45 * 60_000 } }
   const plan = planContinue({ status: "partial", budget: null, run: { ...base, errorCode: "budget_iterations" }, checkpoint: null }, Date.now())
-  check("Continue on a budget stop grants half a default budget more", plan.kind === "revive" && plan.budget.maxIterations === 300 && Math.abs(plan.budget.maxUsd - 29.9) < 1e-9 && plan.budget.maxWallMs === 45 * 60_000 + 22.5 * 60_000, plan)
+  check("Continue on a budget stop grants half a default budget more", plan.kind === "revive" && plan.budget.maxIterations === Math.max(DEFAULT_JOB_BUDGET.maxIterations, 200 + DEFAULT_JOB_BUDGET.maxIterations / 2) && Math.abs(plan.budget.maxUsd - Math.max(DEFAULT_JOB_BUDGET.maxUsd, 19.9 + DEFAULT_JOB_BUDGET.maxUsd / 2)) < 1e-9 && plan.budget.maxWallMs === Math.max(DEFAULT_JOB_BUDGET.maxWallMs, 45 * 60_000 + DEFAULT_JOB_BUDGET.maxWallMs / 2), plan)
   const spent = planContinue({ status: "partial", budget: null, run: { ...base, errorCode: "budget_spend", continues: MAX_CONTINUES }, checkpoint: null }, Date.now())
   check("but only MAX_CONTINUES times: total spend stays capped", spent.kind === "refuse" && spent.code === "no_more_continues")
   check("Continue on a running job changes nothing (a second press)", planContinue({ status: "running", budget: null, run: base, checkpoint: null }, Date.now()).kind === "live")
