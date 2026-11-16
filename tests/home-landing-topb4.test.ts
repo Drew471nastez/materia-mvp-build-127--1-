@@ -130,7 +130,8 @@ check("new photographs for agencies, YouTubers, musicians and educators", ["agen
   const b = join(root, `public/home/creators/${slug}-720.webp`)
   return !!c && existsSync(a) && existsSync(b) && statSync(a).size < 60_000 && statSync(b).size < 120_000
 }))
-check("their words follow the new pictures", /clapperboard/.test(CREATORS.find((c) => c.slug === "youtubers")!.alt) && /painting studio/.test(CREATORS.find((c) => c.slug === "educators")!.alt))
+/* Changed on purpose (landing round 11): the owner picked a new YouTubers photograph (an editor at a dark desk). */
+check("their words follow the new pictures", /video editor/.test(CREATORS.find((c) => c.slug === "youtubers")!.alt) && /painting studio/.test(CREATORS.find((c) => c.slug === "educators")!.alt))
 
 console.log("\n── Banned examples and words ──")
 const words = Object.values(src).map(code).join("\n")
