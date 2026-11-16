@@ -92,13 +92,22 @@
  * ending in a hard edge, its tail a long fade over about 80 degrees (was
  * about 60), and the wide rim under it is at .16 (was .55), so
  * it reads as a faint sheen sliding along the edge rather than a beam.
+ *
+ * LANDING ROUND 12, PERF (the owner: the whole page smooth on every phone).
+ * The same light, cheaper: each turning square is as wide as its rim's
+ * diagonal (hypot of the rim box, through container units), not twice its
+ * width, which covers the rim at every angle with 0.4 to 0.6 of the area
+ * (the two were the largest layers on the page, 2.1 to 2.3M px at 1440);
+ * neither holds a layer by will-change, and the turn is only there while
+ * the terminal is live. The terminal and the light run while all of the
+ * terminal is within a screen, not any of it.
  */
 import type { CSSProperties } from "react"
 import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
 import { useEffect, useRef } from "react"
 import { StoryHeading } from "../story-heading"
-import { LIVE_AHEAD } from "./platform-motion"
+import { LIVE_AHEAD, wholeInside } from "./platform-motion"
 
 /** One run of the terminal, in seconds, then it starts again. */
 const LOOP_S = 16
@@ -188,13 +197,16 @@ const AI_CSS = `
 .ait-term{--term-bg:#09080c;position:relative;z-index:1;min-width:0;pointer-events:none;-webkit-user-select:none;user-select:none;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
 /* The light round the terminal (landing round 11). .ait-tw holds the terminal and, under it, two rims: a 1.5px one (.ait-beam) and a wider soft one (.ait-glow). Each clips a square layer (.ait-spin, twice the terminal's width, so it covers the corners and stays a small texture) whose conic gradient is dark but for two bright ends; the layer turns, so the ends run round the rim. Only the turn animates. */
 .ait-tw{position:relative;min-width:0;isolation:isolate}
-.ait-beam,.ait-glow{position:absolute;z-index:0;pointer-events:none;overflow:hidden;contain:strict}
+.ait-beam,.ait-glow{position:absolute;z-index:0;pointer-events:none;overflow:hidden;contain:strict;container-type:size}
 .ait-beam{inset:-1.5px;border-radius:14.5px}
 .ait-glow{inset:-14px;border-radius:27px;opacity:.16;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-composite:intersect}
-.ait-spin{position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;background:conic-gradient(from 0deg,rgba(139,92,246,0) 0deg,rgba(139,92,246,0) 90deg,rgba(139,92,246,.06) 120deg,rgba(150,112,250,.18) 146deg,rgba(190,170,255,.34) 162deg,rgba(220,210,255,.42) 170deg,rgba(220,210,255,0) 180deg,rgba(139,92,246,0) 270deg,rgba(139,92,246,.06) 300deg,rgba(150,112,250,.18) 326deg,rgba(190,170,255,.34) 342deg,rgba(220,210,255,.42) 350deg,rgba(220,210,255,0) 360deg);will-change:transform;animation:ait-spin 26s linear infinite paused}
+.ait-spin{position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;background:conic-gradient(from 0deg,rgba(139,92,246,0) 0deg,rgba(139,92,246,0) 90deg,rgba(139,92,246,.06) 120deg,rgba(150,112,250,.18) 146deg,rgba(190,170,255,.34) 162deg,rgba(220,210,255,.42) 170deg,rgba(220,210,255,0) 180deg,rgba(139,92,246,0) 270deg,rgba(139,92,246,.06) 300deg,rgba(150,112,250,.18) 326deg,rgba(190,170,255,.34) 342deg,rgba(220,210,255,.42) 350deg,rgba(220,210,255,0) 360deg)}
+/* Landing round 12 (perf): the square is as wide as the rim's diagonal, the least that covers the rim at every angle (was twice the rim's width: 2.4x the area at 1440). A conic gradient is the same colour along every ray from its middle, so on the rim it reads exactly as before. */
+@supports (width:hypot(100cqw,100cqh)){.ait-spin{--d:calc(hypot(100cqw,100cqh) + 2px);width:var(--d);height:var(--d);margin:calc(var(--d) / -2) 0 0 calc(var(--d) / -2)}}
 .ait-glow .ait-spin{background:conic-gradient(from 0deg,rgba(139,92,246,0) 0deg,rgba(139,92,246,0) 105deg,rgba(139,92,246,.3) 152deg,rgba(196,176,255,.6) 168deg,rgba(196,176,255,0) 180deg,rgba(139,92,246,0) 285deg,rgba(139,92,246,.3) 332deg,rgba(196,176,255,.6) 348deg,rgba(196,176,255,0) 360deg)}
 @keyframes ait-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-.ait-tw[data-live] .ait-spin{animation-play-state:running}
+/* Landing round 12 (perf): the turn exists only while the terminal is live (no will-change, no paused animation holding two layers a screen away); it starts again from the top a screen before it is seen. */
+.ait-tw[data-live] .ait-spin{animation:ait-spin 26s linear infinite}
 .ait-bar{display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.06)}
 .ait-bar i{width:10px;height:10px;border-radius:50%;background:#2e2c35}
 .ait-bar span{margin-left:8px;font:500 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#6f6c79}
@@ -262,11 +274,12 @@ export function AiToolsSection() {
     }
     const io = new IntersectionObserver(
       ([entry]) => {
-        seen = entry.isIntersecting
+        /* Landing round 12 (perf): while ALL of it is within a screen, not any of it: the round 12 audit found its lower lines running two screens away while its top was within one. */
+        seen = wholeInside(entry)
         apply()
       },
       /* Wave 17: running a screen before it arrives (it started once a share of it was on screen): it came in paused, and on an iPhone its moving parts were drawn frames after the rest. */
-      { rootMargin: LIVE_AHEAD },
+      { rootMargin: LIVE_AHEAD, threshold: [0, 0.995] },
     )
     io.observe(el)
     document.addEventListener("visibilitychange", apply)

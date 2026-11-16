@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type RefObject } from "react"
 import type { SectionStyle } from "./lazy-section"
-import { usePlatformSection } from "./platform-motion"
+import { LIVE_AHEAD, usePartsLive, usePlatformSection, wholeInside } from "./platform-motion"
 import { EverythingGlobe, SWIPE_SLOP, swipeAxis } from "./everything-globe"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
@@ -806,7 +806,9 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
       for (let i = 0; i < n; i++) slots[i].style.transform = `translate3d(${(leftOf(i, x) - base[i]).toFixed(2)}px,0,0)`
     }
     const drifting = () => anims.length > 0
-    const shown = () => liveRef.current && !document.hidden
+    /* Landing round 12 (perf): and the strip itself wholly within a screen (the section is live while any of it is, four screens tall on a phone). */
+    let near = typeof IntersectionObserver !== "function"
+    const shown = () => liveRef.current && near && !document.hidden
     const stopDrift = () => {
       if (!drifting()) return
       x = x0 + ((clock() - t0) / 1000) * DRIFT_PX_S
@@ -945,11 +947,22 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
     }
     /* Off screen or in a hidden tab the pages stand where the clock had them; back on, they carry on from there. */
     const setLive = (on: boolean) => {
-      if (on && !document.hidden) startDrift()
+      if (on && near && !document.hidden) startDrift()
       else stopDrift()
     }
     api.current = { setLive }
     const vis = () => setLive(liveRef.current)
+    const io =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver(
+            ([e]) => {
+              near = wholeInside(e)
+              vis()
+            },
+            { rootMargin: LIVE_AHEAD, threshold: [0, 0.995] },
+          )
+        : null
+    io?.observe(vp)
     const ro = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null
     ro?.observe(vp)
     ro?.observe(slots[0])
@@ -967,6 +980,7 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
       for (const a of anims) a.cancel()
       anims = []
       ro?.disconnect()
+      io?.disconnect()
       vp.removeEventListener("pointerdown", down)
       vp.removeEventListener("pointermove", move)
       vp.removeEventListener("pointerup", up)
@@ -1121,6 +1135,8 @@ export function EverythingInOnePlace() {
   const ref = useRef<HTMLElement>(null)
   const grid = useRef<HTMLDivElement>(null)
   const { live, reduced } = usePlatformSection(ref)
+  /* Landing round 12 (perf): each card's loops pause on their own more than a screen away (the section is four screens tall on a phone). */
+  usePartsLive(ref, ".ev-card")
   useCardReveal(grid)
   const visuals = {
     sell: <ProductSlides />,
@@ -1198,6 +1214,8 @@ const CSS = `
 
 .ev[data-platform-live="false"] .ev-loop,.ev:not([data-platform-live]) .ev-loop{animation-play-state:paused}
 .ev[data-platform-live="false"] .ev-tab[data-on] .ev-tab-fill,.ev:not([data-platform-live]) .ev-tab[data-on] .ev-tab-fill{animation-play-state:paused}
+/* Landing round 12 (perf): a card more than a screen away pauses on its own (usePartsLive). */
+.ev-card[data-part-live="false"] .ev-loop,.ev-card[data-part-live="false"] .ev-tab[data-on] .ev-tab-fill{animation-play-state:paused}
 
 /*
   1. Product slides. Landing round 4 (the owner: bring back the colours that
@@ -1207,9 +1225,12 @@ const CSS = `
   community. They cross fade over 1.4s, and each drifts very slowly on its
   own layer (a transform, paused off screen like every loop), so the colour
   is never quite still. The product stands on a white card, as before.
+  Landing round 12 (perf): no will-change on the four grounds. Each was a layer
+  of its own for good (230k to 750k px each, four of them, three at opacity 0);
+  the one shown drifts, and a running drift or fade is a layer anyway.
 */
 .ev-p{background:#f2b49b}
-.ev-p-bg{position:absolute;inset:-18%;opacity:0;transition:opacity 1.4s cubic-bezier(.4,0,.2,1);animation:ev-bg-drift 22s ease-in-out infinite alternate;will-change:opacity,transform}
+.ev-p-bg{position:absolute;inset:-18%;opacity:0;transition:opacity 1.4s cubic-bezier(.4,0,.2,1);animation:ev-bg-drift 22s ease-in-out infinite alternate}
 .ev-p-bg[data-on]{opacity:1}
 .ev-p-bg0{background:radial-gradient(42% 46% at 22% 26%,#ffb28a 0%,rgba(255,178,138,0) 100%),radial-gradient(46% 50% at 82% 80%,#ffd7a8 0%,rgba(255,215,168,0) 100%),linear-gradient(135deg,#e2434f 0%,#ef6a62 42%,#f6a27f 100%)}
 .ev-p-bg1{background:radial-gradient(42% 46% at 20% 22%,#e6fa8c 0%,rgba(230,250,140,0) 100%),radial-gradient(46% 50% at 84% 82%,#7ce8d2 0%,rgba(124,232,210,0) 100%),linear-gradient(140deg,#1fa58f 0%,#5fcf98 48%,#c7ee7c 100%)}
@@ -1221,6 +1242,7 @@ const CSS = `
 @keyframes ev-bg-drift{from{transform:translate3d(-3%,-2%,0) rotate(-4deg) scale(1)}to{transform:translate3d(3%,2%,0) rotate(4deg) scale(1.06)}}
 .ev-p-bg{animation-play-state:paused}
 .ev[data-platform-live="true"] .ev-p-bg[data-on]{animation-play-state:running}
+.ev-card[data-part-live="false"] .ev-p-bg[data-on]{animation-play-state:paused}
 /*
   The stage centres the card and holds the perspective the card leans in; the card itself only ever rotates and scales
   (usePressTilt). Landing round 7: the card grows with the wider picture (470px in a 660px picture, about 620px in a

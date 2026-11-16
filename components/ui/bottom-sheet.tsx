@@ -1363,8 +1363,12 @@ export function BottomSheet({
         /* Below the screen and invisible on the very first paint, before any
            script has run: there is no frame in which the sheet is at rest.
            Its own layer, so a drag's dimming is the compositor's (THE DIM IS
-           ITS OWN LAYER). */
-        style={{ opacity: 0, touchAction: "none", willChange: "opacity", pointerEvents: isOpen ? "auto" : "none" }}
+           ITS OWN LAYER). Landing round 12 (perf): not while a kept sheet is
+           at rest. A closed sheet's scrim covers the whole screen at nothing
+           (the home page's menu sheet, kept from load), and a screen sized
+           layer held for nothing there; the layer comes back in the same
+           commit that opens the sheet, before its first frame moves. */
+        style={{ opacity: 0, touchAction: "none", willChange: atRest ? undefined : "opacity", pointerEvents: isOpen ? "auto" : "none" }}
       />
       <div
         ref={sheetRef}

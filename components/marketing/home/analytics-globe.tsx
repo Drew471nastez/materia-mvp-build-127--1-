@@ -23,7 +23,8 @@
     and while the page is being flung (faster than FAST_SCROLL px a
     millisecond), starting again once the scroll has been calm for
     RESUME_MS. One passive scroll listener, attached only while the globe
-    is on screen, that reads scrollY and a clock and nothing else;
+    is on screen, that asks for scrollY and a clock to be read after the
+    next frame (landing round 12) and nothing else;
   - the driver is told to run or stop only when that changes.
 
   One worker per canvas, kept across a development remount (a canvas can be
@@ -172,12 +173,24 @@ export function AnalyticsGlobe({ live, reduced, className = "" }: { live: boolea
     const phone = typeof matchMedia === "function" && matchMedia("(max-width: 639px), (pointer: coarse)").matches
     const dprCap = phone ? ANALYTICS_GLOBE_DPR.phone : ANALYTICS_GLOBE_DPR.wide
 
-    /* A flung page: the globe waits until the scroll has been calm for RESUME_MS. Listened to only while the globe is on screen. */
+    /*
+      A flung page: the globe waits until the scroll has been calm for RESUME_MS. Listened to only while the globe is on screen.
+      Landing round 12 (perf): scrollY is read after the frame, not in the scroll event, the way landing-story.tsx reads it.
+      A read in the event lays the page out ahead of the frame's own layout, so the page was laid out twice a frame here.
+    */
     let lastY = 0
     let lastT = 0
     let calm = 0
     let listening = false
+    let asked = false
     const onScroll = () => {
+      if (asked) return
+      asked = true
+      requestAnimationFrame(() => window.setTimeout(measure, 0))
+    }
+    const measure = () => {
+      asked = false
+      if (!listening) return
       const t = performance.now()
       const y = window.scrollY
       const dt = t - lastT

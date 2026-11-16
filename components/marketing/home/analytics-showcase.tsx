@@ -87,7 +87,7 @@ import { Eye, Globe, Link2, MonitorSmartphone, ShoppingBag, Waypoints, type Luci
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { AnalyticsGlobe } from "./analytics-globe"
 import { ClaudeMark, GeminiMark, GoogleG, OpenAIMark, PerplexityMark } from "./engine-marks"
-import { touchScreen, usePlatformSection } from "./platform-motion"
+import { touchScreen, usePartsLive, usePlatformSection } from "./platform-motion"
 import m from "./platform.module.css"
 import s from "./analytics-showcase.module.css"
 
@@ -236,8 +236,10 @@ const RESULTS = [
 function SearchCard() {
   return (
     <div className={`${s.dark} ${s.fixed} ${s.rise} flex flex-col px-5 pt-5 sm:px-7 sm:pt-7`} data-rise="">
-      {/* A very quiet dot grid, drifting one cell at a time (a transform loop). */}
-      <span className={`${s.dots} ${m.loop}`} aria-hidden="true" />
+      {/* A very quiet dot grid, drifting one cell at a time (a transform loop) under a still fade (landing round 12). */}
+      <span className={s.dotsField} aria-hidden="true">
+        <span className={`${s.dots} ${m.loop}`} />
+      </span>
       <span className={`${s.orb} ${s.orbSearch} ${m.loop}`} aria-hidden="true" />
       <h3 className="relative text-[clamp(24px,2.2vw,30px)] font-medium leading-none tracking-[-0.03em] text-white">SEO · GEO · AEO</h3>
       <p className="relative mt-2.5 max-w-[46ch] text-[15px] leading-[1.55] text-[#a3a1ad]">Show up in Google, ChatGPT and answer engines.</p>
@@ -397,6 +399,8 @@ function useRise(ref: RefObject<HTMLElement | null>) {
 export function AnalyticsShowcase() {
   const ref = useRef<HTMLElement>(null)
   const { live, reduced } = usePlatformSection(ref, "200px 0px")
+  /* Landing round 12 (perf): each card's lights and dots pause on their own more than a screen away (on a phone the section is three screens tall). */
+  usePartsLive(ref, `.${s.dark}`)
   useRise(ref)
   return (
     <section

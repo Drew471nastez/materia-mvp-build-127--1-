@@ -567,12 +567,17 @@ function BrandDefs() {
 }
 
 type Block = { t: string; s: string; pic?: string; Icon?: typeof Calendar; clicks?: string; off?: boolean }
+/*
+  Landing round 12 (perf): a block's tile and a product's pack are drawn at 11 to 63px (a phone to 2560), and they
+  were 480 to 640px photos, each decoded at full size for a thumbnail. They use small copies now, about twice their
+  largest drawn size (-128: 128x160; lp-f2-208: 208x130), the same crop, so they look the same and decode in a blink.
+*/
 const DESMOND_BLOCKS: Block[] = [
-  { t: "Night Stock, 14 film LUTs", s: "$24.00", pic: "dr-neon", clicks: "2.4k" },
+  { t: "Night Stock, 14 film LUTs", s: "$24.00", pic: "dr-neon-128", clicks: "2.4k" },
   { t: "Free LUT: Tungsten Fade", s: "Free download", Icon: Download, clicks: "6.1k" },
   { t: "Grade review on video call", s: "Booking form", Icon: Calendar, clicks: "312" },
   { t: "Grade notes", s: "Email signup", Icon: Mail, off: true },
-  { t: "Before and after: Lisbon at night", s: "youtube.com/@desmondgrades", pic: "lp-f2", clicks: "8.7k" },
+  { t: "Before and after: Lisbon at night", s: "youtube.com/@desmondgrades", pic: "lp-f2-208", clicks: "8.7k" },
 ]
 
 function OpeBlock({ b }: { b: Block }) {
@@ -581,7 +586,7 @@ function OpeBlock({ b }: { b: Block }) {
     <span className={`ope-card${b.off ? " ope-off" : ""}`}>
       <GripVertical className="ope-grip" />
       <span className="ope-face">
-        <span className="ope-tile">{b.pic ? <Pic n={b.pic} w={160} h={100} /> : Icon ? <Icon /> : null}</span>
+        <span className="ope-tile">{b.pic ? <Pic n={b.pic} w={128} h={128} /> : Icon ? <Icon /> : null}</span>
         <span className="ope-txt">
           <b>{b.t}</b>
           <i>{b.s}</i>
@@ -629,8 +634,8 @@ export function DesmondPage() {
       </div>
       <span className="dp-prod">
         <span className="dp-pack">
-          <Pic n="dr-neon" w={560} h={700} className="dp-pack-a" />
-          <Pic n="dr-neon" w={560} h={700} className="dp-pack-b" />
+          <Pic n="dr-neon-128" w={128} h={160} className="dp-pack-a" />
+          <Pic n="dr-neon-128" w={128} h={160} className="dp-pack-b" />
           <i />
         </span>
         <span className="dp-prod-t">
@@ -712,11 +717,11 @@ function OpePanel({ av, name, bio, blocks, className }: { av: string; name: stri
 */
 const IDRIS_BIO = "Photographer and film director. Shooting in London and Lisbon."
 const IDRIS_BLOCKS: Block[] = [
-  { t: "Portfolio", s: "idriskane.com", pic: "lt-street", clicks: "3.9k" },
+  { t: "Portfolio", s: "idriskane.com", pic: "lt-street-128", clicks: "3.9k" },
   { t: "Book a shoot", s: "Booking form", Icon: Calendar, clicks: "418" },
-  { t: "Prints and photo books", s: "From $45", pic: "ik-print", clicks: "1.2k" },
+  { t: "Prints and photo books", s: "From $45", pic: "ik-print-128", clicks: "1.2k" },
   { t: "Studio notes", s: "Email signup", Icon: Mail, off: true },
-  { t: "Showreel 2026", s: "vimeo.com/idriskane", pic: "lt-field", clicks: "5.3k" },
+  { t: "Showreel 2026", s: "vimeo.com/idriskane", pic: "lt-field-128", clicks: "5.3k" },
 ]
 
 export function IdrisPage() {
@@ -759,7 +764,7 @@ export function IdrisPage() {
       </span>
       <span className="dp-prod">
         <span className="dp-pack">
-          <Pic n="ik-print" w={560} h={700} />
+          <Pic n="ik-print-128" w={128} h={160} />
         </span>
         <span className="dp-prod-t">
           <b>Prints and photo books</b>

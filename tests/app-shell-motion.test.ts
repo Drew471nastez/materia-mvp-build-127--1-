@@ -591,7 +591,8 @@ section("Sheets")
   /* Explore's filters: "closing must be smoother". The scrim is a layer while a finger dims it, and a button inside can close the sheet the way a tap outside does, the slide before the parent. */
   check("the scrim is its own layer on every sheet, and a control marked data-sheet-close closes the sheet as a tap outside does",
     /* The scrim also says its own pointer-events now (round 10, NOTHING INHERITED CHANGES ON THE TAP in bottom-sheet). */
-    /style=\{\{ opacity: 0, touchAction: "none", willChange: "opacity", pointerEvents: isOpen \? "auto" : "none" \}\}/.test(sheet)
+    /* Changed on purpose (landing round 12, perf): not while a kept sheet rests (a screen sized layer held for nothing); back in the commit that opens it. */
+      /style=\{\{ opacity: 0, touchAction: "none", willChange: atRest \? undefined : "opacity", pointerEvents: isOpen \? "auto" : "none" \}\}/.test(sheet)
       && /const closer = \(e\.target as HTMLElement \| null\)\?\.closest\?\.\("\[data-sheet-close\]"\)\s*if \(closer && e\.currentTarget\.contains\(closer\)\) requestClose\(\)/.test(sheet)
       && /data-sheet-panel=""\s*tabIndex=\{-1\}\s*onClick=\{onPanelClick\}\s*onClickCapture=\{onPanelCapture\}/.test(sheet))
   check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
