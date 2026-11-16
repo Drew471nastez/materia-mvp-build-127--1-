@@ -94,7 +94,8 @@ check("every transition is an opacity, or the odometer's transform", [...css.mat
 check("loops paused off screen and in a hidden tab; reduced motion shows the finished frames", /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}\s*\.cmh-o\{animation:none!important\}/.test(css) && /\.cmh-tp-on5,\.cmh-tp-l5,\.cmh-tp-thx\{opacity:1\}/.test(css) && /\.cmh-dm-ch,\.cmh-dm-check\{opacity:1\}/.test(css))
 check("the pictures take no pointer and hold nothing to press", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/<(a|button|input|select)\b/.test(how) && !/addEventListener\("click"/.test(code))
 check("no blur, no glass, no CSS gradient", !/blur\(|backdrop-filter|filter:|gradient\(/.test(css))
-const imgs = [...how.matchAll(/<img\b[^>]*>/g)].map((m) => m[0])
+// The Storelib logo in the dashboard bar goes through StorelibLogo (next/image, the one path tests/brand-logo.test.ts allows), so it is checked there, not here.
+const imgs = [...how.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((t) => !/data-storelib-logo/.test(t))
 check("every picture lazy, decoded off the main thread, sized, a local file that exists", imgs.length >= 8 && imgs.every((i) => /loading="lazy"/.test(i) && /decoding="async"/.test(i) && /width="\d+"/.test(i) && /height="\d+"/.test(i) && existsSync(`public${i.match(/src="([^"]+)"/)![1]}`)))
 check("the old pictures and their files are gone", !/cmh-tip-list|cmh-bar|cmh-read|cmh-dm-win|cmh-dm-cut|cmh-lut/.test(how + css) && !existsSync("public/home/how/cap-yellow.webp") && !existsSync("public/home/how/print-lasalle.webp"))
 

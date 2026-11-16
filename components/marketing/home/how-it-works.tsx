@@ -767,7 +767,7 @@ function DashScene() {
           <Lucide d={L_BELL} />
           <Lucide d={L_GEAR} className="cmh-db-gear" />
           <i />
-          <StorelibLogo size={26} unoptimized {...LOGO_LAZY} />
+          <StorelibLogo size={26} {...LOGO_LAZY} />
           <b>Storelib</b>
         </span>
       </div>

@@ -56,8 +56,7 @@ const brand = (e: { src: string }) => e.src.match(/a-([a-z]+)\.webp$/)![1]
 
 console.log("\nThe showcase's cards, the owner's picks")
 check("twelve cards, wide, OnePage, wide, in four groups", SHOWCASE_EXAMPLES.length === 12 && SHOWCASE_EXAMPLES.every((e, i) => e.format === (i % 3 === 1 ? "portrait" : "wide")))
-// Changed on purpose (landing round 12): Tideline first, Plainspace where Ines was, Ines last; Dami Okoro for Gia Romano, Nora Quinn for Mara Lind.
-check("the order", SHOWCASE_EXAMPLES.map(brand).join(",") === "tideline,satori,app,plainspace,dami,strength,loud,otc,nightshift,luca,nora,ines", SHOWCASE_EXAMPLES.map(brand))
+check("the order", SHOWCASE_EXAMPLES.map(brand).join(",") === "plainspace,satori,app,ines,gia,strength,loud,otc,nightshift,luca,mara,tideline", SHOWCASE_EXAMPLES.map(brand))
 check("gone: Studio Marlow, Pinch Grip Club, The Long Draft, Second Shift, Kai Moreno, Seed & Soil (and their files)", !/marlow|pinch grip|pinchgrip|long draft|a-draft|second shift|a-shift|kai moreno|a-kai|seed & soil|seedsoil/i.test(all) && ["marlow", "pinchgrip", "draft", "shift", "kai", "seedsoil"].every((b) => !existsSync(`public/home/showcase/a-${b}.webp`)))
 check("none of the round's banned names", !/Nadia Brooks|The Loop|LaSalle|Nails by Bea|Nordline|Charla Circle|Static Bloom|Maren Holt|enthusiasts|ceramics/i.test(all + src))
 check("The Strength Room is a wide (4:3 on a phone) card", SHOWCASE_EXAMPLES.some((e) => brand(e) === "strength" && e.format === "wide" && /The Strength Room/.test(e.alt)))
@@ -66,8 +65,7 @@ check("Tideline's merch store, with a caption for what it shows", SHOWCASE_EXAMP
 check("a new OnePage, a podcast's, in the photographer's place", SHOWCASE_EXAMPLES.some((e) => brand(e) === "otc" && e.format === "portrait" && /Off the Clock/.test(e.alt) && /Pop theme/.test(e.alt)))
 check("the Storelib app photograph (Run your business from anywhere) as a card", SHOWCASE_EXAMPLES.some((e) => brand(e) === "app" && e.label === "The Storelib app"))
 const sunset = THEME_TEMPLATES.find((t) => t.id === "sunset") as unknown as { profile_layout?: string; theme_config: { header_layout?: string } } | undefined
-// Changed on purpose (landing round 12): the owner disliked Gia Romano's page; it is gone (the Sunset theme itself is still a hero theme).
-check("Gia Romano is gone; Sunset is still a hero theme", !!sunset && sunset.profile_layout === "hero" && sunset.theme_config.header_layout === "hero" && !SHOWCASE_EXAMPLES.some((e) => brand(e) === "gia" || /Gia Romano/.test(e.alt)))
+check("Gia Romano on a real OnePage theme with a hero layout: Sunset", !!sunset && sunset.profile_layout === "hero" && sunset.theme_config.header_layout === "hero" && SHOWCASE_EXAMPLES.some((e) => brand(e) === "gia" && /Sunset theme/.test(e.alt) && e.tone === "#8f3b28"))
 check("captions three words at most, no banned words, no em dash", SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3) && !/unlock|elevate|seamless|powerful|effortlessly|supercharge|transform|—/i.test(all))
 
 console.log("\nThe files: the sizes drawn, small")
@@ -100,7 +98,7 @@ check("creators: decoded from two screens ahead, three at a time", CREATORS_PREL
 check("creators: a photo and its copy shown once decoded, easing in; one already there shown at once", /\.cc-track\[data-cc-ready\] \.cc-img\{opacity:0;transform:scale\(1\.025\)/.test(CREATORS_CSS) && /\.cc-img\[data-shown\]\{opacity:1;transform:none\}/.test(CREATORS_CSS) && /twin\.getAttribute\("src"\) === img\.getAttribute\("src"\)/.test(creators) && /if \(img\.complete && img\.naturalWidth > 0\) show\(img, true\)/.test(creators))
 check("creators: hidden only once the script is there; reduced motion shows them still", /track\.dataset\.ccReady = ""/.test(creators) && /\.cc-track\[data-cc-ready\] \.cc-img\{opacity:1;transform:none;transition:none\}/.test(CREATORS_CSS))
 const rail = renderToStaticMarkup(createElement(CreatorsCarousel))
-// Changed on purpose (landing round 12): the podcasters card is gone on main (11 kinds), so 22 photos.
+/* Changed on purpose (landing round 11): 11 kinds, 22 photographs (podcasters are off the rail). */
 check("creators: the markup still lazy and sized (22 photos)", (rail.match(/<img class="cc-img"[^>]*loading="lazy"/g) ?? []).length === 22)
 
 console.log("\nA finger on the creators rail freezes it where it is")

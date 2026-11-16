@@ -67,15 +67,13 @@ check("level, and up to about 40 degrees from level, is the rail's", railAxis(4,
 check("a diagonal is the page's: across needs |dx| > |dy| * 1.2", RAIL_AXIS.ratio === 1.2 && railAxis(6, 6) === "y" && railAxis(6, 5.1) === "y" && railAxis(-7, 6) === "y" && railAxis(7.3, 6) === "x")
 check("down is the page's", railAxis(0, 5) === "y" && railAxis(1, -12) === "y" && railAxis(Math.cos((60 * Math.PI) / 180) * 10, Math.sin((60 * Math.PI) / 180) * 10) === "y")
 check("a finger is read from touch events: touchstart passive, touchmove not", /el\.addEventListener\("touchstart", onTouchStart, \{ passive: true \}\)/.test(gesture) && /el\.addEventListener\("touchmove", onTouchMove, \{ passive: false \}\)/.test(gesture))
-// Changed on purpose (landing round 12): the touch road is named (rail-gesture.ts).
-check("a touchmove is cancelled only once the gesture is the rail's, and only if it can be", /if \(travel\(t\.clientX, t\.clientY, e\.timeStamp, "touch"\) && e\.cancelable\) e\.preventDefault\(\)/.test(gesture) && (gesture.match(/preventDefault\(\)/g) ?? []).length === 3)
+check("a touchmove is cancelled only once the gesture is the rail's, and only if it can be", /if \(travel\(t\.clientX, t\.clientY, e\.timeStamp\) && e\.cancelable\) e\.preventDefault\(\)/.test(gesture) && (gesture.match(/preventDefault\(\)/g) ?? []).length === 3)
 check("a gesture going down ends at once and travel says it is not the rail's (so nothing is cancelled)", /if \(d\.axis === "y"\) \{\s*end\(t, false\)\s*return false\s*\}/.test(gesture))
 check("one decision a gesture: the axis is set once", (gesture.match(/d\.axis = /g) ?? []).length === 1 && /if \(!d\.axis\) \{\s*d\.axis = railAxis\(x - d\.startX, y - d\.startY\)/.test(gesture))
 check("the rail follows from the point of the decision: no jump for the slop", /d\.startX = x\s*d\.samples = \[\{ t, cx: x \}\]\s*h\.start\(\)/.test(gesture) && /h\.move\(x - d\.startX\)/.test(gesture))
 check("a finger is read by both roads, touch and pointer events, as one gesture: whichever moves first moves the rail (Chrome holds touchmoves for 15px, Safari can hold pointer events)", /if \(finger && held\.finger && held\.pointerId === null\) held\.pointerId = e\.pointerId/.test(gesture) && /const d = held && held\.finger && held\.touchId === null \? held : held \? null : begin\(true, t\.clientX, t\.clientY, e\.timeStamp\)/.test(gesture) && /if \(last && last\.cx === x && t - last\.t < 8\) return true/.test(gesture) && /if \(held\.finger && touchEvents && e\.type === "pointercancel"\) return/.test(gesture))
 check("a second finger (a pinch) lets the rail go", /if \(e\.touches\.length > 1\) return held \? end\(e\.timeStamp, true\) : undefined/.test(gesture))
-// Changed on purpose (landing round 12): travel() says which road a move came by ("pointer" or "touch"): a finger is read from one road at a time (rail-gesture.ts).
-check("a mouse keeps the drag outside the rail (pointer capture), after the decision; a finger needs none", /if \(travel\(e\.clientX, e\.clientY, e\.timeStamp, "pointer"\) && !was && !held\?\.finger\) \{\s*try \{\s*el\.setPointerCapture\(e\.pointerId\)/.test(gesture))
+check("a mouse keeps the drag outside the rail (pointer capture), after the decision; a finger needs none", /if \(travel\(e\.clientX, e\.clientY, e\.timeStamp\) && !was && !held\?\.finger\) \{\s*try \{\s*el\.setPointerCapture\(e\.pointerId\)/.test(gesture))
 check("the release speed is the pointer's over its last 90ms; one that rested 70ms throws nothing", RAIL_AXIS.velocityWindowMs === 90 && RAIL_AXIS.restMs === 70 && /t - b\.t <= RAIL_AXIS\.restMs/.test(gesture))
 check("a click after a drag is swallowed", /if \(dragged\) suppressClick = true/.test(gesture) && /el\.addEventListener\("click", onClick, true\)/.test(gesture))
 check("nothing in the gesture reads layout", !/getBoundingClientRect|offsetLeft|offsetWidth|getComputedStyle|clientWidth/.test(gesture))
@@ -130,8 +128,7 @@ check("a OnePage keeps the page's own shape, 540 x 1056, as on a desktop", /\.bu
 check("a store, website or community is 4:3", /\.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone))
 check("the strength coach is gone, file too", !/hale|get strong|training program/i.test(SHOWCASE_EXAMPLES.map((e) => `${e.src} ${e.label} ${e.alt}`).join(" ")) && !existsSync("public/home/showcase/a-hale.webp"))
 /* Changed on purpose (landing round 11): the owner did not like Studio Marlow; a travel creator's website in its place. */
-// Changed on purpose (landing round 12): Ines Duarte moved to the last card, where Tideline was.
-check("the interior stylist is gone; Ines Duarte, a travel creator's website, in its place", SHOWCASE_EXAMPLES[11].src === "/home/showcase/a-ines.webp" && SHOWCASE_EXAMPLES[11].label === "Sell travel guides" && !/marlow/i.test(SHOWCASE_EXAMPLES.map((e) => e.src + e.alt).join(" ")))
+check("the interior stylist is gone; Ines Duarte, a travel creator's website, in its place", SHOWCASE_EXAMPLES[3].src === "/home/showcase/a-ines.webp" && SHOWCASE_EXAMPLES[3].label === "Sell travel guides" && !/marlow/i.test(SHOWCASE_EXAMPLES.map((e) => e.src + e.alt).join(" ")))
 check("Luca Brandt is a website now, not a OnePage on a wide screen, with the shared LUT pack", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-luca.webp" && e.format === "wide" && /website/.test(e.alt) && !/OnePage/.test(e.alt) && /Cine Tones LUT Pack/.test(e.alt) && /\$9 a month/.test(e.alt)))
 check("captions three words at most, twelve different pictures", SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3) && new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size === 12)
 {
@@ -154,8 +151,8 @@ check("the mouse is listened to passively", /section\.addEventListener\("pointer
 console.log("\nStorelib is for creators")
 const rail = renderToStaticMarkup(createElement(CreatorsCarousel))
 const creator = (slug: string) => CREATORS.find((c) => c.slug === slug)!
-// Changed on purpose (landing round 12): the owner's newer photographs on main; the musician is lit in deep red now.
-check("the owner's photos: a musician in deep red, a photographer in silhouette, dumbbells in black and white", /deep red/.test(creator("musicians").alt) && /silhouette/.test(creator("photographers").alt) && /dumbbell/.test(creator("fitness").alt) && /black and white/.test(creator("fitness").alt))
+/* Changed on purpose (landing round 11): the owner picked a new musicians photograph (a profile lit in red). */
+check("the owner's photos: a man's portrait in red, a photographer in silhouette, dumbbells in black and white", /red/.test(creator("musicians").alt) && /silhouette/.test(creator("photographers").alt) && /dumbbell/.test(creator("fitness").alt) && /black and white/.test(creator("fitness").alt))
 check("their names changed with them", creator("musicians").name === "Jules Arden" && creator("photographers").name === "Noa Price" && creator("fitness").name === "Cole Whitaker")
 check("each at the sizes the card draws: 400 x 500 and 720 x 900 webp", ["musicians", "photographers", "fitness"].every((s) => webpSize(`public/home/creators/${s}-400.webp`).w === 400 && webpSize(`public/home/creators/${s}-400.webp`).h === 500 && webpSize(`public/home/creators/${s}-720.webp`).w === 720 && webpSize(`public/home/creators/${s}-720.webp`).h === 900 && statSync(`public/home/creators/${s}-720.webp`).size < 90_000))
 check("a very subtle grain on every card: one shared tile, no filter, no blend mode", /\.cc-photo::after\{content:"";position:absolute;inset:0;background:url\(\/home\/creators\/grain\.webp\) 0 0\/96px 96px;opacity:\.55;pointer-events:none\}/.test(CREATORS_CSS) && !/filter:|mix-blend-mode|feTurbulence/.test(CREATORS_CSS))
@@ -163,9 +160,9 @@ check("the tile is 192px (two device px a grain on a 2x screen) and under 20 KB"
 check("the shade and the words sit over the grain", /\.cc-shade,\.cc-meta\{z-index:1\}/.test(CREATORS_CSS))
 /* Changed on purpose (landing round 11): "make sure the images are smooth and clean": three at a time from two screens ahead (CREATORS_PRELOAD), each shown once decoded. */
 check("the photos are decoded ahead, three at a time, from two screens before the rail arrives", /track\.querySelectorAll<HTMLImageElement>\("li:not\(\[aria-hidden\]\) img"\)/.test(creators) && /img\.decode\(\)\.then\(done, done\)/.test(creators) && /\{ rootMargin: `\$\{CREATORS_PRELOAD\.marginPx\}px 0px` \}/.test(creators))
-// Changed on purpose (landing round 12): 11 kinds since the podcasters card went, so 22 photos.
+/* Changed on purpose (landing round 11): podcasters are off the rail (the owner), so 11 kinds: 22 photographs, five of the second copy kept on a phone. */
 check("still lazy and sized in the markup", (rail.match(/<img class="cc-img"[^>]*loading="lazy"[^>]*>/g) ?? []).length === 22 && (rail.match(/width="400" height="500"/g) ?? []).length === 22)
-check("on a phone only five of the second copy are kept: a third less to draw", /@media\(max-width:767px\)\{\.cc-card\[aria-hidden="true"\]:nth-child\(n\+17\)\{display:none\}\}/.test(CREATORS_CSS) && CREATORS.length === 11) // Changed on purpose (landing round 12): 11 kinds, so the second copy starts at 12 and n+17 keeps five.
+check("on a phone only five of the second copy are kept: a third less to draw", /@media\(max-width:767px\)\{\.cc-card\[aria-hidden="true"\]:nth-child\(n\+17\)\{display:none\}\}/.test(CREATORS_CSS) && CREATORS.length === 11)
 check("the finger leads 1:1, drawn once a frame", /x = drag\.fromX - dx\s*if \(!paintFrame\) paintFrame = requestAnimationFrame\(paint\)/.test(creators))
 check("a throw coasts; a finger that only rested holds the rail a moment; the page's scroll holds nothing", /const heldStill = !dragged && axis === null && finger && !cancelled/.test(creators) && /holdUntil = dragged \|\| heldStill \? performance\.now\(\) \+ RESUME_AFTER_MS : performance\.now\(\)/.test(creators) && /if \(dragged && Math\.abs\(throwSpeed\) > 40 && live\(\)\) coast\(throwSpeed\)/.test(creators))
 
