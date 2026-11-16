@@ -1444,7 +1444,7 @@ const SUITES = [
   "tests/home-landing-topb4.test.ts",
   /* Landing round 4 (frame): sheets rise like a phone's sheet (a small side inset settling to full width, the held block behind shrinking a little and dimming), CSS scroll-driven, transform and opacity only, off for reduced motion; Make the work on a flat ground, not a drawer; the globe's pill glides on the compositor a few times a second and its move path reads no layout; the app and the closing call on a dark close with no seam into the footer; a calmer FAQ with a neutral plus and grid-row opening; a small dot grid background. */
   "tests/home-landing-frame4.test.ts",
-  /* Round 5: the home page's desktop mouse wheel glides like the Materia theme's smooth scroll (components/marketing/smooth-wheel.tsx). */
+  /* Round 5: the home page's desktop mouse wheel glided like the Materia theme's smooth scroll. Landing round 12: removed ("too smooth and delayed"); the pins hold that the browser's own scroll runs. */
   "tests/home-smooth-wheel-r5.test.ts",
   /* Landing round 11 perf (layers and animations): one gate pauses the infinite loops of any lazy section far from the screen; finished fills, backface-visibility, a paint containment and a smaller, live-only rim light drop dozens of compositor layers; the smooth wheel reads no layout per wheel event. */
   "tests/home-landing-layers6.test.ts",
@@ -1478,7 +1478,7 @@ const SUITES = [
   "tests/home-landing-r7-checkout.test.ts",
   /* Landing round 7, lower: the reports one near-black panel and nothing purple on the purple; the engines one sliding strip; the dot field even and flowing, after the mouse; no fee line under the earnings; Contacts plays growth, synced with, export with new faces; every lower section in the one width. */
   "tests/home-landing-r7-lower.test.ts",
-  /* Landing round 8, ideas: Mondo Mango, a bold colourful merch label, in the website builder (wordmark, a wall of colour, the drop with the wordmark printed on it); The Strength Room's barbell emblem and its yellow banner cover; tabs and autoplay as they were. */
+  /* Landing round 8, ideas: a bold colourful merch label in the website builder (since replaced, landing round 12); The Strength Room's barbell emblem and its yellow banner cover; tabs and autoplay as they were. */
   "tests/home-landing-r8-ideas.test.ts",
   /* Landing round 8, how: a plain tee and the Cine Tones LUT pack on section 3's cover, the domain as one browser window with the address typing in, four light grounds of one family. */
   "tests/home-landing-r8-how.test.ts",
@@ -1500,7 +1500,7 @@ const SUITES = [
   "tests/home-landing-r9-rows.test.ts",
   /* Landing round 9, checkout: the phone first and big, the stage held a screen while the scroll brings it down and reveals the headline; a creator's physical and digital products going round it in one 3D space; Google Pay beside Apple Pay; the phone mockup's scale fixed for WebKit; the cards' computer pictures in 4:3 on a phone, shorter lines, smoother loops, the Recovered tile, faint orbs. */
   "tests/home-landing-r9-checkout.test.ts",
-  /* Landing round 9 (top): the store strip and the globe read a finger's first pixels with one rule (down or up is the page's, clearly sideways is taken, then followed as if from the first pixel), one write a frame, 240px pictures for the pieces; the support card raspberry to peach again; Kaia Moon's buttons fatter; the ideas heading, line and tabs centred, the picture 88% wide on a computer in one hairline frame with no shadow; Mondo Mango's hero one photograph. */
+  /* Landing round 9 (top): the store strip and the globe read a finger's first pixels with one rule (down or up is the page's, clearly sideways is taken, then followed as if from the first pixel), one write a frame, 240px pictures for the pieces; the support card raspberry to peach again; Kaia Moon's buttons fatter; the ideas heading, line and tabs centred, the picture 88% wide on a computer in one hairline frame with no shadow. */
   "tests/home-landing-r9-top.test.ts",
   /* Landing round 9, the white sheet: the audience section in 15 words beside one picture (the list, a new person joining, one strip on a CSS clock, no timer); the AI tools line 35% shorter and its terminal 16 lines on a phone; the earnings sliders not grabbed by a scrolling finger (axis decided after 8px). */
   "tests/home-landing-r9-white.test.ts",
@@ -1536,7 +1536,7 @@ const SUITES = [
   "tests/home-landing-r11-rails.test.ts",
   /* Landing round 11 (purple): a line icon per analytics report and a favicon per search result, the purple's dots brighter and calmer, the map as "Sell to buyers worldwide." with a column of flags, a stack of product cards, an order pill and Shipped words by the dots, the phone's pan back as the map's own transform, a taller card. */
   "tests/home-landing-r11-purple.test.ts",
-  /* Landing round 11, top: the website builder moves on from Mondo Mango (a party card game, product shots of its boxes, a studio hero) to loudlib, the OnePage editor from Desmond to Idris Kane, each a cross fade on the autoplay clock; a little depth on the ideas frame; Noor Haddad's digital product store in place of Soft Ground. */
+  /* Landing round 11, top: the website builder moves on from its first site to loudlib, the OnePage editor from Desmond to Idris Kane, each a cross fade on the autoplay clock; a little depth on the ideas frame; Noor Haddad's digital product store in place of Soft Ground. */
   "tests/home-landing-r11-top.test.ts",
   /* Landing round 11, frame: the purple sheet rises on phones too (transform only, scroll-driven, eased over 75svh), headings ink more gently, every picture fades in once decoded, a calmer 700ms entrance on touch, no purple in the FAQ heading, the app icon back in the footer. */
   "tests/home-landing-r11-frame.test.ts",
@@ -1548,6 +1548,24 @@ const SUITES = [
   "tests/home-landing-r11-checkout.test.ts",
   /* Landing round 11, stability: no section above the screen changes height in front of a Safari reader (no scroll anchoring there): real heights kept exactly, server-drawn boxes measured while idle, and a box that changes above the screen held by the scroll in the same frame (by its own top margin mid-fling). */
   "tests/home-landing-r11-stability.test.ts",
+  /* Landing round 12, top: the website builder's first site is the owner's GodBless store (offer bar, red wordmark, a summer photo hero, New Collection on light grey), still moving on to loudlib; the strip's digital store is Jonah Wells, a guitar teacher, laid out like a real store with photographs of what he sells. */
+  "tests/home-landing-r12-top.test.ts",
+  /* Landing round 12 (purple): the search results' favicons drawn as small marks (a fjord, a film strip, three lights), not letters; the map's turn on one 1.1s clock with an ease that leaves at rest, opaque cards at depths in one 3D stack, nothing reflowing; edge to edge on a phone. */
+  "tests/home-landing-r12-purple.test.ts",
+  /* Landing round 12, rails: loudlib as loudlib.net looks, Plainspace's cover a photograph, Off the Clock's picture and white bell, Nora Quinn (Paper) and Dami Okoro (Night) for Mara Lind and Gia Romano, the new order, a hairline edge on every card; on a touch screen the rails move by the page's own frames so a finger never catches a compositor ahead of the page, and a finger is read from one road at a time. */
+  "tests/home-landing-r12-rails.test.ts",
+  /* Landing round 12, how: "See every sale as it happens." over the real /app dashboard (its figures rolling in and ticking up, every number agreeing), a $5 tip picked, paid and thanked on Ruben's creator page, and www.fernlyn.com typed over a store's front page with a green check; full width, no box round a picture. */
+  "tests/home-landing-r12-how.test.ts",
+  /* Landing round 12, close: the AI tools card's dots a third as strong and its light slower and softer; the closing call's dots scattered (seeded) with an email field that goes straight to sign up (Dashboard when signed in); the plan cards off their grey ground with dark buttons and Grow's white pill; the apps' gap 1/13 of the screen; the footer's solid mark. */
+  "tests/home-landing-r12-close.test.ts",
+  /* Landing round 12, business: the digital card is one e-book (Slow Mornings, its cover before a page from inside, the PDF downloading in the button) and the physical card one photographed product (Night Face Oil, a gallery, a size added to the cart), no presets, no merch; on a phone the five kinds are a row of cards on the browser's own snap scroll, drawn at 360 x 520, no autoplay. */
+  "tests/home-landing-r12-business.test.ts",
+  /* Landing round 12, frame: the wheel glide is gone (the browser's own scroll, in real time); the entrance's scroll listener reads the position after the frame instead of laying the page out in the scroll event; an animation that starts in a section away from the screen rests too. */
+  "tests/home-landing-r12-frame.test.ts",
+  /* Landing round 12, checkout: the Recovered tile gone; the phone fades out whole as the cards come (its blurred copy gone, its shade after it); no home bar on the dark One-tap phone; Built to convert 4:3 on a phone; the currency tiles cannot outgrow their picture; the ring's tote is a beanie. */
+  "tests/home-landing-r12-checkout.test.ts",
+  /* Landing round 12, perf: the same page, cheaper. The analytics globe reads the scroll after the frame; the analytics and Everything cards pause their loops on their own more than a screen away; no permanent will-change on the orbs, the engines strip, the Everything grounds, the creators rail or a resting sheet's scrim; the AI tools light on squares as wide as the rim's diagonal, turning only while live; the Ideas thumbnails from small copies. */
+  "tests/home-landing-r12-perf.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

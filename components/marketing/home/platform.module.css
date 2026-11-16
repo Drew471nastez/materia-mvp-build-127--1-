@@ -32,6 +32,12 @@
 .root:not([data-platform-live]) .loop::after {
   animation-play-state: paused !important;
 }
+/* Landing round 12 (perf): a part of a tall section more than a screen away pauses on its own (usePartsLive). */
+.root [data-part-live="false"] .loop,
+.root [data-part-live="false"] .loop::before,
+.root [data-part-live="false"] .loop::after {
+  animation-play-state: paused !important;
+}
 
 /* A card that lifts under a pointer; touch devices get no sticky hover. */
 .lift {

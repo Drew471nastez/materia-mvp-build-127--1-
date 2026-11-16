@@ -1,17 +1,17 @@
 /**
  * ===========================================================================
  *  HOME, LANDING ROUND 11 (TOP): A SECOND SITE AND A SECOND ONEPAGE IN THE
- *  EDITORS, PRODUCT SHOTS FOR MONDO MANGO, A LITTLE DEPTH ON THE FRAME, AND
+ *  EDITORS, PRODUCT SHOTS FOR THE FIRST SITE, A LITTLE DEPTH ON THE FRAME, AND
  *  A DIGITAL PRODUCT STORE IN THE STRIP
  * ===========================================================================
  * components/marketing/home/ideas-come-to-life.tsx, showcase-mocks/builder-mocks.tsx
  * and everything-in-one-place.tsx.
  *
  * The owner, after round 10:
- *   1. Mondo Mango: "I don't like the physical product examples; make
+ *   1. the builder's first site: "I don't like the physical product examples; make
  *      something more like the 2nd image as the products" (bold product shots
  *      of boxes, strong titles, sale badges), and "I also don't like the hero
- *      of Mondo Mango; add something else more realistic, smooth, clean";
+ *      of it; add something else more realistic, smooth, clean";
  *   2. "in the website builder, after some time another template should
  *      appear, e.g. the loudlib website", the switch "very smooth";
  *   3. "Add Idris Kane as another OnePage in the OnePage editor pill, but more
@@ -63,29 +63,25 @@ const webp = (p: string, kb: number) => {
   return b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP" && statSync(f).size < kb * 1024
 }
 
-console.log("\n── 1. Mondo Mango is gone (wave 18) ──")
-// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone, with its pictures, and the builder shows loudlib alone.
-check("no party card game store, none of its pictures", !/Mondo Mango|mondomango|MondoMango|Game night, but louder|class="mg|\.mg-/.test(read(F.builders) + BUILDER_CSS) && ["mm-studio", "mm-logo", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))))
+console.log("\n── 1. The builder's first site ──")
+// Changed on purpose (landing round 12): the owner dropped round 11's first site entirely (its box shots and studio hero are deleted); the first site is their own GodBless store, pinned in tests/home-landing-r12-top.test.ts.
+check("the earlier site's pictures are gone", ["mm-studio", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))))
 
-console.log("\n── 2. The website builder shows loudlib ──")
+console.log("\n── 2. The website builder moves on to loudlib ──")
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 const ll = renderToStaticMarkup(createElement(LoudlibSite))
-// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone, with its pictures, and the builder shows loudlib alone.
-check("one site in the canvas, nothing hidden", (wb.match(/class="smk-frame wx-site"/g) ?? []).length === 1 && !/wx-site bm-s/.test(wb))
-// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone, with its pictures, and the builder shows loudlib alone.
-check("the bar's name and the published address are loudlib's", /<b class="wx-name">loudlib<\/b>/.test(wb) && /<b class="wx-pub-host">loudlib\.net<\/b>/.test(wb))
+check("both sites stand in the one canvas, the second hidden at first", /class="smk-frame wx-site bm-s1"/.test(wb) && /class="smk-frame wx-site bm-s2"/.test(wb) && /\.bm-s2\{opacity:0\}/.test(BUILDER_CSS))
+// Changed on purpose (landing round 12): the first site is GodBless, published at its storelib.com address.
+check("the bar's name and the published address change with it", /<span class="bm-s1">GodBless<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">godbless\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
 check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /class="ll-bar">Sale 60% off all products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Tech House Master Bundle 2025/.test(ll) && /class="ll-h">Bestselling/.test(ll))
 check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-midi", "ll-hero"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On sale</g) ?? []).length === 3)
-// Changed on purpose (wave 18): one site, so one pair of rings.
-check("the builder rings the Hero and the products on loudlib", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
-/* Wave 18: the builder has one site now; the cross fade stays for the OnePage editor's two pages. */
+check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
 check("the change is a cross fade, opacity only", /\.bm-s1,\.bm-s2\{transition:opacity \.7s cubic-bezier\(\.4,0,\.2,1\)\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s1\{opacity:0\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s2\{opacity:1\}/.test(BUILDER_CSS))
 check("with reduced motion it simply changes", /@media\(prefers-reduced-motion:reduce\)\{\.bm-s1,\.bm-s2\{transition:none\}\}/.test(BUILDER_CSS))
 
 console.log("\n── The autoplay plays each scene, then the next tab ──")
 const src = code(read(F.ideas))
-// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone, with its pictures, and the builder shows loudlib alone.
-check("the OnePage editor has two scenes, the website builder and the community one", Ideas.IDEAS_TABS.map((t) => t.scenes).join() === "1,2,1")
+check("the website builder and the OnePage editor have two scenes, the community one", Ideas.IDEAS_TABS.map((t) => t.scenes).join() === "2,2,1")
 check("the clock restarts for each scene", /key=\{`\$\{t\.index\}-\$\{scene\}`\}/.test(src) && /onAnimationEnd=\{onClockEnd\}/.test(src))
 check("a scene that is not the last moves the scene on, the last moves the tab on", /if \(scene \+ 1 < IDEAS_TABS\[t\.index\]\.scenes\) setShown\(\{ index: t\.index, scene: scene \+ 1 \}\)\s*else t\.advance\(\)/.test(src))
 check("the leaving panel keeps its scene while it fades, and goes back to the first at rest", /data-scene=\{i === shown\.index \? shown\.scene : 0\}/.test(src) && /const fading = \[\.\.\.t\.states\.values\(\)\]\.includes\("leaving"\)\s*if \(shown\.index !== t\.index && !fading\) setShown\(\{ index: t\.index, scene: 0 \}\)/.test(src) && !/setTimeout|setInterval/.test(src))
@@ -114,14 +110,10 @@ check("its styles are round 8's", createHash("sha256").update(BUILDER_CSS.slice(
 
 console.log("\n── 6. A digital product store in the strip ──")
 const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
-const noor = EVERYTHING_STORES.find((s) => s.key === "noor")
+// Changed on purpose (landing round 12): the owner found round 11's digital store "really bad"; Jonah Wells, a guitar teacher laid out like Fieldwork with photographs of what he sells, takes its place (tests/home-landing-r12-top.test.ts).
 check("Soft Ground and Kiln Goods are gone", !/Kiln Goods|Soft Ground|soft-ground|kiln-/.test(JSON.stringify(EVERYTHING_STORES) + html + code(read(F.ev))))
-check("Noor Haddad's store sells digital products", noor?.kind === "merch" && !!noor.digital && noor.products.map((p) => p.name).join() === "Saltwater Presets,Shoot to Invoice,Client Shoot Planner,Night Drive LUTs")
-check("its covers are real webps, with the small copies", !!noor && noor.kind === "merch" && noor.products.every((p) => webp(p.src.replace(/^\//, ""), 60) && webp(p.src.replace(/^\//, "").replace(/\.webp$/, "-240.webp"), 40)))
-const dg = html.slice(html.indexOf('data-digital=""'), html.indexOf('data-digital=""') + 3000)
-check("a different heading: a dark band with her name, what she sells and Instant download", /<span class="ev-dg-band"><span class="ev-dg-top"><span class="ev-dg-mark">Noor Haddad<\/span><span>Cart \(0\)<\/span><\/span><span class="ev-dg-head"><b>Presets and guides<\/b>/.test(dg) && /<i>Instant download<\/i>/.test(dg))
-check("the band is as tall as the other stores' header, the covers in the same grid", /\.ev-dg-band\{[^}]*height:calc\(214 \* var\(--r\)\)/.test(evCss) && /\.ev-dg-band \+ \.ev-mc-grid\{margin-top:calc\(24 \* var\(--r\)\)\}/.test(evCss))
-check("one is reduced, its old price struck through", /<span class="ev-mc-price"><s>\$39<\/s>\$29<\/span>/.test(dg))
+check("a store of digital products is still in the strip", EVERYTHING_STORES.some((s) => s.kind === "merch" && s.products.some((p) => !!p.format)))
+check("one is reduced, its old price struck through", /<span class="ev-mc-price"><s>\$19<\/s>\$14<i>PDF<\/i><\/span>/.test(html))
 check("still three stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 3 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
 
 console.log("\n── Copy ──")

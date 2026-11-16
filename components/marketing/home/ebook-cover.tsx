@@ -24,11 +24,14 @@ export const EBOOK = {
 export const LUT_PACK = EBOOK
 
 export const LUT_STILL = "/home/everything/lut-still.webp"
+/** The same still at 240 x 135 (7 KB, against 55 KB), for a cover drawn at thumbnail size: an order line, the instant checkout's head. Landing round 12 (the page audit: the 720px still was drawn 21 to 28px wide). */
+export const LUT_STILL_SMALL = "/home/everything/lut-still-240.webp"
 
-export function EbookCover({ className = "" }: { className?: string }) {
+/** `small`: the cover is drawn under about 120px wide, so it takes the small still. */
+export function EbookCover({ className = "", small = false }: { className?: string; small?: boolean }) {
   return (
     <span className={`ebc ${className}`}>
-      <img className="ebc-img" src={LUT_STILL} alt="" width={720} height={405} loading="lazy" decoding="async" />
+      <img className="ebc-img" src={small ? LUT_STILL_SMALL : LUT_STILL} alt="" width={small ? 240 : 720} height={small ? 135 : 405} loading="lazy" decoding="async" />
       <span className="ebc-tag">LUT Pack</span>
       <span className="ebc-name">
         <span>Cine</span>

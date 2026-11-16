@@ -91,7 +91,7 @@ console.log("\n── the dot field: even, flowing, following the mouse ──")
   // Changed on purpose (landing round 8): the light wanders on its own now, so it draws at up to 60 a second whenever it runs (at 30 it stepped).
   check("at most 60 frames a second, evenly", /f\.last && t - f\.last < f\.cfg\.frameMs\[/.test(src) && /dots\[j\+\+\] = x \* 0\.0052 \+ y \* 0\.0033/.test(src))
   check("paused off screen and in a hidden tab, one still frame under reduced motion, no state, no layout read in the loop", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /if \(fine && !reduced\)/.test(src) && !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const drawTile"), src.indexOf("const settle"))))
-  check("on the purple sheet, a little sparser there, and under the closing call", /<DotField tone="purple" fade="bottom" gap=\{22\}/.test(page) && /<DotField fade="close" \/>/.test(cta)) // Changed on purpose (landing round 8): the closing call's field fades out before its foot.
+  check("on the purple sheet, a little sparser there, and under the closing call", /<DotField tone="purple" fade="bottom" gap=\{22\}/.test(page) && /<DotField fade="close" scatter \/>/.test(cta)) // Changed on purpose (landing round 8): the closing call's field fades out before its foot.
   check("the field keeps its CSS: behind, no pointer, no CSS animation", /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS) && !/@keyframes/.test(DOT_FIELD_CSS))
   check("the closing call in the page's one width", /padding:clamp\(76px,8\.4vw,128px\) var\(--home-edge,/.test(cta)) // Changed on purpose (landing round 11): a little less height.
 }

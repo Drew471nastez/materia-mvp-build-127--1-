@@ -18,7 +18,7 @@
 import { createDotEngine, type FieldKind, type TileCanvas } from "./dot-field-engine"
 
 type In =
-  | { type: "field"; id: number; kind: FieldKind; gap: number; fine: boolean; reduced: boolean }
+  | { type: "field"; id: number; kind: FieldKind; gap: number; fine: boolean; reduced: boolean; scatter?: boolean }
   | { type: "remove"; id: number }
   | { type: "tile"; id: number; n: number; canvas: OffscreenCanvas }
   | { type: "dropTile"; id: number; n: number }
@@ -83,7 +83,7 @@ scope.onmessage = (e) => {
     if (cb) cb(typeof m.t === "number" ? m.t - performance.timeOrigin : performance.now())
     /* Nothing asked for the next frame: the fields have stopped, so the page can stop sending. */
     if (!waiting) ask(false)
-  } else if (m.type === "field") engine.field(m.id, m.kind, m.gap, m.fine, m.reduced)
+  } else if (m.type === "field") engine.field(m.id, m.kind, m.gap, m.fine, m.reduced, m.scatter)
   else if (m.type === "remove") engine.remove(m.id)
   else if (m.type === "tile") engine.tile(m.id, m.n, m.canvas as unknown as TileCanvas)
   else if (m.type === "dropTile") engine.dropTile(m.id, m.n)

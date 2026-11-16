@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { StoryHeading } from "../story-heading"
 import { RAIL_AXIS, bindRailGesture } from "../rail-gesture"
+import { frameLeg, type FrameLeg } from "../rail-frames"
 import type { SectionStyle } from "./lazy-section"
 
 export type CreatorCard = {
@@ -19,7 +20,7 @@ export type CreatorCard = {
  * orange ground), Photographers and Fitness are Pexels photos (free licence),
  * cropped and stored the same way. */
 export const CREATORS: readonly CreatorCard[] = [
-  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & memberships", name: "Lena Marsh", alt: "A video editor at a dark desk, cutting a clip on a wide monitor, a phone charging beside it" },
+  { slug: "youtubers", kind: "YouTubers", sells: "Presets, merch & courses", name: "Lena Marsh", alt: "A video editor at a dark desk, cutting a clip on a wide monitor, a phone charging beside it" },
   { slug: "musicians", kind: "Musicians", sells: "Songs, vinyl & lessons", name: "Jules Arden", alt: "A musician in profile, a cap on and locs falling, lit in deep red" },
   { slug: "authors", kind: "Authors", sells: "E-books & signed copies", name: "Clara Whitfield", alt: "An open book in a slant of window light on a dark sofa" },
   { slug: "educators", kind: "Educators", sells: "Online courses", name: "Teo Alvarez", alt: "Teo in his sunlit painting studio, an apron on and a brush in hand" },
@@ -124,7 +125,8 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
      * transform per frame the hand moved. Taking the motion back (a press, a
      * hover, a resize) reads the rail's place once, at that moment.
      */
-    let motion: { anim: Animation; kind: "in" | "cruise" | "out" | "coast" | "nudge"; t0: number; ms: number; speed: number } | null = null
+    /* Landing round 12: on a touch screen a leg is run by the page's own frames (rail-frames.ts), so a finger catches the rail exactly where it is drawn. */
+    let motion: { anim: Animation | FrameLeg; frames: boolean; kind: "in" | "cruise" | "out" | "coast" | "nudge"; t0: number; ms: number; speed: number } | null = null
 
     const measure = () => {
       const cards = track.querySelectorAll<HTMLElement>("[data-idx]")
@@ -138,7 +140,21 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     const live = () => visible && !document.hidden && !reduce.matches
     const cruise = () => (touch.matches ? 30 : 36)
     const wrap = (v: number) => (loop > 0 ? ((v % loop) + loop) % loop : v)
-    const tf = (v: number) => `translate3d(${(-v).toFixed(2)}px,0,0)`
+    /*
+     * LANDING ROUND 12 (perf). The rail was its own layer for good
+     * (will-change in the stylesheet, and a 3D translate is a layer by
+     * itself): 1.6M px on a phone and 3.0M at 1440, held all the way down the
+     * page. Now the place is a flat translate, and the layer is asked for
+     * (promote) only while the rail is live: on screen, in a visible tab,
+     * motion allowed. That is when it drifts, glides and is dragged, so it
+     * never builds a layer on the first frame of a move; off screen it is
+     * painted flat and holds nothing.
+     */
+    const tf = (v: number) => `translate(${(-v).toFixed(2)}px)`
+    const promote = () => {
+      const want = live() ? "transform" : ""
+      if (track.style.willChange !== want) track.style.willChange = want
+    }
 
     const paint = () => {
       paintFrame = 0
@@ -159,9 +175,26 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
      * animation cancelled. One place, drawn once: nothing moves under the
      * finger.
      */
+    /*
+     * LANDING ROUND 12 (the owner, again: "on touch, when the finger goes down
+     * to swipe, it glitches and stutters left and right before it swipes").
+     * Pausing pins the page's clock, but in WebKit the compositor that draws
+     * the animation runs in another process, ahead of it: the place read
+     * here could be behind what was on screen, and the rail stepped back
+     * before it followed the finger. On a touch screen the motion is now the
+     * page's own frames (rail-frames.ts): the place last written is what is
+     * drawn, and it is kept as it is.
+     */
     const halt = () => {
       if (!motion) return
       const { anim } = motion
+      if (motion.frames) {
+        x = (anim as FrameLeg).at()
+        motion = null
+        paint()
+        anim.cancel()
+        return
+      }
       anim.pause()
       const m = getComputedStyle(track).transform
       if (m && m !== "none") x = -new DOMMatrixReadOnly(m).m41
@@ -178,11 +211,21 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
         return
       }
       const from = wrap(x)
-      const anim = track.animate([{ transform: tf(from) }, { transform: tf(from + by) }], kind === "cruise" ? { duration: ms, iterations: Infinity, easing: "linear" } : { duration: ms, easing })
-      motion = { anim, kind, t0: performance.now(), ms, speed }
-      x = from + by
-      if (kind !== "cruise") paint()
-      else x = from
+      const frames = touch.matches
+      let anim: Animation | FrameLeg
+      if (frames) {
+        /* Written each frame (paint wraps it round the loop). */
+        anim = frameLeg(from, by, ms, kind === "cruise" ? "linear" : easing, (v) => {
+          x = v
+          paint()
+        }, kind === "cruise")
+      } else {
+        anim = track.animate([{ transform: tf(from) }, { transform: tf(from + by) }], kind === "cruise" ? { duration: ms, iterations: Infinity, easing: "linear" } : { duration: ms, easing })
+        x = from + by
+        if (kind !== "cruise") paint()
+        else x = from
+      }
+      motion = { anim, frames, kind, t0: performance.now(), ms, speed }
       if (!live()) anim.pause()
       anim.onfinish = () => {
         if (motion?.anim !== anim) return
@@ -244,6 +287,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     }
     /* Shown or hidden (scrolled away, another tab): whatever is moving pauses where it is, and goes on from there. */
     const resume = () => {
+      promote()
       if (!motion) return update()
       if (live()) motion.anim.play()
       else motion.anim.pause()
@@ -323,6 +367,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       }
     }
     const sync = () => {
+      promote()
       halt()
       measure()
       paint()
@@ -362,7 +407,8 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       if (!img) return
       img.loading = "eager"
       const done = () => {
-        show(img, false)
+        /* Landing round 12 (perf): decoded while the rail is still off screen, it is simply there; the ease in is for a photo that arrives in sight (the audit found 34 to 48 of these fades running two screens away). */
+        show(img, !visible)
         next()
       }
       if (typeof img.decode === "function") img.decode().then(done, done)
@@ -496,7 +542,7 @@ export const CREATORS_CSS = `
 /* Landing round 8, the owner: "full width, not with a fade". The rail runs from one edge of the screen to the other at every width, with no mask; at rest its first card starts on the content edge (the showcase cards' edge, the shared box's gutter). */
 .cc-section{--cc-start:max(var(--cc-gutter),calc((100% - var(--home-max,2020px)) / 2 + var(--cc-gutter)))}
 .cc-viewport[data-dragging]{cursor:grabbing}
-.cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-start) 8px;list-style:none;will-change:transform;backface-visibility:hidden}
+.cc-track{display:flex;gap:var(--cc-gap);width:max-content;margin:0;padding:10px var(--cc-start) 8px;list-style:none;backface-visibility:hidden}
 .cc-card{flex:none;width:var(--cc-w);margin:0;padding:0}
 /* The card as it was before the product tiles: the photo, and on a soft shade at its foot the creator's name, their kind and what they sell. It stays still under the pointer. */
 .cc-photo{position:relative;display:block;overflow:hidden;aspect-ratio:4/5;border-radius:23px;background:var(--cc-photo);isolation:isolate}

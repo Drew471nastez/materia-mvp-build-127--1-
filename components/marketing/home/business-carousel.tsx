@@ -1,10 +1,10 @@
 "use client"
 
-import { memo, useCallback, useEffect, useRef, useState, type AnimationEvent, type ComponentType, type CSSProperties, type PointerEvent } from "react"
+import { memo, useCallback, useEffect, useRef, useState, useSyncExternalStore, type AnimationEvent, type ComponentType, type CSSProperties, type PointerEvent } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
-import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DIGITAL_STEP_S, DigitalScene, PHYSICAL_PRODUCTS, PHYSICAL_STEP_S, TeeScene } from "./showcase-mocks/business-mocks"
+import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, PhysicalScene } from "./showcase-mocks/business-mocks"
 import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
 
 /*
@@ -16,10 +16,10 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
 
   So the five kinds are plain words. On a computer they are an index down the
   left of the stage, as tall as it: a name, a line saying what that covers,
-  hairlines between. On a phone or a tablet they are one quiet row over the
-  stage that slides under the thumb. There is no track, no pill and no line
-  under anything: the chosen word is dark, the others grey, and beside the
-  chosen one a small ring closes as its turn runs.
+  hairlines between. On a tablet they are one quiet row over the stage. There
+  is no track, no pill and no line under anything: the chosen word is dark,
+  the others grey, and beside the chosen one a small ring closes as its turn
+  runs.
 
   Autoplay: that ring is the clock (when it has closed, the next kind comes
   up). It pauses while a mouse rests on the stage, while a finger is on it
@@ -42,8 +42,19 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   this section should have a subheading, max 10 words." The heading says what
   the section shows, and one short line under it names the five kinds in
   plain words, set tight under the heading so the heading, the index and the
-  stage still stand on one laptop screen. Physical products is a row of four
-  things one store ships, turning like the digital covers.
+  stage still stand on one laptop screen.
+*/
+/*
+  Round 12, the owner disliked the section on a phone: a row of words cut at
+  both edges over one stage taller than the screen, its scenes cut at the
+  foot. On a phone (below 768px) there is no row of words and no autoplay
+  now. The five kinds are five cards in a row that slides under the thumb, the
+  next one showing at the right edge: each card its name and what it covers,
+  then its scene, drawn at 360 x 520 so the heading, a card's name and the
+  whole card stand on one phone screen. The row is the browser's own scroll
+  with snap points (no script moves it, nothing listens to the finger), so a
+  swipe is as smooth as the page. A card's moment plays when it is the one in
+  view or beside it, and is reset only when two cards away, out of sight.
 */
 export const BUSINESS_HEADING = "One store, every kind of product"
 /** The line under the heading: at most ten words (the owner). */
@@ -51,13 +62,17 @@ export const BUSINESS_SUB = "Downloads, merch, courses, communities and calls, e
 export const BUSINESS_SLIDE_MS = 6500
 /** How long autoplay waits after a finger leaves the stage. */
 export const BUSINESS_TOUCH_RESUME_MS = 2500
+/** Below this width the kinds are a row of cards that slides (the phone layout). */
+export const BUSINESS_RAIL_QUERY = "(max-width: 767px)"
+/** How long the row must be still before the card in view counts as chosen (a swipe changes nothing while it moves). */
+export const BUSINESS_RAIL_SETTLE_MS = 140
 
 type Kind = {
   id: string
   label: string
-  /** The shorter label on a phone. */
+  /** The shorter label on a tablet's row. */
   tab: string
-  /** What the kind covers, under its name in the computer's index. */
+  /** What the kind covers, under its name in the computer's index and on a phone's card. */
   line: string
   /** Its turn, when it is not the usual length. */
   ms?: number
@@ -70,21 +85,17 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     id: "digital",
     label: "Digital products",
     tab: "Digital",
-    line: "Sample packs, presets, e-books",
-    /* Three covers rest in the middle before the next kind comes up. */
-    ms: Math.round(DIGITAL_STEP_S * 3 * 1000 + 500),
+    line: "E-books, sample packs, fonts",
     Scene: DigitalScene,
-    alt: "Digital products on Storelib: the covers of the Cine Tones LUT Pack, the Low Room Drums sample pack, the e-book Slow Sundays, Highland Presets and the font family Orlo Grotesk pass in a slow row. The one in the middle is shown full size and the buy card beside it names it and its price.",
+    alt: "A digital product on Storelib: Slow Mornings, an e-book of 40 breakfasts by Ana Folau, 96 pages, $16. Its cover stands in front of a page from inside, soft eggs on rye, beside its buy card. It is bought and the PDF downloads.",
   },
   {
     id: "physical",
     label: "Physical products",
     tab: "Physical",
-    line: "Merch and prints you ship",
-    /* Each of the four products has its turn; the next kind comes up while the last is still on show, before the row comes round to the first. */
-    ms: Math.round(PHYSICAL_STEP_S * PHYSICAL_PRODUCTS.length * 1000 - 400),
-    Scene: TeeScene,
-    alt: "Physical products on Storelib, one after another: the Midnight Studio Tee ($32, size M), the Washed Studio Cap ($28, charcoal), the Market Tote ($24) and the art print Field Study No. 4 ($40, A3). Each is picked, added to the cart, and its buy card says when it ships.",
+    line: "Goods you make and ship",
+    Scene: PhysicalScene,
+    alt: "A physical product on Storelib: Night Face Oil by Marisol Vega, $38, an amber glass dropper bottle on a wooden stand. The 30 ml size is picked and added to the cart; it ships in 2 days.",
   },
   {
     id: "courses",
@@ -125,11 +136,21 @@ const KindScene = memo(function KindScene({ i }: { i: number }) {
 const NEXT_KEYS = ["ArrowRight", "ArrowDown"]
 const PREV_KEYS = ["ArrowLeft", "ArrowUp"]
 
-/** Section 4b: the kinds of things a Storelib store sells, one moving scene each, on autoplay. */
+/* The layout follows the width, read from the browser (the section is only ever drawn there: lazy-section.tsx). */
+const subscribeRail = (on: () => void) => {
+  const q = matchMedia(BUSINESS_RAIL_QUERY)
+  q.addEventListener("change", on)
+  return () => q.removeEventListener("change", on)
+}
+const railNow = () => matchMedia(BUSINESS_RAIL_QUERY).matches
+const railOnServer = () => false
+
+/** Section 4b: the kinds of things a Storelib store sells, one moving scene each; on autoplay from a tablet up, a row of cards on a phone. */
 export function BusinessCarousel() {
   const t = useAutoTabs(BUSINESS_SLIDES.length)
   const n = BUSINESS_SLIDES.length
   const { go, advance } = t
+  const rail = useSyncExternalStore(subscribeRail, railNow, railOnServer)
 
   /* A finger on the stage holds the turn; it carries on a moment after the finger lifts (or the browser takes the touch for a scroll). */
   const [held, setHeld] = useState(false)
@@ -154,7 +175,7 @@ export function BusinessCarousel() {
     [advance],
   )
 
-  /* On a phone the words are one row that may be wider than the screen: the chosen one is brought into view inside the row (the page itself never scrolls for it). One read when the kind changes, never per frame. */
+  /* On a tablet the words are one row that may be wider than the screen: the chosen one is brought into view inside the row (the page itself never scrolls for it). One read when the kind changes, never per frame. */
   const row = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const r = row.current
@@ -164,16 +185,38 @@ export function BusinessCarousel() {
     r.scrollTo({ left: tab.offsetLeft - (r.clientWidth - tab.offsetWidth) / 2, behavior: t.reduce ? "auto" : "smooth" })
   }, [t.index, t.reduce])
 
-  const run = t.run && !held
+  /*
+    The phone's row: which card is in view, read once the row has been still
+    for a moment (never while it moves, so a swipe does no work but the
+    browser's own scroll). Its moment and its neighbours' play.
+  */
+  const railRef = useRef<HTMLDivElement>(null)
+  const [railAt, setRailAt] = useState(0)
+  const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(settle.current), [])
+  const onRailScroll = useCallback(() => {
+    clearTimeout(settle.current)
+    settle.current = setTimeout(() => {
+      const r = railRef.current
+      const first = r?.firstElementChild as HTMLElement | null | undefined
+      if (!r || !first) return
+      const next = r.children[1] as HTMLElement | undefined
+      const pitch = next ? next.offsetLeft - first.offsetLeft : first.offsetWidth
+      if (pitch > 0) setRailAt(Math.max(0, Math.min(n - 1, Math.round(r.scrollLeft / pitch))))
+    }, BUSINESS_RAIL_SETTLE_MS)
+  }, [n])
+
+  const run = t.run && !held && !rail
   return (
     <section
       ref={t.rootRef}
       className="biz"
       data-story-section="business"
       data-business=""
+      data-rail={rail || undefined}
       data-run={run || undefined}
       data-live={t.live || undefined}
-      data-auto={t.playing || undefined}
+      data-auto={(t.playing && !rail) || undefined}
       aria-labelledby="biz-title"
     >
       <ShowcaseStyles styles={BUSINESS_STYLES} />
@@ -182,82 +225,100 @@ export function BusinessCarousel() {
         <p className="biz-sub">{BUSINESS_SUB}</p>
       </div>
       <div className="biz-body">
-        <div ref={row} className="biz-tabs" role="tablist" aria-label="What you can sell">
-          {BUSINESS_SLIDES.map((s, i) => {
-            const on = i === t.index
-            return (
-              <button
-                key={s.id}
-                type="button"
-                role="tab"
-                id={`biz-tab-${s.id}`}
-                aria-controls={`biz-slide-${s.id}`}
-                aria-selected={on}
-                tabIndex={on ? 0 : -1}
-                className="biz-tab"
-                onClick={() => go(i)}
-                onKeyDown={(e) => {
-                  const step = NEXT_KEYS.includes(e.key) ? 1 : PREV_KEYS.includes(e.key) ? -1 : 0
-                  if (!step) return
-                  e.preventDefault()
-                  const to = (i + step + n) % n
-                  go(to)
-                  document.getElementById(`biz-tab-${BUSINESS_SLIDES[to].id}`)?.focus()
-                }}
-              >
-                <span className="biz-mark" aria-hidden="true">
-                  {/* The turn's clock, drawn: a ring that closes, two halves turning one after the other. A CSS animation on transform, so nothing ticks while it is paused or off screen. */}
-                  {on && (
-                    <span
-                      key={t.index}
-                      className="biz-ring"
-                      style={{ "--biz-ms": `${s.ms ?? BUSINESS_SLIDE_MS}ms` } as CSSProperties}
-                      onAnimationEnd={turnEnd}
-                    >
-                      <i className="a">
-                        <b />
-                      </i>
-                      <i className="b">
-                        <b />
-                      </i>
-                    </span>
-                  )}
-                </span>
-                <span className="biz-tab-w">
-                  <span className="biz-tab-l">{s.label}</span>
-                  <span className="biz-tab-s">{s.tab}</span>
-                  <span className="biz-tab-d">{s.line}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-        <div
-          className="biz-stage"
-          {...t.hoverProps}
-          onPointerDown={hold}
-          onPointerUp={letGo}
-          onPointerCancel={letGo}
-        >
-          {BUSINESS_SLIDES.map((s, i) => {
-            const state = t.states.get(i)
-            if (!state) return null
-            const on = state === "active" || state === "leaving"
-            return (
-              <div
-                key={s.id}
-                id={`biz-slide-${s.id}`}
-                role="tabpanel"
-                aria-labelledby={`biz-tab-${s.id}`}
-                aria-hidden={state !== "active" || undefined}
-                className={on ? "biz-slide bz-on" : "biz-slide"}
-                data-pane={state}
-              >
-                <KindScene i={i} />
+        {rail ? (
+          <div ref={railRef} className="biz-rail" role="list" aria-label="What you can sell" onScroll={onRailScroll}>
+            {BUSINESS_SLIDES.map((s, i) => (
+              <div key={s.id} className="biz-card" role="listitem" aria-labelledby={`biz-card-${s.id}`}>
+                <div className="biz-card-h">
+                  <h3 id={`biz-card-${s.id}`}>{s.label}</h3>
+                  <p>{s.line}</p>
+                </div>
+                <div className={Math.abs(i - railAt) <= 1 ? "biz-slide bz-on" : "biz-slide"} data-pane="rail">
+                  <KindScene i={i} />
+                </div>
               </div>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div ref={row} className="biz-tabs" role="tablist" aria-label="What you can sell">
+              {BUSINESS_SLIDES.map((s, i) => {
+                const on = i === t.index
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    role="tab"
+                    id={`biz-tab-${s.id}`}
+                    aria-controls={`biz-slide-${s.id}`}
+                    aria-selected={on}
+                    tabIndex={on ? 0 : -1}
+                    className="biz-tab"
+                    onClick={() => go(i)}
+                    onKeyDown={(e) => {
+                      const step = NEXT_KEYS.includes(e.key) ? 1 : PREV_KEYS.includes(e.key) ? -1 : 0
+                      if (!step) return
+                      e.preventDefault()
+                      const to = (i + step + n) % n
+                      go(to)
+                      document.getElementById(`biz-tab-${BUSINESS_SLIDES[to].id}`)?.focus()
+                    }}
+                  >
+                    <span className="biz-mark" aria-hidden="true">
+                      {/* The turn's clock, drawn: a ring that closes, two halves turning one after the other. A CSS animation on transform, so nothing ticks while it is paused or off screen. */}
+                      {on && (
+                        <span
+                          key={t.index}
+                          className="biz-ring"
+                          style={{ "--biz-ms": `${s.ms ?? BUSINESS_SLIDE_MS}ms` } as CSSProperties}
+                          onAnimationEnd={turnEnd}
+                        >
+                          <i className="a">
+                            <b />
+                          </i>
+                          <i className="b">
+                            <b />
+                          </i>
+                        </span>
+                      )}
+                    </span>
+                    <span className="biz-tab-w">
+                      <span className="biz-tab-l">{s.label}</span>
+                      <span className="biz-tab-s">{s.tab}</span>
+                      <span className="biz-tab-d">{s.line}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div
+              className="biz-stage"
+              {...t.hoverProps}
+              onPointerDown={hold}
+              onPointerUp={letGo}
+              onPointerCancel={letGo}
+            >
+              {BUSINESS_SLIDES.map((s, i) => {
+                const state = t.states.get(i)
+                if (!state) return null
+                const on = state === "active" || state === "leaving"
+                return (
+                  <div
+                    key={s.id}
+                    id={`biz-slide-${s.id}`}
+                    role="tabpanel"
+                    aria-labelledby={`biz-tab-${s.id}`}
+                    aria-hidden={state !== "active" || undefined}
+                    className={on ? "biz-slide bz-on" : "biz-slide"}
+                    data-pane={state}
+                  >
+                    <KindScene i={i} />
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
     </section>
   )
@@ -267,9 +328,10 @@ export function BusinessCarousel() {
   White, like the ideas section above it. The heading block and the body share
   one left edge: the page's (app/globals.css, --home-edge, --home-max), the
   words set in by the heading inset. From 1280px the body is two columns, the
-  index and the stage, the same height; below that the words are a row over
-  a stage as wide as the showcase cards. A scene changes by a crossfade over
-  the one before; nothing in here animates layout.
+  index and the stage, the same height; from 768px the words are a row over
+  a stage as wide as the showcase cards; below that, the row of cards. A
+  scene changes by a crossfade over the one before; nothing in here animates
+  layout.
 */
 const CSS = `
 .biz{position:relative;background:#fff;color:#18181b;overflow-x:clip}
@@ -278,7 +340,7 @@ const CSS = `
 .biz .biz-h{margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
 .biz-sub{margin:clamp(8px,.9vw,14px) 0 0;max-width:64ch;font-size:clamp(16px,1.25vw,19px);line-height:1.45;letter-spacing:-.005em;color:#65616e}
 [data-landing-story] .biz>.biz-body,.biz-body{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);row-gap:clamp(8px,1.4vw,16px);max-width:var(--home-max,2020px);margin:clamp(20px,3vw,44px) auto 0;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
-/* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than a small phone slides under the thumb. */
+/* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than the screen slides under the thumb. */
 .biz-tabs{display:flex;gap:clamp(18px,2.6vw,34px);margin:0 calc(var(--home-edge,20px) * -1);padding:0 calc(var(--home-edge,20px) + var(--home-head-inset,14px));overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
 .biz-tabs::-webkit-scrollbar{display:none}
 .biz-tab{flex:none;display:flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:0;border:0;background:none;color:#a1a1aa;font-family:inherit;font-size:16px;font-weight:550;line-height:1.2;letter-spacing:-.01em;text-align:left;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
@@ -305,11 +367,27 @@ const CSS = `
 @keyframes biz-ring-a{0%{transform:rotate(-180deg)}50%,100%{transform:rotate(0deg)}}
 @keyframes biz-ring-b{0%,50%{transform:rotate(0deg)}100%{transform:rotate(180deg)}}
 @media(max-width:767px){
-  .biz-tab-l{display:none}
-  .biz-tab-s{display:block}
-  .biz-tabs{gap:20px;padding:0 var(--home-edge,20px)}
   .biz .biz-h{font-size:clamp(32px,9vw,40px)}
+  .biz-sub{font-size:16px}
+  [data-landing-story] .biz>.biz-body,.biz-body{margin-top:24px}
 }
+/*
+  The phone's row of cards. The browser's own scroll, edge to edge, each card
+  stopping at the page's left edge with the next one showing at the right.
+  A card is a little narrower than the page's column, so the next one shows
+  22px; the gap is the page's edge, so nothing of the card before shows at
+  the left; snap-stop keeps a flick to one card at a time; the spacer after
+  the last card lets it stop at the left edge like the others.
+*/
+.biz-rail{display:flex;gap:var(--home-edge,20px);margin:0 calc(var(--home-edge,20px) * -1);padding:0 var(--home-edge,20px) 2px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:var(--home-edge,20px);scrollbar-width:none;-webkit-tap-highlight-color:transparent}
+.biz-rail::-webkit-scrollbar{display:none}
+.biz-rail::after{content:"";flex:none;width:22px}
+.biz-card{flex:none;width:calc(100% - 22px);scroll-snap-align:start;scroll-snap-stop:always}
+.biz-card-h{margin:0 0 12px;padding:0 2px}
+.biz-card-h h3{margin:0;font-size:18px;font-weight:650;line-height:1.25;letter-spacing:-.015em;color:#18181b}
+.biz-card-h p{margin:2px 0 0;font-size:14px;line-height:1.4;color:#65616e}
+.biz-rail .biz-slide{position:relative;border-radius:18px;overflow:hidden;isolation:isolate;background:#f0eff1;transition:none}
+.biz-rail .smk{pointer-events:none;user-select:none;-webkit-user-select:none}
 @media(min-width:1280px){
   /* The stage takes the room beside the index up to 66svh tall (its drawing is 1100 x 570); on a short window the index takes what is left. */
   [data-landing-story] .biz>.biz-body,.biz-body{grid-template-columns:minmax(clamp(232px,18vw,330px),1fr) minmax(0,calc(66vh * 1100 / 570));grid-template-columns:minmax(clamp(232px,18vw,330px),1fr) minmax(0,calc(66svh * 1100 / 570));column-gap:clamp(28px,3vw,64px)}

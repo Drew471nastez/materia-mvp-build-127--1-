@@ -137,6 +137,29 @@
  *    the heading one line.
  *  - every product picture eases in once it has decoded, never pops.
  *
+ * LANDING ROUND 12, THE OWNER: the money and the language changing, and the
+ * map moving, were "not smooth"; on a phone the section full width, edge to
+ * edge. A trace of a turn at 4x CPU on a phone showed why: every value had
+ * its own clock (0.22 to 1.2s, delays of 0.16 and 0.5s), so one turn ended
+ * a dozen compositor animations at a dozen moments, each a 30 to 40ms task
+ * of layer updates for the whole page; the pan and the cards set off at full
+ * speed (an ease that starts steep reads as a jump on a long pan); and the
+ * card in front changed places with its neighbour in one frame (z-index),
+ * the neighbour then 40% see-through over it. So:
+ *  - one clock, TURN_MOVE_MS: everything a turn moves starts together and
+ *    ends together, on one ease that leaves at rest and settles slowly
+ *    (GLIDE). Only the words leaving fade quicker (they start together, the
+ *    new words wait on the compositor, never a timer).
+ *  - the cards are opaque, a neighbour dimmed by a shade over it, and they
+ *    sit at depths in one 3D stack (translateZ, no z-index), so the
+ *    compositor puts the incoming card in front at the very frame it passes
+ *    the outgoing one, halfway, with nothing see-through between them.
+ *  - the pill's words, the prices and the buttons never reflow: every
+ *    country's words are laid out at once in one grid cell (the pill as wide
+ *    as the widest), figures in tabular numbers.
+ *  - on a phone the card is the screen's width, no rounded inset, and the
+ *    map window has no rounded clip (one less mask on a moving layer).
+ *
  * MOTION. No render per country: a few attributes written every 3s while
  * the section is on screen and the tab is visible. Everything that moves
  * (the highlight, the cards, the pill's words, the labels, the ring, the
@@ -201,7 +224,7 @@ export const SELL_COUNTRIES = [
   { code: "DE", country: "Germany", city: "Berlin", cell: [128, 18], total: "29,00 €", product: "Cine Tones LUT Pack", photo: "cine-tones-lut-pack.webp", kind: "digital", lang: "de", buy: "Jetzt kaufen" },
   { code: "JP", country: "Japan", city: "Tokyo", cell: [213, 29], total: "¥4,800", product: "Steel bottle", photo: "steel-bottle.webp", kind: "physical", lang: "ja", buy: "今すぐ購入", side: "left" },
   { code: "CA", country: "Canada", city: "Vancouver", cell: [37, 20], total: "C$79.00", product: "Mobility course", photo: "mobility-course.webp", kind: "digital", lang: "en", buy: "Buy now" },
-  { code: "FR", country: "France", city: "Paris", cell: [121, 20], total: "24,00 €", product: "Canvas tote", photo: "canvas-tote.webp", kind: "physical", lang: "fr", buy: "Acheter", side: "left" },
+  { code: "FR", country: "France", city: "Paris", cell: [121, 20], total: "24,00 €", product: "Camp mug", photo: "camp-mug.webp", kind: "physical", lang: "fr", buy: "Acheter", side: "left" },
   { code: "AU", country: "Australia", city: "Sydney", cell: [220, 75], total: "A$34.00", product: "Ancestral Kitchen", photo: "ancestral-kitchen-cookbook.webp", kind: "digital", lang: "en", buy: "Buy now", side: "left" },
 ] as const satisfies ReadonlyArray<{ code: string; country: string; city: string; cell: readonly [number, number]; total: string; product: string; photo: string; kind: "physical" | "digital"; lang: string; buy: string; side?: "left" }>
 
@@ -308,12 +331,18 @@ export function SellEverywhereMap() {
     el.querySelector<HTMLElement>(".cmm-flag-lit")?.style.setProperty("--cmm-a", String(i))
     const map = el.querySelector<HTMLElement>(".cmm-map")
     if (map) map.style.transform = sellMapPanTransform(SELL_COUNTRIES[i].cell)
+    /* Landing round 12: only what changes is written, so a turn restyles the few layers that move and nothing else. */
+    const put = (node: HTMLElement, name: string, value: string | null) => {
+      if (node.getAttribute(name) === value) return
+      if (value === null) node.removeAttribute(name)
+      else node.setAttribute(name, value)
+    }
     for (const node of el.querySelectorAll<HTMLElement>("[data-i]")) {
       const k = Number(node.dataset.i)
-      node.toggleAttribute("data-on", k === i)
-      node.toggleAttribute("data-was", k === t.prev)
-      if (node.hasAttribute("data-o")) node.setAttribute("data-o", String(sellStackOffset(k, i)))
-      if (node.hasAttribute("aria-pressed")) node.setAttribute("aria-pressed", String(k === i))
+      put(node, "data-on", k === i ? "" : null)
+      put(node, "data-was", k === t.prev ? "" : null)
+      if (node.hasAttribute("data-o")) put(node, "data-o", String(sellStackOffset(k, i)))
+      if (node.hasAttribute("aria-pressed")) put(node, "aria-pressed", String(k === i))
     }
     /* The line starts again: the same keyframes under the other name, so nothing is measured to restart it. */
     el.querySelector(".cmm-time")?.setAttribute("data-lap", String(t.laps % 2))
@@ -416,9 +445,15 @@ export function SellEverywhereMap() {
   )
 }
 
-const EASE = "cubic-bezier(.22,1,.36,1)"
 const SOFT = "cubic-bezier(.4,0,.2,1)"
+/** Landing round 12: leaves at rest, settles slowly; no steep start that reads as a jump. */
+const GLIDE = "cubic-bezier(.45,0,.15,1)"
 const STEP = SELL_STEP_MS
+/** Landing round 12: the one clock of a turn. Everything a turn moves starts and ends together. */
+export const SELL_TURN_MOVE_MS = 1100
+const MOVE = SELL_TURN_MOVE_MS
+/** The words leaving fade in this long; the new ones wait for it, then take the rest of the turn. */
+const OUT = 400
 const MAP_CSS = `
 @property --cmm-a{syntax:"<number>";inherits:false;initial-value:0}
 .cmm{position:relative;background:#fff;color:#0f0e13;padding:clamp(72px,9vw,128px) 0}
@@ -443,7 +478,7 @@ const MAP_CSS = `
 .cmm-pin::after{content:"";position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%}
 .cmm-pin i,.cmm-pin b{pointer-events:none}
 .cmm-dot::before{content:"";position:absolute;left:-2.5px;top:-2.5px;width:5px;height:5px;border-radius:50%;background:#fff;opacity:.55}
-.cmm-core{position:absolute;left:-3.5px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #0f0f12;opacity:.75;transform:scale(.8);transition:transform .7s ${EASE},opacity .5s ease-out}
+.cmm-core{position:absolute;left:-3.5px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #0f0f12;opacity:.75;transform:scale(.8);transition:transform ${MOVE}ms ${GLIDE},opacity ${MOVE}ms ${SOFT}}
 .cmm-pin[data-on] .cmm-core{opacity:1;transform:scale(1.2)}
 @media (hover:hover) and (pointer:fine){.cmm-pin:hover .cmm-core{opacity:1;transform:scale(1.4)}}
 .cmm-ring{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);opacity:0;transform:scale(.4)}
@@ -454,18 +489,18 @@ const MAP_CSS = `
 /* Landing round 11: the small words beside a dot, plain, no pill. A city's word steps aside while its order is in turn. */
 .cmm-say{position:absolute;left:9px;top:0;font-size:12.5px;font-weight:500;line-height:16px;letter-spacing:-.005em;color:#fff;white-space:nowrap;opacity:.62;transform:translate3d(0,-50%,0);pointer-events:none}
 .cmm-pin[data-side="left"] .cmm-say{left:auto;right:9px}
-.cmm-pin .cmm-say{transition:opacity .6s ease-out .5s,transform .7s ${EASE} .5s}
-.cmm-pin[data-on] .cmm-say{opacity:0;transform:translate3d(0,calc(-50% + 4px),0);transition:opacity .25s ease-out,transform .4s ${EASE}}
+.cmm-pin .cmm-say{transition:opacity ${MOVE}ms ${SOFT},transform ${MOVE}ms ${GLIDE}}
+.cmm-pin[data-on] .cmm-say{opacity:0;transform:translate3d(0,calc(-50% + 4px),0)}
 
 /* The flags: a column of square tiles; the lit tile slides to the country in turn. */
 .cmm-side{position:relative;z-index:1;width:max-content;margin-left:clamp(28px,2.6vw,44px);display:flex;align-items:center;gap:clamp(4px,1vw,16px)}
 .cmm-flags{position:relative;display:grid;grid-auto-rows:48px;gap:8px;margin:0;padding:0;list-style:none}
-.cmm-flag{position:relative;width:48px;height:48px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:14px;background:rgba(255,255,255,.035);opacity:.5;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .5s ease-out}
+.cmm-flag{position:relative;width:48px;height:48px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:14px;background:rgba(255,255,255,.035);opacity:.5;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity ${MOVE}ms ${SOFT}}
 .cmm-flag[data-on]{opacity:1}
 @media (hover:hover) and (pointer:fine){.cmm-flag:hover{opacity:1}}
 .cmm-flag:focus-visible{outline:2px solid #fff;outline-offset:2px;opacity:1}
 .cmm-flags img{width:26px;height:18px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
-.cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:48px;height:48px;border-radius:14px;pointer-events:none;background:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--cmm-a) * 56px),0);transition:transform .7s ${EASE}}
+.cmm-flags .cmm-flag-lit{position:absolute;left:0;top:0;width:48px;height:48px;border-radius:14px;pointer-events:none;background:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 0 0 1px rgba(255,255,255,.14);transform:translate3d(0,calc(var(--cmm-a) * 56px),0);transition:transform ${MOVE}ms ${GLIDE}}
 .cmm-flag-lit::after,.cmm-time{position:absolute;left:12px;right:12px;bottom:6px;height:2px;border-radius:2px}
 .cmm-flag-lit::after{content:"";background:rgba(255,255,255,.14)}
 .cmm-time{z-index:1;background:rgba(255,255,255,.88);transform:scaleX(0);transform-origin:0 50%;animation:cmm-time ${STEP}ms linear both;animation-play-state:paused}
@@ -475,20 +510,24 @@ const MAP_CSS = `
 @keyframes cmm-time{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes cmm-time-b{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
-/* The stack (landing round 11): every card in one grid cell, placed by data-o. */
+/* The stack (landing round 11): every card in one grid cell, placed by data-o.
+   Landing round 12: one 3D stack. A card's depth (translateZ) puts it in front or behind, so the compositor swaps two cards the frame they
+   pass each other, halfway, with no z-index changed in a frame of its own. The cards are opaque; a neighbour is dimmed by a shade over it. */
 .cmm-stage{position:relative;--cmm-w:220px;--cmm-peek:78px;padding:0 var(--cmm-peek)}
-.cmm-stack{display:grid;width:var(--cmm-w)}
-.cmm-prod{grid-area:1/1;display:flex;flex-direction:column;padding:10px;border-radius:20px;background:#17171b;background-image:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 55%);color:#f4f3f7;box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.08),0 30px 60px -30px rgba(0,0,0,.8);opacity:0;z-index:1;transform:translate3d(0,0,0) scale(.7);transition:transform .9s ${EASE},opacity .6s ${SOFT}}
-.cmm-prod[data-o="0"]{opacity:1;z-index:3;transform:none}
-.cmm-prod[data-o="1"]{opacity:.4;z-index:2;transform:translate3d(42%,0,0) scale(.84)}
-.cmm-prod[data-o="-1"]{opacity:.4;z-index:2;transform:translate3d(-42%,0,0) scale(.84)}
-.cmm-prod[data-o="2"]{transform:translate3d(64%,0,0) scale(.7)}
-.cmm-prod[data-o="-2"],.cmm-prod[data-o="-3"]{transform:translate3d(-64%,0,0) scale(.7)}
+.cmm-stack{display:grid;width:var(--cmm-w);transform-style:preserve-3d}
+.cmm-prod{position:relative;grid-area:1/1;display:flex;flex-direction:column;padding:10px;border-radius:20px;background:#17171b;background-image:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 55%);color:#f4f3f7;box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.08),0 30px 60px -30px rgba(0,0,0,.8);opacity:0;transform:translate3d(0,0,-80px) scale(.7);transition:transform ${MOVE}ms ${GLIDE},opacity ${MOVE}ms ${SOFT};will-change:transform,opacity}
+.cmm-prod::after{content:"";position:absolute;inset:0;border-radius:inherit;background:#0f0f12;opacity:.62;pointer-events:none;transition:opacity ${MOVE}ms ${SOFT};will-change:opacity}
+.cmm-prod[data-o="0"]{opacity:1;transform:translate3d(0,0,0) scale(1)}
+.cmm-prod[data-o="0"]::after{opacity:0}
+.cmm-prod[data-o="1"]{opacity:1;transform:translate3d(42%,0,-40px) scale(.84)}
+.cmm-prod[data-o="-1"]{opacity:1;transform:translate3d(-42%,0,-40px) scale(.84)}
+.cmm-prod[data-o="2"]{transform:translate3d(64%,0,-80px) scale(.7)}
+.cmm-prod[data-o="-2"],.cmm-prod[data-o="-3"]{transform:translate3d(-64%,0,-80px) scale(.7)}
 .cmm-photo{position:relative;display:block;aspect-ratio:1/1;border-radius:13px;overflow:hidden;background:#222228}
 .cmm-photo img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease-out}
 .cmm-photo img[data-ready]{opacity:1}
 .cmm-prod-name{display:block;padding:12px 4px 0;font-size:15px;line-height:21px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmm-prod-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:3px;padding:0 4px;font-size:13px;line-height:18px;white-space:nowrap}
+.cmm-prod-row{display:flex;font-variant-numeric:tabular-nums;align-items:baseline;justify-content:space-between;gap:10px;margin-top:3px;padding:0 4px;font-size:13px;line-height:18px;white-space:nowrap}
 .cmm-price{font-weight:500;font-variant-numeric:tabular-nums;color:#f4f3f7}
 .cmm-kind{font-size:12.5px;color:#8f8d99;overflow:hidden;text-overflow:ellipsis}
 .cmm-buy{display:grid;place-items:center;height:40px;margin-top:12px;border-radius:12px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:600}
@@ -496,9 +535,11 @@ const MAP_CSS = `
 /* The order pill: over the front card's right edge, reaching toward the map. */
 .cmm-order{position:absolute;z-index:4;left:calc(var(--cmm-peek) + var(--cmm-w) - 44px);top:38%;width:max-content;display:inline-flex;align-items:center;height:44px;padding:0 18px 0 7px;border-radius:999px;background:#f4f3f7;color:#141217;font-size:14px;font-weight:500;white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 18px 36px -18px rgba(0,0,0,.8)}
 .cmm-order .cmm-swap{display:grid}
-.cmm-swap span{grid-area:1/1;display:inline-flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums;opacity:0;transform:translate3d(0,6px,0);transition:opacity .22s ease-out,transform .45s ${EASE}}
-.cmm-swap span[data-was]{transform:translate3d(0,-6px,0)}
-.cmm-swap span[data-on]{opacity:1;transform:none;transition:opacity .45s ease-out .16s,transform .7s ${EASE} .16s}
+/* Landing round 12: every country's words in one grid cell, so the pill is always as wide as the widest and nothing reflows. The words leaving
+   fade in OUT; the new ones wait that long on the compositor, then fade in for the rest of the turn; both move on the turn's one clock. */
+.cmm-swap span{grid-area:1/1;display:inline-flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums;opacity:0;transform:translate3d(0,8px,0);transition:opacity ${OUT}ms ${SOFT},transform ${MOVE}ms ${GLIDE};will-change:transform,opacity}
+.cmm-swap span[data-was]{transform:translate3d(0,-8px,0)}
+.cmm-swap span[data-on]{opacity:1;transform:translate3d(0,0,0);transition:opacity ${MOVE - OUT}ms ${SOFT} ${OUT}ms,transform ${MOVE}ms ${GLIDE}}
 .cmm-order img{width:30px;height:30px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
 
 .cmm-copy{position:relative;z-index:2;margin:40px 0 0 clamp(28px,2.6vw,44px);max-width:clamp(270px,calc(32vw - 64px),380px)}
@@ -521,12 +562,13 @@ const MAP_CSS = `
   .cmm-copy{order:3;margin:30px 22px 0;max-width:none}
 }
 @media (max-width:639px){
-  .cmm-card{border-radius:21px}
-  .cmm-world{aspect-ratio:1/${VIEW_H}}
+  /* Landing round 12: the card is the screen's width, edge to edge, and so is the map's window (no rounded clip on the moving map). */
+  .cmm-card{margin:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) * -1);border-radius:0;box-shadow:none;padding-top:12px}
+  .cmm-world{aspect-ratio:1/${VIEW_H};margin:0;border-radius:0}
   .cmm-world::before,.cmm-world::after{content:"";position:absolute;z-index:2;top:0;bottom:0;width:9%;pointer-events:none}
   .cmm-world::before{left:0;background:linear-gradient(90deg,#0f0f12,rgba(15,15,18,0))}
   .cmm-world::after{right:0;background:linear-gradient(270deg,#0f0f12,rgba(15,15,18,0))}
-  .cmm-map{width:${ZOOM * 100}%;transition:transform 1.2s ${EASE};will-change:transform}
+  .cmm-map{width:${ZOOM * 100}%;transition:transform ${MOVE}ms ${GLIDE};will-change:transform}
   .cmm-side{flex-direction:column-reverse;align-items:center;gap:18px;margin-top:0}
   .cmm-flags{grid-auto-flow:column;grid-auto-rows:44px;grid-auto-columns:44px;gap:8px}
   .cmm-flag,.cmm-flags .cmm-flag-lit{width:44px;height:44px;border-radius:13px}

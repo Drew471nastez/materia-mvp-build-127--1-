@@ -18,7 +18,7 @@ import { createDotEngine, type DotEngine, type FieldKind, type TileCanvas } from
 export type DotDriver = {
   /** True when the fields are drawn in a worker. */
   worker: boolean
-  field: (id: number, kind: FieldKind, gap: number, fine: boolean, reduced: boolean) => void
+  field: (id: number, kind: FieldKind, gap: number, fine: boolean, reduced: boolean, scatter?: boolean) => void
   remove: (id: number) => void
   /** A tile's canvas: handed over to the worker (it can never be drawn on from here again), or drawn on here. */
   tile: (id: number, n: number, canvas: HTMLCanvasElement) => void
@@ -69,7 +69,7 @@ function startWorker(onDrawn: Listener): DotDriver | null {
   }
   return {
     worker: true,
-    field: (id, kind, gap, fine, reduced) => w.postMessage({ type: "field", id, kind, gap, fine, reduced }),
+    field: (id, kind, gap, fine, reduced, scatter) => w.postMessage({ type: "field", id, kind, gap, fine, reduced, scatter: !!scatter }),
     remove: (id) => w.postMessage({ type: "remove", id }),
     tile: (id, n, canvas) => {
       const off = canvas.transferControlToOffscreen()
@@ -98,7 +98,7 @@ function startLocal(onDrawn: Listener): DotDriver {
   })
   return {
     worker: false,
-    field: (id, kind, gap, fine, reduced) => engine.field(id, kind, gap, fine, reduced),
+    field: (id, kind, gap, fine, reduced, scatter) => engine.field(id, kind, gap, fine, reduced, scatter),
     remove: (id) => engine.remove(id),
     tile: (id, n, canvas) => engine.tile(id, n, canvas as unknown as TileCanvas),
     dropTile: (id, n) => engine.dropTile(id, n),

@@ -90,7 +90,8 @@ console.log("\nCommerce: the sections render on the server")
   /* Changed on purpose (landing round): the owner asked for less "fans" in the copy. */
   // Changed on purpose (landing round 7, the owner: "another heading, more clean and simple", two tones like section 3).
   // Changed on purpose (landing round 9): a new heading, the products card being gone.
-  check("how it works: its heading", how.includes("Take tips. See what sells.") && HOW_HEADING.lead === "Take tips. See what sells." && HOW_HEADING.rest === "All on your own domain." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
+// Changed on purpose (landing round 12): the owner asked for a better heading and new pictures (the real dashboard, a tip flow, a typed domain over another creator's store).
+  check("how it works: its heading", how.includes("See every sale as it happens.") && HOW_HEADING.lead === "See every sale as it happens." && HOW_HEADING.rest === "Add tips and your own domain." && !/\bfans?\b/i.test(how.replace(/<style[\s\S]*?<\/style>/g, "")))
   /* Changed on purpose (landing round 3): a sixth tile, the creator's own domain, as the owner asked. */
   // Changed on purpose (landing round 7): four cards in section 3's two by two grid; the checkout and files tiles are gone.
   // Changed on purpose (landing round 9): three cards in one row (tips, the numbers, your own domain); the products and course cards repeated other sections.
@@ -103,13 +104,15 @@ console.log("\nCommerce: the sections render on the server")
   // Changed on purpose (landing round 7): the owner did not like Nadia Brooks's print: a $38 shop apron (an example $16 print cost) and $24 workbench plans.
   // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack: a $32 tee (an example $12.50 print cost) and the $29 pack.
   // Changed on purpose (landing round 9): section 3's two products as the shop's top products, with what section 3 says each made.
-  check("how it works: the $29 LUT pack and the $32 tee as top products", how.includes("$11,194") && how.includes("$6,848") && HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.priceCents).join() === "2900,3200" && HOW_PRODUCTS.every((p) => how.includes(p.name)) && how.includes("/home/everything/tee.webp") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
+// Changed on purpose (landing round 12): the owner asked for a better heading and new pictures (the real dashboard, a tip flow, a typed domain over another creator's store).
+  check("how it works: the dashboard counts the $29 LUT pack and the $32 tee", HOW_PRODUCTS.length === 2 && HOW_PRODUCTS.map((p) => p.priceCents).join() === "2900,3200" && how.includes("$9,842 all time") && !how.includes("print-lasalle") && !how.includes("cap-yellow"))
   check("how it works: no You keep figures", !/You keep|Print cost/.test(how) && typeof calculateStorelibFee === "function") // Changed on purpose (landing round 9): they were the products card's.
   /* Changed on purpose (landing round): the course tile is the course player now (components/courses/course-player.tsx: "Lessons", "2 of 6 done"). */
 /* Changed on purpose (landing round 4): the checkout tile is the live OnePage and its product sheet, captured (public/home/how/op-nadia*.webp), so its words are in the picture. */
   // Changed on purpose (landing round 7): no checkout or files tile any more; the course player keeps its real words.
   // Changed on purpose (landing round 9): the reports' own names (app/(storelib)/app/analytics).
-  check("how it works: the tiles use the product's real words", ["Sales", "Top products", "Orders by country"].every((w) => how.includes(w)) && !how.includes("op-nadia") && !how.includes("Check out"))
+// Changed on purpose (landing round 12): the owner asked for a better heading and new pictures (the real dashboard, a tip flow, a typed domain over another creator's store).
+  check("how it works: the tiles use the product's real words", ["Visitors", "Revenue", "Orders", "Conversion Rate", "Orders per visitor", "Leave a tip"].every((w) => how.includes(w)) && !how.includes("op-nadia") && !how.includes("Check out"))
   /* Added (landing round): the owner never wants the Golden Hour presets mockups again, nor the camera picture on the course. */
   check("how it works: no Golden Hour presets, no camera course picture, no purple gradient grounds", !/Golden Hour|golden-cover|course-camera|lt-field/i.test(how + src.how) && !/linear-gradient\(160deg,#4c1d95/.test(src.how))
 
@@ -244,7 +247,8 @@ console.log("\nCommerce: images")
   // Changed on purpose (landing round 8): the tee in place of the apron and the bench (the LUT pack's still is section 3's file).
   // Changed on purpose (landing round 9): the white tee and the lesson still are deleted with their cards.
   // Changed on purpose (landing round 10): the workshop picture went with his website on the domain card.
-  check("public/home/how holds the cap and print and the woodshop's avatar, webp, each under 30 KB", howFiles.sort().join() === "cap-yellow.webp,linde-avatar.webp,linde-turning.webp,print-lasalle.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles) // Changed on purpose (landing round 11): the workshop photograph on his website in the domain card.
+// Changed on purpose (landing round 12): the owner asked for a better heading and new pictures (the real dashboard, a tip flow, a typed domain over another creator's store).
+  check("public/home/how holds the woodshop's avatar and cover and Fernlyn's four photographs, webp, each under 30 KB", howFiles.sort().join() === "fern-linen.webp,fern-oil.webp,fern-roller.webp,fern-table.webp,linde-avatar.webp,linde-turning.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   /* Changed on purpose (wave 17): the checkout's two tiny avatars (pc-av, cdx-av) load and decode at once, so they are never blank when the scene scrolls in on an iPhone. */
   const avatars = (all.match(/<img className="(pc|cdx)-av"[^>]*>/g) ?? []).filter((t) => !/loading=|decoding=/.test(t)).length

@@ -84,7 +84,8 @@ console.log("\n── every picture fades in once decoded ──")
   check("the fade runs out off screen too (the section pause leaves it)", /animationName !== "landing-img-in"/.test(story))
   check("not the showcase's (its own queue) and not the logo", IMG_SKIP.includes(".build-showcase img") && IMG_SKIP.includes("img[data-storelib-logo]"))
   check("no picture hidden under reduced motion", /if \(reduced\) return/.test(story) && REVEAL_CSS.indexOf('img[data-img="wait"]') > REVEAL_CSS.indexOf("@media (prefers-reduced-motion:no-preference)"))
-  check("no timer", !/setTimeout|setInterval/.test(story))
+  // Changed on purpose (landing round 12): the scroll listener reads the position in a task queued from the next frame (after layout), its one zero-delay setTimeout; no other timer.
+  check("no timer", !/setTimeout|setInterval/.test(story.replace("requestAnimationFrame(() => window.setTimeout(measure, 0))", "")))
 }
 
 console.log("\n── a calmer entrance on a phone, once ──")
@@ -111,8 +112,8 @@ console.log("\n── the FAQ heading is not purple ──")
 console.log("\n── the footer draws the app icon ──")
 {
   const footer = renderToStaticMarkup(createElement(MarketingFooter))
-  check("the colourful logo picture, 40px", /<img[^>]*data-storelib-logo=""[^>]*>/.test(footer) && /width="40"/.test(/<img[^>]*data-storelib-logo=""[^>]*>/.exec(footer)?.[0] ?? "") && !/data-storelib-logo="outline"/.test(footer))
-  check("the outline drawing is gone from the logo component", !/outline|STORELIB_S_PATH|<svg/.test(code("components/brand/storelib-logo.tsx")))
+  check("a solid mark, 40px, not outlined", /<svg[^>]*data-storelib-logo="solid"[^>]*>/.test(footer) && /width="40"/.test(/<svg[^>]*data-storelib-logo="solid"[^>]*>/.exec(footer)?.[0] ?? "") && !/data-storelib-logo="outline"/.test(footer)) // Changed on purpose (landing round 12): the owner wants a solid mark like Shopify's, not the colour picture.
+  check("the outline drawing is gone from the logo component", !/outline/.test(code("components/brand/storelib-logo.tsx"))) // Changed on purpose (landing round 12): the component draws the solid mark from the S's curves, so it has an <svg> and the path again; still no outline.
 }
 
 console.log("\n── copy and registration ──")

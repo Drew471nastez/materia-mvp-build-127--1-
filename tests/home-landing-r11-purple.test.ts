@@ -68,7 +68,8 @@ console.log("\n── analytics: an icon per report, a favicon per result ──
   check("the tiles keep their white glass", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.17\) 0%, rgba\(255, 255, 255, 0\.1\) 100%\);/.test(css) && !/backdrop-filter/.test(css))
   const wells = html.match(/<span class="[^"]*faviconWell[^"]*"><svg[^>]*viewBox="0 0 16 16"[\s\S]*?<\/svg><\/span>/g) ?? []
   check("three results, three favicons in round wells", wells.length === 3 && /\.faviconWell \{[^}]*width: 26px;[^}]*border-radius: 50%;/.test(css), wells.length)
-  check("each site its own mark and colour", /<rect[^>]*fill="#1d5b5e"[\s\S]*?>N<\/text>/.test(wells[0] ?? "") && /fill="#d4712a"[\s\S]*?>fg<\/text>/.test(wells[1] ?? "") && /<circle[^>]*fill="#b8322c"[\s\S]*?>C<\/text>/.test(wells[2] ?? ""))
+  /* Changed on purpose (landing round 12): the owner found the monograms "still letter tiles"; each site has a drawn mark now (tests/home-landing-r12-purple.test.ts). */
+  check("each site its own mark and colour", /data-favicon="fjord"/.test(wells[0] ?? "") && /data-favicon="film"/.test(wells[1] ?? "") && /data-favicon="lights"/.test(wells[2] ?? "") && !/<text/.test(wells.join("")))
   check("no grey initials left", !/initial:|\{r\.initial\}/.test(src))
   check("nothing purple on the purple sheet", !/#(7c3aed|8b5cf6|a78bfa|c4b5fd)/i.test(src + css))
   check("no banned words or em dashes", !BANNED.test(text(html)))
@@ -101,8 +102,9 @@ console.log("\n── the map: a new heading, flags, a stack, an order pill ─�
   check("a card per country, each with its own picture, name, price, how it arrives and button", cards.length === SELL_COUNTRIES.length && (html.match(/class="cmm-photo"/g) ?? []).length === 6 && (html.match(/class="cmm-buy" lang="/g) ?? []).length === 6)
   check("on arrival: the first in front, its neighbours peeking out, the rest hidden", cards.map((c) => c.match(/data-o="(-?\d)"/)?.[1]).join() === "0,1,2,-3,-2,-1")
   check("a card's place is its offset from the country in turn", sellStackOffset(1, 0) === 1 && sellStackOffset(5, 0) === -1 && sellStackOffset(0, 1) === -1 && sellStackOffset(3, 0) === -3 && sellStackOffset(2, 5) === -3 && sellStackOffset(4, 3) === 1)
-  check("neighbours smaller and dimmed behind the front card; the rest hidden", /\.cmm-prod\[data-o="1"\]\{opacity:\.4;z-index:2;transform:translate3d\(42%,0,0\) scale\(\.84\)\}/.test(css) && /\.cmm-prod\[data-o="-1"\]\{opacity:\.4;z-index:2;transform:translate3d\(-42%,0,0\) scale\(\.84\)\}/.test(css) && /\.cmm-prod\{[^}]*opacity:0;z-index:1;/.test(css))
-  check("a turn moves cards by transform and opacity only", /\.cmm-prod\{[^}]*transition:transform \.9s \$\{EASE\},opacity \.6s \$\{SOFT\}\}/.test(css) && /node\.setAttribute\("data-o", String\(sellStackOffset\(k, i\)\)\)/.test(src))
+  /* Changed on purpose (landing round 12): opaque cards at depths in one 3D stack, a neighbour dimmed by a shade, all on one 1.1s clock (tests/home-landing-r12-purple.test.ts). */
+  check("neighbours smaller and dimmed behind the front card; the rest hidden", /\.cmm-prod\[data-o="1"\]\{opacity:1;transform:translate3d\(42%,0,-40px\) scale\(\.84\)\}/.test(css) && /\.cmm-prod\[data-o="-1"\]\{opacity:1;transform:translate3d\(-42%,0,-40px\) scale\(\.84\)\}/.test(css) && /\.cmm-prod\{[^}]*opacity:0;transform:translate3d\(0,0,-80px\) scale\(\.7\)/.test(css))
+  check("a turn moves cards by transform and opacity only", /\.cmm-prod\{[^}]*transition:transform \$\{MOVE\}ms \$\{GLIDE\},opacity \$\{MOVE\}ms \$\{SOFT\}/.test(css) && /put\(node, "data-o", String\(sellStackOffset\(k, i\)\)\)/.test(src))
   check("an order pill with the buyer's flag over the front card's edge", (html.match(/class="cmm-order"/g) ?? []).length === 1 && SELL_COUNTRIES.every((c) => words.includes(`Order for ${c.total}`)) && /\.cmm-order\{position:absolute;z-index:4;left:calc\(var\(--cmm-peek\) \+ var\(--cmm-w\) - 44px\)/.test(css))
   check("small words beside the dots: Shipped or Delivered for the countries, Shipped for six earlier orders", SELL_DONE.physical === "Shipped" && SELL_DONE.digital === "Delivered" && (html.match(/class="cmm-say">Shipped</g) ?? []).length === 3 + SELL_PAST_SAYS.size && (html.match(/class="cmm-say">Delivered</g) ?? []).length === 3 && SELL_PAST_SAYS.size === 6)
   check("plain words, no pill, and the city in turn shows its ring instead", /\.cmm-say\{position:absolute;left:9px;top:0;font-size:12\.5px;[^}]*opacity:\.62;/.test(css) && !/\.cmm-say\{[^}]*background/.test(css) && /\.cmm-pin\[data-on\] \.cmm-say\{opacity:0;/.test(css))
@@ -131,7 +133,8 @@ console.log("\n── the phone's pan, back ──")
   const css = src.split("const MAP_CSS = `")[1] ?? ""
   check("the pan is written straight on as the map's transform, at arrival and every turn", /style=\{\{ transform: sellMapPanTransform\(SELL_COUNTRIES\[0\]\.cell\) \}\}/.test(src) && /if \(map\) map\.style\.transform = sellMapPanTransform\(SELL_COUNTRIES\[i\]\.cell\)/.test(src))
   check("no registered pan property left to fail to transition", !/--cmm-pan-x|--cmm-pan-y/.test(src))
-  check("eased over 1.2s on one composited layer, under 640px", /@media \(max-width:639px\)\{[\s\S]*\.cmm-map\{width:\$\{ZOOM \* 100\}%;transition:transform 1\.2s \$\{EASE\};will-change:transform\}/.test(css))
+  /* Changed on purpose (landing round 12): the pan rides the turn's one clock (1.1s) on an ease that leaves at rest. */
+  check("eased on one composited layer, under 640px", /@media \(max-width:639px\)\{[\s\S]*\.cmm-map\{width:\$\{ZOOM \* 100\}%;transition:transform \$\{MOVE\}ms \$\{GLIDE\};will-change:transform\}/.test(css))
   check("wider screens show the whole map, unmoved", /@media \(min-width:640px\)\{\.cmm-map\{transform:none!important\}\}/.test(css))
   check("every country's pan is a different place", new Set(SELL_COUNTRIES.map((c) => sellMapPanTransform(c.cell))).size === SELL_COUNTRIES.length)
   check("reduced motion: the pan, the cards and the pictures are still", /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-prod,\.cmm-photo img,\.cmm-map\{transition:none!important\}/.test(css))

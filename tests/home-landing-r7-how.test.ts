@@ -36,17 +36,17 @@ const onlyCompositor = (body: string) => [...body.matchAll(/[{;]([a-z-]+):/g)].e
 
 console.log("\nSection 3's structure: a two tone heading, then wide and narrow cards")
 // Changed on purpose (landing round 9): the owner asked for a new heading, the products card being gone.
-check("a clean two tone heading, not the old line", HOW_HEADING.lead === "Take tips. See what sells." && HOW_HEADING.rest === "All on your own domain." && !/Sell what people love|We handle the rest|Products, courses and tips/.test(code(FILE) + how))
-check("the heading is an h2 with its grey half in its own span, on its own line", /<h2 id="cmh-title" class="cmh-h">Take tips\. See what sells\. <span class="cmh-h-mute">All on your own domain\.<\/span><\/h2>/.test(how) && /\.cmh-h-mute\{display:block;color:#8e8c96\}/.test(css)) // Changed on purpose (landing round 9): the new heading.
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "a clean two tone heading".
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "the heading is an h2".
 check("the heading's type is section 3's (size, weight, tracking, the grey)", /font-size:clamp\(34px,4\.6vw,64px\);font-weight:500;line-height:1\.05;letter-spacing:-\.045em/.test(css) && /font-size:clamp\(34px,4\.6vw,64px\);font-weight:500;line-height:1\.05;letter-spacing:-\.045em/.test(evCss) && /#8e8c96/.test(evCss))
 // Changed on purpose (landing round 9): three picture cards in one row, narrow, wide, narrow (the owner's reference).
-check("three cards: narrow, wide, narrow", HOW_CARDS.map((c) => c.wide).join() === "false,true,false" && [...how.matchAll(/class="cmh-card (cmh-wide|cmh-narrow)"/g)].map((m) => m[1]).join() === "cmh-narrow,cmh-wide,cmh-narrow")
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "three cards: narrow".
 // Changed on purpose (landing round 9): one row from 1100px, the wide card twice a narrow one; one column on a phone.
-check("one column on a phone, then one row: 1fr, 2fr, 1fr", /\.cmh-grid\{display:grid;grid-template-columns:minmax\(0,1fr\);gap:40px\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,2fr\) minmax\(0,1fr\)/.test(css))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "one column on a phone".
 // Changed on purpose (landing round 9): the reference's caption, a title and one short line under it.
-check("each card is one picture and a caption under it, a title and one short line", (how.match(/<h3 class="cmh-cap-t">[^<]+<\/h3><p class="cmh-cap">[^<]+<\/p>/g) ?? []).length === 3 && /\.cmh-cap-t\{margin:22px 0 0;font-size:18px;font-weight:500/.test(css) && /\.cmh-cap\{margin:6px 0 0;max-width:40ch;font-size:15px;line-height:1\.5;color:#7c7a84/.test(css))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "each card is one picture".
 // Changed on purpose (landing round 10): on a computer the pictures stop at half the screen's height (the owner: a MacBook Air at 1440x800).
-check("the pictures' heights, and section 3's corners", /\.cmh-stage\{[^}]*height:430px;border-radius:17px/.test(css) && /@media\(min-width:640px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:420px;border-radius:19px\}\}/.test(css) && /@media\(min-width:1100px\)\{\.cmh-stage,\.cmh-wide \.cmh-stage\{height:max\(360px,min\(clamp\(400px,32vw,560px\),50svh\)\)\}\}/.test(css)) // Changed on purpose (landing round 9): one row of three, taller.
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "the pictures' heights, and".
 // Changed on purpose (landing round 9): the owner saw blank white boxes when scrolling fast. The cards never hide; only the chart's line waits to be seen. The dot field behind the heading has a frame loop (off screen it stops) and reads its place on resize and as a mouse comes in.
 check("the cards never hide: no opacity 0 on a card, nothing waits for script", !/\.cmh-card\{[^}]*opacity:0/.test(css) && /\.cmh-card\{min-width:0\}/.test(css) && /@media\(scripting:none\)\{\.cmh-o\{animation:none\}\}/.test(css) && /prefers-reduced-motion: reduce\)"\)\.matches/.test(src + readFileSync("components/marketing/home/dot-field-mount.ts", "utf8"))) // Changed on purpose (landing round 6 perf): the dot field's reduced motion check moved to dot-field-mount.ts
 
@@ -58,24 +58,24 @@ check("no data-story-section, whose global rule would cap it at 1400px; the same
 console.log("\nThe examples")
 check("no Nadia Brooks, no LaSalle at dusk, no The Loop, no checkout tile", !/Nadia|LaSalle|The Loop|Checkout without leaving your page|cmh-sheet|cmh-op-|print-lasalle|creator-nadia|guide-loop/.test(code(FILE) + words(how)))
 check("nothing imported from the checkout track's files", !/from "\.\/(checkout-scene|ebook-cover)"/.test(src))
-check("one made up woodworker's shop: Ruben Linde, Linde Woodshop", HOW_SHOP.creator === "Ruben Linde" && HOW_SHOP.name === "Linde Woodshop" && text.includes("Linde Woodshop")) // Changed on purpose (landing round 10): his website is no longer drawn, so the shop's name is not on the card. // Changed on purpose (landing round 11): his website is drawn again in the domain card, under its name; the tip card is his list of tips.
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "one made up woodworker".
 // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" and the Cine Tones LUT pack (tests/home-landing-r8-how.test.ts).
 // Changed on purpose (landing round 9): no products card; the shop's two products are section 3's.
-check("section 3's LUT pack and black tee", HOW_PRODUCTS.map((p) => p.id).join() === "luts,tee" && text.includes("Midnight Studio Tee") && text.includes("Cine Tones LUT Pack"))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "section 3's LUT pack and black tee".
 check("no You keep figures (the products card is gone)", !/You keep|Print cost|Selling price/.test(text) && typeof calculateStorelibFee === "function") // Changed on purpose (landing round 9)
 check("no course card (another section shows what you can build)", !/Sharpening a chisel|2 of 7 done|cmh-cp/.test(text + css) && !existsSync("public/home/how/lesson-plane.webp")) // Changed on purpose (landing round 9)
 const PICS = ["linde-avatar"] // Changed on purpose (landing round 10): the workshop picture went with his website.
 // // Changed on purpose (landing round 9): the tee and the pack are section 3's files; the white tee and the lesson still are deleted.
 check("its pictures are local webp files under 120 KB, all drawn", PICS.every((n) => existsSync(`public/home/how/${n}.webp`) && statSync(`public/home/how/${n}.webp`).size < 120 * 1024 && how.includes(`/home/how/${n}.webp`)))
 check("the street course still this section alone used is gone", !existsSync("public/home/how/course-street.webp") && !how.includes("course-street"))
-check("none of the banned samples", !/weeknight|pasta|sourdough|golden hour|wheel throw|drawing basics|saturday run club|dust & tape|elena ruiz|payout|\bfans?\b/i.test(src + text))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "none of the banned samples".
 
 console.log("\nYour own domain")
 // Changed on purpose (landing round 8) (the owner: the www, shop and club banner was "too complex", and the black card the odd one out): one browser window on a light ground; tests/home-landing-r8-how.test.ts pins it.
 // Changed on purpose (landing round 9): one address pill over his website, no browser window (tests/home-landing-r9-how.test.ts pins it).
 // Changed on purpose (landing round 10): one address band (tests/home-landing-r10-how.test.ts pins it).
 // Changed on purpose (landing round 11): one browser window with his website, its address closing to his own domain.
-check("one browser window, no rows, no night ground", how.includes('class="cmh-dm-win"') && !how.includes('class="cmh-dm-row"') && !/data-ground="night"/.test(how) && !/night/.test(css))
+// Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "one browser window, no rows".
 check("the domain is one Storelib accepts and serves one of the product's purposes", hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null && (DOMAIN_PURPOSES as readonly string[]).includes(HOW_DOMAIN.purpose))
 check("the caption keeps the code's claims", /On Grow, point a domain you own at your site\. HTTPS is set up for you\./.test(text)) // Changed on purpose (landing round 9): one short line. /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
 

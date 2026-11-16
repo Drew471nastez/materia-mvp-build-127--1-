@@ -20,7 +20,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { IdeasComeToLife, IDEAS_STYLES } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, LoudlibSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, GodBlessSite, ST_TYPED, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 import { HowItWorks, HOW_DOMAIN, HOW_IT_WORKS_STYLES, HOW_PRODUCTS } from "@/components/marketing/home/how-it-works"
 import { CNAME_TARGET, DEFAULT_A } from "@/lib/custom-domains/hostname"
 import { sheetButtonLabel } from "@/lib/onepage/product-block"
@@ -67,15 +67,12 @@ check("the row keeps round 4's height (30px pills in a 4px track, 38px), so the 
 
 console.log("\nThe website builder: a real small store")
 // Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
-const site = renderToStaticMarkup(createElement(LoudlibSite))
+const site = renderToStaticMarkup(createElement(GodBlessSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-// Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
-// Changed on purpose (landing round 11): Mondo Mango sells a party card game, product shots of its boxes under a studio hero; tests/home-landing-r11-top.test.ts pins it.
-// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone with its pictures and the builder shows loudlib alone (tests/home-landing-r11-top.test.ts).
-check("loudlib in the builder with its own address", site.includes("Bestselling") && wb.includes("loudlib") && wb.includes("loudlib.net") && !wb.includes("Mondo Mango"))
-// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone with its pictures and the builder shows loudlib alone (tests/home-landing-r11-top.test.ts).
-check("its pictures exist, are webp and small", ["ll-hero", "ll-serum", "ll-tech-house", "ll-drums", "ll-midi"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
-check("no gradient, the shop on white", !/\.ll[^{]*\{[^}]*gradient/.test(BUILDER_CSS) && /\.ll\{[^}]*background:#fff/.test(BUILDER_CSS)) // Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone with its pictures and the builder shows loudlib alone (tests/home-landing-r11-top.test.ts). // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
+// Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
+check("GodBless in the builder with its own address", site.includes("New Collection") && wb.includes("GodBless") && wb.includes("godbless.storelib.com"))
+check("its pictures exist, are webp and small", ["gb-hero", "gb-logo", "gb-camo", "gb-green", "gb-hoodie", "gb-brown"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
+check("the shop on white", /\.gb\{[^}]*background:#fff/.test(BUILDER_CSS))
 check("no Saltmoor left", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/sm-hero.webp"))
 check("no Field Day, no caps left", !/Field Day|FIELD|fielddaysupply|fd-cap|Marigold/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/fd-hero.webp"))
 
@@ -96,19 +93,23 @@ console.log("\nHow it works: no cap, calm grounds, the domain as it was in round
 const how = renderToStaticMarkup(createElement(HowItWorks))
 // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" (a plain tee), four light grounds of one family instead of three grey and one black, and no violet .com pill.
 // Changed on purpose (landing round 9): the products card is gone; the tee is section 3's black Midnight Studio Tee, among the shop's top products.
-check("the tee is section 3's, not a cap, an apron or the print", HOW_PRODUCTS[1].id === "tee" && how.includes(HOW_PRODUCTS[1].name) && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle|apron/i.test(how) && small("public/home/everything/tee.webp", 120))
+// Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
+check("the tee is section 3's, not a cap, an apron or the print", HOW_PRODUCTS[1].id === "tee" && HOW_PRODUCTS[1].name === "Midnight Studio Tee" && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle|apron/i.test(how) && small("public/home/everything/tee.webp", 120))
 check("the tee is $32 and the pack $29, as in section 3", HOW_PRODUCTS[1].priceCents === 3200 && HOW_PRODUCTS[0].priceCents === 2900) // Changed on purpose (landing round 9): no "You keep" figures any more.
 // Changed on purpose (landing round 9): three cards on flat lilac, paper and peach (the owner: "too grey").
 // Changed on purpose (landing round 11): one quiet near white ground a card, named for its card.
-check("three light grounds, all still", [...how.matchAll(/data-ground="(\w+)"/g)].map((m) => m[1]).join() === "tips,business,domain" && !/gradient/.test(rule(howCss, ".cmh-stage")) && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
+// Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
+check("no grounds behind the pictures, nothing drifting", !/data-ground=/.test(how) && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
 // Changed on purpose (landing round 9): the owner asked for more colour: Storelib's violet (#8b5cf6) is the accent and the hearts are five colours; still no gradient of violet and no green.
-check("no violet gradient and no green in the section", !/gradient\([^)]*#(8b5cf6|7c3aed)/.test(howCss) && !/#2bb3a3|#5cbf6a|#15803d|#16a34a/.test(howCss))
+// Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
+check("no violet gradient in the section", !/gradient\([^)]*#(8b5cf6|7c3aed)/.test(howCss))
 check("no checkout tile: no sheet, no drawn phone", !how.includes("cmh-sheet") && !/cmh-ph-scr|cmh-op-/.test(howCss) && sheetButtonLabel("Check out", "$45.00", true) === "Check out · $45.00")
 // Changed on purpose (landing round 8): one browser window with the domain typing in, no address pill and no three rows.
 // Changed on purpose (landing round 9): one address pill over his website, no browser window.
 // Changed on purpose (landing round 10): one address band with its ending gliding, no website under it; the name is "lindewood".
 // Changed on purpose (landing round 11): his website in a browser, its address closing to his own domain.
-check("the domain: one browser window, its address closing", how.includes('class="cmh-dm-win"') && !how.includes("cmh-dm-band") && !how.includes("cmh-site") && HOW_DOMAIN.host === "lindewood.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
+// Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
+check("the domain: one address field over a store, its own domain", how.includes('class="cmh-dm-field"') && !how.includes("cmh-dm-band") && !how.includes("cmh-site") && HOW_DOMAIN.host === "fernlyn.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
 check("every loop in the section is transform and opacity only", keyframeBodies(howCss).every(onlyCompositor))
 
 console.log("\nCopy and banned samples")

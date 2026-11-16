@@ -361,13 +361,24 @@
   results, drifting one cell diagonally and starting again: a transform loop,
   without a seam because the pattern repeats every cell.
 */
-.dots {
+/*
+  Landing round 12 (perf): the fade is on a still box (.dotsField, where .dots
+  was) and the grid drifts inside it, so the moving layer carries no mask of
+  its own. The drift uncovers only the field's top and left 22px, which lie
+  outside the card.
+*/
+.dotsField {
   position: absolute;
   inset: -22px;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 0.9px, transparent 1.5px);
-  background-size: 22px 22px;
+  pointer-events: none;
   -webkit-mask-image: radial-gradient(90% 70% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.35) 40%, transparent 70%);
   mask-image: radial-gradient(90% 70% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.35) 40%, transparent 70%);
+}
+.dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 0.9px, transparent 1.5px);
+  background-size: 22px 22px;
   animation: dotsDrift 16s linear infinite;
 }
 @keyframes dotsDrift {
@@ -385,16 +396,24 @@
   middle. One transform, very low contrast. Round 7: neutral, a white and a
   cool grey, nothing violet.
 */
+/*
+  Landing round 12 (perf): the same two tints on a smaller square, 154% of the
+  card (was 180%: 0.73 of the area). Each tint ends at 70% of its radius, so
+  nothing in them lies further than 76% of the card's width from the middle,
+  and 154% is the smallest square whose inner circle holds all of it at every
+  angle. The stops are the old ones in the new square's terms: same place,
+  same size on screen.
+*/
 .orbit {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 180%;
+  width: 154%;
   aspect-ratio: 1;
-  margin: -90% 0 0 -90%;
+  margin: -77% 0 0 -77%;
   background:
-    radial-gradient(22% 22% at 30% 34%, rgba(255, 255, 255, 0.07), transparent 70%),
-    radial-gradient(24% 24% at 70% 66%, rgba(186, 196, 214, 0.06), transparent 70%);
+    radial-gradient(25.71% 25.71% at 26.62% 31.3%, rgba(255, 255, 255, 0.07), transparent 70%),
+    radial-gradient(28.05% 28.05% at 73.38% 68.7%, rgba(186, 196, 214, 0.06), transparent 70%);
   animation: orbit 60s linear infinite;
 }
 @keyframes orbit {
@@ -446,6 +465,9 @@
   margin-left: calc(var(--step) / -2);
   transform: translate3d(calc(var(--pos, 5) * var(--step) * -1), 0, 0);
   transition: transform 1000ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+/* Landing round 12 (perf): its own layer only while the section is live (it slides every 2.6s then), not for good. */
+[data-platform-live="true"] .strip {
   will-change: transform;
 }
 .strip[data-snap] {
@@ -485,7 +507,7 @@
   z-index: -1;
   border-radius: 50%;
   pointer-events: none;
-  will-change: transform;
+  /* Landing round 12 (perf): no will-change. A running drift is its own layer anyway; one paused far off screen need not be. */
   animation: orbDrift 22s ease-in-out infinite alternate;
 }
 .orbGlobeA {
@@ -557,6 +579,5 @@
   }
   .orb {
     animation: none;
-    will-change: auto;
   }
 }

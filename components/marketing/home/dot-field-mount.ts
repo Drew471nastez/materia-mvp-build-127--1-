@@ -25,6 +25,8 @@ let nextId = 1
 export type FieldMountOptions = {
   kind: FieldKind
   gap: number
+  /** Scattered dots (seeded Poisson disc) in place of the even grid. */
+  scatter?: boolean
   /** Where the mouse is followed: the window (the field's light follows it anywhere on the page, within a margin of the box) or an element (the section the field heads). */
   pointer: "window" | HTMLElement
 }
@@ -42,7 +44,7 @@ export function mountDotField(box: HTMLElement, o: FieldMountOptions): () => voi
     box.setAttribute("data-drawn", "")
   }
   const { driver, release } = acquireDotDriver(onDrawn)
-  driver.field(id, o.kind, o.gap, fine, reduced)
+  driver.field(id, o.kind, o.gap, fine, reduced, o.scatter)
 
   let w = 0
   let h = 0

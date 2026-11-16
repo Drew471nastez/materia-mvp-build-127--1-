@@ -161,7 +161,8 @@ check("keyframes animate only transform and opacity", () => {
 check("engine: one rAF, transform only, IO and visibility pause, drag with capture, pan-y", () => {
   const src = read(SRC)
   /* Changed on purpose (landing round 8): the transform string is made in one place (tf), the same translate3d. */
-  assert.ok(src.includes("track.style.transform = tf(x)") && src.includes("`translate3d(${(-v).toFixed(2)}px,0,0)`"))
+  // Changed on purpose (landing round 12): a flat translate, the layer asked for by will-change only while the rail is live (pinned in tests/home-landing-r12-perf.test.ts).
+  assert.ok(src.includes("track.style.transform = tf(x)") && src.includes("`translate(${(-v).toFixed(2)}px)`"))
   assert.ok(!/style\.(left|width|marginLeft|scrollLeft)\s*=/.test(src))
   assert.ok(src.includes("new IntersectionObserver") && src.includes('"visibilitychange"'))
   /* Changed on purpose (landing round 9): the pointer handling is components/marketing/rail-gesture.ts, shared with the showcase. */

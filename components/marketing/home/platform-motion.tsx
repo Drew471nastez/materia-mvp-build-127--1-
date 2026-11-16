@@ -117,6 +117,41 @@ export function usePlatformSection(
 }
 
 /**
+ * LANDING ROUND 12 (perf). A tall section is live while any of it is within a
+ * screen (LIVE_AHEAD), so on a phone its lower cards ran their loops two or
+ * three screens away (the round 12 audit: the analytics and Everything
+ * sections, 8 and 22 loops). Each part matching `selector` inside the root
+ * gets `data-part-live`, "true" while ALL of that part is within a screen
+ * (so no loop in it runs further away than that) and "false" otherwise, from
+ * one IntersectionObserver for all of them (no scroll listener, nothing
+ * measured by hand). The CSS pauses a part's loops on "false"; a part not yet
+ * reported has no attribute and follows its section. A part is never taller
+ * than the three screens the observer looks over.
+ */
+export const PART_LIVE_ATTR = "data-part-live"
+/** Whole within the observer's margin: the share of it inside is all of it (an empty box counts as inside once it intersects). */
+export const wholeInside = (e: IntersectionObserverEntry) =>
+  e.isIntersecting && (e.intersectionRatio > 0.99 || e.boundingClientRect.width * e.boundingClientRect.height === 0)
+export function usePartsLive(ref: RefObject<HTMLElement | null>, selector: string) {
+  useEffect(() => {
+    const root = ref.current
+    if (!root || typeof IntersectionObserver !== "function") return
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const value = String(wholeInside(e))
+          const el = e.target as HTMLElement
+          if (el.getAttribute(PART_LIVE_ATTR) !== value) el.setAttribute(PART_LIVE_ATTR, value)
+        }
+      },
+      { rootMargin: LIVE_AHEAD, threshold: [0, 0.995] },
+    )
+    root.querySelectorAll(selector).forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [ref, selector])
+}
+
+/**
  * A number that counts up to `value` once `start` turns true. The server
  * renders the final figure, so it is readable without JS; the animation
  * changes the text node's data in place, one write per frame, without

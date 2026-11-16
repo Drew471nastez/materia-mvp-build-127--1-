@@ -47,12 +47,14 @@ const card = how.slice(how.indexOf('data-card="domain"'))
 console.log("\n1. Use your own domain (round 11 replaced the reel)")
 check("the round 9 picture is still gone: no pill, no ticks", !/cmh-pill|cmh-url|cmh-ok|cmh-dm-ok/.test(src) && !/DNS found|HTTPS on|Built by hand/.test(text) && !existsSync("public/home/how/site-workshop.webp"))
 check("the reel and its light are gone", !/cmh-dm-reel|cmh-dm-light|cmh-dm-band|@keyframes cmh-reel|@keyframes cmh-spin/.test(src + css))
-check("every address it shows is real: his Storelib address, and a domain Storelib accepts", `${HOW_DOMAIN.name}.storelib.com` === HOW_DOMAIN.before && `${HOW_DOMAIN.name}.com` === HOW_DOMAIN.host && hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null)
-check("minimal words: the caption", text.includes("Use your own domain") && text.includes("On Grow, point a domain you own at your site. HTTPS is set up for you.") && HOW_CARDS[2].title === "Use your own domain")
-check("its loops are .cmh-a, so they stop off screen and in a hidden tab, and move by transform and opacity", /class="cmh-a cmh-dm-com"/.test(card) && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && onlyTransform(kf("cmh-dm-com")) && !/blur\(|backdrop-filter|filter:/.test(css))
+// Changed on purpose (landing round 12): the card types a store owner's own domain over their front page (the owner's reference); no Storelib address is shown.
+check("every address it shows is real: a domain Storelib accepts", `www.${HOW_DOMAIN.host}` === HOW_DOMAIN.typed && hostnameProblem(cleanHostname(HOW_DOMAIN.host)) === null)
+check("minimal words: the caption", text.includes("Use your own domain") && text.includes("On Grow, point a domain you own at your site. HTTPS is set up for you.") && HOW_CARDS.find((c) => c.key === "domain")?.title === "Use your own domain") // Changed on purpose (landing round 12): the dashboard leads, the domain is third by key, not by place
+check("its loops are .cmh-a, so they stop off screen and in a hidden tab, and move by transform and opacity", /class="cmh-a cmh-dm-ch"/.test(card) && /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && onlyTransform(kf("cmh-dm-caret")) && !/blur\(|backdrop-filter|filter:/.test(css))
 
 console.log("\n3. One screen on a MacBook Air")
-check("on a computer the pictures stop at half the screen's height, never under 360px", css.includes("@media(min-width:1100px){.cmh-stage,.cmh-wide .cmh-stage{height:max(360px,min(clamp(400px,32vw,560px),50svh))}}"))
+// Changed on purpose (landing round 12): the owner asked for full width pictures, so the dashboard has a row of its own (about 520px at 1440) and tips and the domain share the next; the section no longer fits one screen.
+check("the dashboard keeps the app's own sizes, the two pictures under it a fixed height", /\.cmh-db-top\{[^}]*height:58px/.test(css) && css.includes("height:clamp(450px,36vw,600px)"))
 check("svh, so the iPhone's URL bar never changes it, and no vh at all", !/[\d)]vh\b/.test(css))
 
 console.log("\nCopy")

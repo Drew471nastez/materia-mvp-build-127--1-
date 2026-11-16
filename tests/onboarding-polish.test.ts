@@ -164,7 +164,7 @@ function main() {
   /* Changed on purpose (wave 13): three plans now (Scale re-opened), so the onboarding row is 920px for the three, still with 6px more air on a phone. */
   /* Changed on purpose (pricing round 5): the compact cards sit on their grey ground, a 980px row with 8px of ground round them on a phone. */
   check("in the onboarding the plans fit a 980px row for the three on their ground, with 20 to 24px under the pill",
-    /compact \? "max-w-\[980px\] rounded-\[24px\] p-2 sm:p-3"/.test(cards) && /data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6"/.test(cards))
+    /compact \? "max-w-\[980px\]"/.test(cards) /* Changed on purpose (landing round 12): no grey ground, the row still 980px */ && /data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6"/.test(cards))
   /* The line used to be remounted per phase and faded in from nothing, so each change had a blank beat; now it is the shared swap. */
   check("its line crossfades from phase to phase (the shared TextSwap, no blank beat) over marks that fill on translate, and says plainly when it failed",
     /import \{ TextSwap \} from "@\/components\/ui\/text-swap"/.test(creator) && /<TextSwap\s+as="div"\s+align="center"\s+value=\{state\}/.test(creator)

@@ -1,225 +1,177 @@
-import { CalendarDays, Check, CheckCircle2, Download, Heart, MessageCircle, Play, Truck, Users, Video } from "lucide-react"
+import { CalendarDays, Check, CheckCircle2, Download, FileText, Heart, MessageCircle, Play, Truck, Users, Video } from "lucide-react"
 import type { CSSProperties } from "react"
 import { Pic, pic, u } from "./frame"
 
 /*
-  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 and 9).
+  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 12).
   Each kind of thing sold is one scene on its own calm ground: the thing
-  itself and the page that sells it, with a short moment playing while it is
-  shown.
+  itself, photographed, and the Storelib page that sells it, with one short
+  moment playing while it is shown.
 
-    Digital products  five covers passing in a slow row (the Cine Tones LUT
-                      Pack, a Notion template, an e-book, a preset pack, a
-                      font family); the one in the middle is drawn full size
-                      and the buy card beside it is that product's
-    Physical product  the Midnight Studio Tee: a size is picked, it goes in
+    Digital product   Slow Mornings, Ana Folau's e-book of breakfasts: its
+                      cover and a page from inside, and its buy card, where
+                      it is bought and the PDF downloads
+    Physical product  Night Face Oil, Marisol Vega's small batch oil: its
+                      photograph and two details, a size picked, added to
                       the cart
     Course            Mixing in key, Tomás Reyes's course for new DJs (kept)
-    Community         Applied AI Club, under a real banner: photo, mark, name
+    Community         Applied AI Club, under its green banner (kept)
     Booking           A 1:1 training plan call with Talia Moreno (kept)
 
-  Round 9, the owner: the Second Brain tablet "looks like very bad UI,
-  inconsistent with the frame and the product card", and "I don't like the
-  yellow headphones thing, get rid of it"; both are gone. Courses and
-  bookings: "I love it", untouched but for where they stand on the narrower
-  stage.
+  Round 12, the owner liked the course, the community and the booking, and
+  not the digital row of covers ("the high-end Lightroom presets") or the
+  physical tee, cap, tote and print. Both are now built the way the liked
+  three are: one real product, photographed, inside a believable page, with
+  one thing happening on it. No presets, no merch.
 
-  Drawn at one design size per layout (1100 x 570 from 768px, 400 x 640
-  below; `--u` in frame.tsx), so a picture is the same at any width. Round
-  10, the owner: the scenes stood too tall ("reduce it just a little, 5 to
-  10%"). 1040 x 600 became 1100 x 570: at the same width the stage is about
-  a tenth shorter, everything in it drawn a little smaller, and the 60
-  design pixels gained across go to the gaps between a picture and its card,
-  so no scene is cropped or rearranged. Every
+  Drawn at one design size per layout (1100 x 570 from 768px, 360 x 520
+  below; `--u` in frame.tsx), so a picture is the same at any width. Every
   moment is a CSS animation on transform and opacity, started when the scene
   becomes the chosen one and paused while the section is off screen
   (business-carousel.tsx). Without motion every scene stands at its resting
-  style: the finished moment, and for the covers the first one in the middle.
+  style: the finished moment.
 
   Photographs: Unsplash (free licence), re-encoded small in public/home/showcase.
 */
 
-/* ================================================================ Digital products */
-/** One step of the row: a cover rests in the middle, then the next slides in. */
-export const DIGITAL_STEP_S = 2.6
-const DIGITAL_HOLD_S = 1.7
-
-export const DIGITAL_PRODUCTS = [
-  { id: "lut", kind: "LUT pack", name: "Cine Tones LUT Pack", by: "Mara Quinn", price: "$29", note: ".cube files for Resolve, Premiere and Final Cut" },
-  { id: "drums", kind: "Sample pack", name: "Low Room Drums", by: "Jun Park", price: "$24", note: "240 one-shots and 60 loops, 24-bit WAV" },
-  { id: "book", kind: "E-book", name: "Slow Sundays", by: "Ana Folau", price: "$16", note: "PDF and EPUB, 112 pages, 40 recipes" },
-  { id: "presets", kind: "Preset pack", name: "Highland Presets", by: "Kofi Mensah", price: "$18", note: "12 presets for Lightroom on desktop and phone" },
-  { id: "font", kind: "Font family", name: "Orlo Grotesk", by: "Vane Type", price: "$45", note: "8 weights, desktop and web licence" },
-] as const
-
-/* The sample pack's cover carries one bar of its sound as a waveform: these are its bars' heights (percent). */
-const WAVE = [92, 30, 14, 8, 60, 22, 10, 6, 96, 34, 16, 70, 26, 12, 64, 20, 9, 5, 88, 28, 12, 72, 24, 10, 58, 18, 8, 4] as const
-
 /*
-  A cover's photograph loads with the scene, not lazily: the row is clipped by its rail, so a lazy picture would only
-  be asked for as its cover slides in, and arrive as a grey box turning into a photograph mid glide. The section
-  itself is mounted late (lazy-sections.tsx), so nothing is fetched before it is near.
+  A product photograph loads with the scene, not lazily: on a phone the five scenes stand in a row that slides
+  sideways, and a lazy picture would be asked for only as its card slides in, arriving as an empty box mid swipe.
+  The section itself is mounted late (lazy-sections.tsx), so nothing is fetched before it is near.
 */
-function Still({ src, w, h, className = "bc-still" }: { src: string; w: number; h: number; className?: string }) {
+function Still({ src, w, h, className = "smk-pic" }: { src: string; w: number; h: number; className?: string }) {
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt="" width={w} height={h} loading="eager" decoding="async" draggable={false} className={className} />
 }
 
-function Cover({ id }: { id: (typeof DIGITAL_PRODUCTS)[number]["id"] }) {
-  if (id === "lut")
-    return (
-      <span className="bc bc-lut">
-        <Still src="/home/everything/lut-still.webp" w={720} h={405} />
-        <span className="bc-tag">LUT Pack</span>
-        <span className="bc-big">
-          <span>Cine</span>
-          <span>Tones</span>
-        </span>
-      </span>
-    )
-  if (id === "drums")
-    return (
-      <span className="bc bc-drums">
-        <Still src={pic("bz-drums")} w={640} h={800} />
-        <span className="bc-tag">Sample pack</span>
-        <span className="bc-vol">Vol. 2</span>
-        <span className="bc-big">
-          <span>Low Room</span>
-          <span>Drums</span>
-        </span>
-        <span className="bc-wave">
-          {WAVE.map((h, k) => (
-            <i key={k} style={{ "--h": h / 100 } as CSSProperties} />
-          ))}
-        </span>
-        <span className="bc-spec">240 one-shots · 60 loops · WAV</span>
-      </span>
-    )
-  if (id === "book")
-    return (
-      <span className="bc bc-book">
-        <Still src={pic("bz-ebook")} w={640} h={800} />
-        <span className="bc-title">
-          Slow
-          <br />
-          Sundays
-        </span>
-        <span className="bc-line">40 recipes for long lunches</span>
-        <span className="bc-foot">Ana Folau</span>
-      </span>
-    )
-  if (id === "presets")
-    return (
-      <span className="bc bc-presets">
-        <Still src={pic("bz-presets")} w={640} h={800} />
-        <span className="bc-tag">12 Lightroom presets</span>
-        <span className="bc-title">Highland</span>
-      </span>
-    )
-  return (
-    <span className="bc bc-font">
-      <span className="bc-tag">Font family</span>
-      <span className="bc-glyph">Rg</span>
-      <span className="bc-title">Orlo Grotesk</span>
-      <span className="bc-line">8 weights, Light to Black</span>
-    </span>
-  )
-}
-
-/* The row holds one set of covers and the three that stand around its ends, so it can start again where it looks the same. */
-const SLOTS = [4, 0, 1, 2, 3, 4, 0, 1] as const
+/* ================================================================ Digital product */
+export const DIGITAL_PRODUCT = {
+  kind: "E-book",
+  name: "Slow Mornings",
+  by: "Ana Folau",
+  price: "$16",
+  meta: "96 pages · PDF and EPUB",
+  file: "Slow-Mornings.pdf",
+  /* Unsplash photo-1482049016688-2d3e1b311543 (the page inside); the cover is bz-ebook. */
+  cover: "bz-ebook",
+  page: "bz-eggs",
+  chapters: [
+    ["Eggs, slowly", "p. 8"],
+    ["Breads and butters", "p. 30"],
+    ["Bowls for later", "p. 52"],
+    ["Something sweet", "p. 74"],
+  ],
+} as const
 
 export function DigitalScene() {
+  const d = DIGITAL_PRODUCT
   return (
     <div className="bs bs-digital">
-      <div className="bd-rail">
-        <div className="bd-track">
-          {SLOTS.map((p, k) => (
-            <span key={k} className="bd-slot" data-p={p} style={{ "--p": p } as CSSProperties}>
-              <span className="bd-cover">
-                <Cover id={DIGITAL_PRODUCTS[p].id} />
-              </span>
-            </span>
-          ))}
-        </div>
+      {/* A page from inside, behind the cover: the first recipe of the first chapter. */}
+      <div className="be-page">
+        <Still src={pic(d.page)} w={560} h={560} className="smk-pic be-page-pic" />
+        <span className="be-page-text">
+          <i>Chapter 1 · Eggs, slowly</i>
+          <b>Soft eggs on rye</b>
+          <em>2 eggs, at room temperature</em>
+          <em>2 slices of dark rye, toasted</em>
+          <em>Half an avocado, a handful of spinach</em>
+          <em>Lemon, flaky salt, black pepper</em>
+        </span>
+        <span className="be-page-n">14</span>
       </div>
-      <div className="bs-card bd-card">
-        <div className="bd-infos">
-          {DIGITAL_PRODUCTS.map((d, p) => (
-            <div key={d.id} className="bd-info" data-p={p} style={{ "--p": p } as CSSProperties}>
-              <p className="bs-kicker">{d.kind}</p>
-              <h4>{d.name}</h4>
-              <p className="bs-by">by {d.by}</p>
-              <p className="bs-price">{d.price}</p>
-              <p className="bs-desc">{d.note}</p>
-            </div>
-          ))}
-        </div>
-        <p className="bd-instant">
-          <Download /> Instant download after checkout
+      <div className="be-cover">
+        <Still src={pic(d.cover)} w={640} h={800} className="smk-pic be-cover-pic" />
+        <span className="be-cover-band">
+          <i>{d.by}</i>
+          <b>{d.name}</b>
+          <em>40 breakfasts worth waking for</em>
+        </span>
+      </div>
+      <div className="bs-card be-card">
+        <p className="bs-kicker">{d.kind}</p>
+        <h4>{d.name}</h4>
+        <p className="bs-by">
+          by {d.by} · {d.meta}
         </p>
-        <span className="bs-btn">Buy now</span>
+        <p className="bs-price">{d.price}</p>
+        <ol className="be-toc">
+          {d.chapters.map(([title, page], i) => (
+            <li key={title}>
+              <i>{i + 1}</i>
+              <b>{title}</b>
+              <em>{page}</em>
+            </li>
+          ))}
+        </ol>
+        <p className="be-instant">
+          <Download /> Instant download, a copy by email
+        </p>
+        {/* The button is the whole moment: pressed, it downloads the PDF in place, then says so. */}
+        <span className="bs-btn bs-press be-buy">
+          <span className="be-fill" />
+          <span className="a">Buy for {d.price}</span>
+          <span className="b">
+            <FileText /> Downloading {d.file}
+          </span>
+          <span className="c">
+            <Check /> Downloaded
+          </span>
+        </span>
       </div>
     </div>
   )
 }
 
-/* ================================================================ Physical products */
-/** One product's turn in the physical scene: it comes in, an option is picked, it goes in the cart. */
-export const PHYSICAL_STEP_S = 2.8
+/* ================================================================ Physical product */
+export const PHYSICAL_PRODUCT = {
+  kind: "Skincare",
+  name: "Night Face Oil",
+  by: "Marisol Vega",
+  sub: "Small batch, cold pressed",
+  price: "$38",
+  desc: "Rosehip, jojoba and squalane in amber glass. Three drops before bed.",
+  label: "Size",
+  options: ["15 ml", "30 ml", "50 ml"],
+  pick: 1,
+  ship: "Ships in 2 days, tracked",
+  /* Unsplash photo-1608571423902-eed4a5ad8108, re-encoded as bz-oil. */
+  pic: "bz-oil",
+} as const
 
-/*
-  Four things one merch store ships (landing round 11, the owner: "add more
-  examples going around and changing, at least 3"). Each photograph is baked
-  onto its own flat ground (public/home/showcase/bz-*.webp), and `ground` is
-  that colour, so the whole stage takes the product's colour as it comes in.
-*/
-export const PHYSICAL_PRODUCTS = [
-  { id: "tee", pic: "bz-tee", ground: "#efedec", name: "Midnight Studio Tee", sub: "Heavyweight cotton, black", price: "$32", label: "Size", options: ["XS", "S", "M", "L", "XL"], pick: 2, ship: "Ships in 2 days" },
-  { id: "cap", pic: "bz-cap", ground: "#f0f0ef", name: "Washed Studio Cap", sub: "Washed cotton twill, one size", price: "$28", label: "Colour", options: ["Charcoal", "Sand", "Black"], pick: 0, ship: "Ships in 2 days" },
-  { id: "tote", pic: "bz-tote", ground: "#bec5cb", name: "Market Tote", sub: "Heavy canvas, natural", price: "$24", label: "Size", options: ["Standard", "Large"], pick: 0, ship: "Ships in 3 days" },
-  { id: "print", pic: "bz-print", ground: "#e7e2da", name: "Field Study No. 4", sub: "Art print on cotton rag paper", price: "$40", label: "Size", options: ["A4", "A3", "A2"], pick: 1, ship: "Printed to order, ships in 4 days" },
-] as const
-
-export function TeeScene() {
+export function PhysicalScene() {
+  const d = PHYSICAL_PRODUCT
   return (
-    <div className="bs bs-tee">
-      {PHYSICAL_PRODUCTS.map((d, p) => (
-        <div key={d.id} className="bt-item" data-p={p} style={{ "--p": p, background: d.ground } as CSSProperties}>
-          <div className="bt-photo">
-            <Still src={pic(d.pic)} w={960} h={960} className="smk-pic bt-pic" />
-          </div>
-        </div>
-      ))}
-      <div className="bs-card bt-card">
-        {/* The store's four products, the one on show ringed. */}
-        <span className="bt-thumbs" aria-hidden="true">
-          <span className="bt-thumb-ring" />
-          {PHYSICAL_PRODUCTS.map((d) => (
-            <i key={d.id} style={{ background: d.ground }}>
-              <Still src={pic(d.pic)} w={960} h={960} className="smk-pic" />
-            </i>
+    <div className="bs bs-oil">
+      {/* The product page's gallery: the photograph and two details of it, the first one shown. */}
+      <span className="bo-thumbs" aria-hidden="true">
+        {["a", "b", "c"].map((k) => (
+          <i key={k} className={`bo-thumb bo-thumb-${k}`}>
+            <Still src={pic(d.pic)} w={840} h={980} />
+          </i>
+        ))}
+      </span>
+      <div className="bo-main">
+        <Still src={pic(d.pic)} w={840} h={980} className="smk-pic bo-main-pic" />
+      </div>
+      <div className="bs-card bo-card">
+        <p className="bs-kicker">{d.kind}</p>
+        <h4>{d.name}</h4>
+        <p className="bs-by">
+          by {d.by} · {d.sub}
+        </p>
+        <p className="bs-price">{d.price}</p>
+        <p className="bs-desc">{d.desc}</p>
+        <p className="bs-label">{d.label}</p>
+        <span className="bo-opts" style={{ "--n": d.options.length, "--k": d.pick } as CSSProperties}>
+          <span className="bs-ring bo-ring" />
+          {d.options.map((o) => (
+            <i key={o}>{o}</i>
           ))}
         </span>
-        <div className="bt-infos">
-          {PHYSICAL_PRODUCTS.map((d, p) => (
-            <div key={d.id} className="bt-info" data-p={p} style={{ "--p": p } as CSSProperties}>
-              <h4>{d.name}</h4>
-              <p className="bs-by">{d.sub}</p>
-              <p className="bs-price">{d.price}</p>
-              <p className="bs-label">{d.label}</p>
-              <span className="bt-opts" style={{ "--n": d.options.length, "--k": d.pick } as CSSProperties}>
-                <span className="bs-ring bt-ring" />
-                {d.options.map((o) => (
-                  <i key={o}>{o}</i>
-                ))}
-              </span>
-              <p className="bs-ship">
-                <Truck /> {d.ship}
-              </p>
-            </div>
-          ))}
-        </div>
+        <p className="bs-ship">
+          <Truck /> {d.ship}
+        </p>
         <span className="bs-btn bs-press bs-swap">
           <span className="a">Add to cart</span>
           <span className="b">
@@ -227,21 +179,17 @@ export function TeeScene() {
           </span>
         </span>
       </div>
-      <span className="bt-toasts">
-        {PHYSICAL_PRODUCTS.map((d, p) => (
-          <span key={d.id} className="bt-added" data-p={p} style={{ "--p": p } as CSSProperties}>
-            <i style={{ background: d.ground }}>
-              <Still src={pic(d.pic)} w={960} h={960} className="smk-pic" />
-            </i>
-            <span>
-              <b>{d.name}</b>
-              <em>
-                {d.options[d.pick]} · {d.price}
-              </em>
-            </span>
-            <CheckCircle2 />
-          </span>
-        ))}
+      <span className="bo-added">
+        <i>
+          <Still src={pic(d.pic)} w={840} h={980} />
+        </i>
+        <span>
+          <b>{d.name}</b>
+          <em>
+            {d.options[d.pick]} · {d.price}
+          </em>
+        </span>
+        <CheckCircle2 />
       </span>
     </div>
   )
@@ -464,82 +412,30 @@ export function CoachScene() {
 /*
   The moments. Each is a delay into the scene's turn (business-carousel.tsx),
   and the resting style of every element is its end. `.bz-on` is set on the
-  scene's frame while it is the chosen one (or fading out under the next), so
-  these run from the start each time it comes back.
-
-  The digital row is the one loop: a cover rests in the middle for
-  DIGITAL_HOLD_S, then the row glides one cover along; after the last it is
-  back where it began (the row carries the first covers again at its end).
-  Each cover and each buy card run the same clock, set back by their place in
-  the row, so the cover in the middle is the one drawn full size and the one
-  the card names. Three kinds of animation, all on the compositor.
+  scene's frame while it is the chosen one (or fading out under the next; on
+  a phone, while its card is the one in view or beside it), so these run
+  from the start each time it comes back. One-shot, every one, on the
+  compositor: no loop runs inside a scene any more.
 */
 const E = "cubic-bezier(.22,1,.36,1)"
-const GLIDE = "cubic-bezier(.65,0,.25,1)"
-const COUNT = DIGITAL_PRODUCTS.length
-const CYCLE_S = +(COUNT * DIGITAL_STEP_S).toFixed(2)
-const pct = (s: number) => `${+((s / CYCLE_S) * 100).toFixed(2)}%`
-const rowAt = (n: number) => `transform:translate3d(calc(var(--pitch) * ${-(1.5 + n)}),0,0)`
-const SMALL = "transform:scale(.78);opacity:.5"
-const FULL = "transform:none;opacity:1"
-const DIGITAL_FRAMES = `
-@keyframes bd-run{${Array.from({ length: COUNT }, (_, n) => `${pct(n * DIGITAL_STEP_S)},${pct(n * DIGITAL_STEP_S + DIGITAL_HOLD_S)}{${rowAt(n)};animation-timing-function:${GLIDE}}`).join("")}100%{${rowAt(COUNT)}}}
-@keyframes bd-focus{0%,${pct(DIGITAL_HOLD_S)}{${FULL};animation-timing-function:${GLIDE}}${pct(DIGITAL_STEP_S)}{${SMALL}}${pct(CYCLE_S - DIGITAL_STEP_S + DIGITAL_HOLD_S)}{${SMALL};animation-timing-function:${GLIDE}}100%{${FULL}}}
-@keyframes bd-info{0%,${pct(DIGITAL_HOLD_S - 0.15)}{opacity:1;transform:none}${pct(DIGITAL_HOLD_S + 0.25)}{opacity:0;transform:translate3d(0,-8u,0)}${pct(CYCLE_S - 0.5)}{opacity:0;transform:translate3d(0,10u,0)}100%{opacity:1;transform:none}}
-`
-const LOOP = `${CYCLE_S}s linear calc(var(--p) * ${DIGITAL_STEP_S}s - ${CYCLE_S}s) infinite`
-/*
-  The physical row runs the same way: each product's ground, photograph, card
-  text and "added" note are on one clock set back by its place, so one
-  product is on show at a time and the next fades in over it. What happens
-  inside a turn (the option ringed, the button pressed) is one short loop as
-  long as a turn, shared by all four.
-*/
-const P_COUNT = PHYSICAL_PRODUCTS.length
-const P_CYCLE_S = +(P_COUNT * PHYSICAL_STEP_S).toFixed(2)
-const pp = (s: number) => `${+((s / P_CYCLE_S) * 100).toFixed(2)}%`
-const ps = (f: number) => `${+(f * 100).toFixed(2)}%`
-const P_FADE = 0.45
-/* A product under the next one stays drawn until that one is fully in, then goes (it cannot be seen): no two grounds ever show through each other. The last runs under the first, so it is the one that fades out. */
-const S_OUT = PHYSICAL_STEP_S + 0.02
-/* The card's words never overlap: one product's leave, then the next one's come in (each in about a quarter second). */
-const INFO_IN = 0.24
-const P_LOOP = `${P_CYCLE_S}s linear calc(var(--p) * ${PHYSICAL_STEP_S}s - ${P_CYCLE_S}s) infinite`
-const P_STEP = `${PHYSICAL_STEP_S}s linear infinite`
-const thumbAt = (n: number) => `transform:translate3d(calc(var(--tp) * ${n}),0,0)`
-const PHYSICAL_FRAMES = `
-@keyframes bt-show{0%,${pp(S_OUT)}{opacity:1}${pp(S_OUT + 0.02)},${pp(P_CYCLE_S - P_FADE)}{opacity:0;animation-timing-function:ease}100%{opacity:1}}
-@keyframes bt-show-a{0%,${pp(S_OUT)}{opacity:1}${pp(S_OUT + 0.02)},${pp(P_CYCLE_S - P_FADE)}{opacity:0}${pp(P_CYCLE_S - P_FADE + 0.02)},100%{opacity:1}}
-@keyframes bt-show-z{0%,${pp(PHYSICAL_STEP_S - P_FADE)}{opacity:1;animation-timing-function:ease}${pp(PHYSICAL_STEP_S)},${pp(P_CYCLE_S - P_FADE)}{opacity:0;animation-timing-function:ease}100%{opacity:1}}
-@keyframes bt-info{0%,${pp(PHYSICAL_STEP_S - P_FADE)}{opacity:1;transform:none;animation-timing-function:ease-in}${pp(PHYSICAL_STEP_S - INFO_IN)}{opacity:0;transform:translate3d(0,-8u,0)}${pp(P_CYCLE_S - INFO_IN)}{opacity:0;transform:translate3d(0,10u,0);animation-timing-function:${E}}100%{opacity:1;transform:none}}
-@keyframes bt-pic{0%,${pp(S_OUT + 0.02)}{transform:none}${pp(S_OUT + 0.04)},${pp(P_CYCLE_S - P_FADE)}{transform:translate3d(18u,0,0);animation-timing-function:${E}}100%{transform:none}}
-@keyframes bt-toast{0%,${pp(1.3)}{opacity:0;transform:translate3d(0,12u,0);animation-timing-function:${E}}${pp(1.75)},${pp(PHYSICAL_STEP_S - P_FADE)}{opacity:1;transform:none;animation-timing-function:ease}${pp(PHYSICAL_STEP_S - 0.1)},100%{opacity:0;transform:none}}
-@keyframes bt-thumb{${Array.from({ length: P_COUNT }, (_, n) => `${pp(n * PHYSICAL_STEP_S)},${pp((n + 1) * PHYSICAL_STEP_S - 0.5)}{${thumbAt(n)};animation-timing-function:${GLIDE}}`).join("")}100%{${thumbAt(0)}}}
-@keyframes bt-pick{0%,${ps(0.16)}{opacity:0;transform:translate3d(calc((100% + 8u) * var(--k)),0,0) scale(.8);animation-timing-function:${E}}${ps(0.3)},100%{opacity:1;transform:translate3d(calc((100% + 8u) * var(--k)),0,0)}}
-@keyframes bt-press{0%,${ps(0.4)}{transform:none}${ps(0.44)}{transform:scale(.95)}${ps(0.5)},100%{transform:none}}
-@keyframes bt-swap-a{0%,${ps(0.44)}{opacity:1;transform:none}${ps(0.5)},${ps(0.9)}{opacity:0;transform:translate3d(0,-10u,0)}${ps(0.905)}{opacity:0;transform:translate3d(0,10u,0)}100%{opacity:1;transform:none}}
-@keyframes bt-swap-b{0%,${ps(0.47)}{opacity:0;transform:translate3d(0,10u,0);animation-timing-function:${E}}${ps(0.56)},${ps(0.86)}{opacity:1;transform:none}${ps(0.9)},100%{opacity:0;transform:translate3d(0,-10u,0)}}
-`
 const MOTION = `
 @media(prefers-reduced-motion:no-preference){
 .bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s backwards}
-.bz-on .bs-coach-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
+.bz-on .bs-coach-pic,.bz-on .bo-main-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
 
-.bz-on .bd-track{animation:bd-run ${CYCLE_S}s linear infinite}
-.bz-on .bd-cover{animation:bd-focus ${LOOP}}
-.bz-on .bd-info{animation:bd-info ${LOOP}}
+.bz-on .be-cover{animation:bz-rise .9s ${E} both}
+.bz-on .be-page{animation:be-slide 1.1s ${E} .45s both}
+.bz-on .bs-digital .bs-press{animation:bz-press .36s ease 2.1s both}
+.bz-on .be-buy .a{animation:bz-out .3s ease 2.3s both}
+.bz-on .be-buy .b{animation:be-mid 1.7s linear 2.35s both}
+.bz-on .be-fill{animation:be-fill 1.7s linear 2.35s both}
+.bz-on .be-buy .c{animation:bz-in .4s ${E} 4.05s both}
 
-.bz-on .bt-item{animation:bt-show ${P_LOOP}}
-.bz-on .bt-item[data-p="0"]{animation-name:bt-show-a}
-.bz-on .bt-item[data-p="${P_COUNT - 1}"]{animation-name:bt-show-z}
-.bz-on .bt-info{animation:bt-info ${P_LOOP}}
-.bz-on .bt-pic{animation:bt-pic ${P_LOOP}}
-.bz-on .bt-added{animation:bt-toast ${P_LOOP}}
-.bz-on .bt-thumb-ring{animation:bt-thumb ${P_CYCLE_S}s linear infinite}
-.bz-on .bt-ring{animation:bt-pick ${P_STEP}}
-.bz-on .bs-tee .bs-press{animation:bt-press ${P_STEP}}
-.bz-on .bs-tee .bs-swap .a{animation:bt-swap-a ${P_STEP}}
-.bz-on .bs-tee .bs-swap .b{animation:bt-swap-b ${P_STEP}}
+.bz-on .bo-ring{animation:bz-pop .45s ${E} 1s both}
+.bz-on .bs-oil .bs-press{animation:bz-press .36s ease 2.2s both}
+.bz-on .bs-oil .bs-swap .a{animation:bz-out .3s ease 2.35s both}
+.bz-on .bs-oil .bs-swap .b{animation:bz-in .4s ${E} 2.45s both}
+.bz-on .bo-added{animation:bz-rise .6s ${E} 2.7s both}
 
 .bz-on .bp-bar i{animation:bz-play 4.2s linear .6s both}
 .bz-on .bp-play{animation:bz-pop .5s ${E} .3s both}
@@ -562,7 +458,7 @@ const MOTION = `
 @keyframes bz-push{from{transform:scale(1.05)}}
 @keyframes bz-tick{from{opacity:0;transform:scale(.3)}}
 @keyframes bz-press{50%{transform:scale(.95)}}
-@keyframes bz-pop{from{opacity:0;transform:scale(.6)}}
+@keyframes bz-pop{from{opacity:0;transform:translate3d(calc((100% + 8u) * var(--k,0)),0,0) scale(.8)}}
 @keyframes bz-ping{from{opacity:.55;transform:scale(1)}to{opacity:0;transform:scale(2.6)}}
 @keyframes bz-out{from{opacity:1;transform:none}to{opacity:0;transform:translate3d(0,-10u,0)}}
 @keyframes bz-in{from{opacity:0;transform:translate3d(0,10u,0)}}
@@ -572,8 +468,10 @@ const MOTION = `
 @keyframes bz-up-in{from{opacity:0;transform:translate3d(0,8u,0)}}
 @keyframes bz-day{0%{opacity:0;transform:translate3d(calc(var(--day) * 1),0,0) scale(.8)}18%,42%{opacity:1;transform:translate3d(calc(var(--day) * 1),0,0)}}
 @keyframes bz-time{0%{opacity:0;transform:translate3d(calc(100% + 8u),-48u,0) scale(.8)}25%,45%{opacity:1;transform:translate3d(calc(100% + 8u),-48u,0)}}
-@keyframes bt-size{0%{opacity:0;transform:translate3d(calc(100% + 8u),0,0) scale(.8)}25%,45%{opacity:1;transform:translate3d(calc(100% + 8u),0,0)}}
-${DIGITAL_FRAMES}${PHYSICAL_FRAMES}`
+@keyframes be-slide{from{transform:translate3d(-70u,6u,0)}}
+@keyframes be-mid{0%{opacity:0;transform:translate3d(0,10u,0)}12%,88%{opacity:1;transform:none}100%{opacity:0;transform:translate3d(0,-10u,0)}}
+@keyframes be-fill{0%{opacity:1;transform:scaleX(0)}92%{opacity:1;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1)}}
+`
 
 export const BUSINESS_MOCK_CSS =
   u(`
@@ -581,6 +479,7 @@ export const BUSINESS_MOCK_CSS =
 .bz-frame>.smk{--w:1100}
 .bs{position:absolute;inset:0;overflow:hidden;color:#18181b;font-size:14u;line-height:1.4}
 .bs svg{width:15u;height:15u;flex:none}
+.bs-digital .smk-pic,.bs-oil .smk-pic{background:none}
 .bs-card{position:absolute;display:flex;flex-direction:column;width:360u;padding:28u 28u 26u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -28u rgba(16,24,40,.4)}
 .bs-kicker{font-size:11.5u;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#71717a}
 .bs h4{margin:6u 0 0;font-size:25u;font-weight:650;line-height:1.12;letter-spacing:-.02em}
@@ -590,84 +489,67 @@ export const BUSINESS_MOCK_CSS =
 .bs-desc{margin-top:8u!important;font-size:13.5u;line-height:1.5;color:#52525b}
 .bs-label{margin-top:16u!important;font-size:12.5u;font-weight:500;color:#52525b}
 .bs-btn{position:relative;display:grid;place-items:center;height:46u;margin-top:auto;padding:0 20u;border-radius:13u;background:#18181b;color:#fff;font-size:14.5u;font-weight:600;white-space:nowrap}
-
-/* digital: covers pass in a slow row; the one in the middle is full size and the card is its page */
-.bs-digital{background:#f0eff1}
-.bd-rail{position:absolute;left:0;top:0;bottom:0;width:740u;overflow:hidden}
-.bd-track{--pitch:292u;position:absolute;left:352u;top:50%;display:flex;margin-top:-175u;transform:translate3d(calc(var(--pitch) * -1.5),0,0)}
-.bd-slot{flex:none;display:grid;place-items:center;width:var(--pitch)}
-.bd-cover{position:relative;display:block;width:280u;height:350u;border-radius:14u;overflow:hidden;container-type:inline-size;transform:scale(.78);opacity:.5;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 26u 44u -26u rgba(16,24,40,.5)}
-.bd-slot[data-p="0"] .bd-cover{transform:none;opacity:1}
-.bd-card{right:64u;top:50%;width:340u;height:368u;margin-top:-184u}
-.bd-infos{display:grid}
-.bd-info{grid-area:1/1;opacity:0}
-.bd-info[data-p="0"]{opacity:1}
-.bd-instant{display:flex;align-items:center;gap:9u;margin-top:16u!important;padding-top:15u;border-top:1u solid #f0f0f1;font-size:13u;color:#52525b}
-.bd-instant svg{color:#71717a}
-
-/* the five covers, each sized in its own width (cqw), so one drawing serves the computer's row and the phone's */
-.bc{position:absolute;inset:0;display:block;overflow:hidden;color:#fff}
-.bc-still{position:absolute;left:0;top:0;display:block;width:100%;height:100%;object-fit:cover;background:#e9e6e1}
-.bc-tag{position:absolute;z-index:2;left:7cqw;top:7cqw;font-size:4.8cqw;font-weight:600;line-height:1;letter-spacing:.14em;text-transform:uppercase}
-.bc-title,.bc-line,.bc-foot,.bc-big,.bc-glyph{position:absolute;z-index:2}
-.bc-lut{background:#0a0a0b}
-.bc-lut>.bc-still{height:58%;object-position:50% 60%;background:#0a0a0b}
-.bc-lut::before{content:"";position:absolute;z-index:1;left:0;right:0;top:0;height:26%;background:linear-gradient(rgba(10,10,11,.5),rgba(10,10,11,0))}
-.bc-lut::after{content:"";position:absolute;z-index:1;left:0;right:0;top:22%;height:37%;background:linear-gradient(rgba(10,10,11,0),rgba(10,10,11,.55) 50%,#0a0a0b)}
-.bc-big{left:6.4cqw;bottom:6.4cqw;display:flex;flex-direction:column;font-size:21cqw;font-weight:800;line-height:.84;letter-spacing:-.05em;text-transform:uppercase}
-/* the sample pack: the snare under a dark wash, the name set big and condensed, one bar of its sound as a waveform */
-.bc-drums{background:#0b0a09}
-.bc-drums>.bc-still{object-position:40% 50%}
-.bc-drums::before{content:"";position:absolute;z-index:1;inset:0;background:linear-gradient(rgba(11,10,9,.84),rgba(11,10,9,.3) 36%,rgba(11,10,9,.4) 56%,rgba(11,10,9,.95) 80%)}
-.bc-drums .bc-big{top:15cqw;bottom:auto;font-size:15cqw;line-height:.9;letter-spacing:-.04em;transform:scaleY(1.14);transform-origin:0 0}
-.bc-vol{position:absolute;z-index:2;right:7cqw;top:5.4cqw;padding:1.6cqw 2.6cqw;border-radius:1.6cqw;background:#e8ff59;color:#0b0a09;font-size:4.8cqw;font-weight:800;line-height:1;letter-spacing:.04em;text-transform:uppercase}
-.bc-wave{position:absolute;z-index:2;left:7cqw;right:7cqw;bottom:15cqw;display:flex;align-items:center;gap:1.1cqw;height:13cqw}
-.bc-wave i{flex:1;height:100%;border-radius:1cqw;background:#e8ff59;transform:scaleY(var(--h))}
-.bc-spec{position:absolute;z-index:2;left:7cqw;bottom:6.5cqw;font-size:4.8cqw;font-weight:600;line-height:1;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72)}
-.bc-book::before,.bc-presets::before{content:"";position:absolute;z-index:1;inset:0}
-.bc-book::before{background:linear-gradient(rgba(24,16,8,.78),rgba(24,16,8,.3) 46%,rgba(24,16,8,0) 62%,rgba(24,16,8,0) 76%,rgba(24,16,8,.62))}
-.bc-book .bc-title{left:7cqw;top:8cqw;font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:20cqw;font-weight:500;line-height:.94;letter-spacing:-.02em}
-.bc-book .bc-line{left:7cqw;top:49cqw;font-size:5cqw;line-height:1.2}
-.bc-foot{left:7cqw;bottom:6.5cqw;font-size:4.8cqw;font-weight:600;line-height:1;letter-spacing:.14em;text-transform:uppercase}
-.bc-presets::before{background:linear-gradient(rgba(12,16,10,.45),rgba(12,16,10,0) 30%,rgba(12,16,10,0) 60%,rgba(12,16,10,.6))}
-.bc-presets .bc-tag{left:0;right:0;text-align:center}
-.bc-presets .bc-title{left:0;right:0;bottom:9cqw;text-align:center;font-size:11cqw;font-weight:500;line-height:1;letter-spacing:.3em;text-indent:.3em;text-transform:uppercase}
-.bc-font{background:#8b5cf6}
-.bc-glyph{left:5cqw;top:19cqw;font-size:64cqw;font-weight:700;line-height:.8;letter-spacing:-.06em}
-.bc-font .bc-title{left:7cqw;bottom:14.5cqw;font-size:9.5cqw;font-weight:700;line-height:1;letter-spacing:-.03em}
-.bc-font .bc-line{left:7cqw;bottom:7cqw;font-size:5cqw;line-height:1;opacity:.88}
-
-/* physical: four products of one store in turn, each on its own ground (baked into its photograph); the card is the one on show */
-.bs-tee{background:#eeedea}
-.bt-item{position:absolute;inset:0;opacity:0}
-.bt-item[data-p="0"]{opacity:1}
-.bt-photo{position:absolute;left:64u;top:12u;width:546u;height:546u;overflow:hidden}
-.bt-pic{background:none}
-.bt-card{right:64u;top:50%;height:420u;margin-top:-210u}
-.bt-thumbs{--tp:44u;position:relative;display:flex;gap:8u;margin-bottom:18u}
-.bt-thumbs i{width:36u;height:36u;border-radius:9u;overflow:hidden}
-.bt-thumbs .smk-pic{width:100%;height:100%;background:none}
-.bt-thumb-ring{position:absolute;z-index:1;left:-3u;top:-3u;width:42u;height:42u;border-radius:11u;box-shadow:inset 0 0 0 2u #18181b}
-.bt-infos{display:grid}
-.bt-info{grid-area:1/1;opacity:0}
-.bt-info[data-p="0"]{opacity:1}
-.bt-info h4{margin:0}
-.bt-opts{position:relative;display:grid;grid-template-columns:repeat(var(--n),1fr);gap:8u;margin-top:8u}
-.bt-opts i{display:grid;place-items:center;height:42u;border-radius:11u;font-size:13.5u;font-style:normal;font-weight:500;white-space:nowrap;box-shadow:inset 0 0 0 1u #e4e4e7}
-.bt-ring{left:0;top:0;width:calc((100% - (var(--n) - 1) * 8u) / var(--n));height:42u;border-radius:11u;transform:translate3d(calc((100% + 8u) * var(--k)),0,0)}
-.bs-ship{display:flex;align-items:center;gap:8u;margin:18u 0 16u!important;font-size:13u;color:#52525b}
-.bs-swap{display:grid}
+.bs-ring{position:absolute;z-index:1;border-radius:13u;box-shadow:inset 0 0 0 2u #18181b;pointer-events:none}
+.bs-swap{display:grid;overflow:hidden}
 .bs-swap>span{grid-area:1/1;display:flex;align-items:center;gap:7u}
 .bs-swap .a{opacity:0}
-.bt-toasts{position:absolute;left:84u;top:40u;display:grid}
-.bt-added{grid-area:1/1;display:flex;align-items:center;gap:12u;padding:10u 16u 10u 10u;border-radius:16u;background:#fff;opacity:0;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 18u 36u -18u rgba(16,24,40,.4)}
-.bt-added[data-p="0"]{opacity:1}
-.bt-added>i{width:44u;height:44u;border-radius:10u;overflow:hidden}
-.bt-added .smk-pic{width:100%;height:100%;background:none}
-.bt-added>span{display:grid;gap:1u}
-.bt-added b{font-size:13.5u}
-.bt-added em{font-size:12.5u;font-style:normal;color:#71717a}
-.bt-added svg{width:20u;height:20u;margin-left:10u}
+
+/* digital: the e-book's cover in front of a page from inside, on a warm paper ground; the card is its page on the store */
+.bs-digital{background:#ede7de}
+.be-cover,.be-page{position:absolute;overflow:hidden}
+.be-cover{left:96u;top:96u;width:268u;height:360u;border-radius:4u 10u 10u 4u;background:#f6f1e8;box-shadow:0 0 0 1u rgba(60,40,20,.08),0 3u 6u rgba(60,40,20,.08),0 36u 56u -26u rgba(60,40,20,.55)}
+/* the light along the spine, as on a printed cover */
+.be-cover::before{content:"";position:absolute;z-index:2;left:0;top:0;bottom:0;width:14u;background:linear-gradient(to right,rgba(40,25,10,.22),rgba(255,255,255,.22) 35%,rgba(255,255,255,0) 60%,rgba(40,25,10,.06))}
+.be-cover-pic{position:absolute;left:0;right:0;bottom:0;width:100%!important;height:64%!important;object-position:50% 45%}
+.be-cover-band{position:absolute;left:0;right:0;top:0;height:36%;display:grid;align-content:center;justify-items:center;gap:6u;padding:0 22u;background:#f6f1e8;color:#2b2118;text-align:center}
+.be-cover-band i{font-size:8.5u;font-style:normal;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:#8a7a68}
+.be-cover-band b{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:35u;font-weight:500;line-height:1;letter-spacing:-.015em}
+.be-cover-band em{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:11u;font-style:italic;color:#6f6152}
+.be-page{left:326u;top:122u;width:268u;height:348u;border-radius:3u 6u 6u 3u;background:#fbf8f3;box-shadow:0 0 0 1u rgba(60,40,20,.07),0 24u 44u -26u rgba(60,40,20,.42)}
+.be-page-pic{position:absolute;left:0;top:0;width:100%!important;height:178u!important}
+.be-page-text{position:absolute;left:58u;right:20u;top:194u;display:grid;gap:3u;color:#3b3128}
+.be-page-text i{margin-bottom:3u;font-size:7.5u;font-style:normal;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#9a8b78}
+.be-page-text b{margin-bottom:6u;font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:19u;font-weight:500;line-height:1.05;letter-spacing:-.01em}
+.be-page-text em{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:9.5u;font-style:normal;line-height:1.35;color:#6b5f52}
+.be-page-n{position:absolute;right:18u;bottom:14u;font-family:Georgia,serif;font-size:8u;color:#a39684}
+.be-card{right:64u;top:50%;height:448u;margin-top:-224u}
+.be-toc{margin:14u 0 0;padding:0;list-style:none;border-top:1u solid #f0f0f1}
+.be-toc li{display:flex;align-items:center;gap:12u;height:38u;border-bottom:1u solid #f4f4f5;font-size:13.5u}
+.be-toc i{display:grid;place-items:center;width:22u;height:22u;border-radius:50%;font-size:11u;font-style:normal;font-weight:600;color:#71717a;box-shadow:inset 0 0 0 1.5u #e4e4e7}
+.be-toc b{flex:1;font-weight:550}
+.be-toc em{font-size:12.5u;font-style:normal;color:#a1a1aa}
+.be-instant{display:flex;align-items:center;gap:8u;margin:14u 0 14u!important;font-size:13u;color:#52525b}
+.be-instant svg{width:14u;height:14u;color:#71717a}
+.be-buy{overflow:hidden;isolation:isolate}
+.be-buy>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
+.be-buy>.a,.be-buy>.b{opacity:0}
+.be-buy svg{width:16u;height:16u}
+.be-buy .c svg{color:#4ade80}
+.be-fill{position:absolute!important;inset:0;z-index:-1;background:#3f3f46;transform-origin:0 50%;opacity:0}
+
+/* physical: the product page of one oil, its photograph large with two details beside it; a size picked, added to the cart */
+.bs-oil{background:#ebe5dd}
+.bo-thumbs{position:absolute;left:44u;top:50%;display:grid;gap:10u;margin-top:-115u}
+.bo-thumb{position:relative;display:block;width:60u;height:70u;border-radius:10u;overflow:hidden;box-shadow:0 0 0 1u rgba(60,40,20,.08)}
+.bo-thumb .smk-pic{position:absolute;inset:0;width:100%;height:100%}
+.bo-thumb-a::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 2u #18181b}
+.bo-thumb-b .smk-pic{object-position:50% 30%;transform:scale(2.1);transform-origin:50% 38%}
+.bo-thumb-c .smk-pic{object-position:50% 100%;transform:scale(1.7);transform-origin:50% 80%}
+.bo-main{position:absolute;left:122u;top:26u;bottom:26u;width:478u;border-radius:18u;overflow:hidden;background:#e7e0d7}
+.bo-main-pic{position:absolute;inset:0;width:100%!important;height:100%!important;object-position:50% 46%;transform-origin:50% 40%}
+.bo-card{right:56u;top:50%;width:392u;height:404u;margin-top:-202u}
+.bo-opts{position:relative;display:grid;grid-template-columns:repeat(var(--n),1fr);gap:8u;margin-top:8u}
+.bo-opts i{display:grid;place-items:center;height:42u;border-radius:11u;font-size:13.5u;font-style:normal;font-weight:500;white-space:nowrap;box-shadow:inset 0 0 0 1u #e4e4e7}
+.bo-ring{left:0;top:0;width:calc((100% - (var(--n) - 1) * 8u) / var(--n));height:42u;border-radius:11u;transform:translate3d(calc((100% + 8u) * var(--k)),0,0)}
+.bs-ship{display:flex;align-items:center;gap:8u;margin:16u 0 16u!important;font-size:13u;color:#52525b}
+.bs-ship svg{width:15u;height:15u;color:#71717a}
+.bo-added{position:absolute;left:142u;top:46u;display:flex;align-items:center;gap:12u;padding:10u 16u 10u 10u;border-radius:16u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 18u 36u -18u rgba(16,24,40,.4)}
+.bo-added>i{position:relative;width:42u;height:42u;border-radius:10u;overflow:hidden}
+.bo-added .smk-pic{position:absolute;inset:0;width:100%;height:100%;object-position:50% 35%;transform:scale(1.6);transform-origin:50% 38%}
+.bo-added>span{display:grid;gap:1u}
+.bo-added b{font-size:13.5u}
+.bo-added em{font-size:12.5u;font-style:normal;color:#71717a}
+.bo-added>svg{width:20u;height:20u;margin-left:10u;color:#16a34a}
 
 /* course: as it was, a white card on a soft grey, now with its lesson playing */
 .bs-course{background:#e9ecf0}
@@ -763,7 +645,6 @@ export const BUSINESS_MOCK_CSS =
 .bs-days b{font-size:17u;font-weight:600}
 .bs-times{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:8u;margin:12u 0 18u}
 .bs-times i{display:grid;place-items:center;height:40u;border-radius:11u;font-size:13.5u;font-style:normal;font-weight:500;box-shadow:inset 0 0 0 1u #e4e4e7}
-.bs-ring{position:absolute;z-index:1;border-radius:13u;box-shadow:inset 0 0 0 2u #18181b;pointer-events:none}
 .bs-ring-day{left:0;top:0;width:58u;height:58u;transform:translate3d(calc(var(--day) * 3),0,0)}
 .bs-ring-time{left:0;top:48u;width:calc((100% - 16u) / 3);height:40u;border-radius:11u}
 .bs-booked{position:absolute;left:14u;right:14u;bottom:14u;display:flex;align-items:center;gap:12u;padding:14u 16u;border-radius:15u;background:#18181b;color:#fff}
@@ -773,66 +654,99 @@ export const BUSINESS_MOCK_CSS =
 .bs-booked i{font-size:12.5u;font-style:normal;color:#a1a1aa}
 .bs-book .bs-btn{margin-top:auto}
 
-/* Phones: the same scenes, stacked, drawn at 400 x 640 */
+/*
+  Phones: each scene is one card in a row that slides under the thumb
+  (business-carousel.tsx), drawn at 360 x 520: about 330px wide on a 390px
+  phone, so 14 design pixels read as 13px. Every scene is a photograph or a
+  picture on top and its page under it, nothing cut at the card's foot.
+*/
 @media(max-width:767px){
-  .bz-frame{aspect-ratio:400/640}
-  .bz-frame>.smk{--w:400}
-  .bs-card,.bd-card,.bt-card,.bs-book{left:16u;right:16u;width:auto;padding:20u 20u 18u;border-radius:18u}
+  .bz-frame{aspect-ratio:360/520}
+  .bz-frame>.smk{--w:360}
+  .bs-card,.be-card,.bo-card,.bs-book{left:14u;right:14u;width:auto;padding:18u 18u 16u;border-radius:18u}
   .bs h4{font-size:21u}
   .bs-price{margin-top:8u!important;font-size:20u}
-  .bd-rail{right:0;bottom:auto;width:auto;height:380u}
-  .bd-track{--pitch:206u;left:200u;top:68u;margin:0}
-  .bd-cover{width:200u;height:250u;border-radius:12u}
-  .bc-tag,.bc-foot{font-size:5.6cqw}
-  .bc-book .bc-line,.bc-font .bc-line{font-size:5.6cqw}
-  .bd-card{top:auto;bottom:16u;margin:0;height:236u}
-  .bd-instant{display:none}
-  .bt-photo{left:34u;top:30u;width:332u;height:332u}
-  .bt-card{top:auto;bottom:16u;margin:0;height:300u}
-  .bt-thumbs{--tp:38u;gap:8u;margin-bottom:12u}
-  .bt-thumbs i{width:30u;height:30u;border-radius:8u}
-  .bt-thumb-ring{width:36u;height:36u;border-radius:10u}
-  .bs-ship{display:none}
-  .bt-opts{margin-bottom:16u}
-  .bt-opts i{height:40u;font-size:13u}
-  .bt-ring{height:40u}
-  .bt-toasts{left:16u;top:14u}
-  .bs-ccard{left:14u;right:14u;top:14u;bottom:14u;width:auto;margin:0;border-radius:18u}
-  .bp-player{height:178u}
-  .bp-course-body{padding:16u 16u 0}
-  .bp-course-head{display:grid;gap:12u;align-items:start}
-  .bp-course-head h4{font-size:19u}
+
+  .be-cover{left:30u;top:22u;width:170u;height:228u}
+  .be-cover::before{width:10u}
+  .be-cover-band{gap:4u;padding:0 12u}
+  .be-cover-band i{font-size:6.5u}
+  .be-cover-band b{font-size:23u}
+  .be-cover-band em{font-size:8u}
+  .be-page{left:168u;top:40u;width:164u;height:212u}
+  .be-page-pic{height:112u!important}
+  .be-page-text{left:40u;right:12u;top:122u;gap:2u}
+  .be-page-text i{font-size:5.5u}
+  .be-page-text b{margin-bottom:3u;font-size:13u}
+  .be-page-text em{font-size:7u}
+  .be-page-text em:nth-of-type(n+4){display:none}
+  .be-page-n{right:12u;bottom:9u;font-size:6u}
+  .be-card{top:auto;bottom:14u;margin:0;height:232u}
+  .be-toc{display:none}
+  .be-instant{margin:12u 0!important;font-size:12.5u}
+
+  .bo-thumbs{display:none}
+  .bo-main{left:0;right:0;top:0;bottom:auto;width:auto;height:270u;border-radius:0}
+  .bo-main-pic{object-position:50% 22%}
+  .bo-card{top:auto;bottom:14u;margin:0;height:262u}
+  .bo-card .bs-kicker,.bo-card .bs-desc,.bs-ship,.bo-added{display:none}
+  .bo-card h4{margin-top:0}
+  .bo-card .bs-label{margin-top:12u!important}
+  .bo-opts{margin-bottom:14u}
+  .bo-opts i{height:40u;font-size:13u}
+  .bo-ring{height:40u}
+
+  .bs-ccard{left:12u;right:12u;top:12u;bottom:12u;width:auto;margin:0;border-radius:18u}
+  .bp-player{height:184u}
+  .bp-course-body{padding:14u 16u 0}
+  .bp-course-head{display:grid;gap:10u;align-items:start}
+  .bp-course-head h4{font-size:18u}
+  .bp-course-head .bs-by{font-size:12.5u}
   .bp-course-buy{justify-content:space-between}
-  .bp-course-buy .bs-btn{flex:1}
+  .bp-course-buy .bs-btn{flex:1;height:40u}
+  .bp-lessons-wrap{margin-top:12u}
   .bp-lessons li{height:40u;font-size:13u}
   .bp-now{--row:40u;top:122u;height:38u}
-  .bs-com{left:14u;right:14u;top:14u;bottom:auto;width:auto;height:410u}
-  .bs-com-cover{height:130u}
+
+  .bs-com{left:12u;right:12u;top:12u;bottom:auto;width:auto;height:318u}
+  .bs-com-cover{height:104u}
   .bs-com-logo{left:16u;top:14u;gap:8u}
-  .bs-com-logo svg{width:26u;height:26u}
-  .bs-com-logo b{font-size:14u}
-  .bs-com-word{left:16u;bottom:14u;gap:4u}
-  .bs-com-word b{font-size:22u}
-  .bs-com-word i{font-size:12u}
-  .bs-com-host{right:14u;top:16u}
-  .bs-com-body{padding:16u 16u 0}
-  .bs-com-head{display:grid;gap:12u;align-items:start}
-  .bs-event em,.bs-spaces i:nth-child(n+3){display:none}
-  .bs-feed{left:14u;right:14u;top:438u}
-  .bs-feed-h{display:none}
+  .bs-com-logo svg{width:24u;height:24u}
+  .bs-com-logo b{font-size:13u}
+  .bs-com-word{left:16u;bottom:12u;gap:3u}
+  .bs-com-word b{font-size:20u}
+  .bs-com-word i{font-size:11.5u}
+  .bs-com-host{right:14u;top:15u}
+  .bs-com-host .smk-pic{width:24u;height:24u}
+  .bs-com-host em{font-size:11.5u}
+  .bs-com-body{padding:14u 16u 0}
+  .bs-com-head{display:grid;gap:10u;align-items:start}
+  .bs-com-head h4{font-size:20u}
+  .bs-com-head .bs-btn{height:40u}
+  .bs-event{margin-top:12u;padding:10u}
+  .bs-event em,.bs-spaces{display:none}
+  .bs-feed{left:12u;right:12u;top:342u;gap:10u}
+  .bs-feed-h,.bs-post-r{display:none}
   .bs-post:nth-of-type(n+3){display:none}
-  .bs-post{padding:12u;border-radius:15u}
-  .bs-post-t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .bs-post-r{display:none}
-  .bs-coach-photo{right:0;width:auto;bottom:auto;height:300u}
-  .bs-coach-photo::after{background:linear-gradient(to top,#0f1012,rgba(15,16,18,0) 55%)}
-  .bs-coach-name{left:20u;bottom:80u}
-  .bs-book{--day:67u;top:auto;bottom:16u;margin:0;height:362u}
+  .bs-post{grid-template-columns:32u 1fr;gap:10u;padding:11u 12u;border-radius:15u}
+  .bs-post-av{width:32u!important;height:32u!important}
+  .bs-post-h{font-size:12.5u}
+  .bs-post-t{margin-top:2u!important;font-size:12.5u;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+  .bs-coach-photo{right:0;width:auto;bottom:auto;height:236u}
+  .bs-coach-photo::after{background:linear-gradient(to top,#0f1012,rgba(15,16,18,0) 60%)}
+  .bs-coach-name{left:20u;bottom:92u}
+  .bs-coach-name b{font-size:18u}
+  .bs-coach-name i{font-size:12u}
+  .bs-book{top:auto;bottom:14u;margin:0;height:352u}
+  .bs-booked{left:12u;right:12u;bottom:12u;padding:12u 14u}
   .bs-book .bs-label{display:none}
-  .bs-book .bs-days{margin-top:16u}
+  .bs-meta{gap:12u}
+  .bs-book .bs-days{margin-top:14u}
   .bs-days{grid-template-columns:repeat(5,1fr);gap:7u}
-  .bs-days i{height:52u}
-  .bs-ring-day{width:calc((100% - 28u) / 5);height:52u}
-  .bs-ring-time{top:52u}
+  .bs-days i{height:50u}
+  .bs-ring-day{--day:calc(100% + 7u);width:calc((100% - 28u) / 5);height:50u}
+  .bs-times{margin:10u 0 14u}
+  .bs-ring-time{top:48u}
 }
 `) + u(MOTION)

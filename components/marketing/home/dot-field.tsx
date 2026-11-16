@@ -94,6 +94,14 @@
   observes visibility and size, sends the mouse at most once a frame, and
   pauses the field under a sheet that covers it.
 
+  Landing round 12, the owner, of the closing call: the dots are "too
+  regular" (straight rows and columns): scatter them. <DotField scatter />
+  draws them from dotFieldScatter (in the engine, dot-field-engine.ts):
+  seeded Poisson disc sampling, every dot at least 0.8 of the gap from the
+  next, so they spread evenly with no rows, no columns and no clumps, each
+  with a brightness of its own. The seed is fixed, so a box of a given size
+  always gets the same field. The purple sheet keeps its grid.
+
   Put <DotField /> as the first child of a dark block that is a stacking
   context (position plus z-index, or isolation: isolate); it fills it,
   behind everything else (z-index -1, pointer-events: none). `style` can
@@ -105,10 +113,10 @@
 
 import { useEffect, useRef, type CSSProperties } from "react"
 import { mountDotField } from "./dot-field-mount"
-import { DOT_FIELD_MAX_DPR, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints } from "./dot-field-engine"
+import { DOT_FIELD_MAX_DPR, DOT_FIELD_SEED, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints, dotFieldScatter } from "./dot-field-engine"
 
 /** The tones, the largest device pixel ratio and the dots' maths live in the engine (worker safe); re-exported here, where they were. */
-export { DOT_FIELD_MAX_DPR, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints }
+export { DOT_FIELD_MAX_DPR, DOT_FIELD_SEED, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints, dotFieldScatter }
 
 export const DOT_FIELD_CSS = `
 .dotf{position:absolute;inset:0;z-index:-1;overflow:clip;pointer-events:none}
@@ -124,6 +132,7 @@ export function DotField({
   gap = 18,
   fade = "edges",
   tone = "dark",
+  scatter = false,
   className,
   style,
 }: {
@@ -133,6 +142,8 @@ export function DotField({
   fade?: "edges" | "bottom" | "close" | "none"
   /** "dark" for a near-black ground, "purple" for the brand purple. */
   tone?: "dark" | "purple"
+  /** Scattered dots (seeded Poisson disc, dotFieldScatter) in place of the even grid: the closing call, since landing round 12. */
+  scatter?: boolean
   className?: string
   style?: CSSProperties
 }) {
@@ -141,8 +152,8 @@ export function DotField({
   useEffect(() => {
     const box = ref.current
     if (!box) return
-    return mountDotField(box, { kind: tone, gap, pointer: "window" })
-  }, [gap, tone])
+    return mountDotField(box, { kind: tone, gap, scatter, pointer: "window" })
+  }, [gap, tone, scatter])
 
   return (
     <div ref={ref} className={`dotf${className ? ` ${className}` : ""}`} data-fade={fade === "none" ? undefined : fade} data-tone={tone} style={style} aria-hidden="true">

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react"
 import { RAIL_AXIS, bindRailGesture } from "./rail-gesture"
+import { frameLeg, type FrameLeg } from "./rail-frames"
 
 /*
   THE SHOWCASE'S MOTION. LANDING ROUND 8, the owner: "I don't like the pull
@@ -124,7 +125,10 @@ function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () 
   let x = 0
   let stops: number[] = [0]
   let index = 0
-  let glide: Animation | null = null
+  let glide: Animation | FrameLeg | null = null
+  /* The glide is the page's own frames (a touch screen) rather than a Web Animation. */
+  let glideFrames = false
+  const touch = matchMedia("(hover: none), (pointer: coarse)")
   let paintFrame = 0
 
   const paint = () => {
@@ -156,11 +160,23 @@ function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () 
     paint()
   }
 
-  /* The rail's place this moment, read off the running glide once (a gesture's start), and the glide let go. */
+  /*
+    The rail's place this moment, and the glide let go (a gesture's start).
+    Landing round 12: on a touch screen the glide is the page's own frames
+    (rail-frames.ts), so its place is the one last written, which is what is
+    drawn; a Web Animation's place is read off the style, which in WebKit can
+    be behind what its compositor has drawn, and the rail stepped back under
+    the finger.
+  */
   const stopGlide = () => {
     if (!glide) return
-    const m = getComputedStyle(el).transform
-    if (m && m !== "none") x = -new DOMMatrixReadOnly(m).m41
+    if (glideFrames) {
+      x = (glide as FrameLeg).at()
+    } else {
+      glide.pause()
+      const m = getComputedStyle(el).transform
+      if (m && m !== "none") x = -new DOMMatrixReadOnly(m).m41
+    }
     glide.cancel()
     glide = null
     paint()
@@ -176,6 +192,18 @@ function startRail(el: HTMLDivElement, viewport: HTMLElement, hooks: Hooks): () 
       return
     }
     const from = x
+    glideFrames = touch.matches
+    if (glideFrames) {
+      const leg = frameLeg(from, to - from, ms, easing, (v) => {
+        x = v
+        paint()
+      })
+      glide = leg
+      leg.onfinish = () => {
+        if (glide === leg) glide = null
+      }
+      return
+    }
     const anim = el.animate([{ transform: `translate3d(${(-from).toFixed(2)}px,0,0)` }, { transform: `translate3d(${(-to).toFixed(2)}px,0,0)` }], { duration: ms, easing })
     glide = anim
     /* The end is written to the style first, then the animation goes: nothing flashes between them. */
