@@ -147,7 +147,7 @@ export function LandingStory({ children }: { children: ReactNode }) {
           /* Landing round 11: a picture's fade in (IMG_FADE_MS) runs out away from the screen too, so it is never still fading when it arrives. */
           .filter((a) => a.playState === "running" && a.timeline === document.timeline && (a as CSSAnimation).animationName !== "landing-img-in")
         for (const a of running) a.pause()
-        if (running.length) resting.set(section, running)
+        if (running.length) resting.set(section, [...(resting.get(section) ?? []), ...running])
       } else {
         const paused = resting.get(section)
         if (!paused) return
@@ -180,17 +180,61 @@ export function LandingStory({ children }: { children: ReactNode }) {
             { rootMargin: STORY_LIVE_AHEAD },
           )
         : null
+    /*
+      Landing round 12: one that starts after its section went away rests too.
+      rest() pauses what is running when the section leaves; a section's own
+      timers kept starting new ones after that (the creators' rail moving its
+      cards: 17 transitions running in a section reported away, measured on a
+      phone). Each start is heard once on the root, and only that element's
+      own animations are looked at.
+    */
+    const onStart = (event: Event) => {
+      const el = event.target
+      if (!(el instanceof Element) || typeof el.getAnimations !== "function") return
+      const away = el.closest<HTMLElement>('[data-story-in-view="false"]')
+      if (!away) return
+      const name = event.type === "animationstart" ? (event as AnimationEvent).animationName : null
+      const prop = name === null ? (event as TransitionEvent).propertyName : null
+      if (name === "landing-img-in") return
+      const started = el.getAnimations().filter((a) => {
+        if (a.playState !== "running" || a.timeline !== document.timeline) return false
+        return name !== null ? (a as CSSAnimation).animationName === name : (a as CSSTransition).transitionProperty === prop
+      })
+      if (!started.length) return
+      for (const a of started) a.pause()
+      resting.set(away, [...(resting.get(away) ?? []), ...started])
+    }
+    if (observer) {
+      root.addEventListener("animationstart", onStart)
+      root.addEventListener("transitionrun", onStart)
+    }
 
     /* The entrance. First report: wholly below the screen -> hidden ("wait"); anything else is let go as it is. Later: on screen -> "in", or shown at once when flung. */
     const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
     /* Wave 17: a phone or touch screen: nothing is hidden, every own entrance is marked at once (see above). */
     const touch = touchScreen()
     const seen = new WeakSet<Element>()
-    /* How fast the page is moving, from the scroll events themselves (scrollY and a clock: no layout). */
+    /*
+      How fast the page is moving: scrollY and a clock. Landing round 12: read
+      after the frame, not in the scroll event. Reading scrollY makes the
+      browser lay the page out first if anything changed since the last
+      frame, and a scroll event comes before the frame's own layout, so a
+      read there laid the page out twice a frame (the round 12 audit, a phone
+      at 4x CPU flicking the whole page: 1.4s in this listener, the page's
+      costliest script). The event only asks; a task queued from the next
+      frame reads it once that frame has been laid out.
+    */
     let lastY = window.scrollY
     let lastAt = performance.now()
     let speed = 0
+    let asked = false
     const onScroll = () => {
+      if (asked) return
+      asked = true
+      requestAnimationFrame(() => window.setTimeout(measure, 0))
+    }
+    const measure = () => {
+      asked = false
       const now = performance.now()
       const y = window.scrollY
       const dt = now - lastAt
@@ -392,6 +436,8 @@ export function LandingStory({ children }: { children: ReactNode }) {
       root.removeEventListener("load", onPicture, true)
       root.removeEventListener("error", onPicture, true)
       root.removeEventListener("animationend", onFaded)
+      root.removeEventListener("animationstart", onStart)
+      root.removeEventListener("transitionrun", onStart)
       window.removeEventListener("scroll", onScroll)
       additions.disconnect()
       document.removeEventListener("visibilitychange", sync)

@@ -84,7 +84,8 @@ console.log("\n── every picture fades in once decoded ──")
   check("the fade runs out off screen too (the section pause leaves it)", /animationName !== "landing-img-in"/.test(story))
   check("not the showcase's (its own queue) and not the logo", IMG_SKIP.includes(".build-showcase img") && IMG_SKIP.includes("img[data-storelib-logo]"))
   check("no picture hidden under reduced motion", /if \(reduced\) return/.test(story) && REVEAL_CSS.indexOf('img[data-img="wait"]') > REVEAL_CSS.indexOf("@media (prefers-reduced-motion:no-preference)"))
-  check("no timer", !/setTimeout|setInterval/.test(story))
+  // Changed on purpose (landing round 12): the scroll listener reads the position in a task queued from the next frame (after layout), its one zero-delay setTimeout; no other timer.
+  check("no timer", !/setTimeout|setInterval/.test(story.replace("requestAnimationFrame(() => window.setTimeout(measure, 0))", "")))
 }
 
 console.log("\n── a calmer entrance on a phone, once ──")
