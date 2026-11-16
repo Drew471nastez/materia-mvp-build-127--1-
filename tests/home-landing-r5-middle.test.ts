@@ -93,19 +93,23 @@ console.log("\nHow it works: no cap, calm grounds, the domain as it was in round
 const how = renderToStaticMarkup(createElement(HowItWorks))
 // Changed on purpose (landing round 8): the owner asked for "just a t-shirt" (a plain tee), four light grounds of one family instead of three grey and one black, and no violet .com pill.
 // Changed on purpose (landing round 9): the products card is gone; the tee is section 3's black Midnight Studio Tee, among the shop's top products.
-check("the tee is section 3's, not a cap, an apron or the print", HOW_PRODUCTS[1].id === "tee" && how.includes(HOW_PRODUCTS[1].name) && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle|apron/i.test(how) && small("public/home/everything/tee.webp", 120))
+// Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
+check("the tee is section 3's, not a cap, an apron or the print", HOW_PRODUCTS[1].id === "tee" && HOW_PRODUCTS[1].name === "Midnight Studio Tee" && !/Darkroom cap|cap-yellow|LaSalle|print-lasalle|apron/i.test(how) && small("public/home/everything/tee.webp", 120))
 check("the tee is $32 and the pack $29, as in section 3", HOW_PRODUCTS[1].priceCents === 3200 && HOW_PRODUCTS[0].priceCents === 2900) // Changed on purpose (landing round 9): no "You keep" figures any more.
 // Changed on purpose (landing round 9): three cards on flat lilac, paper and peach (the owner: "too grey").
 // Changed on purpose (landing round 11): one quiet near white ground a card, named for its card.
-check("three light grounds, all still", [...how.matchAll(/data-ground="(\w+)"/g)].map((m) => m[1]).join() === "tips,business,domain" && !/gradient/.test(rule(howCss, ".cmh-stage")) && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
+// Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
+check("no grounds behind the pictures, nothing drifting", !/data-ground=/.test(how) && !/ground=night/.test(howCss) && !/cmh-gl|cmh-drift|GROUNDS/.test(read(F.how)))
 // Changed on purpose (landing round 9): the owner asked for more colour: Storelib's violet (#8b5cf6) is the accent and the hearts are five colours; still no gradient of violet and no green.
-check("no violet gradient and no green in the section", !/gradient\([^)]*#(8b5cf6|7c3aed)/.test(howCss) && !/#2bb3a3|#5cbf6a|#15803d|#16a34a/.test(howCss))
+// Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
+check("no violet gradient in the section", !/gradient\([^)]*#(8b5cf6|7c3aed)/.test(howCss))
 check("no checkout tile: no sheet, no drawn phone", !how.includes("cmh-sheet") && !/cmh-ph-scr|cmh-op-/.test(howCss) && sheetButtonLabel("Check out", "$45.00", true) === "Check out · $45.00")
 // Changed on purpose (landing round 8): one browser window with the domain typing in, no address pill and no three rows.
 // Changed on purpose (landing round 9): one address pill over his website, no browser window.
 // Changed on purpose (landing round 10): one address band with its ending gliding, no website under it; the name is "lindewood".
 // Changed on purpose (landing round 11): his website in a browser, its address closing to his own domain.
-check("the domain: one browser window, its address closing", how.includes('class="cmh-dm-win"') && !how.includes("cmh-dm-band") && !how.includes("cmh-site") && HOW_DOMAIN.host === "lindewood.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
+// Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
+check("the domain: one address field over a store, its own domain", how.includes('class="cmh-dm-field"') && !how.includes("cmh-dm-band") && !how.includes("cmh-site") && HOW_DOMAIN.host === "fernlyn.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
 check("every loop in the section is transform and opacity only", keyframeBodies(howCss).every(onlyCompositor))
 
 console.log("\nCopy and banned samples")
