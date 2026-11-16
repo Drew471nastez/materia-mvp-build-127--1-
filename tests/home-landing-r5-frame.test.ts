@@ -99,7 +99,7 @@ console.log("\n── Start now comes in after the hero ──")
   // Changed on purpose (landing round 9): the same one observer also watches the showcase, which is what a phone waits for (tests/home-landing-r9-frame.test.ts).
   check("watches the hero's own buttons with one observer", /document\.querySelector\("\[data-home-hero\] \.cinematic-actions"\)/.test(fx) && (fx.match(/new IntersectionObserver\(/g) ?? []).length === 1 && /io\.observe\(cta\)/.test(fx))
   check("gone means above the bar's foot, not merely off screen below", /rootMargin: `-\$\{top\}px 0px 0px 0px`/.test(fx) && /!entry\.isIntersecting && entry\.boundingClientRect\.top < /.test(fx))
-  check("an attribute on the bar: no state, no scroll listener, no re-render", /* Changed on purpose (landing round 9): which block is watched depends on the width, so "gone" is kept per block. */ /el\.setAttribute\("data-home-cta", gone\.get\(watched\) \? "shown" : "hidden"\)/.test(fx) && !/addEventListener|useState|set[A-Z]\w*\(/.test(fx.replace(/setAttribute/g, "")))
+  check("an attribute on the bar: no state, no scroll listener, no re-render", /* Changed on purpose (landing round 13): the hero buttons are the one block watched again. */ /el\.setAttribute\("data-home-cta", gone\.get\(cta\) \? "shown" : "hidden"\)/.test(fx) && !/addEventListener|useState|set[A-Z]\w*\(/.test(fx.replace(/setAttribute/g, "")))
   check("without an observer it simply shows", /el\.setAttribute\("data-home-cta", "shown"\)/.test(fx))
   const hero = read("components/marketing/hero.tsx")
   const hidden = /#platform-header-root:not\(\[data-home-cta="shown"\]\) :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""
