@@ -52,9 +52,10 @@ console.log("\nHow it works: four cards, wide and narrow")
 check("three cards, narrow, wide, narrow, in one row; one column on a phone", () => {
   assert.equal((how.match(/class="cmh-card /g) ?? []).length, 3)
   // Changed on purpose (landing round 12): the owner asked for full width pictures: the dashboard on a row of its own, tips and the domain sharing the next; one column on a phone.
-  assert.deepEqual([...how.matchAll(/class="cmh-card (cmh-wide|cmh-narrow)"/g)].map((m) => m[1]), ["cmh-wide", "cmh-narrow", "cmh-narrow"])
+  // Changed on purpose (landing round 13): the owner asked for round 11's row again, narrow, wide, narrow, with round 12's pictures inside.
+  assert.deepEqual([...how.matchAll(/class="cmh-card (cmh-wide|cmh-narrow)"/g)].map((m) => m[1]), ["cmh-narrow", "cmh-wide", "cmh-narrow"])
   assert.ok(/\.cmh-grid\{display:grid;grid-template-columns:minmax\(0,1fr\)/.test(howCss))
-  assert.ok(/\.cmh-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(howCss) && /\.cmh-wide\{grid-column:1\/-1\}/.test(howCss))
+  assert.ok(/\.cmh-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(howCss) && /\.cmh-wide\{grid-column:1\/-1;order:-1\}/.test(howCss)) // Changed on purpose (landing round 13): below 1100px the wide card leads its own row (round 11)
 })
 check("the first tile still sells a physical and a digital product, and there are no Golden Hour presets", () => {
   const w = words(how)

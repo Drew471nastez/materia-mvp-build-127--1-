@@ -99,9 +99,10 @@ console.log("\n── the close: dots, motion, the footer's edge ──")
   const dots = read("components/marketing/home/dot-field.tsx")
   const cta = read("components/marketing/home/final-cta.tsx")
   // Changed on purpose (landing round 11): the closing call "more visible" (0.34 / 0.68); the purple sheet rests at 0.17 (its own track).
-  check("more visible, and the purple its own", DOT_FIELD_TONES.dark.rest === 0.34 && DOT_FIELD_TONES.dark.lit === 0.68 && DOT_FIELD_TONES.purple.rest === 0.17)
+  // Changed on purpose (landing round 13): the owner: the closing call "more subtle overall" (0.24 / 0.5).
+  check("more visible, and the purple its own", DOT_FIELD_TONES.dark.rest === 0.24 && DOT_FIELD_TONES.dark.lit === 0.5 && DOT_FIELD_TONES.purple.rest === 0.17)
   check("round dots in 32 levels", /ctx\.arc\(b\[j\], b\[j \+ 1\], colour\.r, 0, Math\.PI \* 2\)/.test(dots) && /const LEVELS = 32/.test(dots) && !/ctx\.rect\(/.test(dots))
-  check("moves by itself, follows the mouse while it is over the field", /const WANDER = 0\.6/.test(dots) && /goal = tone === "dark" \? WANDER/.test(dots) && /hasAim && mx > -40 && my > -40 && mx < w \+ 40 && my < h \+ 40/.test(dots))
+  check("moves by itself, follows the mouse while it is over the field", /const WANDER = 0\.6/.test(dots) && /goal = WANDER \+ \(1 - WANDER\) \* p/.test(dots) && /hasAim && mx > -40 && my > -40 && mx < w \+ 40 && my < h \+ 40/.test(dots)) // Changed on purpose (landing round 13): the closing call's pull fades in near the box (DOT_FIELD_CALM reach); the purple sheet keeps the edge test.
   check("60 a second whenever it runs, paused off screen and in a hidden tab", /if \(last && t - last < 12\) return/.test(dots) && /IntersectionObserver/.test(dots) && /visibilitychange/.test(dots))
   // Changed on purpose (landing round 11): the owner: "more visible at the bottom as well": clear down to the foot, only the last 56px fade.
   check("the field runs on to the call's foot, its last 56px fading", /<DotField fade="close" scatter \/>/.test(cta) /* Changed on purpose (landing round 12): scattered */ && /\.dotf\[data-fade="close"\]\{-webkit-mask-image:linear-gradient\(#000 calc\(100% - 56px\),transparent\),radial-gradient\(120% 135% at 50% 42%/.test(DOT_FIELD_CSS))

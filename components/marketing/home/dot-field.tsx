@@ -91,6 +91,15 @@
   fixed, so a box of a given size always gets the same field. The purple
   sheet keeps its grid.
 
+  Landing round 13, the owner, of the closing call: the dots should "move
+  subtly by default, a slow gentle drift", be "more subtle overall", and the
+  pointer should feel "smoother and cleaner, eased, no snapping". So the dark
+  tone rests at 0.24 and lights to 0.5 (was 0.34 and 0.68), every dot
+  breathes on a small slow loop of its own, and the light eases after the
+  mouse through two easings with a pull that fades in near the box
+  (DOT_FIELD_CALM). Still one canvas, two sines more a dot. The purple sheet
+  draws exactly as before.
+
   Put <DotField /> as the first child of a dark block that is a stacking
   context (position plus z-index, or isolation: isolate); it fills it,
   behind everything else (z-index -1, pointer-events: none). `style` can
@@ -125,7 +134,8 @@ export const DOT_FIELD_CSS = `
  */
 export const DOT_FIELD_TONES = {
   /* Landing round 11: the closing call's dots a little more visible and standing on their points (ride 0); the purple sheet's brighter, rounder and steadier (its own track). */
-  dark: { rgb: "255,255,255", rest: 0.34, lit: 0.68, r: 0.8, ride: 0 },
+  /* Landing round 13, the owner: the closing call "more subtle overall": rests at 0.24 (was 0.34), lights to 0.5 (was 0.68). */
+  dark: { rgb: "255,255,255", rest: 0.24, lit: 0.5, r: 0.8, ride: 0 },
   purple: { rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 },
 } as const
 
@@ -142,6 +152,29 @@ const LEVELS = 32
 const WANDER = 0.6
 /** The darkest a dot gets in the trough of the flow, as a share of its crest (landing round 11: the dark tone 0.45, was 0.3; the purple sheet as it was). */
 const TROUGH = { dark: 0.45, purple: 0.3 } as const
+
+/**
+ * The closing call's own motion (landing round 13, the owner: "by default,
+ * move subtly, a slow gentle drift, breathing", and the pointer "smoother and
+ * cleaner, eased, no snapping"). The purple sheet does none of this.
+ *
+ *   drift    every dot wanders on a small slow loop of its own around its
+ *            point, `drift` px at most, once in `periodS` seconds give or
+ *            take a third (its own pace, from its phase), so the field
+ *            breathes without anything marching. Under a fiftieth of a pixel
+ *            a frame: no shimmer.
+ *   follow   the light follows the pointer through two easings in a row
+ *            (`follow` each, per 60Hz frame), so it starts gently, glides and
+ *            settles, instead of leaping off at full speed and slowing.
+ *   reach    how near the field the mouse must be to draw the light: the
+ *            pull fades over `reach` px outside the box rather than
+ *            switching on and off at its edge, and the mouse's place is
+ *            kept on the screen and read with the scroll, so scrolling
+ *            under a still mouse never leaves the light behind.
+ *   part     how far the dots part under the light, in px, with a falloff
+ *            that is flat at its centre and at its rim (no point, no ring).
+ */
+export const DOT_FIELD_CALM = { drift: 1.6, periodS: 14, follow: 0.085, reach: 160, part: 4 } as const
 
 /** A repeatable random number in [0, 1) for a pair of integers. */
 function hash(x: number, y: number) {
@@ -319,14 +352,21 @@ export function DotField({
       placedAt = performance.now()
     }
 
-    /* The pointer in page coordinates, where the hand is; the light glides after it. */
+    /* The pointer in page coordinates, where the hand is; the light glides after it. The closing call keeps it on the screen instead (DOT_FIELD_CALM reach) and adds the scroll as it draws. */
     let aimX = 0
     let aimY = 0
     let hasAim = false
     let lightX = 0
     let lightY = 0
+    /* The closing call's first easing: the light follows this, and this follows the aim. */
+    let midX = 0
+    let midY = 0
     let strength = 0
     let started = false
+    const calm = tone === "dark"
+    const C = DOT_FIELD_CALM
+    /* Each dot's own pace round its loop, from its phase: once in periodS seconds, give or take a third. */
+    const driftW = (Math.PI * 2) / (C.periodS * 1000)
 
     const buckets: number[][] = Array.from({ length: LEVELS }, () => [])
 
@@ -335,24 +375,44 @@ export function DotField({
       let tx: number
       let ty: number
       let goal: number
-      /* The mouse, while it is over the field (its place is known: no layout read here). */
-      const mx = aimX - pageX
-      const my = aimY - pageY
-      if (hasAim && mx > -40 && my > -40 && mx < w + 40 && my < h + 40) {
-        tx = mx
-        ty = my
-        goal = 1
+      const wx = w * (0.5 + 0.32 * Math.sin(t * 0.00011))
+      const wy = h * (0.42 + 0.26 * Math.sin(t * 0.000083 + 1.3))
+      if (calm) {
+        /* The closing call: the mouse's pull fades out over `reach` px outside the box, so nothing switches at an edge; the scroll is read here (no layout). */
+        const mx = aimX + window.scrollX - pageX
+        const my = aimY + window.scrollY - pageY
+        const out = Math.max(0, -mx, mx - w, -my, my - h)
+        const pull = hasAim ? Math.max(0, 1 - out / C.reach) : 0
+        const p = pull * pull * (3 - 2 * pull)
+        tx = wx + (mx - wx) * p
+        ty = wy + (my - wy) * p
+        goal = WANDER + (1 - WANDER) * p
       } else {
-        tx = w * (0.5 + 0.32 * Math.sin(t * 0.00011))
-        ty = h * (0.42 + 0.26 * Math.sin(t * 0.000083 + 1.3))
-        /* The purple sheet keeps a quieter wander (round 7), a little stronger since round 11; the closing call's light is out on its own. */
-        goal = tone === "dark" ? WANDER : fine ? 0.45 : 0.55
+        /* The mouse, while it is over the field (its place is known: no layout read here). */
+        const mx = aimX - pageX
+        const my = aimY - pageY
+        if (hasAim && mx > -40 && my > -40 && mx < w + 40 && my < h + 40) {
+          tx = mx
+          ty = my
+          goal = 1
+        } else {
+          tx = wx
+          ty = wy
+          /* The purple sheet keeps a quieter wander (round 7), a little stronger since round 11. */
+          goal = fine ? 0.45 : 0.55
+        }
       }
-      const k = 1 - Math.pow(1 - FOLLOW, dt / 16.67)
+      const k = 1 - Math.pow(1 - (calm ? C.follow : FOLLOW), dt / 16.67)
       if (!started) {
-        lightX = tx
-        lightY = ty
+        lightX = midX = tx
+        lightY = midY = ty
         started = true
+      } else if (calm) {
+        /* Two easings in a row: a gentle start, a glide, a soft stop. */
+        midX += (tx - midX) * k
+        midY += (ty - midY) * k
+        lightX += (midX - lightX) * k
+        lightY += (midY - lightY) * k
       } else {
         lightX += (tx - lightX) * k
         lightY += (ty - lightY) * k
@@ -366,16 +426,25 @@ export function DotField({
         /* Each dot rides the current by under a pixel on the purple; on the closing call it stands on its point (ride 0) and the flow is its brightness only. */
         let x = points[i] + (flow - 0.5) * 0.8 * colour.ride
         let y = points[i + 1] + (flow - 0.5) * 1.4 * colour.ride
+        if (calm) {
+          /* The closing call's breathing: a small slow loop round the dot's point, at its own pace. */
+          const ph = points[i + 3]
+          const wt = t * driftW * (0.75 + 0.5 * (ph / 6.2832))
+          x += Math.sin(wt + ph) * C.drift
+          y += Math.sin(wt * 0.83 + ph * 1.7 + 1.1) * C.drift
+        }
         let a = colour.rest * points[i + 2] * (trough + (1 - trough) * flow * flow)
         const dx = x - lightX
         const dy = y - lightY
         const d2 = dx * dx + dy * dy
         if (d2 < r2 && strength > 0.01) {
           const d = Math.sqrt(d2) || 1
-          const f = (1 - d / RADIUS) * (1 - d / RADIUS) * strength
+          /* The closing call: flat at the centre and at the rim, (1 - (d/R)^2)^2; the purple sheet as it was. */
+          const q = calm ? 1 - d2 / r2 : 1 - d / RADIUS
+          const f = q * q * strength
           a += (colour.lit - colour.rest * trough) * f
-          x += (dx / d) * PART * f
-          y += (dy / d) * PART * f
+          x += (dx / d) * (calm ? C.part : PART) * f
+          y += (dy / d) * (calm ? C.part : PART) * f
         }
         if (x < -2 || y < -2 || x > w + 2 || y > h + 2) continue
         const level = Math.min(LEVELS - 1, Math.round((a / colour.lit) * (LEVELS - 1)))
@@ -443,8 +512,8 @@ export function DotField({
 
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return
-      aimX = e.clientX + window.scrollX
-      aimY = e.clientY + window.scrollY
+      aimX = calm ? e.clientX : e.clientX + window.scrollX
+      aimY = calm ? e.clientY : e.clientY + window.scrollY
       hasAim = true
       if (e.timeStamp - placedAt > 500) place()
     }
