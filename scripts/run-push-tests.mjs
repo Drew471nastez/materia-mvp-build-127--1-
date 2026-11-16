@@ -1562,6 +1562,8 @@ const SUITES = [
   "tests/home-landing-r12-checkout.test.ts",
   /* Landing round 12, perf: the same page, cheaper. The analytics globe reads the scroll after the frame; the analytics and Everything cards pause their loops on their own more than a screen away; no permanent will-change on the orbs, the engines strip, the Everything grounds, the creators rail or a resting sheet's scrim; the AI tools light on squares as wide as the rim's diagonal, turning only while live; the Ideas thumbnails from small copies. */
   "tests/home-landing-r12-perf.test.ts",
+  /* Landing round 13, faq: /faq in the landing's look (the dark top with the closing call's dots, a white sheet over it, the home page's rows); the questions by topic with a sticky list (chips on a phone) under the measured header, a search that marks its words, an address for every question, the answers read from the plan, fee and storage tables (Free, Grow, Pro), a support line at the end. */
+  "tests/home-landing-r13-faq.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
