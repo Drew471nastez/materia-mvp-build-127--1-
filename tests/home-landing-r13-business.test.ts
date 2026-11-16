@@ -34,7 +34,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "")
 const SECTION = "components/marketing/home/business-carousel.tsx"
 const MOCKS = "components/marketing/home/showcase-mocks/business-mocks.tsx"
 const { BUSINESS_HEADING, BUSINESS_SUB, BUSINESS_ACCENT, BUSINESS_ACCENT_COLOR, BUSINESS_SLIDES, BUSINESS_STYLES, BusinessCarousel } = Section
-const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, ClubScene, DIGITAL_PRODUCTS, DIGITAL_ORDER, STORE_DESIGNS, STORE_DESIGN_WIDTHS, STORE_STEP_S, STORE_GLIDE_S, STORE_LOOP_S } = Mocks
+const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, ClubScene, DIGITAL_PRODUCTS, STORE_DESIGNS, STORE_DESIGN_WIDTHS, STORE_STEP_S, STORE_GLIDE_S } = Mocks
 const css = (BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? "").replace(/\/\*[\s\S]*?\*\//g, "")
 const mocks = BUSINESS_MOCK_CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/calc\(([-\d.]+)\*var\(--u\)\)/g, "$1u")
 const phoneAt = mocks.indexOf("@media(max-width:767px)")
@@ -51,8 +51,10 @@ const rule = (src: string, sel: string) => src.match(new RegExp(`(?:^|[}\\s])${s
 
 console.log("\nHeading: specific, short, far less purple")
 {
-  check("Five ways to get paid", BUSINESS_HEADING === "Five ways to get paid" && html.includes('aria-label="Five ways to get paid"'))
-  check("one accented word, and it is in the heading", BUSINESS_ACCENT.length === 1 && BUSINESS_ACCENT[0] === "paid" && (html.match(/data-story-accent="true"/g) ?? []).length === 1)
+  // Changed on purpose (landing round 14): the owner disliked "Five ways to get paid"; the heading is "From a cookbook to a coaching call".
+  check("Five ways to get paid", BUSINESS_HEADING === "From a cookbook to a coaching call" && html.includes('aria-label="From a cookbook to a coaching call"'))
+  // Changed on purpose (landing round 14): the accent word is "call".
+  check("one accented word, and it is in the heading", BUSINESS_ACCENT.length === 1 && BUSINESS_ACCENT[0] === "call" && (html.match(/data-story-accent="true"/g) ?? []).length === 1)
   check("the accent is a greyer violet than the page's, set on this heading only", BUSINESS_ACCENT_COLOR === "#7e6fb8" && css.includes(`.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};`))
   check("the line names the five kinds in at most ten words", BUSINESS_SUB === "Downloads, goods, courses, communities and calls, one checkout." && BUSINESS_SUB.split(/\s+/).length <= 10)
   check("no banned words, em dashes or other brands in the copy", !BANNED.test([BUSINESS_HEADING, BUSINESS_SUB, ...BUSINESS_SLIDES.flatMap((s) => [s.label, s.line, s.alt]), digital, physical, club].join(" ")))
@@ -60,31 +62,24 @@ console.log("\nHeading: specific, short, far less purple")
 
 console.log("\nDigital: the mobility course and Ancestral Kitchen")
 {
-  check("the two products, priced, from one store", DIGITAL_PRODUCTS.map((p) => `${p.name} ${p.price}`).join() === "Ancestral Kitchen $34,Daily Mobility $79" && DIGITAL_ORDER.total === "$113" && digital.includes("from Ruth Calder"))
+  // Changed on purpose (landing round 14): the owner disliked the digital card's ground and motion; it is a shelf of six downloads (tests/home-landing-r14-business.test.ts). The two products stay on it.
+  check("the two products, priced, from one store", DIGITAL_PRODUCTS.slice(0, 2).map((p) => `${p.name} ${p.price}`).join() === "Ancestral Kitchen $34,Daily Mobility $79" && digital.includes("by Ruth Calder"))
   check("their pictures are the earlier rounds' own, small", ["ancestral-kitchen-cookbook", "mobility-course"].every((n) => digital.includes(`/home/sell-map/${n}.webp`) && statSync(`public/home/sell-map/${n}.webp`).size < 60_000))
-  check("two tiles and one order card listing both, with the total", (digital.match(/class="bd-tile bd-tile-\d"/g) ?? []).length === 2 && (digital.match(/class="bs-card bd-card"/g) ?? []).length === 1 && /Total<\/span><b>\$113<\/b>/.test(digital))
-  check("the moment in the button: Pay, Downloading the cookbook, Ready in your library", /<span class="a">Pay \$113<\/span><span class="b">[\s\S]*?Downloading the cookbook<\/span><span class="c">[\s\S]*?Ready in your library<\/span>/.test(digital))
-  check("the ground is the cookbook picture's own paper", /\.bs-digital\{background:#e6dfd1\}/.test(desk))
-  check("on a phone the tiles stand side by side over the order", rule(phone, ".bd-tile-1").includes("left:186u") && rule(phone, ".bd-card").includes("bottom:14u"))
   check("Slow Mornings, Night Face Oil and their photographs are gone", !/Slow Mornings|Night Face Oil|bz-ebook|bz-eggs|bz-oil|be-cover|be-page|bo-thumb/.test(code(MOCKS) + code(SECTION)) && ["bz-ebook", "bz-eggs", "bz-oil"].every((n) => !existsSync(`public/home/showcase/${n}.webp`)))
 }
 
 console.log("\nPhysical: an endless 3D line of store designs")
 {
-  check("six store designs, each a 4:5 webp at three widths, small", STORE_DESIGNS.length === 6 && STORE_DESIGN_WIDTHS.join() === "380,560,760" && STORE_DESIGNS.every((d) => STORE_DESIGN_WIDTHS.every((w) => existsSync(`public/home/showcase/bt-${d}-${w}.webp`) && statSync(`public/home/showcase/bt-${d}-${w}.webp`).size < (w === 760 ? 56_000 : 40_000))))
+  // Changed on purpose (landing round 14): the line is dragged and flung as well as turning by itself: glides are Web Animations, not a CSS loop; pictures at 380 and 560 only; the stage keeps its perspective (tests/home-landing-r14-business.test.ts pins the rest).
+  check("six store designs, each a 4:5 webp at two widths, small", STORE_DESIGNS.length === 6 && STORE_DESIGN_WIDTHS.join() === "380,560" && STORE_DESIGNS.every((d) => STORE_DESIGN_WIDTHS.every((w) => existsSync(`public/home/showcase/bt-${d}-${w}.webp`) && statSync(`public/home/showcase/bt-${d}-${w}.webp`).size < 40_000)))
   const bytes = (w: number) => STORE_DESIGNS.reduce((n, d) => n + statSync(`public/home/showcase/bt-${d}-${w}.webp`).size, 0)
-  check("the whole line is light: under 100 KB on a phone, 160 KB on a laptop", bytes(380) < 100_000 && bytes(560) < 160_000, [bytes(380), bytes(560), bytes(760)])
-  check("each picture is sized, chosen by srcset for its drawn width, decoded off the thread", (physical.match(/<img [^>]*srcSet="\/home\/showcase\/bt-\w+-380\.webp 380w, \/home\/showcase\/bt-\w+-560\.webp 560w, \/home\/showcase\/bt-\w+-760\.webp 760w"[^>]*width="560" height="700"[^>]*decoding="async"/g) ?? []).length === 6)
-  check("each card a step later in the loop (negative delays)", STORE_DESIGNS.every((_, i) => physical.includes(`--d:${+(-i * STORE_STEP_S).toFixed(3)}s`)) && STORE_LOOP_S === 14.4 && STORE_GLIDE_S < STORE_STEP_S)
-  check("the stage holds the 3D: perspective and preserve-3d", /\.bt-stage\{[^}]*perspective:1500u;[^}]*transform-style:preserve-3d\}/.test(desk))
-  check("each card rests at its own place (the line whole without motion)", STORE_DESIGNS.every((_, i) => new RegExp(`\\.bt-card:nth-child\\(${i + 1}\\)\\{transform:translate3d\\(`).test(desk)) && /\.bt-card:nth-child\(1\)\{transform:translate3d\(0u,0,0u\) rotateY\(0deg\);opacity:1\}/.test(desk))
-  const walk = desk.match(/@keyframes bt-walk\{([\s\S]*?\})\}/)?.[1] ?? ""
-  const props = walk.match(/[a-z-]+(?=:)/g) ?? []
-  check("the walk moves transform and opacity only (and eases its glides)", walk.length > 0 && props.every((p) => ["transform", "opacity", "animation-timing-function"].includes(p)), [...new Set(props)])
-  check("the walk holds at each of six places, then glides", (walk.match(/\d+(\.\d+)?%\{/g) ?? []).length === 13)
-  check("the phone draws the same walk closer together, by the same name", /@keyframes bt-walk\{/.test(phone) && /\.bt-stage\{width:276u;height:345u;/.test(phone))
-  check("it runs only on a chosen scene, endless, from its own delay", /\.bz-on \.bt-card\{animation:bt-walk 14\.4s linear var\(--d,0s\) infinite both\}/.test(motion))
-  check("it is the only loop, and it pauses off screen with the section", (motion.match(/infinite/g) ?? []).length === 1 && /\.biz:not\(\[data-live\]\) \.bz-on \*/.test(css))
+  check("the whole line is light: under 100 KB on a phone, 160 KB on a laptop", bytes(380) < 100_000 && bytes(560) < 160_000, [bytes(380), bytes(560)])
+  check("each picture is sized, chosen by srcset for its drawn width, decoded off the thread", (physical.match(/<img [^>]*srcSet="\/home\/showcase\/bt-\w+-380\.webp 380w, \/home\/showcase\/bt-\w+-560\.webp 560w"[^>]*width="560" height="700"[^>]*decoding="async"/g) ?? []).length === 6)
+  check("a glide is shorter than a step", STORE_GLIDE_S < STORE_STEP_S)
+  // Changed on purpose (landing round 14): no preserve-3d; the cards are flat siblings under the stage's perspective, drawn in an order the script sets (far cheaper to composite).
+  check("the stage holds the 3D: perspective and preserve-3d", /\.bt-stage\{[^}]*perspective:1500u;/.test(desk) && !/preserve-3d/.test(desk))
+  check("each card rests at its own place (the line whole without motion)", STORE_DESIGNS.every((_, i) => new RegExp(`\\.bt-card:nth-child\\(${i + 1}\\)\\{transform:translate3d\\(`).test(desk)) && /\.bt-card:nth-child\(1\)\{transform:translate3d\(0u,0,0u\) rotateY\(0deg\);opacity:1;z-index:3\}/.test(desk)) // Changed on purpose (landing round 14): each resting place carries its drawing order (z-index), the cards being flat siblings.
+  check("no loop left in the scenes, and the section still pauses its moments off screen", !/infinite/.test(motion) && /\.biz:not\(\[data-live\]\) \.bz-on \*/.test(css))
   check("no filter, blur or will-change anywhere in the scenes", !/filter|blur\(|will-change|backdrop/.test(mocks))
   check("physical's turn on a computer is four moves long", BUSINESS_SLIDES[1].id === "physical" && BUSINESS_SLIDES[1].ms === STORE_STEP_S * 4000)
 }
@@ -98,6 +93,7 @@ console.log("\nCommunity: no green")
 
 console.log("\nThe phone keeps round 12's row of cards")
 {
+  // Changed on purpose (landing round 14): the row is still the browser's snap scroll, each card now the whole column.
   check("a row of whole cards on the browser's snap scroll", /\.biz-rail\{display:flex;[^}]*scroll-snap-type:x mandatory/.test(css) && /Math\.abs\(i - railAt\) <= 1 \? "biz-slide bz-on" : "biz-slide"/.test(code(SECTION)))
 }
 
