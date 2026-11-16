@@ -149,7 +149,8 @@ check("the scroll never steps through a payment on the phone", () => {
 })
 check("one observer, no scroll listener, no layout read, no orbit", () => {
   const src = read(CO)
-  assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 1 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
+  // Changed on purpose (landing round 12): a second observer (useNear) in the checkout scene; still no scroll listener, rAF or layout read.
+  assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 2 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
   /* Changed on purpose (landing round 7): the ring is back (cmc-orbit, cmc-lap), still without a blur filter. */
   assert.ok(!/filter:\s*blur/.test(src))
 })
