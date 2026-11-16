@@ -46,20 +46,22 @@ const fn = (name: string) => src.match(new RegExp(`function ${name}\\([\\s\\S]*?
 console.log("\nA box keeps the height it was drawn at, exactly")
 {
   const keep = fn("keepHeight")
-  check("the measured height is kept unrounded, and the box counts as known", /box\.style\.containIntrinsicSize = `auto \$\{height\}px`/.test(keep) && /known\.add\(box\)/.test(keep) && !/Math\.round/.test(keep))
-  check("a mounted section keeps what the slicing measured (no rounding left anywhere)", /const stopSlicing = layOutInSlices\(el, keep\)/.test(src) && /keepHeight\(el, height\)/.test(src) && !/containIntrinsicSize = `auto \$\{Math\.round/.test(src))
+  /* Changed on purpose (landing round 12): built sections are never skipped, so this machinery is gone. */ check("no height is kept for a box", !/containIntrinsicSize/.test(src))
+  /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): no slicing, so nothing is measured or kept. */
+  check("a mounted section is not sliced or measured", !/layOutInSlices/.test(src) && !/keepHeight/.test(src))
   const draw = fn("watchDraw")
-  check("as it stops being drawn, it keeps the height the observer's entry has (no layout read)", /if \(!e\.isIntersecting && box\.style\.contentVisibility === "visible" && e\.boundingClientRect\.height > 0\) box\.style\.containIntrinsicSize = `auto \$\{e\.boundingClientRect\.height\}px`/.test(draw))
-  check("a box drawn once is known", /if \(e\.isIntersecting\) known\.add\(box\)/.test(draw))
+  /* Changed on purpose (landing round 12): built sections are never skipped, so this machinery is gone. */ check("nothing watches a box being drawn", !/watchDraw/.test(src))
+  /* Changed on purpose (landing round 12): built sections are never skipped, so this machinery is gone. */ check("no box is tracked as known", !/known\.add/.test(src))
 }
 
 console.log("\nServer-drawn boxes are measured while idle, not left at their guess")
 {
   const next = fn("settleNext")
-  check("laid out unskipped for one read, skipped again in the same task, and kept", /box\.style\.contentVisibility = "visible"\s+const height = box\.getBoundingClientRect\(\)\.height\s+box\.style\.contentVisibility = was\s+keepHeight\(box, height\)/.test(next))
-  check("nearest first, one per calm idle slot with room, boxes already known skipped", /farness\(a\) - farness\(b\)/.test(next) && /deadline\.timeRemaining\(\) < IDLE_ROOM_MS\) return idle\(settleNext\)/.test(next) && /known\.has\(b\)/.test(next))
-  check("started after load", /void afterLoad\(\)\.then\(\(\) => idle\(settleNext\)\)/.test(fn("settleLater")))
-  check("every LazySection box is measured, watched for distance, drawn ahead and held", /settleLater\(el\)\s+const unwatch = watchDistance\(el\)\s+const undraw = watchDraw\(el\)\s+const unhold = holdAbove\(el\)/.test(src))
+  /* Changed on purpose (landing round 12): built sections are never skipped, so this machinery is gone. */ check("no box is laid out unskipped for a read", !/settleNext/.test(src))
+  /* Changed on purpose (landing round 12): built sections are never skipped, so this machinery is gone. */ check("no settling line for server-drawn boxes", !/unsettled/.test(src))
+  /* Changed on purpose (landing round 12): there is no settling line any more. */ check("no settling line is started", !/settleLater/.test(src))
+  /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): a server-drawn box is only held (WebKit has no scroll anchoring). */
+  check("every LazySection box is held where the browser does not anchor the scroll", /if \(sticky \|\| !el\) return\s+return holdAbove\(el\)/.test(src))
 }
 
 console.log("\nA box that changes height above the screen moves nothing on it")

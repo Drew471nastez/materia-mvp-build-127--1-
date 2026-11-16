@@ -2,7 +2,7 @@ import { HERO_GEOMETRY_BOOT } from "@/lib/marketing/hero-geometry"
 import { HERO_MEDIA_BOOT } from "@/lib/marketing/hero-startup"
 import { HeroHeadline } from "./hero-headline"
 import { HeroVideo } from "./hero-video"
-import { HeroCta } from "./hero-cta"
+import { HeroCta, HERO_AUDIENCE_BOOT } from "./hero-cta"
 import { HERO_VIDEO } from "@/lib/marketing/hero-video"
 import type { CSSProperties } from "react"
 
@@ -29,6 +29,8 @@ export function Hero() {
       <div className="cinematic-tint" aria-hidden="true" />
       <div className="cinematic-grain" aria-hidden="true" />
       <div className="cinematic-fade" aria-hidden="true" />
+      {/* Landing round 12: who is here, before the buttons are painted (hero-cta). */}
+      <script dangerouslySetInnerHTML={{ __html: HERO_AUDIENCE_BOOT }} />
       <div className="cinematic-copy">
         <p className="cinematic-eyebrow">
           The all-in-one platform for creators
@@ -81,7 +83,12 @@ const HERO_CSS = `
 .cinematic-description { margin: 28px 0 0; max-width: 460px; font-size: 17px; line-height: 1.6; color: rgba(255,255,255,.94); text-wrap: pretty; }
 .cinematic-period { color: inherit; }
 .cinematic-actions { display: grid; grid-template-columns: auto minmax(0,290px); justify-content: center; gap: 14px; width: 100%; max-width: 600px; min-height:54px; margin-top: 32px; }
-.cinematic-signup[hidden], .cinematic-desktop-signup[hidden] { display: none !important; }
+/* Landing round 12: who is here is html[data-sl-aud] (set before the first paint); a guest unless it says otherwise. */
+html[data-sl-aud="creator"] .cinematic-signup, html[data-sl-aud="buyer"] .cinematic-signup,
+html[data-sl-aud="creator"] .cinematic-desktop-signup, html[data-sl-aud="buyer"] .cinematic-desktop-signup { display: none !important; }
+.cinematic-actions .cinematic-account { display: none; }
+html[data-sl-aud="creator"] .cinematic-actions .cinematic-account[data-for="creator"],
+html[data-sl-aud="buyer"] .cinematic-actions .cinematic-account[data-for="buyer"] { display: flex; }
 .cinematic-signup { display: none; position: relative; }
 .cinematic-primary, .cinematic-signup button { min-width: 160px; display: flex; align-items: center; justify-content: center; height: 54px; padding: 0 28px; border: 0; border-radius: var(--hero-control-radius); background: #7c3aed; color: #fff; font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; transition: background 160ms, transform 160ms; }
 .cinematic-primary:hover, .cinematic-signup button:hover { background: #6d28d9; }
@@ -125,9 +132,9 @@ body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-home-cta=
   .cinematic-desktop-signup { display: none; }
   .cinematic-actions input, .cinematic-signup button { height: 54px; font-size: 16px; }
   .cinematic-signup button { background: #7c3aed; color: #fff; }
-  .cinematic-actions[data-audience="guest"] .cinematic-search { display: none; }
-  .cinematic-actions[data-audience="guest"] .cinematic-marketplace { display: block; margin-top: 10px; }
-  .cinematic-actions:not([data-audience="guest"]) .cinematic-account { grid-row: 2; }
+  html:not([data-sl-aud="creator"]):not([data-sl-aud="buyer"]) .cinematic-actions .cinematic-search { display: none; }
+  html:not([data-sl-aud="creator"]):not([data-sl-aud="buyer"]) .cinematic-actions .cinematic-marketplace { display: block; margin-top: 10px; }
+  html[data-sl-aud="creator"] .cinematic-actions .cinematic-account, html[data-sl-aud="buyer"] .cinematic-actions .cinematic-account { grid-row: 2; }
   [data-home-hero="cinematic"] { min-height: 0; padding-block: 40px calc(120px + var(--home-safe-bottom)); }
 }
 @media (max-width: 639px) {

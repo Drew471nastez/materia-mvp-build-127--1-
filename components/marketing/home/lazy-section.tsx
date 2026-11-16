@@ -115,6 +115,8 @@ export const LAZY_BUSY_WAIT_MS = 450
 export const LAZY_NOW = "100% 0px 100% 0px"
 /** Landing round 9: how long the line waits for one section to be drawn before it moves on (a section that never arrives must not hold the rest). */
 export const LAZY_DRAW_LATEST_MS = 1500
+/** Landing round 12: how long after the hero's first paint the sections start being built (afterLoad). */
+export const LAZY_START_AFTER_PAINT_MS = 150
 /** An idle slot shorter than this is passed over: fetching and running a section's code needs room. */
 const IDLE_ROOM_MS = 12
 /**
@@ -135,11 +137,8 @@ const CALM_MS = 260
  * draws most sections a few pixels off that (measured at 390: the checkout
  * 12px, the map 13, pricing 47, the questions 29). So:
  *
- *   every box's real height is learned once, as early as it can be (in idle
- *   slots, usually long before the reader gets near: keepHeight, settleNext),
- *   and kept exactly as its contain-intrinsic-size, unrounded, so drawing it
- *   and skipping it again never changes it (watchDraw keeps the height it was
- *   drawn at as it leaves, read from the observer's entry, no layout);
+ *   (landing round 12: no box is skipped any more, so a built section has its
+ *   real height from the frame it is built in, and nothing is kept for it);
  *
  *   where the browser does not anchor the scroll, a box wholly above the
  *   screen that changes height anyway (one never drawn: the page put back
@@ -153,16 +152,6 @@ const CALM_MS = 260
 /** The browser keeps what is on screen in place when something above it changes size (Chromium, Firefox; not WebKit). */
 const anchored = () => typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("overflow-anchor", "auto")
 const calm = () => performance.now() - lastScroll >= CALM_MS
-/** Boxes whose height on the page is their real one: drawn at least once, or measured and kept. */
-const known = new WeakSet<Element>()
-
-/** The box keeps `height` while it is skipped, exactly. */
-function keepHeight(box: HTMLElement, height: number) {
-  if (!(height > 0)) return
-  box.style.containIntrinsicSize = `auto ${height}px`
-  known.add(box)
-}
-
 /*
  * The scroll moved by a box's change. WebKit keeps the page's scroll in whole
  * pixels and drops the fraction of a scrollBy (a section 0.56px shorter moved
@@ -322,11 +311,15 @@ let settled: Promise<void> | null = null
  * optional starts before.
  */
 function afterLoad() {
+  /*
+   * Landing round 12 (the owner's iPhone recording: sections stutter, pop and arrive blank after the hero). Measured
+   * at 4x CPU on 12 Mbps: the load event came at 6.3s (it waits for the hero film and every picture), the first
+   * section under the hero mounted at 4.3s and after 34s three were still not built, so a visitor who scrolled in
+   * the first seconds made the page build sections in the middle of the scroll. Now the line starts two frames after
+   * the page is alive (the hero has painted) and does not wait for the load event.
+   */
   return (settled ??= new Promise<void>((done) => {
-    const later = () => window.setTimeout(done, LAZY_PREFETCH_AFTER_MS)
-    window.setTimeout(done, LAZY_PREFETCH_LATEST_MS)
-    if (document.readyState === "complete") later()
-    else window.addEventListener("load", later, { once: true })
+    requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(done, LAZY_START_AFTER_PAINT_MS)))
   }))
 }
 
@@ -378,13 +371,12 @@ function farness(el: Element) {
  * nearest the top: after a jump to the end (End, or the scroll bar), the
  * sections around the reader come before the ones they skipped.
  */
-function mountNext(deadline?: IdleDeadline) {
+function mountNext() {
   if (!waiting.size) return
-  if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(mountNext, LAZY_BUSY_WAIT_MS)
   const [el, mount] = [...waiting].sort(([a], [b]) => farness(a) - farness(b) || (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))[0]
   waiting.delete(el)
-  /* After it has drawn (two frames), wait for the next idle slot. */
-  void mount().finally(() => requestAnimationFrame(() => requestAnimationFrame(() => idle(mountNext, LAZY_BUSY_WAIT_MS))))
+  /* Landing round 12: after it has drawn (two frames), the next one, with no wait for an idle slot. */
+  void mount().finally(() => requestAnimationFrame(() => requestAnimationFrame(mountNext)))
 }
 
 /*
@@ -410,154 +402,6 @@ function watchDistance(el: Element) {
   return () => distanceWatch?.unobserve(el)
 }
 
-/** A slice of a section laid out in one idle slot: subtrees of at most this many elements. */
-const SLICE_ELEMENTS = 60
-
-/*
- * Wave 14: a mounted section is laid out ahead (the measure below) a slice at
- * a time. In one go it cost 60 to 180 ms of the page's thread at 4x CPU for
- * each of the big sections (the mocks' many text sizes), a dozen long tasks
- * in the seconds after load (most of the page's Total Blocking Time), or, put
- * off, a dropped frame in the middle of a scroll. Instead the section's
- * subtrees of up to SLICE_ELEMENTS elements are held back with
- * content-visibility: hidden (the section is off screen and skipped, so
- * nobody sees it), and let go a few per calm idle slot, each slot laying out
- * only those: 10 to 45 ms a slot at 4x. How many per slot follows how long
- * the last ones took. If the box comes near before the last slice
- * (LAZY_DRAW_AHEAD), everything still held back is let go at once.
- */
-const slicing = new WeakMap<Element, () => void>()
-function layOutInSlices(box: HTMLElement, done: () => void): () => void {
-  const inner = box.firstElementChild
-  if (!(inner instanceof HTMLElement)) return () => {}
-  const groups: HTMLElement[] = []
-  const walk = (el: Element) => {
-    const n = el.getElementsByTagName("*").length
-    if (n <= SLICE_ELEMENTS) {
-      if (n >= 4 && el instanceof HTMLElement && !el.style.contentVisibility) groups.push(el)
-      return
-    }
-    for (const child of el.children) walk(child)
-  }
-  let next = 0
-  let per = 0
-  let over = false
-  let held = false
-  const letGo = (to: number) => {
-    if (held) for (; next < to; next++) groups[next].style.contentVisibility = ""
-  }
-  const finish = () => {
-    if (over) return
-    over = true
-    slicing.delete(box)
-    letGo(groups.length)
-  }
-  const step = () => {
-    if (over) return
-    if (!held) {
-      /*
-       * The first slot. Already drawn (near the screen, LAZY_DRAW_AHEAD,
-       * whose first report comes before any idle slot): nothing is held
-       * back, since that would blank part of a section someone can see; it
-       * is laid out by the frame that draws it, and done() reads its height.
-       */
-      if (box.style.contentVisibility === "visible") {
-        finish()
-        done()
-        return
-      }
-      for (const child of inner.children) walk(child)
-      for (const g of groups) g.style.contentVisibility = "hidden"
-      held = true
-    }
-    const t = performance.now()
-    letGo(Math.min(groups.length, next + per))
-    /* A size read lays out what was let go (and, the first time, the section around the held-back slices). */
-    void inner.getBoundingClientRect()
-    const took = performance.now() - t
-    per = per === 0 ? 1 : took < 12 ? per * 2 : took > 30 ? Math.max(1, per >> 1) : per
-    if (next < groups.length) idle(step, LAZY_BUSY_WAIT_MS)
-    else {
-      finish()
-      done()
-    }
-  }
-  slicing.set(box, finish)
-  idle(step, LAZY_BUSY_WAIT_MS)
-  return finish
-}
-
-/*
- * Wave 14: drawn ahead (LAZY_DRAW_AHEAD). Near the screen a box is
- * content-visibility: visible with the same containment content-visibility:
- * auto gives it (layout, paint and style), so nothing it draws looks
- * different; further away it is auto again and costs a frame nothing.
- */
-/*
- * Landing round 11 (the owner, on an iPhone: images "appear too abruptly"):
- * a box being drawn ahead also asks for its pictures then. A picture marked
- * loading="lazy" was left to the browser's own distance, which in Safari is
- * a fraction of a screen, so it arrived (and faded in, landing-story.tsx
- * IMG_FADE_MS) with the section already on screen. From LAZY_DRAW_AHEAD it
- * is decoded before the reader gets there.
- */
-function eagerPictures(box: HTMLElement) {
-  for (const img of box.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')) img.loading = "eager"
-}
-
-let drawWatch: IntersectionObserver | null = null
-function watchDraw(el: HTMLElement) {
-  if (typeof IntersectionObserver !== "function") return () => {}
-  drawWatch ??= new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        const box = e.target as HTMLElement
-        if (!box.style.contentVisibility) continue
-        if (e.isIntersecting) {
-          slicing.get(box)?.()
-          eagerPictures(box)
-        }
-        /* Landing round 11: leaving, it keeps exactly the height it was drawn at (the entry has it, no layout read), so skipping it changes nothing. */
-        if (!e.isIntersecting && box.style.contentVisibility === "visible" && e.boundingClientRect.height > 0) box.style.containIntrinsicSize = `auto ${e.boundingClientRect.height}px`
-        box.style.contentVisibility = e.isIntersecting ? "visible" : "auto"
-        box.style.contain = e.isIntersecting ? "layout paint style" : ""
-        if (e.isIntersecting) known.add(box)
-      }
-    },
-    { rootMargin: LAZY_DRAW_AHEAD },
-  )
-  drawWatch.observe(el)
-  return () => drawWatch?.unobserve(el)
-}
-
-/*
- * Landing round 11: a server-drawn box (LazySection: possibilities, pricing,
- * the questions) is laid out once in a calm idle slot, nearest first, and its
- * real height kept (keepHeight), so it is right long before the reader gets
- * there. It was left at its guessed height until first drawn: pricing is
- * 47px shorter in WebKit than the guess.
- */
-const unsettled = new Set<HTMLElement>()
-let settling = false
-function settleNext(deadline?: IdleDeadline) {
-  for (const b of unsettled) if (known.has(b) || !b.isConnected) unsettled.delete(b)
-  if (!unsettled.size) return void (settling = false)
-  if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(settleNext)
-  const box = [...unsettled].sort((a, b) => farness(a) - farness(b))[0]
-  const was = box.style.contentVisibility
-  box.style.contentVisibility = "visible"
-  const height = box.getBoundingClientRect().height
-  box.style.contentVisibility = was
-  keepHeight(box, height)
-  unsettled.delete(box)
-  idle(settleNext)
-}
-function settleLater(box: HTMLElement) {
-  unsettled.add(box)
-  if (settling) return
-  settling = true
-  void afterLoad().then(() => idle(settleNext))
-}
 
 /**
  * After load, when the browser is idle: fetch every lazy section's code and
@@ -576,28 +420,14 @@ function schedulePrefetch() {
    * idle slot of its own, the last section's code arrived seconds after the
    * first on a slow network, and a reader who got there first found its box.
    */
+  /*
+   * Landing round 12: every section is built as early as the page can, back to back, nearest first, scrolling or
+   * not. The idle slots and the wait for the scroll to stop are gone from this line: each was there to keep one
+   * frame from dropping, and together they put the building off to the moment the visitor started scrolling.
+   */
   const start = () => {
-    const queue = [...loaders].sort((a, b) => farness(a.box ?? document.body) - farness(b.box ?? document.body))
-    let running = 0
-    let done = false
-    const next = (deadline?: IdleDeadline) => {
-      if (deadline && !deadline.didTimeout && deadline.timeRemaining() < IDLE_ROOM_MS) return idle(next, LAZY_BUSY_WAIT_MS)
-      while (running < 2 && queue.length) {
-        const load = queue.shift()!
-        running++
-        void load()
-          .catch(() => undefined)
-          .finally(() => {
-            running--
-            idle(next, LAZY_BUSY_WAIT_MS)
-          })
-      }
-      if (!running && !queue.length && !done) {
-        done = true
-        idle(mountNext, LAZY_BUSY_WAIT_MS)
-      }
-    }
-    idle(next, LAZY_BUSY_WAIT_MS)
+    for (const load of [...loaders].sort((a, b) => farness(a.box ?? document.body) - farness(b.box ?? document.body))) void load().catch(() => undefined)
+    mountNext()
   }
   /* Landing round 9: the code first, three sections at a time in the page's order, once the page has painted (two frames) and has a free moment. */
   const code = () => {
@@ -805,48 +635,15 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
     }, [])
 
     /*
-     * Mounted: the same box stays around the section, now letting the
-     * browser skip it while it is off screen (content-visibility: auto, as
-     * LazySection does). A skipped section costs a frame nothing: no style,
-     * no layout, no paint and no compositor layers, which is what kept every
-     * frame of a scroll busy once a dozen sections had mounted. Right after
-     * it mounts it is laid out while still skipped, in calm idle slots, a
-     * slice at a time (wave 14, layOutInSlices; it was one long task), and
-     * its real height is kept as the box's size, so the page below it is in
-     * its final place and the frame that brings it on screen only has to
-     * paint it. Near the screen it is drawn ahead
-     * (LAZY_DRAW_AHEAD): skipped boxes also kept every animation in them on
-     * the page's thread (Chromium composites none inside content-visibility:
-     * auto), restyling each one on every frame.
+     * Landing round 12: A MOUNTED SECTION IS NEVER SKIPPED. It was content-visibility: auto, switched to visible a
+     * few screens ahead and back as it left: every switch made the browser work out the whole section's style and
+     * layout again (measured at 4x CPU in a fling down the page: 1.5s of style and layout, in tasks of up to 200ms),
+     * and on an iPhone a switch written during a fling is drawn late, so a section came on screen blank or half
+     * drawn and popped in. Once built, a section is laid out once and stays drawn; scrolling it costs nothing more.
      */
-    useEffect(() => {
-      const el = ref.current
-      if (!Section || !el || options.contain === false) return
-      let live = true
-      const unwatch = watchDraw(el)
-      /* Landing round 11: kept exactly (it was rounded, a fraction of a pixel off when drawn). */
-      const keep = () => {
-        const inner = live ? el.firstElementChild : null
-        if (!inner) return
-        const height = inner.getBoundingClientRect().height
-        keepHeight(el, height)
-      }
-      const stopSlicing = layOutInSlices(el, keep)
-      return () => {
-        live = false
-        unwatch()
-        stopSlicing()
-      }
-    }, [Section])
-
     if (Section)
       return (
-        <div
-          ref={ref}
-          data-lazy-section={options.name}
-          data-lazy-mounted=""
-          style={options.contain === false ? undefined : { contentVisibility: "auto", containIntrinsicSize: `auto ${options.minHeight}` }}
-        >
+        <div ref={ref} data-lazy-section={options.name} data-lazy-mounted="">
           <Section {...props} />
         </div>
       )
@@ -876,24 +673,15 @@ export function LazySection({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   /* Wave 14: drawn ahead like the mounted sections (LAZY_DRAW_AHEAD). */
+  /* Landing round 12: drawn as the server drew it, never skipped (see the mounted sections), so it never arrives blank. */
   useEffect(() => {
     const el = ref.current
     if (sticky || !el) return
-    /* Landing round 11: and laid out once in a calm moment, its real height kept (settleNext). */
-    settleLater(el)
-    const unwatch = watchDistance(el)
-    const undraw = watchDraw(el)
-    const unhold = holdAbove(el)
-    return () => {
-      unsettled.delete(el)
-      unwatch()
-      undraw()
-      unhold()
-    }
+    return holdAbove(el)
   }, [sticky])
-  const style: CSSProperties | undefined = sticky ? undefined : { contentVisibility: "auto", containIntrinsicSize: `auto ${minHeight}` }
+  void minHeight
   return (
-    <div ref={ref} data-lazy-section={name ?? ""} style={style}>
+    <div ref={ref} data-lazy-section={name ?? ""}>
       {children}
     </div>
   )
