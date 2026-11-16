@@ -315,17 +315,18 @@ console.log("\n2. Budgets end the job, never silently\n")
   const c2 = new Clock()
   const st2 = new MemoryStore(c2)
   st2.add({ id: "usd" })
-  const s2 = scripted(c2, { stepMs: 5_000, usdPerStep: 1.5 })
+  const s2 = scripted(c2, { stepMs: 5_000, usdPerStep: 15 })
   await drive(st2, c2, "usd", s2.stepper)
   /* Round N: caps raised for whole-site builds (3 verify cycles). Round P (P5): $20 platform, $40 own key (the build on claude-opus-5-5 at effort high, pictures). */
-  check("spend: the platform cap ($20) stops it after the call that crossed it", s2.calls.length === 14 && st2.jobs.get("usd")!.run.errorCode === "budget_spend", s2.calls)
+  /* Round BB: the caps are runaway guards ($200, $400 on the creator's own key); the steps cost ten times as much here, so the counts are the same. */
+  check("spend: the platform cap ($200) stops it after the call that crossed it", s2.calls.length === 14 && st2.jobs.get("usd")!.run.errorCode === "budget_spend", s2.calls)
 
   const c3 = new Clock()
   const st3 = new MemoryStore(c3)
   st3.add({ id: "own" })
-  const s3 = scripted(c3, { stepMs: 5_000, usdPerStep: 1.5, ownKey: true })
+  const s3 = scripted(c3, { stepMs: 5_000, usdPerStep: 15, ownKey: true })
   await drive(st3, c3, "own", s3.stepper)
-  check("the creator's own key gets the larger cap ($40)", s3.calls.length === 27, s3.calls.length)
+  check("the creator's own key gets the larger cap ($400)", s3.calls.length === 27, s3.calls.length)
 
   const c4 = new Clock()
   const st4 = new MemoryStore(c4)
@@ -356,7 +357,7 @@ console.log("\n2. Budgets end the job, never silently\n")
   await drive(st7, c7, "ctx", s7.stepper)
   check("the loop's brief is the prompt as written, then the person's choices (example, blank page)", ctxSeen[0]?.job.prompt === "A candle shop" && ctxSeen[0].job.brief.startsWith("A candle shop\n\n") && /Candles and home fragrance shop/.test(ctxSeen[0].job.brief) && /blank page/.test(ctxSeen[0].job.brief), ctxSeen[0]?.job.brief)
   check("a classic job reads the same brief; no options reads the prompt alone, as before", jobBrief({ prompt: "p", options: { generation: "theme", category: "photographer" } }).includes("Wedding and portrait photographer") && jobBrief({ prompt: "p" }) === "p" && jobBrief({ prompt: "p", options: null }) === "p")
-  check("each step is told its caps: output tokens, spend cap, time left", ctxSeen[0]?.maxOutputTokens === 24_000 && ctxSeen[0]?.usdCap === 20 && ctxSeen[0].timeLeftMs <= 240_000 && ctxSeen[1].usage.iterations === 1)
+  check("each step is told its caps: output tokens, spend cap, time left", ctxSeen[0]?.maxOutputTokens === 24_000 && ctxSeen[0]?.usdCap === 200 && ctxSeen[0].timeLeftMs <= 240_000 && ctxSeen[1].usage.iterations === 1)
 }
 
 /* ── 3. cancel ─────────────────────────────────────────────────────────── */
