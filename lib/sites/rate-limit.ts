@@ -42,9 +42,9 @@ export interface RateWindow {
  * already faster than anyone reads a result. Publishing twice a minute is
  * more than anybody needs and still bounds the cost of a stuck button.
  */
+/* Round BB: no hourly cap on AI edits (the owner hit it); a burst guard against a stuck script only. */
 export const AGENT_LIMITS: RateWindow[] = [
-  { limit: 6, seconds: 60, message: "You are sending edits faster than they can run. Wait a moment." },
-  { limit: 40, seconds: 3600, message: "That is a lot of edits in an hour. Try again shortly." },
+  { limit: 30, seconds: 60, message: "You are sending edits faster than they can run. Wait a moment." },
 ]
 
 export const PUBLISH_LIMITS: RateWindow[] = [
@@ -147,9 +147,9 @@ export async function publishRateLimit(siteId: string): Promise<string | null> {
  * 503, Try again): see above. Changed on purpose (round rel-sites); it used
  * to let the run go, which left model spend unbounded during an incident.
  */
+/* Round BB: no hourly cap; a burst guard only. */
 export const THEME_AGENT_LIMITS: RateWindow[] = [
-  { limit: 8, seconds: 60, message: "You are sending edits faster than they can run. Wait a moment." },
-  { limit: 120, seconds: 3600, message: "That is a lot of edits in an hour. Try again shortly." },
+  { limit: 30, seconds: 60, message: "You are sending edits faster than they can run. Wait a moment." },
 ]
 /** Runs one creator may have going at the same time, across all their websites. */
 export const THEME_AGENT_AT_ONCE = 3

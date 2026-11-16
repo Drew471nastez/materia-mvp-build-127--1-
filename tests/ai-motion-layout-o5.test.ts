@@ -237,7 +237,8 @@ async function main() {
     check("knowledge: the grammar and stories are entries with every id", !!knowledgeById("layout-grammar") && LAYOUT_COMPOSITIONS.every((c) => knowledgeById("layout-grammar")!.body.includes(`**${c.id}**`)) && SITE_STORIES.every((s) => knowledgeById("layout-site-stories")!.body.includes(`**${s.id}**`)) && !!knowledgeById("layout-art-direction") && !!knowledgeById("layout-conversion-copy"))
     const job = (prompt: string, extra: Record<string, unknown> = {}) => ({ jobId: "j", installId: "i", creatorId: "c", prompt, mode: "blank", options: { generation: "blank" }, ...extra }) as never
     const brief = briefMessage({ job: job(briefs["fitness-coach"]), caps: null, pages: [{ key: "home", sections: [] }], files: [], knowledge: [] })
-    check("a new website's brief carries its site story and motion feel", brief.includes(motionAndLayoutBrief({ prompt: briefs["fitness-coach"] })) && /SITE STORY \(Fitness coach/.test(brief) && /MOTION \(this site's feel: balanced/.test(brief))
+    /* Changed on purpose (round BB): the structure comes from the owner's AI source bank, so a new brief carries only the motion feel, its moves made as the owner's library makes them (no stock story, no stock primitives). */
+    check("a new website's brief carries its motion feel, not a stock story", !/SITE STORY/.test(brief) && /MOTION \(this site's feel: balanced/.test(brief) && /as the owner's library makes them/.test(brief))
     check("the brief still ends on the order of work", /render_check on every page, finish\.$/.test(brief))
     check("an edit job's brief does not", !/SITE STORY/.test(briefMessage({ job: job("make the hero calmer", { edit: true }), caps: null, pages: [], files: [], knowledge: [] })))
   }

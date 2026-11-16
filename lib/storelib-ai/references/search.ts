@@ -60,6 +60,8 @@ export type BriefLike = string | ReferenceQuery | Record<string, unknown>
 export interface SearchOptions {
   /** How many to return. Default 4, at most 8. */
   limit?: number
+  /** Round BB: false leaves out the built-in seeds, principles and vendored notes (the admin's uploads only). */
+  builtIns?: boolean
   /** The admin's uploaded records (./store.ts). Same id as a built in record replaces it. */
   extra?: DesignReference[]
 }
@@ -131,7 +133,8 @@ function builtInDocs(): Doc[] {
 }
 
 /** The corpus for one call: built in records, with the admin's records added (a same id record replaces the built in one when newer). */
-function corpus(extra: DesignReference[] | undefined): Doc[] {
+function corpus(extra: DesignReference[] | undefined, builtIns = true): Doc[] {
+  if (!builtIns) return (extra ?? []).map(toDoc)
   const base = builtInDocs()
   if (!extra?.length) return base
   const byId = new Map(base.map((d) => [d.ref.id, d]))
@@ -244,9 +247,9 @@ function scoreDoc(doc: Doc, q: ReferenceQuery, terms: string[], df: Map<string, 
 }
 
 /** Every enabled record that matches, best first, without selection. */
-export function rankReferences(brief: BriefLike, opts: { extra?: DesignReference[] } = {}): RankedReference[] {
+export function rankReferences(brief: BriefLike, opts: { extra?: DesignReference[]; builtIns?: boolean } = {}): RankedReference[] {
   const q = queryFrom(brief)
-  const docs = corpus(opts.extra).filter((d) => d.ref.enabled)
+  const docs = corpus(opts.extra, opts.builtIns !== false).filter((d) => d.ref.enabled)
   const kinds = new Set(q.kinds ?? [])
   const exclude = new Set(q.exclude ?? [])
   const pinned = new Set(q.ids ?? [])
@@ -297,7 +300,7 @@ export function searchReferences(brief: BriefLike, opts: SearchOptions = {}): De
 export function selectReferences(brief: BriefLike, opts: SearchOptions = {}): RankedReference[] {
   const q = queryFrom(brief)
   const limit = Math.max(1, Math.min(MAX_REFERENCE_LIMIT, Math.floor(opts.limit ?? DEFAULT_REFERENCE_LIMIT)))
-  const ranked = rankReferences(q, { extra: opts.extra })
+  const ranked = rankReferences(q, { extra: opts.extra, builtIns: opts.builtIns })
   const roles: ReferenceRole[] = q.roles?.length ? q.roles : q.motion === "expressive" ? ["identity", "composition", "functional", "motion"] : ["identity", "composition", "functional"]
   const askedKinds = new Set(q.kinds ?? [])
   const picked: RankedReference[] = []

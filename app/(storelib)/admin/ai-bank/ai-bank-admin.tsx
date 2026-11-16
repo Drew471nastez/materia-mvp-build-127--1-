@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import type { BankRowView } from "@/lib/storelib-ai/bank/admin"
+import { chooseUploadFiles, isUploadable, type UploadedFile } from "@/lib/storelib-ai/bank/upload"
 import type { LibrarySite } from "@/lib/storelib-ai/bank/store"
 import { Banner, Button, Figures, Panel, Status } from "../_console/ui"
 
@@ -103,7 +104,7 @@ export function AiBankAdmin({ initial, problem, industries }: { initial: BankRow
         </p>
         <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.01em]">AI source bank</h1>
         <p className="mt-1 max-w-[720px] text-[13px] text-[#9b9ba6]">
-          The websites the AI builds from. A new website starts from the one that suits its business best, with that business&apos;s own words, pictures and products, and without parts it can&apos;t use (no shop for a coach who doesn&apos;t sell). Imported Shopify themes are read for how their sections work.
+          The only sources the website AI learns from. A new website starts from the library website that suits its business best, with that business&apos;s own words, pictures and products, and without parts it can&apos;t use (no shop for a coach who doesn&apos;t sell). Uploaded themes and imported Shopify themes are read for how their sections are built and how they move.
         </p>
       </div>
 
@@ -116,9 +117,19 @@ export function AiBankAdmin({ initial, problem, industries }: { initial: BankRow
           columns={3}
           items={[
             { label: "Starting sites", value: starting, sub: "poured in and adapted" },
-            { label: "Pattern themes", value: references, sub: "read for how parts work" },
+            { label: "Reference themes", value: references, sub: "uploaded or imported" },
             { label: "Turned off", value: rows.filter((r) => !r.enabled).length },
           ]}
+        />
+
+        <UploadPanel
+          busy={busy === "upload"}
+          setBusy={(on) => setBusy(on ? "upload" : null)}
+          onDone={(row) => {
+            replace(row)
+            setMessage({ tone: "good", text: `${row.name} is in the bank. The AI reads it on every new website.` })
+          }}
+          onError={(text) => setMessage({ tone: "bad", text })}
         />
 
         <Panel title="Pick from a library" meta="Websites, and themes imported with Import theme">
@@ -175,7 +186,7 @@ export function AiBankAdmin({ initial, problem, industries }: { initial: BankRow
 
         <Panel title="In the bank" meta={rows.length ? `${rows.length}` : undefined}>
           {rows.length === 0 ? (
-            <p className="px-4 py-6 text-[13px] text-[#9b9ba6]">Nothing yet. Until you add websites, the AI starts from its built-in templates.</p>
+            <p className="px-4 py-6 text-[13px] text-[#9b9ba6]">Nothing yet. Until you add a website or upload a theme, the AI writes every site from scratch.</p>
           ) : (
             <ul className="divide-y divide-white/[0.06]">
               {rows.map((r) => (
@@ -212,14 +223,16 @@ function BankItem({
     <li className="space-y-2 px-4 py-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h3 className="min-w-0 text-[14px] font-semibold">{row.name}</h3>
-        <Status value={row.enabled ? "ok" : "pending"} label={row.enabled ? (row.kind === "starting" ? "Starting site" : "Pattern theme") : "Turned off"} />
+        <Status value={row.enabled ? "ok" : "pending"} label={row.enabled ? (row.kind === "starting" ? "Starting site" : row.installId ? "Imported theme" : "Uploaded theme") : "Turned off"} />
         <span className="text-[12px] text-[#6b6b76]">snapshot {when(row.snapshotAt)}</span>
       </div>
       <p className="text-[12px] text-[#9b9ba6]">
         {[row.industries.join(", ") || "no industry yet", row.features.map((f) => FEATURE_WORD[f] ?? f).join(", ") || "no shop, bookings or courses"].join(" · ")}
       </p>
       <p className="text-[12px] text-[#6b6b76]">
-        {c.pages} pages, {c.sections} sections, {c.files} code files. Taken out: {c.imageSlots} pictures, {c.bindings} products, collections or forms, {c.removed} values in all.
+        {row.installId
+          ? `${c.pages} pages, ${c.sections} sections, ${c.files} code files. Taken out: ${c.imageSlots} pictures, ${c.bindings} products, collections or forms, ${c.removed} values in all.`
+          : `${c.files} files read.`}
       </p>
       {row.home.length ? <p className="text-[12px] text-[#6b6b76]">Home: {row.home.join(" → ")}</p> : null}
       {editing ? (
@@ -263,9 +276,118 @@ function BankItem({
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => onPatch(row.id, { enabled: !row.enabled })} disabled={busy}>{row.enabled ? "Turn off" : "Turn on"}</Button>
         {!editing ? <Button onClick={() => setEditing(true)} disabled={busy}>Edit what it suits</Button> : null}
-        <Button onClick={onRefresh} disabled={busy}>Take a fresh snapshot</Button>
+        {row.installId ? <Button onClick={onRefresh} disabled={busy}>Take a fresh snapshot</Button> : null}
         <Button variant="quiet" onClick={onRemove} disabled={busy}>Remove</Button>
       </div>
     </li>
+  )
+}
+
+/* ── uploading a theme ─────────────────────────────────────────────────── */
+
+async function readUpload(list: File[]): Promise<{ files: UploadedFile[]; skipped: number }> {
+  const files: UploadedFile[] = []
+  let skipped = 0
+  for (const file of list) {
+    const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+    if (/\.zip$/i.test(file.name)) {
+      const JSZip = (await import("jszip")).default
+      const zip = await JSZip.loadAsync(await file.arrayBuffer())
+      const entries = Object.values(zip.files).filter((e) => !e.dir)
+      for (const e of entries) {
+        if (!isUploadable(e.name)) {
+          skipped++
+          continue
+        }
+        files.push({ path: e.name, text: await e.async("string") })
+      }
+    } else if (isUploadable(path)) {
+      files.push({ path, text: await file.text() })
+    } else {
+      skipped++
+    }
+  }
+  /* A zip that holds one folder: its folder name is not part of the paths. */
+  const tops = new Set(files.map((f) => f.path.split("/")[0]))
+  if (tops.size === 1 && files.every((f) => f.path.includes("/"))) for (const f of files) f.path = f.path.slice(f.path.indexOf("/") + 1)
+  return { files, skipped }
+}
+
+function UploadPanel({ busy, setBusy, onDone, onError }: { busy: boolean; setBusy: (on: boolean) => void; onDone: (row: BankRowView) => void; onError: (text: string) => void }) {
+  const [picked, setPicked] = useState<File[]>([])
+  const [name, setName] = useState("")
+  const [over, setOver] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const folderInput = useRef<HTMLInputElement>(null)
+
+  const take = (list: FileList | null) => {
+    const all = Array.from(list ?? [])
+    if (!all.length) return
+    setPicked(all)
+    if (!name) {
+      const first = (all[0] as File & { webkitRelativePath?: string }).webkitRelativePath?.split("/")[0] || all[0].name
+      setName(first.replace(/\.(zip|html?)$/i, "").replace(/[-_]+/g, " ").slice(0, 60))
+    }
+  }
+
+  async function send() {
+    if (!picked.length) return onError("Pick a zip, a page or a theme folder first.")
+    setBusy(true)
+    try {
+      const read = await readUpload(picked)
+      const { files, left } = chooseUploadFiles(read.files)
+      if (!files.length) return onError("Nothing in that is a page, a style or a script the AI can read. Pictures and fonts are left out on purpose.")
+      const res = await fetch(`${API}/upload`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim(), files }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.entry) return onError(data.error ?? (res.status === 413 ? "That upload is too large. Leave out unused pages and try again." : "That did not work. Try again."))
+      onDone(data.entry)
+      if (left > 0) onError(`${left} of the least useful files were left out to stay under the size limit.`)
+      setPicked([])
+      setName("")
+    } catch {
+      onError("That file could not be read. If it is a zip, check it opens on your computer.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Panel title="Upload a theme" meta="Zip, HTML, CSS, JS, Liquid, Storelib, a whole folder">
+      <div className="space-y-3 p-4">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault()
+            setOver(true)
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setOver(false)
+            take(e.dataTransfer.files)
+          }}
+          className={`flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed px-4 py-5 text-center ${over ? "border-[#8b5cf6] bg-[#8b5cf6]/[0.06]" : "border-white/[0.14]"}`}
+        >
+          <p className="text-[13px] text-[#c9c9d1]">
+            {picked.length ? `${picked.length === 1 ? picked[0].name : `${picked.length} files`} ready` : "Drop a theme here"}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button onClick={() => fileInput.current?.click()} disabled={busy}>Choose files</Button>
+            <Button onClick={() => folderInput.current?.click()} disabled={busy}>Choose a folder</Button>
+          </div>
+          <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => take(e.target.files)} />
+          <input ref={folderInput} type="file" multiple className="hidden" {...({ webkitdirectory: "" } as Record<string, string>)} onChange={(e) => take(e.target.files)} />
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block min-w-[220px] flex-1">
+            <span className="mb-1 block text-[12px] text-[#9b9ba6]">Name in the bank</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Supplement store, dark" className="h-9 w-full rounded-[8px] border border-white/[0.1] bg-[#0b0b0f] px-3 text-[14px] text-[#ededf0] outline-none placeholder:text-[#6b6b76] focus:border-[#8b5cf6]/70" />
+          </label>
+          <Button variant="primary" onClick={() => void send()} disabled={busy || !picked.length}>
+            {busy ? "Reading the theme..." : "Add to bank"}
+          </Button>
+        </div>
+        <p className="text-[12px] text-[#6b6b76]">Pages, sections, styles and scripts are kept, with their animations. Pictures and fonts stay behind; the AI uses each business&apos;s own.</p>
+      </div>
+    </Panel>
   )
 }

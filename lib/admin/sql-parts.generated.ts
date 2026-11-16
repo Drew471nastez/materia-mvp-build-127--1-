@@ -270,4 +270,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "465", file: "465_onepage_drafts_owner_only.sql", sha256: "305f8d5f142976dbaf62c0327972faa0b27eb4a34a0d9afb4e1b3cafcdae6ede" },
   { part: "466", file: "466_website_pages_deleted_rows_kept.sql", sha256: "2ceb8e3e505b41cec3a91972bd81f5b09d5dcdbd4a324f163f9c42d1f46bf0be" },
   { part: "467", file: "467_ai_template_bank.sql", sha256: "c872c1d1afd6b8960a6dc19d0d6a72b0f60a9149c5c6b58c60358b03e68b0b2c" },
+  { part: "468", file: "468_ai_bank_uploads.sql", sha256: "4df3b00fc92fe424423f3f0de5b6695013affe83be00bcf20c5dc149440af373" },
 ]

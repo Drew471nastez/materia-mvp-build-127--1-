@@ -398,20 +398,23 @@ export const LIMITS = {
    * each, so the same budget as the page assistant (AGENT_LIMITS in
    * lib/sites/rate-limit.ts), counted per route.
    */
-  siteAi: [{ limit: 6, seconds: 60 }, { limit: 40, seconds: 3600 }],
+  /* Round BB (the owner: "get rid of the limit, make sure it just doesn't happen"): no hourly or daily cap, only a burst guard against a stuck script. */
+  siteAi: [{ limit: 30, seconds: 60 }],
   /**
    * Start with AI: a whole website from one description (lib/website-builder/
    * ai-site), some thirty model calls and a dozen photos each. Three in ten
    * minutes and ten a day per creator; a job already running is counted
    * separately by the create route (one at a time).
    */
-  siteGenerate: [{ limit: 3, seconds: 600 }, { limit: 10, seconds: 86400 }],
+  /* Round BB: no daily cap on AI websites; a burst guard only (a person never starts twenty in a minute). */
+  siteGenerate: [{ limit: 20, seconds: 60 }],
   /**
    * Regenerate on a picture the AI made (round P, app/api/website-builder/images/regenerate): one paid image
    * call each, at most a few cents. Five in ten minutes and thirty a day per store, so a day costs at most
    * thirty times the per-picture cap (AI_IMAGE_REGENERATE_MAX_USD).
    */
-  aiImage: [{ limit: 5, seconds: 600 }, { limit: 30, seconds: 86400 }],
+  /* Round BB: no daily cap; a burst guard only. */
+  aiImage: [{ limit: 30, seconds: 60 }],
   /**
    * A lab test (Website settings › Performance) asks Google's PageSpeed
    * Insights to load a page, 10 to 40 seconds each, on a shared daily quota.

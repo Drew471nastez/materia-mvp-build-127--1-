@@ -5595,5 +5595,10 @@ DO $do$ BEGIN IF to_regclass('public.store_theme_installs') IS NULL THEN RAISE N
 DO $do$ BEGIN IF to_regclass('public.ai_template_bank') IS NULL THEN RETURN; END IF; CREATE INDEX IF NOT EXISTS idx_ai_template_bank_enabled ON public.ai_template_bank (enabled, kind); ALTER TABLE public.ai_template_bank ENABLE ROW LEVEL SECURITY; REVOKE ALL ON public.ai_template_bank FROM public, anon, authenticated; GRANT SELECT, INSERT, UPDATE, DELETE ON public.ai_template_bank TO service_role; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('467', '467_ai_template_bank.sql', 'c872c1d1afd6b8960a6dc19d0d6a72b0f60a9149c5c6b58c60358b03e68b0b2c') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 468_ai_bank_uploads.sql
+/* Round BB, part 468: themes uploaded straight into the AI source bank. The admin can drop a zip, an HTML page, a stylesheet or a whole theme folder at /admin/ai-bank; it is kept as a reference the website AI reads (its pages, sections, styles and how it moves), with no library website behind it, so public.ai_template_bank.install_id may now be empty. Library entries keep their website and still go when it is deleted. Still server only. No existing rows change. Run after part 467. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.ai_template_bank') IS NULL THEN RAISE NOTICE 'ai bank uploads: run part 467 first.'; RETURN; END IF; ALTER TABLE public.ai_template_bank ALTER COLUMN install_id DROP NOT NULL; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('468', '468_ai_bank_uploads.sql', '4df3b00fc92fe424423f3f0de5b6695013affe83be00bcf20c5dc149440af373') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

@@ -232,7 +232,8 @@ async function main() {
   check("deterministic", JSON.stringify(chooseChrome({ text: "studio portfolio" })) === JSON.stringify(chooseChrome({ text: "studio portfolio" })))
   const job = { jobId: "j", installId: "i", creatorId: "c1", prompt: "A personal trainer in Leeds, strength coaching and booking", mode: "blank", options: { generation: "blank", category: "fitness_coach" } }
   const brief = briefMessage({ job: job as never, caps: null, pages: [{ key: "home", sections: [] }], files: [], knowledge: [] })
-  check("a new site's brief carries the chrome kit", brief.includes("CHROME KIT") && brief.includes("ai_chrome_header_overlay"))
+  /* Changed on purpose (round BB): the header, drawer, cart and search come from the owner's AI source bank, never a stock kit. */
+  check("a new site's brief no longer carries the chrome kit", !brief.includes("CHROME KIT") && !brief.includes("ai_chrome_header_overlay") && /as the owner's library does/.test(readFileSync("lib/ai-builder/agent/prompts.ts", "utf8")))
   check("  and still ends on the order of work", /render_check on every page, finish\.$/.test(brief))
   const edit = briefMessage({ job: { ...job, edit: { scope: "x" } } as never, caps: null, pages: [{ key: "home", sections: [] }], files: [], knowledge: [] })
   check("an edit's brief does not (the site's own chrome stays)", !edit.includes("CHROME KIT"))

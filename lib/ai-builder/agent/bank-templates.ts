@@ -8,7 +8,8 @@
  *   choose    the bank site that suits the brief (chooseBankEntry: a store
  *             for a business that sells, its industry, its words), fitted to
  *             the business (fitTemplate: no shop for a coach without one);
- *             none close enough: the built-in templates as before
+ *             none close enough: nothing, the agent writes the site itself
+ *             (round BB: never a built-in template)
  *   apply     the built-in applyTemplate, then the fit recorded on the site
  *             (ai_template.bank.removed), so a later slice of the job, in
  *             another process, reads the same template (preloadBankTemplate)
@@ -36,7 +37,7 @@ export type BankLibrary = TemplateLibrary & {
 
 /** At most this many characters of one example file (its template and schema whole, its style cut). */
 const EXAMPLE_CHARS = 4_500
-const PATTERNS_CHARS = 9_000
+const PATTERNS_CHARS = 16_000
 
 function compact(text: string): string {
   const style = /(<style[^>]*>)([\s\S]*?)(<\/style>)/i.exec(text)
@@ -67,7 +68,8 @@ export function bankNotes(template: SiteTemplate, notes: string[]): string {
 }
 
 export function bankTemplateLibrary(reader: BankReader, opts: { base?: TemplateLibrary; preloaded?: SiteTemplate[] } = {}): BankLibrary {
-  const base = opts.base ?? defaultTemplates
+  /* Round BB: a new site starts from the owner's library or from nothing, never a built-in template (byId still reads one for a job that started from it before). */
+  const base = opts.base ?? { ...defaultTemplates, choose: () => null }
   const fitted = new Map<string, { template: SiteTemplate; profile: BankProfile; removed: Removed; notes: string[] }>()
   for (const t of opts.preloaded ?? []) fitted.set(t.id, { template: t, profile: { kind: "starting", features: [], industries: [], keywords: [], sections: [], counts: { pages: 0, sections: 0, files: 0, imageSlots: 0, bindings: 0, removed: 0 }, examples: [] }, removed: { sections: [], pages: [] }, notes: [] })
   /* A bank site built of Storelib's own sections that suited the brief: its plan, for patterns (never poured). */
@@ -116,9 +118,11 @@ export function bankTemplateLibrary(reader: BankReader, opts: { base?: TemplateL
       for (const ref of referenceEntries(all, brief)) {
         const loaded = await reader.load(ref.id).catch(() => null)
         if (!loaded) continue
-        const paths = (loaded.profile.examples ?? []).filter((p) => loaded.template.files[p]).slice(0, 2)
+        const uploaded = !loaded.template.source?.installId
+        const paths = (loaded.profile.examples ?? []).filter((p) => loaded.template.files[p]).slice(0, uploaded ? 3 : 2)
         if (!paths.length) continue
-        blocks.push(`From ${ref.name} (an imported theme: read it for how the parts work together, write Storelib's own syntax, never copy its words):\n${paths.map((p) => `--- ${p} ---\n${compact(loaded.template.files[p])}`).join("\n\n")}`)
+        const label = (p: string) => (p === "__motion.css" ? "how it moves (its keyframes, transitions and reveals: carry this motion into the site)" : p)
+        blocks.push(`From ${ref.name} (${uploaded ? "a theme the owner uploaded as the standard" : "an imported theme"}: read it for its composition, its components and how it moves; write Storelib's own syntax, never copy its words):\n${paths.map((p) => `--- ${label(p)} ---\n${compact(loaded.template.files[p])}`).join("\n\n")}`)
       }
       if (plan && (!chosen || chosen.source?.kind !== "bank")) {
         const comp = compositionOf(plan.template, plan.profile)

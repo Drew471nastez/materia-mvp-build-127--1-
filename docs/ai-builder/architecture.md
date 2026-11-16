@@ -333,3 +333,14 @@ The owner, after the bank shipped: AI sites "depend on the header and footer", u
 - **A sheet reaches the bottom.** `own-panel-layer.ts reachBottom`: a panel opened at the top of the screen and taller than half of it is pinned to the screen's bottom, short or long; given back as written when it shuts.
 - Tests: `tests/ai-template-bank.test.ts` (72), `tests/kit-panels-canvas.test.ts` (every kit panel in the phone preview, scrolled), `tests/product-page-once-ba.test.ts`, `tests/own-panel-layer.test.ts` (the short sheet, live and canvas).
 - **Checked by eye**: two built-in templates (course-coach, salon-chair) photographed at 390 and 1440 while scrolling; their sections draw. Not checked: a real generation end to end (no model key in the build environment).
+
+## Round BB: the owner's AI source bank is the only source
+
+The owner asked that the website AI learn from what they attach at /admin/ai-bank and nothing else.
+
+- **Templates.** `bankTemplateLibrary` no longer falls back to a built-in template for a new site: a bank starting site is poured in, or the agent writes the site itself. `byId` still reads a built-in one so a job started before this round can resume.
+- **Worked examples.** `patterns()` always shows the nearest reference entries (no score floor, up to three), uploaded themes with three files each, and runs for redesigns as well as new sites. Budget 16,000 characters.
+- **Knowledge search.** The agent calls `search_knowledge` with `bankOnly: true`: only the platform's working rules (`isRuleEntry`: Storelib, accessibility, state, responsive, anti-slop and behaviour entries such as a drawer's focus and scroll). Never the chrome kit, the stock component library, palettes, pairings, layouts or site templates. The brief no longer carries the chrome kit or the stock motion primitives.
+- **Design references.** `findReferencesIn` and the agent's fallback pass `builtIns: false`: the admin's uploaded references only.
+- **Uploads.** `lib/storelib-ai/bank/upload.ts`: the admin page unpacks a zip in the browser (jszip), keeps the text files best first under 3.6MB (`chooseUploadFiles`), and posts them to `/api/admin/ai-bank/upload`. `uploadSnapshot` makes a reference entry; `motionOf` pulls the theme's keyframes, the rules that run them, transitions, reduced motion answers and reveal scripts into `__motion.css`, shown first so the motion survives. SQL part 468 lets `install_id` be empty.
+- **Limits.** AI building keeps only a one minute burst guard (`siteAi`, `siteGenerate`, `aiImage`, `AGENT_LIMITS`, `THEME_AGENT_LIMITS`); the job budget is 120 minutes, 400 turns, $200 ($400 on the owner's own key); three jobs may run at once. Measured by `tests/ai-bank-only-bb.test.ts`.

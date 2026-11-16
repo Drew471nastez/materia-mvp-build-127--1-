@@ -367,7 +367,8 @@ async function main() {
     const after = estimateSiteUsd({ plan: "claude-opus-5-5", write: "claude-opus-5-5", loop: "claude-sonnet-5-5", review: "claude-opus-5-5" }, { write: "high" })
     console.log(`        typical site: before $${before.total} (${JSON.stringify(before.byPhase)}), after $${after.total} (${JSON.stringify(after.byPhase)})`)
     check("cost: the build on opus high costs more than on sonnet, and the estimate is priced from the same table", after.total > before.total && after.byPhase.build > before.byPhase.build && after.byPhase.plan === before.byPhase.plan)
-    check("  the typical site fits the raised cap with room for pictures and repairs ($20; own key $40)", DEFAULT_JOB_BUDGET.maxUsd === 20 && DEFAULT_JOB_BUDGET.maxUsdOwnKey === 40 && after.total < DEFAULT_JOB_BUDGET.maxUsd * 0.75, { after, cap: DEFAULT_JOB_BUDGET.maxUsd })
+    /* Round BB: the caps are runaway guards ($200; own key $400), far above a typical site. */
+    check("  the typical site fits the cap with room for pictures and repairs ($200; own key $400)", DEFAULT_JOB_BUDGET.maxUsd === 200 && DEFAULT_JOB_BUDGET.maxUsdOwnKey === 400 && after.total < DEFAULT_JOB_BUDGET.maxUsd * 0.75, { after, cap: DEFAULT_JOB_BUDGET.maxUsd })
     check("  one build call's worst case is a small part of the cap", worstCaseUsd("claude-opus-5-5", 400_000, DEFAULT_JOB_BUDGET.maxOutputTokensPerCall) < DEFAULT_JOB_BUDGET.maxUsd / 10)
   }
 

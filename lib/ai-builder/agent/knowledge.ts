@@ -30,7 +30,8 @@ export function libraryKnowledge(ctx: { industry?: string; concept?: () => Visua
   return async (q) => {
     const styles = ctx.concept?.()?.styles
     const capabilities = capabilityWords(ctx.caps?.() ?? null)
-    const r = runSearchKnowledge({ query: q.query, kinds: q.kinds, limit: q.limit }, { industry: q.industry ?? ctx.industry, styles, ...(capabilities.length ? { capabilities } : {}) })
+    /* Round BB: the platform's working rules only; the look and structure come from the owner's library (AI source bank). */
+    const r = runSearchKnowledge({ query: q.query, kinds: q.kinds, limit: q.limit }, { bankOnly: true, industry: q.industry ?? ctx.industry, styles, ...(capabilities.length ? { capabilities } : {}) })
     return r.entries
   }
 }
@@ -71,6 +72,6 @@ export function directionsFor(industry: string | undefined, seed: string): Direc
 
 /** O1's references without the database: the built in library (Storelib's patterns, open-source notes), no pictures. */
 export const libraryReferences: ReferenceSource = {
-  search: async ({ query, industry, limit }) => searchReferences({ text: query, industry }, { limit: limit ?? 4 }),
+  search: async ({ query, industry, limit }) => searchReferences({ text: query, industry }, { limit: limit ?? 4, builtIns: false }),
   images: async () => [],
 }
