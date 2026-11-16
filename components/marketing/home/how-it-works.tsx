@@ -17,7 +17,7 @@
  *              and now and then an order, and each figure ticks to its new
  *              value. Every number follows from the others: conversion is
  *              orders over visitors, revenue is the orders at their prices.
- *   tips       Ruben's creator page: a visitor picks $5 in the tip block,
+ *   tips       a creator page: a visitor picks $5 in the tip block,
  *              pays on the checkout sheet, and the block says thank you, in
  *              the words the real block uses (components/onepage/tip-block).
  *   domain     a store's front page as four photographs and its line, with
@@ -33,10 +33,26 @@
  * domain is sized by its card's width, and the dashboard is laid out at a
  * width of its own and scaled whole into its stage (useDashFit), never cut.
  *
- * One shop runs through the dashboard and the tips: Ruben Linde's Linde
- * Woodshop, a woodworker who films his builds (made up), selling section 3's
- * two products. The domain picture is another creator's store, Fernlyn,
- * botanical oils and candles (made up; Unsplash photographs, cropped 4:3).
+ * LANDING ROUND 14, THE OWNER: each picture covers its whole card, with no
+ * outlined frame inside it, and the cards have an extremely subtle depth (a
+ * hairline and a soft shadow, no grey stage). The cards keep one shape on
+ * every screen: a narrow card is 4:5 and the wide one 5:3, so a phone shows
+ * the same picture as a laptop, only smaller (from 1100px the row's height
+ * is the narrow cards' 4:5, the wide card takes it).
+ *   tips       Ines Duarte's creator page, edge to edge: a landscape
+ *              filmmaker (made up) in place of Ruben Linde, whom the owner
+ *              did not like, with a real photograph for her cover.
+ *   business   the dashboard covers its card: laid out at the computer's
+ *              width with its sidebar, scaled to the card's width, and as
+ *              tall as the card at that scale (the chart takes the extra
+ *              height), so nothing is cut and there is no frame around it.
+ *   domain     /pricing's domain reel (app/(storelib)/(marketing)/pricing/
+ *              domain-reel.tsx, imported as it is), filling the card: one
+ *              name with different endings, a row at a time.
+ *
+ * One shop runs through the dashboard and the tips: Ines Duarte, who films
+ * landscapes and sells section 3's two products (made up; Unsplash
+ * photographs for her cover and her face).
  *
  * THE GROUND. Behind the heading a field of faint dots flows by itself and,
  * where a mouse is, lights violet around it and parts (HowField, a small
@@ -45,7 +61,8 @@
  *
  * WHAT MOVES. Transform and opacity only. The dashboard's figures are
  * odometers: each digit a column of numerals moved by a transform, so a
- * figure changing never lays anything out. The loops (.cmh-a) run only while
+ * figure changing never lays anything out. The loops (.cmh-a, and the domain
+ * reel's .ev-loop) run only while
  * their card is near the screen and the tab is visible (data-commerce-live);
  * what plays once waits for a third of the card to be on screen (data-seen,
  * .cmh-o). The dashboard's ticker reads the same attribute, so it stops off
@@ -64,8 +81,9 @@
  */
 import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react"
 import type { SectionStyle } from "./lazy-section"
-import type { DomainPurpose } from "@/lib/custom-domains/hostname"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { DomainReel, DOMAIN_CSS, DOMAIN_NAME } from "@/app/(storelib)/(marketing)/pricing/domain-reel"
+import type { DomainPurpose } from "@/lib/custom-domains/hostname"
 import { mountDotField } from "./dot-field-mount"
 import { HOW_FIELD } from "./dot-field-engine"
 
@@ -77,15 +95,24 @@ const HOW = "/home/how"
 /** Landing round 12 (the owner: a better heading). What the three pictures below are, in their order. */
 export const HOW_HEADING = { lead: "See every sale as it happens.", rest: "Add tips and your own domain." } as const
 
-/** The shop the dashboard and the tips belong to (made up). */
+/** The creator the dashboard and the tips belong to (made up; landing round 14, in place of Ruben Linde). */
 export const HOW_SHOP = {
-  creator: "Ruben Linde",
-  first: "Ruben",
-  name: "Linde Woodshop",
-  handle: "rubenlinde",
-  avatar: `${HOW}/linde-avatar.webp`,
-  /** The cover of his creator page: a photograph from a workshop (Unsplash). */
-  cover: `${HOW}/linde-turning.webp`,
+  creator: "Ines Duarte",
+  first: "Ines",
+  handle: "inesduarte",
+  /** What her creator page says under her name. */
+  line: "Landscape films and colour grades",
+  /** Her face (Unsplash, cropped square, 160px). */
+  avatar: `${HOW}/ines-avatar.webp`,
+  /** The cover of her creator page: a photographer on a ridge over a sea of fog at sunrise (Unsplash, 840x560). */
+  cover: `${HOW}/ines-cover.webp`,
+} as const
+
+/** The address the domain card's reel starts on (the reel's own name, with ".com", as a buyer types it), and what a domain a creator owns serves (lib/custom-domains DOMAIN_PURPOSES). */
+export const HOW_DOMAIN = {
+  host: `${DOMAIN_NAME}.com`,
+  typed: `www.${DOMAIN_NAME}.com`,
+  purpose: "website" satisfies DomainPurpose,
 } as const
 
 /**
@@ -193,12 +220,15 @@ export function HowItWorks() {
   const pictures: Record<(typeof HOW_CARDS)[number]["key"], ReactNode> = {
     business: <DashScene />,
     tips: <TipScene />,
-    domain: <DomainScene />,
+    domain: <DomainReel />,
   }
   return (
     <section ref={section} className="cmh" data-how-section="" aria-labelledby="cmh-title">
       <style href="w12-commerce-how" precedence="default">
         {HOW_CSS}
+      </style>
+      <style href={HOW_DOMAIN_STYLE.href} precedence="default">
+        {HOW_DOMAIN_STYLE.css}
       </style>
       <HowField host={section} />
       <div className="cmh-in home-wrap">
@@ -548,18 +578,17 @@ function useDashLive(root: RefObject<HTMLDivElement | null>) {
 }
 
 /**
- * Landing round 13, the owner: the dashboard sits in a grey stage like the
- * other two pictures, whole, never cut off. It is laid out at a width of its
- * own (HOW_DASH_FIT: about 1.35 times its stage, so its type lands near 10px
- * once scaled, and never narrower than a phone's app or wider than a laptop's
- * with the rail) and then scaled as a whole, one transform, to fit inside the
- * stage with a margin on every side. The width picks the app's own layout for
- * it (the phone's under 600px, the rail from 1020px) through container
- * queries on the box it is drawn in. Measured once on mount, before paint,
- * and again only when the stage changes size; never in a frame.
+ * Landing round 14, the owner: the dashboard covers its card, no frame around
+ * it, still showing the live figures. It is laid out at a width of its own
+ * (HOW_DASH_FIT: about 1.35 times its card, never narrower than 1040, so the
+ * computer's layout with its sidebar is what every screen shows, nor wider
+ * than 1120), scaled by one transform to the card's width, and made as tall
+ * as the card is at that scale (--db-h), the chart taking whatever height is
+ * left. So it fills the card exactly: nothing cut off, no band around it.
+ * Measured once on mount, before paint, and again only when the card changes
+ * size; never in a frame.
  */
-/* Landing round 13 (the owner's phone notes: "Understand your business" should be "like it's on desktop, but on mobile"): never laid out narrower than 1040, so the computer's layout with its sidebar (from 1020) is what every screen shows, scaled. */
-export const HOW_DASH_FIT = { perStage: 1.35, min: 1040, max: 1120, margin: 0.06, marginMin: 14 } as const
+export const HOW_DASH_FIT = { perStage: 1.35, min: 1040, max: 1120 } as const
 function useDashFit(fit: RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const box = fit.current
@@ -568,18 +597,19 @@ function useDashFit(fit: RefObject<HTMLDivElement | null>) {
     let lastW = -1
     let lastH = -1
     const measure = () => {
-      const sw = stage.clientWidth
-      const sh = stage.clientHeight
-      if (!sw || !sh || (sw === lastW && sh === lastH)) return
+      /* The card's exact size (a fraction of a pixel counts: rounded down, a hairline of the card would show at its edge), and half a pixel over, which its corners clip. */
+      const r = stage.getBoundingClientRect()
+      const sw = r.width + 0.5
+      const sh = r.height + 0.5
+      if (r.width < 1 || r.height < 1 || (sw === lastW && sh === lastH)) return
       lastW = sw
       lastH = sh
       const F = HOW_DASH_FIT
       const w = Math.round(Math.min(F.max, Math.max(F.min, sw * F.perStage)))
+      const s = sw / w
       box.style.setProperty("--db-w", `${w}px`)
-      const h = box.offsetHeight
-      const m = Math.max(F.marginMin, Math.min(sw, sh) * F.margin)
-      const s = Math.min((sw - m * 2) / w, (sh - m * 2) / h)
-      box.style.setProperty("--db-s", s.toFixed(4))
+      box.style.setProperty("--db-h", `${(sh / s).toFixed(2)}px`)
+      box.style.setProperty("--db-s", s.toFixed(5))
       box.setAttribute("data-fit", "")
     }
     measure()
@@ -731,16 +761,16 @@ function DashBoard() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   2. TIPS (landing round 12): Ruben's creator page, a tip picked, paid and
+   2. TIPS (landing round 12): a creator page, a tip picked, paid and
    thanked for. One 10 second loop, every step a transform or an opacity:
    $3 is chosen, a tap lands on $5 and it is chosen, the button reads
    "Tip $5"; a tap on it, the checkout sheet rises over the page, a tap on
    Pay, the sheet goes down and the block says thank you; then it is as it
    was, changed only while hidden.
    ═══════════════════════════════════════════════════════════════════════════ */
-/** The amounts on Ruben's tip block (the block's defaults, lib/onepage/tips TIP_DEFAULT_AMOUNTS) and the one picked. */
+/** The amounts on her tip block (the block's defaults, lib/onepage/tips TIP_DEFAULT_AMOUNTS) and the one picked. */
 export const TIP_AMOUNTS = ["$3", "$5", "$10"] as const
-export const HOW_TIP = { picked: "$5", from: "$3", title: "Leave a tip", subtitle: "Wood for the next build", thanks: "Thank you for the $5 tip." } as const
+export const HOW_TIP = { picked: "$5", from: "$3", title: "Leave a tip", subtitle: "Toward the next film", thanks: "Thank you for the $5 tip." } as const
 export const HOW_TIP_LOOP_S = 10
 
 function TipScene() {
@@ -753,7 +783,7 @@ function TipScene() {
         <span className="cmh-tp-who">
           <img src={HOW_SHOP.avatar} alt="" width={160} height={160} loading="lazy" decoding="async" />
           <b>{HOW_SHOP.creator}</b>
-          <span>Furniture and lathe videos, every Sunday</span>
+          <span>{HOW_SHOP.line}</span>
         </span>
         <span className="cmh-tp-block">
           <b className="cmh-tp-t">{HOW_TIP.title}</b>
@@ -813,107 +843,10 @@ function TipScene() {
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   3. YOUR OWN DOMAIN (landing round 12, the owner's reference): a store's
-   front page as four photographs and its line, and over it a big rounded
-   address field. The address types itself in, a caret leading it, ".com" in
-   blue; a green check comes in when it is done; it holds, fades, and the
-   loop begins again. The caret's stops are measured once (useCaretStops),
-   never in a frame.
-   ═══════════════════════════════════════════════════════════════════════════ */
-/** Fernlyn (made up): botanical oils and candles, and the domain it owns, serving its website (lib/custom-domains DOMAIN_PURPOSES). */
-export const HOW_DOMAIN = {
-  store: "Fernlyn",
-  line: "Botanical oils and candles, poured by hand",
-  host: "fernlyn.com",
-  typed: "www.fernlyn.com",
-  purpose: "website" satisfies DomainPurpose,
-} as const
-/** The front page's four photographs (Unsplash, cropped 4:3, 640x480): two scenes on the diagonal, two products on light grounds. */
-export const HOW_DOMAIN_PHOTOS = [`${HOW}/fern-linen.webp`, `${HOW}/fern-oil.webp`, `${HOW}/fern-roller.webp`, `${HOW}/fern-table.webp`] as const
-const DM_CHARS = [...HOW_DOMAIN.typed]
-/** Where ".com" starts: the part drawn in blue. */
-const DM_TLD_AT = HOW_DOMAIN.typed.lastIndexOf(".")
-/** The loop, in seconds, and when each thing happens in it. */
-export const DM_LOOP = 9
-const DM_TYPE_START = 0.9
-const DM_TYPE_EACH = 0.11
-const DM_TYPED_AT = DM_TYPE_START + DM_CHARS.length * DM_TYPE_EACH
-const DM_CHECK_AT = DM_TYPED_AT + 0.35
-const DM_FADE_AT = 7.9
-
-function useCaretStops(stage: RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    const field = stage.current?.querySelector<HTMLElement>(".cmh-dm-type")
-    if (!field) return
-    const chars = [...field.querySelectorAll<HTMLElement>(".cmh-dm-ch")]
-    const measure = () => {
-      const left = field.getBoundingClientRect().left
-      chars.forEach((c, i) => {
-        const r = c.getBoundingClientRect()
-        if (r.width > 0) field.style.setProperty(`--x${i + 1}`, `${(r.right - left).toFixed(1)}px`)
-      })
-    }
-    measure()
-    if (typeof ResizeObserver !== "function") return
-    const ro = new ResizeObserver(measure)
-    ro.observe(field)
-    return () => ro.disconnect()
-  }, [stage])
-}
-
-function DomainScene() {
-  const stage = useRef<HTMLDivElement>(null)
-  useCaretStops(stage)
-  return (
-    <div ref={stage} className="cmh-sc cmh-dm">
-      <div className="cmh-dm-shop">
-        <span className="cmh-dm-grid">
-          {HOW_DOMAIN_PHOTOS.map((src) => (
-            <img key={src} src={src} alt="" width={640} height={480} loading="lazy" decoding="async" />
-          ))}
-        </span>
-        <span className="cmh-dm-foot">{HOW_DOMAIN.line}</span>
-      </div>
-      <div className="cmh-dm-field">
-        <span className="cmh-a cmh-dm-type">
-          {DM_CHARS.map((ch, i) => (
-            <span key={i} className={`cmh-a cmh-dm-ch${i >= DM_TLD_AT ? " cmh-dm-tld" : ""}`} data-i={i}>
-              {ch}
-            </span>
-          ))}
-          <i className="cmh-a cmh-dm-caret" />
-        </span>
-        <span className="cmh-a cmh-dm-check">
-          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="24" cy="24" r="20" />
-            <path d="m15.5 24.5 6 6 11-12" />
-          </svg>
-        </span>
-      </div>
-    </div>
-  )
-}
-
 /* ── the stylesheet ── */
 const EASE = "cubic-bezier(.22,1,.36,1)"
 const pc = (s: number, loop: number) => `${+((s / loop) * 100).toFixed(3)}%`
 const T = (s: number) => pc(s, HOW_TIP_LOOP_S)
-const D = (s: number) => pc(s, DM_LOOP)
-/** Each character of the address shows from its moment until the field fades. */
-const DM_CHAR_KEYS = DM_CHARS.map((_, i) => {
-  const at = DM_TYPE_START + i * DM_TYPE_EACH
-  return `.cmh-dm-ch[data-i="${i}"]{animation-name:cmh-dc${i}}\n@keyframes cmh-dc${i}{0%,${D(at)}{opacity:0;transform:translate3d(0,.12em,0)}${D(at + 0.08)},100%{opacity:1;transform:translate3d(0,0,0)}}`
-}).join("\n")
-/** The caret: at the field's start, then after each character as it comes, then gone with the check. */
-const DM_CARET_KEYS =
-  `0%,${D(DM_TYPE_START)}{transform:translate3d(0,0,0)}` +
-  DM_CHARS.map((_, i) => {
-    const at = DM_TYPE_START + i * DM_TYPE_EACH
-    return `${D(at + 0.001)},${D(at + DM_TYPE_EACH - 0.001)}{transform:translate3d(var(--x${i + 1},${((i + 1) * 0.58).toFixed(2)}em),0,0)}`
-  }).join("") +
-  `100%{transform:translate3d(var(--x${DM_CHARS.length},${(DM_CHARS.length * 0.58).toFixed(2)}em),0,0)}`
-
 const HOW_CSS = `
 /* Its own box: no data-story-section. The same --home-pad top and bottom. A stacking context, so the dot field sits behind the words and never behind the page. */
 .cmh{position:relative;isolation:isolate;background:#fff;color:#18181b;padding-block:var(--home-pad,clamp(48px,5.6vw,80px))}
@@ -934,19 +867,15 @@ const HOW_CSS = `
   .cmh-wide{grid-column:1/-1;order:-1}
 }
 @media(min-width:1100px){.cmh-grid{grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);column-gap:clamp(16px,1.5vw,28px)}}
+/* Landing round 14: the grid is the query container its cards are sized from; --cmh-gap is its column gap in the one row from 1100px. */
+.cmh-grid.cmh-grid{container-type:inline-size;--cmh-gap:clamp(16px,1.5vw,28px)}
 .cmh-card{min-width:0}
-/* The stage: a quiet grey ground with round corners, the picture inside it, clipped to it. */
-.cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;height:440px;border-radius:17px;background:#f4f4f6;overflow:hidden;contain:paint;isolation:isolate;container-type:inline-size;font-family:inherit}
-.cmh-stage[data-ground=domain]{height:360px}
-@media(min-width:640px){.cmh-stage,.cmh-stage[data-ground=domain]{height:420px;border-radius:19px}}
-/* A laptop (round 10, a MacBook Air at about 1440x800): the heading and the row fit one screen. The stages stop at half the screen's height, never under 360px. */
-@media(min-width:1100px){.cmh-stage,.cmh-stage[data-ground=domain]{height:max(360px,min(clamp(400px,32vw,560px),50svh))}}
-/* One quiet near white a card, a breath of colour each (round 11's grounds). */
-.cmh-stage[data-ground=tips]{background:#f3f1f8}
-.cmh-stage[data-ground=business]{background:#f3f3f5}
-/* Landing round 13: on a phone the dashboard is the computer's, scaled, so its stage takes the dashboard's shape instead of the tall phone stage (no grey band above and below it). */
-@media(max-width:639px){.cmh-stage[data-ground=business]{height:auto;aspect-ratio:16/10}}
-.cmh-stage[data-ground=domain]{background:#f5f2ee}
+/* Landing round 14, the owner: the picture covers the whole card, no frame or grey ground inside it, and the card has an extremely subtle depth: a hairline and a soft, low shadow. */
+.cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;aspect-ratio:4/5;border-radius:18px;background:#fff;overflow:hidden;isolation:isolate;container-type:inline-size;font-family:inherit;box-shadow:0 0 0 1px rgba(24,24,27,.055),0 1px 2px rgba(24,24,27,.04),0 14px 34px -24px rgba(24,24,27,.16)}
+/* One shape on every screen (the owner: a phone shows the cards as a laptop does): narrow 4:5, wide 5:3. */
+.cmh-wide .cmh-stage{aspect-ratio:5/3}
+/* From 1100px, one row: every card as tall as a narrow card is at 4:5 (a quarter of the row less its gaps, times 5/4); the wide card's shape follows, about 5:3. */
+@media(min-width:1100px){.cmh-stage,.cmh-wide .cmh-stage{aspect-ratio:auto;height:calc((100cqw - 2 * var(--cmh-gap)) / 4 * 1.25)}}
 /* The caption: a title and one short line under it. */
 .cmh-cap-t{margin:22px 0 0;font-size:18px;font-weight:500;line-height:1.3;letter-spacing:-.015em;color:#18181b}
 .cmh-cap{margin:6px 0 0;max-width:46ch;font-size:15px;line-height:1.5;color:#7c7a84;text-wrap:pretty}
@@ -962,11 +891,12 @@ const HOW_CSS = `
 .cmh-sc{position:absolute;inset:0;line-height:1.3;color:#18181b}
 
 /* ── 1. the dashboard: /app's home in its own sizes (dashboard-client, sidebar, metric-tab), laid out at --db-w and scaled whole into its stage (useDashFit) ── */
-.cmh-db-fit{position:absolute;left:50%;top:50%;width:var(--db-w,860px);container-type:inline-size;transform-origin:50% 50%;transform:translate3d(-50%,-50%,0) scale(var(--db-s,.6))}
-.cmh-db{position:relative;display:block;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.08),0 30px 60px -36px rgba(24,24,27,.35);font-size:14px;line-height:1.35;color:#1a1a2e}
+/* Landing round 14: from the card's top left, the card's width once scaled, and as tall as the card at that scale (useDashFit); no frame of its own, the card's corners clip it. */
+.cmh-db-fit{position:absolute;left:0;top:0;width:var(--db-w,1040px);height:var(--db-h,650px);container-type:inline-size;transform-origin:0 0;transform:scale(var(--db-s,.6))}
+.cmh-db{position:relative;display:flex;flex-direction:column;height:100%;overflow:hidden;background:#fff;font-size:14px;line-height:1.35;color:#1a1a2e}
 .cmh-db img{display:block}
 .cmh-db svg{display:block;flex:none}
-.cmh-db-top{display:flex;align-items:center;gap:16px;height:58px;padding:0 20px;background:#131316;color:#fff}
+.cmh-db-top{flex:none;display:flex;align-items:center;gap:16px;height:58px;padding:0 20px;background:#131316;color:#fff}
 .cmh-db-me{display:flex;align-items:center;gap:10px;flex:none;padding:6px 10px}
 .cmh-db-me img{width:28px;height:28px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
 .cmh-db-me>span{font-size:13px;font-weight:500;color:rgba(255,255,255,.9)}
@@ -980,14 +910,14 @@ const HOW_CSS = `
 .cmh-db-tools>i{width:1px;height:20px;background:rgba(255,255,255,.15)}
 .cmh-db-tools img{width:26px;height:26px;border-radius:7px;background:#895ffe;margin-right:-4px}
 .cmh-db-tools b{font-size:15px;font-weight:600;color:#fff}
-.cmh-db-body{display:flex;align-items:stretch}
+.cmh-db-body{flex:1;min-height:0;display:flex;align-items:stretch}
 /* The rail: 240px, its rows 38px, 15px type at 470, the row you are on #e8e8e8 at 575 (sidebar-desktop-nav ROW and its colours). */
 .cmh-db-rail{flex:none;display:flex;flex-direction:column;gap:0;width:240px;box-sizing:border-box;padding:12px 7px 20px;border-right:1px solid rgba(229,229,229,.6)}
 .cmh-db-row{display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:12px;font-size:15px;font-weight:470;letter-spacing:-.01em;color:#666;white-space:nowrap}
 .cmh-db-row svg{width:20px;height:20px}
 .cmh-db-row[data-on]{background:#e8e8e8;color:#202020;font-weight:575;box-shadow:0 1px 2px rgba(16,18,27,.07),inset 0 0 0 1px rgba(16,18,27,.045)}
-.cmh-db-main{flex:1;min-width:0;display:block}
-.cmh-db-in{display:block;max-width:1200px;margin:0 auto;padding:24px 32px 32px;box-sizing:border-box}
+.cmh-db-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.cmh-db-in{flex:1;display:flex;flex-direction:column;width:100%;max-width:1200px;margin:0 auto;padding:24px 32px 32px;box-sizing:border-box}
 .cmh-db-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:32px}
 .cmh-db-hl{display:block;min-width:0}
 .cmh-db-hrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
@@ -1000,7 +930,7 @@ const HOW_CSS = `
 .cmh-db-sub{display:block;margin-top:4px;font-size:14px;color:#6b7280}
 .cmh-db-handle{flex:none;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid #e5e7eb;font-size:13px;font-weight:500;color:#374151}
 .cmh-db-handle svg{width:13px;height:13px;color:#9ca3af}
-.cmh-db-card{display:block;background:#fff;border-radius:16px;border:1px solid rgba(229,231,235,.6);box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
+.cmh-db-card{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;border-radius:16px;border:1px solid rgba(229,231,235,.6);box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
 .cmh-db-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
 .cmh-db-tab{position:relative;display:block;min-width:0;padding:14px 16px;background:#fff}
 .cmh-db-tab+.cmh-db-tab{border-left:1px solid rgba(229,231,235,.6)}
@@ -1022,8 +952,9 @@ const HOW_CSS = `
 .cmh-db[data-empty] .cmh-odo{opacity:0}
 .cmh-db[data-empty] .cmh-db-up{opacity:0;transition:none}
 /* The chart (dashboard-client DashboardTrendChart): 200px, the plot from 10px down to 30px above the foot, dashed #f3f4f6 lines, 11px #9ca3af labels. */
-.cmh-db-chart{display:block;position:relative;border-top:1px solid rgba(229,231,235,.6);padding:16px 16px 8px}
-.cmh-db-plot{position:relative;display:block;height:160px;margin:10px 10px 0 44px}
+.cmh-db-chart{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;border-top:1px solid rgba(229,231,235,.6);padding:16px 16px 8px}
+/* The chart takes the height the card leaves it (160px at the dashboard's own size, more on a taller card). */
+.cmh-db-plot{position:relative;display:block;flex:1;min-height:120px;margin:10px 10px 0 44px}
 .cmh-db-grid{position:absolute;left:0;right:0;height:0;border-top:1px dashed #f3f4f6}
 .cmh-db-grid small{position:absolute;right:calc(100% + 8px);top:-7px;font-size:11px;line-height:14px;color:#9ca3af;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cmh-db-clip{position:absolute;inset:-4px 0;overflow:hidden}
@@ -1035,13 +966,12 @@ const HOW_CSS = `
 .cmh-db-clip svg{position:absolute;left:0;top:4px;width:100%;height:calc(100% - 8px);overflow:visible}
 .cmh-db-dot{position:absolute;right:0;width:11px;height:11px;margin:-5.5px -5.5px 0 0;border-radius:50%;background:#8b5cf6;box-shadow:0 0 0 2px #fff;box-sizing:border-box;animation-name:cmh-db-dot;animation-delay:1.85s;animation-duration:.45s}
 @keyframes cmh-db-dot{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
-.cmh-db-days{display:flex;justify-content:space-between;margin:12px 0 0 28px;font-size:11px;color:#9ca3af;white-space:nowrap}
+.cmh-db-days{flex:none;display:flex;justify-content:space-between;margin:12px 0 0 28px;font-size:11px;color:#9ca3af;white-space:nowrap}
 /* Narrower than a laptop's /app: the rail goes, as it does under 768px in the app, and the search gives way. */
 @container (max-width:1020px){.cmh-db-rail{display:none}.cmh-db-in{padding:24px 24px 28px}}
 @container (max-width:760px){.cmh-db-search{visibility:hidden}.cmh-db-tools{display:none}.cmh-db-handle{display:none}}
 /* A phone: the app's phone header (who you are, the bell), the period and the live count on their own row, the four figures two by two. */
 @container (max-width:600px){
-  .cmh-db{border-radius:14px}
   .cmh-db-top{height:56px;padding:0 10px;justify-content:space-between}
   .cmh-db-search{display:none}
   .cmh-db-tools{display:flex}
@@ -1068,17 +998,17 @@ const HOW_CSS = `
   .cmh-db-days span:nth-child(even){visibility:hidden}
 }
 
-/* ── 2. tips: his creator page, a $5 tip picked, paid and thanked for. Landing round 13: the page rises from the foot of its grey stage, a column as wide as a phone's screen at most, its top corners round. ── */
-.cmh-tp{font-size:clamp(10.5px,3.6cqw,15px)}
-.cmh-tp-page{position:absolute;top:max(18px,6%);bottom:0;left:max(16px,calc(50% - 12.5em));right:max(16px,calc(50% - 12.5em));display:flex;flex-direction:column;align-items:center;overflow:hidden;border-radius:1.15em 1.15em 0 0;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.06),0 1.6em 3em -2em rgba(24,24,27,.28);transform:translateZ(0)}
-.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:30%;background:#2a211b}
-.cmh-tp-cover img{display:block;width:100%;height:100%;object-fit:cover}
+/* ── 2. tips: her creator page, a $5 tip picked, paid and thanked for. Landing round 14: the page is the card, edge to edge, sized by the card's width alone, so it looks the same on every screen. ── */
+.cmh-tp{font-size:3.5cqw}
+.cmh-tp-page{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;overflow:hidden;background:#fff}
+.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:34%;background:#5d6b7c}
+.cmh-tp-cover img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 58%}
 .cmh-tp-who{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-2.6em;text-align:center}
 .cmh-tp-who img{display:block;width:5.2em;height:5.2em;border-radius:50%;object-fit:cover;background:#e7e5ee;box-shadow:0 0 0 .22em #fff}
 .cmh-tp-who b{margin-top:.55em;font-size:1.25em;font-weight:600;letter-spacing:-.02em}
 .cmh-tp-who span{margin-top:.2em;font-size:.86em;color:#71717a}
 /* The tip block, the card variant of components/onepage/tip-block: title, a line, four amounts, the button. */
-.cmh-tp-block{display:flex;flex-direction:column;width:min(88%,25em);margin-top:1.3em;padding:1.15em 1.2em 1.2em;box-sizing:border-box;border-radius:1.1em;background:#fff;box-shadow:0 0 0 1px #ececf0,0 .4em 1.2em -.6em rgba(24,24,27,.18)}
+.cmh-tp-block{display:flex;flex-direction:column;width:min(88%,25em);margin-block:auto;padding:1.15em 1.2em 1.2em;box-sizing:border-box;border-radius:1.1em;background:#fff;box-shadow:0 0 0 1px #ececf0,0 .4em 1.2em -.6em rgba(24,24,27,.18)}
 .cmh-tp-t{font-size:1.02em;font-weight:600;letter-spacing:-.01em}
 .cmh-tp-s{margin-top:.15em;font-size:.84em;color:#71717a}
 .cmh-tp-swap{display:grid;margin-top:.9em}
@@ -1103,7 +1033,8 @@ const HOW_CSS = `
 .cmh-tp-tap2{animation-name:cmh-tp-tap2}
 .cmh-tp-tap3{animation-name:cmh-tp-tap3}
 .cmh-tp-scrim{position:absolute;inset:0;background:rgba(9,9,11,.32);opacity:0;animation-name:cmh-tp-scrim}
-.cmh-tp-sheet{position:absolute;left:50%;bottom:0;display:flex;flex-direction:column;align-items:center;width:min(100%,27em);margin-left:max(-50%,-13.5em);padding:.7em 1.4em 1.4em;box-sizing:border-box;border-radius:1.4em 1.4em 0 0;background:#fff;box-shadow:0 -1em 3em -1.5em rgba(0,0,0,.35);transform:translate3d(0,105%,0);animation-name:cmh-tp-sheet}
+/* Landing round 14: the card is the phone's screen, so the sheet spans it. */
+.cmh-tp-sheet{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;padding:.7em 1.4em 1.4em;box-sizing:border-box;border-radius:1.4em 1.4em 0 0;background:#fff;box-shadow:0 -1em 3em -1.5em rgba(0,0,0,.35);transform:translate3d(0,105%,0);animation-name:cmh-tp-sheet}
 .cmh-tp-grab{width:2.6em;height:.3em;border-radius:1em;background:#e4e4e7}
 .cmh-tp-for{display:flex;align-items:center;gap:.5em;margin-top:1em;font-size:.9em;font-weight:500;color:#52525b}
 .cmh-tp-for img{width:1.7em;height:1.7em;border-radius:50%;object-fit:cover}
@@ -1128,29 +1059,9 @@ const HOW_CSS = `
 @keyframes cmh-tp-pick{0%,${T(5.0)}{opacity:1}${T(5.25)},${T(8.7)}{opacity:0}${T(9.2)},100%{opacity:1}}
 @keyframes cmh-tp-thx{0%,${T(5.2)}{opacity:0;transform:translate3d(0,.35em,0)}${T(5.6)},${T(8.2)}{opacity:1;transform:translate3d(0,0,0)}${T(8.6)},100%{opacity:0;transform:translate3d(0,0,0)}}
 
-/* ── 3. your own domain: a store's front page, the address typed over it, a check ── */
-/* Landing round 13: sized by its stage's width, so the address field (about 27em) fits a narrow card with room on both sides. */
-.cmh-dm{display:grid;place-items:center;font-size:clamp(9px,3.25cqw,17px)}
-.cmh-dm-shop{grid-area:1/1;display:flex;flex-direction:column;width:min(88%,27em);overflow:hidden;border-radius:.9em;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.07),0 2em 3.5em -2.2em rgba(24,24,27,.4);transform:translateZ(0)}
-.cmh-dm-grid{display:grid;grid-template-columns:1fr 1fr}
-.cmh-dm-grid img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:#ece6df}
-.cmh-dm-foot{display:block;padding:1.15em 1em;background:#f4ede7;color:#4b3f37;text-align:center;font-family:ui-serif,Georgia,"Times New Roman",serif;font-size:.86em;letter-spacing:.005em}
-/* The address field: as wide as its address, wider than the page under it, at the seam of its photographs (lifted by the height of the page's line). */
-.cmh-dm-field{grid-area:1/1;position:relative;display:flex;align-items:center;gap:.6em;max-width:96%;height:4.3em;margin-bottom:3.1em;padding:0 1em 0 1.5em;box-sizing:border-box;border-radius:999px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.06),0 1.2em 2.6em -1em rgba(24,24,27,.32),0 .2em .5em rgba(24,24,27,.05)}
-.cmh-dm-type{position:relative;min-width:0;display:flex;align-items:center;height:100%;font-size:2.5em;font-weight:400;letter-spacing:-.02em;color:#3f3f46;white-space:nowrap;animation-name:cmh-dm-type}
-.cmh-dm-ch{display:inline-block;opacity:0}
-.cmh-dm-tld{color:#2563eb}
-.cmh-dm-caret{position:absolute;left:0;top:50%;width:2px;height:1.05em;margin:-.52em 0 0 1px;border-radius:1px;background:#2563eb}
-.cmh-dm-check{flex:none;display:grid;width:2.8em;height:2.8em;color:#16a34a;opacity:0;animation-name:cmh-dm-check}
-.cmh-dm-check svg{width:100%;height:100%}
-.cmh-dm-type,.cmh-dm-ch,.cmh-dm-check{animation-duration:${DM_LOOP}s}
-${DM_CHAR_KEYS}
-@keyframes cmh-dm-caret{${DM_CARET_KEYS}}
-@keyframes cmh-dm-check{0%,${D(DM_CHECK_AT)}{opacity:0;transform:scale(.55)}${D(DM_CHECK_AT + 0.35)},${D(DM_FADE_AT)}{opacity:1;transform:scale(1)}${D(DM_FADE_AT + 0.45)},100%{opacity:0;transform:scale(1)}}
-/* The typed address and its caret fade together at the end, and the caret goes when the check comes. */
-@keyframes cmh-dm-type{0%,${D(DM_FADE_AT)}{opacity:1}${D(DM_FADE_AT + 0.45)},${D(DM_LOOP - 0.15)}{opacity:0}100%{opacity:1}}
-.cmh-dm-caret{animation-name:cmh-dm-caret,cmh-dm-blink;animation-duration:${DM_LOOP}s,${DM_LOOP}s;animation-timing-function:linear,step-end}
-@keyframes cmh-dm-blink{0%{opacity:1}${D(0.45)}{opacity:0}${D(DM_TYPE_START - 0.05)}{opacity:1}${D(DM_CHECK_AT)},100%{opacity:0}}
+/* ── 3. your own domain: /pricing's domain reel (DomainReel; its own sheet, DOMAIN_CSS, is drawn beside this one as HOW_DOMAIN_STYLE), filling the card. Its loops run only while the card is live, like the others. ── */
+.cmh-stage .pz-d{position:absolute;inset:0;height:auto;border-radius:0;contain:strict}
+.cmh-card:not([data-commerce-live]) .ev-loop{animation-play-state:paused}
 
 @media (prefers-reduced-motion:reduce){
   .cmh-a{animation:none!important}
@@ -1158,12 +1069,13 @@ ${DM_CHAR_KEYS}
   .cmh-field canvas{transition:none}
   .cmh-tp-on5,.cmh-tp-l5,.cmh-tp-thx{opacity:1}
   .cmh-tp-on3,.cmh-tp-l3,.cmh-tp-pick{opacity:0}
-  .cmh-dm-ch,.cmh-dm-check{opacity:1}
-  .cmh-dm-caret{opacity:0}
+  .cmh-stage .ev-loop{animation:none!important}
 }
 @media(scripting:none){.cmh-o{animation:none}}
 `
 
 /** This section's stylesheet, as it draws it: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
 export const HOW_IT_WORKS_STYLES: readonly SectionStyle[] = [{ href: "w12-commerce-how", precedence: "default", css: HOW_CSS }]
+/** The domain reel's own sheet, as /pricing writes it (domain-reel.tsx DOMAIN_CSS), kept apart from this section's: the section draws it beside its own (a hoisted <style>, put in place when the card is drawn), and tests/home-landing-r13-pricing.test.ts holds what is in it. */
+export const HOW_DOMAIN_STYLE: SectionStyle = { href: "w14-how-domain-reel", precedence: "default", css: DOMAIN_CSS }
 

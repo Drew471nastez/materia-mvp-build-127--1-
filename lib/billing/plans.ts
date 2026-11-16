@@ -19,7 +19,7 @@
 import { getFeeDescription } from "./fee-calculator"
 import { siteLimits, type SitePlan } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
-import { tt, msg } from "@/lib/i18n/text"
+import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
 export type PlanId = "free" | "growth" | "pro"
@@ -249,15 +249,13 @@ export function offeredPlan(id: OfferedPlanId): OfferedPlan {
   return OFFERED_PLANS.find((p) => p.id === id) ?? OFFERED_PLANS[0]
 }
 
-/**
- * The small print under the cards on the public pricing (components/marketing/pricing-section).
- * Settings > Plan and the in-app upgrade page do not show it: the owner asked for it gone there.
- * True for every plan. The rule for the
- * fixed $0.25 (orders of $4.00 or more, lib/billing/fee-calculator) is how
- * the fee is worked out, not something to read under a price: the owner
- * asked for the standard line.
- */
-export const PLAN_FOOTNOTE = msg("Prices in US dollars. Stripe's payment processing fees apply on every plan.")
+/*
+  No small print under the cards. The line about US dollars and Stripe's
+  processing fee left Settings > Plan and the upgrade page first, and every
+  public surface in landing round 14 (the owner). Stripe's fee is still said
+  where a seller asks about fees: planQuestions() below, "What fees are taken
+  from a sale?".
+*/
 
 /* ─── Compare plans, and the questions under it ───────────────────────── */
 

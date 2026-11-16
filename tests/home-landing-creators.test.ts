@@ -162,7 +162,8 @@ check("corners a pixel softer: cards 23px, tiles up to 27px, panels 31px", () =>
   assert.ok(/\.cc-photo\{[^}]*border-radius:23px/.test(CREATORS_CSS))
   // Changed on purpose (landing round 7): How it works takes section 3's corners, 17px on a phone and 19px from 768px.
   // Changed on purpose (landing round 12): no stage box any more; the pictures carry their own corners: the dashboard 16px as the app's cards, the creator page 18px.
-  assert.ok(/\.cmh-db\{[^}]*border-radius:16px/.test(HOW_IT_WORKS_STYLES[0].css) && /\.cmh-tp-page\{[^}]*border-radius:1\.15em 1\.15em 0 0/.test(HOW_IT_WORKS_STYLES[0].css)) /* Changed on purpose (landing round 13): the tip page rises from the foot of its grey stage, its top corners round. */ // Changed on purpose (landing round 9): one row of three taller pictures.
+  // Changed on purpose (landing round 14): the pictures cover their cards, so the card carries the corner (18px) and the pictures none.
+  assert.ok(/\.cmh-stage\{[^}]*border-radius:18px/.test(HOW_IT_WORKS_STYLES[0].css) && !/\.cmh-db\{[^}]*border-radius/.test(HOW_IT_WORKS_STYLES[0].css)) /* Changed on purpose (landing round 13): the tip page rises from the foot of its grey stage, its top corners round. */ // Changed on purpose (landing round 9): one row of three taller pictures.
   /* Changed on purpose (landing round 8): the panel became four cards in a grid, 28px corners (24px on a phone). */
   assert.ok(/\.cmc-card\{[^}]*border-radius:28px/.test(CHECKOUT_STYLES.map((s) => s.css).join("\n")))
 })

@@ -48,7 +48,8 @@ const BANNED = /unlock|elevate|seamless|powerful|effortless|supercharge|transfor
 console.log("\nHeading and line kept")
 {
   // Changed on purpose (landing round 13): the owner asked for a new heading and line (tests/home-landing-r13-business.test.ts).
-  check("the heading and its line are round 13's", BUSINESS_HEADING === "Five ways to get paid" && BUSINESS_SUB.split(/\s+/).length <= 10)
+  // Changed on purpose (landing round 14): the heading is "From a cookbook to a coaching call".
+  check("the heading and its line are round 13's", BUSINESS_HEADING === "From a cookbook to a coaching call" && BUSINESS_SUB.split(/\s+/).length <= 10)
   check("five kinds in the same order", BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
 }
 
@@ -62,8 +63,10 @@ console.log("\nDigital and physical: round 12's retirements stay")
 {
   check("no presets, no Lightroom, no row of covers anywhere in the section", !/preset|Lightroom|Highland|bd-rail|bd-track|bd-slot|DIGITAL_STEP_S/i.test(code(MOCKS) + code(SECTION) + digital) && !/presets/i.test(BUSINESS_SLIDES[0].line))
   check("no tee, cap, tote or print left in the scene or its pictures", !/bz-tee|bz-cap|bz-tote|bz-print|Studio Tee|Studio Cap|Market Tote|Field Study|PHYSICAL_PRODUCTS|TeeScene/.test(code(MOCKS) + code(SECTION) + physical) && !["bz-tee", "bz-cap", "bz-tote", "bz-print", "bz-presets", "bz-drums"].some((n) => existsSync(pic(n))))
-  check("the download moment is still in the button: Pay, Downloading over a fill, done", /class="bs-btn bs-press be-buy"><span class="be-fill"><\/span><span class="a">Pay \$113<\/span>/.test(digital) && /@keyframes be-fill\{0%\{opacity:1;transform:scaleX\(0\)\}/.test(motion))
-  check("one loop only, the store designs' walk", (motion.match(/infinite/g) ?? []).length === 1 && /\.bt-card\{animation:bt-walk [\d.]+s linear var\(--d,0s\) infinite both\}/.test(motion))
+  // Changed on purpose (landing round 14): the moment is in each shelf product's button: Buy, Downloading over a fill, done.
+  check("the download moment is still in the button: Pay, Downloading over a fill, done", /class="bs-btn bd-buy"><span class="bd-fill"><\/span><span class="a">Buy for \$34<\/span>/.test(digital) && /@keyframes be-fill\{0%\{opacity:1;transform:scaleX\(0\)\}/.test(motion))
+  // Changed on purpose (landing round 14): no CSS loop at all; the store designs turn by Web Animations only while shown (tests/home-landing-r14-business.test.ts).
+  check("one loop only, the store designs' walk", !/infinite/.test(motion) && !/bt-walk/.test(motion))
   void small
 }
 
@@ -78,10 +81,14 @@ console.log("\nA phone: a row of cards on the browser's own scroll")
 {
   check("the phone layout is below 768px", BUSINESS_RAIL_QUERY === "(max-width: 767px)")
   check("the layout is read with useSyncExternalStore on matchMedia, false on the server", /useSyncExternalStore\(subscribeRail, railNow, railOnServer\)/.test(code(SECTION)) && /const railOnServer = \(\) => false/.test(code(SECTION)))
-  check("the row: edge to edge, scroll snap to each card's start, one card a flick, no scrollbar", /\.biz-rail\{display:flex;gap:var\(--home-edge,20px\);margin:0 calc\(var\(--home-edge,20px\) \* -1\);[^}]*overflow-x:auto;[^}]*overscroll-behavior-x:contain;scroll-snap-type:x mandatory;[^}]*scrollbar-width:none/.test(css) && /\.biz-card\{flex:none;width:calc\(100% - 22px\);scroll-snap-align:start;scroll-snap-stop:always\}/.test(css))
-  check("the last card can stop at the left edge too (a spacer after it)", /\.biz-rail::after\{content:"";flex:none;width:22px\}/.test(css))
-  check("nothing moves the row by script and nothing listens to the finger on it", !/scrollTo|scrollLeft\s*=|scrollBy|touchmove|onTouch|onPointerMove/.test(code(SECTION).slice(code(SECTION).indexOf("const railRef"))) && !/railRef[\s\S]{0,400}onPointerDown/.test(code(SECTION)))
-  check("the card in view is read only after the row has been still (debounced), never per frame", /settle\.current = setTimeout\([\s\S]*?BUSINESS_RAIL_SETTLE_MS\)/.test(code(SECTION)) && Section.BUSINESS_RAIL_SETTLE_MS >= 100 && !/requestAnimationFrame/.test(code(SECTION)))
+  // Changed on purpose (landing round 14): each card is the whole column (the owner: the row looked cut off), so no sliver of the next one shows.
+  check("the row: edge to edge, scroll snap to each card's start, one card a flick, no scrollbar", /\.biz-rail\{display:flex;gap:var\(--home-edge,20px\);margin:0 calc\(var\(--home-edge,20px\) \* -1\);[^}]*overflow-x:auto;[^}]*overscroll-behavior-x:contain;scroll-snap-type:x mandatory;[^}]*scrollbar-width:none/.test(css) && /\.biz-card\{flex:none;width:100%;scroll-snap-align:start;scroll-snap-stop:always\}/.test(css))
+  // Changed on purpose (landing round 14): a card is the whole column, so the last one stops at the left edge with no spacer.
+  check("the last card can stop at the left edge too (a spacer after it)", !/\.biz-rail::after/.test(css) && /\.biz-card\{flex:none;width:100%/.test(css))
+  // Changed on purpose (landing round 14): the line of five under the row scrolls it to a card when pressed (scrollTo); a swipe is still the browser's alone.
+  check("nothing moves the row by script and nothing listens to the finger on it", !/scrollLeft\s*=|scrollBy|touchmove|onTouch|onPointerMove/.test(code(SECTION).slice(code(SECTION).indexOf("const railRef"))) && (code(SECTION).match(/\.scrollTo\(/g) ?? []).length === 2 && !/railRef[\s\S]{0,400}onPointerDown/.test(code(SECTION)))
+  // Changed on purpose (landing round 14): the marker under the row follows the scroll once a frame (one transform); the card in view is still read only once the row is still.
+  check("the card in view is read only after the row has been still (debounced), never per frame", /settle\.current = setTimeout\([\s\S]*?BUSINESS_RAIL_SETTLE_MS\)/.test(code(SECTION)) && Section.BUSINESS_RAIL_SETTLE_MS >= 100 && (code(SECTION).match(/requestAnimationFrame\(/g) ?? []).length === 1)
   check("a card's moment plays when it is in view or beside it", /Math\.abs\(i - railAt\) <= 1 \? "biz-slide bz-on" : "biz-slide"/.test(code(SECTION)))
   check("each card carries its own name (h3) and line above its scene", /<div className="biz-card-h">\s*<h3 id=\{`biz-card-\$\{s\.id\}`\}>\{s\.label\}<\/h3>\s*<p>\{s\.line\}<\/p>/.test(read(SECTION)))
   check("no autoplay and no row of words on a phone", /data-auto=\{\(t\.playing && !rail\) \|\| undefined\}/.test(code(SECTION)) && /const run = t\.run && !held && !rail/.test(code(SECTION)) && /\{rail \? \(/.test(code(SECTION)))

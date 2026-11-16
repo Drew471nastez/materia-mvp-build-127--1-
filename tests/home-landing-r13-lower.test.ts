@@ -43,33 +43,19 @@ const rule = (sel: string) => ruleIn(howCss, sel)
 check("the heading kept", HOW_HEADING.lead === "See every sale as it happens." && HOW_HEADING.rest === "Add tips and your own domain.")
 check("narrow, wide, narrow: tips, the dashboard, the domain", HOW_CARDS.map((c) => `${c.key}:${c.wide}`).join() === "tips:false,business:true,domain:false" && [...how.matchAll(/class="cmh-card (cmh-\w+)" data-card="(\w+)"/g)].map((m) => `${m[2]}:${m[1]}`).join() === "tips:cmh-narrow,business:cmh-wide,domain:cmh-narrow")
 check("one row from 1100px, the wide card twice a narrow one; the wide card first on its own row from 640px", /@media\(min-width:1100px\)\{\.cmh-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,2fr\) minmax\(0,1fr\)/.test(howCss) && /\.cmh-wide\{grid-column:1\/-1;order:-1\}/.test(howCss))
-check("grey stages with round corners and their own quiet grounds, clipped", /background:#f4f4f6/.test(rule(".cmh-stage")) && /border-radius:17px/.test(rule(".cmh-stage")) && /overflow:hidden/.test(rule(".cmh-stage")) && [...how.matchAll(/class="cmh-stage" data-ground="(\w+)"/g)].map((m) => m[1]).join() === "tips,business,domain" && /\.cmh-stage\[data-ground=tips\]\{background:#f3f1f8\}/.test(howCss))
-check("a laptop's stages stop at half the screen, never under 360px", howCss.includes("height:max(360px,min(clamp(400px,32vw,560px),50svh))"))
+// Changed on purpose (landing round 14): no grey stage; the picture covers the card, the card has a faint depth (tests/home-landing-r14-lower.test.ts).
+check("round corners, clipped, the three grounds in order", /border-radius:18px/.test(rule(".cmh-stage")) && /overflow:hidden/.test(rule(".cmh-stage")) && [...how.matchAll(/class="cmh-stage" data-ground="(\w+)"/g)].map((m) => m[1]).join() === "tips,business,domain")
+// Changed on purpose (landing round 14): one shape on every screen (4:5 a narrow card); the row from 1100px is as tall as a narrow card.
+check("the cards keep their shape", howCss.includes("height:calc((100cqw - 2 * var(--cmh-gap)) / 4 * 1.25)"))
 check("each card a title and one line under its stage", HOW_CARDS.every((c) => how.includes(`<h3 class="cmh-cap-t">${c.title}</h3><p class="cmh-cap">${c.line}</p>`)))
-check("round 12's pictures inside: the tip flow, the dashboard, the typed domain", /class="cmh-sc cmh-tp"/.test(how) && /class="cmh-db-fit"/.test(how) && /class="cmh-db"/.test(how) && how.includes(">Pay $5.00<") && (how.match(/cmh-dm-ch/g) ?? []).length >= "www.fernlyn.com".length)
+// Changed on purpose (landing round 14): the domain is /pricing's reel.
+check("the tip flow, the dashboard, the domain reel", /class="cmh-sc cmh-tp"/.test(how) && /class="cmh-db-fit"/.test(how) && /class="cmh-db"/.test(how) && how.includes(">Pay $5.00<") && how.includes('class="ev-vis pz-d"'))
 
-console.log("\n2. The dashboard scaled whole into its stage")
-check("laid out at --db-w, centred and scaled by one transform; its own container for the app's layouts", /width:var\(--db-w,860px\)/.test(rule(".cmh-db-fit")) && /container-type:inline-size/.test(rule(".cmh-db-fit")) && /transform:translate3d\(-50%,-50%,0\) scale\(var\(--db-s,\.6\)\)/.test(rule(".cmh-db-fit")))
+// Changed on purpose (landing round 14): the dashboard covers its card instead of sitting whole inside a stage, and the tip page is the card (tests/home-landing-r14-lower.test.ts holds both).
+console.log("\n2. The dashboard, measured before paint")
 check("measured before paint and on resize only, never in a frame", /function useDashFit/.test(howSrc) && /useLayoutEffect\(\(\) => \{\s*const box = fit\.current/.test(howSrc) && /new ResizeObserver\(measure\)/.test(howSrc) && /ro\.observe\(stage\)/.test(howSrc) && /setProperty\("--db-s"/.test(howSrc))
 check("no layer of its own inside the scale (no translateZ on the dashboard), so its type stays sharp", !/transform/.test(rule(".cmh-db")))
-/* The fit at the widths the owner looks at (stage widths measured in Chromium at 390, 1440 and 1920; heights from the CSS). */
-const fit = (sw: number, sh: number, h: (w: number) => number) => {
-  const w = Math.round(Math.min(HOW_DASH_FIT.max, Math.max(HOW_DASH_FIT.min, sw * HOW_DASH_FIT.perStage)))
-  const m = Math.max(HOW_DASH_FIT.marginMin, Math.min(sw, sh) * HOW_DASH_FIT.margin)
-  const s = Math.min((sw - m * 2) / w, (sh - m * 2) / h(w))
-  return { w, s, drawnW: w * s, drawnH: h(w) * s, m }
-}
-/* Natural heights measured in Chromium: about 553px at the phone's layout (473 wide), 520 without the rail (842), 523 with it (1120). */
-const height = (w: number) => (w <= 600 ? 555 : 525)
-/* Landing round 13: on a phone the stage is 16:10 (350 x 219). */
-const cases = [[350, 219], [624, 450], [848, 540]].map(([sw, sh]) => ({ sw, sh, ...fit(sw, sh, height) }))
-check("whole inside its stage with a margin on every side at 390, 1440 and 1920", cases.every((c) => c.drawnW <= c.sw - 2 * c.m + 0.5 && c.drawnH <= c.sh - 2 * c.m + 0.5), cases)
-/* Changed on purpose (landing round 13, the owner's phone notes: "like it's on desktop, but on mobile"): the computer's picture on a phone, scaled. */
-check("the computer's layout with the rail on every screen (1040 or wider), scaled 0.6 or more from 1440", cases.every((c) => c.w > 1020) && cases[1].s >= 0.5 && cases[2].s >= 0.6, cases)
-
-console.log("\n3. Tips and the domain fit a narrow card")
-check("the tip page rises from the stage's foot, a phone's width at most", /bottom:0/.test(rule(".cmh-tp-page")) && /left:max\(16px,calc\(50% - 12\.5em\)\)/.test(rule(".cmh-tp-page")) && /border-radius:1\.15em 1\.15em 0 0/.test(rule(".cmh-tp-page")))
-check("the domain is sized by its card: the address field (about 27em) fits 92% of a narrow card", /font-size:clamp\(9px,3\.25cqw,17px\)/.test(rule(".cmh-dm")) && 27 * 3.25 <= 92)
+check("the computer's layout with the rail on every screen (1040 or wider)", HOW_DASH_FIT.min >= 1040)
 
 console.log("\n4. AI tools: the dots a bit less")
 {
@@ -83,7 +69,8 @@ console.log("\n5. The closing call: breathing dots, an eased pointer")
 {
   /* Changed on purpose (lead, landing round 13): main moved the dots into a worker engine (dot-field-engine.ts); the closing call's calm is ported there. */
   const src = strip(read("components/marketing/home/dot-field-engine.ts"))
-  check("more subtle overall: rests at 0.24, lights to 0.5 (was 0.34 and 0.68)", DOT_FIELD_TONES.dark.rest === 0.24 && DOT_FIELD_TONES.dark.lit === 0.5)
+  // Changed on purpose (landing round 14): a little more visible again (0.28 / 0.56).
+  check("more subtle than round 11: rests at 0.28, lights to 0.56 (was 0.34 and 0.68)", DOT_FIELD_TONES.dark.rest === 0.28 && DOT_FIELD_TONES.dark.lit === 0.56)
   check("the purple sheet unchanged", JSON.stringify(DOT_FIELD_TONES.purple) === JSON.stringify({ rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 }) && /drift: tone === "dark" \? DOT_FIELD_CALM\.drift : 0/.test(src))
   check("every dot drifts on a small slow loop of its own, by itself", DOT_FIELD_CALM.drift > 0 && DOT_FIELD_CALM.drift <= 2 && DOT_FIELD_CALM.driftMs >= 10000 && /x \+= drift \* Math\.sin\(t \* w \+ pa\)/.test(src) && /y \+= drift \* Math\.cos\(t \* w \* 0\.83 \+ pa \* 1\.7\)/.test(src))
   /* Fastest a dot moves: drift * 2pi / (period * 0.67), per 60Hz frame. */

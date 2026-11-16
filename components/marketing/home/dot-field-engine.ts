@@ -34,7 +34,8 @@
 export const DOT_FIELD_TONES = {
   /* Landing round 11: the closing call's dots a little more visible and standing on their points (ride 0); the purple sheet's brighter, rounder and steadier (its own track). */
   /* Landing round 13, the owner: the closing call "more subtle overall": rests at 0.24 (was 0.34), lights to 0.5 (was 0.68). */
-  dark: { rgb: "255,255,255", rest: 0.24, lit: 0.5, r: 0.8, ride: 0 },
+  /* Landing round 14, the owner: the closing call's dots "a little more visible, just a little": rests at 0.28 (was 0.24), lights to 0.56 (was 0.5). */
+  dark: { rgb: "255,255,255", rest: 0.28, lit: 0.56, r: 0.8, ride: 0 },
   purple: { rgb: "255,255,255", rest: 0.17, lit: 0.4, r: 0.95, ride: 0.5 },
 } as const
 
@@ -52,8 +53,8 @@ const WANDER = 0.6
 /** The darkest a dot gets in the trough of the flow, as a share of its crest (landing round 11: the dark tone 0.45, was 0.3; the purple sheet as it was). */
 export const DOT_FIELD_TROUGH = { dark: 0.45, purple: 0.3 } as const
 
-/** Distance between dots, the largest device pixel ratio drawn, and how the dots look on white (How it works). */
-export const HOW_FIELD = { gap: 20, maxDpr: 1.5, ink: "24,24,27", rest: 0.15, lit: "124,58,237", litAlpha: 0.6, radius: 170, part: 5 } as const
+/** Distance between dots, the largest device pixel ratio drawn, and how the dots look on white (How it works). Landing round 14, the owner: "a little more visible by default, just a little": the ink at 0.18 (was 0.15), its weight toward the right (howFieldFade). */
+export const HOW_FIELD = { gap: 20, maxDpr: 1.5, ink: "24,24,27", rest: 0.18, lit: "124,58,237", litAlpha: 0.6, radius: 170, part: 5 } as const
 const HOW_LEVELS = 20
 
 /** Height of one tile of a field, in CSS px: a multiple of 4, so a tile is a whole number of device pixels at 1, 1.25, 1.5 and 2. */
@@ -113,16 +114,25 @@ export type FieldConfig = {
   driftMs: number
   ease2: boolean
   reach: number | null
+  /**
+   * Landing round 14, the closing call only (the owner: the pointer "smoother
+   * and cleaner"): the light falls off as (1 - d²/R²)², flat at its middle
+   * and with no edge, where the other looks use (1 - d/R)², a peak with a
+   * point at the pointer; and a dot is pushed aside in proportion to how far
+   * from the middle it is, so the dots under the pointer open into a smooth
+   * hollow instead of scattering from one point.
+   */
+  soft: boolean
 }
 
-/** The closing call's calm (landing round 13): see FieldConfig.drift. */
-export const DOT_FIELD_CALM = { drift: 1.6, driftMs: 14000, follow: 0.085, reach: 160, part: 4 } as const
+/** The closing call's calm (landing round 13): see FieldConfig.drift. Landing round 14: a gentler glide (follow 0.065, was 0.085), a wider, softer light (radius 210, was 180) and a smaller parting (2.5, was 4); see FieldConfig.soft. */
+export const DOT_FIELD_CALM = { drift: 1.6, driftMs: 14000, follow: 0.065, reach: 180, part: 2.5, radius: 210 } as const
 
 const single = (tone: "dark" | "purple"): FieldConfig => ({
   mode: "single",
   maxDpr: DOT_FIELD_MAX_DPR,
   levels: LEVELS,
-  radius: RADIUS,
+  radius: tone === "dark" ? DOT_FIELD_CALM.radius : RADIUS,
   follow: tone === "dark" ? DOT_FIELD_CALM.follow : FOLLOW,
   part: tone === "dark" ? DOT_FIELD_CALM.part : PART,
   rate: [0.00038, 0.00016],
@@ -148,6 +158,7 @@ const single = (tone: "dark" | "purple"): FieldConfig => ({
   driftMs: DOT_FIELD_CALM.driftMs,
   ease2: tone === "dark",
   reach: tone === "dark" ? DOT_FIELD_CALM.reach : null,
+  soft: tone === "dark",
 })
 
 /** One config object for each look: the closing call's, the purple sheet's, and How it works'. */
@@ -174,8 +185,9 @@ export const DOT_FIELD_CONFIGS: Record<FieldKind, FieldConfig> = {
     turn: 6.2832,
     rgb: HOW_FIELD.ink,
     rgbLit: HOW_FIELD.lit,
-    pathX: [0.5, 0.34, 0.00013],
-    pathY: [0.36, 0.2, 0.000097, 1.3],
+    /* Landing round 14: the light wanders on the right of the heading, toward the top right corner (was centred, 0.5 and 0.36). */
+    pathX: [0.68, 0.22, 0.00013],
+    pathY: [0.3, 0.18, 0.000097, 1.3],
     alone: [0.55, 0.55],
     within: null,
     /* 60 a second while a mouse is in the section (a 120Hz screen draws every other frame), 30 otherwise. */
@@ -184,6 +196,7 @@ export const DOT_FIELD_CONFIGS: Record<FieldKind, FieldConfig> = {
     driftMs: 0,
     ease2: false,
     reach: null,
+    soft: false,
   },
 }
 
@@ -314,12 +327,21 @@ function flowAt(a: number, b: number, t: number): number {
   return 0.5 + 0.5 * Math.sin(a - t * 0.00038 + 1.7 * Math.sin(b + t * 0.00016))
 }
 
-/** How it works' per-dot fade: full for the top half, gone by the bottom; soft at the sides and the very top. */
+/**
+ * How it works' per-dot fade: full for the top half, gone by the bottom; soft
+ * at the edges and the very top. Landing round 14, the owner: "more toward the
+ * right corner, subtle on the left": across the width the dots run from a
+ * quarter of their strength at the left edge to all of it from about four
+ * fifths across (a smoothstep, so there is no line where it turns).
+ */
+export const HOW_FIELD_LEFT = 0.25
 export function howFieldFade(x: number, y: number, w: number, h: number): number {
   const down = Math.min(1, Math.max(0, (1 - y / h) / 0.5))
-  const side = Math.min(1, Math.min(x, w - x) / Math.min(160, w * 0.16))
+  const side = Math.min(1, Math.min(x, w - x) / Math.min(120, w * 0.12))
+  const u = Math.min(1, Math.max(0, x / (w * 0.82)))
+  const right = HOW_FIELD_LEFT + (1 - HOW_FIELD_LEFT) * u * u * (3 - 2 * u)
   const up = Math.min(1, y / 40 + 0.35)
-  return down * down * (0.4 + 0.6 * side) * up
+  return down * down * (0.4 + 0.6 * side) * right * up
 }
 
 /** The tiles a box of this height is cut into: top and height of each, in CSS px. */
@@ -476,11 +498,21 @@ export function createDotEngine(host: DotEngineHost) {
       const d2 = dx * dx + dy * dy
       if (d2 < r2 && lightOn) {
         const dd = Math.sqrt(d2) || 1
-        const k = (1 - dd / c.radius) * (1 - dd / c.radius) * f.strength
+        let k: number
+        let push: number
+        if (c.soft) {
+          /* Round 14: flat in the middle, no edge, and the dots open into a smooth hollow (FieldConfig.soft). */
+          const q = 1 - d2 / r2
+          k = q * q * f.strength
+          push = c.part * k * Math.min(1, dd / (c.radius * 0.4))
+        } else {
+          k = (1 - dd / c.radius) * (1 - dd / c.radius) * f.strength
+          push = c.part * k
+        }
         if (isSingle) a += (c.lit - c.rest * c.trough) * k
         else glow = k * fade
-        x += (dx / dd) * c.part * k
-        y += (dy / dd) * c.part * k
+        x += (dx / dd) * push
+        y += (dy / dd) * push
       }
       if (y < lo || y > hi) continue
       if (isSingle) {

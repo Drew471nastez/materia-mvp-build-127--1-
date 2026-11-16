@@ -103,6 +103,13 @@ const portrait = (brand: string, label: string, alt: string, tone: string) => ({
     store (curated goods: apparel, accessories, books), cut inside its frame
     to the card's shape on a desktop (1440 x 990) and on a phone (4:3).
 */
+/*
+  LANDING ROUND 14, THE OWNER: the New York shop as the owner's picture has
+  it, the whole 4:3 picture with its coral gradient round the rounded white
+  page, not the page cut edge to edge. On a phone the 4:3 card is that
+  picture; on a desktop the card keeps its 1440 x 990 like its neighbours
+  and the picture sits whole in it, its gradient carried on at the sides.
+*/
 /* Every caption is three words at most (the owner, waves 13 and 14). */
 const GROUPS = [
   [
@@ -123,7 +130,7 @@ const GROUPS = [
   [
     wide("luca", "Sell subscriptions", "Luca Brandt's website, a colourist in Berlin: a graded desert road, Grade Club for $9 a month, the Cine Tones LUT Pack and a guide to grading night exteriors"),
     portrait("nora", "Sell music lessons", "Nora Quinn's OnePage on the Paper theme, a guitar and piano teacher in Galway: a First chords course for €49, a piano lesson on Zoom and a chord book", "#e4dfd4"),
-    wide("nyshop", "Sell curated goods", "The New York Shop's Storelib store, Curated Goods for New Yorkers: apparel, accessories and books, with a skyline mug and two books on New York under the heading, then a navy jacket, a skyline sweatshirt, a beanie and a steel bottle"),
+    wide("nyshop", "Sell curated goods", "The New York Shop's Storelib store on a coral gradient, Curated Goods for New Yorkers: apparel, accessories and books, with a skyline mug and two books on New York under the heading, then a navy jacket, a skyline sweatshirt, a beanie and a steel bottle"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()

@@ -13494,7 +13494,9 @@ const words: Record<string, string> = {
  "Verified badge on your page": "Odznaka weryfikacji na Twojej stronie",
  "Up to 10 websites": "Do 10 stron internetowych",
  "The most room for your files": "Najwięcej miejsca na pliki",
- "The most AI edits each month": "Najwięcej edycji AI w miesiącu"
+ "The most AI edits each month": "Najwięcej edycji AI w miesiącu",
+ "More room for your files": "Więcej miejsca na pliki",
+ "The most pages on each website": "Najwięcej podstron na każdej stronie"
 }
 
 export default words

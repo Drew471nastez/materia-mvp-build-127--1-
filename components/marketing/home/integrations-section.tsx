@@ -106,6 +106,19 @@
   Landing round 12, the owner: the gap "a little more" smaller again. A
   tile and its gap take 1/13 of the screen: the shorter row has 14 tiles,
   13 steps of 1/13 are exactly a screen, so no icon is still seen twice.
+
+  LANDING ROUND 14, THE OWNER: on a computer the gap about half again. A
+  tile and its gap take 1/15 of the screen there (10px least): at 1440px
+  the gap is 10px (was 21), at 1920 about 20 (was 40). A phone keeps 1/13
+  and its 6px. So that 15 steps still make a screen and no icon is seen
+  twice, each row has 16 tiles: three more real connections, none marked
+  Coming soon in the catalog. Google Sheets, where a OnePage sends its
+  signups (lib/onepage/integrations/catalog.ts), in the first row;
+  SoundCloud, which a OnePage embeds (app/api/onepage/soundcloud), and
+  GitHub, which a website's code syncs with (app/api/github), in the
+  second. (Zapier, Make and Mailchimp take a OnePage's signups too, but the
+  store's integrations page still lists them as Coming soon, so they stay
+  off.) The rows are run by one hook now (loop-gate.ts).
 */
 
 import { useEffect, useMemo, useRef, type CSSProperties, type ComponentType } from "react"
@@ -113,12 +126,16 @@ import { StoryHeading } from "@/components/marketing/story-heading"
 import { SiAftership } from "@/components/icons/brand/SiAftership"
 import { SiBrevo } from "@/components/icons/brand/SiBrevo"
 import { SiPinterest } from "@/components/icons/brand/SiPinterest"
+import { SiGooglesheets } from "@/components/icons/brand/SiGooglesheets"
+import { SiGithub } from "@/components/icons/brand/SiGithub"
 import { SiPosthog } from "@/components/icons/brand/SiPosthog"
+import { SiSoundcloud } from "@/components/icons/brand/SiSoundcloud"
 import { SiSpotify } from "@/components/icons/brand/SiSpotify"
 import { SiYoutube } from "@/components/icons/brand/SiYoutube"
 import { AppleMusicTile, ApplePayMark, GoogleAdsMark, GoogleCalendarMark, GooglePayMark, InstagramTile, MetaMark, StripeMark, TikTokMark } from "./integration-marks"
 import { KitLogo, KlaviyoLogo, MailerLiteLogo } from "./email-platform-logos"
 import { usePlatformSection } from "./platform-motion"
+import { useLoopGate } from "./loop-gate"
 import m from "./platform.module.css"
 import s from "./integrations-section.module.css"
 
@@ -151,6 +168,7 @@ const ROWS: App[][] = [
     { name: "Google Pay", bg: "#ffffff", mark: GooglePayMark, scale: 0.64 },
     { name: "Klaviyo", bg: "#ffffff", tile: KlaviyoLogo },
     { name: "Instagram", bg: "#e1306c", tile: InstagramTile },
+    { name: "Google Sheets", bg: "#ffffff", icon: SiGooglesheets, color: "#34a853", scale: 0.56 },
     { name: "TikTok Pixel", bg: "#000000", mark: TikTokMark, scale: 0.6 },
     { name: "Meta Pixel", bg: "#ffffff", mark: MetaMark, scale: 0.62 },
     { name: "Omnisend", bg: "#83ed80", logo: "/home/apps/omnisend.webp", fit: "cover" },
@@ -166,11 +184,13 @@ const ROWS: App[][] = [
     { name: "Printify", bg: "#a9f86c", logo: "/home/apps/printify.webp", fit: "cover" },
     { name: "Google Calendar", bg: "#ffffff", mark: GoogleCalendarMark, scale: 0.56 },
     { name: "Kit", bg: "#44b1ff", tile: KitLogo },
+    { name: "SoundCloud", bg: "#ff5500", icon: SiSoundcloud, color: "#ffffff", scale: 0.66 },
     { name: "Tag Manager", bg: "#ffffff", logo: "/integrations/google-tag-manager.svg", scale: 0.56 },
     { name: "ShipStation", bg: "#11003a", logo: "/home/apps/shipstation.svg", fit: "cover" },
     { name: "YouTube", bg: "#ffffff", icon: SiYoutube, color: "#ff0000", scale: 0.66 },
     { name: "Brevo", bg: "#0b996e", icon: SiBrevo, color: "#ffffff" },
     { name: "Gelato", bg: "#ffffff", logo: "/home/apps/gelato.webp", scale: 0.6 },
+    { name: "GitHub", bg: "#181717", icon: SiGithub, color: "#ffffff", scale: 0.58 },
     { name: "CJ Dropshipping", bg: "#ff7700", logo: "/home/apps/cj-dropshipping.svg", fit: "cover" },
     { name: "Microsoft Clarity", bg: "#ffffff", logo: "/home/apps/microsoft-clarity.webp", scale: 0.6 },
     { name: "Apple Music", bg: "#fa233b", tile: AppleMusicTile },
@@ -187,8 +207,8 @@ const SECONDS_PER_TILE = 4
 export const PLATFORM_INTEGRATION_APPS = ROWS.flatMap((r) => r.map((a) => ({ name: a.name, logo: a.logo ?? null })))
 /** The rows' sets, for tests: no row may be narrow enough to show a tile twice. */
 export const INTEGRATION_ROW_SIZES = ROWS.map((r) => r.length)
-/** A tile and its gap take at least this share of the screen's width (1 / 13 of it since landing round 12, 1 / 12 in round 11, integrations-section.module.css), for tests: a row of n tiles is then (n - 1) / 13 screens wide plus a tile. */
-export const INTEGRATION_STEP_SHARE = 1 / 13
+/** A tile and its gap take at least this share of the screen's width (1 / 15 on a computer since landing round 14 and 1 / 13 on a phone; 1 / 13 everywhere in round 12, 1 / 12 in round 11; integrations-section.module.css), for tests: a row of n tiles is then at least (n - 1) / 15 screens wide plus a tile. */
+export const INTEGRATION_STEP_SHARE = 1 / 15
 
 function Icon({ app }: { app: App }) {
   if (app.tile) {
@@ -376,28 +396,8 @@ const SHINE: Keyframe[] = [
 ]
 const TURN_MS = 680
 
-/**
- * Eases a row's loop to a new speed (0 stopped, 1 full) over `ms`, by the
- * playback rate of its CSS animation: the row stays on the compositor and
- * only a handful of rate changes are sent while it eases. Returns a cancel.
- */
-function easeRow(track: HTMLElement, to: number, ms: number): () => void {
-  const anim = typeof track.getAnimations === "function" ? track.getAnimations()[0] : undefined
-  if (!anim) return () => {}
-  const from = anim.playbackRate
-  const t0 = performance.now()
-  let frame = 0
-  const step = (now: number) => {
-    const p = Math.min(1, (now - t0) / ms)
-    /* Never exactly zero: a zero rate could not be eased out of on every engine. */
-    const rate = Math.max(0.0001, from + (to - from) * (1 - Math.pow(1 - p, 3)))
-    if (typeof anim.updatePlaybackRate === "function") anim.updatePlaybackRate(rate)
-    else anim.playbackRate = rate
-    if (p < 1) frame = requestAnimationFrame(step)
-  }
-  frame = requestAnimationFrame(step)
-  return () => cancelAnimationFrame(frame)
-}
+/* The rows the gate runs; a stable object, so the hook is set up once. */
+const ROW_GATE = { tracks: "[data-row-track]", stopMs: 600 } as const
 
 export function IntegrationsSection() {
   const ref = useRef<HTMLElement>(null)
@@ -438,35 +438,14 @@ export function IntegrationsSection() {
     }
   }, [reduced])
 
-  /* Under a mouse a row glides to a stop, and back up to speed when the mouse leaves. */
-  useEffect(() => {
-    const rows = rowsRef.current
-    if (!rows || reduced || typeof window.matchMedia !== "function" || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return
-    const offs: Array<() => void> = []
-    for (const track of rows.querySelectorAll<HTMLElement>("[data-row-track]")) {
-      const row = track.parentElement
-      if (!row) continue
-      let cancel = () => {}
-      const enter = (e: PointerEvent) => {
-        if (e.pointerType !== "mouse") return
-        cancel()
-        cancel = easeRow(track, 0, 600)
-      }
-      const leave = (e: PointerEvent) => {
-        if (e.pointerType !== "mouse") return
-        cancel()
-        cancel = easeRow(track, 1, 900)
-      }
-      row.addEventListener("pointerenter", enter)
-      row.addEventListener("pointerleave", leave)
-      offs.push(() => {
-        cancel()
-        row.removeEventListener("pointerenter", enter)
-        row.removeEventListener("pointerleave", leave)
-      })
-    }
-    return () => offs.forEach((off) => off())
-  }, [reduced])
+  /*
+    Landing round 14 (the owner: the possibilities' rows "sometimes freeze and block"; the same check here): one hook
+    runs both rows (loop-gate.ts). Off screen or in a background tab they stop; a mouse moved over a row glides it to
+    a stop and back up when it leaves; the page scrolling under a resting pointer stops nothing (it used to stop a
+    row as the wheel carried it under the pointer); a row on screen that anything else left paused goes again within
+    two seconds.
+  */
+  useLoopGate(ref, ROW_GATE)
 
   return (
     <section

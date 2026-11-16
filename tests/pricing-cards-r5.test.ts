@@ -73,7 +73,8 @@ console.log("\n── Three plans, Grow in the middle ──")
   check("the middle card is Grow (id growth)", FEATURED_PLAN_ID === "growth" && order[1] === FEATURED_PLAN_ID)
   check("only the middle card is raised", (html.match(/data-plan-featured=""/g) ?? []).length === 1 && /data-plan-card="growth" data-plan-featured=""/.test(html))
   // Changed on purpose (landing round 13): the owner: "Get Grow" is a solid Storelib purple button, no white pill and no round arrow. The side cards keep the earnings section's dark button with its arrow.
-  check("Grow's button is solid Storelib purple, with no arrow", PLAN_PURPLE === "#7c3aed" && /data-plan-button="purple"/.test(cardHtml("growth")) && /class="[^"]*bg-\[#7c3aed\][^"]*text-white/.test(cardHtml("growth")) && !/data-plan-arrow/.test(cardHtml("growth")))
+  // Changed on purpose (landing round 14): Get Grow carries a white disc with a purple arrow at its right (tests/home-landing-r14-pricing.test.ts).
+  check("Grow's button is solid Storelib purple, with the white disc and purple arrow", PLAN_PURPLE === "#7c3aed" && /data-plan-button="purple"/.test(cardHtml("growth")) && /class="[^"]*bg-\[#7c3aed\][^"]*text-white/.test(cardHtml("growth")) && /data-plan-arrow="disc"/.test(cardHtml("growth")))
   check("the side cards' buttons are dark with an arrow, never purple", ["free", "pro"].every((id) => /data-plan-button="dark"[^>]*>|class="[^"]*bg-\[#0f0e13\][^"]*"[^>]*data-plan-button="dark"/.test(cardHtml(id)) && /<path d="M4 10h12M11 5l5 5-5 5"><\/path>/.test(cardHtml(id)) && !/bg-\[#7c3aed\]/.test(cardHtml(id))))
   check("the hero's primary button is the same purple", /background: #7c3aed/.test(read("components/marketing/hero.tsx")))
   check("no grey ground behind the cards any more", (html.match(/data-plan-ground=""/g) ?? []).length === 1 && !/data-plan-ground="" class="[^"]*bg-/.test(html)) // Changed on purpose (landing round 12): the owner: no light grey background behind the cards.
@@ -119,7 +120,7 @@ console.log("\n── Lines and description ──")
   const lines = publicPlanLines()
   for (const plan of OFFERED_PLANS) {
     const l = lines[plan.id]
-    check(`${plan.name}: at most ${MAX_PLAN_LINES} lines`, MAX_PLAN_LINES === 5 && l.length > 0 && l.length <= 5, l.length)
+    check(`${plan.name}: at most ${MAX_PLAN_LINES} lines`, MAX_PLAN_LINES === 6 && l.length > 0 && l.length <= 6, l.length) // Changed on purpose (landing round 14): six lines a card.
     check(`${plan.name}: every line drawn with its icon`, (cardHtml(plan.id).match(/data-plan-line="/g) ?? []).length === l.length && (cardHtml(plan.id).match(/<li[^>]*><svg/g) ?? []).length === l.length)
     const words = plan.summary.trim().split(/\s+/).length
     check(`${plan.name}: the description is 5 to 7 words ("${plan.summary}")`, words >= 5 && words <= 7, words)
@@ -138,7 +139,7 @@ console.log("\n── Contact sales ──")
   check("the bar under the cards, typos fixed", /data-plan-contact=""/.test(html) && html.includes("Want a unique solution to meet your needs?") && />Contact sales</.test(html))
   check("it opens the contact form on Plan and billing", /href="\/help\/contact\?about=billing"/.test(html))
   check("not on the compact cards (onboarding, Billing tab, OnePage settings)", !/data-plan-contact/.test(compact))
-  check("the home page, /pricing and the upgrade page ask for it", /contactSales \/>/.test(read("components/marketing/pricing-section.tsx")) && /contactSales\n/.test(read("components/app/billing/upgrade-page-client.tsx")))
+  check("the home page, /pricing and the upgrade page ask for it", /contactSales( aside=\{cardsAside\})? \/>/.test(read("components/marketing/pricing-section.tsx")) /* Changed on purpose (landing round 14): /pricing hands the cards its Compare all features link. */ && /contactSales\n/.test(read("components/app/billing/upgrade-page-client.tsx")))
 }
 
 console.log("\n── Monthly and yearly kept ──")

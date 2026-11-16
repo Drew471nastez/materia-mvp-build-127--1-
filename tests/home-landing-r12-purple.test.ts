@@ -88,8 +88,8 @@ console.log("\n── on a phone: edge to edge ──")
   const src = read(`${DIR}/sell-everywhere-map.tsx`)
   const css = src.split("const MAP_CSS = `")[1] ?? ""
   const phone = css.split("@media (max-width:639px){")[1]?.split("\n}\n")[0] ?? ""
-  check("the card is the screen's width, square, no shadow", /\.cmm-card\{margin:0 calc\(var\(--home-edge,clamp\(20px,5\.15vw,84px\)\) \* -1\);border-radius:0;box-shadow:none;/.test(phone))
-  check("the map's window too: no inset, no rounded clip", /\.cmm-world\{aspect-ratio:1\/\$\{VIEW_H\};margin:0;border-radius:0\}/.test(phone))
+  check("the card is inset again, with its rounded corners", /* Changed on purpose (landing round 14): the owner: not full width on a phone any more, the inset card as before round 12. */ /\.cmm-card\{border-radius:21px\}/.test(phone) && !/\.cmm-card\{margin:0 calc/.test(phone))
+  check("the map's window inset in it, rounded", /* Changed on purpose (landing round 14): the inset card, as before round 12. */ /\.cmm-world\{aspect-ratio:1\/\$\{VIEW_H\}\}/.test(phone))
   check("the heading keeps the page's edge", /\.cmm-wrap,\[data-landing-story\] \.cmm>\.cmm-wrap\{[^}]*padding:0 var\(--home-edge/.test(css))
 }
 

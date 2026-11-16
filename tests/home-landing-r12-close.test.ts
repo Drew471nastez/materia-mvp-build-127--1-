@@ -137,7 +137,8 @@ console.log("\n── Pricing cards ──")
   const dark = (id: string) => /<a[^>]*class="[^"]*bg-\[#0f0e13\][^"]*text-white[^"]*"[^>]*data-plan-button="dark"/.test(card(id)) && /<path d="M4 10h12M11 5l5 5-5 5"><\/path>/.test(card(id))
   check("Start free and Get Pro: the earnings section's dark button and arrow", dark("free") && dark("pro") && /\.cme-cta\{[^}]*background:#0f0e13;color:#fff/.test(read("components/marketing/home/earnings-calculator.tsx")))
   // Changed on purpose (landing round 13): the owner: "Get Grow" is a solid Storelib purple button, no white pill and no round arrow (tests/home-landing-r13-pricing.test.ts).
-  check("Get Grow: a solid Storelib purple button, no round arrow", /data-plan-button="purple"/.test(card("growth")) && /bg-\[#7c3aed\] font-semibold text-white/.test(card("growth")) && !/data-plan-arrow/.test(card("growth")) && !/<path d="M3\.5 8h8\.5M8\.5 4\.5 12 8l-3\.5 3\.5"/.test(card("growth")))
+  // Changed on purpose (landing round 14): Get Grow carries the creators section's round arrow the other way round, a white disc with a purple arrow (tests/home-landing-r14-pricing.test.ts).
+  check("Get Grow: a solid Storelib purple button, with the white disc", /data-plan-button="purple"/.test(card("growth")) && /bg-\[#7c3aed\] font-semibold text-white/.test(card("growth")) && /data-plan-arrow="disc"/.test(card("growth")))
   check("Grow's card still the raised one", /data-plan-card="growth" data-plan-featured=""/.test(html))
   const settled = renderToStaticMarkup(createElement(PlanCards, { actions: { ...actions, growth: { label: "Current plan", settled: true } }, compact: true }))
   check("a settled button stays quiet, with no arrow", /data-plan-button="settled"/.test(settled) && !/data-plan-arrow/.test(settled.slice(settled.indexOf('data-plan-card="growth"'), settled.indexOf('data-plan-card="pro"'))))
@@ -147,7 +148,7 @@ console.log("\n── Pricing cards ──")
 console.log("\n── Apps: a smaller gap, still no icon seen twice ──")
 {
   const css = read("components/marketing/home/integrations-section.module.css")
-  check("1/13 of the screen per tile and gap (was 1/12), 6px least on a phone (was 8)", INTEGRATION_STEP_SHARE === 1 / 13 && /--gap: max\(20px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css) && /--gap: max\(6px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css))
+  check("1/13 of the screen per tile and gap (was 1/12), 6px least on a phone (was 8)", INTEGRATION_STEP_SHARE === 1 / 15 && /--gap: max\(10px, calc\(100vw \/ 15 - var\(--tile\)\)\);/.test(css) && /--gap: max\(6px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css)) // Changed on purpose (landing round 14): the gap about half on a computer, 1/15 of the screen, 10px least; a phone keeps 1/13 and 6px.
   check("each set still more than a screen plus a tile", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1), INTEGRATION_ROW_SIZES)
   /* At the widths the owner looks at: the set's width against the screen plus a tile. */
   const ok = [390, 1024, 1440, 1920, 2560].every((vw) => {

@@ -81,7 +81,8 @@ check("no grey, no purple, no noise", !/#eef0f2/.test(ground) && !/#8b5cf6|#a855
 check("the thread a plain white rounded card on it, readable", /background:#fff/.test(rule(".ev-c-thread")) && /border-radius:18px/.test(rule(".ev-c-thread")) && /\.ev-c-dark\{background:#111113;color:#fff\}/.test(css) && /\.ev-c-light\{background:#f0eff2;color:#18181b\}/.test(css))
 
 console.log("\n── 3. The store strip never runs out ──")
-check("the set twice over", /const strip = \[\.\.\.EVERYTHING_STORES, \.\.\.EVERYTHING_STORES\]/.test(src) && (html.match(/class="ev-s-slot"/g) ?? []).length === EVERYTHING_STORES.length * 2)
+// Changed on purpose (landing round 14): each page once; since round 8 every page wraps round on its own, and seven cover the picture (tests/home-landing-r14-everything.test.ts).
+check("the set once, each page wrapping on its own", /const strip = EVERYTHING_STORES\n/.test(src) && (html.match(/class="ev-s-slot"/g) ?? []).length === EVERYTHING_STORES.length)
 /*
   Changed on purpose (landing round 8): the owner still saw the strip end on real phones. Round 7's one wide track
   moved one set per lap is gone: each page is its own layer, wrapped round over one turn of all the pages from one

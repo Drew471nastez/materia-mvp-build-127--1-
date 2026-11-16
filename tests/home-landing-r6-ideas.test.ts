@@ -71,7 +71,8 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
 check("Plain Weather is gone, Steez is in the bar and in Publish", !/Plain Weather|plainweather|pw-/.test(code(F.builders)) && wb.includes('<span class="bm-s1">Steez</span>') && wb.includes('<span class="bm-s1">steez.storelib.com</span>'))
 check("four products priced in dollars", [...site.matchAll(/<span class="stz-price">\$\d+\.00<\/span>/g)].length === 4)
-check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4 && /class="wx-sel wx-ring-a"/.test(wb) && /class="wx-sel wx-ring-b"/.test(wb))
+// Changed on purpose (landing round 14): one ring per site, around the section whose heading is edited.
+check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2 && /class="wx-sel wx-ring"/.test(wb))
 check("the Saltmoor store and its pictures are gone", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && ["sm-hero", "sm-bergamot", "sm-glass", "sm-votive", "sm-pillar"].every((n) => !existsSync(`public/home/showcase/${n}.webp`)))
 
 console.log("\nCopy")

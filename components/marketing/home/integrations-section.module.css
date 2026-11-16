@@ -103,7 +103,8 @@
   padding-block: calc(var(--room) - (var(--row-gap) + 4px) / 2);
   /* 90px, growing a little past 1600px wide so the icons hold their own across a wide screen. */
   --tile: clamp(90px, 5.6vw, 116px);
-  --gap: max(20px, calc(100vw / 13 - var(--tile)));
+  /* Landing round 14 (the owner: the gap about half again on a computer): 1/15 of the screen per tile and gap, 10px least. */
+  --gap: max(10px, calc(100vw / 15 - var(--tile)));
   /* Space between the two rows: the old tile gap, not the spread one. */
   --row-gap: clamp(20px, 1.6vw, 30px);
   /* Room above and below each row for a tile's shadow and lift (the row clips sideways). */

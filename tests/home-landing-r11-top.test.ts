@@ -74,9 +74,10 @@ check("both sites stand in the one canvas, the second hidden at first", /class="
 // Changed on purpose (landing round 12): the first site is GodBless, published at its storelib.com address.
 // Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
 check("the bar's name and the published address change with it", /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">steez\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
-check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /class="ll-bar">Sale 60% off all products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Tech House Master Bundle 2025/.test(ll) && /class="ll-h">Bestselling/.test(ll))
-check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-midi", "ll-hero"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On sale</g) ?? []).length === 3)
-check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
+// Changed on purpose (landing round 14): the owner asked for loudlib exactly as loudlib.net is: no hero, the real bar words and the real BESTSELLING grid (tests/home-landing-r14-ideas.test.ts).
+check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /Sale 60% Off To All Products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Master Bundle 2025/.test(ll) && /class="ll-h">BESTSELLING/.test(ll))
+check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-ambience", "ll-deep-house", "ll-unitech"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On Sale</g) ?? []).length === 3)
+check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
 check("the change is a cross fade, opacity only", /\.bm-s1,\.bm-s2\{transition:opacity \.7s cubic-bezier\(\.4,0,\.2,1\)\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s1\{opacity:0\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s2\{opacity:1\}/.test(BUILDER_CSS))
 check("with reduced motion it simply changes", /@media\(prefers-reduced-motion:reduce\)\{\.bm-s1,\.bm-s2\{transition:none\}\}/.test(BUILDER_CSS))
 
@@ -111,9 +112,10 @@ console.log("\n── 6. A digital product store in the strip ──")
 const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
 // Changed on purpose (landing round 12): the owner found round 11's digital store "really bad"; Jonah Wells, a guitar teacher laid out like Fieldwork with photographs of what he sells, takes its place (tests/home-landing-r12-top.test.ts).
 check("Soft Ground and Kiln Goods are gone", !/Kiln Goods|Soft Ground|soft-ground|kiln-/.test(JSON.stringify(EVERYTHING_STORES) + html + code(read(F.ev))))
-check("a store of digital products is still in the strip", EVERYTHING_STORES.some((s) => s.kind === "merch" && s.products.some((p) => !!p.format)))
-check("one is reduced, its old price struck through", /<span class="ev-mc-price"><s>\$19<\/s>\$14<i>PDF<\/i><\/span>/.test(html))
-check("still three stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 3 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
+// Changed on purpose (landing round 14): the store of downloads (Jonah Wells) gave way to Liam Bailey's real product page, a download itself, at its live price (tests/home-landing-r14-everything.test.ts); two stores now.
+check("a downloadable product is still in the strip", EVERYTHING_STORES.some((s) => s.kind === "product"))
+check("its price as the live page shows it", /<span class="ev-pp-price">\$11\.87<\/span>/.test(html))
+check("still two stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 2 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
 
 console.log("\n── Copy ──")
 const all = code(read(F.ev)) + code(read(F.ideas)) + code(read(F.builders))

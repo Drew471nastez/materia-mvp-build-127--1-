@@ -213,4 +213,14 @@ export const SHEETS_CSS = `
   .pz-stack[data-pz-ready] > .pz-sheet:not(:last-child){position:relative;top:auto}
   .pz-dim{display:none}
 }
+/*
+  Landing round 14: the page's close (the home page's FinalCta) on the home
+  page's dark ground, its top rounded like a sheet's and lying over the white
+  above by that radius. Not sticky, nothing moves. The corners are two white
+  fillets over everything inside (as the home page's sheets draw theirs,
+  components/marketing/scroll-reveal-panel), not a rounded clip: a clip over
+  the moving dot field would cost the compositor a mask every frame.
+*/
+.pz-close{--pz-cr:clamp(22px,3vw,44px);position:relative;isolation:isolate;margin-top:calc(-1 * var(--pz-cr));border-radius:var(--pz-cr) var(--pz-cr) 0 0;background:#050506}
+.pz-close::before{content:"";position:absolute;z-index:2147483647;left:0;right:0;top:0;height:var(--pz-cr);pointer-events:none;background:radial-gradient(circle at 100% 100%,transparent calc(var(--pz-cr) - .5px),#fff var(--pz-cr)) left top/var(--pz-cr) var(--pz-cr) no-repeat,radial-gradient(circle at 0 100%,transparent calc(var(--pz-cr) - .5px),#fff var(--pz-cr)) right top/var(--pz-cr) var(--pz-cr) no-repeat}
 `

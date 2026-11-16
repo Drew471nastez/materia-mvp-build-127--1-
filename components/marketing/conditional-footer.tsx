@@ -111,6 +111,8 @@ export function ConditionalFooter() {
       pathname === "/alternatives" ||
       pathname.startsWith("/alternatives/") ||
       pathname.startsWith("/sell/") ||
+      /* Landing round 14: the header's list has had /faq since round 13, this one had not, so /faq ended with no footer at all. */
+      pathname.startsWith("/faq") ||
       pathname.startsWith("/privacy") ||
       pathname.startsWith("/terms") ||
       pathname.startsWith("/help") ||

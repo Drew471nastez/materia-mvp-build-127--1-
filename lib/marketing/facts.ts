@@ -126,7 +126,7 @@ export const FEES = {
   /** "$4.00": under it, the small order rate applies and the $0.25 does not. */
   smallOrderBelow: dollars(usd.microThresholdMinor),
   smallOrderBelowCents: usd.microThresholdMinor,
-  /** Stripe's own processing fee is separate and applies on every plan (lib/billing/plans PLAN_FOOTNOTE). Storelib does not set it. */
+  /** Stripe's own processing fee is separate and applies on every plan (lib/billing/plans planQuestions, "What fees are taken from a sale?"). Storelib does not set it. */
   stripeProcessingExtra: true,
   /** The fee depends on the price and the plan only, so a sale through Explore pays the same as a direct one (lib/payments/fees/engine). */
   sameFeeOnExplore: true,

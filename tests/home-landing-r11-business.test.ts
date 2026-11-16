@@ -47,7 +47,7 @@ const small = (n: string) => { const p = `public/home/showcase/${n}.webp`; retur
 
 console.log("\nA new heading and a line under it")
 {
-  check("the heading is no longer the question", (BUSINESS_HEADING as string) !== "What will you sell?" && /* Lead (landing round 11): "Sell what you make" is already section 3's heading, so this one names what the section shows. */ /* Changed on purpose (landing round 13): "Five ways to get paid". */ BUSINESS_HEADING === "Five ways to get paid" && !html.includes("What will you sell"))
+  check("the heading is no longer the question", (BUSINESS_HEADING as string) !== "What will you sell?" && /* Lead (landing round 11): "Sell what you make" is already section 3's heading, so this one names what the section shows. */ /* Changed on purpose (landing round 13): "Five ways to get paid". */ /* Changed on purpose (landing round 14): "From a cookbook to a coaching call" (the owner disliked round 13's). */ BUSINESS_HEADING === "From a cookbook to a coaching call" && !html.includes("What will you sell"))
   check("the subheading is at most ten words", typeof BUSINESS_SUB === "string" && BUSINESS_SUB.trim().split(/\s+/).length <= 10, BUSINESS_SUB)
   check("it stands under the heading, in the heading block", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><p class="biz-sub">[^<]+<\/p><\/div><div class="biz-body">/.test(html))
   check("it is a quiet line: body size, grey, set close under the heading", /\.biz-sub\{margin:clamp\(8px,\.9vw,14px\) 0 0;[^}]*font-size:clamp\(16px,1\.25vw,19px\);[^}]*color:#65616e\}/.test(css))
@@ -57,7 +57,8 @@ console.log("\nA new heading and a line under it")
 console.log("\nDigital: no calendar")
 {
   const d = renderToStaticMarkup(createElement(DigitalScene))
-  check("no Notion template or Content Calendar anywhere in the scene", !/Content Calendar|Notion/.test(d) && !/bc-notion|bc-month|DAYS_ON/.test(code(MOCKS)))
+  // Changed on purpose (landing round 14): the owner asked for a Notion template among the shelf's six downloads; round 11's drawn calendar scene stays gone.
+  check("no Notion template or Content Calendar anywhere in the scene", !/Content Calendar/.test(d) && !/bc-notion|bc-month|DAYS_ON/.test(code(MOCKS)))
   // Changed on purpose (landing round 12): one e-book in place of the row with the sample pack; its line names no presets.
   check("the index line no longer says templates (or presets)", !/template|preset/i.test(BUSINESS_SLIDES[0].line))
   // Changed on purpose (landing round 13): the e-book's pictures are gone; the store designs are pinned in tests/home-landing-r13-business.test.ts.

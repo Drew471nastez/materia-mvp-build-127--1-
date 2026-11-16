@@ -8,7 +8,7 @@
  * a blurred copy baked here and the page only cross fades to it (opacity).
  *
  * The copies are taken from the scene itself, so the drawn digital products
- * (the LUT pack's box, the e-book, the course, the Notion page) and the phone
+ * (the LUT pack's box, the course, Daily Mobility, the Notion page) and the phone
  * match what the page draws. Round 12: the phone has no copy any more (it
  * fades out whole behind the cards). Round 11 (the owner: the products "should be
  * more blurred as they disappear, go behind"): the same copies also take over
@@ -20,7 +20,8 @@
  * blurred (sharp premultiplies the colour by its alpha, so no fringe),
  * and saved small as webp with alpha in public/home/commerce/soft-<id>.webp.
  *
- *   node scripts/bake-checkout-soft.mjs [url]   (default http://localhost:3000/)
+ *   node scripts/bake-checkout-soft.mjs [url] [id,id]   (default http://localhost:3000/, every object)
+ * Round 14: Daily Mobility took the e-book's place; `node scripts/bake-checkout-soft.mjs URL mobility` bakes that one alone.
  *
  * It prints the sizes for SOFT in checkout-scene.tsx.
  */
@@ -32,7 +33,7 @@ const PAD = 0.2
 /* Output widths, and the blur as a share of the object's own width. */
 const OUT = { object: 112 }
 const SIGMA = { object: 0.085 }
-const IDS = ["tee", "luts", "cap", "course", "beanie", "ebook", "notion"]
+const IDS = ["tee", "luts", "cap", "course", "beanie", "mobility", "notion"]
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const browser = await chromium.launch()
@@ -83,6 +84,7 @@ async function bake(sel, name, kind) {
 }
 
 const sizes = []
-for (const id of IDS) sizes.push(await bake(`.cmc-o[data-f="${id}"] .cmc-sharp`, id, "object"))
+const ONLY = process.argv[3] ? process.argv[3].split(",") : IDS
+for (const id of ONLY) sizes.push(await bake(`.cmc-o[data-f="${id}"] .cmc-sharp`, id, "object"))
 await browser.close()
 console.log(sizes.map(([n, s]) => `  ${n}: { w: ${s.w}, h: ${s.h} },`).join("\n"))

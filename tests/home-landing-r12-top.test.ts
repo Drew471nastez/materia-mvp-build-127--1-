@@ -81,7 +81,8 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 13): the first site is Steez (class "stz"), not GodBless.
 check("Steez first, loudlib second, in the one canvas", /class="smk-frame wx-site bm-s1"[^>]*><div class="smk"[^>]*><div class="stz">/.test(wb) && /class="smk-frame wx-site bm-s2"[^>]*><div class="smk"[^>]*><div class="ll">/.test(wb))
 check("the bar's name and the published address change with it", /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">steez\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
-check("the builder rings the first section and the products on both", (wb.match(/class="wx-sel wx-ring-a"/g) ?? []).length === 2 && (wb.match(/class="wx-sel wx-ring-b"/g) ?? []).length === 2)
+// Changed on purpose (landing round 14): the builder edits one heading per site, so each site has one ring (tests/home-landing-r14-ideas.test.ts).
+check("the builder rings the first section and the products on both", (wb.match(/class="wx-sel wx-ring"/g) ?? []).length === 2)
 check("the cross fade is opacity only, with two scenes on the tab", /\[data-scene="1"\] \.bm-s1\{opacity:0\}/.test(BUILDER_CSS) && Ideas.IDEAS_TABS[0].scenes === 2)
 check("the alt text tells it", /First Steez/.test(Ideas.IDEAS_TABS[0].alt) && /Then loudlib/.test(Ideas.IDEAS_TABS[0].alt))
 
@@ -89,12 +90,9 @@ console.log("\n── 4. Jonah Wells, a guitar teacher's digital store ──")
 const html = renderToStaticMarkup(createElement(EverythingInOnePlace))
 const jonah = EVERYTHING_STORES.find((s) => s.key === "jonah")
 check("round 11's store is gone, with its pictures and its dark band", !/Noor Haddad|Saltwater|Shoot to Invoice|ev-dg-|data-digital/.test(JSON.stringify(EVERYTHING_STORES) + html + evCss + code(read(F.ev))) && !existsSync(join(root, "public/home/everything/stores/dg-saltwater.webp")))
-check("a store laid out like Fieldwork: the cover photo, the menu, his name and the cart", jonah?.kind === "merch" && jonah.hero === "/home/everything/stores/jonah-cover.webp" && /data-ink="light"><span class="ev-ms-cover"><img class="ev-ms-hero"[^>]*src="\/home\/everything\/stores\/jonah-cover\.webp"[^>]*><span class="ev-ms-top"><span class="ev-ms-nav">Shop all<\/span><span class="ev-ms-mark">Jonah Wells<\/span><span class="ev-ms-nav">Cart \(0\)<\/span>/.test(html))
-check("the drop's name and Instant download in white over a darker foot", /<b>Guitar lessons<\/b><b>and tabs<\/b><i>Instant download<\/i>/.test(html) && /\.ev-mc\[data-ink="light"\] \.ev-ms-drop\{z-index:1;color:#fff\}/.test(evCss) && /\.ev-mc\[data-ink="light"\] \.ev-ms-cover::after\{[^}]*linear-gradient/.test(evCss))
-check("what he sells, each saying what it is", !!jonah && jonah.kind === "merch" && jonah.products.map((p) => `${p.name}|${p.format}`).join() === "Fingerstyle Basics|Video course,Blues Licks Tab Book|PDF,Amp Tones Vol 2|Presets,Backing Tracks|24 tracks")
-check("one reduced, the old price struck through, the format after", /<span class="ev-mc-price"><s>\$19<\/s>\$14<i>PDF<\/i><\/span>/.test(html) && /\.ev-mc-price i::before\{content:"\\00b7"/.test(evCss))
-check("product photographs, webp, with the small copies, crisp at 2x", !!jonah && jonah.kind === "merch" && jonah.products.every((p) => { const a = webp(p.src.replace(/^\//, ""), 60); const b = webp(p.src.replace(/^\//, "").replace(/\.webp$/, "-240.webp"), 30); return !!a && a.w === 360 && a.h === 450 && !!b && b.w === 240 }) && (webp("home/everything/stores/jonah-cover.webp", 80)?.w ?? 0) >= 780)
-check("still three stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 3 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
+// Changed on purpose (landing round 14): the owner put Liam Bailey's real product page where Jonah Wells's store was; its checks are in tests/home-landing-r14-everything.test.ts. What stays from here: he is gone with his pictures, and the stores still never stand side by side.
+check("Jonah Wells is gone, with his pictures (landing round 14)", !jonah && !existsSync(join(root, "public/home/everything/stores/jonah-cover.webp")))
+check("still two stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 2 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
 check("the other stores still say how many pieces they have", /<i>4 pieces<\/i>/.test(html))
 
 console.log("\n── Copy ──")

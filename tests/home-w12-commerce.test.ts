@@ -248,7 +248,8 @@ console.log("\nCommerce: images")
   // Changed on purpose (landing round 9): the white tee and the lesson still are deleted with their cards.
   // Changed on purpose (landing round 10): the workshop picture went with his website on the domain card.
 // Changed on purpose (landing round 12): the owner asked for a better heading and new pictures (the real dashboard, a tip flow, a typed domain over another creator's store).
-  check("public/home/how holds the woodshop's avatar and cover and Fernlyn's four photographs, webp, each under 30 KB", howFiles.sort().join() === "fern-linen.webp,fern-oil.webp,fern-roller.webp,fern-table.webp,linde-avatar.webp,linde-turning.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 14): Ines Duarte's face and cover in place of Ruben Linde's; Fernlyn's photographs went with the typed address (the domain card is /pricing's reel).
+  check("public/home/how holds Ines's avatar and cover, webp, each under 30 KB", howFiles.sort().join() === "ines-avatar.webp,ines-cover.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   /* Changed on purpose (wave 17): the checkout's two tiny avatars (pc-av, cdx-av) load and decode at once, so they are never blank when the scene scrolls in on an iPhone. */
   const avatars = (all.match(/<img className="(pc|cdx)-av"[^>]*>/g) ?? []).filter((t) => !/loading=|decoding=/.test(t)).length
