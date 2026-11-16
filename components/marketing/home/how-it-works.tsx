@@ -828,7 +828,8 @@ const HOW_CSS = `
 .cmh-a{animation-duration:8s;animation-timing-function:${EASE};animation-iteration-count:infinite;animation-fill-mode:both;animation-play-state:paused!important}
 [data-commerce-live] .cmh-a{animation-play-state:running!important}
 /* What plays once, the first time its card is seen. */
-.cmh-o{animation-duration:.7s;animation-timing-function:${EASE};animation-fill-mode:both;animation-play-state:paused}
+/* Landing round 11 perf: fill backwards, not both. Each bar's last keyframe is its resting style, so after it has risen there is nothing to hold, and a finished animation that still held a fill kept a layer for each of the 60 bars for good. */
+.cmh-o{animation-duration:.7s;animation-timing-function:${EASE};animation-fill-mode:backwards;animation-play-state:paused}
 [data-seen] .cmh-o{animation-play-state:running}
 /* A picture is drawn in em: its font size follows its card's width, so one drawing fits a narrow card at 1100px and a wide one at 1920. */
 .cmh-sc{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(10.5px,4.6cqw,18px);line-height:1.3;color:#18181b}

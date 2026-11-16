@@ -180,13 +180,15 @@ const AI_CSS = `
 .ait-term{--term-bg:#09080c;position:relative;z-index:1;min-width:0;pointer-events:none;-webkit-user-select:none;user-select:none;border-radius:13px;background:var(--term-bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -30px rgba(0,0,0,.7);overflow:hidden}
 /* The light round the terminal (landing round 11). .ait-tw holds the terminal and, under it, two rims: a 1.5px one (.ait-beam) and a wider soft one (.ait-glow). Each clips a square layer (.ait-spin, twice the terminal's width, so it covers the corners and stays a small texture) whose conic gradient is dark but for two bright ends; the layer turns, so the ends run round the rim. Only the turn animates. */
 .ait-tw{position:relative;min-width:0;isolation:isolate}
-.ait-beam,.ait-glow{position:absolute;z-index:0;pointer-events:none;overflow:hidden;contain:strict}
+.ait-beam,.ait-glow{position:absolute;z-index:0;pointer-events:none;overflow:hidden;contain:strict;container-type:size}
 .ait-beam{inset:-1.5px;border-radius:14.5px}
 .ait-glow{inset:-14px;border-radius:27px;opacity:.55;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent),linear-gradient(transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-composite:intersect}
-.ait-spin{position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;background:conic-gradient(from 0deg,transparent 0deg,transparent 118deg,rgba(139,92,246,.0) 122deg,rgba(139,92,246,.55) 160deg,rgba(214,200,255,.95) 176deg,#fff 179.4deg,transparent 180deg,transparent 298deg,rgba(139,92,246,0) 302deg,rgba(139,92,246,.55) 340deg,rgba(214,200,255,.95) 356deg,#fff 359.4deg,transparent 360deg);will-change:transform;animation:ait-spin 9s linear infinite paused}
+.ait-spin{position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;background:conic-gradient(from 0deg,transparent 0deg,transparent 118deg,rgba(139,92,246,.0) 122deg,rgba(139,92,246,.55) 160deg,rgba(214,200,255,.95) 176deg,#fff 179.4deg,transparent 180deg,transparent 298deg,rgba(139,92,246,0) 302deg,rgba(139,92,246,.55) 340deg,rgba(214,200,255,.95) 356deg,#fff 359.4deg,transparent 360deg);}
+/* Landing round 11 perf: the turning square was twice the terminal's width (1254px, a 6MB texture each, two of them), always a layer. It only has to cover the rim through a whole turn: a circle round the box, so a square as long as its diagonal. And it is a layer and turns only while the terminal is live (the conic gradient at rest is the same picture at 0 degrees). */
+@supports (width:hypot(1px,1px)) and (width:1cqw){.ait-spin{width:calc(hypot(100cqw,100cqh) + 4px);margin:calc(hypot(100cqw,100cqh) / -2 - 2px) 0 0 calc(hypot(100cqw,100cqh) / -2 - 2px)}}
+.ait-tw[data-live] .ait-spin{will-change:transform;animation:ait-spin 9s linear infinite}
 .ait-glow .ait-spin{background:conic-gradient(from 0deg,transparent 0deg,transparent 140deg,rgba(139,92,246,.5) 168deg,rgba(196,176,255,.9) 179deg,transparent 180deg,transparent 320deg,rgba(139,92,246,.5) 348deg,rgba(196,176,255,.9) 359deg,transparent 360deg)}
 @keyframes ait-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-.ait-tw[data-live] .ait-spin{animation-play-state:running}
 .ait-bar{display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.06)}
 .ait-bar i{width:10px;height:10px;border-radius:50%;background:#2e2c35}
 .ait-bar span{margin-left:8px;font:500 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#6f6c79}
