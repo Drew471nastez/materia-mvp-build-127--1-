@@ -133,8 +133,7 @@ console.log("\n── The page ──")
   check("the ideas, then what you can sell, then the creators; the possibilities open the last white sheet", !/StoryBand|data-band/.test(page) && /<LazyIdeasComeToLife \/>[\s\S]{0,200}<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page) && /* Changed on purpose (landing round 9): the map opens that sheet now, the possibilities follow it. */ /<ScrollRevealPanel tone="white">\s*<LazySellEverywhereMap \/>\s*<LazySection name="possibilities"[^>]*>\s*(?:<Suspense fallback=\{null\}>)?<ProductMarquee \/>(?:<\/Suspense>)?\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
   check("the questions' sheet is not held, so a link to #faq lands on them", /<LazyEarningsCalculator \/>/.test(page) && !/\bhold\b/.test(page))
   check("every server-drawn lazy box keeps its name", ["possibilities", "pricing", "faq"].every((n) => page.includes(`<LazySection name="${n}"`)))
-  // Changed on purpose (landing round 14): the phone's hidden earnings rule is written beside the heights (tests/home-landing-r14-frame.test.ts).
-  check("the measured heights are still written into the page", /<style dangerouslySetInnerHTML=\{\{ __html: LAZY_SECTION_HEIGHTS_CSS( \+ LAZY_SECTION_PHONE_HIDDEN_CSS)? \}\} \/>/.test(page))
+  check("the measured heights are still written into the page", /<style dangerouslySetInnerHTML=\{\{ __html: LAZY_SECTION_HEIGHTS_CSS \}\} \/>/.test(page))
 }
 
 console.log("\n── The footer ──")

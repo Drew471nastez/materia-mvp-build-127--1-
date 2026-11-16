@@ -61,7 +61,8 @@ check("Sign up is drawn only in the computer's row (md and up)", /function Guest
 console.log("\n3. No earnings on a phone")
 check("the earnings box is display: none below 768px", LAZY_SECTION_PHONE_HIDDEN_CSS === '@media (max-width:767px){[data-lazy-section="earnings"]{display:none}}')
 check("  and the rule is not in the measured heights (the measuring script rewrites those)", !/display:none/.test(LAZY_SECTION_HEIGHTS_CSS))
-check("the page draws it with the heights, from the server's first byte", /<style dangerouslySetInnerHTML=\{\{ __html: LAZY_SECTION_HEIGHTS_CSS \+ LAZY_SECTION_PHONE_HIDDEN_CSS \}\} \/>/.test(page))
+check("the page draws it in a tag of its own beside the heights, from the server's first byte", /<style dangerouslySetInnerHTML=\{\{ __html: LAZY_SECTION_HEIGHTS_CSS \}\} \/>/.test(page) && /<style dangerouslySetInnerHTML=\{\{ __html: LAZY_SECTION_PHONE_HIDDEN_CSS \}\} \/>/.test(page))
+check("  never joined with +: they are client references in this server page, and a join prints a function's source", !/LAZY_SECTION_\w+_CSS \+/.test(page))
 check("the earnings section is still on the page for a computer", /<LazyEarningsCalculator \/>/.test(page))
 check("a box hidden at this width is mounted last by the idle chain, not first", /distance\.set\(e\.target, !r\.width && !r\.height \? Infinity :/.test(lazy))
 
