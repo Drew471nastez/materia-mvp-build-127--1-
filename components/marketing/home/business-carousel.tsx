@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useRef, useState, useSyncExternalStore, t
 import { StoryHeading } from "@/components/marketing/story-heading"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
-import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, PhysicalScene } from "./showcase-mocks/business-mocks"
+import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, PhysicalScene, STORE_STEP_S } from "./showcase-mocks/business-mocks"
 import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
 
 /*
@@ -56,9 +56,20 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   swipe is as smooth as the page. A card's moment plays when it is the one in
   view or beside it, and is reset only when two cards away, out of sight.
 */
-export const BUSINESS_HEADING = "One store, every kind of product"
+/*
+  Round 13, the owner: a better heading than "One store, every kind of
+  product", compact and specific, and far less purple in it. It names what
+  the five cards are, ways a store takes money; one word carries the accent,
+  in a softer violet than the page's (BUSINESS_ACCENT_COLOR). The line under
+  it names the five in plain words.
+*/
+export const BUSINESS_HEADING = "Five ways to get paid"
+/** The one accented word. */
+export const BUSINESS_ACCENT = ["paid"] as const
+/** Its colour: a quiet violet, greyer than the page's #7c3aed. */
+export const BUSINESS_ACCENT_COLOR = "#7e6fb8"
 /** The line under the heading: at most ten words (the owner). */
-export const BUSINESS_SUB = "Downloads, merch, courses, communities and calls, each with checkout."
+export const BUSINESS_SUB = "Downloads, goods, courses, communities and calls, one checkout."
 export const BUSINESS_SLIDE_MS = 6500
 /** How long autoplay waits after a finger leaves the stage. */
 export const BUSINESS_TOUCH_RESUME_MS = 2500
@@ -85,17 +96,19 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     id: "digital",
     label: "Digital products",
     tab: "Digital",
-    line: "E-books, sample packs, fonts",
+    line: "E-books, video courses, downloads",
     Scene: DigitalScene,
-    alt: "A digital product on Storelib: Slow Mornings, an e-book of 40 breakfasts by Ana Folau, 96 pages, $16. Its cover stands in front of a page from inside, soft eggs on rye, beside its buy card. It is bought and the PDF downloads.",
+    alt: "Digital products on Storelib: Ruth Calder's store sells Ancestral Kitchen, a cookbook of 80 recipes as a PDF for $34, and Daily Mobility, a video course of 21 lessons for $79. Both are in one order of $113; it is paid, the cookbook downloads and both are ready in the buyer's library.",
   },
   {
     id: "physical",
     label: "Physical products",
     tab: "Physical",
     line: "Goods you make and ship",
+    /* The line of store designs turns four times in a turn. */
+    ms: STORE_STEP_S * 4000,
     Scene: PhysicalScene,
-    alt: "A physical product on Storelib: Night Face Oil by Marisol Vega, $38, an amber glass dropper bottle on a wooden stand. The 30 ml size is picked and added to the cart; it ships in 2 days.",
+    alt: "Store designs for physical products on Storelib: a soda, skincare, a balm, jewellery, a massage gun and phone cases. One stands in front, the others stacked behind it on each side, and the line turns on by itself.",
   },
   {
     id: "courses",
@@ -111,7 +124,7 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     tab: "Communities",
     line: "Members, posts, live events",
     Scene: ClubScene,
-    alt: "A community on Storelib: Applied AI Club, hosted by Sam Adeyemi, under a deep green banner with its own logo and the line Build one AI tool a week. $12 a month, 2,480 members, a live build on Wednesday and new posts arriving in its show-and-tell space.",
+    alt: "A community on Storelib: Applied AI Club, hosted by Sam Adeyemi, under a banner of its members at work with its own logo and the line Build one AI tool a week. $12 a month, 2,480 members, a live build on Wednesday and new posts arriving in its show-and-tell space.",
   },
   {
     id: "bookings",
@@ -221,7 +234,7 @@ export function BusinessCarousel() {
     >
       <ShowcaseStyles styles={BUSINESS_STYLES} />
       <div className="biz-head">
-        <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={["every", "kind", "of", "product"]} />
+        <StoryHeading id="biz-title" className="biz-h" text={BUSINESS_HEADING} accent={[...BUSINESS_ACCENT]} />
         <p className="biz-sub">{BUSINESS_SUB}</p>
       </div>
       <div className="biz-body">
@@ -337,7 +350,7 @@ const CSS = `
 .biz{position:relative;background:#fff;color:#18181b;overflow-x:clip}
 /* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
 [data-landing-story] .biz>.biz-head,.biz-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
-.biz .biz-h{margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
+.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
 .biz-sub{margin:clamp(8px,.9vw,14px) 0 0;max-width:64ch;font-size:clamp(16px,1.25vw,19px);line-height:1.45;letter-spacing:-.005em;color:#65616e}
 [data-landing-story] .biz>.biz-body,.biz-body{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);row-gap:clamp(8px,1.4vw,16px);max-width:var(--home-max,2020px);margin:clamp(20px,3vw,44px) auto 0;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 /* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than the screen slides under the thumb. */

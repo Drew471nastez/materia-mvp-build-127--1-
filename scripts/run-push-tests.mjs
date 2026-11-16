@@ -1566,6 +1566,20 @@ const SUITES = [
   "tests/home-landing-r12-checkout.test.ts",
   /* Landing round 12, perf: the same page, cheaper. The analytics globe reads the scroll after the frame; the analytics and Everything cards pause their loops on their own more than a screen away; no permanent will-change on the orbs, the engines strip, the Everything grounds, the creators rail or a resting sheet's scrim; the AI tools light on squares as wide as the rim's diagonal, turning only while live; the Ideas thumbnails from small copies. */
   "tests/home-landing-r12-perf.test.ts",
+  /* Landing round 13, checkout: Built to convert's window fills its card, on a computer to a thin margin and on a phone to 6px inside a picture 8px from the card's edge (still 4:3); the scroll ends at 1330u so Pay comes into view; the seller's notice under the address bar. */
+  "tests/home-landing-r13-checkout.test.ts",
+  /* Landing round 13, faq: /faq in the landing's look (the dark top with the closing call's dots, a white sheet over it, the home page's rows); the questions by topic with a sticky list (chips on a phone) under the measured header, a search that marks its words, an address for every question, the answers read from the plan, fee and storage tables (Free, Grow, Pro), a support line at the end. */
+  "tests/home-landing-r13-faq.test.ts",
+  /* Landing round 13, rails: the showcase leaves the hero for a dark ground of its own before pricing, mounted as it comes near; Satori Studio by name; Plainspace under a cover photo with no words; the owner's New York shop in Ines Duarte's place; the creators rail starts on the streamers' card, drawn there before the script, its lap read to the fraction of a px. */
+  "tests/home-landing-r13-rails.test.ts",
+  /* Landing round 13, ideas: the website builder draws the owner's Materia Steez theme from its export (the Summer Madness '26 slideshow, the t-shirts carousel scrolled into view when selected, Summer Collection; its sections' schema names in the sidebar), GodBless and its files gone; the OnePage editor shows Desmond alone, his page fitting the phone without a scroll; Unlimited possibilities half way back to its larger phone sizes. */
+  "tests/home-landing-r13-ideas.test.ts",
+  /* Landing round 13, the lower page: How it works back in round 11's grey stages (narrow, wide, narrow) with round 12's pictures, the dashboard scaled whole into its stage; the AI tools dots lighter; the closing call's dots subtler, drifting by themselves, the pointer eased; the footer's logo a white S on a near black square with depth. */
+  "tests/home-landing-r13-lower.test.ts",
+  /* Landing round 13, business: "Five ways to get paid" with one softer accent word; digital is the mobility course and Ancestral Kitchen in one order; physical a line of store designs turning in perspective, endless, transform and opacity only, paused off screen; the community banner is its photograph, no green; the phone's row of cards kept. */
+  "tests/home-landing-r13-business.test.ts",
+  /* Landing round 13, pricing: /pricing without the Compare Storelib links or the four badges; the cards on white under a much bigger heading; then sheets that rise over them as the page scrolls (sticky, rounded tops, a compositor shade): what comes with your store (the home Everything pictures as a two over three bento, and a domain reel of endings Storelib connects), Compare all features from planComparison() with a sticky plan row, and the questions; Get Grow a solid purple button. */
+  "tests/home-landing-r13-pricing.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -113,10 +113,11 @@ console.log("\nSecond pass: the website builder as it really is, without Ask Sto
   // Changed on purpose (landing round 6): "a more simple and clean merch brand": Plain Weather, a small apparel label.
   // Changed on purpose (landing round 8): the owner wanted the merch brand "more bold, more colorful, more funky, like a real Storelib store".
   // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
-  check("the site is a real looking brand (GodBless, then loudlib)", html.includes("GodBless") && html.includes("GodBless Summer Club") && html.includes("loudlib"))
+  // Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
+  check("the site is a real looking brand (Steez, then loudlib)", html.includes("Steez") && html.includes("Summer Madness") && html.includes("loudlib"))
   check("no Storelib AI key beside Publish (no logo, no Ask Storelib)", !/data-storelib-logo|bm-logo|wx-ask|Ask Storelib/.test(html) && !/StorelibLogo|StorelibTile/.test(visible(src.builders)))
-  check("the bar: Back, the name, Preview, the page pill, undo, redo, the inspector, Publish", ["GodBless", "Preview", "Home", "Publish"].every((w) => html.includes(w)) && /class="wx-key wx-inspect"/.test(html))
-  check("the sidebar's Header, Page and Footer groups with Add section in its raised key (tree-parts.tsx)", /Header<\/p>[\s\S]*Page<\/p>[\s\S]*Footer<\/p>/.test(html) && (html.match(/class="wx-add-key"/g) ?? []).length === 3 && (html.match(/class="wx-badge"/g) ?? []).length === 2)
+  check("the bar: Back, the name, Preview, the page pill, undo, redo, the inspector, Publish", ["Steez", "Preview", "Home", "Publish"].every((w) => html.includes(w)) && /class="wx-key wx-inspect"/.test(html))
+  check("the sidebar's Header, Page and Footer groups with Add section in its raised key (tree-parts.tsx)", /Header<\/p>[\s\S]*Page<\/p>[\s\S]*Footer<\/p>/.test(html) && (html.match(/class="wx-add-key"/g) ?? []).length === 6 && (html.match(/class="wx-badge"/g) ?? []).length === 6) /* Changed on purpose (landing round 13): one tree per site (Steez, loudlib), each with two header rows and the footer. */
   check("Theme's tab wears the Settings icon, as the editor's does", /<span>[^<]*<svg[^>]*lucide-settings[^>]*>[\s\S]*?<\/svg> Theme<\/span>/.test(html))
 // Changed on purpose (landing round 11): two sites in the canvas, each with its two rings.
   check("the selected section's chip says Selected (sections/_shared.tsx)", (html.match(/<em>Selected<\/em>/g) ?? []).length === 4)

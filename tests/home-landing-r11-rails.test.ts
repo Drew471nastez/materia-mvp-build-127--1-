@@ -57,7 +57,8 @@ const brand = (e: { src: string }) => e.src.match(/a-([a-z]+)\.webp$/)![1]
 console.log("\nThe showcase's cards, the owner's picks")
 check("twelve cards, wide, OnePage, wide, in four groups", SHOWCASE_EXAMPLES.length === 12 && SHOWCASE_EXAMPLES.every((e, i) => e.format === (i % 3 === 1 ? "portrait" : "wide")))
 // Changed on purpose (landing round 12): Tideline first, Plainspace where Ines was, Ines last; Dami Okoro for Gia Romano, Nora Quinn for Mara Lind.
-check("the order", SHOWCASE_EXAMPLES.map(brand).join(",") === "tideline,satori,app,plainspace,dami,strength,loud,otc,nightshift,luca,nora,ines", SHOWCASE_EXAMPLES.map(brand))
+// Changed on purpose (landing round 13): the New York shop in Ines Duarte's place.
+check("the order", SHOWCASE_EXAMPLES.map(brand).join(",") === "tideline,satori,app,plainspace,dami,strength,loud,otc,nightshift,luca,nora,nyshop", SHOWCASE_EXAMPLES.map(brand))
 check("gone: Studio Marlow, Pinch Grip Club, The Long Draft, Second Shift, Kai Moreno, Seed & Soil (and their files)", !/marlow|pinch grip|pinchgrip|long draft|a-draft|second shift|a-shift|kai moreno|a-kai|seed & soil|seedsoil/i.test(all) && ["marlow", "pinchgrip", "draft", "shift", "kai", "seedsoil"].every((b) => !existsSync(`public/home/showcase/a-${b}.webp`)))
 check("none of the round's banned names", !/Nadia Brooks|The Loop|LaSalle|Nails by Bea|Nordline|Charla Circle|Static Bloom|Maren Holt|enthusiasts|ceramics/i.test(all + src))
 check("The Strength Room is a wide (4:3 on a phone) card", SHOWCASE_EXAMPLES.some((e) => brand(e) === "strength" && e.format === "wide" && /The Strength Room/.test(e.alt)))

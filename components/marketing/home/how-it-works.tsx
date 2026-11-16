@@ -24,6 +24,15 @@
  *              a big address field over it: www.fernlyn.com types itself in,
  *              ".com" in blue, and a green check comes in once it is done.
  *
+ * LANDING ROUND 13, THE OWNER: go back to round 11's structure and keep
+ * round 12's pictures inside it. So the row is round 11's again (narrow,
+ * wide, narrow from 1100px: tips, the dashboard, the domain; the wide card
+ * leading its own row from 640px; one column on a phone), each picture in a
+ * quiet grey stage with round corners and a caption under it. The pictures
+ * are fitted to those shapes: the tip page rises from the stage's foot, the
+ * domain is sized by its card's width, and the dashboard is laid out at a
+ * width of its own and scaled whole into its stage (useDashFit), never cut.
+ *
  * One shop runs through the dashboard and the tips: Ruben Linde's Linde
  * Woodshop, a woodworker who films his builds (made up), selling section 3's
  * two products. The domain picture is another creator's store, Fernlyn,
@@ -79,10 +88,15 @@ export const HOW_SHOP = {
   cover: `${HOW}/linde-turning.webp`,
 } as const
 
-/** The pictures, in the page's order: the dashboard on a row of its own, then tips and the domain side by side. */
+/**
+ * The three cards, in the row's order: narrow, wide, narrow (landing round 13,
+ * the owner: back to round 11's row of grey stages with their captions, round
+ * 12's pictures inside them). From 640px to 1099px the wide card leads on a
+ * row of its own with the two narrow ones under it; on a phone, one column.
+ */
 export const HOW_CARDS = [
-  { key: "business", wide: true, title: "Understand your business", line: "Visitors, revenue, orders and conversion, as they come in." },
   { key: "tips", wide: false, title: "Take tips", line: "Visitors pick an amount on your page and pay through checkout." },
+  { key: "business", wide: true, title: "Understand your business", line: "Visitors, revenue, orders and conversion, as they come in." },
   { key: "domain", wide: false, title: "Use your own domain", line: "On Grow, point a domain you own at your site. HTTPS is set up for you." },
 ] as const
 
@@ -194,7 +208,7 @@ export function HowItWorks() {
         <div ref={grid} className="cmh-grid">
           {HOW_CARDS.map((c) => (
             <article key={c.key} className={`cmh-card ${c.wide ? "cmh-wide" : "cmh-narrow"}`} data-card={c.key}>
-              <div className="cmh-stage" data-picture={c.key} aria-hidden="true">
+              <div className="cmh-stage" data-ground={c.key} aria-hidden="true">
                 {pictures[c.key]}
               </div>
               <h3 className="cmh-cap-t">{c.title}</h3>
@@ -533,7 +547,61 @@ function useDashLive(root: RefObject<HTMLDivElement | null>) {
   }, [root])
 }
 
+/**
+ * Landing round 13, the owner: the dashboard sits in a grey stage like the
+ * other two pictures, whole, never cut off. It is laid out at a width of its
+ * own (HOW_DASH_FIT: about 1.35 times its stage, so its type lands near 10px
+ * once scaled, and never narrower than a phone's app or wider than a laptop's
+ * with the rail) and then scaled as a whole, one transform, to fit inside the
+ * stage with a margin on every side. The width picks the app's own layout for
+ * it (the phone's under 600px, the rail from 1020px) through container
+ * queries on the box it is drawn in. Measured once on mount, before paint,
+ * and again only when the stage changes size; never in a frame.
+ */
+export const HOW_DASH_FIT = { perStage: 1.35, min: 440, max: 1120, margin: 0.06, marginMin: 14 } as const
+function useDashFit(fit: RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const box = fit.current
+    const stage = box?.closest<HTMLElement>(".cmh-stage")
+    if (!box || !stage) return
+    let lastW = -1
+    let lastH = -1
+    const measure = () => {
+      const sw = stage.clientWidth
+      const sh = stage.clientHeight
+      if (!sw || !sh || (sw === lastW && sh === lastH)) return
+      lastW = sw
+      lastH = sh
+      const F = HOW_DASH_FIT
+      const w = Math.round(Math.min(F.max, Math.max(F.min, sw * F.perStage)))
+      box.style.setProperty("--db-w", `${w}px`)
+      const h = box.offsetHeight
+      const m = Math.max(F.marginMin, Math.min(sw, sh) * F.margin)
+      const s = Math.min((sw - m * 2) / w, (sh - m * 2) / h)
+      box.style.setProperty("--db-s", s.toFixed(4))
+      box.setAttribute("data-fit", "")
+    }
+    measure()
+    if (typeof ResizeObserver !== "function") return
+    const ro = new ResizeObserver(measure)
+    ro.observe(stage)
+    return () => ro.disconnect()
+  }, [fit])
+}
+
 function DashScene() {
+  const fit = useRef<HTMLDivElement>(null)
+  useDashFit(fit)
+  return (
+    <div className="cmh-sc cmh-dbs">
+      <div ref={fit} className="cmh-db-fit">
+        <DashBoard />
+      </div>
+    </div>
+  )
+}
+
+function DashBoard() {
   const root = useRef<HTMLDivElement>(null)
   useDashLive(root)
   const t = HOW_DASH_TEXT
@@ -858,17 +926,24 @@ const HOW_CSS = `
 .cmh-h{margin:0 0 clamp(32px,4.4vw,60px);padding-left:var(--home-head-inset,14px);font-size:clamp(34px,4.6vw,64px);font-weight:500;line-height:1.05;letter-spacing:-.045em;color:#18181b;text-wrap:balance}
 .cmh-h-mute{display:block;color:#8e8c96}
 @media(max-width:767px){.cmh-h{padding-left:var(--home-head-inset,0px)}}
-/* Landing round 12: the pictures sit straight on the section, no grey box round them. One column on a phone; from 768px the dashboard has the whole width and tips and the domain share the row under it. */
-.cmh-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:56px}
-@media(min-width:768px){
-  .cmh-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:clamp(20px,2.4vw,40px);row-gap:clamp(56px,5vw,80px)}
-  .cmh-wide{grid-column:1/-1}
+/* Landing round 13, the owner: round 11's structure again. One column on a phone. From 640px the wide card leads on a row of its own with the two narrow cards under it. From 1100px one row: narrow, wide, narrow, the wide card twice a narrow one. */
+.cmh-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:40px}
+@media(min-width:640px) and (max-width:1099px){
+  .cmh-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:clamp(16px,2vw,28px);row-gap:44px}
+  .cmh-wide{grid-column:1/-1;order:-1}
 }
+@media(min-width:1100px){.cmh-grid{grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);column-gap:clamp(16px,1.5vw,28px)}}
 .cmh-card{min-width:0}
-.cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;container-type:inline-size;font-family:inherit}
-.cmh-stage[data-picture=tips]{height:410px}
-.cmh-stage[data-picture=domain]{height:300px}
-@media(min-width:768px){.cmh-stage[data-picture=tips],.cmh-stage[data-picture=domain]{height:clamp(450px,36vw,600px)}}
+/* The stage: a quiet grey ground with round corners, the picture inside it, clipped to it. */
+.cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;height:440px;border-radius:17px;background:#f4f4f6;overflow:hidden;contain:paint;isolation:isolate;container-type:inline-size;font-family:inherit}
+.cmh-stage[data-ground=domain]{height:360px}
+@media(min-width:640px){.cmh-stage,.cmh-stage[data-ground=domain]{height:420px;border-radius:19px}}
+/* A laptop (round 10, a MacBook Air at about 1440x800): the heading and the row fit one screen. The stages stop at half the screen's height, never under 360px. */
+@media(min-width:1100px){.cmh-stage,.cmh-stage[data-ground=domain]{height:max(360px,min(clamp(400px,32vw,560px),50svh))}}
+/* One quiet near white a card, a breath of colour each (round 11's grounds). */
+.cmh-stage[data-ground=tips]{background:#f3f1f8}
+.cmh-stage[data-ground=business]{background:#f3f3f5}
+.cmh-stage[data-ground=domain]{background:#f5f2ee}
 /* The caption: a title and one short line under it. */
 .cmh-cap-t{margin:22px 0 0;font-size:18px;font-weight:500;line-height:1.3;letter-spacing:-.015em;color:#18181b}
 .cmh-cap{margin:6px 0 0;max-width:46ch;font-size:15px;line-height:1.5;color:#7c7a84;text-wrap:pretty}
@@ -883,8 +958,9 @@ const HOW_CSS = `
 [data-seen] .cmh-o{animation-play-state:running}
 .cmh-sc{position:absolute;inset:0;line-height:1.3;color:#18181b}
 
-/* ── 1. the dashboard: /app's home in its own sizes (dashboard-client, sidebar, metric-tab) ── */
-.cmh-db{position:relative;display:block;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.08),0 30px 60px -36px rgba(24,24,27,.35);font-size:14px;line-height:1.35;color:#1a1a2e;transform:translateZ(0)}
+/* ── 1. the dashboard: /app's home in its own sizes (dashboard-client, sidebar, metric-tab), laid out at --db-w and scaled whole into its stage (useDashFit) ── */
+.cmh-db-fit{position:absolute;left:50%;top:50%;width:var(--db-w,860px);container-type:inline-size;transform-origin:50% 50%;transform:translate3d(-50%,-50%,0) scale(var(--db-s,.6))}
+.cmh-db{position:relative;display:block;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.08),0 30px 60px -36px rgba(24,24,27,.35);font-size:14px;line-height:1.35;color:#1a1a2e}
 .cmh-db img{display:block}
 .cmh-db svg{display:block;flex:none}
 .cmh-db-top{display:flex;align-items:center;gap:16px;height:58px;padding:0 20px;background:#131316;color:#fff}
@@ -989,10 +1065,10 @@ const HOW_CSS = `
   .cmh-db-days span:nth-child(even){visibility:hidden}
 }
 
-/* ── 2. tips: his creator page, a $5 tip picked, paid and thanked for ── */
-.cmh-tp{font-size:clamp(11.5px,2.9cqw,18px)}
-.cmh-tp-page{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;overflow:hidden;border-radius:18px;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.08),0 30px 60px -36px rgba(24,24,27,.35);transform:translateZ(0)}
-.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:34%;background:#2a211b}
+/* ── 2. tips: his creator page, a $5 tip picked, paid and thanked for. Landing round 13: the page rises from the foot of its grey stage, a column as wide as a phone's screen at most, its top corners round. ── */
+.cmh-tp{font-size:clamp(10.5px,3.6cqw,15px)}
+.cmh-tp-page{position:absolute;top:max(18px,6%);bottom:0;left:max(16px,calc(50% - 12.5em));right:max(16px,calc(50% - 12.5em));display:flex;flex-direction:column;align-items:center;overflow:hidden;border-radius:1.15em 1.15em 0 0;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.06),0 1.6em 3em -2em rgba(24,24,27,.28);transform:translateZ(0)}
+.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:30%;background:#2a211b}
 .cmh-tp-cover img{display:block;width:100%;height:100%;object-fit:cover}
 .cmh-tp-who{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-2.6em;text-align:center}
 .cmh-tp-who img{display:block;width:5.2em;height:5.2em;border-radius:50%;object-fit:cover;background:#e7e5ee;box-shadow:0 0 0 .22em #fff}
@@ -1050,8 +1126,9 @@ const HOW_CSS = `
 @keyframes cmh-tp-thx{0%,${T(5.2)}{opacity:0;transform:translate3d(0,.35em,0)}${T(5.6)},${T(8.2)}{opacity:1;transform:translate3d(0,0,0)}${T(8.6)},100%{opacity:0;transform:translate3d(0,0,0)}}
 
 /* ── 3. your own domain: a store's front page, the address typed over it, a check ── */
-.cmh-dm{display:grid;place-items:center;font-size:clamp(11px,2.7cqw,19px)}
-.cmh-dm-shop{grid-area:1/1;display:flex;flex-direction:column;width:min(80%,28em);overflow:hidden;border-radius:.9em;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.07),0 2em 3.5em -2.2em rgba(24,24,27,.4);transform:translateZ(0)}
+/* Landing round 13: sized by its stage's width, so the address field (about 27em) fits a narrow card with room on both sides. */
+.cmh-dm{display:grid;place-items:center;font-size:clamp(9px,3.25cqw,17px)}
+.cmh-dm-shop{grid-area:1/1;display:flex;flex-direction:column;width:min(88%,27em);overflow:hidden;border-radius:.9em;background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.07),0 2em 3.5em -2.2em rgba(24,24,27,.4);transform:translateZ(0)}
 .cmh-dm-grid{display:grid;grid-template-columns:1fr 1fr}
 .cmh-dm-grid img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:#ece6df}
 .cmh-dm-foot{display:block;padding:1.15em 1em;background:#f4ede7;color:#4b3f37;text-align:center;font-family:ui-serif,Georgia,"Times New Roman",serif;font-size:.86em;letter-spacing:.005em}

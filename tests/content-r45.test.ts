@@ -101,8 +101,9 @@ console.log("\nFacts: each one names code that exists, each help link a real art
   check("every fact's source path exists", missing.length === 0, missing)
   const badHelp = ALL_FACTS.filter((f) => f.help && !helpLink(f.help)).map((f) => f.help)
   check("every fact's help link is an article", badHelp.length === 0, badHelp)
-  check("limitations are said, not hidden: merchant of record, license keys, affiliates, bookings, Stripe's fee", ["mor", "license-keys", "affiliates", "bookings", "stripe-fee"].every((id) => LIMITATIONS.some((f) => f.id === id)))
-  check("coaching and bookings are a No, not a feature", PRODUCT_TYPES.find((f) => f.id === "coaching")?.status === "no")
+  // Changed on purpose (landing round 13): bookings exist (lib/bookings, booking forms on a OnePage or website, paid at checkout), so they are no longer a limitation.
+  check("limitations are said, not hidden: merchant of record, license keys, affiliates, Stripe's fee", ["mor", "license-keys", "affiliates", "stripe-fee"].every((id) => LIMITATIONS.some((f) => f.id === id)))
+  check("coaching and bookings are a Yes: booking forms exist", PRODUCT_TYPES.find((f) => f.id === "coaching")?.status === "yes" && !LIMITATIONS.some((f) => f.id === "bookings"))
   check("memberships are partial: sold as paid community plans", PRODUCT_TYPES.find((f) => f.id === "memberships")?.status === "partial")
   check("the summary names the plans' prices and fees", storelibSummary().includes(PLANS.pro.price) && storelibSummary().includes(PLANS.free.feeLabel))
   check("  and leaves out what a switch has turned off", !storelibSummary({ communities: false, physical: false }).includes("communities") && !storelibSummary({ physical: false }).includes("physical"))

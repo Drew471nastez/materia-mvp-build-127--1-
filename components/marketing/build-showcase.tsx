@@ -4,6 +4,7 @@ import type { CSSProperties } from "react"
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { useShowcaseField } from "./showcase-field"
 import { StoryHeading } from "./story-heading"
+import type { SectionStyle } from "./home/lazy-section"
 /*
   TWELVE STORELIB PAGES, AS FOUR WIDE–ONEPAGE–WIDE GROUPS (wave 14 and
   landing round 2, merged). Each group is a store or website, a OnePage and
@@ -91,15 +92,26 @@ const portrait = (brand: string, label: string, alt: string, tone: string) => ({
     shop as the cover. Both PublicOnePage itself, photographed as before.
   - Every card has a hairline edge (the stylesheet).
 */
+/*
+  LANDING ROUND 13, THE OWNER:
+  - Satori Studio's OnePage says Satori Studio, not its director's first name
+    (the name in the picture set again in the page's own Montserrat, the
+    verified badge moved to follow it).
+  - Plainspace keeps its store and its heading under another cover photo, one
+    with no words in it: a grey lamp on a light wooden desk (Unsplash).
+  - In Ines Duarte's place, the owner's own picture of a New York shop's
+    store (curated goods: apparel, accessories, books), cut inside its frame
+    to the card's shape on a desktop (1440 x 990) and on a phone (4:3).
+*/
 /* Every caption is three words at most (the owner, waves 13 and 14). */
 const GROUPS = [
   [
     wide("tideline", "Drop new merch", "Tideline's Storelib store, a surf label: its wave logo in black, a Coastal Hoodie for $48, a Surf Tee for $28 and a Breakwater Cap for $22 on light grey"),
-    portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: Stefan's portrait and bio with links to his portfolio, WhatsApp and LinkedIn", "#1a1a1d"),
+    portrait("satori", "Your creative portfolio", "Satori Studio's OnePage: a portrait of its creative director and photographer in Bucharest, with links to the studio's portfolio, WhatsApp and LinkedIn", "#1a1a1d"),
     wide("app", "The Storelib app", "The Storelib app on an iPhone held over a knee in jeans: Good afternoon, Andrew, the week's visitors, revenue and orders, and one order waiting to ship"),
   ],
   [
-    wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store under a cover photo of a calm desk with a laptop and a plant: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates"),
+    wide("plainspace", "Sell Notion templates", "Plainspace's Storelib store under a cover photo of a calm desk, a grey lamp on light wood against a white wall: Mina Cho's Life OS, Content Calendar Pro and Freelance Client Hub Notion templates"),
     portrait("dami", "Fill your bookings", "Dami Okoro's OnePage on the Night theme, a barber in Peckham, his shop as the cover: book a cut and beard for £38 or a skin fade for £28", "#0d1117"),
     wide("strength", "Run a community", "The Strength Room, Rina Castillo's paid strength coaching community on Storelib: its barbell emblem, the community card, the next live form check and the pinned post with the new program"),
   ],
@@ -111,7 +123,7 @@ const GROUPS = [
   [
     wide("luca", "Sell subscriptions", "Luca Brandt's website, a colourist in Berlin: a graded desert road, Grade Club for $9 a month, the Cine Tones LUT Pack and a guide to grading night exteriors"),
     portrait("nora", "Sell music lessons", "Nora Quinn's OnePage on the Paper theme, a guitar and piano teacher in Galway: a First chords course for €49, a piano lesson on Zoom and a chord book", "#e4dfd4"),
-    wide("ines", "Sell travel guides", "Ines Duarte's website, a travel creator in Lisbon: a yellow tram on a sunny street, her Lisbon City Guide for $19, Portugal Presets, a coast road plan and a Saturday photo walk in Alfama"),
+    wide("nyshop", "Sell curated goods", "The New York Shop's Storelib store, Curated Goods for New Yorkers: apparel, accessories and books, with a skyline mug and two books on New York under the heading, then a navy jacket, a skyline sweatshirt, a beanie and a steel bottle"),
   ],
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
@@ -130,7 +142,7 @@ export function BuildShowcase() {
       data-showcase-pristine=""
       suppressHydrationWarning
     >
-      <style>{CSS}</style>
+      <style href="r13-build-showcase" precedence="w12-section">{CSS}</style>
       <p id="build-showcase-help" className="build-showcase-help">
         Drag or swipe to browse. Use arrow keys to move and Space to pause or
         resume automatic movement.
@@ -223,6 +235,15 @@ export function BuildShowcase() {
   turns down, with nothing down the sides. That is an inset shadow 1px down:
   it follows the radius by itself and takes no width. The section overlaps
   the hero by its radius, so what shows round each corner is the hero.
+
+  LANDING ROUND 13, THE OWNER: the showcase leaves the hero for further down
+  the page, between what you could earn and pricing, on a dark ground of its
+  own (app/(storelib)/(marketing)/page.tsx). Its corners are now the page's
+  sheets' (scroll-reveal-panel.tsx): the dark block carries the rounded top
+  over the white above, and the white sheet below laps over its square foot.
+  So the section itself is square, pulls up over nothing and draws no edge
+  of its own (the sheets' joins have no hairline), and with no radius its
+  clip costs the compositor no mask while the rail moves.
 */
 const CSS = `
 /* Landing round 9: the still dots, one every 28px on the dark ground, 5% white (the same grid showcase-field.ts lights under a mouse). */
@@ -230,7 +251,7 @@ const CSS = `
 .build-showcase-field {position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
 .build-showcase-field canvas {position:absolute;left:0;top:0;width:380px;height:380px}
 @media(hover:none),(pointer:coarse),(prefers-reduced-motion:reduce){.build-showcase-field{display:none}}
-.build-showcase {--showcase-radius:clamp(24px,2.78vw,48px);display:flow-root;position:relative;z-index:2;overflow:hidden;overflow:clip;margin:calc(var(--showcase-radius)*-1) 0 40px;color:#fafafa;background:#050506;border-radius:var(--showcase-radius);box-shadow:inset 0 1px 0 rgba(255,255,255,.065),0 -8px 32px rgba(0,0,0,.08)}
+.build-showcase {display:flow-root;position:relative;overflow:hidden;overflow:clip;margin:0;color:#fafafa;background:#050506}
 /* Landing round 6: the cards end inside the section, their caption line under them and room below it (round 5 ran them past the bottom edge, which cut the captions). Round 7, the owner: "the bottom padding is too short": under the caption line now as much room as between the heading and the cards and a little more for the rounded corners (78px at 1440, 96 from 1780). */
 .build-showcase-card {position:relative;z-index:1;width:100%;max-width:var(--showcase-max,2020px);margin:0 auto;padding:clamp(72px,7vw,112px) 0 clamp(52px,5.4vw,96px)}
 .build-showcase-top {margin:0 calc(var(--showcase-gutter,clamp(20px,5.15vw,84px)) + var(--landing-card-inset,14px)) clamp(38px,4.8vw,65px)}
@@ -308,3 +329,6 @@ const CSS = `
 @media(max-width:767px){.build-showcase{--showcase-card:min(78vw,440px)}.build-showcase-card{padding:64px 0 clamp(44px,12vw,64px)}.build-showcase-top{margin-inline:var(--showcase-gutter)}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0}.build-showcase-track{--showcase-gap:10px;gap:var(--showcase-gap);align-items:flex-start;padding-inline:var(--showcase-gutter);scroll-padding-inline:var(--showcase-gutter)}.build-showcase-group{display:contents}.build-showcase-slide{flex:0 0 var(--showcase-card);width:var(--showcase-card);scroll-snap-align:start;scroll-snap-stop:normal}.build-showcase-pic{aspect-ratio:4/3;border-radius:8px}.build-showcase-pic img{object-position:50% 0}.build-showcase-slide[data-format="portrait"]{flex-basis:calc(var(--showcase-card)*.3835);width:calc(var(--showcase-card)*.3835)}.build-showcase-slide[data-format="portrait"] .build-showcase-pic{aspect-ratio:540/1056}.build-showcase-slide figcaption{border-radius:0 0 8px 8px;padding:0 14px 12px;font-size:14px;line-height:18px}.build-showcase-slide[data-format="portrait"] figcaption{height:52%;padding:0 9px 10px;font-size:12px;line-height:15px;letter-spacing:0}.build-showcase-slide[data-format="portrait"] figcaption span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
 @media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready] .build-showcase-pic img{opacity:1;transform:none;transition:none}.build-showcase-slide figcaption,.build-showcase-slide figcaption span{transform:none;transition:none}}
 `
+
+/** This section's stylesheet: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). Landing round 13: the showcase is mounted as it comes near, like the sections around it. */
+export const SHOWCASE_STYLES: readonly SectionStyle[] = [{ href: "r13-build-showcase", precedence: "w12-section", css: CSS }]
