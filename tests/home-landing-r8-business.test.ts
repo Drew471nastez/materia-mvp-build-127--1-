@@ -39,7 +39,8 @@ console.log("\nBack on the page, right after the ideas section")
 console.log("\nA clearer, simpler heading")
 {
   // Changed on purpose (landing round 11): the owner did not like "What will you sell?"; the heading is "One store, every kind of product" (tests/home-landing-r11-business.test.ts).
-  check("the heading is short, not the old line", (BUSINESS_HEADING as string) === "One store, every kind of product" && !read(SECTION).includes("One store for everything you sell."))
+  // Changed on purpose (landing round 13): "Five ways to get paid" (tests/home-landing-r13-business.test.ts).
+  check("the heading is short, not the old line", (BUSINESS_HEADING as string) === "Five ways to get paid" && !read(SECTION).includes("One store for everything you sell."))
   // Changed on purpose (landing round 10): the line under the heading is gone ("it doesn't make sense").
   const words = `${BUSINESS_HEADING} ${BUSINESS_SLIDES.map((s) => s.alt).join(" ")}`
   check("no banned words, no em dash, no 'fans' or 'enthusiasts'", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|\bfans\b|enthusiast/i.test(words) && !/—/.test(words + read(MOCKS)))
@@ -74,7 +75,8 @@ console.log("\nMoving scenes, transform and opacity only")
   check("every keyframe animates only transform and opacity", frames.length >= 15 && [...props].every((p) => p === "transform" || p === "opacity"), [...props])
   // Changed on purpose (landing round 11): the physical scene's button swaps on a loop as long as one product's turn (bt-swap-b), since four products go in the cart one after another.
   // Changed on purpose (landing round 12): digital downloads in its button (be-fill), physical adds the oil to the cart (bz-in on its button).
-  check("each scene has its own moment", [/\.be-fill\{animation:be-fill/, /\.bs-oil \.bs-swap \.b\{animation:bz-in/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
+  // Changed on purpose (landing round 13): physical is the line of store designs walking (bt-walk).
+  check("each scene has its own moment", [/\.be-fill\{animation:be-fill/, /\.bt-card\{animation:bt-walk /, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
   check("the moments run only on the chosen scene (and the one fading out)", /className=\{on \? "biz-slide bz-on" : "biz-slide"\}/.test(read(SECTION)) && /const on = state === "active" \|\| state === "leaving"/.test(read(SECTION)))
   check("nothing in the scenes is a transition (every change is one of those keyframes)", !/transition:/.test(BUSINESS_MOCK_CSS))
 }
@@ -84,10 +86,12 @@ console.log("\nThe five examples")
   /* Changed on purpose (landing round 9): digital is five covers in a row, physical is the shared black tee. */
   const brain = renderToStaticMarkup(createElement(DigitalScene))
   // Changed on purpose (landing round 12): the owner disliked the row of covers; digital is one e-book, Slow Mornings, on its page.
-  check("digital: one real-looking e-book on its page, no Second Brain tablet", brain.includes("Slow Mornings") && brain.includes("bz-ebook.webp") && !/Second Brain|bs-tablet|bz-brain/.test(code(MOCKS)))
+  // Changed on purpose (landing round 13): the owner named the mobility course and Ancestral Kitchen for the digital card.
+  check("digital: the mobility course and Ancestral Kitchen, no Second Brain tablet", brain.includes("Ancestral Kitchen") && brain.includes("mobility-course.webp") && !/Second Brain|bs-tablet|bz-brain/.test(code(MOCKS)))
   const phones = renderToStaticMarkup(createElement(TeeScene))
   // Changed on purpose (landing round 12): the owner disliked the tee, cap, tote and print; physical is Night Face Oil on a warm ground.
-  check("physical: one photographed product on a calm ground, no headphones on yellow", phones.includes("Night Face Oil") && phones.includes("bz-oil.webp") && /\.bs-oil\{background:#ebe5dd\}/.test(BUSINESS_MOCK_CSS) && !/headphones|#f5c518|hp-tee|Tour Tee/i.test(code(MOCKS)))
+  // Changed on purpose (landing round 13): physical is a line of store designs on a quiet ground.
+  check("physical: store designs on a calm ground, no headphones on yellow", phones.includes("bt-sora-560.webp") && /\.bs-store\{background:#ecebe7\}/.test(BUSINESS_MOCK_CSS) && !/headphones|#f5c518|hp-tee|Tour Tee/i.test(code(MOCKS)))
   const course = renderToStaticMarkup(createElement(CourseScene))
   check("course: kept as it was (Tomás Reyes, the DJ photo, $79, the four lessons)", course.includes("Mixing in key, for new DJs") && course.includes("bz-dj.webp") && course.includes("$79") && ["Counting bars and phrases", "Beatmatching by ear", "Mixing in key", "Your first 30 minute set"].every((l) => course.includes(l)))
   const club = renderToStaticMarkup(createElement(ClubScene))
@@ -95,9 +99,11 @@ console.log("\nThe five examples")
   const coach = renderToStaticMarkup(createElement(CoachScene))
   check("booking: a fitness creator with a real photograph, a day and time picked and booked", coach.includes("Talia Moreno") && /Strength coach/.test(coach) && coach.includes("bz-coach.webp") && coach.includes("Booked for Thu 19, 17:30"))
   const banned = /Nadia Brooks|The Loop|LaSalle at dusk|Nails by Bea|Nordline Coffee|Charla Circle|Static Bloom|Wildcamp|Weeknight Pasta|sourdough|Golden Hour|Drawing Basics|Saturday Run Club|Dust & Tape|Elena Ruiz|Second Serve|Ines Duarte|Priya Raman/i
-  check("none of the banned or retired sample names", !banned.test(read(MOCKS) + read(SECTION)))
+  // Changed on purpose (landing round 13): the comments name the retired examples (Slow Mornings, Night Face Oil) to say why they went; the code does not use them.
+  check("none of the banned or retired sample names", !banned.test(code(MOCKS) + code(SECTION)))
   // Changed on purpose (landing round 12): the presets and the tee are gone; the oil and the e-book's inside page came.
-  const pics = ["bz-ebook", "bz-eggs", "bz-oil", "bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
+  // Changed on purpose (landing round 13): the e-book and oil photographs are gone with their scenes.
+  const pics = ["bz-ai-club", "bz-coach", "bz-dj"].map((n) => `public/home/showcase/${n}.webp`)
   check("every photograph is a small webp (under 120 KB)", pics.every((p) => existsSync(p) && statSync(p).size < 120 * 1024), pics.filter((p) => !existsSync(p) || statSync(p).size >= 120 * 1024))
   const every = brain + phones + course + club + coach
   /* Changed on purpose (landing round 9): the covers in the digital row (.bc-still) load with the scene; clipped by the row's rail, a lazy one was only asked for as it slid in. */
