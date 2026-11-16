@@ -92,6 +92,13 @@ export const LazyEarningsCalculator = lazySection(() => import("./earnings-calcu
   styles: () => import("./earnings-calculator").then((m) => m.EARNINGS_STYLES),
 })
 
+/* Landing round 13, the owner: the showcase (build-showcase.tsx) leaves the hero for a place before pricing, so it is mounted as it comes near like the rest. Measured in dev: 483px at 390, 724 at 1440, 909 at 1920 (a 4:3 card a phone wide below 768px, the wide, OnePage, wide group from 768). Not yet in LAZY_SECTION_HEIGHTS_CSS. */
+export const LazyBuildShowcase = lazySection(() => import("../build-showcase").then((m) => m.BuildShowcase), {
+  name: "showcase",
+  minHeight: "var(--lz, max(calc(254px + 58.6vw - clamp(0px, (100vw - 767px) * 100000, 100000px)), min(171px + 38.4vw, 947px)))",
+  styles: () => import("../build-showcase").then((m) => m.SHOWCASE_STYLES),
+})
+
 export const LazyAppAnywhere = lazySection(() => import("./app-anywhere").then((m) => m.AppAnywhere), {
   name: "app-anywhere",
   /* Landing round (the shorter line): one column below 1024px (826px at 390, 1047 at 768), two from 1024 (644 at 1024, 779 at 1440, 792 at 1920). */

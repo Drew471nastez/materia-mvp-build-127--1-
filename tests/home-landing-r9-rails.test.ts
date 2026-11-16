@@ -131,7 +131,8 @@ check("a store, website or community is 4:3", /\.build-showcase-pic\{aspect-rati
 check("the strength coach is gone, file too", !/hale|get strong|training program/i.test(SHOWCASE_EXAMPLES.map((e) => `${e.src} ${e.label} ${e.alt}`).join(" ")) && !existsSync("public/home/showcase/a-hale.webp"))
 /* Changed on purpose (landing round 11): the owner did not like Studio Marlow; a travel creator's website in its place. */
 // Changed on purpose (landing round 12): Ines Duarte moved to the last card, where Tideline was.
-check("the interior stylist is gone; Ines Duarte, a travel creator's website, in its place", SHOWCASE_EXAMPLES[11].src === "/home/showcase/a-ines.webp" && SHOWCASE_EXAMPLES[11].label === "Sell travel guides" && !/marlow/i.test(SHOWCASE_EXAMPLES.map((e) => e.src + e.alt).join(" ")))
+// Changed on purpose (landing round 13): the owner's New York shop picture in Ines Duarte's place.
+check("the interior stylist is gone; the New York shop's store in its place", SHOWCASE_EXAMPLES[11].src === "/home/showcase/a-nyshop.webp" && SHOWCASE_EXAMPLES[11].label === "Sell curated goods" && !/marlow/i.test(SHOWCASE_EXAMPLES.map((e) => e.src + e.alt).join(" ")))
 check("Luca Brandt is a website now, not a OnePage on a wide screen, with the shared LUT pack", SHOWCASE_EXAMPLES.some((e) => e.src === "/home/showcase/a-luca.webp" && e.format === "wide" && /website/.test(e.alt) && !/OnePage/.test(e.alt) && /Cine Tones LUT Pack/.test(e.alt) && /\$9 a month/.test(e.alt)))
 check("captions three words at most, twelve different pictures", SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3) && new Set(SHOWCASE_EXAMPLES.map((e) => e.src)).size === 12)
 {

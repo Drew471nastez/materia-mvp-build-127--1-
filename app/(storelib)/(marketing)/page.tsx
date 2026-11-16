@@ -1,7 +1,6 @@
 import dynamic from "next/dynamic"
 import { LandingStory } from "@/components/marketing/landing-story"
 import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/scroll-reveal-panel"
-import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
@@ -19,6 +18,7 @@ import {
   LazyAiToolsSection,
   LazyEarningsCalculator,
   LazyAppAnywhere,
+  LazyBuildShowcase,
   LAZY_SECTION_HEIGHTS_CSS,
 } from "@/components/marketing/home/lazy-sections"
 import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
@@ -36,8 +36,9 @@ export const metadata: Metadata = {
 }
 
 /*
-  THE PAGE, TOP TO BOTTOM (wave 12). The hero and the showcase under it are
-  the first screen and load with the page. Everything else is below the fold:
+  THE PAGE, TOP TO BOTTOM (wave 12). The hero is the first screen and loads
+  with the page (landing round 13: the showcase that sat under it moved down,
+  before pricing). Everything else is below the fold:
 
     sections the server still draws (their words are read by search engines:
     the possibilities, pricing, the questions, the closing call) are
@@ -52,12 +53,14 @@ export const metadata: Metadata = {
     8: at every join the lower block carries the rounded corners and the
     upper one is square; nothing is held):
 
-      dark     the hero and the showcase, sitting on
+      dark     the hero, sitting on
       white    Make the work, ideas, what you can sell (landing round 8), creators, how it works
       dark     the checkout scene (it draws its own black)
       white    your audience, your apps, your AI tools, the app (landing round 9)
       purple   what is working (round 8: it rises over the white as a sheet)
-      white    the map (landing round 9), the possibilities, what you could earn, pricing, the questions
+      white    the map (landing round 9), the possibilities, what you could earn
+      dark     the showcase (landing round 13): pages built on Storelib
+      white    pricing, the questions
       dark     the closing call, running on into the black footer
 
     the motion sections from the other wave-12 tracks are mounted near the
@@ -80,13 +83,12 @@ export default function StorelibLanding() {
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
       {/* Landing round 12, the owner: the wheel glide was "too smooth and delayed". The page scrolls natively, in real time (tests/home-smooth-wheel-r5.test.ts). */}
       <LandingStory>
-        {/* DARK: 1 HERO and 2 BUILD SHOWCASE (its content: track showcase). The page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). */}
+        {/* DARK: 1 HERO. The page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). Landing round 13, the owner: the showcase is no longer right under the hero; it is further down, before pricing. */}
         <ScrollRevealBackdrop>
           <Hero />
-          <BuildShowcase />
         </ScrollRevealBackdrop>
 
-        {/* WHITE SHEET. Landing round 8: its rounded top lies over the showcase's square foot (the lower block carries the corners). */}
+        {/* WHITE SHEET. Landing round 8: its rounded top lies over the dark block's square foot (the lower block carries the corners). */}
         <ScrollRevealPanel tone="white">
           {/* 3 EverythingInOnePlace */}
           <LazyEverythingInOnePlace />
@@ -131,7 +133,7 @@ export default function StorelibLanding() {
           <LazyAnalyticsShowcase />
         </ScrollRevealPanel>
 
-        {/* WHITE SHEET: the map, what you can sell, earnings, pricing, the questions */}
+        {/* WHITE SHEET: the map, what you can sell, earnings */}
         <ScrollRevealPanel tone="white">
           {/* 14 SellEverywhere world map. Landing round 9, the owner: it sits on white, right after the purple. */}
           <LazySellEverywhereMap />
@@ -143,6 +145,15 @@ export default function StorelibLanding() {
 
           {/* 15 EarningsCalculator */}
           <LazyEarningsCalculator />
+        </ScrollRevealPanel>
+
+        {/* DARK: 2 BUILD SHOWCASE. Landing round 13, the owner: moved from under the hero. After what you could earn and before the price, the pages people build and sell from on Storelib, on a dark ground of its own between two white sheets (its rounded top over the earnings, the pricing sheet's rounded top over its foot). Mounted as it comes near (lazy-sections.tsx). */}
+        <ScrollRevealBackdrop>
+          <LazyBuildShowcase />
+        </ScrollRevealBackdrop>
+
+        {/* WHITE SHEET: pricing, the questions */}
+        <ScrollRevealPanel tone="white">
 
           {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
           <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">
