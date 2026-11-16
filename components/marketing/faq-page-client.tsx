@@ -66,12 +66,13 @@ const CSS = `
 @keyframes fq-in{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:none}}
 
 /* The sheet: white, its rounded top over the dark. */
-.fq-sheet{position:relative;z-index:1;margin-top:calc(var(--fq-r) * -1);border-radius:var(--fq-r) var(--fq-r) 0 0;background:#fff;padding:clamp(8px,2vw,24px) var(--fq-edge) clamp(72px,8vw,128px)}
+/* Landing round 14 (the owner's r14in/13.png: a dark sliver past the sheet's rounded corner, beside the first chip). The chip row runs edge to edge and starts inside the corner's curve, and its frosted backdrop sampled the dark ground outside the curve, so the dark showed through on the row's left end. The sheet now clips what it holds to its own rounded shape (overflow:clip, which makes no scroll box, so the row still sticks), and the row is plain white with no backdrop filter: nothing behind it is sampled, and a phone composites one layer less while it is stuck. */
+.fq-sheet{position:relative;z-index:1;overflow:clip;margin-top:calc(var(--fq-r) * -1);border-radius:var(--fq-r) var(--fq-r) 0 0;background:#fff;padding:clamp(8px,2vw,24px) var(--fq-edge) clamp(72px,8vw,128px)}
 .fq-grid{max-width:1180px;margin:0 auto}
 @media (min-width:1024px){.fq-grid{display:grid;grid-template-columns:220px minmax(0,1fr);gap:clamp(48px,6vw,112px);padding-top:clamp(40px,4vw,64px)}}
 
 /* Topics: chips under the header on a phone and a tablet, a list beside the questions from 1024px. */
-.fq-nav{position:sticky;top:var(--fq-top);z-index:5;margin:0 calc(var(--fq-edge) * -1);background:rgba(255,255,255,.94);-webkit-backdrop-filter:saturate(160%) blur(12px);backdrop-filter:saturate(160%) blur(12px)}
+.fq-nav{position:sticky;top:var(--fq-top);z-index:5;margin:0 calc(var(--fq-edge) * -1);background:#fff}
 .fq-nav::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--fq-line);opacity:0;transition:opacity .2s ease}
 .fq-nav[data-stuck]::after{opacity:1}
 .fq-nav ol{display:flex;gap:8px;margin:0;padding:12px var(--fq-edge);height:var(--fq-chips);box-sizing:border-box;list-style:none;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;scroll-padding-inline:var(--fq-edge)}
@@ -86,7 +87,7 @@ const CSS = `
 .fq-nav-label{display:none}
 .fq-nav-bar{display:none}
 @media (min-width:1024px){
-  .fq-nav{top:calc(var(--fq-top) + 40px);align-self:start;margin:0;background:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .fq-nav{top:calc(var(--fq-top) + 40px);align-self:start;margin:0;background:none}
   .fq-nav::after{display:none}
   .fq-nav-label{display:block;margin:0 0 14px;color:var(--fq-muted);font-size:13px;font-weight:500;letter-spacing:.01em}
   .fq-nav-list{position:relative;padding-left:16px}
@@ -451,10 +452,10 @@ export function FaqPageClient({ topics, supportEmail, helpUrl }: { topics: FaqTo
         <DotField fade="edges" scatter />
         <div className="fq-top-in">
           <h1 id="fq-title" className="fq-title">
-            What sellers ask{"\u00a0"}us, <span>answered</span>
+            Questions about <span>Storelib</span>
           </h1>
           <p className="fq-lede">
-            {total} answers on plans, fees, payouts, your website and Explore. Search them, or pick a topic.
+            {total} answers on selling, fees, payouts, plans, your website and your account. Search them, or pick a topic.
           </p>
           <form className="fq-search" role="search" onSubmit={(e) => e.preventDefault()}>
             <label htmlFor="fq-q" className="fq-sr">Search the questions</label>

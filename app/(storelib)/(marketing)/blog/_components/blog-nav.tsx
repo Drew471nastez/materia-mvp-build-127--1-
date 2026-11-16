@@ -168,9 +168,9 @@ export function BlogNav({ categories, description, children }: { categories: Blo
   return (
     <div ref={root} data-blog-lists="">
       {/* Re-keyed by category so its name and line fade in with the list (opacity only) after a press. */}
-      <header key={slug ?? ""} className={`mx-auto w-full max-w-[1240px] px-4 pt-10 sm:px-6 sm:pt-14 lg:px-8 ${swapFrom !== null && swapFrom !== pathname ? "blog-title-swap" : ""}`} data-blog-list-header="">
-        <h1 className="text-[40px] font-semibold leading-[1.05] tracking-[-0.035em] text-[#1a1a2e] sm:text-[48px]">{current ? current.name : "Blog"}</h1>
-        <p className="mt-3 min-h-[4.8em] max-w-[64ch] text-[17px] leading-[1.6] text-[#4b5563] sm:min-h-[3.2em] sm:text-[18px]">{current ? current.description : description}</p>
+      <header key={slug ?? ""} className={`home-wrap pt-10 sm:pt-16 lg:pt-20 ${swapFrom !== null && swapFrom !== pathname ? "blog-title-swap" : ""}`} data-blog-list-header="">
+        <h1 className="text-[clamp(44px,5vw,76px)] font-medium leading-[1.04] tracking-[-0.05em] text-[#1a1a2e]">{current ? current.name : "Blog"}</h1>
+        <p className="mt-4 min-h-[4.8em] max-w-[62ch] text-[17px] leading-[1.6] text-[#6b6b76] sm:min-h-[3.2em] sm:text-[clamp(17px,1.35vw,19px)]">{current ? current.description : description}</p>
       </header>
 
       <div ref={sentinel} aria-hidden className="mt-6 h-px sm:mt-7" />
@@ -180,8 +180,8 @@ export function BlogNav({ categories, description, children }: { categories: Blo
         data-stuck={stuck ? "true" : undefined}
         className="sticky top-[var(--blog-top,65px)] z-30 border-b border-transparent bg-white transition-[border-color] duration-150 data-[stuck=true]:border-[#eceef1]"
       >
-        <div className="mx-auto w-full max-w-[1240px] sm:px-6 lg:px-8">
-          <ul ref={row} className="relative flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden data-[blog-fill-ready]:[&_[aria-current=page]>span]:border-transparent data-[blog-fill-ready]:[&_[aria-current=page]>span]:bg-transparent" data-blog-fill-ready={fill ? "true" : undefined}>
+        <div className="mx-auto w-full max-w-[var(--home-max)] min-[640px]:px-[var(--home-edge)]">
+          <ul ref={row} className="relative flex gap-2 overflow-x-auto px-[var(--home-edge)] py-1 min-[640px]:px-0 [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden data-[blog-fill-ready]:[&_[aria-current=page]>span]:border-transparent data-[blog-fill-ready]:[&_[aria-current=page]>span]:bg-transparent" data-blog-fill-ready={fill ? "true" : undefined}>
             {fill ? <Fill {...fill} /> : null}
             <li className="shrink-0">
               <Pill href="/blog" on={active === null} onClick={(e) => press(e, null)}>
@@ -242,7 +242,7 @@ function Pill({ href, on, onClick, children }: { href: string; on: boolean; onCl
         className={`relative inline-flex h-9 items-center whitespace-nowrap rounded-full border px-4 text-[14px] font-medium transition-[color,border-color] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-focus-visible:ring-[3px] group-focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none ${
           on
             ? "border-[#1a1a2e] bg-[#1a1a2e] text-white"
-            : "border-[#e5e7eb] bg-transparent text-[#374151] group-hover:border-[#d1d5db]"
+            : "border-[#e4e4e9] bg-transparent text-[#3f3f46] group-hover:border-[#c9c9d1] group-hover:text-[#1a1a2e]"
         }`}
       >
         {children}

@@ -143,7 +143,7 @@ function Byline({ data, minutes }: { data: ArticleViewData; minutes: number }) {
   const who = whoWrote(data)
   const updated = isMeaningfullyUpdated(data.published_at, data.updated_at) ? data.updated_at : null
   return (
-    <div className="mt-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y border-[#eceef1] py-4 sm:mt-10" data-blog-byline="">
+    <div className="mt-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y border-[#ececf0] py-4 sm:mt-10" data-blog-byline="">
       <div className="flex min-w-0 items-center gap-3.5">
         <Avatar who={who} size={44} />
         <div className="min-w-0 leading-[1.45]">
@@ -192,7 +192,7 @@ function RailCta({ variant }: { variant: ArticleViewData["cta"] }) {
       <p className="mt-0.5 text-[14px] leading-[1.45] text-[#6b7280]">{copy.body}</p>
       <a
         href={blogSignupHref(variant)}
-        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1a1a2e] px-3.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#2b2b42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]"
+        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-full bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#2b2b42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]"
       >
         Start free
         <span aria-hidden>&rarr;</span>
@@ -233,7 +233,7 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
   return (
     <div className="bg-white">
       <ReadingProgress />
-      <div className="mx-auto w-full max-w-[1440px] px-4 pb-24 pt-8 sm:px-6 sm:pt-12 lg:px-8">
+      <div className="home-wrap pb-24 pt-8 sm:pb-32 sm:pt-12">
         <div className={GRID}>
           {/* ── Header, over the reading column ─────────────────────── */}
           <header className={`${COLUMN} min-[1200px]:row-start-1`}>
@@ -265,20 +265,20 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
               </ol>
             </nav>
             {data.category ? (
-              <p className="mt-8 text-[15px] font-medium text-[#6d28d9] sm:mt-10">
+              <p className="mt-8 text-[15px] font-medium text-[#7c3aed] sm:mt-10">
                 <Link href={categoryHref} className="hover:underline hover:underline-offset-[3px]">
                   {data.category}
                 </Link>
               </p>
             ) : null}
-            <h1 className={`${data.category ? "mt-3" : "mt-8 sm:mt-10"} text-balance text-[34px] font-semibold leading-[1.1] tracking-[-0.03em] text-[#1a1a2e] sm:text-[44px] lg:text-[48px]`}>{data.title}</h1>
-            {data.excerpt ? <p className="mt-5 text-pretty text-[19px] leading-[1.6] text-[#4b5563] sm:text-[20px]">{data.excerpt}</p> : null}
+            <h1 className={`${data.category ? "mt-3" : "mt-8 sm:mt-10"} text-balance text-[36px] font-medium leading-[1.06] tracking-[-0.045em] text-[#1a1a2e] sm:text-[48px] lg:text-[56px]`}>{data.title}</h1>
+            {data.excerpt ? <p className="mt-6 text-pretty text-[19px] leading-[1.6] text-[#55535c] sm:text-[20px]">{data.excerpt}</p> : null}
             <Byline data={data} minutes={minutes} />
           </header>
 
           {/* ── The cover, the reading column's width ───────────────── */}
           {cover ? (
-            <div className={`${COLUMN} relative mt-8 aspect-[40/21] overflow-hidden rounded-2xl bg-[#eef0f3] sm:mt-10 min-[1200px]:row-start-2`} data-blog-cover="">
+            <div className={`${COLUMN} relative mt-8 aspect-[40/21] overflow-hidden rounded-[clamp(16px,2vw,24px)] bg-[#f5f5f6] sm:mt-10 min-[1200px]:row-start-2`} data-blog-cover="">
               <BlogImage src={cover} alt={data.coverAlt || data.title} fill priority sizes="(min-width: 1200px) 760px, (min-width: 768px) 720px, calc(100vw - 32px)" className="object-cover" />
             </div>
           ) : null}
@@ -307,11 +307,11 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
               <ArticleBlocks blocks={data.blocks} postTitle={data.title} snippets={data.snippets} insertAfter={{ index: ctaSlot(data.blocks), node: <CtaBanner variant={data.cta} /> }} />
             </article>
 
-            <div className="mt-14 flex flex-wrap items-center gap-4 border-t border-[#eceef1] pt-5">
+            <div className="mt-14 flex flex-wrap items-center gap-4 border-t border-[#ececf0] pt-5">
               <ShareButtons url={data.url} title={data.title} label="Share this article" />
             </div>
 
-            <section id="author" aria-labelledby="author-name" className="mt-8 flex scroll-mt-28 gap-4 rounded-2xl border border-[#eceef1] bg-[#fafafb] p-5 sm:gap-5 sm:p-7" data-blog-author="">
+            <section id="author" aria-labelledby="author-name" className="mt-8 flex scroll-mt-28 gap-4 rounded-[20px] bg-[#f5f5f6] p-5 sm:gap-5 sm:p-7" data-blog-author="">
               <Avatar who={who} size={56} />
               <div className="min-w-0">
                 <p className="text-[14px] text-[#6b7280]">Written by</p>
@@ -363,18 +363,18 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
 
         {/* ── After the article ──────────────────────────────────── */}
         {data.related.length > 0 ? (
-          <section aria-labelledby="related-title" className="mx-auto mt-20 max-w-[1200px] border-t border-[#eceef1] pt-12 sm:mt-24" data-blog-related="">
+          <section aria-labelledby="related-title" className="mx-auto mt-20 max-w-[1400px] border-t border-[#ececf0] pt-12 sm:mt-28 sm:pt-16" data-blog-related="">
             <div className="flex items-baseline justify-between gap-4">
-              <h2 id="related-title" className="text-[24px] font-semibold tracking-[-0.02em] text-[#1a1a2e] sm:text-[28px]">
+              <h2 id="related-title" className="text-[clamp(26px,2.5vw,36px)] font-medium leading-[1.15] tracking-[-0.035em] text-[#1a1a2e]">
                 Related articles
               </h2>
               <Link href="/blog" className="flex min-h-[44px] shrink-0 items-center text-[15px] font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-[3px] hover:decoration-[#1a1a2e]">
                 All articles
               </Link>
             </div>
-            <div className="mt-6 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-8 grid gap-x-[clamp(20px,2.2vw,40px)] gap-y-12 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3">
               {data.related.map((p) => (
-                <PostCard key={p.slug} post={p} headingLevel="h3" sizes="(min-width: 1024px) 376px, (min-width: 640px) 50vw, 100vw" />
+                <PostCard key={p.slug} post={p} headingLevel="h3" sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" />
               ))}
             </div>
           </section>
@@ -390,9 +390,9 @@ function StepLink({ post, dir }: { post: BlogPost; dir: "previous" | "next" }) {
     <Link
       href={`/blog/${post.slug}`}
       rel={dir === "next" ? "next" : "prev"}
-      className={`group flex min-h-[92px] flex-col justify-center rounded-2xl border border-[#e5e7eb] px-5 py-4 transition-colors hover:border-[#c9ccd2] ${dir === "next" ? "sm:items-end sm:text-right" : ""}`}
+      className={`group flex min-h-[92px] flex-col justify-center rounded-[20px] bg-[#f5f5f6] px-5 py-4 transition-colors hover:bg-[#efeff1] ${dir === "next" ? "sm:items-end sm:text-right" : ""}`}
     >
-      <span className="text-[14px] text-[#6b7280]">{dir === "next" ? "Newer article" : "Older article"}</span>
+      <span className="text-[14px] text-[#6b6b76]">{dir === "next" ? "Newer article" : "Older article"}</span>
       <span className="mt-1 text-[16px] font-medium leading-snug text-[#1a1a2e] group-hover:underline group-hover:decoration-[#1a1a2e]/30 group-hover:underline-offset-[3px]">
         {dir === "previous" ? <span aria-hidden>&larr; </span> : null}
         {post.title}
