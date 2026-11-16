@@ -1444,7 +1444,7 @@ const SUITES = [
   "tests/home-landing-topb4.test.ts",
   /* Landing round 4 (frame): sheets rise like a phone's sheet (a small side inset settling to full width, the held block behind shrinking a little and dimming), CSS scroll-driven, transform and opacity only, off for reduced motion; Make the work on a flat ground, not a drawer; the globe's pill glides on the compositor a few times a second and its move path reads no layout; the app and the closing call on a dark close with no seam into the footer; a calmer FAQ with a neutral plus and grid-row opening; a small dot grid background. */
   "tests/home-landing-frame4.test.ts",
-  /* Round 5: the home page's desktop mouse wheel glides like the Materia theme's smooth scroll (components/marketing/smooth-wheel.tsx). */
+  /* Round 5: the home page's desktop mouse wheel glided like the Materia theme's smooth scroll. Landing round 12: removed ("too smooth and delayed"); the pins hold that the browser's own scroll runs. */
   "tests/home-smooth-wheel-r5.test.ts",
   /* Landing round 5 (top): the showcase is the browser's own snapping scroller on a touch screen or phone width (autoplay steps aside for a touch and comes back), its cards bigger and cut a little by the section's bottom edge; Make the work's new heading, no support labels, a Pilates course and a plain LUT pack cover; the globe's order notification stands in one place and only fades in and out, the globe capped at 60fps and 2x (1.5x on a low end phone) and a finger takes it only sideways. */
   "tests/home-landing-r5-top.test.ts",
@@ -1556,6 +1556,8 @@ const SUITES = [
   "tests/home-landing-r12-close.test.ts",
   /* Landing round 12, business: the digital card is one e-book (Slow Mornings, its cover before a page from inside, the PDF downloading in the button) and the physical card one photographed product (Night Face Oil, a gallery, a size added to the cart), no presets, no merch; on a phone the five kinds are a row of cards on the browser's own snap scroll, drawn at 360 x 520, no autoplay. */
   "tests/home-landing-r12-business.test.ts",
+  /* Landing round 12, frame: the wheel glide is gone (the browser's own scroll, in real time); the entrance's scroll listener reads the position after the frame instead of laying the page out in the scroll event; an animation that starts in a section away from the screen rests too. */
+  "tests/home-landing-r12-frame.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
