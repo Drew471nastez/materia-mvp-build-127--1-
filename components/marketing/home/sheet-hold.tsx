@@ -48,6 +48,10 @@ export const SHEET_HOLD_CSS = `
   [data-sheet-hold][data-hold-ready]{position:sticky;top:min(0px,calc(100svh - var(--hold-h,100svh)))}
 }
 [data-sheet-hold][data-hold-covered]{visibility:hidden}
+/* Landing round 14, the owner: on a phone the pricing sat too close under the showcase. The block before the rising sheet runs on 32px more, drawn from the server's markup (no script, no shift). */
+@media (max-width:767px){
+  [data-sheet-backdrop]:has(+[data-sheet] > .sheet-hold-line){padding-bottom:calc(var(--srp-r) + var(--srp-next-rise) + 32px)}
+}
 .sheet-hold-line{position:absolute;left:0;right:0;top:0;height:1px;pointer-events:none}
 [data-hold-rise]{view-timeline:--home-hold block}
 @supports (animation-timeline:view()){
