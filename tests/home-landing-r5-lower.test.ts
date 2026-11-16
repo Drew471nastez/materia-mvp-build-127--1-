@@ -125,7 +125,8 @@ console.log("\n── the close and the dot field ──")
 /* Changed on purpose (landing round 7): the flow moves on every screen: 60 frames a second while a mouse moves the light, 30 when only the slow flow moves. */
   // Changed on purpose (landing round 8): 60 a second whenever it runs; the wandering light stepped at 30.
   check("at most 60 frames a second", /f\.last && t - f\.last < f\.cfg\.frameMs\[/.test(src))
-  check("its props kept: gap, fade, tone, className, style", /gap = 18,\s*fade = "edges",\s*tone = "dark",\s*className,\s*style,/.test(src) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
+  /* Changed on purpose (landing round 12): the closing call scatters its dots (the scatter prop). */
+  check("its props kept: gap, fade, tone, scatter, className, style", /gap = 18,\s*fade = "edges",\s*tone = "dark",\s*scatter = false,\s*className,\s*style,/.test(src) && /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -208,7 +208,7 @@ console.log("\n── The page only observes and posts ──")
   check("no layout read, no scroll listener and no React state in either field", !/scroll"/.test(mountSrc) && !/useState/.test(dotSrc) && !/useState/.test(howSrc.slice(howSrc.indexOf("function HowField"), howSrc.indexOf("function useDomainCut"))))
   check("a covered sheet pauses the field: it reads data-sheet-covered and listens for the sheet-cover event", /closest\("\[data-sheet-covered\]"\)/.test(mountSrc) && /addEventListener\("sheet-cover"/.test(mountSrc))
   check("reduced motion and a fine pointer are honoured", /prefers-reduced-motion: reduce/.test(mountSrc) && /if \(fine && !reduced\)/.test(mountSrc))
-  check("DotField keeps its props and passes its tone and gap; HowField follows the section's mouse", /gap = 18,\s*fade = "edges",\s*tone = "dark",/.test(dotSrc) && /mountDotField\(box, \{ kind: tone, gap, pointer: "window" \}\)/.test(dotSrc) && /mountDotField\(box, \{ kind: "how", gap: HOW_FIELD\.gap, pointer: section \}\)/.test(howSrc))
+  check("DotField keeps its props and passes its tone and gap; HowField follows the section's mouse", /gap = 18,\s*fade = "edges",\s*tone = "dark",/.test(dotSrc) && /mountDotField\(box, \{ kind: tone, gap, scatter, pointer: "window" \}\)/.test(dotSrc) && /mountDotField\(box, \{ kind: "how", gap: HOW_FIELD\.gap, pointer: section \}\)/.test(howSrc))
   const reg = read("scripts/run-push-tests.mjs")
   check("registered", /"tests\/home-landing-dotworker6\.test\.ts"/.test(reg))
 }

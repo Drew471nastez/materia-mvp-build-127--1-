@@ -2,7 +2,7 @@
  * HOME PAGE, LANDING ROUND 11 PERF (layers and animations): one safety net for loops off screen, and fewer compositor
  * layers (finished fills, backface-visibility, overlap chains, the rim light's square), no layout read per wheel event.
  */
-import { readFileSync } from "node:fs"
+import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { NEAR_MARGIN } from "@/components/marketing/home/near-gate"
 
@@ -20,7 +20,6 @@ const marquee = read("components/marketing/product-marquee.tsx")
 const ait = read("components/marketing/home/ai-tools-section.tsx")
 const biz = read("components/marketing/home/business-carousel.tsx")
 const bizMocks = read("components/marketing/home/showcase-mocks/business-mocks.tsx")
-const wheel = read("components/marketing/smooth-wheel.tsx")
 
 console.log("\n── one gate for loops off screen ──")
 check("mounted once on the home page", /import \{ NearGate \} from "@\/components\/marketing\/home\/near-gate"/.test(page) && (page.match(/<NearGate \/>/g) || []).length === 1)
@@ -36,12 +35,12 @@ check("how it works: the bars fill backwards, so a finished rise holds no layer"
 check("business: the slide and the cards fill backwards", /animation:biz-in \.6s cubic-bezier\(\.2,\.7,\.2,1\) backwards\}/.test(biz) && (bizMocks.match(/bz-rise \.\d+s \$\{E\} [\d.]+s backwards\}/g) || []).length === 2)
 check("integrations: the icon's face has no backface-visibility (its turn never shows the back)", !/backface-visibility: hidden/.test(integ.replace(/\/\*[\s\S]*?\*\//g, "")))
 check("the possibilities rows: paint containment on the track, with room kept for the hover ring", /\.um-track\{[^}]*padding-block:24px;margin-block:-24px;contain:paint/.test(marquee))
-check("the rim light: a square as long as the box's diagonal, a layer and turning only while live", /hypot\(100cqw,100cqh\)/.test(ait) && /container-type:size/.test(ait) && /\.ait-tw\[data-live\] \.ait-spin\{will-change:transform;animation:ait-spin 9s linear infinite\}/.test(ait) && !/\.ait-spin\{[^}]*will-change:transform;animation:ait-spin 9s linear infinite paused\}/.test(ait))
+/* Changed on purpose (landing round 12, merged in round 6 perf): round 12 made the same fix its own way (no will-change, 26s a turn). */
+check("the rim light: a square as long as the box's diagonal, turning only while live", /hypot\(100cqw,100cqh\)/.test(ait) && /container-type:size/.test(ait) && /\.ait-tw\[data-live\] \.ait-spin\{animation:ait-spin 26s linear infinite\}/.test(ait) && !/\.ait-spin\{[^}]*animation:ait-spin [^}]*paused\}/.test(ait))
 
-console.log("\n── the wheel adds nothing per frame ──")
-check("the page's length is kept by a ResizeObserver, not read per wheel event", /new ResizeObserver\(\(\) => \(height = doc\.scrollHeight\)\)/.test(wheel) && /const maxScroll = \(\) => \(sized \? height : doc\.scrollHeight\)/.test(wheel))
-check("the boxes that can scroll are found once per element", /scrollers = new WeakMap/.test(wheel) && /scrollersAbove/.test(wheel))
-check("the frame loop is still scrollTo and nothing else", /window\.scrollTo\(0, Math\.round\(current\)\)/.test(wheel))
+/* Changed on purpose (landing round 12, merged in round 6 perf): the wheel glide is gone (the owner found it "too smooth and delayed"); the page scrolls natively, so nothing here is left to check about it. */
+console.log("\n── the page scrolls natively ──")
+check("no wheel handler of its own on the home page", !existsSync(join(process.cwd(), "components/marketing/smooth-wheel.tsx")) && !/SmoothWheel/.test(read("app/(storelib)/(marketing)/page.tsx")))
 
 if (failed) {
   console.log(`\n${failed} failed`)
