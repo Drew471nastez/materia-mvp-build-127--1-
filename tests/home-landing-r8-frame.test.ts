@@ -63,7 +63,8 @@ console.log("\nUnlimited possibilities moved out of the creators' stretch")
   // The business track brought "what you can sell" back right after the ideas in the same round, so the possibilities are gone from between the ideas and the creators, with only that section left there.
   check("the ideas run on into what you can sell, then the creators", /<LazyIdeasComeToLife \/>[\s\S]{0,200}<LazyBusinessCarousel \/>\s*<LazyCreatorsCarousel \/>/.test(page) && !/<LazyIdeasComeToLife \/>[\s\S]*<ProductMarquee \/>[\s\S]*<LazyCreatorsCarousel \/>/.test(page))
   // Changed on purpose (landing round 9): the map came out of the purple and opens that sheet; the possibilities follow it.
-  check("it is on the last white sheet, after the map and before what you could earn, in its lazy box", /<ScrollRevealPanel tone="white">\s*<LazySellEverywhereMap \/>\s*<LazySection name="possibilities" minHeight="clamp\(380px, 23vw \+ 254px, 720px\)">\s*<ProductMarquee \/>\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
+  // Changed on purpose (wave 18): the section is smaller on a phone (the owner: the heading "not so huge", the photos a little smaller), so below 768px its box is 6.7vw + 310px; from 768px it is the same clamp as before.
+  check("it is on the last white sheet, after the map and before what you could earn, in its lazy box", /<ScrollRevealPanel tone="white">\s*<LazySellEverywhereMap \/>\s*<LazySection name="possibilities" minHeight="min\(calc\(6\.7vw \+ 310px \+ clamp\(0px, \(100vw - 767px\) \* 100000, 100000px\)\), clamp\(380px, 23vw \+ 254px, 720px\)\)">\s*<ProductMarquee \/>\s*<\/LazySection>\s*<LazyEarningsCalculator \/>/.test(page))
   check("it is on the page once", (page.match(/<ProductMarquee \/>/g) || []).length === 1)
 }
 
