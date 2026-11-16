@@ -94,14 +94,17 @@ console.log("\n── The page ──")
   /* Each ground, in the owner's order, with exactly the sections he listed. */
   /* Changed on purpose (landing round 4): the hero is not held and the first white ground is flat (Make the work must not arrive as a drawer); the close is dark, not purple. */
   const grounds: [string, string[]][] = [
-    ["<ScrollRevealBackdrop>", ["<Hero />", "<BuildShowcase />"]], // Changed on purpose (landing round 5): nothing is held, so no hold props.
+    // Changed on purpose (landing round 13): the owner moved the showcase from under the hero to before pricing, on a dark ground of its own.
+    ["<ScrollRevealBackdrop>", ["<Hero />"]], // Changed on purpose (landing round 5): nothing is held, so no hold props.
     /* Changed on purpose (landing round 8): no flat ground (the white sheet rounds its own top); the business section is back after the ideas; the possibilities moved to open the last white sheet. */
     ['<ScrollRevealPanel tone="white">', ["<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />"]],
     ["<ScrollRevealBackdrop>", ["<LazyCheckoutScene />"]],
     // Changed on purpose (landing round 9): the owner moved the app onto white (after the apps and the AI tools) and the map out of the purple onto the white sheet under it; the questions are the last section and the closing call stands alone above the footer.
     ['<ScrollRevealPanel tone="white">', ["<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />", "<LazyAppAnywhere />"]],
     ['<ScrollRevealPanel tone="purple" arrive="rise">', ["<LazyAnalyticsShowcase />"]],
-    ['<ScrollRevealPanel tone="white">', ["<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection"]],
+    ['<ScrollRevealPanel tone="white">', ["<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />"]],
+    ["<ScrollRevealBackdrop>", ["<LazyBuildShowcase />"]],
+    ['<ScrollRevealPanel tone="white">', ["<PricingSection", "<FaqSection"]],
     ["<ScrollRevealBackdrop>", ["<FinalCta />"]],
   ]
   let at = 0
@@ -120,7 +123,7 @@ console.log("\n── The page ──")
       if (i <= last) wrong.push(`${open} ${s}`)
       last = i
     }
-    const others = ["<Hero />", "<BuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection", "<LazyAppAnywhere />", "<FinalCta />"].filter((s) => !sections.includes(s))
+    const others = ["<Hero />", "<LazyBuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAiToolsSection />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection", "<LazyAppAnywhere />", "<FinalCta />"].filter((s) => !sections.includes(s))
     for (const s of others) if (inside.includes(s)) wrong.push(`${s} inside ${open}`)
     at = end
   }

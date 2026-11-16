@@ -243,9 +243,9 @@ export const PRODUCT_TYPES: readonly Fact[] = [
   {
     id: "coaching",
     label: "Coaching calls and bookings",
-    status: "no",
-    text: "There is no booking calendar or call scheduling. A OnePage can embed a Calendly page.",
-    source: "lib/onepage/types.ts",
+    status: "yes",
+    text: "A booking form with the times you are free, on your OnePage or website. Paid sessions are paid at checkout, bookings can go to your Google Calendar, and visitors move or cancel from their email.",
+    source: "lib/bookings",
   },
 ]
 
@@ -410,13 +410,6 @@ export const LIMITATIONS: readonly Fact[] = [
     status: "no",
     text: "You cannot give other people a commission for selling your products.",
     source: "lib/attribution/touch.ts",
-  },
-  {
-    id: "bookings",
-    label: "No bookings",
-    status: "no",
-    text: "No booking calendar or paid call scheduling.",
-    source: "lib/onepage/types.ts",
   },
   {
     id: "payout-regions",

@@ -1865,9 +1865,16 @@ const PHONE_CSS = `
 .ic .ap-side{color:#d1d1d6}
 `
 
+/*
+ * Round 13: how far down the computer window's page (in u) its scroll ends,
+ * so Pay and the Stripe line under it are in view. 1012u was measured before
+ * Delivery and Shipping method joined the form; Pay's foot is now at 1284u.
+ */
+const CDX_PAY_FOOT = 1330
+
 const DESK_CSS = u(`
 .cdx{position:absolute;left:3%;right:3%;top:50%;aspect-ratio:var(--ar,880/700);transform:translateY(-50%);container-type:size}
-.cdx-win{--u:calc(100cqw / 880);--vh:calc(100cqh - 38u);--s1:min(330u,max(0px,1012u - var(--vh)));--s2:max(0px,1012u - var(--vh));position:relative;height:100%;border-radius:12u;overflow:hidden;background:#fff;color:#1a1a2e;font-size:14u;line-height:1.4;letter-spacing:0;box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+.cdx-win{--u:calc(100cqw / 880);--vh:calc(100cqh - 38u);--s1:min(330u,max(0px,${CDX_PAY_FOOT}u - var(--vh)));--s2:max(0px,${CDX_PAY_FOOT}u - var(--vh));position:relative;height:100%;border-radius:12u;overflow:hidden;background:#fff;color:#1a1a2e;font-size:14u;line-height:1.4;letter-spacing:0;box-shadow:0 0 0 1px rgba(255,255,255,.14)}
 .cdx-bar{position:relative;display:flex;align-items:center;justify-content:center;height:38u;background:#ececef;border-bottom:1px solid #dcdce0}
 .cdx-lights{position:absolute;left:16u;top:50%;display:flex;gap:8u;transform:translateY(-50%)}
 .cdx-lights i{display:block;width:12u;height:12u;border-radius:50%;background:#ff5f57}
@@ -1982,6 +1989,19 @@ const CARDS_CSS = u(`
  */
 .cmc-vis{position:relative;z-index:1;margin-top:auto;height:min(calc(100cqw * 42 / 48),var(--vis-cap));overflow:hidden;border-radius:20px;background:#0b0b0d;container-type:inline-size;pointer-events:none;user-select:none;-webkit-user-select:none}
 .cmc-vis-in{position:absolute;left:50%;top:0;width:48em;height:42em;margin-left:-24em;font-size:min(calc(100cqw / 48),calc(var(--vis-cap) / 42));color:#fff;line-height:1.35;container-type:inline-size}
+/*
+ * Round 13 (the owner: on larger screens the checkout window should fill much
+ * more of the card's width): Built to convert's drawing is the whole picture,
+ * not the 48 x 42 box in its middle, and the window fills it to a thin margin.
+ * Its height is whatever the picture leaves, and the page inside scrolls by
+ * what that height hides (--vh in .cdx-win), so Pay still comes into view.
+ */
+@media (min-width:900px){
+  .cmc-card[data-k=convert] .cmc-vis-in{left:0;width:100%;height:100%;margin-left:0}
+  .cmc-card[data-k=convert] .cdx{inset:clamp(12px,2.4cqw,24px);aspect-ratio:auto;transform:none}
+  /* The seller's notice drops in under the window's address bar (38u), not over its address. */
+  .cmc-card[data-k=convert] .cmv-sale{top:calc(100cqw * 38 / 880 + .9em);right:1.1em}
+}
 /* The four facts on one solid strip, the cards' own ground and hairline, so nothing shows through them. */
 .cmc-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin:16px 0 0;padding:clamp(28px,3vw,44px) clamp(24px,2.6vw,40px);list-style:none;border-radius:28px;background:${CARD_GROUND};border:1px solid rgba(255,255,255,.08)}
 .cmc-fact{padding:2px 0 2px 18px;border-left:1px solid rgba(255,255,255,.16)}
@@ -2111,14 +2131,18 @@ const CARDS_CSS = u(`
   .cmc-card{padding:22px 20px 20px;border-radius:24px;gap:20px}
   .cmc-card-copy h3{font-size:24px}
   .cmc-card-copy p{font-size:15px}
-  /* Landing round 13 (the owner: "like it's on desktop, but on mobile"): every picture is the computer's, 48 x 42 em, only smaller. */
+  /* Landing round 13 (the owner: "like it's on desktop, but on mobile"): every picture is the computer's, 48 x 42 em, only smaller, nothing laid out again. */
   .cmc-vis{height:auto;aspect-ratio:48/42;margin:0 -6px;border-radius:16px}
   .cmc-vis-in{font-size:calc(100cqw / 48)}
+  /* Built to convert: the computer's window filling the picture, as from 900px; the picture runs to 8px from the card's edge and the window to 6px from the picture's (the owner: fill the card's width on a phone too). */
+  .cmc-card[data-k=convert] .cmc-vis{margin:0 -12px;border-radius:16px}
+  .cmc-card[data-k=convert] .cmc-vis-in{left:0;width:100%;height:100%;margin-left:0}
+  .cmc-card[data-k=convert] .cdx{inset:6px;aspect-ratio:auto;transform:none}
+  .cmc-card[data-k=convert] .cmv-sale{top:calc(100cqw * 38 / 880 + .9em);right:1.1em}
   .cmc-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 16px;margin-top:12px;padding:24px 20px;border-radius:24px}
   .cmc-fact{padding-left:14px}
   .cmc-fact b{font-size:26px}
   .cmc-fact span{font-size:13.5px}
-  /* Landing round 13 (the owner: "it should be like it's on desktop, but on mobile"): Built to convert is the desktop window, the order beside the form, only smaller. Nothing here lays it out again. */
 }
 `)
 

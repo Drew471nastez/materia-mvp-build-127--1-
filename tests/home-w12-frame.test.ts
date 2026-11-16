@@ -50,12 +50,14 @@ async function main() {
   {
     const removed = ["BentoGrid", "StatsBar", "ManageSection", "SplitFeaturesSection", "ToolStackSection", "FeaturesBadgesSection", "CtaSection", "CarouselSection"]
     check("none of the removed sections is on the page", removed.every((c) => !page.includes(c)), removed.filter((c) => page.includes(c)))
-    check("the hero and the showcase stay, first", page.indexOf("<Hero />") > 0 && page.indexOf("<Hero />") < page.indexOf("<BuildShowcase />"))
+    // Changed on purpose (landing round 13): the hero stays first; the showcase moved from under it to before pricing.
+    check("the hero stays, first, and the showcase stays", page.indexOf("<Hero />") > 0 && page.indexOf("<Hero />") < page.indexOf("<LazyEverythingInOnePlace />") && page.indexOf("<LazyBuildShowcase />") > 0)
     /* Changed on purpose (wave 12 integration): the slots are now the sections themselves, loaded by components/marketing/home/lazy-sections. */
     /* Changed on purpose (landing round 3): the owner asked for a new order by ground. The apps follow the audience on one white sheet, analytics and the map share a purple one, and the app closes the page with the final call. */
     // Changed on purpose (landing round 8): the business section is back after the ideas; the possibilities moved to just before what you could earn.
     // Changed on purpose (landing round 9): the owner moved the app up onto white (after the apps and the AI tools); the questions are last, then the closing call.
-    const order = ["<BuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAppAnywhere />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />", "<PricingSection", "<FaqSection", "<FinalCta />"]
+    // Changed on purpose (landing round 13): the showcase between what you could earn and pricing.
+    const order = ["<Hero />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyIntegrationsSection />", "<LazyAppAnywhere />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<ProductMarquee />", "<LazyEarningsCalculator />", "<LazyBuildShowcase />", "<PricingSection", "<FaqSection", "<FinalCta />"]
     const at = order.map((s) => pageRaw.indexOf(s))
     check("the sections and the other tracks' slots in the owner's order", at.every((n, i) => n > 0 && (i === 0 || n > at[i - 1])), order.filter((_, i) => at[i] <= 0 || (i > 0 && at[i] <= at[i - 1])))
     check("pricing is kept, without its See full pricing button", /<PricingSection editorial hideDetailsLink \/>/.test(page) && /\{!hideDetailsLink && \(/.test(read("components/marketing/pricing-section.tsx")))
@@ -63,8 +65,9 @@ async function main() {
     check("the canonical and the graph stay", /alternates: \{ canonical: "https:\/\/storelib\.com" \}/.test(page) && /jsonLdScript\(storelibHomeJsonLd\(\)\)/.test(page))
     for (const f of ["bento-grid", "stats-bar", "manage-section", "carousel-section", "globe-widget"]) check(`components/marketing/${f}.tsx is deleted (nothing draws it any more)`, gone(`components/marketing/${f}.tsx`))
     /* Still drawn by /pricing (pricing-client), so kept. */
+    // Changed on purpose (landing round 13): /pricing is now the cards and three rising sheets, so only the closing call is still drawn there; the other three files are kept, no longer drawn.
     for (const f of ["split-features-section", "tool-stack-section", "features-badges-section", "cta-section"]) {
-      check(`components/marketing/${f}.tsx stays: /pricing draws it`, !gone(`components/marketing/${f}.tsx`) && read("app/(storelib)/(marketing)/pricing/pricing-client.tsx").includes(`components/marketing/${f}"`))
+      check(`components/marketing/${f}.tsx stays${f === "cta-section" ? ": /pricing draws it" : ""}`, !gone(`components/marketing/${f}.tsx`) && (f !== "cta-section" || read("app/(storelib)/(marketing)/pricing/pricing-client.tsx").includes(`components/marketing/${f}"`)))
     }
     check("AnimateOnScroll has a file of its own; nothing imports the bento", !/from "\.\/bento-grid"/.test(["pricing-section", "faq-section", "tool-stack-section", "split-features-section", "features-badges-section", "pill-tabs", "features-grid", "comparison-section"].map((f) => read(`components/marketing/${f}.tsx`)).join("\n")) && /export \{ AnimateOnScroll \}/.test(read("components/marketing/animate-on-scroll.tsx")))
     check("the below-the-fold sections are dynamic imports", ["product-marquee", "pricing-section", "faq-section", "home/final-cta"].every((f) => page.includes(`import("@/components/marketing/${f}")`)))

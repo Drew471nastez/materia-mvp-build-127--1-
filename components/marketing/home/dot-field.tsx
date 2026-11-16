@@ -113,10 +113,10 @@
 
 import { useEffect, useRef, type CSSProperties } from "react"
 import { mountDotField } from "./dot-field-mount"
-import { DOT_FIELD_MAX_DPR, DOT_FIELD_SEED, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints, dotFieldScatter } from "./dot-field-engine"
+import { DOT_FIELD_CALM, DOT_FIELD_MAX_DPR, DOT_FIELD_SEED, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints, dotFieldScatter } from "./dot-field-engine"
 
 /** The tones, the largest device pixel ratio and the dots' maths live in the engine (worker safe); re-exported here, where they were. */
-export { DOT_FIELD_MAX_DPR, DOT_FIELD_SEED, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints, dotFieldScatter }
+export { DOT_FIELD_CALM, DOT_FIELD_MAX_DPR, DOT_FIELD_SEED, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints, dotFieldScatter }
 
 export const DOT_FIELD_CSS = `
 .dotf{position:absolute;inset:0;z-index:-1;overflow:clip;pointer-events:none}

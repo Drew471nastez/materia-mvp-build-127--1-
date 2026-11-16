@@ -108,7 +108,8 @@ console.log("\nBuilt to convert: the desktop checkout, whole, on any screen")
 // Changed on purpose (landing round 8): on a phone the card draws the same checkout as a phone lays it out (.mcx) in place of the window.
 check("the window keeps its shape and fits its box (container of size, every corner round)", /\.cdx\{position:absolute;left:3%;right:3%;top:50%;aspect-ratio:var\(--ar,880\/700\);transform:translateY\(-50%\);container-type:size\}/.test(css) && /border-radius:calc\(12\*var\(--u\)\);/.test(rule(".cdx-win")))
 check("  the round 4 crop (150% wide, cut on the left) is gone", !/width:150%/.test(css) && !/@container \(max-width:560px\)/.test(css))
-check("  its page scrolls only as far as its own window needs to show Pay", /--vh:calc\(100cqh - calc\(38\*var\(--u\)\)\);--s1:min\(calc\(330\*var\(--u\)\),max\(0px,calc\(1012\*var\(--u\)\) - var\(--vh\)\)\);--s2:max\(0px,calc\(1012\*var\(--u\)\) - var\(--vh\)\)/.test(css))
+// Changed on purpose (landing round 13): the form grew Delivery and Shipping method, so Pay's foot is at 1284u and the scroll ends at 1330u, not 1012u.
+check("  its page scrolls only as far as its own window needs to show Pay", /--vh:calc\(100cqh - calc\(38\*var\(--u\)\)\);--s1:min\(calc\(330\*var\(--u\)\),max\(0px,calc\(1330\*var\(--u\)\) - var\(--vh\)\)\);--s2:max\(0px,calc\(1330\*var\(--u\)\) - var\(--vh\)\)/.test(css))
 // Changed on purpose (landing round 7): Maren Holt's shop.
 // Changed on purpose (landing round 8): Mara Quinn's shop.
 check("  both columns, the order and the form", ["Pay Mara Quinn", "Total due", "Contact information", "Shipping method", "Powered by Stripe"].every((t) => words(co).includes(t)))

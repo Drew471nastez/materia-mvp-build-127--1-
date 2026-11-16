@@ -39,7 +39,8 @@ console.log("\nThe order: the app and the map on white, the questions last, the 
   check("the questions are the last section of the last sheet", /<LazySection name="faq"[^>]*>\s*(?:<Suspense fallback=\{null\}>)?<FaqSection editorial \/>(?:<\/Suspense>)?\s*<\/LazySection>\s*<\/ScrollRevealPanel>/.test(page))
   check("then only the closing call, above the footer", /<\/ScrollRevealPanel>\s*<ScrollRevealBackdrop>\s*(?:<Suspense fallback=\{null\}>)?<FinalCta \/>(?:<\/Suspense>)?\s*<\/ScrollRevealBackdrop>\s*<\/LandingStory>/.test(page))
   const grounds = (page.match(/<ScrollReveal(?:Backdrop|Panel tone="\w+"(?: arrive="rise")?)>/g) || []).join(" ")
-  check("the grounds: dark, white, dark, white, purple, white, dark (every join is a lower block lapping an upper one)", grounds === '<ScrollRevealBackdrop> <ScrollRevealPanel tone="white"> <ScrollRevealBackdrop> <ScrollRevealPanel tone="white"> <ScrollRevealPanel tone="purple" arrive="rise"> <ScrollRevealPanel tone="white"> <ScrollRevealBackdrop>')
+  // Changed on purpose (landing round 13): the showcase's dark ground between the earnings' white sheet and the pricing's.
+  check("the grounds: dark, white, dark, white, purple, white, dark, white, dark (every join is a lower block lapping an upper one)", grounds === '<ScrollRevealBackdrop> <ScrollRevealPanel tone="white"> <ScrollRevealBackdrop> <ScrollRevealPanel tone="white"> <ScrollRevealPanel tone="purple" arrive="rise"> <ScrollRevealPanel tone="white"> <ScrollRevealBackdrop> <ScrollRevealPanel tone="white"> <ScrollRevealBackdrop>')
   const lazy = ["LazyEverythingInOnePlace", "LazyIdeasComeToLife", "LazyBusinessCarousel", "LazyCreatorsCarousel", "LazyHowItWorks", "LazyCheckoutScene", "LazyAudienceOwnership", "LazyIntegrationsSection", "LazyAiToolsSection", "LazyAppAnywhere", "LazyAnalyticsShowcase", "LazySellEverywhereMap", "LazyEarningsCalculator"]
   check("every lazy wrapper is kept, each on the page once", lazy.every((n) => (page.match(new RegExp(`<${n} />`, "g")) || []).length === 1))
   check("the server-drawn sections keep their boxes", (page.match(/<LazySection name="(possibilities|pricing|faq)"/g) || []).length === 3)
@@ -132,11 +133,13 @@ console.log("\nStart now waits for the showcase on a phone")
 {
   const header = code("components/platform/platform-header-client.tsx")
   const fx = header.slice(header.indexOf('const cta = document.querySelector("[data-home-hero] .cinematic-actions")'), header.indexOf("}, [pathname])", header.indexOf('"data-home-cta"')))
-  check("the same observer watches the hero's buttons and the showcase", /const showcase = document\.querySelector\("\[data-build-showcase\]"\)/.test(fx) && /io\.observe\(cta\)\s*if \(showcase\) io\.observe\(showcase\)/.test(fx) && (fx.match(/new IntersectionObserver\(/g) || []).length === 1)
+  // Changed on purpose (landing round 13): the showcase moved down the page, before pricing, so the bar watches the hero's buttons on every width.
+  check("one observer watches the hero's buttons, and no longer the showcase", !/data-build-showcase/.test(fx) && /io\.observe\(cta\)/.test(fx) && (fx.match(/new IntersectionObserver\(/g) || []).length === 1)
   check("the showcase carries the mark it is found by", /data-build-showcase=""/.test(read("components/marketing/build-showcase.tsx")))
-  check("on a phone (the bar's phone row, below 768px) the showcase decides; a computer keeps the hero's buttons", /const phone = matchMedia\("\(max-width: 767px\)"\)/.test(fx) && /const watched = phone\.matches && showcase \? showcase : cta/.test(fx) && /md:hidden flex min-h-\[42px\]/.test(header))
+  // Changed on purpose (landing round 13): the hero's buttons decide on a phone too.
+  check("the hero's buttons decide on a phone too; the phone row is still there", !/const watched = phone\.matches/.test(fx) && /md:hidden flex min-h-\[42px\]/.test(header))
   check("gone means all of it is under the bar", /gone\.set\(entry\.target, !entry\.isIntersecting && entry\.boundingClientRect\.top < \(entry\.rootBounds\?\.top \?\? top\)\)/.test(fx))
-  check("an attribute on the bar: no listener, no state", /el\.setAttribute\("data-home-cta", gone\.get\(watched\) \? "shown" : "hidden"\)/.test(fx) && !/addEventListener|useState/.test(fx))
+  check("an attribute on the bar: no listener, no state", /el\.setAttribute\("data-home-cta", gone\.get\(cta\) \? "shown" : "hidden"\)/.test(fx) && !/addEventListener|useState/.test(fx))
   const hero = read("components/marketing/hero.tsx")
   const shown = /#platform-header-root :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""
   const hidden = /#platform-header-root:not\(\[data-home-cta="shown"\]\) :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""

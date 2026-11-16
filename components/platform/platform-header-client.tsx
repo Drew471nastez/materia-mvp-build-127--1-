@@ -1969,21 +1969,18 @@ export function PlatformHeaderClient({
       el.setAttribute("data-home-cta", "shown")
       return () => el.removeAttribute("data-home-cta")
     }
-    const showcase = document.querySelector("[data-build-showcase]")
-    const phone = matchMedia("(max-width: 767px)")
+    /* Landing round 13: the showcase moved down the page (before pricing), so a phone watches the hero's buttons like a computer does. */
     /* The bar's own height, read once: a block counts as gone when all of it is under the bar. */
     const top = Math.round(el.offsetHeight)
     const gone = new Map<Element, boolean>()
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) gone.set(entry.target, !entry.isIntersecting && entry.boundingClientRect.top < (entry.rootBounds?.top ?? top))
-        const watched = phone.matches && showcase ? showcase : cta
-        el.setAttribute("data-home-cta", gone.get(watched) ? "shown" : "hidden")
+        el.setAttribute("data-home-cta", gone.get(cta) ? "shown" : "hidden")
       },
       { rootMargin: `-${top}px 0px 0px 0px` },
     )
     io.observe(cta)
-    if (showcase) io.observe(showcase)
     return () => {
       io.disconnect()
       el.removeAttribute("data-home-cta")

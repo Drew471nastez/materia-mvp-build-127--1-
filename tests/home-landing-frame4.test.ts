@@ -68,7 +68,8 @@ console.log("\n── The page ──")
   const page = code("app/(storelib)/(marketing)/page.tsx").replace(/\{\s*\}/g, "")
   // Changed on purpose (landing round 5): nothing is held anywhere, so no hold props.
 // Changed on purpose (landing round 8): Make the work sits on a white sheet whose rounded top lies over the showcase's square foot; the purple rises.
-  check("the hero and showcase are not held, and Make the work sits on a white sheet under them", /<ScrollRevealBackdrop>\s*<Hero \/>\s*<BuildShowcase \/>\s*<\/ScrollRevealBackdrop>\s*<ScrollRevealPanel tone="white">\s*<LazyEverythingInOnePlace \/>/.test(page))
+  // Changed on purpose (landing round 13): the showcase left the hero for a place before pricing.
+  check("the hero is not held, and Make the work sits on a white sheet under it", /<ScrollRevealBackdrop>\s*<Hero \/>\s*<\/ScrollRevealBackdrop>\s*<ScrollRevealPanel tone="white">\s*<LazyEverythingInOnePlace \/>/.test(page))
   check("the later grounds are sheets over plain blocks, nothing held", /<ScrollRevealBackdrop>\s*<LazyCheckoutScene \/>/.test(page) && /<ScrollRevealPanel tone="white">\s*<LazyAudienceOwnership \/>/.test(page) && /<ScrollRevealPanel tone="purple" arrive="rise">/.test(page) && !/\bhold\b/.test(page))
   /* Changed on purpose (landing round 7): the owner asked for the purple's dots more subtle and clean, so they are a little sparser there (gap 22). */
   check("a dot grid over the top of the purple, limited to about a screen and a half", /<ScrollRevealPanel tone="purple" arrive="rise">\s*<DotField tone="purple" fade="bottom"(?: gap=\{\d+\})? style=\{\{ height: "min\(100%, 1600px\)" \}\} \/>/.test(page)) // Changed on purpose (landing round 11): the owner wants the purple's dots "more visible", so the field reaches further down the sheet before it fades.

@@ -59,7 +59,8 @@ const brand = (e: { src: string }) => e.src.match(/a-([a-z]+)\.webp$/)![1]
 const by = (b: string) => SHOWCASE_EXAMPLES.find((e) => brand(e) === b)
 
 console.log("\nThe showcase's cards, the owner's picks")
-check("the order: Tideline first, Plainspace where Ines was, Ines last", SHOWCASE_EXAMPLES.map(brand).join(",") === "tideline,satori,app,plainspace,dami,strength,loud,otc,nightshift,luca,nora,ines", SHOWCASE_EXAMPLES.map(brand))
+// Changed on purpose (landing round 13): the New York shop in Ines Duarte's place, last.
+check("the order: Tideline first, Plainspace where Ines was, the New York shop last", SHOWCASE_EXAMPLES.map(brand).join(",") === "tideline,satori,app,plainspace,dami,strength,loud,otc,nightshift,luca,nora,nyshop", SHOWCASE_EXAMPLES.map(brand))
 check("twelve cards, wide, OnePage, wide, in four groups", SHOWCASE_EXAMPLES.length === 12 && SHOWCASE_EXAMPLES.every((e, i) => e.format === (i % 3 === 1 ? "portrait" : "wide")))
 check("Mara Lind and Gia Romano are gone, their files too", !/mara|gia\b|Gia Romano/i.test(all) && !existsSync("public/home/showcase/a-mara.webp") && !existsSync("public/home/showcase/a-gia.webp"))
 const theme = (id: string) => THEME_TEMPLATES.find((t) => t.id === id)

@@ -54,7 +54,7 @@ check("its loops are .cmh-a, so they stop off screen and in a hidden tab, and mo
 
 console.log("\n3. One screen on a MacBook Air")
 // Changed on purpose (landing round 12): the owner asked for full width pictures, so the dashboard has a row of its own (about 520px at 1440) and tips and the domain share the next; the section no longer fits one screen.
-check("the dashboard keeps the app's own sizes, the two pictures under it a fixed height", /\.cmh-db-top\{[^}]*height:58px/.test(css) && css.includes("height:clamp(450px,36vw,600px)"))
+check("the dashboard keeps the app's own sizes, the two pictures under it a fixed height", /\.cmh-db-top\{[^}]*height:58px/.test(css) && css.includes("height:max(360px,min(clamp(400px,32vw,560px),50svh))")) // Changed on purpose (landing round 13): round 11's row again, the stages half the screen's height on a laptop, the dashboard scaled whole into its stage.
 check("svh, so the iPhone's URL bar never changes it, and no vh at all", !/[\d)]vh\b/.test(css))
 
 console.log("\nCopy")

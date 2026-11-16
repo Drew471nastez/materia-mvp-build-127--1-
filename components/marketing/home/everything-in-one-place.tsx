@@ -326,7 +326,8 @@ function usePressTilt(ref: RefObject<HTMLElement | null>) {
   }, [ref])
 }
 
-function ProductSlides() {
+/** Also the first tile of /pricing's bento (landing round 13). */
+export function ProductSlides() {
   const [active, setActive] = useState(0)
   const n = EVERYTHING_SLIDES.length
   const next = useCallback(() => setActive((a) => (a + 1) % n), [n])
@@ -992,7 +993,8 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
   }, [viewport, track])
 }
 
-function Storefronts({ live }: { live: boolean }) {
+/** Also a tile of /pricing's bento (landing round 13). */
+export function Storefronts({ live }: { live: boolean }) {
   const viewport = useRef<HTMLDivElement>(null)
   const track = useRef<HTMLDivElement>(null)
   useDriftStrip(viewport, track, live)
@@ -1077,7 +1079,8 @@ function Thread({ r, i }: { r: Request; i: number }) {
   )
 }
 
-function Support() {
+/** Also a tile of /pricing's bento (landing round 13). */
+export function Support() {
   return (
     <div className="ev-vis ev-c" aria-hidden="true">
       {EVERYTHING_SUPPORT.map((r, i) => (
