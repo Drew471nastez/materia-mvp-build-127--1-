@@ -96,7 +96,7 @@ console.log("\n── a calmer entrance on a phone, once ──")
   const story = code("components/marketing/landing-story.tsx")
   check("once: a block shown is let go and never hidden again", /reveal\?\.unobserve\(el\)/.test(story) && (story.match(/dataset\.reveal = "wait"/g) ?? []).length === 1)
   const lazy = code("components/marketing/home/lazy-section.tsx")
-  check("a lazy box drawn ahead asks for its pictures then", /function eagerPictures\(box: HTMLElement\)/.test(lazy) && /img\[loading="lazy"\][\s\S]{0,40}img\.loading = "eager"/.test(lazy) && /slicing\.get\(box\)\?\.\(\)\s*eagerPictures\(box\)/.test(lazy))
+  /* Changed on purpose (landing round 12): built sections are never skipped, so this machinery is gone. */ check("no draw-ahead picture switch (the boxes are never skipped)", !/eagerPictures/.test(lazy))
 }
 
 console.log("\n── the FAQ heading is not purple ──")

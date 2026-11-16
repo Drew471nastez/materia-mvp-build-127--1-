@@ -158,9 +158,11 @@ async function main() {
     /* Changed on purpose (landing round 9): four screens; a flick on a phone covered two and a half in a third of a second and the owner still saw blank white boxes. */
     check("it mounts when the box comes within four screens", (LAZY_AHEAD as string) === "400% 0px 400% 0px" && /new IntersectionObserver/.test(src) && /* Changed on purpose (landing round 9): the mount is a promise now (it joins the line of sections drawn one at a time), so the call is marked void. */ /io\.disconnect\(\)\s*void mount\(\)/.test(src))
     check("at once for reduced motion, a link into the page, or no observer", /location\.hash\.length > 1/.test(src) && /prefers-reduced-motion: reduce/.test(src) && /typeof IntersectionObserver !== "function"/.test(src))
-    check("the code is fetched ahead when idle, after load, not on Save-Data", /requestIdleCallback/.test(src) && /addEventListener\("load"/.test(src) && /saveData/.test(src))
+    /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): fetched from just after the first paint, not after the load event. */
+    check("the code is fetched ahead from just after the first paint, not on Save-Data", /requestIdleCallback/.test(src) && !/addEventListener\("load"/.test(src) && /saveData/.test(src))
     const kept = renderToStaticMarkup(createElement(LazySection, { name: "faq", minHeight: "900px", children: createElement("h2", null, "Questions") }))
-    check("LazySection keeps the server's markup and lets the browser skip it off screen", /<h2>Questions<\/h2>/.test(kept) && /content-visibility:auto/.test(kept) && /contain-intrinsic-size:auto 900px/.test(kept))
+    /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): a server-drawn section is never skipped either. */
+    check("LazySection keeps the server's markup and is never skipped", /<h2>Questions<\/h2>/.test(kept) && !/content-visibility/.test(kept) && !/contain-intrinsic-size/.test(kept))
     const sticky = renderToStaticMarkup(createElement(LazySection, { sticky: true, children: createElement("div", null, "x") }))
     check("but no containment for a section with a sticky child", !/content-visibility/.test(sticky))
   }
@@ -171,9 +173,11 @@ async function main() {
     const { LAZY_IDLE_AHEAD, insertSectionStyles } = await import("@/components/marketing/home/lazy-section")
     check("a section is drawn as a transition, so its render is sliced between frames", /startTransition\(\(\) => setSection/.test(src))
     /* Changed on purpose (wave 14): five screens ahead when idle (was three), and the chain mounts the waiting section nearest the screen first. */
-    check("further ahead it mounts when idle, and once the code is here the rest mount one per roomy idle slot", /* Changed on purpose (landing round 9): eight screens ahead, and each step waits for a calm idle slot for at most LAZY_BUSY_WAIT_MS (a visitor who never stopped scrolling got none of it). */ (LAZY_IDLE_AHEAD as string) === "800% 0px 800% 0px" && /function mountNext/.test(src) && /timeRemaining\(\) < IDLE_ROOM_MS/.test(src) && /idle\(mountNext, LAZY_BUSY_WAIT_MS\)/.test(src))
+    /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): the rest are built back to back, not one per roomy idle slot. */
+    check("further ahead it mounts when idle, and the rest are built back to back", (LAZY_IDLE_AHEAD as string) === "800% 0px 800% 0px" && /function mountNext\(\)/.test(src) && !/timeRemaining\(\) < IDLE_ROOM_MS\) return idle\(mountNext/.test(src) && /requestAnimationFrame\(mountNext\)/.test(src))
     /* Changed on purpose (wave 14): it also starts LAZY_PREFETCH_LATEST_MS after the page came alive when the load event is late (a slow network), two sections at a time. */
-    check("the idle prefetch has no timeout, starts after load, and skips Save-Data and 2g", /afterLoad\(\)\.then\(start\)/.test(src) && /saveData/.test(src) && !/timeout: 4000/.test(src) && /LAZY_PREFETCH_LATEST_MS\)/.test(src))
+    /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): it starts just after the first paint. */
+    check("the prefetch starts just after the first paint and skips Save-Data and 2g", /afterLoad\(\)\.then\(start\)/.test(src) && /saveData/.test(src) && /LAZY_START_AFTER_PAINT_MS\)/.test(src))
     check("insertSectionStyles does nothing on the server", (insertSectionStyles([{ href: "x", precedence: "default", css: "" }]), true))
     /* Every stylesheet a lazy section lists is one it draws: the same href, so React finds it in <head> and adds none on mount. */
     const lazy = read("components/marketing/home/lazy-sections.tsx")
@@ -211,10 +215,12 @@ async function main() {
   console.log("\nScrolling without building, pass 2")
   {
     const src = code("components/marketing/home/lazy-section.tsx")
-    check("a mounted lazy section stays in its box, which the browser skips off screen", /data-lazy-mounted=""/.test(src) && /contentVisibility: "auto"/.test(src) && /containIntrinsicSize: `auto \$\{options\.minHeight\}`/.test(src))
+    /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): a built section is never skipped. */
+    check("a mounted lazy section stays in its box and is never skipped", /data-lazy-mounted=""/.test(src) && !/contentVisibility: "auto"/.test(src))
     /* Changed on purpose (wave 14): laid out in slices (layOutInSlices), then its height kept as before. */
     /* Changed on purpose (landing round 11): the real height is kept exactly, unrounded (keepHeight), so a box drawn again is not a fraction of a pixel off. */
-    check("right after mounting it is laid out in idle slots and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /box\.style\.containIntrinsicSize = `auto \$\{height\}px`/.test(src) && /keepHeight\(el, height\)/.test(src))
+    /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): no slicing and no kept height: a built section is laid out once. */
+    check("a built section is laid out once, with no slicing and no kept height", !/layOutInSlices/.test(src) && !/keepHeight/.test(src))
     const css = read("app/globals.css")
     const heading = code("components/marketing/story-heading.tsx")
     check("headings ink and rise from scroll-driven animations where the browser has them (no script per frame)", /@property --story-progress/.test(css) && /animation-timeline:--story-heading/.test(css) && /@keyframes story-heading-rise \{from\{transform:translate3d\(0,12px,0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(css) && /function inkedByCss/.test(heading) && /data-story-js/.test(heading))
@@ -238,12 +244,14 @@ async function main() {
     const src = code("components/marketing/home/lazy-section.tsx")
     const { LAZY_DRAW_AHEAD } = await import("@/components/marketing/home/lazy-section")
     /* Changed on purpose (landing round 9): two and a half screens ahead (it was one and a half). */
-    check("a box is drawn two and a half screens ahead, with the containment content-visibility: auto gave it", (LAZY_DRAW_AHEAD as string) === "250% 0px 250% 0px" && /box\.style\.contentVisibility = e\.isIntersecting \? "visible" : "auto"/.test(src) && /box\.style\.contain = e\.isIntersecting \? "layout paint style" : ""/.test(src))
-    check("both kinds of box are drawn ahead (mounted sections and server-drawn LazySection)", (src.match(/watchDraw\(el\)/g) || []).length === 2)
+    /* Changed on purpose (landing round 12): built sections are never skipped, so this machinery is gone. */ check("no box is drawn ahead or contained (nothing is skipped)", !/box\.style\.contain = /.test(src))
+    /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): nothing is switched between skipped and drawn. */
+    check("no box is switched between skipped and drawn", !/watchDraw/.test(src))
     check("idle work waits until the page has stopped scrolling", /const CALM_MS = \d+/.test(src) && /since < CALM_MS/.test(src) && /addEventListener\("scroll", \(\) => \(lastScroll = performance\.now\(\)\), \{ passive: true, capture: true \}\)/.test(src))
     check("the idle chain mounts the waiting section nearest the screen first", /farness\(a\) - farness\(b\)/.test(src))
     check("a box hydrates empty, as the server drew it, even when its code arrived first (no hydration mismatch on a slow network)", /useSyncExternalStore\(noSubscription, drawnInBrowser, drawnOnServer\)/.test(src) && /useState<ComponentType<P> \| null>\(\(\) => \(browserDrawn \? cached : null\)\)/.test(src))
-    check("a mounted section is laid out ahead a slice at a time (no long task), and all at once if it comes near first", /const SLICE_ELEMENTS = \d+/.test(src) && /g\.style\.contentVisibility = "hidden"/.test(src) && /* Changed on purpose (landing round 11): the same branch also asks for the box's pictures (eagerPictures). */ /if \(e\.isIntersecting\) \{\s*slicing\.get\(box\)\?\.\(\)/.test(src) && /const stopSlicing = layOutInSlices\(el,/.test(src))
+    /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): no slices: nothing is held back with content-visibility: hidden. */
+    check("no section is held back in slices", !/SLICE_ELEMENTS/.test(src) && !/contentVisibility = "hidden"/.test(src))
     const globe = code("components/marketing/home/everything-globe.tsx")
     /* Changed on purpose (wave 14 integration): main fixed the same crash first, by drawing a second run on a fresh canvas instead of keeping the worker per canvas; main's version is kept, so this checks that. */
     check("the globe never asks a canvas it already handed to a worker for a context again (a second run gets a fresh canvas)", /const handedOver = new WeakSet<HTMLCanvasElement>\(\)/.test(globe) && /handedOver\.add\(canvas\)/.test(globe) && /if \(handedOver\.has\(canvas\)\) \{[\s\S]{0,200}canvas\.replaceWith\(fresh\)/.test(globe))

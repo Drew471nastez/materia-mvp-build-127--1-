@@ -56,11 +56,13 @@ console.log("\nFlung: no empty box")
   const codeFn = src.slice(src.indexOf("const code = () => {"), src.indexOf("requestAnimationFrame(() =>\n    requestAnimationFrame"))
   check("  three at a time, the code alone (no styles, no mount), and never through the calm-idle gate", /running < 3 && queue\.length/.test(codeFn) && /load\.code \? load\.code\(\)/.test(codeFn) && !/idle\(|style\(|mount/.test(codeFn) && /loader\.code = get/.test(src))
   check("  not on Save-Data or 2g: the check comes before both prefetches", src.indexOf("conn?.saveData") > 0 && src.indexOf("conn?.saveData") < src.indexOf("const code = () => {"))
-  check("nothing waits for the page to stop scrolling for ever: every idle step is bounded", LAZY_BUSY_WAIT_MS === 450 && !/idle\((mountNext|step|next)\)/.test(src) && (src.match(/idle\((?:mountNext|step|next), LAZY_BUSY_WAIT_MS\)/g) || []).length >= 7 && /idle\(\(\) => live && mount\(\), LAZY_BUSY_WAIT_MS\)/.test(src))
+  /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): sections are built back to back from just after the first paint, nearest first, with no idle slot or calm scroll to wait for. */
+  check("every section is built back to back after the first paint, nearest first, waiting for nothing", /function mountNext\(\) \{/.test(src) && /requestAnimationFrame\(\(\) => requestAnimationFrame\(mountNext\)\)/.test(src) && !/idle\(mountNext/.test(src) && /LAZY_START_AFTER_PAINT_MS/.test(src) && !/addEventListener\("load", later/.test(src))
   check("the calm gate still holds the work back while the page scrolls, up to that bound", /if \(since < CALM_MS && now < until\)/.test(src))
   const Lazy = lazySection(async () => () => createElement("p", null, "x"), { name: "probe9", minHeight: "640px" })
   const box = renderToStaticMarkup(createElement(Lazy))
-  check("the box keeps its reserved height before the section arrives, and after (contain-intrinsic-size)", /data-lazy-section="probe9"/.test(box) && /min-height:640px/.test(box) && /containIntrinsicSize: `auto \$\{options\.minHeight\}`/.test(src))
+  /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): the box is never skipped once built, so it keeps no intrinsic size. */
+  check("the box keeps its reserved height before the section arrives, and is never skipped after", /data-lazy-section="probe9"/.test(box) && /min-height:640px/.test(box) && !/contentVisibility/.test(src) && !/containIntrinsicSize/.test(src))
 
   const story = code("components/marketing/landing-story.tsx")
   check("a busy page in the middle of a fling still reads as fast (a gap of up to half a second counts)", /speed = dt > 500 \? 0 : Math\.abs\(y - lastY\) \/ dt/.test(story) && /performance\.now\(\) - lastAt < 300/.test(story))
