@@ -1,21 +1,25 @@
 "use client"
 
 /*
-  WHAT COMES WITH YOUR STORE (landing round 13, the owner's picture 6): the
-  first sheet that rises over the plan cards. Two wide tiles on top, three
-  below, each a picture with a bold line and one more under it.
+  WHAT YOU GET (landing round 13, the owner's picture 6; round 14 below):
+  two wide tiles on top, three below, each a picture with a bold line and
+  one more under it.
 
   Four of the pictures are the home page's own (its "Sell what you make. Get
   paid worldwide." section, components/marketing/home/everything-in-one-place):
   the product slides, the drifting stores, the globe and the support threads,
   drawn by the same components with the same stylesheet, so they stay the
-  same cards. Only the layout is this page's. The fifth, the domain reel, is
-  new (./domain-reel).
+  same cards (the stores tile is the home page's Storefronts, whatever that
+  section shows). Only the layout is this page's. The fifth, the domain reel,
+  is ./domain-reel.
+
+  LANDING ROUND 14, THE OWNER: not a sheet that rises; a plain section in the
+  page's flow, after "Compare all features" (pricing-client.tsx has the
+  order and why). Its heading is not about "your store". On white now, the
+  ground the home section's pictures and captions were drawn for.
 
   The section is an .ev root like the home one, so usePlatformSection pauses
-  every loop off screen; under a covering sheet (useSheetCovered) the loops
-  pause too (CSS, from the sheet's data-pz-covered), and the globe and the
-  store strip stop.
+  every loop off screen, and the globe and the store strip stop.
 */
 
 import { useMemo, useRef } from "react"
@@ -24,10 +28,9 @@ import { EverythingGlobe } from "@/components/marketing/home/everything-globe"
 import { usePartsLive, usePlatformSection } from "@/components/marketing/home/platform-motion"
 import { siteLimits } from "@/lib/sites/plan"
 import { planDisplayName, PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID } from "@/lib/billing/plans"
-import { DomainReel, DOMAIN_CSS, DOMAIN_NAME } from "./domain-reel"
-import { useSheetCovered } from "./pricing-sheets"
+import { DomainReel, DOMAIN_NAME } from "./domain-reel"
 
-export const BENTO_HEADING = "What comes with your store."
+export const BENTO_HEADING = "What you get with Storelib."
 
 /** The plans a custom domain comes with, read from the site limits: "Grow and Pro". */
 function domainPlans(): string {
@@ -51,23 +54,21 @@ const STILL = { sell: <ProductSlides />, support: <Support />, domain: <DomainRe
 
 export function PricingBento() {
   const ref = useRef<HTMLElement>(null)
-  const covered = useSheetCovered(ref)
   const { live, reduced } = usePlatformSection(ref)
   usePartsLive(ref, ".ev-card")
-  const on = live && !covered
   /*
-    A sheet covering this one, or the section coming into range, re-renders
-    it: only the store strip and the globe take that, so the other pictures
-    are made once (STILL) and React passes over them.
+    The section coming into range re-renders it: only the store strip and the
+    globe take that, so the other pictures are made once (STILL) and React
+    passes over them.
   */
-  const store = useMemo(() => <Storefronts live={on} />, [on])
+  const store = useMemo(() => <Storefronts live={live} />, [live])
   const world = useMemo(
     () => (
       <div className="ev-vis ev-g">
-        <EverythingGlobe live={on} reduced={reduced} />
+        <EverythingGlobe live={live} reduced={reduced} />
       </div>
     ),
-    [on, reduced],
+    [live, reduced],
   )
   const visuals = { ...STILL, store, world }
   return (
@@ -98,14 +99,15 @@ export function PricingBento() {
 }
 
 /*
-  The layout, on the near black sheet. One column on a phone; two a row from
-  768px (the domain tile then takes the row); two wide over three from
-  1024px, as in the reference. The pictures keep the home section's heights
-  on the wide tiles and stand a little lower on the three.
+  The layout, on white. One column on a phone; two a row from 768px (the
+  domain tile then takes the row); two wide over three from 1024px, as in
+  the reference. The pictures keep the home section's heights on the wide
+  tiles and stand a little lower on the three. The heading is the compare
+  table's size, so the page's section headings are one size.
 */
 export const BENTO_CSS = `
-.ev.pz-bento{background:transparent;color:#fff;padding:clamp(72px,8vw,128px) 0 clamp(72px,8vw,120px)}
-.pz-h{margin:0 0 clamp(32px,4vw,56px);padding-inline-start:var(--home-head-inset,0px);font-size:clamp(34px,4.6vw,64px);font-weight:500;line-height:1.05;letter-spacing:-.045em;color:#fff;text-wrap:balance}
+.ev.pz-bento{background:#fff;color:#18181b;padding:clamp(48px,6vw,96px) 0 clamp(64px,7vw,112px)}
+.pz-h{margin:0 0 clamp(28px,3.4vw,48px);padding-inline-start:var(--home-head-inset,0px);font-size:clamp(34px,4.6vw,64px);font-weight:500;line-height:1.05;letter-spacing:-.045em;color:#18181b;text-wrap:balance}
 .pz-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:44px}
 @media(min-width:768px){
   .pz-grid{grid-template-columns:repeat(6,minmax(0,1fr));column-gap:clamp(14px,1.6vw,24px);row-gap:clamp(44px,4.4vw,64px)}
@@ -117,10 +119,4 @@ export const BENTO_CSS = `
   .pz-bento .pz-third .ev-vis{height:clamp(280px,min(25vw,46svh),480px)}
 }
 .pz-bento .ev-card{opacity:1;transform:none}
-.pz-bento .ev-cap{color:#9d9ba6}
-.pz-bento .ev-cap-lead{color:#fff}
-.pz-bento .ev-g{box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
-/* Under the next sheet, everything stands still. */
-[data-pz-covered] > .pz-bento .ev-loop,[data-pz-covered] > .pz-bento .ev-tab[data-on] .ev-tab-fill,[data-pz-covered] > .pz-bento .ev-p-bg[data-on]{animation-play-state:paused}
-${DOMAIN_CSS}
 `

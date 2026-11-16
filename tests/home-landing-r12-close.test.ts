@@ -137,7 +137,8 @@ console.log("\n── Pricing cards ──")
   const dark = (id: string) => /<a[^>]*class="[^"]*bg-\[#0f0e13\][^"]*text-white[^"]*"[^>]*data-plan-button="dark"/.test(card(id)) && /<path d="M4 10h12M11 5l5 5-5 5"><\/path>/.test(card(id))
   check("Start free and Get Pro: the earnings section's dark button and arrow", dark("free") && dark("pro") && /\.cme-cta\{[^}]*background:#0f0e13;color:#fff/.test(read("components/marketing/home/earnings-calculator.tsx")))
   // Changed on purpose (landing round 13): the owner: "Get Grow" is a solid Storelib purple button, no white pill and no round arrow (tests/home-landing-r13-pricing.test.ts).
-  check("Get Grow: a solid Storelib purple button, no round arrow", /data-plan-button="purple"/.test(card("growth")) && /bg-\[#7c3aed\] font-semibold text-white/.test(card("growth")) && !/data-plan-arrow/.test(card("growth")) && !/<path d="M3\.5 8h8\.5M8\.5 4\.5 12 8l-3\.5 3\.5"/.test(card("growth")))
+  // Changed on purpose (landing round 14): Get Grow carries the creators section's round arrow the other way round, a white disc with a purple arrow (tests/home-landing-r14-pricing.test.ts).
+  check("Get Grow: a solid Storelib purple button, with the white disc", /data-plan-button="purple"/.test(card("growth")) && /bg-\[#7c3aed\] font-semibold text-white/.test(card("growth")) && /data-plan-arrow="disc"/.test(card("growth")))
   check("Grow's card still the raised one", /data-plan-card="growth" data-plan-featured=""/.test(html))
   const settled = renderToStaticMarkup(createElement(PlanCards, { actions: { ...actions, growth: { label: "Current plan", settled: true } }, compact: true }))
   check("a settled button stays quiet, with no arrow", /data-plan-button="settled"/.test(settled) && !/data-plan-arrow/.test(settled.slice(settled.indexOf('data-plan-card="growth"'), settled.indexOf('data-plan-card="pro"'))))

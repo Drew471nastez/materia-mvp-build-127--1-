@@ -81,7 +81,8 @@ console.log("\n── pricing: left, teal, clean pictures ──")
   const pricing = read("components/marketing/pricing-section.tsx")
   const cards = read("components/billing/plan-cards.tsx")
   check("the heading stated left aligned on the home page", /"story-section-heading !mx-0 !mb-10 w-full pl-\[var\(--home-head-inset\)\] !text-left"/.test(pricing))
-  check("the small print starts at the same edge on the home page", /editorial \? "pl-\[var\(--home-head-inset\)\] text-left" : "text-center"/.test(pricing))
+  // Changed on purpose (landing round 14): the small print is gone from every surface (the owner).
+  check("no small print under the cards", !/PLAN_FOOTNOTE|footnote/.test(pricing))
   /* Changed on purpose (pricing round 5): the owner asked for the cards drawn like a reference picture, with no cover pictures, colours or grain, so the checks on the pictures (Scale's colour, contrast, grain, quality) are retired; tests/pricing-cards-r5.test.ts pins the new cards. */
   check("the cards no longer draw cover pictures", !/next\/image|data-plan-picture|data-plan-grain/.test(cards))
 }

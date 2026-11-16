@@ -80,7 +80,8 @@ console.log("\nThe Subscription Overview")
 console.log("\nThe small print and the layout")
 {
   check("the US dollars and Stripe fees line is gone from Settings > Plan and the in-app upgrade page", ["components/app/billing/billing-page-client.tsx", "components/app/billing/upgrade-page-client.tsx"].every((f) => !/PLAN_FOOTNOTE|Prices in US dollars/.test(read(f))))
-  check("the public pricing keeps it, so the constant stays", /\{footnote\}/.test(read("components/marketing/pricing-section.tsx")) && typeof plans.PLAN_FOOTNOTE === "string")
+  // Changed on purpose (landing round 14): the owner asked for the line gone everywhere, so the public pricing has none and the constant is gone.
+  check("the public pricing has none either, and the constant is gone", !/footnote|Prices in US dollars/.test(read("components/marketing/pricing-section.tsx")) && !("PLAN_FOOTNOTE" in plans))
   const billing = code(BILLING)
   check("the plans, the overview and the history share one column", /const PLAN_COLUMN = "/.test(billing) && (billing.match(/PLAN_COLUMN/g) ?? []).length >= 2)
   check("the overview's two cards pair up where the plan cards do (md)", /grid grid-cols-1 gap-5 md:grid-cols-2/.test(billing))
