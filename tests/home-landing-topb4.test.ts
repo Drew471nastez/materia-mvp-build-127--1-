@@ -24,7 +24,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { IdeasComeToLife, IDEAS_HEADING, IDEAS_HEADINGS, IDEAS_STYLES, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, DesmondPage, MondoMangoSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, DesmondPage, LoudlibSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 /* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
 import { CreatorsCarousel, CREATORS, CREATORS_CSS } from "@/components/marketing/home/creators-carousel"
 
@@ -82,17 +82,18 @@ check("one design width for every screen, no phone layout in the editors", /\.bm
 check("the picture keeps the computer's shape on a phone", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss) && !/aspect-ratio:640\/836/.test(ideasCss))
 
 console.log("\n── The website builder: a real small store, no sourdough ──")
-const site = renderToStaticMarkup(createElement(MondoMangoSite))
+const site = renderToStaticMarkup(createElement(LoudlibSite))
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 6): "come up with another example, a more simple and clean merch brand": Plain Weather replaces Saltmoor.
 // Changed on purpose (landing round 8): the owner wants the merch brand "more bold, more colorful, more funky, like a real Storelib store": Mondo Mango replaces Plain Weather; tests/home-landing-r8-ideas.test.ts pins it.
 // Changed on purpose (landing round 11): Mondo Mango sells a party card game, product shots of its boxes under a studio hero, and the builder moves on to loudlib (two sites, two pairs of rings); tests/home-landing-r11-top.test.ts pins it.
-check("Mondo Mango, a real looking store", site.includes("Bestsellers") && wb.includes("Mondo Mango"))
-check("its products are pictures that exist and are small", ["mm-studio", "mm-logo", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => {
+// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone with its pictures and the builder shows loudlib alone (tests/home-landing-r11-top.test.ts).
+check("loudlib, a real looking store", site.includes("Bestselling") && wb.includes("loudlib") && !wb.includes("Mondo Mango"))
+check("its products are pictures that exist and are small", ["ll-hero", "ll-serum", "ll-tech-house", "ll-drums", "ll-midi"].every((n) => {
   const f = join(root, `public/home/showcase/${n}.webp`)
   return existsSync(f) && statSync(f).size < 120_000 && site.includes(`/home/showcase/${n}.webp`)
 }))
-check("Publish puts mondomango.shop live, the selected sections outlined", wb.includes("mondomango.shop") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
+check("Publish puts loudlib.net live, the selected sections outlined", wb.includes("loudlib.net") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
 
 console.log("\n── The OnePage editor: a LUT pack on a real theme ──")
 const page = renderToStaticMarkup(createElement(DesmondPage))

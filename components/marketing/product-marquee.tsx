@@ -131,6 +131,13 @@ const CSS = `
 @keyframes um-left{from{transform:translate3d(0,0,0)}to{transform:translate3d(calc(-100% / 3),0,0)}}
 @keyframes um-right{from{transform:translate3d(calc(-100% / 3),0,0)}to{transform:translate3d(0,0,0)}}
 @media(max-width:767px){.um-head{margin-bottom:22px}}
+/* Wave 18 (the owner, on a phone: "the text not so huge, the icons a little smaller, just a little"): the heading is 30px at 390 (was the shared 36px), the line and the labels a point smaller, and the photos about 13% smaller (47px at 390, was 54px). From 768px nothing changes. */
+@media(max-width:767px){
+  .um .story-heading{font-size:clamp(26px,7.7vw,34px)}
+  .um-sub{margin-top:14px;font-size:15px}
+  .um-row{--pic:clamp(42px,12vw,54px)}
+  .um-item{gap:12px;margin-right:34px;font-size:16px}
+}
 @media(prefers-reduced-motion:reduce){
   .um-track{animation:none;width:auto;will-change:auto;padding-inline:var(--home-edge,20px)}
   .um-copy{flex:1 1 auto;flex-wrap:wrap;justify-content:center;gap:24px 40px}

@@ -29,7 +29,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_STORES, EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
 import * as Ideas from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, IdrisPage, LoudlibSite, MondoMangoSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, IdrisPage, LoudlibSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -63,30 +63,29 @@ const webp = (p: string, kb: number) => {
   return b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP" && statSync(f).size < kb * 1024
 }
 
-console.log("\n── 1. Mondo Mango: product shots of boxes, a clean studio hero ──")
-const site = renderToStaticMarkup(createElement(MondoMangoSite))
-const hero = site.slice(site.indexOf('class="mg-hero"'), site.indexOf('class="mg-shop"'))
-check("the hero is one studio picture of the game, the words on it", /src="\/home\/showcase\/mm-studio\.webp"[^>]*width="1600" height="534"/.test(hero) && (hero.match(/<img /g) ?? []).length === 1 && /<b>Game night, but louder\.<\/b>/.test(hero))
-check("no orange block, no sticker, no wall photograph left", !/mg-sticker|mg-wall|mm-hero|Wear it loud/.test(site + BUILDER_CSS))
-check("four products, each a shot of its box", ["mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => site.includes(`/home/showcase/${n}.webp`) && webp(`home/showcase/${n}.webp`, 60)))
-check("the old garment photos are gone", !/mm-(crew|cap|tee|tote)/.test(site + read(F.builders)) && !existsSync(join(root, "public/home/showcase/mm-crew.webp")))
-check("two are on sale, the old price struck through", (site.match(/class="mg-sale">On sale</g) ?? []).length === 2 && /<s>€35<\/s>€29/.test(site))
-check("the studio picture is small", webp("home/showcase/mm-studio.webp", 120))
+console.log("\n── 1. Mondo Mango is gone (wave 18) ──")
+// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone, with its pictures, and the builder shows loudlib alone.
+check("no party card game store, none of its pictures", !/Mondo Mango|mondomango|MondoMango|Game night, but louder|class="mg|\.mg-/.test(read(F.builders) + BUILDER_CSS) && ["mm-studio", "mm-logo", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))))
 
-console.log("\n── 2. The website builder moves on to loudlib ──")
+console.log("\n── 2. The website builder shows loudlib ──")
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 const ll = renderToStaticMarkup(createElement(LoudlibSite))
-check("both sites stand in the one canvas, the second hidden at first", /class="smk-frame wx-site bm-s1"/.test(wb) && /class="smk-frame wx-site bm-s2"/.test(wb) && /\.bm-s2\{opacity:0\}/.test(BUILDER_CSS))
-check("the bar's name and the published address change with it", /<span class="bm-s1">Mondo Mango<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">mondomango\.shop<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
+// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone, with its pictures, and the builder shows loudlib alone.
+check("one site in the canvas, nothing hidden", (wb.match(/class="smk-frame wx-site"/g) ?? []).length === 1 && !/wx-site bm-s/.test(wb))
+// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone, with its pictures, and the builder shows loudlib alone.
+check("the bar's name and the published address are loudlib's", /<b class="wx-name">loudlib<\/b>/.test(wb) && /<b class="wx-pub-host">loudlib\.net<\/b>/.test(wb))
 check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /class="ll-bar">Sale 60% off all products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Tech House Master Bundle 2025/.test(ll) && /class="ll-h">Bestselling/.test(ll))
 check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-midi", "ll-hero"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On sale</g) ?? []).length === 3)
-check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 4)
+// Changed on purpose (wave 18): one site, so one pair of rings.
+check("the builder rings the Hero and the products on loudlib", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
+/* Wave 18: the builder has one site now; the cross fade stays for the OnePage editor's two pages. */
 check("the change is a cross fade, opacity only", /\.bm-s1,\.bm-s2\{transition:opacity \.7s cubic-bezier\(\.4,0,\.2,1\)\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s1\{opacity:0\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s2\{opacity:1\}/.test(BUILDER_CSS))
 check("with reduced motion it simply changes", /@media\(prefers-reduced-motion:reduce\)\{\.bm-s1,\.bm-s2\{transition:none\}\}/.test(BUILDER_CSS))
 
 console.log("\n── The autoplay plays each scene, then the next tab ──")
 const src = code(read(F.ideas))
-check("the website builder and the OnePage editor have two scenes, the community one", Ideas.IDEAS_TABS.map((t) => t.scenes).join() === "2,2,1")
+// Changed on purpose (wave 18): the owner does not like Mondo Mango at all; it is gone, with its pictures, and the builder shows loudlib alone.
+check("the OnePage editor has two scenes, the website builder and the community one", Ideas.IDEAS_TABS.map((t) => t.scenes).join() === "1,2,1")
 check("the clock restarts for each scene", /key=\{`\$\{t\.index\}-\$\{scene\}`\}/.test(src) && /onAnimationEnd=\{onClockEnd\}/.test(src))
 check("a scene that is not the last moves the scene on, the last moves the tab on", /if \(scene \+ 1 < IDEAS_TABS\[t\.index\]\.scenes\) setShown\(\{ index: t\.index, scene: scene \+ 1 \}\)\s*else t\.advance\(\)/.test(src))
 check("the leaving panel keeps its scene while it fades, and goes back to the first at rest", /data-scene=\{i === shown\.index \? shown\.scene : 0\}/.test(src) && /const fading = \[\.\.\.t\.states\.values\(\)\]\.includes\("leaving"\)\s*if \(shown\.index !== t\.index && !fading\) setShown\(\{ index: t\.index, scene: 0 \}\)/.test(src) && !/setTimeout|setInterval/.test(src))

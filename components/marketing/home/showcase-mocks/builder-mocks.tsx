@@ -65,13 +65,10 @@ import { MockFrame, Pic, u } from "./frame"
                       / Theme and the Header / Page / Footer tree on
                       tree-parts.tsx's grid, the page itself with the blue
                       ring and its "Selected" chip (sections/_shared.tsx), and
-                      Publish's own panel (publish-panel.tsx). The site is a
-                      loud little merch label's store, Mondo Mango (round 8,
-                      the owner: "more bold, more colorful, more funky, like
-                      a real Storelib store", in place of round 6's Plain
-                      Weather): a fat wordmark, a wall of colour photographs
-                      for a hero, the drop on white with the wordmark
-                      printed on each piece.
+                      Publish's own panel (publish-panel.tsx). The site is
+                      loudlib, the owner's own sample pack store (wave 18:
+                      the invented brands before it are gone; the owner
+                      did not like them).
     OnePage editor    components/onepage/onepage-editor.tsx and tabs/links-tab:
                       undo and redo, the Links / Design / Products pill row
                       and Settings, Save and Share your OnePage; the Links tab
@@ -118,22 +115,14 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-/* ================================================================ The sites in the website builder: Mondo Mango, then loudlib */
+/* ================================================================ The site in the website builder: loudlib */
 /*
-  Landing round 11 (the owner: "I don't like the physical product examples; make something more like the 2nd image as
-  the products", and "I also don't like the hero of Mondo Mango; add something else more realistic, smooth, clean"):
-  Mondo Mango is a party card game now, sold by the two friends who made it, and its products are product shots of
-  the boxes themselves, bold titles on a light studio ground, with a sale badge on two of them. The hero is one clean
-  studio picture of the game and its expansion on a soft peach sweep, the words on the plain part of it.
-  The boxes and the studio picture are rendered (public/home/showcase/mm-*.webp), so they are crisp at any size.
+  Wave 18 (the owner, of the party card game's store: "I don't like it at all"): it is gone, and the builder
+  shows one site, loudlib. The invented brands tried here before it were turned down;
+  loudlib is the owner's own store, already drawn after the real one, and one site tells the whole story (the Hero,
+  then the products are selected, then Publish puts it live) inside one 8.4s moment.
 */
 type Product = { pic: string; name: string; price: string; was?: string }
-const MM_PRODUCTS: Product[] = [
-  { pic: "mm-game", name: "Mondo Mango", price: "€29", was: "€35" },
-  { pic: "mm-late-round", name: "Late Round expansion", price: "€19" },
-  { pic: "mm-family", name: "Family Edition", price: "€25" },
-  { pic: "mm-crate", name: "The Whole Crate", price: "€59", was: "€73" },
-]
 
 /** A product in a store's grid: its shot, a sale badge when it is reduced, the name and the price. */
 function ShopCard({ p, cls }: { p: Product; cls: string }) {
@@ -149,62 +138,6 @@ function ShopCard({ p, cls }: { p: Product; cls: string }) {
         {p.price}
       </span>
     </span>
-  )
-}
-
-/**
- * Mondo Mango, a party card game's store, the site open in the website builder: the wordmark in the middle of the
- * header, a studio picture of the game for a hero, then the bestsellers as product shots. `rings` outlines the Hero,
- * then the products, the way the builder rings the section it has selected.
- */
-export function MondoMangoSite({ rings = false }: { rings?: boolean }) {
-  return (
-    <div className="mg">
-      <div className="mg-nav">
-        <span className="mg-links">
-          <b>Shop all</b>
-          <span>Expansions</span>
-          <span>How to play</span>
-        </span>
-        <Pic n="mm-logo" w={520} h={120} className="mg-logo" />
-        <span className="mg-links mg-right">
-          <span>Search</span>
-          <b>Bag (2)</b>
-        </span>
-      </div>
-      <div className="mg-hero">
-        <Pic n="mm-studio" w={1600} h={534} className="mg-studio" />
-        <span className="mg-pitch">
-          <i className="mg-kicker">New: Late Round expansion</i>
-          <b>Game night, but louder.</b>
-          <span className="mg-line">A party card game for 3 to 8 players. Twenty minute rounds.</span>
-          <span className="mg-acts">
-            <em>Shop the game</em>
-            <span>How to play</span>
-          </span>
-        </span>
-        {rings && (
-          <span className="mg-ring wx-ring-a">
-            <em>Selected</em>
-          </span>
-        )}
-      </div>
-      <div className="mg-shop">
-        <p className="mg-h">
-          <b>Bestsellers</b> <span>Shop all</span>
-        </p>
-        <div className="mg-grid">
-          {MM_PRODUCTS.map((p) => (
-            <ShopCard key={p.name} p={p} cls="mg" />
-          ))}
-        </div>
-        {rings && (
-          <span className="mg-ring wx-ring-b">
-            <em>Selected</em>
-          </span>
-        )}
-      </div>
-    </div>
   )
 }
 
@@ -258,7 +191,7 @@ export function LoudlibSite({ rings = false }: { rings?: boolean }) {
           </span>
         </span>
         {rings && (
-          <span className="mg-ring wx-ring-a">
+          <span className="bm-ring wx-ring-a">
             <em>Selected</em>
           </span>
         )}
@@ -271,7 +204,7 @@ export function LoudlibSite({ rings = false }: { rings?: boolean }) {
           ))}
         </div>
         {rings && (
-          <span className="mg-ring wx-ring-b">
+          <span className="bm-ring wx-ring-b">
             <em>Selected</em>
           </span>
         )}
@@ -367,8 +300,7 @@ function WbBar() {
           <ArrowLeftToLine />
         </span>
         <b className="wx-name">
-          <span className="bm-s1">Mondo Mango</span>
-          <span className="bm-s2">loudlib</span>
+          loudlib
         </b>
         <i className="wx-live" />
         <span className="wx-key">
@@ -436,8 +368,7 @@ function PublishPanel() {
       <span className="wx-pub-url">
         <Globe />
         <b className="wx-pub-host">
-          <span className="bm-s1">mondomango.shop</span>
-          <span className="bm-s2">loudlib.net</span>
+          loudlib.net
         </b>
         <Copy />
         <ExternalLink />
@@ -482,11 +413,7 @@ export function WebsiteBuilderMock() {
         <ChromeRow name="Footer" Icon={PanelBottom} />
       </aside>
       <div className="wx-canvas">
-        <MockFrame label="" className="wx-site bm-s1">
-          <MondoMangoSite rings />
-        </MockFrame>
-        {/* Landing round 11: the second site the tab moves on to (data-scene, ideas-come-to-life.tsx), cross faded in the same canvas. */}
-        <MockFrame label="" className="wx-site bm-s2">
+        <MockFrame label="" className="wx-site">
           <LoudlibSite rings />
         </MockFrame>
       </div>
@@ -1027,35 +954,9 @@ export const BUILDER_CSS = u(`
 .bm-frame>.smk{--w:1280}
 .bm-cursor{position:absolute;z-index:30;width:22u!important;height:22u!important;opacity:0;filter:drop-shadow(0 2u 3u rgba(0,0,0,.25));pointer-events:none}
 
-/* ---------- the site: Mondo Mango (its own design width). Landing round 8 (the owner: "more bold, more colorful, more funky, like a real Storelib store"): a fat 70s wordmark, a wall of colour, the drop on white. */
+/* ---------- the site (its own design width) */
 .wx-canvas .wx-site{position:absolute;inset:0}
 .wx-site>.smk{--w:1024}
-.mg{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#141414;font-family:var(--font-inter,Inter),Inter,sans-serif}
-.mg-nav{flex:none;position:relative;height:62u;display:flex;align-items:center;justify-content:space-between;padding:0 24u}
-.mg-links{display:flex;gap:18u;font-size:10.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#141414}
-.mg-links b{font-weight:600;box-shadow:inset 0 -1.5u 0 #ff5b14}
-.mg-logo{position:absolute;left:50%;top:50%;width:156u!important;height:36u!important;background:none!important;transform:translate(-50%,-50%)}
-/* Landing round 11: the hero is one studio picture of the game (the words on its plain left part), the products are shots of the boxes with a sale badge, the price struck through when reduced. */
-.mg-hero{position:relative;flex:none;display:flex;align-items:center;height:326u;margin:0 24u;border-radius:14u;overflow:hidden;background:#ffe1c7}
-.mg-studio{position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover;background:none!important}
-.mg-pitch{position:relative;display:flex;flex-direction:column;align-items:flex-start;padding:0 48u;color:#2b1608}
-.mg-kicker{font-size:11u;font-style:normal;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#d9480f}
-.mg-pitch b{max-width:420u;margin-top:12u;font-size:50u;font-weight:800;line-height:1;letter-spacing:-.035em}
-.mg-line{max-width:330u;margin-top:14u;font-size:15u;font-weight:500;line-height:1.45;color:#5b3a22}
-.mg-acts{display:flex;align-items:center;gap:20u;margin-top:24u;font-size:13u;font-weight:600}
-.mg-acts em{padding:13u 22u;border-radius:999u;background:#1f120a;color:#fff;font-style:normal;line-height:1}
-.mg-acts span{box-shadow:inset 0 -1.5u 0 currentColor}
-.mg-shop{position:relative;flex:1 0 auto;padding:20u 24u 30u}
-.mg-h{display:flex;justify-content:space-between;align-items:baseline;font-size:10.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase}
-.mg-h b{font-size:21u;font-weight:800;letter-spacing:-.02em;text-transform:none}
-.mg-grid,.ll-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14u;margin-top:12u}
-.mg-card,.ll-card{display:grid;align-content:start;gap:3u}
-.mg-img,.ll-img{position:relative;display:block;height:200u;border-radius:12u;background:#f4f1ec;overflow:hidden}
-.mg-img img,.ll-img img{width:100%!important;height:100%!important;object-fit:cover;background:none!important}
-.mg-sale,.ll-sale{position:absolute;left:10u;bottom:10u;padding:5u 10u;border-radius:999u;background:#ff5b14;color:#fff;font-size:11u;font-style:normal;font-weight:600;line-height:1.2}
-.mg-card>b,.ll-card>b{margin-top:7u;font-size:13u;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mg-price,.ll-price{display:flex;gap:7u;font-size:12.5u;font-weight:500;color:#141414}
-.mg-price s,.ll-price s{color:#8a8a8a;font-weight:400}
 
 /* ---------- loudlib (landing round 11): a dark header over a white shop, after loudlib.net */
 .ll{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#16161a;font-family:var(--font-inter,Inter),Inter,sans-serif}
@@ -1079,22 +980,25 @@ export const BUILDER_CSS = u(`
 .ll-buy s{color:#8d8d97;font-weight:400}
 .ll-shop{position:relative;flex:1 0 auto;padding:22u 24u 30u}
 .ll-h{text-align:center;font-size:24u;font-style:italic;font-weight:800;letter-spacing:-.01em;text-transform:uppercase;color:#14202b}
-.ll-img{background:#fff}
-.ll-sale{background:#6a2bd6}
+.ll-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14u;margin-top:12u}
+.ll-card{display:grid;align-content:start;gap:3u}
+.ll-img{position:relative;display:block;height:200u;border-radius:12u;background:#fff;overflow:hidden}
+.ll-img img{width:100%!important;height:100%!important;object-fit:cover;background:none!important}
+.ll-sale{position:absolute;left:10u;bottom:10u;padding:5u 10u;border-radius:999u;background:#6a2bd6;color:#fff;font-size:11u;font-style:normal;font-weight:600;line-height:1.2}
+.ll-card>b{margin-top:7u;font-size:13u;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ll-price{display:flex;gap:7u;font-size:12.5u;font-weight:500;color:#141414}
+.ll-price s{color:#8a8a8a;font-weight:400}
 
-/* Landing round 11: two sites in the builder, two pages in the OnePage editor. The tab shows the first, then (data-scene="1" on its panel, set on the autoplay clock) cross fades to the second; only opacity moves. */
+/* Landing round 11: two pages in the OnePage editor (wave 18: the builder shows one site, loudlib). The tab shows the first, then (data-scene="1" on its panel, set on the autoplay clock) cross fades to the second; only opacity moves. */
 .bm-s1,.bm-s2{transition:opacity .7s cubic-bezier(.4,0,.2,1)}
 .bm-s2{opacity:0}
 [data-scene="1"] .bm-s1{opacity:0}
 [data-scene="1"] .bm-s2{opacity:1}
-.wx-name,.wx-pub-host{display:grid}
-.wx-name>span,.wx-pub-host>span{grid-area:1/1}
-.wx-pub-host>span{font-weight:400}
 .ope-page{position:absolute;inset:0;display:block}
 @media(prefers-reduced-motion:reduce){.bm-s1,.bm-s2{transition:none}}
-.mg-ring{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
-.mg-ring em{position:absolute;left:8u;top:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
-.mg-ring.wx-ring-b{opacity:0}
+.bm-ring{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
+.bm-ring em{position:absolute;left:8u;top:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
+.bm-ring.wx-ring-b{opacity:0}
 
 /* ---------- website builder (app/(storelib)/website-builder/editor, its bar, the sidebar card, the canvas) */
 .wb{background:#eef1f5}
