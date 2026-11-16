@@ -67,7 +67,7 @@ async function main() {
     /* Still drawn by /pricing (pricing-client), so kept. */
     // Changed on purpose (landing round 13): /pricing is now the cards and three rising sheets, so only the closing call is still drawn there; the other three files are kept, no longer drawn.
     for (const f of ["split-features-section", "tool-stack-section", "features-badges-section", "cta-section"]) {
-      check(`components/marketing/${f}.tsx stays${f === "cta-section" ? ": /pricing draws it" : ""}`, !gone(`components/marketing/${f}.tsx`) && (f !== "cta-section" || read("app/(storelib)/(marketing)/pricing/pricing-client.tsx").includes(`components/marketing/${f}"`)))
+      check(`components/marketing/${f}.tsx stays${f === "cta-section" ? ", no longer drawn by /pricing" : ""}`, !gone(`components/marketing/${f}.tsx`) && (f !== "cta-section" || !read("app/(storelib)/(marketing)/pricing/pricing-client.tsx").includes(`components/marketing/${f}"`)) /* Changed on purpose (landing round 14): /pricing closes with the home page's FinalCta now; the file is kept, no longer drawn. */)
     }
     check("AnimateOnScroll has a file of its own; nothing imports the bento", !/from "\.\/bento-grid"/.test(["pricing-section", "faq-section", "tool-stack-section", "split-features-section", "features-badges-section", "pill-tabs", "features-grid", "comparison-section"].map((f) => read(`components/marketing/${f}.tsx`)).join("\n")) && /export \{ AnimateOnScroll \}/.test(read("components/marketing/animate-on-scroll.tsx")))
     check("the below-the-fold sections are dynamic imports", ["product-marquee", "pricing-section", "faq-section", "home/final-cta"].every((f) => page.includes(`import("@/components/marketing/${f}")`)))

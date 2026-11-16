@@ -5,6 +5,7 @@ import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/
 import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
+import { SheetHold } from "@/components/marketing/home/sheet-hold"
 import {
   LazyEverythingInOnePlace,
   LazyIdeasComeToLife,
@@ -164,8 +165,9 @@ export default function StorelibLanding() {
           <LazyBuildShowcase />
         </ScrollRevealBackdrop>
 
-        {/* WHITE SHEET: pricing, the questions */}
+        {/* WHITE SHEET: pricing, the questions. Landing round 14, the owner: it arrives as a sheet; the showcase above holds (sticky) and this sheet rises over it (components/marketing/home/sheet-hold.tsx). */}
         <ScrollRevealPanel tone="white">
+          <SheetHold />
 
           {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
           <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">

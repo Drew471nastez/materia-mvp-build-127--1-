@@ -61,7 +61,8 @@ check("the client no longer renders the badges, the marquee, the split features 
 console.log("\n2 and 3. The cards on white under a much bigger heading")
 const section = read("components/marketing/pricing-section.tsx")
 check("/pricing's section is white, no grey, no rules", /: "bg-white pt-\[clamp\(48px,7vw,112px\)\] pb-16 sm:pb-24"/.test(section) && !/py-20 sm:py-24 bg-\[#f8f9fa\] border-y/.test(section))
-check("the heading runs up to 112px, the line under it to 28px", /data-pricing-title="" className="text-\[clamp\(46px,7\.4vw,112px\)\]/.test(section) && /text-\[clamp\(18px,1\.9vw,28px\)\]/.test(section))
+// Changed on purpose (landing round 14): the owner found the 112px title too big; it is home sized now (tests/home-landing-r14-pricing.test.ts).
+check("the heading is home sized now", /data-pricing-title="" className="text-\[clamp\(38px,5vw,68px\)\]/.test(section))
 check("the home page's editorial heading is untouched", /editorial \? "mt-3 text-\[16px\] leading-relaxed text-\[#6b7280\] text-balance"/.test(section) && /<StoryHeading text=\{headingOverride \|\| "Pricing & Plans"\}/.test(section))
 
 console.log("\n4. The sheets")
@@ -74,7 +75,8 @@ const stack = renderToStaticMarkup(
     ],
   }),
 )
-check("the client stacks plans, bento, compare and questions in that order", /id: "plans"[\s\S]*id: "included"[\s\S]*id: "compare"[\s\S]*id: "faq"/.test(client))
+// Changed on purpose (landing round 14): one sheet stack, the plans then compare; the bento and the questions follow in the page's flow (tests/home-landing-r14-pricing.test.ts).
+check("the client stacks plans then compare", /id: "plans"[\s\S]*id: "compare"/.test(client) && !/id: "included"|id: "faq"/.test(client))
 check("each sheet carries its line, every one but the last its shade", (stack.match(/data-pz-line=""/g) ?? []).length === 3 && (stack.match(/class="pz-dim"/g) ?? []).length === 2)
 check("sticky only once its height is known, stopping at the foot of the screen (svh)", /\.pz-stack\[data-pz-ready\] > \.pz-sheet:not\(:last-child\)\{position:sticky;top:min\(0px,calc\(100svh - var\(--pz-h,100svh\)\)\)\}/.test(SHEETS_CSS))
 check("rounded top corners, each sheet tucked under the one before", /\.pz-sheet \+ \.pz-sheet\{margin-top:calc\(-1 \* var\(--pz-r\)\);border-radius:var\(--pz-r\) var\(--pz-r\) 0 0;overflow:clip/.test(SHEETS_CSS))
@@ -87,13 +89,16 @@ check("no overflow on the page wrapper (it would stop the sheets sticking)", /<d
 console.log("\n4a. The bento")
 const bento = renderToStaticMarkup(createElement(PricingBento))
 const bentoWords = words(bento)
-check("a heading of its own, not \"Always included\"", BENTO_HEADING === "What comes with your store." && !/Always included/i.test(bentoWords))
+// Changed on purpose (landing round 14): a heading not about "your store".
+check("a heading of its own, not \"Always included\"", BENTO_HEADING === "What you get with Storelib." && !/Always included/i.test(bentoWords))
 check("two wide tiles, then three", BENTO_CARDS.map((c) => c.size).join() === "wide,wide,third,third,third" && BENTO_CARDS.map((c) => c.key).join() === "sell,store,world,support,domain")
 check("the four captions are the home section's own, word for word", EVERYTHING_CARDS.every((c) => bentoWords.includes(`${c.lead} ${c.rest}`)))
 check("the support tile is the home section's three conversations, each with its answer", EVERYTHING_SUPPORT.length === 3 && EVERYTHING_SUPPORT.every((r) => bentoWords.includes(r.ask.replace(/'/g, "'")) && bentoWords.includes(r.reply)) && /Moving my subscribers over/.test(bentoWords) && /Fell Sweater pattern/.test(bentoWords) && /My own domain/.test(bentoWords))
-check("the fifth tile: Connect your own domain, on the plans that have one", /Connect your own domain\. Your store at an address you already own, like junokada\.com, on Grow and Pro\./.test(bentoWords))
+// Changed on purpose (landing round 14): the reel's name is mayalane.
+check("the fifth tile: Connect your own domain, on the plans that have one", /Connect your own domain\. Your store at an address you already own, like mayalane\.com, on Grow and Pro\./.test(bentoWords))
 check("one column on a phone, 3+3 from 768px, 2+2+2 from 1024px", /\.pz-grid\{display:grid;grid-template-columns:minmax\(0,1fr\)/.test(BENTO_CSS) && /@media\(min-width:768px\)\{\s*\.pz-grid\{grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/.test(BENTO_CSS) && /@media\(min-width:1024px\)\{\s*\.pz-third,\.pz-third:last-child\{grid-column:span 2\}/.test(BENTO_CSS))
-check("under the next sheet its loops pause", /\[data-pz-covered\] > \.pz-bento \.ev-loop[^{]*\{animation-play-state:paused\}/.test(BENTO_CSS))
+// Changed on purpose (landing round 14): the bento is no sheet any more, so nothing covers it; usePlatformSection still pauses it off screen.
+check("no sheet covers it any more", !/data-pz-covered/.test(BENTO_CSS))
 check("covering a sheet re-renders nothing but the section that asks (no React state in the stack)", !/useState|startTransition|createContext/.test(sheetsSrc.slice(sheetsSrc.indexOf("export function SheetStack"))) && /new MutationObserver\(read\)/.test(sheetsSrc))
 
 console.log("\n4a. The domain reel")
@@ -104,7 +109,7 @@ check("the pill's ending in Storelib violet", /\.pz-d-end-on\{font-weight:650;co
 const keyframes = DOMAIN_CSS.match(/@keyframes [\s\S]*?\}\}/g) ?? []
 check("only transform moves, by translate3d and scale", keyframes.length === 2 && keyframes.every((k) => !/(top|left|height|width|margin|opacity|filter)\s*:/.test(k.replace(/transform:[^}]*/g, ""))))
 check("the reel ends where it began (-50% is the second copy's first row)", /100%\{transform:translate3d\(0,-50%,0\)\}/.test(DOMAIN_CSS))
-check("aria hidden: it is a picture", /^<div class="ev-vis pz-d" aria-hidden="true">/.test(reel))
+check("aria hidden: it is a picture", /<div class="ev-vis pz-d" aria-hidden="true">/.test(reel))
 
 console.log("\n4b. Compare all features")
 const actions: Record<OfferedPlanId, PlanCardAction> = { free: { label: "Start free", href: "/signup" }, growth: { label: "Get Grow", href: "/signup" }, pro: { label: "Get Pro", href: "/signup" } }
@@ -116,16 +121,18 @@ check("every group and row from planComparison(), nothing else", groups.every((g
 check("a black round check per true value", (cmp.match(/class="pz-cmp-yes"/g) ?? []).length === groups.flatMap((g) => g.rows).reduce((n, r) => n + [r.free, r.pro, r.scale].filter((v) => v === true).length, 0) && /\.pz-cmp-yes\{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#0f0e13/.test(COMPARE_CSS))
 check("the plan row sticks under the site's bar", /\.pz-cmp-head\{position:sticky;top:var\(--pz-head,0px\);z-index:2;background:#fff/.test(COMPARE_CSS))
 check("at 390 the label takes its own line and the three plans keep their columns", /\.pz-cmp-row\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(COMPARE_CSS) && /\.pz-cmp-label\{grid-column:1\/-1;/.test(COMPARE_CSS))
-check("Grow's compare button is the same purple", /\.pz-cmp-btn-on\{background:#7c3aed\}/.test(COMPARE_CSS) && /class="pz-cmp-btn pz-cmp-btn-on"[^>]*>Get Grow/.test(cmp))
+check("Grow's compare button is the same purple", /\.pz-cmp-btn-on\{background:#7c3aed\}/.test(COMPARE_CSS) && /class="pz-cmp-btn pz-cmp-btn-on"[^>]*><span class="pz-cmp-btn-t">Get Grow/.test(cmp))
 check("no number typed by hand in the table", !/\$\d|\d+ ?GB|\d%/.test(code(read(`${DIR}/compare-plans.tsx`)).split("export const COMPARE_CSS")[0]))
 
 console.log("\n4c. The questions rise the same way")
-check("the FAQ is the last sheet, the existing FaqSection", /\{ id: "faq", tone: "light", node: <FaqSection editorial \/> \}/.test(client))
+// Changed on purpose (landing round 14): the questions are a plain section after the bento, no longer a sheet.
+check("the questions follow, the existing FaqSection", /<FaqSection editorial \/>/.test(client))
 
 console.log("\n5. Get Grow: solid purple")
 const cards = renderToStaticMarkup(createElement(PlanCards, { actions }))
 const growCard = cards.slice(cards.indexOf('data-plan-card="growth"'), cards.indexOf('data-plan-card="pro"'))
-check("Grow's button is solid Storelib purple with no arrow", PLAN_PURPLE === "#7c3aed" && /data-plan-button="purple"/.test(growCard) && /bg-\[#7c3aed\] font-semibold text-white/.test(growCard) && !/data-plan-arrow|<svg/.test(growCard.slice(growCard.indexOf("data-plan-button"), growCard.indexOf("</a>", growCard.indexOf("data-plan-button")))))
+// Changed on purpose (landing round 14): Get Grow carries a white disc with a purple arrow (tests/home-landing-r14-pricing.test.ts).
+check("Grow's button is solid Storelib purple", PLAN_PURPLE === "#7c3aed" && /data-plan-button="purple"/.test(growCard) && /bg-\[#7c3aed\] font-semibold text-white/.test(growCard))
 check("Start free and Get Pro stay dark with the arrow", (cards.match(/data-plan-button="dark"/g) ?? []).length === 2 && (cards.match(/<path d="M4 10h12M11 5l5 5-5 5"><\/path>/g) ?? []).length === 2)
 
 console.log("\nCopy")
