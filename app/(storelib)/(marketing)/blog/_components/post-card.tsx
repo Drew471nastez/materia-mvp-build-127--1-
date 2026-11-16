@@ -38,9 +38,9 @@ export function PostCover({ post, sizes, priority = false, ratio = "aspect-[16/1
   const src = safeImageUrl(post.cover_image_url)
   const tint = categoryTint(post.category)
   return (
-    <div className={`relative ${ratio} overflow-hidden rounded-2xl ${src ? "bg-[#eef0f3]" : tint.bg} @container`}>
+    <div className={`relative ${ratio} overflow-hidden rounded-[20px] ${src ? "bg-[#eef0f3]" : tint.bg} @container`}>
       {src ? (
-        <BlogImage src={src} alt="" fill sizes={sizes} priority={priority} className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.015]" />
+        <BlogImage src={src} alt="" fill sizes={sizes} priority={priority} className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.025] motion-reduce:transition-none" />
       ) : (
         <div aria-hidden className="absolute inset-0 flex flex-col justify-between p-[7cqw]" data-blog-cover-fallback="">
           <span className="flex items-center gap-2">
@@ -63,7 +63,7 @@ export function PostCover({ post, sizes, priority = false, ratio = "aspect-[16/1
 export function PostCard({
   post,
   headingLevel = "h2",
-  sizes = "(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw",
+  sizes = "(min-width: 1600px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw",
   priority = false,
 }: {
   post: BlogPost
@@ -82,17 +82,17 @@ export function PostCard({
   return (
     <article className="group relative flex h-full flex-col" data-blog-card="">
       <PostCover post={post} sizes={sizes} priority={priority} />
-      <p className="mt-5 flex flex-wrap items-center gap-x-2 text-[14px] text-[#6b7280]">
-        {post.category ? <span className="font-medium text-[#1a1a2e]">{post.category}</span> : null}
+      <p className="mt-5 flex flex-wrap items-center gap-x-2 text-[14px] text-[#6b6b76]">
+        {post.category ? <span className={`font-medium ${categoryTint(post.category).ink}`}>{post.category}</span> : null}
         {post.category && post.published_at ? <span aria-hidden className="text-[#c4c7cd]">·</span> : null}
         {post.published_at ? <time dateTime={post.published_at}>{shortDate(post.published_at)}</time> : null}
       </p>
-      <H className="mt-2 line-clamp-3 text-[19px] font-semibold leading-[1.3] tracking-[-0.015em] text-[#1a1a2e] sm:text-[20px]">
+      <H className="mt-2 line-clamp-3 text-balance text-[20px] font-medium leading-[1.25] tracking-[-0.025em] text-[#1a1a2e] sm:text-[22px]">
         <Link href={`/blog/${post.slug}`} className="decoration-[#1a1a2e]/30 decoration-1 underline-offset-[3px] after:absolute after:inset-0 after:rounded-2xl group-hover:underline">
           {post.title}
         </Link>
       </H>
-      {post.excerpt ? <p className="mt-2 line-clamp-2 text-[16px] leading-[1.55] text-[#6b7280]">{post.excerpt}</p> : null}
+      {post.excerpt ? <p className="mt-2.5 line-clamp-2 text-[16px] leading-[1.55] text-[#6b6b76]">{post.excerpt}</p> : null}
     </article>
   )
 }

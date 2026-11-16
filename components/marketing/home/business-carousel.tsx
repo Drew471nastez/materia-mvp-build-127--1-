@@ -63,9 +63,16 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   in a softer violet than the page's (BUSINESS_ACCENT_COLOR). The line under
   it names the five in plain words.
 */
-export const BUSINESS_HEADING = "Five ways to get paid"
+/*
+  Round 14, the owner disliked "Five ways to get paid" and asked for a
+  cleaner heading, not in a store's jargon. It names the two ends of what
+  the cards show, both real things on them: Ruth Calder's cookbook and Talia
+  Moreno's training call ("Sell what you make" is already the Everything
+  section's heading). The accent stays on one word, in the same quiet violet.
+*/
+export const BUSINESS_HEADING = "From a cookbook to a coaching call"
 /** The one accented word. */
-export const BUSINESS_ACCENT = ["paid"] as const
+export const BUSINESS_ACCENT = ["call"] as const
 /** Its colour: a quiet violet, greyer than the page's #7c3aed. */
 export const BUSINESS_ACCENT_COLOR = "#7e6fb8"
 /** The line under the heading: at most ten words (the owner). */
@@ -73,6 +80,8 @@ export const BUSINESS_SUB = "Downloads, goods, courses, communities and calls, o
 export const BUSINESS_SLIDE_MS = 6500
 /** How long autoplay waits after a finger leaves the stage. */
 export const BUSINESS_TOUCH_RESUME_MS = 2500
+/** How long it waits after a finger leaves a scene a visitor can use (the shelf, the line of store designs): long enough to read what they opened. */
+export const BUSINESS_PLAY_RESUME_MS = 8000
 /** Below this width the kinds are a row of cards that slides (the phone layout). */
 export const BUSINESS_RAIL_QUERY = "(max-width: 767px)"
 /** How long the row must be still before the card in view counts as chosen (a swipe changes nothing while it moves). */
@@ -87,8 +96,10 @@ type Kind = {
   line: string
   /** Its turn, when it is not the usual length. */
   ms?: number
-  Scene: ComponentType
+  Scene: ComponentType<{ on?: boolean }>
   alt: string
+  /** A scene a visitor can use (round 14): drawn as a labelled group, not a picture, and told when it is shown. */
+  live?: boolean
 }
 
 export const BUSINESS_SLIDES: readonly Kind[] = [
@@ -97,8 +108,11 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     label: "Digital products",
     tab: "Digital",
     line: "E-books, video courses, downloads",
+    /* Long enough for the shelf to show itself and its bought product to stand a moment. */
+    ms: 8000,
     Scene: DigitalScene,
-    alt: "Digital products on Storelib: Ruth Calder's store sells Ancestral Kitchen, a cookbook of 80 recipes as a PDF for $34, and Daily Mobility, a video course of 21 lessons for $79. Both are in one order of $113; it is paid, the cookbook downloads and both are ready in the buyer's library.",
+    live: true,
+    alt: "Digital products on Storelib: a shelf of six, Ancestral Kitchen (a cookbook, $34), Daily Mobility (a video course, $79), Cine Tones (a LUT pack, $24), Drums One Shots (a sample pack, $19), Creator Planner (a Notion template, $15) and Pricing Your Work (a PDF guide, $12). Choose one to see what comes in it, and buy it: the download starts in the button.",
   },
   {
     id: "physical",
@@ -108,7 +122,8 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     /* The line of store designs turns four times in a turn. */
     ms: STORE_STEP_S * 4000,
     Scene: PhysicalScene,
-    alt: "Store designs for physical products on Storelib: a soda, skincare, a balm, jewellery, a massage gun and phone cases. One stands in front, the others stacked behind it on each side, and the line turns on by itself.",
+    live: true,
+    alt: "Store designs for physical products on Storelib: a soda, skincare, a balm, jewellery, a massage gun and phone cases. One stands in front, the others stacked behind it on each side; the line turns by itself, and you can drag it.",
   },
   {
     id: "courses",
@@ -136,9 +151,20 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
   },
 ]
 
-/* A scene never changes once drawn; switching changes only attributes on the panels around it. */
-const KindScene = memo(function KindScene({ i }: { i: number }) {
-  const { Scene, alt } = BUSINESS_SLIDES[i]
+/*
+  A scene never changes once drawn; switching changes only attributes on the panels around it. The two a visitor
+  can use are a labelled group (their buttons reachable) and are told, as `on`, when they are shown and on screen.
+*/
+const KindScene = memo(function KindScene({ i, on }: { i: number; on: boolean }) {
+  const { Scene, alt, live } = BUSINESS_SLIDES[i]
+  if (live)
+    return (
+      <div className="smk-frame bz-frame" role="group" aria-label={alt}>
+        <div className="smk">
+          <Scene on={on} />
+        </div>
+      </div>
+    )
   return (
     <MockFrame label={alt} className="bz-frame">
       <Scene />
@@ -177,7 +203,8 @@ export function BusinessCarousel() {
   const letGo = useCallback((e: PointerEvent) => {
     if (e.pointerType === "mouse") return
     clearTimeout(release.current)
-    release.current = setTimeout(() => setHeld(false), BUSINESS_TOUCH_RESUME_MS)
+    const used = (e.target as Element | null)?.closest?.(".bs-digital, .bt-stage")
+    release.current = setTimeout(() => setHeld(false), used ? BUSINESS_PLAY_RESUME_MS : BUSINESS_TOUCH_RESUME_MS)
   }, [])
 
   /* The ring's second half closing is the end of the turn. */
@@ -201,23 +228,48 @@ export function BusinessCarousel() {
   /*
     The phone's row: which card is in view, read once the row has been still
     for a moment (never while it moves, so a swipe does no work but the
-    browser's own scroll). Its moment and its neighbours' play.
+    browser's own scroll). Its moment and its neighbours' play; the scenes a
+    visitor can use start only when theirs is the card in view.
+    Under the row, the marker of the five follows the scroll as it happens:
+    one transform a frame on one small element.
   */
   const railRef = useRef<HTMLDivElement>(null)
+  const thumbRef = useRef<HTMLElement>(null)
   const [railAt, setRailAt] = useState(0)
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => clearTimeout(settle.current), [])
+  const frame = useRef(0)
+  useEffect(
+    () => () => {
+      clearTimeout(settle.current)
+      cancelAnimationFrame(frame.current)
+    },
+    [],
+  )
+  const railPitch = (r: HTMLElement) => {
+    const first = r.firstElementChild as HTMLElement | null
+    const next = r.children[1] as HTMLElement | undefined
+    return first ? (next ? next.offsetLeft - first.offsetLeft : first.offsetWidth) : 0
+  }
   const onRailScroll = useCallback(() => {
+    if (!frame.current)
+      frame.current = requestAnimationFrame(() => {
+        frame.current = 0
+        const r = railRef.current
+        const thumb = thumbRef.current
+        const pitch = r ? railPitch(r) : 0
+        if (r && thumb && pitch > 0) thumb.style.transform = `translate3d(${Math.max(0, Math.min(n - 1, r.scrollLeft / pitch)) * 100}%,0,0)`
+      })
     clearTimeout(settle.current)
     settle.current = setTimeout(() => {
       const r = railRef.current
-      const first = r?.firstElementChild as HTMLElement | null | undefined
-      if (!r || !first) return
-      const next = r.children[1] as HTMLElement | undefined
-      const pitch = next ? next.offsetLeft - first.offsetLeft : first.offsetWidth
-      if (pitch > 0) setRailAt(Math.max(0, Math.min(n - 1, Math.round(r.scrollLeft / pitch))))
+      const pitch = r ? railPitch(r) : 0
+      if (r && pitch > 0) setRailAt(Math.max(0, Math.min(n - 1, Math.round(r.scrollLeft / pitch))))
     }, BUSINESS_RAIL_SETTLE_MS)
   }, [n])
+  const showCard = (i: number) => {
+    const r = railRef.current
+    if (r) r.scrollTo({ left: i * railPitch(r), behavior: t.reduce ? "auto" : "smooth" })
+  }
 
   const run = t.run && !held && !rail
   return (
@@ -239,19 +291,28 @@ export function BusinessCarousel() {
       </div>
       <div className="biz-body">
         {rail ? (
-          <div ref={railRef} className="biz-rail" role="list" aria-label="What you can sell" onScroll={onRailScroll}>
-            {BUSINESS_SLIDES.map((s, i) => (
-              <div key={s.id} className="biz-card" role="listitem" aria-labelledby={`biz-card-${s.id}`}>
-                <div className="biz-card-h">
-                  <h3 id={`biz-card-${s.id}`}>{s.label}</h3>
-                  <p>{s.line}</p>
+          <>
+            <div ref={railRef} className="biz-rail" role="list" aria-label="What you can sell" onScroll={onRailScroll}>
+              {BUSINESS_SLIDES.map((s, i) => (
+                <div key={s.id} className="biz-card" role="listitem" aria-labelledby={`biz-card-${s.id}`}>
+                  <div className="biz-card-h">
+                    <h3 id={`biz-card-${s.id}`}>{s.label}</h3>
+                    <p>{s.line}</p>
+                  </div>
+                  <div className={Math.abs(i - railAt) <= 1 ? "biz-slide bz-on" : "biz-slide"} data-pane="rail">
+                    <KindScene i={i} on={i === railAt && t.live} />
+                  </div>
                 </div>
-                <div className={Math.abs(i - railAt) <= 1 ? "biz-slide bz-on" : "biz-slide"} data-pane="rail">
-                  <KindScene i={i} />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {/* Where the row is, and a way to any card: five equal parts of one line, the marker on the one in view. */}
+            <div className="biz-dots" role="group" aria-label="Go to">
+              <i ref={thumbRef} className="biz-dot-thumb" aria-hidden="true" />
+              {BUSINESS_SLIDES.map((s, i) => (
+                <button key={s.id} type="button" className="biz-dot" aria-label={s.label} aria-current={i === railAt || undefined} onClick={() => showCard(i)} />
+              ))}
+            </div>
+          </>
         ) : (
           <>
             <div ref={row} className="biz-tabs" role="tablist" aria-label="What you can sell">
@@ -322,10 +383,11 @@ export function BusinessCarousel() {
                     role="tabpanel"
                     aria-labelledby={`biz-tab-${s.id}`}
                     aria-hidden={state !== "active" || undefined}
+                    inert={state !== "active"}
                     className={on ? "biz-slide bz-on" : "biz-slide"}
                     data-pane={state}
                   >
-                    <KindScene i={i} />
+                    <KindScene i={i} on={state === "active" && t.live} />
                   </div>
                 )
               })}
@@ -350,7 +412,7 @@ const CSS = `
 .biz{position:relative;background:#fff;color:#18181b;overflow-x:clip}
 /* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
 [data-landing-story] .biz>.biz-head,.biz-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
-.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};margin-inline:0;max-width:16ch;font-size:clamp(36px,5vw,72px)}
+.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};margin-inline:0;max-width:19ch;font-size:clamp(36px,5vw,72px)}
 .biz-sub{margin:clamp(8px,.9vw,14px) 0 0;max-width:64ch;font-size:clamp(16px,1.25vw,19px);line-height:1.45;letter-spacing:-.005em;color:#65616e}
 [data-landing-story] .biz>.biz-body,.biz-body{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);row-gap:clamp(8px,1.4vw,16px);max-width:var(--home-max,2020px);margin:clamp(20px,3vw,44px) auto 0;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 /* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than the screen slides under the thumb. */
@@ -385,17 +447,21 @@ const CSS = `
   [data-landing-story] .biz>.biz-body,.biz-body{margin-top:24px}
 }
 /*
-  The phone's row of cards. The browser's own scroll, edge to edge, each card
-  stopping at the page's left edge with the next one showing at the right.
-  A card is a little narrower than the page's column, so the next one shows
-  22px; the gap is the page's edge, so nothing of the card before shows at
-  the left; snap-stop keeps a flick to one card at a time; the spacer after
-  the last card lets it stop at the left edge like the others.
+  The phone's row of cards. The browser's own scroll, edge to edge. Round 14,
+  the owner: the row looked cut off, a sliver of the next card at the right
+  edge and its name broken in two. Each card is now the page's whole column,
+  and the gap between two is the page's edge, so a card at rest stands whole
+  and alone, nothing of its neighbours showing; snap-stop keeps a flick to
+  one card at a time. Under the row a line of five tells where you are.
 */
 .biz-rail{display:flex;gap:var(--home-edge,20px);margin:0 calc(var(--home-edge,20px) * -1);padding:0 var(--home-edge,20px) 2px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:var(--home-edge,20px);scrollbar-width:none;-webkit-tap-highlight-color:transparent}
 .biz-rail::-webkit-scrollbar{display:none}
-.biz-rail::after{content:"";flex:none;width:22px}
-.biz-card{flex:none;width:calc(100% - 22px);scroll-snap-align:start;scroll-snap-stop:always}
+.biz-card{flex:none;width:100%;scroll-snap-align:start;scroll-snap-stop:always}
+.biz-dots{position:relative;display:grid;grid-template-columns:repeat(${BUSINESS_SLIDES.length},minmax(0,1fr));margin:6px 0 0;overflow:hidden}
+.biz-dots::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;border-radius:2px;background:#e7e7ea;pointer-events:none}
+.biz-dot-thumb{position:absolute;left:0;top:50%;width:calc(100% / ${BUSINESS_SLIDES.length});height:2px;margin-top:-1px;border-radius:2px;background:#18181b;pointer-events:none}
+.biz-dot{height:36px;margin:0;padding:0;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.biz-dot:focus-visible{outline:2px solid #18181b;outline-offset:-6px;border-radius:6px}
 .biz-card-h{margin:0 0 12px;padding:0 2px}
 .biz-card-h h3{margin:0;font-size:18px;font-weight:650;line-height:1.25;letter-spacing:-.015em;color:#18181b}
 .biz-card-h p{margin:2px 0 0;font-size:14px;line-height:1.4;color:#65616e}

@@ -14,21 +14,34 @@
   again, so it loops without a jump. Moves are translate3d by a share of the
   list's own height, so nothing is measured and only the compositor works.
   The pointer presses once at every step, on the same clock. Every loop is an
-  .ev-loop, paused off screen and under a covering sheet like the rest of the
-  bento, and still under reduced motion (it then shows www.junokada.com).
+  .ev-loop, paused off screen like the rest of the bento, and still under
+  reduced motion (it then shows www.mayalane.com).
+
+  LANDING ROUND 14, THE OWNER: a cleaner name than round 13's, a short brand
+  that reads as one creator's ("mayalane"), and smoother motion: each move
+  takes longer (40% of a step, was 26%) on a softer curve that eases out
+  slowly, and the pointer's press is lighter, so the reel glides rather than
+  jumps.
+
+  IT CAN BE USED ANYWHERE (the home page's "Use your own domain" card imports
+  it from this path). It brings its own stylesheet, and by default it fills
+  the box it is put in (width and height 100%, at least 220px tall); every
+  size inside is a share of that box (container units), so it fits any
+  card. Inside the home section's .ev-vis it takes that tile's height.
 */
 import type { CSSProperties } from "react"
 
-export const DOMAIN_NAME = "junokada"
+export const DOMAIN_NAME = "mayalane"
 /** Endings Storelib accepts for a custom domain. The pill starts on the third, ".com". */
 export const DOMAIN_ENDINGS = ["shop", "store", "com", "studio", "art", "co.uk", "net"] as const
 
 const N = DOMAIN_ENDINGS.length
 const ROWS = [...DOMAIN_ENDINGS, ...DOMAIN_ENDINGS]
 /** One step: a hold, then the move. */
-const STEP_S = 2.6
-const MOVE_SHARE = 0.26
-const EASE = "cubic-bezier(.65,0,.35,1)"
+const STEP_S = 3
+const MOVE_SHARE = 0.4
+/** Starts gently, travels, and settles slowly: no snap at either end. */
+const EASE = "cubic-bezier(.45,.05,.15,1)"
 
 function reelKeyframes(): string {
   const frames: string[] = []
@@ -52,9 +65,13 @@ function Address({ ending, strong }: { ending: string; strong?: boolean }) {
   )
 }
 
-export function DomainReel() {
+/** The reel. `className` replaces the box's classes ("ev-vis" by default, the home section's tile). */
+export function DomainReel({ className = "ev-vis" }: { className?: string } = {}) {
   return (
-    <div className="ev-vis pz-d" aria-hidden="true">
+    <div className={`${className} pz-d`} aria-hidden="true">
+      <style href="pz-domain" precedence="w13-home">
+        {DOMAIN_CSS}
+      </style>
       <div className="pz-d-col">
         <div className="pz-d-track ev-loop">
           {ROWS.map((e, i) => (
@@ -85,12 +102,14 @@ export function DomainReel() {
 /*
   The tile: a soft lavender ground, the column of addresses fading out above
   and below (a still mask on the column, the moving list inside it), and the
-  pill on the middle row. --R is one row, from the tile's own size.
+  pill on the middle row. --R is one row, from the tile's own size. The box's
+  own defaults are in :where(), so any tile class (the home .ev-vis) sizes it.
 */
 export const DOMAIN_CSS = `
-.pz-d{--R:clamp(36px,min(14.5cqh,12.5cqw),66px);container-type:size;background:radial-gradient(70% 60% at 50% 50%,#f6f2ff 0%,rgba(246,242,255,0) 100%),linear-gradient(165deg,#ece6ff 0%,#e2d9ff 100%)}
+:where(.pz-d){position:relative;overflow:hidden;width:100%;height:100%;min-height:220px;border-radius:inherit}
+.pz-d{--R:clamp(34px,min(14.5cqh,12cqw),66px);container-type:size;background:radial-gradient(70% 60% at 50% 50%,#f6f2ff 0%,rgba(246,242,255,0) 100%),linear-gradient(165deg,#ece6ff 0%,#e2d9ff 100%)}
 .pz-d-col{position:absolute;left:0;right:0;top:50%;height:calc(var(--R) * 5);margin-top:calc(var(--R) * -2.5);overflow:hidden;-webkit-mask-image:linear-gradient(transparent 0%,#000 34%,#000 66%,transparent 100%);mask-image:linear-gradient(transparent 0%,#000 34%,#000 66%,transparent 100%)}
-.pz-d-track{display:flex;flex-direction:column;will-change:transform;animation:pz-reel ${(N * STEP_S).toFixed(1)}s ${EASE} infinite}
+.pz-d-track{display:flex;flex-direction:column;will-change:transform;backface-visibility:hidden;animation:pz-reel ${(N * STEP_S).toFixed(1)}s ${EASE} infinite}
 .pz-d-row{display:flex;flex:none;height:var(--R);align-items:center;justify-content:center}
 .pz-d-addr{font-size:calc(var(--R) * .4);font-weight:500;letter-spacing:-.015em;white-space:nowrap;color:rgba(62,40,120,.42)}
 .pz-d-end{font-weight:650;color:rgba(62,40,120,.62)}
@@ -102,8 +121,8 @@ export const DOMAIN_CSS = `
 .pz-d-end-on{font-weight:650;color:#7c3aed}
 /* The pill's list starts two rows up, so its middle row is the column's. */
 .pz-d-track-pill{margin-top:calc(var(--R) * -2)}
-.pz-d-cursor{position:absolute;right:calc(var(--R) * -.42);bottom:calc(var(--R) * -.5);width:calc(var(--R) * .56);height:auto;filter:drop-shadow(0 4px 6px rgba(20,10,50,.25));transform-origin:20% 15%;animation:pz-press ${STEP_S}s ease-in-out infinite}
+.pz-d-cursor{position:absolute;right:calc(var(--R) * -.42);bottom:calc(var(--R) * -.5);width:calc(var(--R) * .56);height:auto;filter:drop-shadow(0 4px 6px rgba(20,10,50,.25));transform-origin:20% 15%;will-change:transform;animation:pz-press ${STEP_S}s cubic-bezier(.4,0,.2,1) infinite}
 ${reelKeyframes()}
-@keyframes pz-press{0%,${((1 - MOVE_SHARE) * 100 - 8).toFixed(1)}%,100%{transform:none}${((1 - MOVE_SHARE) * 100 - 2).toFixed(1)}%{transform:scale(.86)}}
-@media (prefers-reduced-motion:reduce){.pz-d-track{will-change:auto}}
+@keyframes pz-press{0%,${((1 - MOVE_SHARE) * 100 - 12).toFixed(1)}%,${((1 - MOVE_SHARE) * 100 + 4).toFixed(1)}%,100%{transform:none}${((1 - MOVE_SHARE) * 100 - 3).toFixed(1)}%{transform:scale(.9)}}
+@media (prefers-reduced-motion:reduce){.pz-d-track,.pz-d-cursor{animation:none;will-change:auto}.pz-d-track{transform:translate3d(0,0,0)}}
 `

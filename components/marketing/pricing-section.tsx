@@ -3,9 +3,10 @@
 import { StoryHeading } from "./story-heading"
 
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { AnimateOnScroll } from "./animate-on-scroll"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
-import { PLAN_FOOTNOTE, PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
+import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
 
 /** The paid plans a checkout can be started for: Grow (`growth`, $29) and Pro (`pro`, $99). */
 export type PaidCheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID | typeof SCALE_CHECKOUT_PLAN_ID
@@ -37,7 +38,10 @@ export function PricingSection({
   upgradeCallbacks,
   headingLevel = 2,
   editorial = false,
+  cardsAside,
 }: {
+  /** At the top right of the cards (/pricing: "Compare all features"). */
+  cardsAside?: ReactNode
   /** 1 on /pricing, where this heading is the page's own; 2 where the section sits inside another page. */
   headingLevel?: 1 | 2
   /** Editorial homepage presentation; pricing/onboarding retain their existing layout. */
@@ -89,17 +93,13 @@ export function PricingSection({
     [SCALE_CHECKOUT_PLAN_ID]: actionFor(SCALE_CHECKOUT_PLAN_ID),
   }
 
-  /* Landing round 8: on the home page the small print starts at the heading's left edge too, nothing centred. */
-  const footnote = (
-    <p className={`${editorial ? "pl-[var(--home-head-inset)] text-left" : "text-center"} text-[13px] leading-[1.5] text-[#6b7280] ${compact ? "mt-3" : "mt-6"}`}>{PLAN_FOOTNOTE}</p>
-  )
+  /* Landing round 14, the owner: no small print under the cards on any surface (the line about US dollars and Stripe's fee is gone). */
 
   // Compact (onboarding) layout: no outer padding, no scroll animations.
   if (compact) {
     return (
       <div>
         <PlanCards compact actions={actions} />
-        {footnote}
       </div>
     )
   }
@@ -139,11 +139,12 @@ export function PricingSection({
           */}
           <div data-pricing-head="" className={editorial ? "story-section-heading !mx-0 !mb-10 w-full pl-[var(--home-head-inset)] !text-left" : "text-center max-w-[1100px] mx-auto mb-12 sm:mb-16"}>
             {editorial ? <StoryHeading text={headingOverride || "Pricing & Plans"} accent={["Plans"]} /> : (
-            <Heading data-pricing-title="" className="text-[clamp(46px,7.4vw,112px)] font-medium leading-[0.98] tracking-[-0.05em] text-[#18181b] text-balance">
+            /* Landing round 14, the owner: round 13's 112px title was too big. Now the home page's section heading size (.story-heading, clamp(36px,5vw,76px)), a step under it at the top, and a calm line under it. */
+            <Heading data-pricing-title="" className="text-[clamp(38px,5vw,68px)] font-medium leading-[1.04] tracking-[-0.045em] text-[#18181b] text-balance">
               {headingOverride || "Pricing & Plans"}
             </Heading>)}
 
-            <p data-pricing-sub="" className={editorial ? "mt-3 text-[16px] leading-relaxed text-[#6b7280] text-balance" : "mx-auto mt-5 max-w-[34ch] text-[clamp(18px,1.9vw,28px)] leading-[1.35] tracking-[-0.015em] text-[#52525b] text-balance sm:mt-7"}>
+            <p data-pricing-sub="" className={editorial ? "mt-3 text-[16px] leading-relaxed text-[#6b7280] text-balance" : "mx-auto mt-4 max-w-[34ch] text-[clamp(16px,1.4vw,20px)] leading-[1.45] tracking-[-0.01em] text-[#52525b] text-balance sm:mt-5"}>
               {subtitleOverride || "Free to start. Upgrade when you grow."}
             </p>
           </div>
@@ -154,10 +155,9 @@ export function PricingSection({
             PRICING ROUND 5, THE OWNER: the cards drawn like the reference
             picture, on a grey ground, with the "Contact sales" bar under
             them. The lines are the same on every surface
-            (./pricing-lines, five at most), so they are not handed in here.
+            (./pricing-lines, six since landing round 14), so they are not handed in here.
           */}
-          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} hideInterval={editorial} contactSales />
-          {footnote}
+          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} hideInterval={editorial} contactSales aside={cardsAside} />
         </AnimateOnScroll>
 
         {!hideDetailsLink && (

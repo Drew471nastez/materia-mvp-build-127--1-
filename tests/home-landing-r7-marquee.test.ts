@@ -65,7 +65,8 @@ console.log("\n── Unlimited possibilities: photos and words ──")
   check("generous spacing between items", /\.um-item\{[^}]*margin-right:clamp\(40px,4\.8vw,92px\)/.test(src))
   check("both ends fade to white, standing still over the moving track", /\.um-row::before\{left:0;background:linear-gradient\(90deg,#fff/.test(src) && /\.um-row::after\{right:0;background:linear-gradient\(270deg,#fff/.test(src) && !/mask-image/.test(src))
   check("endless: three equal copies, one copy per lap, transform only", (html.match(/<ul class="um-copy"/g) ?? []).length === 6 && /to\{transform:translate3d\(calc\(-100% \/ 3\),0,0\)\}/.test(src))
-  check("paused off screen and in a background tab", /\.um\[data-um-paused\] \.um-track[^{]*\{animation-play-state:paused\}/.test(src) && /document\.hidden/.test(src))
+  // Changed on purpose (landing round 14): the rows are paused off screen and in a background tab by home/loop-gate.ts, through the Animations API, not by a stylesheet attribute.
+  check("paused off screen and in a background tab", /useLoopGate\(ref, MARQUEE_GATE\)/.test(src) && /document\.hidden/.test(readFileSync(join(process.cwd(), "components/marketing/home/loop-gate.ts"), "utf8")))
   check("reduced motion: still, one copy, no fades", /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*\.um-track\{animation:none[\s\S]*\.um-copy\[aria-hidden\]\{display:none\}[\s\S]*\.um-row::before,\.um-row::after\{display:none\}/.test(src))
   check("the photos are on the page from the start, at low priority (no square popping in as it drifts on screen)", !/loading="lazy"/.test(html) && /fetchPriority="low"/i.test(html))
   const physical = items.filter((i) => /^(Merch|Hoodies|Vinyl records|Art prints|Candles|Ceramics|Jewelry|Tote bags)$/.test(i.label)).length
@@ -83,7 +84,7 @@ console.log("\n── Connect your favorite apps: edge to edge ──")
   check("no solid white strip: the icons run the whole screen", !/--solid/.test(css) && !/1210px/.test(css))
   check("the fades are short ramps at the screen's edges", /\.rows::before,\s*\.rows::after \{[\s\S]*?width: clamp\(40px, 11vw, 220px\);/.test(css))
   // Changed on purpose (landing round 11): the owner asked for a smaller gap; the sets are longer, so 1/12 of the screen still never shows an icon twice.
-  check("no icon seen twice, at any width: a tile and its gap are at least 1/12 of the screen", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1) && /--gap: max\(20px, calc\(100vw \/ 13 - var\(--tile\)\)\);/.test(css)) // Changed on purpose (landing round 12): 1/13 of the screen now.
+  check("no icon seen twice, at any width: a tile and its gap are at least 1/12 of the screen", INTEGRATION_ROW_SIZES.every((n) => (n - 1) * INTEGRATION_STEP_SHARE >= 1) && /--gap: max\(10px, calc\(100vw \/ 15 - var\(--tile\)\)\);/.test(css)) // Changed on purpose (landing round 12): 1/13 of the screen now. Changed on purpose (landing round 14): 1/15 on a computer, 10px least.
   check("standing still (reduced motion), the icons sit close again", /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.tile \{\s*margin-right: var\(--row-gap\);/.test(css))
   check("the heading in the shared box, set in like the showcase's", /<div class="home-wrap"><div class="[^"]*ml-\[var\(--home-head-inset,14px\)\]/.test(html) && !/max-w-\[1400px\]/.test(src))
 }

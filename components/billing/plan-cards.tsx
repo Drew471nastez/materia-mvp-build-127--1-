@@ -14,7 +14,7 @@
  * "/month" beside it, one line of at most seven words, and a full width
  * rounded button: outlined on Free and Pro, filled in Storelib purple on
  * Grow, the middle card, which stands a little higher with a soft shadow.
- * Under the panel, the plan's lines (five at most), each with a small line
+ * Under the panel, the plan's lines (six since landing round 14), each with a small line
  * icon. Under the three cards, a wide white bar with "Contact sales" where
  * the page asks for it. The price is one step heavier than the reference.
  *
@@ -31,6 +31,13 @@
  * LANDING ROUND 13, THE OWNER: "Get Grow" is a solid Storelib purple button,
  * no white pill and no round arrow. Free and Pro keep the dark button.
  *
+ * LANDING ROUND 14, THE OWNER: Grow's purple button gets the round arrow at
+ * its right, as the creators section's "Start selling for free" has it, the
+ * other way round: a white disc with a purple arrow. Six lines on every card
+ * (the sixth from the plan tables, ./pricing-lines). The plan's pill takes a
+ * hair of depth, as Polaris draws a quiet control: a white top edge inside,
+ * a faint shade along its foot.
+ *
  * EVERY WORD IS TRUE. The lines come from components/marketing/pricing-lines,
  * written from the tables that enforce them, and tests/pricing-cards-r5.test.ts
  * holds the count, the names and the order.
@@ -40,7 +47,9 @@ import Link from "next/link"
 import {
   ArrowRight,
   BadgeCheck,
+  ChartColumn,
   CreditCard,
+  Files,
   EyeOff,
   FolderOpen,
   Globe,
@@ -102,6 +111,8 @@ const LINE_ICON: Record<PlanLineIcon, LucideIcon> = {
   sites: LayoutTemplate,
   files: FolderOpen,
   edits: PenLine,
+  analytics: ChartColumn,
+  pages: Files,
 }
 
 /** Worked out once from the plan tables. */
@@ -127,10 +138,31 @@ function DarkArrow() {
   )
 }
 
+/**
+ * Grow's arrow (landing round 14): the creators section's round arrow
+ * (creators-carousel.tsx, .cc-cta-ic), the other way round: a white disc on
+ * the purple with a purple arrow, set in at the button's right end so the
+ * label stays centred like the other two. It nudges right on hover.
+ */
+function DiscArrow({ compact }: { compact?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-plan-arrow="disc"
+      className={`absolute right-[5px] top-1/2 grid ${compact ? "h-[30px] w-[30px]" : "h-[34px] w-[34px]"} -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18)]`}
+    >
+      <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-x-[2px] motion-reduce:transition-none">
+        <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" />
+      </svg>
+    </span>
+  )
+}
+
 function PlanButton({ action, featured, compact }: { action: PlanCardAction; featured: boolean; compact?: boolean }) {
   const live = !action.settled && !action.loading
+  const disc = live && featured
   const className =
-    `group relative inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full px-5 ` +
+    `group relative inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full ${disc ? (compact ? "px-11" : "px-12") : "px-5"} ` +
     "text-[14px] no-underline select-none transition-[background-color,border-color,color,box-shadow] duration-200 " +
     "focus-visible:outline-none focus-visible:ring-4 " +
     (action.settled
@@ -146,8 +178,8 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
   ) : (
     <>
       <span className="min-w-0 truncate">{action.label}</span>
-      {/* Landing round 13: Grow's purple button carries no arrow; Free's and Pro's dark ones keep theirs. */}
-      {live && !featured ? <DarkArrow /> : null}
+      {/* Landing round 14: Grow's purple button carries the white disc with its purple arrow; Free's and Pro's dark ones keep their plain arrow. */}
+      {disc ? <DiscArrow compact={compact} /> : live ? <DarkArrow /> : null}
     </>
   )
   const kind = action.settled ? "settled" : featured ? "purple" : "dark"
@@ -224,7 +256,8 @@ function PlanCard({
       {/* Landing round 12, the owner: no light grey on the cards either. The top panel is white, set off from the lines by a hairline. */}
       <div data-plan-panel="" className={`flex flex-col rounded-t-[18px] border-b border-[#ececef] bg-white ${compact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5 sm:px-6 sm:pb-6"}`}>
         <div className="flex items-center justify-between gap-3">
-          <span data-plan-pill="" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white pl-2.5 pr-3 ring-1 ring-[#e7e7e9]">
+          {/* Landing round 14, the owner: the faintest Polaris-like depth, no gradient. A white highlight along the inside top, a hair of shade along the inside foot, one pixel of shadow under it, on the same hairline ring. */}
+          <span data-plan-pill="" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white pl-2.5 pr-3 ring-1 ring-[#e4e4e7] shadow-[inset_0_1px_0_#fff,inset_0_-1px_0_rgba(24,24,27,0.05),0_1px_1px_rgba(24,24,27,0.05)]">
             <Icon className="h-[15px] w-[15px] text-[#18181b]" strokeWidth={1.75} aria-hidden="true" />
             <Name className="text-[13.5px] font-medium leading-none text-[#18181b]">{plan.name}</Name>
           </span>
@@ -316,7 +349,10 @@ export function PlanCards({
   nameLevel,
   hideInterval = false,
   contactSales = false,
+  aside,
 }: {
+  /** Something at the top right of the cards, level with the Monthly and Yearly pill (/pricing's "Compare all features" link). */
+  aside?: React.ReactNode
   /**
    * No Monthly and Yearly pill, and so monthly prices only. The home page's
    * section (landing round 9, the owner: "monthly or yearly is chosen when I
@@ -349,13 +385,26 @@ export function PlanCards({
   return (
     <>
       {heading != null ? <div data-plan-heading-row="" className="mb-4">{heading}</div> : null}
-      {hideInterval ? null : (
+      {hideInterval || aside != null ? null : (
         <div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">
           <IntervalSwitch value={interval} onChange={pick} />
         </div>
       )}
       {/* What the three cards (and the contact bar) sit in. Landing round 12, the owner: no light grey ground behind them any more (it was #efeff0, padded); the row keeps its width, so the cards take the room the ground had. */}
       <div data-plan-ground="" className={`mx-auto w-full ${compact ? "max-w-[980px]" : "max-w-[1180px]"} ${className}`}>
+        {/*
+          WITH SOMETHING AT THE TOP RIGHT (landing round 14, /pricing's
+          "Compare all features"): the row sits inside the cards' own width,
+          the pill still centred and the aside at the right edge of the cards.
+          On a phone the aside takes its own line under the pill, at the right.
+        */}
+        {aside != null ? (
+          <div data-plan-interval-row="" className="mb-4 flex flex-col items-center gap-3 sm:mb-6 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-4">
+            <span aria-hidden="true" className="hidden sm:block" />
+            {hideInterval ? <span aria-hidden="true" /> : <IntervalSwitch value={interval} onChange={pick} />}
+            <div data-plan-aside="" className="self-end sm:self-auto sm:justify-self-end">{aside}</div>
+          </div>
+        ) : null}
         <div data-plan-cards className={`grid w-full grid-cols-1 md:grid-cols-3 items-stretch ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"} md:pt-2`}>
           {OFFERED_PLANS.map((plan) => (
             <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>

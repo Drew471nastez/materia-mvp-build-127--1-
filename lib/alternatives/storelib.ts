@@ -56,7 +56,7 @@ export function storelibFeeCents(priceCents: number, plan: StorelibPlanId): numb
 
 /**
  * Stripe's card processing, which applies on every Storelib plan
- * (lib/billing/plans PLAN_FOOTNOTE). Storelib does not set it; this is
+ * (lib/billing/plans planQuestions). Storelib does not set it; this is
  * Stripe's published standard rate for a domestic card in the US, sourced
  * like any competitor fact.
  */

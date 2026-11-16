@@ -72,7 +72,8 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
 // Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
 check("Steez in the builder with its own address", site.includes("Summer Madness") && wb.includes("Steez") && wb.includes("steez.storelib.com"))
-check("its pictures exist, are webp and small", ["stz-hero", "stz-logo", "stz-summer", "stz-p-navy", "stz-p-orange", "stz-p-red", "stz-p-lilac"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
+// Changed on purpose (landing round 14): the four products are the owner's own Steez products, no people.
+check("its pictures exist, are webp and small", ["stz-hero", "stz-logo", "stz-summer", "stz-p-hoodie", "stz-p-raw", "stz-p-grey", "stz-p-faith"].every((n) => small(`public/home/showcase/${n}.webp`, 120) && site.includes(`/home/showcase/${n}.webp`)))
 // Changed on purpose (landing round 13): the site is Steez (.stz).
 check("the shop on white", /\.stz\{[^}]*background:#fff/.test(BUILDER_CSS))
 check("no Saltmoor left", !/Saltmoor|saltmoor|\bsm-/.test(read(F.builders) + read(F.ideas)) && !existsSync("public/home/showcase/sm-hero.webp"))
@@ -112,7 +113,7 @@ check("no checkout tile: no sheet, no drawn phone", !how.includes("cmh-sheet") &
 // Changed on purpose (landing round 10): one address band with its ending gliding, no website under it; the name is "lindewood".
 // Changed on purpose (landing round 11): his website in a browser, its address closing to his own domain.
 // Changed on purpose (landing round 12): the owner replaced the pictures (the real dashboard with its emerald changes, a tip flow, a typed domain with a green check as in the owner's reference), straight on the section.
-check("the domain: one address field over a store, its own domain", how.includes('class="cmh-dm-field"') && !how.includes("cmh-dm-band") && !how.includes("cmh-site") && HOW_DOMAIN.host === "fernlyn.com" && !how.includes("cmh-dm-pill") && !how.includes("cmh-dm-card") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
+check("the domain: one address field over a store, its own domain", how.includes('class="ev-vis pz-d"') && !how.includes("cmh-dm-") /* Changed on purpose (landing round 14): /pricing's domain reel. */ && !how.includes("cmh-site") && HOW_DOMAIN.host.endsWith(".com") && typeof DEFAULT_A === "string" && CNAME_TARGET === "domains.storelib.com")
 check("every loop in the section is transform and opacity only", keyframeBodies(howCss).every(onlyCompositor))
 
 console.log("\nCopy and banned samples")

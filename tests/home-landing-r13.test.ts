@@ -30,7 +30,8 @@ check("no gate pauses loops through the Animations API (near-gate.tsx is gone)",
 
 console.log("\n── the computer's pictures on a phone ──")
 check("the dashboard is never laid out narrower than 1040 (the computer's layout with its sidebar, from 1020), scaled whole", HOW_DASH_FIT.min >= 1040 && /--db-w/.test(how) && /scale\(var\(--db-s/.test(how))
-check("  on a phone its stage takes the dashboard's shape", /@media\(max-width:639px\)\{\.cmh-stage\[data-ground=business\]\{height:auto;aspect-ratio:16\/10\}\}/.test(how))
+// Changed on purpose (landing round 14): every card keeps one shape on every screen; the wide one is 5:3.
+check("  on a phone its card keeps the laptop's shape", /\.cmh-wide \.cmh-stage\{aspect-ratio:5\/3\}/.test(how))
 check("the checkout pictures on a phone are the computer's 48 x 42, and Built to convert is not laid out again", /\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(co) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 48\)\}/.test(co) && !/CDX_NARROW/.test(co) && /\.cmc-card\[data-k=convert\] \.cmc-vis-in\{left:0;width:100%;height:100%;margin-left:0\}\n  \.cmc-card\[data-k=convert\] \.cdx\{inset:6px;/.test(co) && !/\.cdx-grid\{grid-template-columns:minmax\(0,1fr\)\}/.test(co))
 
 console.log("\n── pictures asked for ahead ──")

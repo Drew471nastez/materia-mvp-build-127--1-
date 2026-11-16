@@ -408,9 +408,8 @@ export function ProductSlides() {
   brand with its menu, centred wordmark and cart, a wide photo of the drop and the pieces as product photos (Fieldwork
   Knit). Ollie Brandt sells a record and a tape in place of a cup and tees; Remy Vale a journal and a planner in place
   of a tee and a cap; Kaia Moon a lyric book and a tape, with her photo and a line under her name. Every link page
-  shows its creator's photo. A seventh page is a OnePage in the realistic dark style of a creative director's (Idris
-  Kane): a photo that fades into black, the name with a verified mark, a line about him, round icons and wide link
-  buttons with their icons. The stores never stand side by side.
+  shows its creator's photo. A seventh page was a drawn OnePage in a creative director's dark style. The stores never
+  stand side by side.
 
   Landing round 11 (the owner: "Soft Ground (Kiln Goods): make it a digital product store, like the product being a
   digital product store, with a different heading/hero"): in its place a store of digital products.
@@ -420,7 +419,12 @@ export function ProductSlides() {
   the way Fieldwork is (a real Storelib store: menu, centred wordmark and cart on the cover photo, the drop's name at
   its foot), the cover a photograph of him playing in his room, the drop's name in white over its darker foot.
   What he sells are photographs, not rendered covers: a fingerstyle video course, a tab book (reduced), amp presets
-  and backing tracks, each with what it is after the price. Pexels photography (public/home/everything/stores/jonah-*).
+  and backing tracks, each with what it is after the price.
+
+  Landing round 14 (the owner): two real Storelib pages in place of drawn ones. Liam Bailey's product page
+  (storelib.com/liam-bailey/gym-beginner-program, ProductCard) where Jonah Wells's store was, and Satori Studio's
+  OnePage (the picture of its live page the showcase uses, ShotCard) where the drawn creative director's
+  OnePage was. Still seven pages, a white one and a dark one taking turns but for one pair.
 */
 type MerchStore = {
   kind: "merch"
@@ -432,15 +436,7 @@ type MerchStore = {
     src: string
     name: string
     price: string
-    /** The price before a sale (landing round 11). */
-    was?: string
-    /** What a digital product is, after the price (landing round 12): "Video course", "PDF". */
-    format?: string
   }>
-  /** The line under the drop's name in place of the count of pieces (landing round 12). */
-  note?: string
-  /** Landing round 12: the drop's name in white over a darker foot of the cover photo. */
-  ink?: "light"
   /** Landing round 8: a store laid out like a real Storelib store, its menu and cart around a centred wordmark; landing round 10: they stand on the cover photo, with the drop's name. */
   hero?: string
 }
@@ -462,18 +458,36 @@ type LinkPage = {
   buttons: readonly [string, string]
   products: readonly [string, string]
 }
-/** Landing round 8: a OnePage in the realistic dark style of a creative director's page. */
-type ProfilePage = {
-  kind: "profile"
+/*
+  Landing round 14 (the owner): a real Storelib product page, as a phone shows it: the seller's dark bar, the cover
+  across the full width of the page (the upload's grey sides cut away), the title and its category, then the price,
+  the buy button drawn live in the page's own blue, the wishlist button and what is included.
+*/
+type ProductPage = {
+  kind: "product"
   key: string
-  name: string
-  bio: string
-  photo: string
-  /** The icons' colour. */
-  accent: string
-  links: ReadonlyArray<{ label: string; icon: "camera" | "calendar" | "bag" }>
+  seller: string
+  avatar: string
+  /** The cover, cut inside the poster: no grey bars at its sides. */
+  cover: string
+  title: string
+  category: string
+  price: string
+  cta: string
+  /** The page's button colour (the live page's buy button setting). */
+  button: string
+  included: readonly string[]
 }
-export type StripPage = MerchStore | LinkPage | ProfilePage
+/* Landing round 14: a real OnePage, the picture of it the showcase under the hero already uses (Satori Studio). */
+type ShotPage = {
+  kind: "shot"
+  key: string
+  src: string
+  srcSet: string
+  /** The page's own ground, shown until the picture is in. */
+  tone: string
+}
+export type StripPage = MerchStore | LinkPage | ProductPage | ShotPage
 
 export const EVERYTHING_STORES: readonly StripPage[] = [
   {
@@ -526,19 +540,17 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
     products: [`${ST}/kaia-book.webp`, `${ST}/kaia-tape.webp`],
   },
   {
-    kind: "merch",
-    key: "jonah",
-    brand: "Jonah Wells",
-    title: ["Guitar lessons", "and tabs"],
-    hero: `${ST}/jonah-cover.webp`,
-    note: "Instant download",
-    ink: "light",
-    products: [
-      { src: `${ST}/jonah-fingerstyle.webp`, name: "Fingerstyle Basics", price: "$49", format: "Video course" },
-      { src: `${ST}/jonah-tabs.webp`, name: "Blues Licks Tab Book", price: "$14", was: "$19", format: "PDF" },
-      { src: `${ST}/jonah-amp.webp`, name: "Amp Tones Vol 2", price: "$18", format: "Presets" },
-      { src: `${ST}/jonah-tracks.webp`, name: "Backing Tracks", price: "$12", format: "24 tracks" },
-    ],
+    kind: "product",
+    key: "liam",
+    seller: "liam bailey",
+    avatar: `${ST}/liam-av.webp`,
+    cover: `${ST}/liam-cover.webp`,
+    title: "Gym Beginner Program",
+    category: "Workout Plans",
+    price: "$11.87",
+    cta: "I want this!",
+    button: "#2563eb",
+    included: ["Instant download access", "All included files", "Lifetime access"],
   },
   {
     kind: "link",
@@ -552,34 +564,18 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
     products: [`${ST}/ollie-vinyl.webp`, `${ST}/ollie-tape.webp`],
   },
   {
-    kind: "profile",
-    key: "idris",
-    name: "Idris Kane",
-    bio: "Photographer and film director. Shooting in London and Lisbon.",
-    photo: `${ST}/idris-portrait.webp`,
-    accent: "#f2b35b",
-    links: [
-      { label: "Portfolio", icon: "camera" },
-      { label: "Book a shoot", icon: "calendar" },
-      { label: "Prints and photo books", icon: "bag" },
-    ],
+    kind: "shot",
+    key: "satori",
+    src: "/home/showcase/a-satori.webp",
+    srcSet: "/home/showcase/a-satori-360.webp 360w, /home/showcase/a-satori.webp 540w",
+    tone: "#0b0b0c",
   },
 ]
-
-function Price({ p }: { p: MerchStore["products"][number] }) {
-  return (
-    <span className="ev-mc-price">
-      {p.was ? <s>{p.was}</s> : null}
-      {p.price}
-      {p.format ? <i>{p.format}</i> : null}
-    </span>
-  )
-}
 
 function MerchCard({ s }: { s: MerchStore }) {
   if (s.hero)
     return (
-      <div className="ev-st ev-mc" data-store="" data-ink={s.ink}>
+      <div className="ev-st ev-mc" data-store="">
         <span className="ev-ms-cover">
           <Img eager className="ev-ms-hero" src={s.hero} w={780} h={464} />
           <span className="ev-ms-top">
@@ -590,7 +586,7 @@ function MerchCard({ s }: { s: MerchStore }) {
           <span className="ev-ms-drop">
             <b>{s.title[0]}</b>
             <b>{s.title[1]}</b>
-            <i>{s.note ?? `${s.products.length} pieces`}</i>
+            <i>{`${s.products.length} pieces`}</i>
           </span>
         </span>
         <span className="ev-mc-grid">
@@ -598,7 +594,7 @@ function MerchCard({ s }: { s: MerchStore }) {
             <span key={p.name} className="ev-mc-item">
               <Img eager piece className="ev-mc-img" src={p.src} w={360} h={450} />
               <span className="ev-mc-name">{p.name}</span>
-              <Price p={p} />
+              <span className="ev-mc-price">{p.price}</span>
             </span>
           ))}
         </span>
@@ -674,53 +670,70 @@ function LinkCard({ s }: { s: LinkPage }) {
   )
 }
 
-/* The profile page's link icons, drawn plain in its accent. */
-const PROFILE_ICONS = {
-  camera: "M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9ZM12 16a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z",
-  calendar: "M5 6.5A1.5 1.5 0 0 1 6.5 5h11A1.5 1.5 0 0 1 19 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 17.5v-11ZM5 9.5h14M9 3.5v3M15 3.5v3",
-  bag: "M6 8h12l-1 11H7L6 8Zm3 0V6.5a3 3 0 0 1 6 0V8",
-} as const
-
-/* His round icons: Instagram, YouTube, email and his website, drawn as lines. */
-const PROFILE_SOCIAL = [
-  "M7.5 3.5h9a4 4 0 0 1 4 4v9a4 4 0 0 1-4 4h-9a4 4 0 0 1-4-4v-9a4 4 0 0 1 4-4ZM12 15.6a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM17.2 6.8h.01",
-  "M3 8.2c0-1.6 1.2-2.9 2.8-3C7.7 5 9.8 5 12 5s4.3 0 6.2.2c1.6.1 2.8 1.4 2.8 3v7.6c0 1.6-1.2 2.9-2.8 3-1.9.2-4 .2-6.2.2s-4.3 0-6.2-.2c-1.6-.1-2.8-1.4-2.8-3V8.2ZM10 9.2v5.6l4.8-2.8L10 9.2Z",
-  "M4 6.5h16v11H4v-11Zm0 .5 8 6 8-6",
-  "M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17ZM3.5 12h17M12 3.5c2.3 2.3 3.4 5.2 3.4 8.5s-1.1 6.2-3.4 8.5c-2.3-2.3-3.4-5.2-3.4-8.5s1.1-6.2 3.4-8.5Z",
-] as const
-
 /*
-  Landing round 8 (the owner: another OnePage "more realistic, not exactly like the other ones", like Satori Studio's):
-  a dark page with the creator's photo across its top fading into black, the name with a verified mark, a line about
-  him, four round icons tinted in the page's colour and three wide link buttons, each with its icon at the left.
+  Landing round 14 (the owner, with a phone's picture of storelib.com/liam-bailey/gym-beginner-program): Liam
+  Bailey's real product page in Jonah Wells's place. Its words, price, cover and button colour are the live page's.
+  The cover runs the page's full width: the upload is a poster on grey, and only the poster is kept (cut inside its
+  edges at 554 x 450, its top: the face, the title and Ages 15+), so no grey bar shows at either side. The buy button
+  is drawn as a visitor finds it once the page is ready, in its full blue with white words: the owner's picture
+  caught it mid load, faded.
 */
-function ProfileCard({ s }: { s: ProfilePage }) {
+const COVER_SIZES = "(max-width:767px) 200px, 360px"
+function ProductCard({ s }: { s: ProductPage }) {
   return (
-    <div className="ev-st ev-pf" style={{ "--accent": s.accent } as CSSProperties}>
-      <Img eager className="ev-pf-photo" src={s.photo} w={600} h={640} />
-      <span className="ev-pf-name">
-        {s.name}
-        <svg className="ev-pf-tick" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2.5l2.4 1.8 3 .1.9 2.8 2.4 1.8-.9 2.9.9 2.9-2.4 1.8-.9 2.8-3 .1L12 21.5l-2.4-1.8-3-.1-.9-2.8-2.4-1.8.9-2.9-.9-2.9 2.4-1.8.9-2.8 3-.1L12 2.5Z" fill="#3b82f6" />
-          <path d="M8.2 12.2l2.5 2.5 5-5.2" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <div className="ev-st ev-pp" data-product-page="">
+      <span className="ev-pp-bar">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19 12H5m6-6-6 6 6 6" />
+        </svg>
+        <Img eager className="ev-pp-av" src={s.avatar} w={96} h={96} />
+        <span className="ev-pp-seller">{s.seller}</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="ev-pp-more">
+          <path d="M5 12h.01M12 12h.01M19 12h.01" />
         </svg>
       </span>
-      <span className="ev-pf-bio">{s.bio}</span>
-      <span className="ev-pf-icons">
-        {PROFILE_SOCIAL.map((d, i) => (
-          <svg key={i} viewBox="0 0 24 24" aria-hidden="true">
-            <path d={d} />
-          </svg>
-        ))}
-      </span>
-      {s.links.map((l) => (
-        <span key={l.label} className="ev-pf-link">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d={PROFILE_ICONS[l.icon]} />
-          </svg>
-          <span>{l.label}</span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="ev-pp-cover" src={s.cover} srcSet={`${s.cover.replace(/\.webp$/, "-300.webp")} 300w, ${s.cover} 554w`} sizes={COVER_SIZES} alt="" width={554} height={450} loading="eager" decoding="async" draggable={false} />
+      <span className="ev-pp-body">
+        <span className="ev-pp-head">
+          <b className="ev-pp-title">{s.title}</b>
+          <span className="ev-pp-tag">{s.category}</span>
         </span>
-      ))}
+        <span className="ev-pp-box">
+          <span className="ev-pp-price">{s.price}</span>
+          <span className="ev-pp-buy" data-live="" style={{ background: s.button }}>
+            {s.cta}
+          </span>
+          <span className="ev-pp-wish">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+            </svg>
+            Add to wishlist
+          </span>
+          <span className="ev-pp-inc">
+            <b>What&apos;s included</b>
+            {s.included.map((line) => (
+              <span key={line}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                {line}
+              </span>
+            ))}
+          </span>
+        </span>
+      </span>
+    </div>
+  )
+}
+
+/* Satori Studio's OnePage, the picture of the real page (landing round 14): its top at the card's top, its foot running off the strip like every page's. */
+const SHOT_SIZES = "(max-width:767px) 200px, 360px"
+function ShotCard({ s }: { s: ShotPage }) {
+  return (
+    <div className="ev-st ev-shot" style={{ background: s.tone }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="ev-shot-img" src={s.src} srcSet={s.srcSet} sizes={SHOT_SIZES} alt="" width={540} height={1056} loading="eager" decoding="async" draggable={false} />
     </div>
   )
 }
@@ -753,7 +766,7 @@ function ProfileCard({ s }: { s: ProfilePage }) {
     so its left edge is always between one pitch left of the picture and
     (pages - 1) pitches right of it. A page leaves on the left and comes back
     on the right while it is out of sight, and the picture is covered as long
-    as all the pages but one are wider than it (14 pages: always, see the
+    as all the pages but one are wider than it (7 pages since landing round 14: always, see the
     test).
   - x is the only state. While the strip drifts, x grows at DRIFT_PX_S from
     a time on the document's own clock; each page runs one compositor
@@ -998,14 +1011,20 @@ export function Storefronts({ live }: { live: boolean }) {
   const viewport = useRef<HTMLDivElement>(null)
   const track = useRef<HTMLDivElement>(null)
   useDriftStrip(viewport, track, live)
-  /* The strip twice over: it drifts by one set's width and starts again where it looks the same. */
-  const strip = [...EVERYTHING_STORES, ...EVERYTHING_STORES]
+  /*
+    Landing round 14 (perf: the cards "must come up smoothly"): the pages once each, not twice. Round 7's track moved
+    two sets by one set's width and needed the second; since round 8 every page wraps round on its own, and seven
+    pages cover the picture with room to spare (six pitches are over three times its width at any size). The second
+    set was seven more layers, seven more animations restyled every frame the page drew while scrolling (the most of
+    any element on the page, measured at 1440), and thirty more pictures decoded as the card came on screen.
+  */
+  const strip = EVERYTHING_STORES
   return (
     <div ref={viewport} className="ev-vis ev-s" aria-hidden="true" data-mock-still="" data-ev-strip="">
       <div ref={track} className="ev-s-track">
-        {strip.map((item, i) => (
-          <div key={i} className="ev-s-slot">
-            {item.kind === "merch" ? <MerchCard s={item} /> : item.kind === "link" ? <LinkCard s={item} /> : <ProfileCard s={item} />}
+        {strip.map((item) => (
+          <div key={item.key} className="ev-s-slot">
+            {item.kind === "merch" ? <MerchCard s={item} /> : item.kind === "link" ? <LinkCard s={item} /> : item.kind === "product" ? <ProductCard s={item} /> : <ShotCard s={item} />}
           </div>
         ))}
       </div>
@@ -1049,16 +1068,16 @@ export const EVERYTHING_SUPPORT: readonly Request[] = [
   },
   {
     sub: "My own domain",
-    ask: "I connected shop.junokada.com an hour ago and the browser still says Not secure.",
+    ask: "I connected shop.mayafen.com an hour ago and the browser still says Not secure.",
     askAv: ME,
     reply: "Your DNS is right. The certificate was still being issued, and it's live now. Reload and you'll see the lock.",
     replyAv: null,
   },
 ]
 
-function Thread({ r, i }: { r: Request; i: number }) {
+function Thread({ r, on }: { r: Request; on: boolean }) {
   return (
-    <div className="ev-c-thread ev-loop" style={{ "--k": i } as CSSProperties}>
+    <div className="ev-c-thread ev-loop" data-on={on ? "" : undefined}>
       <div className="ev-c-head">{r.sub}</div>
       <div className="ev-c-msg ev-c-q ev-loop">
         <p className="ev-c-bubble ev-c-light">{r.ask}</p>
@@ -1079,12 +1098,67 @@ function Thread({ r, i }: { r: Request; i: number }) {
   )
 }
 
+/*
+  Landing round 14 (perf: the cards "must come up smoothly"): one thread plays at a time. Round 4's three threads each
+  ran four endless animations on one 30 second clock, and the typing dots three more, so 21 animations ran for as
+  long as the card was on screen, the dots restyled on every frame the page drew while scrolling (second only to the
+  strip's pages, measured at 1440), though only one thread was ever seen. Now a timer moves data-on from thread to
+  thread every TURN seconds, only while the card is near the screen and the tab is shown; the thread coming in plays
+  its question, the typing and the answer once (finite animations, the same timings as before), the one going out
+  fades up and away, and in between nothing runs at all. Under reduced motion the first thread simply stands.
+*/
+export const SUPPORT_TURN_MS = 10_000
 /** Also a tile of /pricing's bento (landing round 13). */
 export function Support() {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof matchMedia !== "function" || matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const threads = Array.from(el.children) as HTMLElement[]
+    let k = Math.max(0, threads.findIndex((t) => t.hasAttribute("data-on")))
+    let timer = 0
+    let near = typeof IntersectionObserver !== "function"
+    const step = () => {
+      const was = threads[k]
+      k = (k + 1) % threads.length
+      for (const t of threads) if (t !== was) t.removeAttribute("data-out")
+      was.removeAttribute("data-on")
+      was.setAttribute("data-out", "")
+      el.setAttribute("data-turning", "")
+      threads[k].removeAttribute("data-out")
+      threads[k].setAttribute("data-on", "")
+    }
+    const sync = () => {
+      const go = near && !document.hidden
+      if (go && !timer) timer = window.setInterval(step, SUPPORT_TURN_MS)
+      else if (!go && timer) {
+        window.clearInterval(timer)
+        timer = 0
+      }
+    }
+    const io =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver(
+            ([e]) => {
+              near = e.isIntersecting
+              sync()
+            },
+            { rootMargin: LIVE_AHEAD },
+          )
+        : null
+    io?.observe(el)
+    document.addEventListener("visibilitychange", sync)
+    sync()
+    return () => {
+      io?.disconnect()
+      document.removeEventListener("visibilitychange", sync)
+      window.clearInterval(timer)
+    }
+  }, [])
   return (
-    <div className="ev-vis ev-c" aria-hidden="true">
+    <div ref={ref} className="ev-vis ev-c" aria-hidden="true">
       {EVERYTHING_SUPPORT.map((r, i) => (
-        <Thread key={r.sub} r={r} i={i} />
+        <Thread key={r.sub} r={r} on={i === 0} />
       ))}
     </div>
   )
@@ -1186,7 +1260,7 @@ const r = (n: number) => `calc(${n} * var(--r))`
 /** n pixels of the 260px community page drawn in the product tile. */
 const q = (n: number) => `calc(${n} * var(--q))`
 /* One support request's turn, in seconds. */
-const TURN = 10
+const TURN = SUPPORT_TURN_MS / 1000
 const CSS = `
 /*
   Landing round 7 (the owner: the section "a little bit more" wide at 90% and 100% zoom, like his reference): the
@@ -1382,18 +1456,6 @@ const CSS = `
 .ev-ms-drop i{margin-top:${r(10)};font-size:${r(12)};font-style:normal;letter-spacing:.14em;text-transform:uppercase;color:#4a4a4a}
 .ev-ms-cover + .ev-mc-grid{margin-top:${r(24)}}
 .ev-mc[data-store] .ev-mc-img{border-radius:${r(10)}}
-.ev-mc-price s{margin-right:${r(6)};color:#9a9a9a}
-
-/* Landing round 12: a digital product says what it is after its price; a cover whose foot is darker carries the drop's name in white over a soft shade (Jonah Wells). */
-.ev-mc-price i{font-style:normal}
-.ev-mc-price i::before{content:"\\00b7";margin:0 ${r(5)}}
-.ev-mc[data-ink="light"] .ev-ms-cover::before{content:"";position:absolute;z-index:1;inset:0 0 62%;background:linear-gradient(rgba(12,10,8,.5),rgba(12,10,8,0))}
-.ev-mc[data-ink="light"] .ev-ms-cover::after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(rgba(12,10,8,0),rgba(12,10,8,.62))}
-.ev-mc[data-ink="light"] .ev-ms-hero{object-position:50% 0}
-.ev-mc[data-ink="light"] .ev-ms-top{z-index:2;color:rgba(255,255,255,.88)}
-.ev-mc[data-ink="light"] .ev-ms-mark{color:#fff}
-.ev-mc[data-ink="light"] .ev-ms-drop{z-index:1;color:#fff}
-.ev-mc[data-ink="light"] .ev-ms-drop i{color:rgba(255,255,255,.82)}
 
 /* A creator's link page: a dark, blurred photo, the name big in the page's colour, the icons, two buttons, the products. */
 .ev-lp{align-items:stretch;padding:${r(48)} ${r(24)} 0;color:#fff;text-align:center}
@@ -1422,23 +1484,35 @@ const CSS = `
 .ev-lp-img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;border-radius:${r(14)};background:rgba(255,255,255,.08)}
 
 /*
-  Landing round 8: a OnePage in the dark style of a creative director's. The photo across the top fades into the black,
-  the name sits on that fade with a verified mark, then his line, round icons tinted in the page's colour and wide
-  link buttons, each with its icon at the left and its label centred.
+  Landing round 14: Liam Bailey's product page as a phone shows it (storelib.com/liam-bailey/gym-beginner-program).
+  The seller's dark bar, the cover the page's full width, the title beside its category, and the box with the price,
+  the buy button live in the page's blue (#2563eb, white words, its own light edge: never faded), the wishlist button
+  and what is included. Its sizes are the live page's at 390.
 */
-.ev-pf{align-items:center;padding:${r(318)} ${r(22)} 0;background:#0a0a0b;color:#fff;text-align:center}
-.ev-pf-photo{position:absolute;left:0;top:0;width:100%;height:${r(420)};object-fit:cover;object-position:50% 20%}
-.ev-pf::before{content:"";z-index:1;position:absolute;left:0;right:0;top:${r(170)};height:${r(252)};background:linear-gradient(rgba(10,10,11,0),rgba(10,10,11,.75) 55%,#0a0a0b)}
-.ev-pf-name,.ev-pf-bio,.ev-pf-icons,.ev-pf-link{position:relative;z-index:2}
-.ev-pf-name{display:flex;align-items:center;gap:${r(8)};font-size:${r(38)};font-weight:700;letter-spacing:-.02em;line-height:1.1}
-.ev-pf-tick{width:${r(26)};height:${r(26)}}
-.ev-pf-bio{margin-top:${r(12)};max-width:${r(300)};font-size:${r(16)};line-height:1.45;color:#a3a1a8}
-.ev-pf-icons{display:flex;justify-content:center;gap:${r(12)};margin-top:${r(22)}}
-.ev-pf-icons svg{box-sizing:border-box;width:${r(52)};height:${r(52)};padding:${r(14)};border-radius:50%;background:color-mix(in srgb,var(--accent) 16%,transparent);fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.ev-pf-link{display:flex;align-items:center;width:100%;box-sizing:border-box;height:${r(70)};margin-top:${r(14)};padding:0 ${r(18)};border:1px solid #2a2a2e;border-radius:${r(16)};background:#18181b;font-size:${r(17)};font-weight:500}
-.ev-pf-icons + .ev-pf-link{margin-top:${r(28)}}
-.ev-pf-link svg{flex:none;width:${r(30)};height:${r(30)};fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.ev-pf-link span{flex:1;margin-right:${r(30)}}
+.ev-pp{background:#fff;color:#111827}
+.ev-pp-bar{display:flex;flex:none;align-items:center;gap:${r(12)};height:${r(56)};padding:0 ${r(16)};background:#1a1a1a;color:#fff}
+.ev-pp-bar svg{flex:none;width:${r(22)};height:${r(22)};fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ev-pp-bar .ev-pp-more{stroke-width:3}
+.ev-pp-av{width:${r(32)};height:${r(32)};border-radius:50%;object-fit:cover}
+.ev-pp-seller{flex:1;font-size:${r(16)};font-weight:600}
+.ev-pp-cover{display:block;flex:none;width:100%;height:auto;aspect-ratio:554/450;object-fit:cover;background:#111}
+.ev-pp-body{display:flex;flex-direction:column;padding:${r(18)} ${r(16)} 0}
+.ev-pp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:${r(12)}}
+.ev-pp-title{font-size:${r(25)};font-weight:600;line-height:1.2;letter-spacing:-.01em}
+.ev-pp-tag{flex:none;margin-top:${r(3)};padding:${r(5)} ${r(10)};border-radius:${r(6)};background:#f3f4f6;font-size:${r(13)};line-height:1.3}
+.ev-pp-box{display:flex;flex-direction:column;margin-top:${r(18)};padding:${r(18)} ${r(16)};border:1px solid #e5e7eb;border-radius:${r(14)}}
+.ev-pp-price{font-size:${r(26)};font-weight:700;line-height:1.2;letter-spacing:-.01em}
+.ev-pp-buy{display:flex;align-items:center;justify-content:center;height:${r(50)};margin-top:${r(14)};border-radius:${r(8)};color:#fff;font-size:${r(16)};font-weight:600;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),0 ${r(2)} ${r(6)} rgba(37,99,235,.32)}
+.ev-pp-wish{display:flex;align-items:center;justify-content:center;gap:${r(8)};height:${r(48)};margin-top:${r(10)};border:1px solid #d1d5db;border-radius:${r(8)};font-size:${r(14.5)};font-weight:500}
+.ev-pp-wish svg{width:${r(16)};height:${r(16)};fill:none;stroke:#9ca3af;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ev-pp-inc{display:flex;flex-direction:column;gap:${r(10)};margin-top:${r(18)};padding-top:${r(16)};border-top:1px solid #e5e7eb;font-size:${r(14.5)};color:#4b5563}
+.ev-pp-inc b{font-size:${r(16)};font-weight:600;color:#111827}
+.ev-pp-inc span{display:flex;align-items:center;gap:${r(10)}}
+.ev-pp-inc svg{flex:none;width:${r(16)};height:${r(16)};fill:none;stroke:#4b5563;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Landing round 14: Satori Studio's real OnePage, its picture from the top of the card down, running off the foot. */
+.ev-shot{display:block}
+.ev-shot-img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0}
 
 ${GLOBE_CSS()}
 
@@ -1447,7 +1521,8 @@ ${GLOBE_CSS()}
   middle of the card, each on the same ${TURN * 3}s clock and a third of it
   later than the one before. In its third a thread rises in, the question
   arrives, the other side types, the answer arrives; then it fades up and
-  out as the next one rises.
+  out as the next one rises. Landing round 14: one thread at a time, each part played
+  once as its thread comes in (Support moves data-on), nothing running in between.
   Landing round 7 (the owner: the background "more colorful, cool and clean, simple, bold", like his reference): one
   still gradient with a faint lighter glow in the top right so it is not flat. No noise, nothing moving behind the
   thread. The thread is a plain white card on it, rounder and roomier, and its words grow with the card (container
@@ -1459,8 +1534,13 @@ ${GLOBE_CSS()}
   ground again, raspberry at the top left through rose to a warm peach at the foot, the glow a pale pink. The teal is gone.
 */
 .ev-c{background:radial-gradient(70% 60% at 88% 8%,rgba(255,170,180,.32) 0%,rgba(255,170,180,0) 100%),linear-gradient(168deg,#9d1640 0%,#c03560 36%,#dc6476 64%,#f1a283 100%);container-type:inline-size}
-.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,440px);padding:18px 18px 20px;box-sizing:border-box;border-radius:18px;background:#fff;box-shadow:0 30px 60px -34px rgba(80,8,30,.55);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97);animation:ev-thread ${TURN * 3}s ${EASE} infinite;animation-delay:calc(var(--k,0) * ${TURN}s)}
-.ev-c-thread .ev-c-q,.ev-c-thread .ev-c-r,.ev-c-thread .ev-c-typing{animation-delay:calc(var(--k,0) * ${TURN}s)}
+.ev-c-thread{position:absolute;left:50%;top:50%;width:min(80%,440px);padding:18px 18px 20px;box-sizing:border-box;border-radius:18px;background:#fff;box-shadow:0 30px 60px -34px rgba(80,8,30,.55);opacity:0;transform:translate3d(-50%,-46%,0) scale(.97)}
+/* Landing round 14: one thread plays at a time (Support's timer moves data-on), each part once: in, question, typing, answer; the one leaving fades up with its words still on it. */
+/* Until the first turn the first thread simply stands, whole: a card that comes on screen is never empty while an entrance waits. From the first turn (data-turning) each thread coming in plays its parts. */
+.ev-c-thread[data-on]{opacity:1;transform:translate3d(-50%,-50%,0)}
+.ev-c-thread[data-on] .ev-c-q,.ev-c-thread[data-on] .ev-c-r{opacity:1;transform:none}
+.ev-c[data-turning] .ev-c-thread[data-on]{animation:ev-c-in .75s ${EASE} .55s both}
+.ev-c-thread[data-out]{animation:ev-c-out .85s ${EASE} both}
 .ev-c-head{margin:0 0 14px;font-size:14px;font-weight:500;color:#6b6a72}
 .ev-c-msg{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
 .ev-c-bubble{flex:1 1 auto;margin:0;padding:11px 13px;border-radius:12px;font-size:13.5px;line-height:1.42}
@@ -1468,16 +1548,20 @@ ${GLOBE_CSS()}
 .ev-c-dark{background:#111113;color:#fff}
 .ev-c-av{display:block;flex:none;width:24px;height:24px;border-radius:7px;object-fit:cover}
 .ev-c-slot{position:relative}
-.ev-c-q{opacity:0;transform:translate3d(0,10px,0);animation:ev-q ${TURN * 3}s ${EASE} infinite}
-.ev-c-r{opacity:0;transform:translate3d(0,10px,0);animation:ev-r ${TURN * 3}s ${EASE} infinite}
-.ev-c-typing{position:absolute;left:0;top:10px;display:flex;gap:4px;padding:11px 13px;border-radius:12px;background:#111113;opacity:0;animation:ev-typing ${TURN * 3}s ease infinite}
-.ev-c-dot{width:6px;height:6px;border-radius:99px;background:#fff;opacity:.5;animation:ev-dot 1.1s ease-in-out infinite}
-.ev-c-dot:nth-child(2){animation-delay:.15s}
-.ev-c-dot:nth-child(3){animation-delay:.3s}
-@keyframes ev-thread{0%{opacity:0;transform:translate3d(-50%,-46%,0) scale(.97)}2.5%,30.5%{opacity:1;transform:translate3d(-50%,-50%,0)}33.3%,100%{opacity:0;transform:translate3d(-50%,-54%,0) scale(.98)}}
-@keyframes ev-q{0%,1%{opacity:0;transform:translate3d(0,10px,0)}4%,100%{opacity:1;transform:none}}
-@keyframes ev-typing{0%,6%{opacity:0}7.5%,13.5%{opacity:1}14.5%,100%{opacity:0}}
-@keyframes ev-r{0%,14%{opacity:0;transform:translate3d(0,10px,0)}16.5%,100%{opacity:1;transform:none}}
+.ev-c-q,.ev-c-r{opacity:0;transform:translate3d(0,10px,0)}
+.ev-c[data-turning] .ev-c-thread[data-on] .ev-c-q{animation:ev-c-rise .9s ${EASE} .85s both}
+.ev-c[data-turning] .ev-c-thread[data-on] .ev-c-r{animation:ev-c-rise .75s ${EASE} 4.75s both}
+.ev-c-thread[data-out] .ev-c-q,.ev-c-thread[data-out] .ev-c-r{opacity:1;transform:none}
+.ev-c-typing{position:absolute;left:0;top:10px;display:flex;gap:4px;padding:11px 13px;border-radius:12px;background:#111113;opacity:0}
+.ev-c[data-turning] .ev-c-thread[data-on] .ev-c-typing{animation:ev-c-type 2.55s ease 2.35s both}
+.ev-c-dot{width:6px;height:6px;border-radius:99px;background:#fff;opacity:.5}
+.ev-c[data-turning] .ev-c-thread[data-on] .ev-c-dot{animation:ev-dot 1.1s ease-in-out 2.35s 2}
+.ev-c[data-turning] .ev-c-thread[data-on] .ev-c-dot:nth-child(2){animation-delay:2.5s}
+.ev-c[data-turning] .ev-c-thread[data-on] .ev-c-dot:nth-child(3){animation-delay:2.65s}
+@keyframes ev-c-in{from{opacity:0;transform:translate3d(-50%,-46%,0) scale(.97)}to{opacity:1;transform:translate3d(-50%,-50%,0)}}
+@keyframes ev-c-out{from{opacity:1;transform:translate3d(-50%,-50%,0)}to{opacity:0;transform:translate3d(-50%,-54%,0) scale(.98)}}
+@keyframes ev-c-rise{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+@keyframes ev-c-type{0%{opacity:0}17.6%,88.2%{opacity:1}100%{opacity:0}}
 @keyframes ev-dot{0%,100%{opacity:.35;transform:translate3d(0,0,0)}50%{opacity:1;transform:translate3d(0,-3px,0)}}
 @container (max-width:480px){
   .ev-c-thread{width:90%;padding:14px 14px 16px}

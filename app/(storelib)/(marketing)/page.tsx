@@ -5,6 +5,7 @@ import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/
 import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
+import { SheetHold } from "@/components/marketing/home/sheet-hold"
 import {
   LazyEverythingInOnePlace,
   LazyIdeasComeToLife,
@@ -21,6 +22,7 @@ import {
   LazyAppAnywhere,
   LazyBuildShowcase,
   LAZY_SECTION_HEIGHTS_CSS,
+  LAZY_SECTION_PHONE_HIDDEN_CSS,
 } from "@/components/marketing/home/lazy-sections"
 import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -91,6 +93,8 @@ export default function StorelibLanding() {
 
       {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
       <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
+      {/* Landing round 14: no earnings on a phone. A tag of its own: these strings come from a client module, so here they are references the browser resolves, and joining two with + printed a function's source instead. */}
+      <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_PHONE_HIDDEN_CSS }} />
       {/* Landing round 12, the owner: the wheel glide was "too smooth and delayed". The page scrolls natively, in real time (tests/home-smooth-wheel-r5.test.ts). */}
       {/* Landing round 13: the whole landing is one Suspense boundary too, so a section whose file is late during hydration holds only this boundary, never the wrapper (see the four sections above). */}
       <Suspense fallback={null}>
@@ -164,8 +168,9 @@ export default function StorelibLanding() {
           <LazyBuildShowcase />
         </ScrollRevealBackdrop>
 
-        {/* WHITE SHEET: pricing, the questions */}
+        {/* WHITE SHEET: pricing, the questions. Landing round 14, the owner: it arrives as a sheet; the showcase above holds (sticky) and this sheet rises over it (components/marketing/home/sheet-hold.tsx). */}
         <ScrollRevealPanel tone="white">
+          <SheetHold />
 
           {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
           <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">

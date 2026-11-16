@@ -38,7 +38,8 @@ console.log("\nNo line under the heading")
 {
   // Changed on purpose (landing round 11): the owner asked for a new heading and a subheading of at most ten words; the old round 10 line stays gone.
   // Changed on purpose (landing round 13): the owner asked for a better heading; "Five ways to get paid" (tests/home-landing-r13-business.test.ts).
-  check("the heading is the new short line", (BUSINESS_HEADING as string) === "Five ways to get paid" && html.includes('id="biz-title"'))
+  // Changed on purpose (landing round 14): "From a cookbook to a coaching call".
+  check("the heading is the new short line", (BUSINESS_HEADING as string) === "From a cookbook to a coaching call" && html.includes('id="biz-title"'))
   check("the round 10 line under the heading stays gone; round 11's own line is at most ten words", !/Each one gets its own page and checkout|Downloads, things you ship/.test(code(SECTION)) && String((Section as Record<string, unknown>).BUSINESS_SUB).split(/\s+/).length <= 10)
   check("the heading block holds the heading and that one line", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><p class="biz-sub">[^<]+<\/p><\/div><div class="biz-body">/.test(html))
 }
@@ -53,7 +54,8 @@ console.log("\nA shorter stage, every scene the same picture")
   // Each scene inside the new 570 high drawing: nothing reaches past its bottom.
   // Changed on purpose (landing round 12): digital is one e-book (cover 360 high from 96, its page from 122, 348 high) and physical one oil (its photograph 26 from top and bottom); both end inside the stage.
   // Changed on purpose (landing round 13): digital is two tiles and an order (404 tall, 83 from the top); physical is a line of store designs (420 tall, centred).
-  check("digital: the two tiles and the order end inside the stage", rule(".bd-tile").includes(`top:${U(83)};width:${U(318)};height:${U(404)}`) && rule(".bd-card").includes(`top:${U(83)};width:${U(324)};height:${U(404)}`) && 83 + 404 < 570)
+  // Changed on purpose (landing round 14): digital is a shelf and a pane, both inside the stage.
+  check("digital: the two tiles and the order end inside the stage", rule(".bd-shelf").includes(`top:${U(62)}`) && rule(".bd-view").includes(`top:${U(62)};width:${U(440)};height:${U(426)}`) && 62 + 426 < 570)
   check("physical: the line of store designs is centred and inside the stage", rule(".bt-stage").includes(`width:${U(336)};height:${U(420)}`) && 420 < 570)
   check("course: the card 22 from top and bottom, the player 248 high", rule(".bs-ccard").includes(`top:${U(22)};bottom:${U(22)};width:${U(720)}`) && rule(".bp-player").includes(`height:${U(248)}`))
   check("community: the club's page 26 from top and bottom, the feed beside it from the same line", rule(".bs-com").includes(`left:${U(56)};top:${U(26)};bottom:${U(26)};width:${U(520)}`) && rule(".bs-feed").includes(`left:${U(616)};right:${U(56)};top:${U(26)}`))

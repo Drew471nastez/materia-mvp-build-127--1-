@@ -123,7 +123,7 @@ check("the course and community pictures exist and are small", ["pilates", "ai-b
 
 console.log("\n── Make the work: Build a store that looks like you ──")
 /* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
-check("merch stores and link pages", EVERYTHING_STORES.filter((s) => s.kind === "merch").length >= 3 && EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3)
+check("merch stores and link pages", EVERYTHING_STORES.filter((s) => s.kind === "merch").length >= 2 && EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3) // Changed on purpose (landing round 14): one store gave way to Liam Bailey's real product page.
 check("every merch store shows four pieces, each with a name and a price", EVERYTHING_STORES.every((s) => s.kind !== "merch" || (s.products.length === 4 && s.products.every((p) => p.name && /^\$\d+$/.test(p.price)))))
 check("no wheel throwing, no sourdough in the stores", !BANNED.test(JSON.stringify(EVERYTHING_STORES)))
 /* Changed on purpose (landing round 7): the cap grows with a taller picture (58% of its height once over 270px). */
@@ -136,7 +136,7 @@ check("it drifts as a Web Animation, paused off screen and in a hidden tab", /sl
 /* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
 check("a release glides from the hand's speed back to the drift", /Math\.exp\(-\(now - g0\) \/ 380\)/.test(evSrc))
 /* Changed on purpose (landing round 8): link pages carry their creator's photo, and the strip has a OnePage of a third kind (a profile with one photo). */
-check("every picture in the strip exists and is small", EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [s.ground, s.avatar, ...s.products] : [s.photo])).every((u) => existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120_000))
+check("every picture in the strip exists and is small", EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [s.ground, s.avatar, ...s.products] : s.kind === "product" ? [s.avatar, s.cover] : [])) /* Changed on purpose (landing round 14): Liam Bailey's product page brings his photo and cover; Satori Studio's picture is the showcase's own (public/home/showcase). */.every((u) => existsSync(join(root, "public", u)) && statSync(join(root, "public", u)).size < 120_000))
 /* Changed on purpose (landing round 8): a seventh page, a profile OnePage, so the pages no longer strictly take turns; no two stores ever stand side by side. */
 check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind !== "merch" || EVERYTHING_STORES[(i + 1) % EVERYTHING_STORES.length].kind !== "merch"))
 
@@ -145,7 +145,8 @@ check("no inbox switch: no From buyers / Storelib buttons", !/ev-c-tabs|Support 
 check("the card of before: a thread with photos and Storelib's mark, the other side typing", /class="ev-c-thread ev-loop"/.test(everything) && /class="ev-c-bubble ev-c-light"/.test(everything) && /class="ev-c-typing ev-loop"/.test(everything) && /StorelibLogo size=\{96\}/.test(evSrc))
 check("three true requests, none about a payout or a bank", EVERYTHING_SUPPORT.length === 3 && !/payout|bank|\$\d/i.test(JSON.stringify(EVERYTHING_SUPPORT)))
 check("the photos exist", ["av-creator", "av-buyer"].every((k) => existsSync(join(root, `public/home/everything/${k}.webp`))))
-check("one clock for all three, a third apart, paused off screen", /animation-delay:calc\(var\(--k,0\) \* 10s\)/.test(evCss) && /\.ev\[data-platform-live="false"\] \.ev-loop/.test(evCss))
+// Changed on purpose (landing round 14): one thread plays at a time, Support's timer moving data-on every 10s near the screen.
+check("one at a time, 10s each, paused off screen", /\.ev-c\[data-turning\] \.ev-c-thread\[data-on\]\{animation:ev-c-in/.test(evCss) && /\.ev\[data-platform-live="false"\] \.ev-loop/.test(evCss))
 
 console.log("\n── Unlimited possibilities ──")
 check("two rows", MARQUEE_ROWS.length === 2)

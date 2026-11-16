@@ -59,9 +59,12 @@ console.log("\nEvery question the page had is still there")
   ]
   const qs = all.map((x) => x.q)
   const missing = before.filter((q) => !qs.includes(q))
-  check("all 27 questions, in seven topics", missing.length === 0 && topics.length === 7, missing)
+  // Changed on purpose (landing round 14): the questions are widened (tests/home-landing-r14-faq-blog.test.ts), in eight topics with Marketing.
+  check("all 27 questions, in eight topics", missing.length === 0 && topics.length === 8, missing)
   check("and Pro has its own", qs.includes("What's included in Pro?"))
-  check("each question's answer is in the page's first HTML (the closed ones too)", all.every((x) => html.includes(x.q.replace(/'/g, "&#x27;")) && html.includes(x.a.replace(/'/g, "&#x27;").replace(/"/g, "&quot;"))))
+  // Changed on purpose (landing round 14): an answer can name "Languages & Currency", so & is escaped as the markup escapes it.
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/'/g, "&#x27;").replace(/"/g, "&quot;")
+  check("each question's answer is in the page's first HTML (the closed ones too)", all.every((x) => html.includes(esc(x.q)) && html.includes(esc(x.a))))
 }
 
 console.log("\nThe answers are the code's numbers")
@@ -122,7 +125,8 @@ console.log("\nMotion")
 console.log("\nThe page")
 {
   const page = code(PAGE)
-  check("the server reads the questions and hands them to the client", /<FaqPageClient topics=\{faqTopics\(\)\} supportEmail=\{SUPPORT_EMAIL\} helpUrl=\{publicHelpUrl\(\)\} \/>/.test(page))
+  // Changed on purpose (landing round 14): the questions are built with the platform switches (communities, physical, Explore).
+  check("the server reads the questions and hands them to the client", /<FaqPageClient topics=\{faqTopics\(flags\)\} supportEmail=\{SUPPORT_EMAIL\} helpUrl=\{publicHelpUrl\(\)\} \/>/.test(page))
   check("breadcrumbs kept, still no FAQPage (round 45)", /storelibBreadcrumbJsonLd\(\[\{ name: "FAQ", path: "\/faq" \}\]\)/.test(page) && !/FAQPage/.test(page))
   check("one h1, a heading for each topic", (html.match(/<h1/g) ?? []).length === 1 && topics.every((t) => html.includes(`id="${t.id}-h"`)))
   check("the end gives the support address and the Help Center", html.includes(`mailto:${SUPPORT_EMAIL}`) && /Email support/.test(html) && /Help Center/.test(html))

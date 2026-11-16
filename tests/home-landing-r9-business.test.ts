@@ -43,12 +43,14 @@ console.log("\nThe tab control: words and a ring, not pills with a line")
   // Changed on purpose (landing round 11): physical turns through its four products too, so it has its own length as well.
   // Changed on purpose (landing round 12): no scene loops any more (one e-book, one oil), so every turn is the usual length.
   // Changed on purpose (landing round 13): physical's turn is four moves of its line of store designs; the others the usual length.
-  check("every kind's turn is the usual length but physical's", BUSINESS_SLIDE_MS === 6500 && BUSINESS_SLIDES.every((s) => s.id === "physical" ? s.ms === 9600 : s.ms === undefined) && html.includes(`--biz-ms:${BUSINESS_SLIDE_MS}ms`))
+  // Changed on purpose (landing round 14): digital's turn is 8 s, long enough for the shelf to show itself and its bought product to stand a moment.
+  check("every kind's turn is the usual length but physical's", BUSINESS_SLIDE_MS === 6500 && BUSINESS_SLIDES.every((s) => s.id === "physical" ? s.ms === 9600 : s.id === "digital" ? s.ms === 8000 : s.ms === undefined) && html.includes(`--biz-ms:8000ms`))
   const src = code(SECTION)
   check("autoplay stays: picking a word never stops it; hover, a finger, off screen and a hidden tab hold it", /onClick=\{\(\) => go\(i\)\}/.test(src) && !/t\.select\(/.test(src) && /\{\.\.\.t\.hoverProps\}/.test(src) && /onPointerDown=\{hold\}/.test(src) && /const run = t\.run && !held/.test(src) && /data-live=\{t\.live \|\| undefined\}/.test(src))
   check("arrow keys move along the row and down the index", /NEXT_KEYS = \["ArrowRight", "ArrowDown"\]/.test(src) && /PREV_KEYS = \["ArrowLeft", "ArrowUp"\]/.test(src))
   // Changed on purpose (landing round 12): a second timer, the phone row's settle (the card in view read once the row is still).
-  check("no per-frame JavaScript: no rAF, no timer but the finger's release and the phone row's settle", !/requestAnimationFrame|setInterval|getBoundingClientRect/.test(src) && (src.match(/setTimeout\(/g) ?? []).length === 2)
+  // Changed on purpose (landing round 14): the phone row's marker is one transform a frame while it scrolls; still no interval and no layout reads per frame.
+  check("no per-frame JavaScript: no rAF, no timer but the finger's release and the phone row's settle", !/setInterval|getBoundingClientRect/.test(src) && (src.match(/requestAnimationFrame\(/g) ?? []).length === 1 && (src.match(/setTimeout\(/g) ?? []).length === 2)
 }
 
 console.log("\nThe layout: an index beside the stage, a row over it on a phone")
@@ -70,11 +72,13 @@ console.log("\nDigital and physical: what round 9 removed stays removed")
 {
   const d = renderToStaticMarkup(createElement(DigitalScene))
   // Changed on purpose (landing round 13): two digital products and one order card.
-  check("digital is two products with one order card", d.includes("Ancestral Kitchen") && d.includes("Daily Mobility") && (d.match(/class="bs-card bd-card"/g) ?? []).length === 1)
+  // Changed on purpose (landing round 14): digital is a shelf of six with the cookbook and the course on it.
+  check("digital is two products with one order card", d.includes("Ancestral Kitchen") && d.includes("Daily Mobility") && (d.match(/class="bd-item"/g) ?? []).length === 6)
   check("the Second Brain tablet is gone, with its pictures", !/Second Brain|bs-tablet|bn-|Brain/.test(code(MOCKS)) && ["cover", "daily", "work", "health", "goals"].every((n) => !existsSync(`public/home/showcase/bz-brain-${n}.webp`)))
   const t = renderToStaticMarkup(createElement(TeeScene))
   // Changed on purpose (landing round 13): physical is six store designs in a line, each a sixth of the loop apart.
-  check("physical: six store designs, a step apart", (t.match(/class="bt-card"/g) ?? []).length === 6 && t.includes("--d:-2.4s"))
+  // Changed on purpose (landing round 14): the line moves by script (drag, fling, its own turn), so no per card delay.
+  check("physical: six store designs, a step apart", (t.match(/class="bt-card"/g) ?? []).length === 6)
   check("the headphones and the yellow are gone", !/headphone|HN1|Halfnote|#f5c518|bs-spot/i.test(code(MOCKS)) && !existsSync("public/home/showcase/bz-headphones.webp"))
 }
 
@@ -99,7 +103,8 @@ console.log("\nSmooth and clean")
   const props = new Set(frames.flatMap((m) => [...m[2].matchAll(/([a-z-]+):/g)].map((p) => p[1])))
   // Changed on purpose (landing round 12): the digital row and the physical loop are gone, so fewer keyframes.
   check("every keyframe moves only transform and opacity", frames.length >= 15 && [...props].every((p) => p === "transform" || p === "opacity" || p === "animation-timing-function"), [...props])
-  check("no transition in the scenes, no filter or blur anywhere, no gradient on the grounds", !/transition:/.test(BUSINESS_MOCK_CSS) && !/filter:|blur\(/.test(all) && !/\.bs-(?:digital|tee|course|club)\{background:[^#]/.test(BUSINESS_MOCK_CSS))
+  // Changed on purpose (landing round 14): the shelf eases its pane and hover on opacity and transform only; the physical ground is a soft light (radial), the others flat.
+  check("no transition in the scenes, no filter or blur anywhere, no gradient on the grounds", (BUSINESS_MOCK_CSS.match(/transition:[^;}]*/g) ?? []).every((t) => /^transition:((opacity|transform|visibility)[^,]*,?)+$/.test(t.replace(/\([^)]*\)/g, ""))) && !/filter:|blur\(/.test(all) && !/\.bs-(?:digital|tee|course|club)\{background:[^#]/.test(BUSINESS_MOCK_CSS))
   check("off screen or a hidden tab: every moment waits", /\.biz:not\(\[data-live\]\) \.bz-on \*,\.biz:not\(\[data-live\]\) \.bz-on \*::after\{animation-play-state:paused!important\}/.test(css))
   check("the moments run only with motion allowed", /@media\(prefers-reduced-motion:no-preference\)\{\n\.bz-on/.test(BUSINESS_MOCK_CSS) && !/\n\.bz-on[^\n]*animation/.test(BUSINESS_MOCK_CSS.split("@media(prefers-reduced-motion:no-preference){")[0]))
   const every = [DigitalScene, TeeScene, CourseScene, ClubScene, CoachScene].map((s) => renderToStaticMarkup(createElement(s))).join("")

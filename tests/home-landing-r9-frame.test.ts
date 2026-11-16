@@ -141,8 +141,9 @@ console.log("\nStart now waits for the showcase on a phone")
   check("gone means all of it is under the bar", /gone\.set\(entry\.target, !entry\.isIntersecting && entry\.boundingClientRect\.top < \(entry\.rootBounds\?\.top \?\? top\)\)/.test(fx))
   check("an attribute on the bar: no listener, no state", /el\.setAttribute\("data-home-cta", gone\.get\(cta\) \? "shown" : "hidden"\)/.test(fx) && !/addEventListener|useState/.test(fx))
   const hero = read("components/marketing/hero.tsx")
-  const shown = /#platform-header-root :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""
-  const hidden = /#platform-header-root:not\(\[data-home-cta="shown"\]\) :is\(\[data-home-phone-start\],\[data-guest-signup\]\) \{([^}]*)\}/.exec(hero)?.[1] ?? ""
+  // Changed on purpose (landing round 14): only the phone's Start now waits; a computer's Sign up stands beside Log in from the top (tests/home-landing-r14-frame.test.ts).
+  const shown = /#platform-header-root \[data-home-phone-start\] \{([^}]*)\}/.exec(hero)?.[1] ?? ""
+  const hidden = /#platform-header-root:not\(\[data-home-cta="shown"\]\) \[data-home-phone-start\] \{([^}]*)\}/.exec(hero)?.[1] ?? ""
   check("it arrives on a long soft fade over a 4px rise: opacity and translate only", /transition:opacity 560ms cubic-bezier\(\.33,0,\.2,1\),translate 640ms cubic-bezier\(\.22,1,\.36,1\)/.test(shown) && /opacity:0; translate:0 4px; visibility:hidden; pointer-events:none/.test(hidden))
   check("the bar's height cannot change: no size, margin, padding or display in either rule", !/height|width|margin|padding|display/.test(shown + hidden))
 }

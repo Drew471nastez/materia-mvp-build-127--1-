@@ -73,6 +73,12 @@ export const IDEAS_HEADING = "See your ideas come to life."
   scrolls into view when the builder selects it. Two scenes still: loudlib
   stays as the second, a Storelib theme beside an imported one. The OnePage
   editor shows Desmond Ayo alone (Idris Kane is gone), one scene.
+
+  Landing round 14 (the owner): Steez's products are his own four, flat on
+  light grey, no people; loudlib is drawn as loudlib.net really is (the sale
+  bar, the header, Bestselling and its packs, no hero); and the moment is an
+  edit: the pointer selects the heading, new words are typed over it, then
+  Publish (builder-mocks.tsx Edit, EDIT_CSS).
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
 /** How long each heading stays, in seconds; the three take turns in one CSS loop. */
@@ -91,7 +97,7 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First Steez, a streetwear store on the Materia Steez theme: the free shipping bar, the white STEEZ wordmark over a photo of four skaters on a sidewalk, Summer Madness '26 with Explore, then four tees on models with their prices and View all. Then loudlib, a sample pack store: a purple sale bar, a dark header, the new bundle over a club photo, and the bestselling packs as black boxes. Each time the first section, then the products are selected, then Publish changes puts it live.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First Steez, a streetwear store on the Materia Steez theme: the free shipping bar, the white STEEZ wordmark over a photo of four skaters on a sidewalk, Summer Madness '26 with Explore, then the Gradient Hoodie, Raw Tee, Grey Graphic T-shirt and Faith over fear Graphic T-shirt on light grey with their prices. Then loudlib, a sample pack store: the purple sale bar, the dark header with Discover, and Bestselling, six sample packs as black boxes, three on sale. Each time the heading is selected, new words are typed over it, and Publish changes puts it live.",
     Mock: WebsiteBuilderMock,
     scenes: 2,
   },

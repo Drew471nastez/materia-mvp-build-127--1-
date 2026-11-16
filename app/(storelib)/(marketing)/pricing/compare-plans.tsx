@@ -41,18 +41,33 @@ function Value({ v }: { v: ComparisonValue }) {
   return typeof v === "boolean" ? <Check on={v} /> : <span className="pz-cmp-text">{v}</span>
 }
 
+/*
+  LANDING ROUND 14, THE OWNER (his picture 14): the row that sticks was three
+  rows tall, the name, the price and a button under each other. Now it is one
+  row: the name with the price beside it, and the plan's button beside that.
+  Where a column is too narrow for the button's words (under 1280px) the
+  button is a small round arrow, its words still read by a screen reader.
+*/
 function PlanButton({ action, featured }: { action: PlanCardAction; featured: boolean }) {
   const cls = `pz-cmp-btn${featured ? " pz-cmp-btn-on" : ""}`
+  const inner = (
+    <>
+      <span className="pz-cmp-btn-t">{action.loading ? tt("Processing") : action.label}</span>
+      <svg className="pz-cmp-btn-a" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </>
+  )
   if (action.href && !action.disabled) {
     return (
       <Link href={action.href} className={cls}>
-        {action.label}
+        {inner}
       </Link>
     )
   }
   return (
     <button type="button" className={cls} onClick={action.onClick} disabled={action.disabled || action.loading} aria-busy={action.loading || undefined}>
-      {action.loading ? tt("Processing") : action.label}
+      {inner}
     </button>
   )
 }
@@ -76,10 +91,12 @@ export function ComparePlans({ actions }: { actions: Record<OfferedPlanId, PlanC
               </span>
               {OFFERED_PLANS.map((p) => (
                 <div role="columnheader" key={p.id} className="pz-cmp-plan" data-pz-plan={p.id}>
-                  <span className="pz-cmp-name">{p.name}</span>
-                  <span className="pz-cmp-price">
-                    {p.price}
-                    <span>{tt("/month")}</span>
+                  <span className="pz-cmp-id">
+                    <span className="pz-cmp-name">{p.name}</span>
+                    <span className="pz-cmp-price">
+                      {p.price}
+                      <span className="pz-cmp-per">{tt("/month")}</span>
+                    </span>
                   </span>
                   <PlanButton action={actions[p.id]} featured={p.id === PRO_CHECKOUT_PLAN_ID} />
                 </div>
@@ -125,18 +142,24 @@ export const COMPARE_CSS = `
 .pz-cmp-title{margin:0 0 clamp(20px,3vw,8px);font-size:clamp(34px,4.6vw,64px);font-weight:500;line-height:1.05;letter-spacing:-.045em;text-wrap:balance}
 .pz-cmp-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:10px}
 .pz-cmp-head{position:sticky;top:var(--pz-head,0px);z-index:2;background:#fff;box-shadow:0 1px 0 #ececef}
-.pz-cmp-plans{padding:14px 0 14px}
+.pz-cmp-plans{padding:10px 0}
 .pz-cmp-corner{display:none}
-.pz-cmp-plan{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:2px}
-.pz-cmp-name{font-size:17px;font-weight:600;letter-spacing:-.02em}
-.pz-cmp-price{font-size:13.5px;color:#6b6874;font-variant-numeric:tabular-nums}
-.pz-cmp-price span{margin-left:1px}
-.pz-cmp-btn{display:inline-flex;align-items:center;justify-content:center;height:34px;margin-top:8px;padding:0 13px;border:0;border-radius:999px;background:#0f0e13;color:#fff;font:inherit;font-size:13px;font-weight:600;white-space:nowrap;text-decoration:none;cursor:pointer;transition:background-color .2s ease}
+/* One row (landing round 14): the name and price on one line, the button beside them. */
+.pz-cmp-plan{display:flex;min-width:0;align-items:center;gap:8px}
+.pz-cmp-id{display:flex;min-width:0;align-items:baseline;gap:6px;white-space:nowrap}
+.pz-cmp-name{font-size:15px;font-weight:600;letter-spacing:-.02em}
+.pz-cmp-price{font-size:13px;color:#6b6874;font-variant-numeric:tabular-nums}
+.pz-cmp-per{display:none;margin-left:1px}
+.pz-cmp-btn{position:relative;display:inline-flex;flex:none;align-items:center;justify-content:center;gap:6px;width:28px;height:28px;padding:0;border:0;border-radius:999px;background:#0f0e13;color:#fff;font:inherit;font-size:13px;font-weight:600;white-space:nowrap;text-decoration:none;cursor:pointer;transition:background-color .2s ease}
+.pz-cmp-btn-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pz-cmp-btn-a{width:14px;height:14px;flex:none;transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+.pz-cmp-btn:hover .pz-cmp-btn-a{transform:translate3d(2px,0,0)}
 .pz-cmp-btn:hover{background:#2a2833}
 .pz-cmp-btn-on{background:#7c3aed}
 .pz-cmp-btn-on:hover{background:#6d28d9}
 .pz-cmp-btn:focus-visible{outline:2px solid #18181b;outline-offset:3px}
 .pz-cmp-btn:disabled{opacity:.7;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){.pz-cmp-btn-a{transition:none}}
 .pz-cmp-gtitle{padding:36px 0 10px}
 .pz-cmp-gname{grid-column:1/-1;font-size:clamp(20px,2vw,26px);font-weight:500;letter-spacing:-.03em}
 .pz-cmp-line{row-gap:8px;padding:14px 0;border-bottom:1px solid #ececef;align-items:center}
@@ -148,15 +171,23 @@ export const COMPARE_CSS = `
 @media(min-width:768px){
   .pz-cmp-row{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));column-gap:20px}
   .pz-cmp-corner{display:block}
-  .pz-cmp-plans{padding:20px 0 18px}
-  .pz-cmp-name{font-size:clamp(20px,1.8vw,26px)}
-  .pz-cmp-price{font-size:14.5px}
-  .pz-cmp-btn{height:40px;margin-top:12px;padding:0 20px;font-size:14px}
+  .pz-cmp-plans{padding:12px 0}
+  .pz-cmp-name{font-size:clamp(17px,1.4vw,20px)}
+  .pz-cmp-price{font-size:14px}
+  .pz-cmp-per{display:inline}
+  .pz-cmp-btn{width:32px;height:32px}
   .pz-cmp-gtitle{padding:52px 0 12px}
   .pz-cmp-line{padding:17px 0}
   .pz-cmp-label{grid-column:auto;font-size:15.5px;color:#18181b}
   .pz-cmp-cell{font-size:15.5px}
   .pz-cmp-yes{width:22px;height:22px}
   .pz-cmp-yes svg{width:22px;height:22px}
+}
+/* Wide enough for the button's words beside the name and price. */
+@media(min-width:1280px){
+  .pz-cmp-plan{gap:14px}
+  .pz-cmp-btn{width:auto;height:34px;padding:0 15px}
+  .pz-cmp-btn-t{position:static;width:auto;height:auto;overflow:visible;clip:auto}
+  .pz-cmp-btn-a{display:none}
 }
 `
