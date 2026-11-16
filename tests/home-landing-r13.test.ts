@@ -40,5 +40,10 @@ console.log("\n── round 14: nothing in the checkout follows the scroll on a 
 check("the scroll timelines and the held stage start at 900px", /@media \(min-width:900px\)\{\s*@supports \(animation-timeline:view\(\)\)\{\s*\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}\s*\.cmc-stage\{position:sticky;top:0\}/.test(co) && (co.match(/@supports \(animation-timeline:view\(\)\)/g) || []).length === 1)
 check("the dark header has no backdrop filter (a solid bar)", !/backdrop-blur/.test(read("lib/platform/header-chrome.ts").replace(/\/\*[\s\S]*?\*\//g, "").split("if (!light)")[1].split("}")[0]))
 
+const layout = read("app/(storelib)/(marketing)/layout.tsx")
+const gate = read("components/marketing/document-ready.tsx")
+check("the page slot in <main> is a Suspense boundary (a late page or code file never makes React begin <main> twice)", /<main className="flex-1">\s*<Suspense fallback=\{null\}>\{children\}<\/Suspense>\s*<\/main>/.test(layout))
+check("nothing under the marketing layout hydrates before the document has arrived", /<DocumentReady>\s*<div className="flex min-h-svh flex-col marketing-flex-wrapper">/.test(layout) && /document\.readyState !== "loading"/.test(gate) && /DOMContentLoaded/.test(gate) && /if \(wait\) use\(wait\)/.test(gate))
+
 console.log(`\n${failed ? `${failed} failed` : "all passed"}`)
 if (failed) process.exit(1)
