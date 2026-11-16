@@ -4,7 +4,7 @@
  */
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
-import { HOW_DASH_W } from "@/components/marketing/home/how-it-works"
+import { HOW_DASH_FIT } from "@/components/marketing/home/how-it-works"
 import { PICTURE_AHEAD } from "@/components/marketing/landing-story"
 
 let failed = 0
@@ -29,9 +29,9 @@ console.log("\n── the loops play ──")
 check("no gate pauses loops through the Animations API (near-gate.tsx is gone)", !existsSync(join(process.cwd(), "components/marketing/home/near-gate.tsx")) && !/NearGate/.test(page))
 
 console.log("\n── the computer's pictures on a phone ──")
-check("the dashboard is drawn at least 1100 wide (the sidebar shows) and scaled down below that", HOW_DASH_W === 1100 && /\.cmh-db-fit\[data-k\]>\.cmh-db-w\{width:\$\{HOW_DASH_W\}px;transform:scale\(var\(--k\)\);transform-origin:0 0\}/.test(how) && /\.cmh-db-w\{display:block;container-type:inline-size\}/.test(how))
-check("  its height follows the scaled drawing, set before paint", /useLayoutEffect\(\(\) => \{\s*const box = fit\.current/.test(how) && /--fh", `\$\{inner\.offsetHeight \* k\}px`/.test(how))
-check("the checkout pictures on a phone are the computer's 48 x 42, and Built to convert is not laid out again", /\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(co) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 48\)\}/.test(co) && !/CDX_NARROW/.test(co) && !/\.cdx-grid\{grid-template-columns:minmax\(0,1fr\)\}/.test(co))
+check("the dashboard is never laid out narrower than 1040 (the computer's layout with its sidebar, from 1020), scaled whole", HOW_DASH_FIT.min >= 1040 && /--db-w/.test(how) && /scale\(var\(--db-s/.test(how))
+check("  on a phone its stage takes the dashboard's shape", /@media\(max-width:639px\)\{\.cmh-stage\[data-ground=business\]\{height:auto;aspect-ratio:16\/10\}\}/.test(how))
+check("the checkout pictures on a phone are the computer's 48 x 42, and Built to convert is not laid out again", /\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(co) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 48\)\}/.test(co) && !/CDX_NARROW/.test(co) && /\.cmc-card\[data-k=convert\] \.cmc-vis-in\{left:0;width:100%;height:100%;margin-left:0\}\n  \.cmc-card\[data-k=convert\] \.cdx\{inset:6px;/.test(co) && !/\.cdx-grid\{grid-template-columns:minmax\(0,1fr\)\}/.test(co))
 
 console.log("\n── pictures asked for ahead ──")
 check("a lazy picture is asked for three screens ahead", PICTURE_AHEAD === "300% 0px 300% 0px" && /if \(img\.loading === "lazy"\) img\.loading = "eager"/.test(story) && /rootMargin: PICTURE_AHEAD/.test(story))
