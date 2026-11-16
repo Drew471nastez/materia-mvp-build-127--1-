@@ -1583,6 +1583,8 @@ const SUITES = [
   "tests/home-landing-r13-pricing.test.ts",
   /* Landing round 14, showcase: the New York shop's card is the owner's whole 4:3 picture with its coral gradient round the white page (the phone's 4:3 files are that picture; the desktop's 1440 x 990 holds it whole, the gradient carried on at the sides with no seam). */
   "tests/home-landing-r14-showcase.test.ts",
+  /* Landing round 14, ideas: Steez's products are the owner's own four, flat on light grey, no progress bar; loudlib is drawn as loudlib.net is (the sale bar, the header, BESTSELLING and its six packs, no hero); the builder's moment selects a heading, types new words over it, then Publish; the unused pictures are deleted. */
+  "tests/home-landing-r14-ideas.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

@@ -81,7 +81,8 @@ const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
 // Changed on purpose (landing round 13): the first site is Steez (class "stz"), not GodBless.
 check("Steez first, loudlib second, in the one canvas", /class="smk-frame wx-site bm-s1"[^>]*><div class="smk"[^>]*><div class="stz">/.test(wb) && /class="smk-frame wx-site bm-s2"[^>]*><div class="smk"[^>]*><div class="ll">/.test(wb))
 check("the bar's name and the published address change with it", /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">steez\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
-check("the builder rings the first section and the products on both", (wb.match(/class="wx-sel wx-ring-a"/g) ?? []).length === 2 && (wb.match(/class="wx-sel wx-ring-b"/g) ?? []).length === 2)
+// Changed on purpose (landing round 14): the builder edits one heading per site, so each site has one ring (tests/home-landing-r14-ideas.test.ts).
+check("the builder rings the first section and the products on both", (wb.match(/class="wx-sel wx-ring"/g) ?? []).length === 2)
 check("the cross fade is opacity only, with two scenes on the tab", /\[data-scene="1"\] \.bm-s1\{opacity:0\}/.test(BUILDER_CSS) && Ideas.IDEAS_TABS[0].scenes === 2)
 check("the alt text tells it", /First Steez/.test(Ideas.IDEAS_TABS[0].alt) && /Then loudlib/.test(Ideas.IDEAS_TABS[0].alt))
 

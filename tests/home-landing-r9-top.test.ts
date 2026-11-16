@@ -162,7 +162,8 @@ const hero = site.slice(site.indexOf('class="stz-hero"'), site.indexOf('class="s
 check("the hero has one picture (and the wordmark)", (hero.match(/<img /g) ?? []).length === 2 && /src="\/home\/showcase\/stz-hero\.webp"[^>]*width="1800" height="800"/.test(hero))
 // Changed on purpose (landing round 13): Steez draws the wordmark, its two slideshow photos and four products.
 check("the whole store: the wordmark, two slideshow pictures and four products", (site.match(/<img /g) ?? []).length === 7)
-check("the rings are as they were", (renderToStaticMarkup(createElement(WebsiteBuilderMock)).match(/<em>Selected<\/em>/g) ?? []).length === 4)
+// Changed on purpose (landing round 14): one ring per site, around the section whose heading is edited.
+check("the rings are as they were", (renderToStaticMarkup(createElement(WebsiteBuilderMock)).match(/<em>Selected<\/em>/g) ?? []).length === 2)
 check("nothing new moves", !/\.gb[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS))
 
 console.log("\n── 8. The Strength Room is intact ──")
