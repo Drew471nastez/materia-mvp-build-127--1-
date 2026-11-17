@@ -30,7 +30,7 @@ check("routes are matched static, then [dynamic], then [...catch-all], then [[..
 check("an import of a folded route is pointed at its new name", /renamed\.has\(target\)/.test(src) && /\.folded\$\{q\}/.test(src))
 check("HEAD falls back to GET, and an unknown method is a 405 with Allow", /method === "HEAD"\) fn = mod\.GET/.test(src) && /status: 405/.test(src))
 const build = JSON.parse(readFileSync("package.json", "utf8")).scripts.build as string
-check("the build folds just before Next compiles", build.includes("node scripts/fold-api-routes.mjs && node --max-old-space-size=4096 scripts/build-next.mjs"))
+check("the build folds just before Next compiles", build.includes("node scripts/fold-api-routes.mjs && node --max-old-space-size=5120 scripts/build-next.mjs"))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

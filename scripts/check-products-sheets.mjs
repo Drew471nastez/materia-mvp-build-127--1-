@@ -157,7 +157,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       window.addEventListener("click", () => window.__clicks.push(performance.now()), true)
       const tick = (t) => {
         const el = document.querySelector("[data-app-sheet]:not([data-sheet-ghost]) [data-sheet-panel]")
-        window.__rec.push(el ? { t, y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight, rows: el.querySelectorAll("[data-pick], [data-action-sheet] button, fieldset label").length } : { t, y: null, h: 0, rows: 0 })
+        window.__rec.push(el ? { t, y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight, rows: el.querySelectorAll("[data-pick], [data-action-sheet] button, fieldset label, [data-kind]").length } : { t, y: null, h: 0, rows: 0 })
         requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
@@ -181,6 +181,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
 
   const SHEETS = {
     filters: { trigger: "[data-product-filters]", rows: "[role=dialog] button", picks: ["Apply filters", "Reset"] },
+    create: { trigger: "[data-new-product]", rows: "[data-sheet-panel] button[aria-label=Close]", picks: ["Close", "Close"] },
     sort: { trigger: "[data-toolbar] button[data-sort]", rows: "[data-pick-sheet=sort] [data-pick]", picks: ["Price high to low", "Newest"] },
   }
   const results = []
@@ -208,7 +209,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         /* The pick: a row that changes something, alternating so every one does. */
         const pickName = S.picks[i % S.picks.length]
         const picked = await p.evaluate((rowsSel, pickName) => {
-          const row = [...document.querySelectorAll(rowsSel)].find((b) => b.textContent.trim() === pickName)
+          const row = [...document.querySelectorAll(rowsSel)].find((b) => (b.textContent.trim() || b.getAttribute("aria-label")) === pickName)
           if (!row) return null
           const r = row.getBoundingClientRect()
           return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
@@ -269,7 +270,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           draftsOnly: [...document.querySelectorAll("[data-list] [data-row]:not([hidden]) [data-meta]")].every((e) => e.textContent.includes("Draft")),
           first: [...document.querySelectorAll("section[aria-label=Products] ul > li:not([hidden])")].slice(0, 2).map((li) => li.querySelector("[data-price]")?.textContent),
         }))
-        const ok = name === "filters" ? state.draftsOnly === (pickName === "Apply filters") : pickName === "Newest" ? state.first[0] === "$12.00" : state.first[0] === "$218.50"
+        const ok = name === "create" ? true : name === "filters" ? state.draftsOnly === (pickName === "Apply filters") : pickName === "Newest" ? state.first[0] === "$12.00" : state.first[0] === "$218.50"
         if (ok) stat.applied++
         else console.log(`        (cycle ${i}: after ${pickName}: ${JSON.stringify(state)})`)
       }
