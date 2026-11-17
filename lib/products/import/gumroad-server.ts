@@ -37,6 +37,7 @@ import { PUBLIC_BUCKET } from "@/lib/storage/plans"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 import { importImageUrl, type LinkProduct } from "./product-link"
 import { GUMROAD_API, descriptionImages, gumroadImageUrl, slugFromTitle, type ImportItem } from "./gumroad"
+import { duplicateIndex, type ExistingProduct } from "./duplicates"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -154,6 +155,22 @@ export async function importedProducts(db: Db, creatorId: string, ids: string[])
   return { ready: true, map }
 }
 
+/* ── is it already in the store? (./duplicates) ─────────────────────── */
+
+/**
+ * What the duplicate check reads: the store's products (id, title, address)
+ * and, for this platform, which of its ids became which product. A store
+ * before part 344 has no links, and the titles and addresses still match.
+ */
+export async function duplicatesFor(db: Db, creatorId: string, source: "gumroad" | "shopify") {
+  const { data } = await db.from("products").select("id, title, slug").eq("creator_id", creatorId).limit(5000)
+  const products = ((data ?? []) as ExistingProduct[]).filter((p) => p && typeof p.id === "string")
+  const imported = new Map<string, string>()
+  const links = await db.from(LINKS_TABLE).select("external_id, product_id").eq("creator_id", creatorId).eq("source", source).limit(5000)
+  for (const r of (links.error ? [] : links.data ?? []) as { external_id: string; product_id: string | null }[]) if (r.product_id) imported.set(r.external_id, r.product_id)
+  return duplicateIndex(products, imported)
+}
+
 /* ── pictures ─────────────────────────────────────────────────────────── */
 
 /** The bytes of one Gumroad picture, or null. Gumroad's CDN only, never a redirect. */
@@ -179,6 +196,12 @@ export interface ImportDeps {
   /** After a picture is stored (the route screens it in the background). */
   afterUpload?: (where: { bucket: string; path: string; bytes: Uint8Array }) => void
   now?: () => number
+  /**
+   * The seller saw "Already in your products" and asked for a copy anyway:
+   * a product imported before is made again, without its import link, so the
+   * original keeps it. Without this an earlier import answers `exists`.
+   */
+  copy?: boolean
 }
 
 async function copyImages(db: Db, creatorId: string, urls: string[], deps: ImportDeps): Promise<{ copied: Map<string, string>; paths: string[]; failed: number }> {
@@ -279,14 +302,16 @@ async function freeSlug(db: Db, creatorId: string, title: string): Promise<strin
  */
 export async function importGumroadItem(db: Db, ctx: { creatorId: string; userId: string }, item: ImportItem, deps: ImportDeps = {}): Promise<ImportOutcome> {
   const now = deps.now?.() ?? Date.now()
-  const c = await claim(db, ctx.creatorId, ctx.userId, item.gumroadId, now, deps.source)
+  const claimed = await claim(db, ctx.creatorId, ctx.userId, item.gumroadId, now, deps.source)
+  /* A copy asked for: no claim of its own, the original's link stays where it is. */
+  const c: Claim = claimed.kind === "exists" && deps.copy ? { kind: "claimed", id: "" } : claimed
   if (c.kind === "exists") return { status: "exists", productId: c.productId }
   if (c.kind === "busy") return { status: "busy" }
   if (c.kind === "not_ready") return { status: "error", error: "not_ready" }
   if (c.kind === "failed") return { status: "error", error: "save_failed" }
 
   const release = async (paths: string[]) => {
-    await db.from(LINKS_TABLE).delete().eq("id", c.id).is("product_id", null)
+    if (c.id) await db.from(LINKS_TABLE).delete().eq("id", c.id).is("product_id", null)
     if (paths.length) {
       try {
         await db.storage.from(PUBLIC_BUCKET).remove(paths)
@@ -367,7 +392,7 @@ export async function importGumroadItem(db: Db, ctx: { creatorId: string; userId
 
   /* Asked twice: a claim left without its product would let a later run make a second one. */
   const link = { product_id: productId, updated_at: new Date(now).toISOString() }
-  const first = await db.from(LINKS_TABLE).update(link).eq("id", c.id)
+  const first = c.id ? await db.from(LINKS_TABLE).update(link).eq("id", c.id) : null
   if (first?.error) {
     const second = await db.from(LINKS_TABLE).update(link).eq("id", c.id)
     if (second?.error && deps.linkProduct) {
