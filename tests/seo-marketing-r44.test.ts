@@ -194,7 +194,9 @@ console.log("\nThe blog's pages")
   check("a cover is drawn, decorative beside its titled link", /<img[^>]*alt=""[^>]*c\.jpg|<img[^>]*c\.jpg[^>]*alt=""/.test(withCover) && /<a[^>]*href="\/blog\/post-1"/.test(withCover))
 
   const index = code("app/(storelib)/(marketing)/blog/_blog-index.tsx")
-  check("the index's title has no em dash and no second | Storelib", /title: first \? "Storelib Blog: guides for selling digital products"/.test(index) && /absolute: true/.test(index) && !/—/.test(index))
+  /* Changed on purpose (landing round 15): the words live in blog/_components/blog-titles.ts, shared with the tab title a category switch writes in the browser. */
+  const titles = code("app/(storelib)/(marketing)/blog/_components/blog-titles.ts")
+  check("the index's title has no em dash and no second | Storelib", /title: blogIndexTitle\(page\)/.test(index) && /page <= 1 \? "Storelib Blog: guides for selling digital products"/.test(titles) && !/—/.test(titles) && /absolute: true/.test(index) && !/—/.test(index))
   check("  and links the feed", /types: BLOG_FEED_ALTERNATE/.test(index))
   const older = code("app/(storelib)/(marketing)/blog/page/[page]/page.tsx")
   /* Measured on the built site (round 44): inside loading.tsx's boundary these answered 200, so they are decided in a layout, before anything streams. */

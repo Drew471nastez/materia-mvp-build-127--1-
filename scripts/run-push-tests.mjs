@@ -1611,6 +1611,8 @@ const SUITES = [
   "tests/home-landing-r15-pricing.test.ts",
   /* Landing round 15, checkout: no black band under the white sheet on an iPhone (its white goes on under the dark block), on a phone the stage held under the header with the phone in sight at once, the headline rising out of its rows (observers and transitions on a phone, the scroll on a computer), the phone rising into place. */
   "tests/home-landing-r15-checkout.test.ts",
+  /* Landing round 15, faq-blog: /faq headed Frequently asked questions on a darker top; the blog's heading and line stay its own on every list, a category pill redraws the list in the browser at the category's real address (pushState, no page load, no blank), fading in from 30%, back and forward included. */
+  "tests/home-landing-r15-faq-blog.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
