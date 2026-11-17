@@ -35,7 +35,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "")
 const SECTION = "components/marketing/home/business-carousel.tsx"
 const MOCKS = "components/marketing/home/showcase-mocks/business-mocks.tsx"
 const { BUSINESS_HEADING, BUSINESS_SUB, BUSINESS_ACCENT, BUSINESS_ACCENT_COLOR, BUSINESS_SLIDES, BUSINESS_STYLES, BUSINESS_PLAY_RESUME_MS, BusinessCarousel } = Section
-const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, DIGITAL_PRODUCTS, DIGITAL_DEMO, STORE_DESIGNS, STORE_DESIGN_WIDTHS, STORE_IDLE_MS, storePlace } = Mocks
+const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, STORE_DESIGNS, STORE_DESIGN_WIDTHS, STORE_IDLE_MS, storePlace } = Mocks
 const css = (BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? "").replace(/\/\*[\s\S]*?\*\//g, "")
 const mocks = BUSINESS_MOCK_CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/calc\(([-\d.]+)\*var\(--u\)\)/g, "$1u")
 const phoneAt = mocks.indexOf("@media(max-width:767px)")
@@ -54,30 +54,19 @@ const rule = (src: string, sel: string) => src.match(new RegExp(`(?:^|[}\\s])${s
 console.log("\nHeading: not five ways to get paid")
 {
   /* Changed on purpose (landing round 15): the owner asked for a better heading: "Sell files, parcels or your time". */
-  check("From a cookbook to a coaching call", BUSINESS_HEADING === "Sell files, parcels or your time" && html.includes('aria-label="Sell files, parcels or your time"'))
+  check("From a cookbook to a coaching call", /* Changed on purpose (landing round 15): the owner disliked "From a cookbook to a coaching call" and the green after it: "Ship it, stream it or book it", "book" in Storelib violet. */ BUSINESS_HEADING === "Ship it, stream it or book it" && html.includes('aria-label="Ship it, stream it or book it"'))
   /* Changed on purpose (landing round 15): the owner disliked the violet; the accent is "time", in the slate green of the bookings card's photograph. */
-  check("one accented word, call, in the same quiet violet", BUSINESS_ACCENT.join() === "time" && (html.match(/data-story-accent="true"/g) ?? []).length === 1 && BUSINESS_ACCENT_COLOR === "#46605c")
+  check("one accented word, call, in the same quiet violet", /* Changed on purpose (landing round 15, again): "book", in the page's violet. */ BUSINESS_ACCENT.join() === "book" && (html.match(/data-story-accent="true"/g) ?? []).length === 1 && BUSINESS_ACCENT_COLOR === "#7c3aed")
   check("not the Everything section's \"Sell what you make\" again", !/Sell what you make/i.test(BUSINESS_HEADING))
   check("the heading is wide enough for two lines on a computer", /\.biz \.biz-h\{[^}]*max-width:19ch/.test(css))
-  check("no store jargon, banned words, em dashes, disliked names or other brands", !/\bstore\b|checkout page|storefront/i.test(BUSINESS_HEADING) && !BANNED.test([BUSINESS_HEADING, BUSINESS_SUB, ...BUSINESS_SLIDES.flatMap((s) => [s.label, s.line, s.alt]), digital, physical, ...DIGITAL_PRODUCTS.flatMap((p) => [p.name, p.kind, p.by, ...p.gets, p.doing, p.done])].join(" ")))
+  check("no store jargon, banned words, em dashes, disliked names or other brands", !/\bstore\b|checkout page|storefront/i.test(BUSINESS_HEADING) && !BANNED.test([BUSINESS_HEADING, BUSINESS_SUB, ...BUSINESS_SLIDES.flatMap((s) => [s.label, s.line, s.alt]), digital, physical, ...Mocks.DIGITAL_FLOW.flatMap((p) => [p.name, p.kind, p.by, ...p.gets])].join(" ")))
 }
 
 console.log("\nDigital: a shelf a visitor can use")
+/* Changed on purpose (landing round 15): the owner disliked the shelf; the digital scene is a product page and a buyer's library (tests/home-landing-r15-business.test.ts). Round 14's shelf checks are retired; what stays: its retired order card stays gone. */
 {
-  check("six products, each a different kind, priced", DIGITAL_PRODUCTS.length === 6 && new Set(DIGITAL_PRODUCTS.map((p) => p.kind)).size === 6 && DIGITAL_PRODUCTS.every((p) => /^\$\d+$/.test(p.price)))
-  check("the cookbook, the mobility course, a LUT pack, a sample pack, a Notion template and a PDF guide", ["Ancestral Kitchen", "Daily Mobility", "Cine Tones", "Drums One Shots", "Creator Planner", "Pricing Your Work"].every((n) => DIGITAL_PRODUCTS.some((p) => p.name === n)) && /LUT pack/.test(digital) && /Sample pack/.test(digital) && /Notion template/.test(digital) && /Guide, PDF/.test(digital))
-  check("their pictures exist and are small (earlier rounds' own, two covers drawn for it)", DIGITAL_PRODUCTS.every((p) => existsSync(`public${p.src}`) && statSync(`public${p.src}`).size < 40_000) && ["dg-creator-planner", "dg-pricing-guide"].every((n) => existsSync(`public/home/showcase/${n}.webp`)))
-  check("each product is a button, pressed when chosen", (digital.match(/<button type="button" class="bd-item" aria-pressed="(true|false)" aria-label="[^"]+, [^"]+, \$\d+"/g) ?? []).length === 6)
-  check("a pane per product, one shown, the others inert and hidden from readers", (digital.match(/class="bd-pane"/g) ?? []).length === 6 && (digital.match(/data-on="true"/g) ?? []).length === 1 && (digital.match(/inert=""/g) ?? []).length === 5)
-  check("each pane: what comes in it, and a button that buys it and downloads in place", (digital.match(/class="bd-gets"/g) ?? []).length === 6 && /<button type="button" class="bs-btn bd-buy"><span class="bd-fill"><\/span><span class="a">Buy for \$\d+<\/span><span class="b">[\s\S]*?<\/span><span class="c">/.test(digital))
-  check("pointing at a product shows it (a mouse), a tap or click chooses it", /onPointerEnter=\{\(e\) => \{\s*if \(e\.pointerType === "mouse"\) setPeek\(i\)/.test(mocksCode) && /onClick=\{\(\) => \{\s*setSel\(i\)/.test(mocksCode) && /onPointerLeave=\{\(\) => setPeek\(null\)\}/.test(mocksCode))
-  check("it shows itself only until someone touches it, and only while on", /if \(!on \|\| mine \|\| matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(mocksCode) && /onPointerDown=\{take\} onKeyDown=\{take\}/.test(mocksCode) && DIGITAL_DEMO.order.length === 3 && DIGITAL_DEMO.buyMs < 6500 - 1800)
-  check("a clean pale ground, not round 13's beige", /\.bs-digital\{background:#ecf1ec\}/.test(desk) && !/#e6dfd1/.test(mocks))
-  check("the moment runs on transform and opacity, only once a product is bought", /\.bd-buy\[data-go\]>\.bd-fill\{animation:be-fill/.test(motion) && /\.bd-fill\{[^}]*transform:scaleX\(0\)/.test(desk) && !/\.bz-on \.bd-/.test(motion))
-  check("on a phone: three by two covers over the pane, nothing cut", rule(phone, ".bd-shelf").includes("grid-template-columns:repeat(3,104u)") && rule(phone, ".bd-view").includes("top:246u") && rule(phone, ".bd-view").includes("bottom:14u") && rule(phone, ".bd-cap").includes("display:none"))
   check("round 13's order card is gone", !/bd-tile|bd-card|bd-lines|DIGITAL_ORDER|Ready in your library/.test(mocksCode))
 }
-
 console.log("\nPhysical: the line turns by itself and under a drag, cheaply")
 {
   check("six designs, pictures at 380 and 560 wide only (the 760s gone), small", STORE_DESIGN_WIDTHS.join() === "380,560" && STORE_DESIGNS.every((d) => existsSync(`public/home/showcase/bt-${d}-380.webp`) && statSync(`public/home/showcase/bt-${d}-560.webp`).size < 40_000 && !existsSync(`public/home/showcase/bt-${d}-760.webp`)))
@@ -97,10 +86,10 @@ console.log("\nPhysical: the line turns by itself and under a drag, cheaply")
 
 console.log("\nThe section tells the two usable scenes when they are shown")
 {
-  check("digital and physical are labelled groups, not pictures; the rest stay pictures", BUSINESS_SLIDES.filter((s) => s.live).map((s) => s.id).join() === "digital,physical" && /<div className="smk-frame bz-frame" role="group" aria-label=\{alt\}>/.test(sectionCode))
+  check("digital and physical are labelled groups, not pictures; the rest stay pictures", /* Changed on purpose (landing round 15): digital is a picture again; physical is the one a visitor can use. */ BUSINESS_SLIDES.filter((s) => s.live).map((s) => s.id).join() === "physical" && /<div className="smk-frame bz-frame" role="group" aria-label=\{alt\}>/.test(sectionCode))
   check("on = the chosen scene on screen (a phone: the card in view)", /<KindScene i=\{i\} on=\{state === "active" && t\.live\} \/>/.test(sectionCode) && /<KindScene i=\{i\} on=\{i === railAt && t\.live\} \/>/.test(sectionCode))
   check("a scene put away is inert", /inert=\{state !== "active"\}/.test(sectionCode))
-  check("a finger on a usable scene holds the turn longer", BUSINESS_PLAY_RESUME_MS >= 6000 && /closest\?\.\("\.bs-digital, \.bt-stage"\)/.test(sectionCode))
+  check("a finger on a usable scene holds the turn longer", BUSINESS_PLAY_RESUME_MS >= 6000 && /* Changed on purpose (landing round 15): only the line of store designs is usable now. */ /closest\?\.\("\.bt-stage"\)/.test(sectionCode))
 }
 
 console.log("\nPhones: every card whole")

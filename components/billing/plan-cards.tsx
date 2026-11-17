@@ -143,13 +143,18 @@ function DarkArrow() {
  * (creators-carousel.tsx, .cc-cta-ic), the other way round: a white disc on
  * the purple with a purple arrow, set in at the button's right end so the
  * label stays centred like the other two. It nudges right on hover.
+ *
+ * Landing round 15, the owner: on hover a soft white outline eases in around
+ * the disc, a hair off its edge (.plan-disc::after in PLAN_BUTTON_CSS). It
+ * fades and grows from just inside to its place, so it never jumps; the
+ * box shadow it replaces stepped in as one ring.
  */
 function DiscArrow({ compact }: { compact?: boolean }) {
   return (
     <span
       aria-hidden="true"
       data-plan-arrow="disc"
-      className={`absolute right-[5px] top-1/2 grid h-[34px] w-[34px] -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_0_rgba(255,255,255,0)] transition-shadow duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_3px_rgba(255,255,255,0.34)] motion-reduce:transition-none`}
+      className={`plan-disc absolute right-[5px] top-1/2 grid h-[34px] w-[34px] -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18)]`}
     >
       <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-x-[2px] motion-reduce:transition-none">
         <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" />
@@ -449,17 +454,29 @@ export function PlanCards({
 /*
   THE BUTTONS' HOVER (landing round 15, the owner). A band of faint light
   crosses a live button once as the pointer arrives: a pseudo element under
-  the label (z-index -1 in the button's own stacking context), moved by
-  a translate only. It snaps back with no transition when the pointer leaves,
-  hidden past the button's right edge, so it never sweeps backwards. Only
-  where there is a pointer that hovers, and never under reduced motion.
+  the label (z-index -1 in the button's own stacking context), moved by a
+  translate only. The owner, a second time: the light was too strong and too
+  quick. It is half as bright now (a peak of 8% white, not 16%), wider and
+  softer at its edges, and takes 1.6s on an even ease in and out, so it
+  drifts across rather than flashes. When the pointer leaves it fades out
+  first and only then goes back, hidden, so it never jumps or sweeps
+  backwards. Only where there is a pointer that hovers, and never under
+  reduced motion.
+
+  Grow's disc: a 1.5px white outline 3.5px off its edge, faded out and drawn
+  a little smaller until the button is hovered or focused, then eased to its
+  place (opacity and scale only).
 */
 const PLAN_BUTTON_CSS = `
 .plan-shine{overflow:hidden;isolation:isolate}
-.plan-shine::before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:0;width:45%;pointer-events:none;background:linear-gradient(105deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.16) 50%,rgba(255,255,255,0) 100%);translate:-105% 0}
+.plan-shine::before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:0;width:60%;pointer-events:none;background:linear-gradient(105deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.035) 30%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.035) 70%,rgba(255,255,255,0) 100%);translate:-105% 0;opacity:0;transition:opacity .3s ease,translate 0s linear .3s}
 @media (hover:hover) and (prefers-reduced-motion:no-preference){
-  .plan-shine:hover::before{translate:235% 0;transition:translate .85s cubic-bezier(.25,.7,.25,1)}
+  .plan-shine:hover::before{translate:175% 0;opacity:1;transition:translate 1.6s cubic-bezier(.45,.05,.35,1),opacity .4s ease}
 }
+.plan-disc::after{content:"";position:absolute;inset:-3.5px;border-radius:9999px;border:1.5px solid rgba(255,255,255,.62);opacity:0;scale:.88;pointer-events:none;transition:opacity .45s ease,scale .6s cubic-bezier(.22,1,.36,1)}
+.plan-shine:focus-visible .plan-disc::after{opacity:1;scale:1}
+@media (hover:hover){.plan-shine:hover .plan-disc::after{opacity:1;scale:1}}
+@media (prefers-reduced-motion:reduce){.plan-disc::after{transition:none}}
 `
 
 /**

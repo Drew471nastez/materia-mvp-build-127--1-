@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useRef, useState, useSyncExternalStore, t
 import { StoryHeading } from "@/components/marketing/story-heading"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
-import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, PhysicalScene, STORE_STEP_S } from "./showcase-mocks/business-mocks"
+import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DIGITAL_BUY_S, DigitalScene, PhysicalScene, STORE_STEP_S } from "./showcase-mocks/business-mocks"
 import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
 
 /*
@@ -71,24 +71,25 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   section's heading). The accent stays on one word, in the same quiet violet.
 */
 /*
-  Round 15, the owner asked for a better heading, and disliked the violet on
-  "call". The heading says plainly what the five cards are: things you post,
-  things you ship, and hours you give. The accented word is "time", the
-  bookings card's word, and it takes that card's own colour: the slate green
-  of its coach photograph's grade (bz-coach.webp reads #717871 on the wall and
-  #040f13 in the shadows), not a violet.
+  Round 15, again: the owner disliked "From a cookbook to a coaching call"
+  and the slate green the accent was given after it, and asked for the
+  accent in Storelib's own purple. The heading names what happens to the
+  three kinds of thing the cards sell, in the buyer's words: a parcel is
+  shipped, a course is streamed, a call is booked. The accent is "book",
+  the last verb, in the page's violet (#7c3aed, the story heading's own
+  accent, the same as every other heading's on the page).
 */
-export const BUSINESS_HEADING = "Sell files, parcels or your time"
+export const BUSINESS_HEADING = "Ship it, stream it or book it"
 /** The one accented word. */
-export const BUSINESS_ACCENT = ["time"] as const
-/** Its colour: the slate green of the bookings card's photograph. */
-export const BUSINESS_ACCENT_COLOR = "#46605c"
+export const BUSINESS_ACCENT = ["book"] as const
+/** Its colour: Storelib's violet, the page's heading accent (app/globals.css .story-heading). */
+export const BUSINESS_ACCENT_COLOR = "#7c3aed"
 /** The line under the heading: at most ten words (the owner). */
 export const BUSINESS_SUB = "Downloads, goods, courses, communities and calls, one checkout."
 export const BUSINESS_SLIDE_MS = 6500
 /** How long autoplay waits after a finger leaves the stage. */
 export const BUSINESS_TOUCH_RESUME_MS = 2500
-/** How long it waits after a finger leaves a scene a visitor can use (the shelf, the line of store designs): long enough to read what they opened. */
+/** How long it waits after a finger leaves the scene a visitor can use (the line of store designs): long enough to look at what they turned to. */
 export const BUSINESS_PLAY_RESUME_MS = 8000
 /** Below this width the kinds are a row of cards that slides (the phone layout). */
 export const BUSINESS_RAIL_QUERY = "(max-width: 767px)"
@@ -116,11 +117,10 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     label: "Digital products",
     tab: "Digital",
     line: "E-books, video courses, downloads",
-    /* Long enough for the shelf to show itself and its bought product to stand a moment. */
-    ms: 8000,
+    /* Three purchases, one step each, and a moment for the last to stand. */
+    ms: Math.round((DIGITAL_BUY_S * 3 + 0.8) * 1000),
     Scene: DigitalScene,
-    live: true,
-    alt: "Digital products on Storelib: a shelf of six, Ancestral Kitchen (a cookbook, $34), Daily Mobility (a video course, $79), Cine Tones (a LUT pack, $24), Drums One Shots (a sample pack, $19), Creator Planner (a Notion template, $15) and Pricing Your Work (a PDF guide, $12). Choose one to see what comes in it, and buy it: the download starts in the button.",
+    alt: "Digital products on Storelib: a product page and a buyer's phone open on their library. Ancestral Kitchen, a cookbook PDF by Ruth Calder for $34, is bought and arrives at the top of the library with a Download button; then Daily Mobility, a video course by Lena Park for $79, with Open; then Drums One Shots, a sample pack by Loud for $19.",
   },
   {
     id: "physical",
@@ -211,7 +211,7 @@ export function BusinessCarousel() {
   const letGo = useCallback((e: PointerEvent) => {
     if (e.pointerType === "mouse") return
     clearTimeout(release.current)
-    const used = (e.target as Element | null)?.closest?.(".bs-digital, .bt-stage")
+    const used = (e.target as Element | null)?.closest?.(".bt-stage")
     release.current = setTimeout(() => setHeld(false), used ? BUSINESS_PLAY_RESUME_MS : BUSINESS_TOUCH_RESUME_MS)
   }, [])
 
@@ -451,7 +451,8 @@ const CSS = `
 @keyframes biz-ring-a{0%{transform:rotate(-180deg)}50%,100%{transform:rotate(0deg)}}
 @keyframes biz-ring-b{0%,50%{transform:rotate(0deg)}100%{transform:rotate(180deg)}}
 @media(max-width:767px){
-  .biz .biz-h{font-size:clamp(32px,9vw,40px)}
+  /* Round 15: the heading's three verbs each keep their "it" on a phone (balanced, it broke "stream / it"). */
+  .biz .biz-h{max-width:10.5ch;font-size:clamp(32px,9vw,40px);text-wrap:wrap}
   .biz-sub{font-size:16px}
   [data-landing-story] .biz>.biz-body,.biz-body{margin-top:24px}
 }

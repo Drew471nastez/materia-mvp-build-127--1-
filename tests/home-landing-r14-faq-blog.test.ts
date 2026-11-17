@@ -45,7 +45,8 @@ const css = (/const CSS = `([\s\S]*?)`/.exec(read(CLIENT))?.[1] ?? "").replace(/
 
 console.log("\n/faq: the heading and the footer")
 {
-  check("the heading is plain: Questions about Storelib", /<h1 id="fq-title" class="fq-title">Questions about <span>Storelib<\/span><\/h1>/.test(html))
+  /* Changed on purpose (landing round 15): the owner asked for "Frequently asked questions" (tests/home-landing-r15-faq-blog.test.ts). */
+  check("the heading is plain: Frequently asked questions", /<h1 id="fq-title" class="fq-title">Frequently <span>asked questions<\/span><\/h1>/.test(html))
   check("  and the old one is gone", !/What sellers ask/.test(read(CLIENT)))
   const footer = code("components/marketing/conditional-footer.tsx")
   check("/faq is one of the platform pages the footer is drawn on (the header's list had it, this one did not)", /pathname\.startsWith\("\/faq"\) \|\|/.test(footer) && /p\.startsWith\("\/faq"\)/.test(read("components/marketing/conditional-header.tsx")))
@@ -94,7 +95,7 @@ console.log("\nThe blog: the landing's width and type")
   const card = code(`${BLOG}/_components/post-card.tsx`)
   const view = code(`${BLOG}/_components/article-view.tsx`)
   const blocks = code(`${BLOG}/_components/article-blocks.tsx`)
-  check("the lists' title, line, pills and posts sit on the landing's shared width (home-wrap, --home-edge, --home-max)", /className=\{`home-wrap /.test(nav) && /max-w-\[var\(--home-max\)\] min-\[640px\]:px-\[var\(--home-edge\)\]/.test(nav) && /<div className="home-wrap pb-24/.test(list) && !/max-w-\[1240px\]/.test(nav + list))
+  check("the lists' title, line, pills and posts sit on the landing's shared width (home-wrap, --home-edge, --home-max)", /* Changed on purpose (landing round 15): the title is no longer re-keyed or faded, so its class is a plain string. */ /className="home-wrap pt-10/.test(nav) && /max-w-\[var\(--home-max\)\] min-\[640px\]:px-\[var\(--home-edge\)\]/.test(nav) && /<div className="home-wrap pb-24/.test(list) && !/max-w-\[1240px\]/.test(nav + list))
   check("the title in the landing's display type: 500 weight, tight tracking", /text-\[clamp\(44px,5vw,76px\)\] font-medium leading-\[1\.04\] tracking-\[-0\.05em\]/.test(nav))
   /* Changed on purpose (blog round 15): the owner asked for three to a row at most on a computer, two on a tablet, one on a phone, in Storelib's own card. */
   check("cards one, two from 640px, three from 1024px and never four", /grid-cols-1 gap-5 min-\[640px\]:grid-cols-2 min-\[640px\]:gap-6 min-\[1024px\]:grid-cols-3/.test(list) && !/grid-cols-4/.test(list))
