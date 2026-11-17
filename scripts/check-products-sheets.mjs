@@ -116,9 +116,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     entry = relative(root, join(stubs, "harness-before.tsx"))
     writeFileSync(join(root, entry), src)
   }
-  execFileSync("npx", [
-    "esbuild", entry, "--bundle", "--format=iife", "--jsx=automatic",
-    '--define:process.env.NODE_ENV="production"', "--alias:@=.",
+  execFileSync("pnpm", [
+    "exec", "esbuild", entry, "--bundle", "--format=iife", "--jsx=automatic",
+    '--define:process.env.NODE_ENV="production"', "--alias:@=.", "--alias:react=./node_modules/react", "--alias:react-dom=./node_modules/react-dom",
     "--banner:js=var process={env:{NODE_ENV:'production',NEXT_PUBLIC_SUPABASE_URL:'https://placeholder.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'placeholder'}};",
     `--alias:next/navigation=./${relative(root, join(stubs, "navigation.js"))}`, `--alias:next/link=./${relative(root, join(stubs, "link.jsx"))}`, `--alias:next/image=./${relative(root, join(stubs, "image.jsx"))}`,
     `--outfile=${join(stubs, "app.js")}`, "--log-level=error",
@@ -157,7 +157,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       window.addEventListener("click", () => window.__clicks.push(performance.now()), true)
       const tick = (t) => {
         const el = document.querySelector("[data-app-sheet]:not([data-sheet-ghost]) [data-sheet-panel]")
-        window.__rec.push(el ? { t, y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight, rows: el.querySelectorAll("[data-pick], [data-action-sheet] button").length } : { t, y: null, h: 0, rows: 0 })
+        window.__rec.push(el ? { t, y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight, rows: el.querySelectorAll("[data-pick], [data-action-sheet] button, fieldset label").length } : { t, y: null, h: 0, rows: 0 })
         requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
@@ -180,8 +180,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   }), a, b)
 
   const SHEETS = {
-    views: { trigger: "[data-toolbar] button[data-view-select]", rows: "[data-pick-sheet=views] [data-pick], [data-action-sheet] button", picks: ["Draft", "All"] },
-    sort: { trigger: "[data-toolbar] button[aria-label='Sort']", rows: "[data-pick-sheet=sort] [data-pick]", picks: ["Price high to low", "Newest"] },
+    filters: { trigger: "[data-product-filters]", rows: "[role=dialog] button", picks: ["Apply filters", "Reset"] },
+    sort: { trigger: "[data-toolbar] button[data-sort]", rows: "[data-pick-sheet=sort] [data-pick]", picks: ["Price high to low", "Newest"] },
   }
   const results = []
   for (const width of [390, 360, 430]) {
@@ -199,6 +199,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const t0 = await now(p)
         if (!(await tapOn(p, S.trigger))) { stat.unfinished++; continue }
         await wait(700)
+        if (name === "filters" && i % 2 === 0) {
+          await p.evaluate(() => [...document.querySelectorAll("fieldset label")].find((e) => e.textContent.trim() === "Draft")?.click())
+          await wait(100)
+        }
         const t1 = await now(p)
         if (i === 0) await p.screenshot({ path: join(shots, `products-${width}-${name}-sheet.png`) })
         /* The pick: a row that changes something, alternating so every one does. */
@@ -262,10 +266,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         if (ev.length) { stat.tapMs.push(Math.round(ev[0].d)); stat.tapRun.push(+ev[0].run.toFixed(1)) }
         /* Applied, once it had gone. */
         const state = await p.evaluate(() => ({
-          view: document.querySelector("[data-toolbar] button[data-view-select]")?.textContent.trim(),
+          draftsOnly: [...document.querySelectorAll("[data-list] [data-row]:not([hidden]) [data-meta]")].every((e) => e.textContent.includes("Draft")),
           first: [...document.querySelectorAll("section[aria-label=Products] ul > li:not([hidden])")].slice(0, 2).map((li) => li.querySelector("[data-price]")?.textContent),
         }))
-        const ok = name === "views" ? state.view === pickName : pickName === "Newest" ? state.first[0] === "$12.00" : state.first[0] === "$218.50"
+        const ok = name === "filters" ? state.draftsOnly === (pickName === "Apply filters") : pickName === "Newest" ? state.first[0] === "$12.00" : state.first[0] === "$218.50"
         if (ok) stat.applied++
         else console.log(`        (cycle ${i}: after ${pickName}: ${JSON.stringify(state)})`)
       }
