@@ -1677,7 +1677,7 @@ ${GLOBE_CSS()}
 
 @media(prefers-reduced-motion:reduce){
   .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill,.ev-p-dl{transition:none !important}
-  .ev-p-dl *{animation:none !important}
+  .ev-p-dl-bar i,.ev-p-dl-a,.ev-p-dl-b,.ev-p-dl-ok{animation:none !important}
   .ev-p-dl-bar i,.ev-p-dl-ok{transform:none}
   .ev-p-dl-a{opacity:0}
   .ev-p-dl-b{opacity:1}

@@ -60,7 +60,7 @@ export default function BlogListing({
 
         {lead ? (
           <article
-            className="group relative grid overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#e5e7eb] hover:shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_36px_-18px_rgba(26,26,46,0.24)] has-[a:focus-visible]:ring-[3px] has-[a:focus-visible]:ring-[#1a1a2e]/20 motion-reduce:transition-none lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center"
+            className="group relative grid overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#e5e7eb] hover:shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_36px_-18px_rgba(26,26,46,0.24)] focus-within:ring-[3px] focus-within:ring-[#1a1a2e]/20 motion-reduce:transition-none lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center"
             data-blog-featured=""
           >
             <PostCover post={lead} priority ratio="aspect-[16/10]" rounded="" sizes="(min-width: 1024px) 56vw, 100vw" />

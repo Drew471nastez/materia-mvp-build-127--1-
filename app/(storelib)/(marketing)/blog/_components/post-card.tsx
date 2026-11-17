@@ -86,7 +86,7 @@ export function PostCard({
   const H = headingLevel
   return (
     <article
-      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-[#e5e7eb] hover:shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(26,26,46,0.22)] active:translate-y-0 active:shadow-[0_1px_3px_rgba(0,0,0,0.05)] has-[a:focus-visible]:ring-[3px] has-[a:focus-visible]:ring-[#1a1a2e]/20 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[translate,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-[#e5e7eb] hover:shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(26,26,46,0.22)] active:translate-y-0 active:shadow-[0_1px_3px_rgba(0,0,0,0.05)] focus-within:ring-[3px] focus-within:ring-[#1a1a2e]/20 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
       data-blog-card=""
     >
       <PostCover post={post} sizes={sizes} priority={priority} rounded="" />

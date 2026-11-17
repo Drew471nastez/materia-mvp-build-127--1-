@@ -28,7 +28,7 @@ const DIR = "components/marketing/home"
 console.log("\nOn a touch screen nothing waits for an entrance")
 {
   const story = code("components/marketing/landing-story.tsx")
-  check("a touch screen is the page's phone test: under 768px, or no hover and a coarse pointer", TOUCH_SCREEN_QUERY.replace(/\s/g, "") === "(max-width:767px),(hover:none)and(pointer:coarse)" && /@media \(max-width:767px\),\(hover:none\) and \(pointer:coarse\)/.test(REVEAL_CSS))
+  /* Changed on purpose (landing round 15): one entrance everywhere, so the stylesheet no longer has a phone branch; the script still asks the same question. */ check("a touch screen is the page's phone test: under 768px, or no hover and a coarse pointer", TOUCH_SCREEN_QUERY.replace(/\s/g, "") === "(max-width:767px),(hover:none)and(pointer:coarse)" && !/@media \(max-width:767px\),\(hover:none\) and \(pointer:coarse\)/.test(REVEAL_CSS))
   check("the page's entrance asks once whether it is on a touch screen", /const touch = touchScreen\(\)/.test(story))
   check("there every section's own entrance is marked as soon as it is in the page", /if \(touch\) showNow\(block as HTMLElement\)\s*else ahead\.observe\(block\)/.test(story))
   check("and no block is hidden for the page's own entrance", /if \(touch\) return\s*const targets = /.test(story))

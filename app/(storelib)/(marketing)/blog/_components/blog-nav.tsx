@@ -217,7 +217,7 @@ function Pill({ href, on, onClick, children }: { href: string; on: boolean; onCl
   return (
     <Link href={href} scroll={false} onClick={onClick} aria-current={on ? "page" : undefined} className="group relative flex h-11 items-center outline-none [-webkit-tap-highlight-color:transparent]" data-blog-pill="">
       <span
-        className={`relative inline-flex h-9 items-center whitespace-nowrap rounded-full border px-4 text-[14px] font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-active:scale-[0.97] group-focus-visible:ring-[3px] group-focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none motion-reduce:group-active:scale-100 ${
+        className={`relative inline-flex h-9 items-center whitespace-nowrap rounded-full border px-4 text-[14px] font-medium transition-[background-color,border-color,color,box-shadow,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-active:scale-[0.97] group-focus-visible:ring-[3px] group-focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none motion-reduce:group-active:scale-100 ${
           on
             ? "border-[#1a1a2e] bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(26,26,46,0.18),0_4px_12px_-4px_rgba(26,26,46,0.4)] group-active:shadow-[0_1px_2px_rgba(26,26,46,0.2)]"
             : "border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.05)] group-hover:border-[#d1d5db] group-hover:text-[#1a1a2e] group-hover:shadow-[0_1px_2px_rgba(16,24,40,0.06),0_4px_10px_-6px_rgba(16,24,40,0.18)] group-active:bg-[#f8f9fa] group-active:shadow-none"

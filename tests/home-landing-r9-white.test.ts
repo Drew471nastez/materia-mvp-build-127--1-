@@ -109,7 +109,7 @@ console.log("\n── AI tools: a shorter line, a shorter terminal on a phone �
   const phone = css.match(/@media \(max-width:639px\)\{([\s\S]*?)\n\}\n@media/)?.[1] ?? ""
   check("under 640px two lines are left out: 16, not 18", AI_TOOLS_SCRIPT.length === 18 && AI_TOOLS_PHONE_LINES === 16 && (html.match(/ ait-nophone"/g) ?? []).length === 2 && /\.ait-nophone\{display:none\}/.test(phone))
   check("a call and its answer, never one without the other", AI_TOOLS_SCRIPT.filter((l) => l.phone === false).map((l) => l.kind).join() === "call,ok")
-  check("its lines sit closer there", /\.ait-body\{padding:12px 14px 14px;font-size:11\.5px;line-height:1\.62\}/.test(phone) && /\.ait-line\{min-height:1\.62em\}/.test(phone))
+  /* Changed on purpose (landing round 15): the terminal is 10% shorter on phones. */ check("its lines sit closer there", /\.ait-body\{padding:9px 12px 10px;font-size:11\.5px;line-height:1\.45\}/.test(phone) && /\.ait-line\{min-height:1\.45em\}/.test(phone))
   const last = AI_TOOLS_SCRIPT.map((l) => l.phone === false).lastIndexOf(true)
   check("the lines after the gap come 1.2s earlier there, on their own keyframes", AI_TOOLS_SCRIPT.every((_, i) => (i > last) === new RegExp(`\\.ait-l${i}\\{animation-name:ait-m${i}\\}`).test(phone)) && /@keyframes ait-m12\{0%,47\.50%\{/.test(phone), phone.slice(0, 300))
   // Changed on purpose (landing round 10): a short laptop screen (900px high or less) runs the phone's 16 lines too; a taller desktop keeps all 18.
