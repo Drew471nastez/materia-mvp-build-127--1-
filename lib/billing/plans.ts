@@ -192,7 +192,7 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     /* "Start here" read as a place to stay: Free is the basics, and Pro has everything. */
     get pill() { return tt("Basics") },
     get priceNote() { return tt("No monthly fee") },
-    get summary() { return tt("Open your store and start selling today.") },
+    get summary() { return tt("Pages, products and courses, free to start.") },
     features: freeFeatures(),
     excluded: freeExcluded(),
     /* Free has no checkout: signing up asks for no card. */

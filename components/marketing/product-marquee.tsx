@@ -137,7 +137,8 @@ const CSS = `
 /* Landing round 13 (the owner: now "too small"): half way back. At 390 the heading is 33px (wave 18: 30, before: 36), the photos 51px (47, before 54), the line 15.5px and the labels 17px. From 768px nothing changes. */
 @media(max-width:767px){
   .um .story-heading{font-size:clamp(28px,8.5vw,36px)}
-  .um-sub{margin-top:15px;font-size:15.5px}
+  /* Landing round 15, the owner: on a phone the heading stands alone, without the line under it. */
+  .um-sub{display:none}
   .um-row{--pic:clamp(46px,13vw,56px)}
   .um-item{gap:13px;margin-right:37px;font-size:17px}
 }

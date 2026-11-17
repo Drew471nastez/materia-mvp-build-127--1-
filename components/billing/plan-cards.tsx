@@ -149,7 +149,7 @@ function DiscArrow({ compact }: { compact?: boolean }) {
     <span
       aria-hidden="true"
       data-plan-arrow="disc"
-      className={`absolute right-[5px] top-1/2 grid ${compact ? "h-[30px] w-[30px]" : "h-[34px] w-[34px]"} -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18)]`}
+      className={`absolute right-[5px] top-1/2 grid ${compact ? "h-[30px] w-[30px]" : "h-[34px] w-[34px]"} -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_0_rgba(255,255,255,0)] transition-shadow duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_3px_rgba(255,255,255,0.34)] motion-reduce:transition-none`}
     >
       <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-x-[2px] motion-reduce:transition-none">
         <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" />
@@ -183,10 +183,12 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
     </>
   )
   const kind = action.settled ? "settled" : featured ? "purple" : "dark"
+  /* Landing round 15, the owner: a faint light crosses a live button on hover (PLAN_BUTTON_CSS). */
+  const shine = live ? " plan-shine" : ""
 
   if (action.href && !action.disabled && !action.settled) {
     return (
-      <Link href={action.href} className={className} data-plan-action data-plan-button={kind}>
+      <Link href={action.href} className={className + shine} data-plan-action data-plan-button={kind}>
         {content}
       </Link>
     )
@@ -197,7 +199,7 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
       onClick={action.onClick}
       disabled={action.disabled || action.settled || action.loading}
       aria-busy={action.loading || undefined}
-      className={className}
+      className={className + shine}
       data-plan-action
       data-plan-button={kind}
     >
@@ -247,7 +249,7 @@ function PlanCard({
       data-plan-card={plan.id}
       data-plan-featured={featured ? "" : undefined}
       onClick={pick ? (e) => { if (!(e.target as Element).closest("[data-plan-action]")) pick() } : undefined}
-      className={`flex w-full flex-col rounded-[22px] bg-white p-[5px] ring-1 ring-[#e7e7e9] ${
+      className={`flex w-full flex-col rounded-[22px] bg-white p-[5px] ring-[1.1px] ring-[#e7e7e9] ${
         featured
           ? "relative z-[1] shadow-[0_22px_44px_-22px_rgba(24,24,27,0.30),0_4px_12px_-6px_rgba(24,24,27,0.10)] md:-translate-y-2"
           : "shadow-[0_1px_2px_rgba(24,24,27,0.04)]"
@@ -384,6 +386,7 @@ export function PlanCards({
   }
   return (
     <>
+      <style href="plan-cards" precedence="default">{PLAN_BUTTON_CSS}</style>
       {heading != null ? <div data-plan-heading-row="" className="mb-4">{heading}</div> : null}
       {hideInterval || aside != null ? null : (
         <div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">
@@ -405,9 +408,17 @@ export function PlanCards({
             <div data-plan-aside="" className="self-end sm:self-auto sm:justify-self-end">{aside}</div>
           </div>
         ) : null}
-        <div data-plan-cards className={`grid w-full grid-cols-1 md:grid-cols-3 items-stretch ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"} md:pt-2`}>
+        {/*
+          LANDING ROUND 15, THE OWNER: on a phone the cards are a row that
+          scrolls sideways, a card and a fifth of the next in view, each
+          snapping to the start. The row bleeds to the screen's edge by
+          --plan-bleed (the surface's own side padding, 0 unless the page sets
+          it) and pads its top and foot so the rings and the raised card's
+          shadow are not clipped. From 768px it is the three columns again.
+        */}
+        <div data-plan-cards className={`flex w-full items-stretch max-md:-mx-[var(--plan-bleed,0px)] max-md:w-auto max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:overscroll-x-contain max-md:scroll-px-[var(--plan-bleed,0px)] max-md:px-[var(--plan-bleed,0px)] max-md:-mt-2 max-md:pt-2 max-md:pb-7 max-md:-mb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3 ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"} md:pt-2`}>
           {OFFERED_PLANS.map((plan) => (
-            <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
+            <div key={plan.id} data-plan-slot={plan.id} className={`flex max-md:w-[82%] max-md:shrink-0 max-md:snap-start ${lead === plan.id ? "order-first md:order-none" : ""}`}>
               <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} interval={interval} nameLevel={nameLevel} />
             </div>
           ))}
@@ -417,6 +428,22 @@ export function PlanCards({
     </>
   )
 }
+
+/*
+  THE BUTTONS' HOVER (landing round 15, the owner). A band of faint light
+  crosses a live button once as the pointer arrives: a pseudo element under
+  the label (z-index -1 in the button's own stacking context), moved by
+  a translate only. It snaps back with no transition when the pointer leaves,
+  hidden past the button's right edge, so it never sweeps backwards. Only
+  where there is a pointer that hovers, and never under reduced motion.
+*/
+const PLAN_BUTTON_CSS = `
+.plan-shine{overflow:hidden;isolation:isolate}
+.plan-shine::before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:0;width:45%;pointer-events:none;background:linear-gradient(105deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.16) 50%,rgba(255,255,255,0) 100%);translate:-105% 0}
+@media (hover:hover) and (prefers-reduced-motion:no-preference){
+  .plan-shine:hover::before{translate:235% 0;transition:translate .85s cubic-bezier(.25,.7,.25,1)}
+}
+`
 
 /**
  * MONTHLY OR YEARLY, as one pill with a thumb that slides between the two.

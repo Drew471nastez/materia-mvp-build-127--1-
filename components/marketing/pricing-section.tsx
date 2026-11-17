@@ -121,9 +121,32 @@ export function PricingSection({
     line under it. White, no rules; the page's sheets rise over it
     (app/(storelib)/(marketing)/pricing/pricing-sheets.tsx).
   */
+  /*
+    LANDING ROUND 15, THE OWNER: "the pricing sheet has rounded corners with a
+    black solid thing". On the home page this section is the first thing on
+    the white sheet that rises over the dark showcase (SheetHold). The sheet
+    filled its two top corners with solid fillets of the showcase's black,
+    drawn over the showcase's pictures as the sheet came up over them, and
+    the section's own square white ground poked into the rounded corners.
+    Now the section has no ground of its own (the sheet is white) and, while
+    the sheet rises over a held block, the fillets are gone (ENTRANCE_CSS):
+    the sheet's own rounded white ground leaves its corners open to whatever
+    is behind, so they blend with it.
+
+    --plan-bleed is how far the phone's sideways row of cards runs out to the
+    screen's edge: the side padding of the column it sits in.
+  */
+  const enter = headingLevel === 1
   return (
-    <section data-story-section={editorial ? "pricing" : undefined} className={editorial ? "bg-white py-20 sm:py-24 [@media(min-width:1024px)_and_(max-height:900px)]:!py-16" : "bg-white pt-[clamp(48px,7vw,112px)] pb-16 sm:pb-24"} id="pricing">
-      <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [&_[data-plan-ground]]:!max-w-none" : "max-w-[1240px] mx-auto px-4 sm:px-6"}>
+    <section
+      data-story-section={editorial ? "pricing" : undefined}
+      data-pricing-enter={enter ? "" : undefined}
+      className={editorial ? "py-20 sm:py-24 [@media(min-width:1024px)_and_(max-height:900px)]:!py-16" : "bg-white pt-[clamp(48px,7vw,112px)] pb-24 sm:pb-32"}
+      style={editorial ? { background: "transparent" } : undefined}
+      id="pricing"
+    >
+      <style href="pricing-section" precedence="default">{PRICING_SECTION_CSS}</style>
+      <div className={editorial ? "home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] [--plan-bleed:var(--home-edge)] [&_[data-plan-ground]]:!max-w-none" : "max-w-[1240px] mx-auto px-4 sm:px-6 [--plan-bleed:16px] sm:[--plan-bleed:24px]"}>
         <AnimateOnScroll variant="blur-in">
           {/*
             Landing round 8, the owner: "make the heading left aligned like all
@@ -174,3 +197,27 @@ export function PricingSection({
     </section>
   )
 }
+
+/*
+  THE PAGE'S ARRIVAL ON /pricing (landing round 15, the owner): the heading
+  and its line rise in as the page loads, then the cards one after another.
+  Opacity and translate only, from the server's markup (no script, so no
+  flash and no shift), about half a second in all; the cards' fill is
+  backwards only, so once a card is in place it holds no offset. Reduced
+  motion: everything is simply there.
+
+  And the home page's pricing sheet: no solid fillets in its corners while
+  it rises over the held showcase (see the note in PricingSection).
+*/
+const PRICING_SECTION_CSS = `
+@media (prefers-reduced-motion:no-preference){
+  [data-pricing-enter] [data-pricing-title],[data-pricing-enter] [data-pricing-sub],[data-pricing-enter] [data-plan-slot],[data-pricing-enter] [data-plan-contact]{animation:pricing-rise .62s cubic-bezier(.22,1,.36,1) backwards}
+  [data-pricing-enter] [data-pricing-sub]{animation-delay:70ms}
+  [data-pricing-enter] [data-plan-slot]:nth-child(1){animation-delay:180ms}
+  [data-pricing-enter] [data-plan-slot]:nth-child(2){animation-delay:240ms}
+  [data-pricing-enter] [data-plan-slot]:nth-child(3){animation-delay:300ms}
+  [data-pricing-enter] [data-plan-contact]{animation-delay:360ms}
+}
+@keyframes pricing-rise{from{opacity:0;transform:translate3d(0,16px,0)}}
+[data-landing-story] [data-sheet][data-hold-rise]:has(#pricing)::before{display:none}
+`

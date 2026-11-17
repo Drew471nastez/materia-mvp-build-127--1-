@@ -69,7 +69,10 @@ function CompareLink() {
     e.preventDefault()
     const stack = title.closest<HTMLElement>("[data-pz-stack]")
     const head = stack ? parseFloat(getComputedStyle(stack).getPropertyValue("--pz-head")) || 0 : 0
-    const top = Math.max(0, title.getBoundingClientRect().top + window.scrollY - head - 28)
+    /* The table rises in along the scroll (compare-plans.tsx, .pz-cmp-in): where it will rest is where it is drawn less that lift. */
+    const lift = title.parentElement ? getComputedStyle(title.parentElement).transform : "none"
+    const dy = lift && lift !== "none" && typeof DOMMatrixReadOnly === "function" ? new DOMMatrixReadOnly(lift).m42 : 0
+    const top = Math.max(0, title.getBoundingClientRect().top - dy + window.scrollY - head - 28)
     window.scrollTo({ top, behavior: reduceMotion() ? "auto" : "smooth" })
     history.replaceState(null, "", "#compare")
   }

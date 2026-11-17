@@ -6647,7 +6647,7 @@ const words: Record<string, string> = {
  "Open your library": "Deine Bibliothek öffnen",
  "Open your membership": "Mitgliedschaft öffnen",
  "Open your order": "Bestellung öffnen",
- "Open your store and start selling today.": "Eröffne deinen Shop und verkaufe noch heute.",
+ "Pages, products and courses, free to start.": "Seiten, Produkte und Kurse, kostenlos zum Start.",
  "Open yours": "Deine öffnen",
  "Open {hours}": "Geöffnet {hours}",
  "Open {name}": "{name} öffnen",

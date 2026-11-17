@@ -241,13 +241,17 @@ ${AI_TOOLS_SCRIPT.map((l, i) => `.ait-l${i}{animation-name:ait-l${i}}\n${lineKey
   .ait-body{padding:16px 18px 18px;line-height:1.7}
   .ait-line{min-height:1.7em}
 }
+/* Landing round 15, the owner: on a phone the whole section about 10% shorter (some 75px of about 750): the terminal's lines closer (1.45, was 1.62) and its bar and padding a little smaller, the card padding 20px (was 26), and the gaps between the marks, the copy, the button and the terminal tightened. */
 @media (max-width:639px){
-  .ait-body{padding:12px 14px 14px;font-size:11.5px;line-height:1.62}
-  .ait-line{min-height:1.62em}
+  .ait-card{padding:20px;gap:20px}
+  .ait-marks{margin-bottom:16px}
+  .ait-body{padding:9px 12px 10px;font-size:11.5px;line-height:1.45}
+  .ait-line{min-height:1.45em}
+  .ait-say,.ait-done{margin-top:4px}
   .ait-nophone{display:none}
-  .ait-bar{height:32px}
+  .ait-bar{height:30px}
 ${PHONE_CSS}
-  .ait-cta{align-self:stretch;justify-content:center;width:100%}
+  .ait-cta{align-self:stretch;justify-content:center;width:100%;margin-top:18px}
 }
 @media (prefers-reduced-motion:reduce){
   .ait-line{animation:none!important;opacity:1;transform:none}

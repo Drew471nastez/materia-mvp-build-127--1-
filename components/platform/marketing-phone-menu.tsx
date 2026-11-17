@@ -45,9 +45,9 @@ import { cn } from "@/lib/utils"
 
 export const MARKETING_MENU_ID = "marketing-phone-menu"
 
-/* The panel's motion, from the reference's frames. */
-const OPEN_MS = 220
-const CLOSE_MS = 170
+/* The panel's motion, from the reference's frames. Landing round 15, the owner: "smoother", so a little longer both ways (220 and 170 before), and the list and the buttons drift with the fade (MENU_DRIFT). */
+const OPEN_MS = 280
+const CLOSE_MS = 210
 
 const CSS = `
 #${MARKETING_MENU_ID}{opacity:0;visibility:hidden;transition:opacity ${CLOSE_MS}ms cubic-bezier(.4,0,1,1),visibility 0s linear ${CLOSE_MS}ms}
@@ -57,14 +57,18 @@ const CSS = `
 #${MARKETING_MENU_ID} [data-menu-group-body] > *{animation:mpm-in 260ms cubic-bezier(.22,1,.36,1) both}
 ${[2, 3, 4, 5, 6, 7, 8].map((n) => `#${MARKETING_MENU_ID} [data-menu-group-body] > :nth-child(${n}){animation-delay:${(n - 1) * 22}ms}`).join("\n")}
 @keyframes mpm-in{from{opacity:0;transform:translate3d(0,-4px,0)}}
+/* MENU_DRIFT (landing round 15): the list and the foot settle 10px down into place as the panel fades in and lift 6px as it fades out, transform only. */
+#${MARKETING_MENU_ID} [data-menu-list],#${MARKETING_MENU_ID} [data-menu-foot]{transform:translate3d(0,-6px,0);transition:transform ${CLOSE_MS}ms cubic-bezier(.4,0,1,1)}
+#${MARKETING_MENU_ID}[data-state=open] [data-menu-list],#${MARKETING_MENU_ID}[data-state=open] [data-menu-foot]{transform:none;transition:transform ${OPEN_MS + 120}ms cubic-bezier(.22,1,.36,1)}
 @media (prefers-reduced-motion:reduce){
+  #${MARKETING_MENU_ID} [data-menu-list],#${MARKETING_MENU_ID} [data-menu-foot]{transform:none;transition:none}
   #${MARKETING_MENU_ID}[data-state=open]{transition:opacity 120ms linear,visibility 0s}
   #${MARKETING_MENU_ID} [data-menu-rise],#${MARKETING_MENU_ID}[data-state=open] [data-menu-rise]{opacity:1;transform:none;transition:none}
   #${MARKETING_MENU_ID} [data-menu-group-body] > *{animation:none}
 }
 `
 
-/** The panel's colours: the bar's own (dark #16161a, or the light bar's white). */
+/** The panel's colours: the light bar's white, or (landing round 15, the owner: "darker black") a near black #0a0a0c under the dark bar, a hairline between the two. */
 export function menuTone(light: boolean) {
   return light
     ? {
@@ -73,15 +77,17 @@ export function menuTone(light: boolean) {
         sub: "text-[#3f4652] active:text-[#1a1a2e]/55 hover:text-[#1a1a2e]",
         muted: "text-[#6b7280]",
         rule: "bg-[#eceef1]",
+        edge: "",
         focus: "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white",
       }
     : {
-        panel: "bg-[#16161a] text-white",
+        panel: "bg-[#0a0a0c] text-white",
         row: "text-white active:text-white/55 hover:text-white/70",
         sub: "text-white/75 active:text-white/50 hover:text-white",
         muted: "text-white/50",
         rule: "bg-white/[0.08]",
-        focus: "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#16161a]",
+        edge: "border-t border-white/[0.06]",
+        focus: "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0c]",
       }
 }
 export type MenuTone = ReturnType<typeof menuTone>
@@ -301,7 +307,7 @@ export function MarketingPhoneMenu({
         className={cn("fixed inset-0 z-[39] flex flex-col md:hidden", tone.panel)}
         style={{ paddingTop: top }}
       >
-        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3" data-menu-list="">
+        <div ref={listRef} className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3", tone.edge)} data-menu-list="">
           {children}
         </div>
         <div className="shrink-0 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),20px)]" data-menu-foot="">
