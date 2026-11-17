@@ -48,7 +48,8 @@ const TRACKS = {
   /* Landing round 14: under 900px nothing is held: the stage (100svh), less the cards' lap (8svh), plus their top padding (10vh): 101vh, measured at 390. */
   /* Landing round 15: under 900px the stage is held again (100svh); from 900px the hold before the cards is 20svh shorter (221svh). */
   /* Landing round 15: the phone stage is held under the header (100svh less the header, plus the cards' 9vh), measured 109 per 100 at 390; from 900px the phone rises over a shorter range, 221svh, measured at 1440. */
-  checkout: [{ css: "100svh + 9vh", vh: 109, until: 899 }, { css: "221svh", vh: 221 }],
+  /* Landing round 16: the stage is held at every width and the cards start 40svh after it (they were 0 on a phone, 24svh on a computer): 149 per 100 at 390, 237 at 1440, measured. */
+  checkout: [{ css: "140svh + 9vh", vh: 149, until: 899 }, { css: "237svh", vh: 237 }],
 }
 const trackAt = (n, w) => TRACKS[n]?.find((t) => t.until == null || w <= t.until)
 /** A line that predicts a measured height within this many pixels is kept; past it a new rule starts. */

@@ -57,9 +57,11 @@ check("  the rail and the email stay, the email centred across the picture", /cl
 /* Changed on purpose (landing round 15): the owner wants the phone behind the cards, very blurred and lower. Its copy is back as its own picture (SOFT_PHONE, not in SOFT, so the ring's bake is unchanged), blurred far harder than round 11's, and small. */
 check("the phone's blurred copy is its own small picture, not one of the ring's, no half fade in", /soft-phone/.test(co) && !/cmc-in-half/.test(css) && !("phone" in SOFT) && existsSync("public/home/commerce/soft-phone.webp") && statSync("public/home/commerce/soft-phone.webp").size < 12 * 1024)
 /* Changed on purpose (landing round 15): 20svh sooner, with the cards, while its blurred copy comes up. */
-check("  the sharp phone fades to nothing from 28 to 60svh into the hold", /\.cmc-rise > \.cmc-phone\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 60svh\}/.test(tl) && /@keyframes cmc-out\{from\{opacity:1\}to\{opacity:0\}\}/.test(css))
+// Changed on purpose (landing round 16): the sharp phone fades as a transition once the cards are up (data-cmc-back).
+check("  the sharp phone fades to nothing once the cards are up", /\.cmc\[data-cmc-back\] :is\(\.cmc-rise > \.cmc-phone,\.cmc-sharp\)\{opacity:0\}/.test(css) && /\.cmc-rise > \.cmc-phone,\.cmc-phone-soft,\.cmc-sharp,\.cmc-soft\{transition:opacity \.7s ease\}/.test(css))
 /* Changed on purpose (landing round 15): 60 to 66svh. */
-check("  its shade goes only after it, 60 to 66svh: never a fading phone over a product (the round 11 fix kept)", /\.cmc-shade\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 60svh contain 66svh\}/.test(tl) && /<div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage))
+// Changed on purpose (landing round 16): the shade's transition waits .6s, after the phone's .7s fade has mostly run.
+check("  its shade goes only after it: never a fading phone over a product (the round 11 fix kept)", /\.cmc\[data-cmc-back\] \.cmc-shade\{opacity:0;transition-delay:\.6s\}/.test(css) && /<div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage))
 check("  the ring stays under the phone and out of its world", /\.cmc-ring\{position:absolute;z-index:2;/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css) && !/class="cmc-o"/.test(stage.slice(stage.indexOf('class="cmc-phone-wrap"'))))
 
 console.log("\n2. Built to convert: 4:3 on a phone")
@@ -80,9 +82,11 @@ console.log("\n5. Cost: no filters, nothing blurred in the browser, every loop p
 check("no filter, backdrop-filter or will-change on a filter anywhere in the section's styles", !/(^|[;{])\s*(-webkit-)?(backdrop-)?filter\s*:/m.test(css))
 check("the ring's loops are paused until the stage is live", /\.cmc-o\{animation:cmc-orbit 44s linear infinite;animation-play-state:paused\}/.test(css) && /\.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css))
 check("a card's demo runs only while that card is live", /\.cmc-card\[data-commerce-live\] :where\(/.test(css))
-check("the scroll timeline animations apply only while the section is within half a screen (data-cmc-near)", ["cmc-world", "cmc-phone-wrap", "cmc-ring", "cmc-sharp", "cmc-soft", "cmc-shade", "cmc-copy", "cmc-orbit", "cmc-face", "cmc-w"].every((k) => new RegExp(`\\.cmc\\[data-cmc-near\\] \\.${k}\\{animation:`).test(tl)) && !/\n\s*\.cmc-(world|phone-wrap|ring|sharp|soft|shade|copy|orbit|w)\{animation:/.test(tl) && /\.cmc\[data-cmc-near\] \.cmc-w\[data-w="0"\]\{animation-range:/.test(tl))
+// Changed on purpose (landing round 16): two scroll timeline animations are left, both gated.
+check("the scroll timeline animations apply only while the section is within half a screen (data-cmc-near)", ["cmc-world", "cmc-copy"].every((k) => new RegExp(`\\.cmc\\[data-cmc-near\\] \\.${k}\\{animation:`).test(tl)) && !/\n\s*\.cmc-(world|copy)\{animation:/.test(tl))
 /* Changed on purpose (landing round 15): 80svh of hold before the cards. */
-check("  the layout of the hold stays put whatever the attribute: the sticky stage and the cards' pull are not gated", /\n\s*\.cmc-stage\{position:sticky;top:0\}/.test(tl) && /\n\s*\.cmc-track > \.cmc-cards\{margin-top:calc\(80svh - 56svh\)\}/.test(tl))
+// Changed on purpose (landing round 16): held at every width, the cards 40svh after the stage, outside @supports.
+check("  the layout of the hold stays put whatever the attribute: the sticky stage and the cards' place are not gated", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:40svh\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css))
 check("  the ring wakes half a screen ahead and its clock loops pause once the cards cover the stage", /useCommerceLive<HTMLDivElement>\("50% 0px", false\)/.test(src) && /\.cmc:not\(\[data-cmc-covered\]\) \.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /<span class="cmc-cover-mark" aria-hidden="true"><\/span><div class="cmc-cards-in">/.test(co))
 /* Changed on purpose (landing round 15): useStepScene adds two observers for the phone's steps. */
 check("  one observer for both, with a half screen of margin; no scroll listener, no rAF", /\{ rootMargin: "50% 0px" \}/.test(src) && (src.match(/new IntersectionObserver/g) ?? []).length === 4 && !/addEventListener\("scroll"|requestAnimationFrame/.test(src))

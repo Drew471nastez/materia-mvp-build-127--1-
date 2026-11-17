@@ -1630,6 +1630,8 @@ const SUITES = [
   "tests/home-landing-r16-how.test.ts",
   /* Landing round 16, business: the heading "A page that fits what you sell", "fits" in Storelib's purple; digital one cookbook bought, then opening to its first spread, three flat layers on transform and opacity, once a turn, paused off screen; every picture the section names is in public/. */
   "tests/home-landing-r16-business.test.ts",
+  /* Landing round 16, checkout: the scene as the owner's reference recording at every width, the phone up big from the foot of the screen (a third of a laptop's width), smaller and settled (a fifth) as the heading fades and rises in, the heading fading as the cards come up over the phone on the page's own scroll; two scroll linked boxes only (one rAF read of scrollY where scroll timelines are missing), the arrival behind the cards read again after a jump. */
+  "tests/home-landing-r16-checkout.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
