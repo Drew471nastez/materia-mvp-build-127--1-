@@ -1,4 +1,7 @@
 import { readFileSync } from "node:fs"
+import { createRequire } from "node:module"
+
+const require = createRequire(import.meta.url)
 /**
  * ===========================================================================
  *  CREATOR PAGES, PRODUCT PAGES AND EXPLORE AT THE EDGE, FOR EVERYBODY (round 49)
@@ -268,10 +271,33 @@ const nextConfig = {
      */
     qualities: [75, 88, 90],
   },
+  // Development and explicit Turbopack comparisons retain Next's defaults.
+  turbopack: {},
+  webpack(config, { dev }) {
+    if (!dev) {
+      // Serializing this app's filesystem cache produced a 3 GB pack while
+      // the compiler graph was still live, exceeding Standard's 7 GB RAM.
+      config.cache = false
+      // Supabase 2.87.3's compatibility wrapper probes a nonexistent default
+      // export. Use its published ESM entry, preserving the named SDK exports.
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "@supabase/supabase-js$": require.resolve("@supabase/supabase-js/dist/module/index.js"),
+      }
+    }
+    return config
+  },
   experimental: {
     // Load the large server graph once during route-data/prerender work instead
     // of duplicating it across workers. Runtime routes and checks are unchanged.
     cpus: 1,
+    // Separate compiler workers release their graph before route generation.
+    // Serialize server/edge compiles and tracing to avoid overlapping heaps.
+    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
+    serverMinification: true,
+    parallelServerCompiles: false,
+    parallelServerBuildTraces: false,
     /*
      * TURBOPACK DOES NOT MINIFY; scripts/minify-after-build.mjs DOES (round 53).
      * Vercel's 8 GB Standard build machine ran out of memory: Turbopack holds the
