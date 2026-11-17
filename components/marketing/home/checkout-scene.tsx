@@ -283,9 +283,11 @@ function useNear(rootRef: React.RefObject<HTMLElement | null>) {
  * Round 15, phones (under 900px): the scene's two steps (see STEP_EASE). One
  * observer, two boxes, nothing per frame:
  *   the stage   wholly below the screen: data-cmc-armed (the phone a little
- *               low and large, the words down and clear, put there unseen);
- *               its top past 90% of the screen: data-cmc-in, and the phone
- *               settles and the words rise, as transitions
+ *               low and large, the words down in their rows, put there
+ *               unseen); its top PHONE_AT percent up the screen:
+ *               data-cmc-in, and the phone rises into place; WORDS_AT
+ *               percent up: data-cmc-words, and the words rise, as
+ *               transitions (round 15, second pass)
  *   the cards   their box's top (the padding over the first card) above
  *               45% of the screen:
  *               data-cmc-back, and the phone sinks behind them and goes soft
@@ -301,28 +303,36 @@ function useStepScene(rootRef: React.RefObject<HTMLElement | null>) {
     const stage = root.querySelector(".cmc-stage")
     const cards = root.querySelector(".cmc-cards")
     if (!stage || !cards) return
-    const inIo = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) root.setAttribute("data-cmc-in", "")
-        else if (e.boundingClientRect.top > 0 && e.boundingClientRect.height > 0) {
-          /* Below the screen: arm the first step again, unseen. Above it (scrolled past), leave it played. */
-          root.removeAttribute("data-cmc-in")
-          if (e.boundingClientRect.top >= (e.rootBounds?.bottom ?? innerHeight)) root.setAttribute("data-cmc-armed", "")
-        }
-      },
-      { rootMargin: "0px 0px -10% 0px" },
-    )
+    /* Round 15, second pass: the phone as the stage comes on screen, the words once the phone's top is up too (see PHONE_AT). */
+    const step = (attr: string, at: number, arm: boolean) =>
+      new IntersectionObserver(
+        ([e]) => {
+          if (!e.isIntersecting && e.boundingClientRect.height === 0) return
+          if (e.isIntersecting || e.boundingClientRect.top < 0) root.setAttribute(attr, "")
+          else {
+            /* Below the screen: arm the step again, unseen. Above it (flung past), it is played, never left hidden. */
+            root.removeAttribute(attr)
+            if (arm && e.boundingClientRect.top >= (e.rootBounds?.bottom ?? innerHeight)) root.setAttribute("data-cmc-armed", "")
+          }
+        },
+        { rootMargin: `0px 0px -${at}% 0px` },
+      )
+    const inIo = step("data-cmc-in", PHONE_AT, true)
+    const wordsIo = step("data-cmc-words", WORDS_AT, false)
     const backIo = new IntersectionObserver(
       /* The root is the top 45% of the screen: the cards in it (their box starts with the padding over the first card), or wholly above the screen, are back. */
       ([e]) => root.toggleAttribute("data-cmc-back", e.isIntersecting || (e.boundingClientRect.bottom < 0 && e.boundingClientRect.height > 0)),
       { rootMargin: "0px 0px -55% 0px" },
     )
     inIo.observe(stage)
+    wordsIo.observe(stage)
     backIo.observe(cards)
     return () => {
       inIo.disconnect()
+      wordsIo.disconnect()
       backIo.disconnect()
       root.removeAttribute("data-cmc-in")
+      root.removeAttribute("data-cmc-words")
       root.removeAttribute("data-cmc-armed")
       root.removeAttribute("data-cmc-back")
     }
@@ -1496,10 +1506,36 @@ const COPY_OUT = [66, 96] as const
  * read or written per frame.
  */
 const STEP_EASE = "cubic-bezier(.16,1,.3,1)"
+/*
+ * Landing round 15, second pass (the owner's iPhone screenshot: a black band
+ * under the white sheet, then a rounded black top with a lot of empty black
+ * before the headline). Under 900px the stage is held under the site's header
+ * (top: --hd, the header's own height, --home-header-height from hero.tsx),
+ * not under the screen's top with the header's height left empty at its head,
+ * so the section opens with --tt of black, the headline's two rows and the
+ * phone's top, about 100px down instead of 190.
+ *
+ * The arrival, two observers, nothing per frame (useStepScene): once the
+ * stage's top is PHONE_AT percent up the screen the phone rises PHONE_RISE
+ * into place (a little larger first, PHONE_RISE_SCALE); once it is WORDS_AT
+ * percent up, the phone's top on screen, the words rise one after another out
+ * of their rows (each row clips them: bottom to top, WORD_DROP em). On a
+ * computer the same rise follows the scroll: the phone comes up DESK_RISE
+ * from a little larger (DESK_BIG, it was 1.72 times, a zoom more than a rise)
+ * while the words rise out of their rows.
+ */
+const PHONE_RISE = "7svh"
+const PHONE_RISE_SCALE = 1.04
+const PHONE_AT = 3
+const WORDS_AT = 22
+const WORD_DROP = 1.3
+const ROW_PAD = 0.16
+const DESK_BIG = 1.12
+const DESK_RISE = "22svh"
 /* Each word's stretch of the scroll, as the section comes up the screen: a fifth of a screen each, each starting a little after the one before, from the moment the headline's row comes on screen, all in before the section's top is half way up. */
 const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `${NEAR} .cmc-w[data-w="${i}"]{animation-range:contain ${f3(SETTLE_FROM + i * 2.6)}svh contain ${f3(SETTLE_FROM + 21 + i * 2.6)}svh}`).join("\n    ")
-/* On a phone, the same words one after another on a timer: each 55ms after the one before. */
-const wordDelays = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{transition-delay:${120 + i * 55}ms}`).join("\n    ")
+/* On a phone, the same words one after another on a timer: each 60ms after the one before. */
+const wordDelays = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{transition-delay:${i * 60}ms}`).join("\n    ")
 /*
  * Wave 17: the ring's turn runs the whole time the track is on screen, as it
  * did with "entry 0% exit 100%", but its start is written as a length of
@@ -1568,7 +1604,7 @@ ${FLOATS.map((f) => (f.m ? `  .cmc-o[data-f="${f.id}"]{${spotVars(f.m, f)}}` : "
 @keyframes cmc-unspin{from{transform:rotateY(${SCROLL_TURN}deg) rotateX(calc(var(--tilt) * -1))}to{transform:rotateY(${-SCROLL_TURN}deg) rotateX(calc(var(--tilt) * -1))}}
 /* Round 11: the phone starts big and low, rising from the stage's foot, and settles smaller under the headline. */
 @keyframes cmc-settle{from{transform:translate3d(0,var(--y0),0) scale(1)}to{transform:translate3d(0,var(--y1),0) scale(var(--ps))}}
-@keyframes cmc-word{from{opacity:0;transform:translate3d(0,.55em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes cmc-word{from{opacity:0;transform:translate3d(0,${WORD_DROP}em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes cmc-recede{from{opacity:${RING_DIM};transform:scale(1)}to{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}}
 @keyframes cmc-back{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(0,var(--sink),0) scale(${PHONE_SINK_SCALE})}}
 @keyframes cmc-soft-phone{from{opacity:0}to{opacity:${PHONE_SOFT_TO}}}
@@ -1634,6 +1670,19 @@ const SCENE_CSS = `
 @media (hover:none),(pointer:coarse){
   .cmc::before{content:"";position:absolute;inset:0;z-index:0;background:#000;transform:translateZ(0);pointer-events:none}
 }
+/*
+ * Landing round 15 (the owner's iPhone: a plain black band between the white
+ * sheet and this section's rounded top). The band is the page's dark ground.
+ * Safari does not anchor the scroll, so a box above the screen that changes
+ * height is held by a top margin until the page stands still with its top off
+ * screen (lazy-section.tsx holdAbove); this section's box is the first thing
+ * in its dark block, so the margin runs through the block's top and the block
+ * starts that much lower than the sheet's foot. The sheet before it draws its
+ * white on under the block (a shadow with no blur, hidden by the block's own
+ * ground), so any such gap is white and the rounded black top is drawn as
+ * always, never a black band.
+ */
+[data-sheet="white"]:has(+[data-sheet-backdrop] .cmc){box-shadow:0 50svh 0 #fff}
 /* The dots (round 7: "very extremely subtle"): 1px at 7% white on a 24px grid, faded out toward the edges. */
 .cmc-dots{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.3px);background-size:24px 24px;background-position:12px 12px;-webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 40%,#000 25%,transparent 80%);mask-image:radial-gradient(ellipse 75% 65% at 50% 40%,#000 25%,transparent 80%)}
 /*
@@ -1673,16 +1722,17 @@ const SCENE_CSS = `
  * the phone's spots (FLOATS[].m) stand higher and lower along its side. The
  * cards follow the stage with no empty hold (round 15: margin 0 under 900px).
  */
-.cmc-stage{position:relative;height:100svh;overflow:hidden;
-  --hd:64px;--tt:clamp(24px,4.6svh,40px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(12px,2svh,20px);
+.cmc-stage{position:relative;height:calc(100svh - var(--hd));overflow:hidden;
+  --hd:var(--home-header-height,64px);--top:0px;--tt:clamp(18px,3svh,30px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(12px,2svh,20px);
   --fs:clamp(27px,8.2vw,40px);
   --pe:min(${PHONE_PE},calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
   --big:1;--ps:1;--pw:calc(var(--pe) * var(--big));
-  --y0:var(--y1);--y1:calc(var(--hd) + var(--tt) + var(--fs) * 2.1 + var(--gap));
+  --y0:var(--y1);--y1:calc(var(--top) + var(--tt) + var(--fs) * 2.1 + var(--gap));
   --r:${PHONE_R};--pp:calc(var(--r) * 3);--cy:calc(var(--y1) + var(--pe) * 2.07);--tilt:-20deg;--iw:calc(var(--pe) * 1.45);--sink:16svh}
-.cmc-copy{position:absolute;z-index:4;left:var(--edge);right:var(--edge);top:calc(var(--hd) + var(--tt));text-align:center}
+.cmc-copy{position:absolute;z-index:4;left:var(--edge);right:var(--edge);top:calc(var(--top) + var(--tt));text-align:center}
 .cmc-title{margin:0 auto;font-size:var(--fs);font-weight:300;line-height:1.04;letter-spacing:-.045em;color:#fff}
-.cmc-row{display:block;white-space:nowrap}
+/* Round 15: each row is a slot the words rise out of, bottom to top (clipped below and above, with room for the letters' ascenders and descenders; nothing clipped sideways). */
+.cmc-row{display:block;white-space:nowrap;overflow-y:clip;padding-block:${ROW_PAD}em;margin-block:-${ROW_PAD}em}
 .cmc-w{display:inline-block}
 /* The phone's box, the big phone's size, centred; the world inside it carries the phone from big and low to settled. */
 .cmc-phone-wrap{position:absolute;z-index:3;left:50%;top:0;width:var(--pw);height:calc(var(--pw) * 2.07);margin-left:calc(var(--pw) / -2)}
@@ -1729,10 +1779,10 @@ const SCENE_CSS = `
 ${ORBIT_CSS}
 ${THINGS_CSS}
 @media (min-width:900px){
-  .cmc-stage{--hd:69px;--tt:clamp(28px,6svh,72px);--pb:clamp(14px,2.2svh,28px);--gap:clamp(16px,2.6svh,32px);
+  .cmc-stage{height:100svh;--hd:69px;--top:var(--hd);--tt:clamp(28px,6svh,72px);--pb:clamp(14px,2.2svh,28px);--gap:clamp(16px,2.6svh,32px);
     --fs:clamp(36px,min(4.3vw,7.2svh),68px);
     --pe:min(400px,calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
-    --big:1.72;--ps:${f3(1 / 1.72)};--y0:calc(var(--y1) + 12svh);
+    --big:${DESK_BIG};--ps:${f3(1 / DESK_BIG)};--y0:calc(var(--y1) + ${DESK_RISE});
     --r:min(44vw,880px);--cy:60svh;--tilt:-12deg;--iw:calc(var(--pe) * 1.5);--sink:24svh}
 }
 
@@ -1802,13 +1852,13 @@ ${THINGS_CSS}
    * the second step once the cards are up.
    */
   @media (max-width:899px){
-    .cmc-stage{position:sticky;top:0}
+    .cmc-stage{position:sticky;top:var(--hd)}
     .cmc-track > .cmc-cards{margin-top:0}
     .cmc-world{transition:transform 1.1s ${STEP_EASE}}
-    .cmc-w{transition:opacity .6s ease,transform .9s ${STEP_EASE}}
+    .cmc-w{transition:opacity .7s ease,transform 1s ${STEP_EASE}}
     ${wordDelays()}
-    .cmc[data-cmc-armed]:not([data-cmc-in]) .cmc-world{transform:translate3d(0,calc(var(--y1) + 9svh),0) scale(1.12);transition-duration:0s}
-    .cmc[data-cmc-armed]:not([data-cmc-in]) .cmc-w{opacity:0;transform:translate3d(0,.55em,0);transition-duration:0s;transition-delay:0s}
+    .cmc[data-cmc-armed]:not([data-cmc-in]) .cmc-world{transform:translate3d(0,calc(var(--y1) + ${PHONE_RISE}),0) scale(${PHONE_RISE_SCALE});transition-duration:0s}
+    .cmc[data-cmc-armed]:not([data-cmc-words]) .cmc-w{opacity:0;transform:translate3d(0,${WORD_DROP}em,0);transition-duration:0s;transition-delay:0s}
     .cmc-phone-wrap{transition:transform 1.2s ${STEP_EASE}}
     .cmc-ring{transition:opacity .9s ease,transform 1.2s ${STEP_EASE}}
     .cmc-rise > .cmc-phone,.cmc-phone-soft,.cmc-sharp,.cmc-soft{transition:opacity .7s ease}

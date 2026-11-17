@@ -134,7 +134,7 @@ check("the phone is there from the start and slides up once as the section comes
   // Changed on purpose (landing round 9): no rise by observer; the phone is big and centred when the section arrives and comes down with the scroll.
   // Changed on purpose (landing round 11): the phone starts big and low (--y0) and settles smaller.
   /* Changed on purpose (landing round 15): on a phone (under 900px) the settle is a transition set off by an observer (data-cmc-in, useStepScene); on a computer it is still the scroll timeline. */
-  assert.ok(/@keyframes cmc-settle\{from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}/.test(coCss) && !/data-cmc-in/.test(coCss.slice(0, coCss.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:0}"))))
+  assert.ok(/@keyframes cmc-settle\{from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}/.test(coCss) && !/data-cmc-in/.test(coCss.slice(0, coCss.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:var(--hd)}") /* Changed on purpose (landing round 15): held under the header on a phone */)))
   const n = CHECKOUT_HEADING.split(" ").length
   assert.equal((co.match(/class="cmc-w"/g) ?? []).length, n)
 })
