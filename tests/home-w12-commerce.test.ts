@@ -211,7 +211,8 @@ console.log("\nCommerce: motion and performance rules")
   check("checkout: one observer for the cards, a scroll timeline for the scene, no scroll listener, no layout read", /animation-timeline:--cmc-t/.test(src.checkout) && /new IntersectionObserver/.test(src.checkout) && /data-cmc-over/.test(src.checkout) && !/addEventListener\("scroll"|getBoundingClientRect\(|requestAnimationFrame/.test(src.checkout))
   /* Changed on purpose (landing round 9): held only where scroll timelines exist. */
   // Changed on purpose (landing round 10): the cards are inside the track, starting the overlap short of the stage's foot, so the stage stays held behind them.
-  check("checkout: a held stage, and the cards pulled up over it", /\.cmc-stage\{position:sticky;top:0\}/.test(src.checkout) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(\$\{DWELL\} - \$\{OVERLAP\}\)\}/.test(src.checkout))
+  // Changed on purpose (landing round 16): held at every width (under the header on a phone), the cards CARDS_AT (40svh) after the stage, coming up over it.
+  check("checkout: a held stage, and the cards coming up over it", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}/.test(src.checkout) && /\.cmc-track > \.cmc-cards\{margin-top:\$\{CARDS_AT\}\}/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   // Changed on purpose (landing round 11): the settled phone's width is --pe, the big one a multiple of it, both from the viewport.
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pe:min\(/.test(src.checkout))
@@ -250,7 +251,8 @@ console.log("\nCommerce: images")
 // Changed on purpose (landing round 12): the owner asked for a better heading and new pictures (the real dashboard, a tip flow, a typed domain over another creator's store).
   // Changed on purpose (landing round 14): Ines Duarte's face and cover in place of Ruben Linde's; Fernlyn's photographs went with the typed address (the domain card is /pricing's reel).
   /* Changed on purpose (landing round 15): the owner disliked her cover photograph; it is drawn in reds now (how-it-works TipCover), so only her face is a file. */
-  check("public/home/how holds Ines's avatar, webp, under 30 KB", howFiles.sort().join() === "ines-avatar.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 16): the owner asked for a better cover photograph; it is a file again, at 600 and 1000 wide.
+  check("public/home/how holds Ines's avatar, webp, under 30 KB", howFiles.sort().join() === "ines-avatar.webp,ines-cover-1000.webp,ines-cover-600.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   /* Changed on purpose (wave 17): the checkout's two tiny avatars (pc-av, cdx-av) load and decode at once, so they are never blank when the scene scrolls in on an iPhone. */
   const avatars = (all.match(/<img className="(pc|cdx)-av"[^>]*>/g) ?? []).filter((t) => !/loading=|decoding=/.test(t)).length

@@ -53,18 +53,28 @@ console.log("\n── checkout: no black block, the scene back on a phone ──
   // Changed on purpose (landing round 15, second pass): on a phone the stage is held under the header (top: --hd); it opens with the headline and the phone's top, not the header's height of black.
   const desk = css.slice(css.indexOf("@media (min-width:900px){\n  @supports (animation-timeline:view()){"), css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:var(--hd)}"))
   const phone = css.slice(css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:var(--hd)}"), css.indexOf("The cards: no ground of their own"))
-  check("the settle and the words run as the section comes up the screen, before the hold", /\.cmc-world\{animation:cmc-settle[^}]*animation-range:contain -84svh contain 14svh\}/.test(desk) && /\.cmc-w\[data-w="0"\]\{animation-range:contain -84svh contain -63svh\}/.test(desk))
+  // Changed on purpose (landing round 16): the settle runs from 88svh before the hold to the hold, the heading from 16svh before it.
+  check("the settle and the heading run as the section comes up the screen, into the hold", /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.333,0,\.667,\.333\) both;animation-timeline:--cmc-t;animation-range:contain -88svh contain -8svh\}/.test(css) && /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(css))
   // Changed on purpose (landing round 15, second pass): the phone rises 22svh into place from 1.12x (tests/home-landing-r15-checkout.test.ts).
-  check("the big phone starts just under its settled place, not 40svh down a black stage", /--y0:calc\(var\(--y1\) \+ 22svh\)/.test(css) && !/--y0:40svh/.test(css))
-  check("20svh less hold before the cards", /\.cmc-track > \.cmc-cards\{margin-top:calc\(80svh - 56svh\)\}/.test(desk))
-  check("on a phone the stage is held and the cards follow it straight on", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}/.test(phone) && /\.cmc-track > \.cmc-cards\{margin-top:0\}/.test(phone))
-  check("on a phone nothing follows the scroll frame by frame: transitions only", phone.length > 0 && !/animation-timeline|animation:/.test(phone) && /transition:transform 1\.1s/.test(phone))
+  // Changed on purpose (landing round 16): on a computer the big phone starts 12svh down the stage, coming on screen as the settle starts; on a phone at its settled place.
+  check("the big phone starts where it comes on screen as the settle starts, not 40svh down a black stage", /--big:1\.667;--ps:0\.6;--y0:12svh;/.test(css) && /--y0:var\(--y1\)/.test(css) && !/--y0:40svh/.test(css))
+  // Changed on purpose (landing round 16): the cards 40svh after the held stage at every width.
+  check("the cards start 40svh after the held stage", /\.cmc-track > \.cmc-cards\{margin-top:40svh\}/.test(css))
+  // Changed on purpose (landing round 16): the cards 40svh after the stage on a phone too.
+  check("on a phone the stage is held under the header", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:40svh\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css))
+  // Changed on purpose (landing round 16): two scroll timelines at every width, compositor only (the owner wants the reference's motion on phones too).
+  check("at every width two boxes follow the scroll, on the compositor", (css.match(/animation-timeline:--cmc-t/g) ?? []).length === 2)
   // Changed on purpose (landing round 15, second pass): the phone starts 7svh low at 1.04x; the words have their own step (data-cmc-words).
-  check("the phone rises and settles, the words rise one after another, once the observer plays it", /\.cmc\[data-cmc-armed\]:not\(\[data-cmc-in\]\) \.cmc-world\{transform:translate3d\(0,calc\(var\(--y1\) \+ 7svh\),0\) scale\(1\.04\);transition-duration:0s\}/.test(phone) && (phone.match(/\.cmc-w\[data-w="\d"\]\{transition-delay:\d+ms\}/g) ?? []).length === 8)
-  check("behind the cards on a phone: the phone sinks and goes soft, the ring steps back, the headline fades", /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(phone) && /\.cmc\[data-cmc-back\] \.cmc-phone-soft\{opacity:0\.3\}/.test(phone) && /\.cmc\[data-cmc-back\] \.cmc-shade\{opacity:0;transition-delay:\.6s\}/.test(phone))
-  check("the steps are set by observers only: no scroll listener, no rAF, no layout read", /function useStepScene/.test(src) && /useStepScene\(rootRef\)/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
-  check("reduced motion: nothing armed, nothing held", /if \(matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return\n\s*const stage/.test(src) && /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*@media \(max-width:899px\)\{\n\s*\.cmc-stage\{position:sticky;top:var\(--hd\)\}/.test(css))
-  check("on a computer the phone goes soft and sinks behind the cards to the track's end", /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 100%\}/.test(desk) && /\.cmc-phone-soft\{animation:cmc-soft-phone linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 60svh\}/.test(desk) && /--sink:24svh/.test(css))
+  // Changed on purpose (landing round 16): no observer steps: the scroll timelines run it.
+  check("no armed steps", !/data-cmc-armed|data-cmc-in\b|data-cmc-words/.test(css))
+  // Changed on purpose (landing round 16): at every width; the heading fades on the scroll before the cards reach it.
+  check("behind the cards: the phone sinks and goes soft, the ring steps back", /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-phone-soft\{opacity:0\.3\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-shade\{opacity:0;transition-delay:\.6s\}/.test(css))
+  // Changed on purpose (landing round 16): observers set the arrival behind the cards; nothing per frame in script.
+  check("observers only: no scroll listener, no rAF, no layout read", /function useBack/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
+  // Changed on purpose (landing round 16): reduced motion: nothing observed for the arrival, nothing held.
+  check("reduced motion: nothing observed, nothing held", /if \(matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return\n\s*const cards/.test(src) && /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*\.cmc-stage\{position:sticky;top:var\(--hd\)\}/.test(css))
+  // Changed on purpose (landing round 16): a transition once the cards are up, at every width.
+  check("on a computer the phone goes soft and sinks behind the cards", /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-phone-soft\{opacity:0\.3\}/.test(css) && /--sink:24svh/.test(css))
   const soft = "/home/commerce/soft-phone.webp"
   const size = existsSync(join(root, "public", soft)) ? webp(soft) : null
   check("the phone's blurred copy is baked, small, at its declared size", !!size && size[0] === SOFT_PHONE.w && size[1] === SOFT_PHONE.h && statSync(join(root, "public", soft)).size < 12 * 1024, size)

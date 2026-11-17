@@ -20,13 +20,11 @@
  *                    across its screen (see Orbit). The ring turns by itself, slowly
  *                    (paused off screen), and the page's scroll turns it a
  *                    little further
- *   3. the headline  the stage holds for about a screen (position: sticky,
- *                    the owner asked for it here). Over that hold the phone
- *                    comes down and a little smaller, and the headline's
- *                    words rise in above it: a scroll timeline of transform
- *                    and opacity, run by the compositor. Where scroll
- *                    timelines are missing nothing is held and the finished
- *                    scene is simply there
+ *   3. the headline  the stage holds (position: sticky, the owner asked for
+ *                    it here). Round 16, at every width: the phone comes up
+ *                    big from the screen's foot and gets smaller as it
+ *                    settles, the headline fades and rises in above it, and
+ *                    fades as the cards come (see THE SCENE'S SCROLL below)
  *   4. the cards     scrolling on, four dark cards slide up over the phone,
  *                    one after another; on a phone they are a row to swipe
  *                    (native scroll snap). Each card's demo runs only while
@@ -138,8 +136,6 @@ export const SOFT: Readonly<Record<string, { w: number; h: number }>> = {
 export const SOFT_PHONE = { w: 168, h: 300 } as const
 /** One turn of the ring, in seconds. */
 const TURN_S = 44
-/** How far the page's scroll turns the ring over the scene, either way from rest, in degrees. */
-const SCROLL_TURN = 26
 /** The ring leans toward the viewer by this much (degrees), so a product in front passes low and one behind passes high. */
 const TILT = 15
 
@@ -188,6 +184,9 @@ const IC_SHEET_TOP = 150
 const LOOP_S = 10
 /** A moment of the loop (seconds) as a keyframe offset. */
 const at = (sec: number) => `${Math.round((sec / LOOP_S) * 10000) / 100}%`
+
+/** How far above the screen the arrival observers' roots reach: past any page's length. */
+const FAR_ABOVE = "100000px"
 
 /**
  * The cards' entrance, without scroll work. One observer watches the cards'
@@ -259,20 +258,22 @@ function useNear(rootRef: React.RefObject<HTMLElement | null>) {
       return
     }
     const mark = root.querySelector(".cmc-cover-mark")
-    /* One observer, two boxes, the same half screen of margin: the section (near or not) and the cards' top (covered once it is half a screen above the screen). */
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.target === root) root.toggleAttribute("data-cmc-near", e.isIntersecting)
-          else root.toggleAttribute("data-cmc-covered", !e.isIntersecting && e.boundingClientRect.top < 0)
-        }
-      },
-      { rootMargin: "50% 0px" },
-    )
+    /* The section: near or not, with half a screen of margin. */
+    const io = new IntersectionObserver(([e]) => root.toggleAttribute("data-cmc-near", e.isIntersecting), { rootMargin: "50% 0px" })
+    /*
+     * The cards' top: covered once it is half a screen above the screen. Round
+     * 16: this observer's root runs from far above the screen down to half a
+     * screen above it, so covered is simply "in it". With the root the screen,
+     * a jump from past the cards to above the section (the status bar tapped)
+     * went from one outside to the other, no observer spoke, and the ring
+     * stayed paused when the section came back.
+     */
+    const cover = new IntersectionObserver(([e]) => root.toggleAttribute("data-cmc-covered", e.isIntersecting), { rootMargin: `${FAR_ABOVE} 0px -150% 0px` })
     io.observe(root)
-    if (mark) io.observe(mark)
+    if (mark) cover.observe(mark)
     return () => {
       io.disconnect()
+      cover.disconnect()
       root.removeAttribute("data-cmc-near")
       root.removeAttribute("data-cmc-covered")
     }
@@ -280,60 +281,31 @@ function useNear(rootRef: React.RefObject<HTMLElement | null>) {
 }
 
 /**
- * Round 15, phones (under 900px): the scene's two steps (see STEP_EASE). One
- * observer, two boxes, nothing per frame:
- *   the stage   wholly below the screen: data-cmc-armed (the phone a little
- *               low and large, the words down in their rows, put there
- *               unseen); its top PHONE_AT percent up the screen:
- *               data-cmc-in, and the phone rises into place; WORDS_AT
- *               percent up: data-cmc-words, and the words rise, as
- *               transitions (round 15, second pass)
- *   the cards   their box's top (the padding over the first card) above
- *               45% of the screen:
- *               data-cmc-back, and the phone sinks behind them and goes soft
- * From 900px the scroll timelines run the scene and these attributes match no
- * rule. Under reduced motion, or without IntersectionObserver, nothing is
- * armed and the finished scene is simply there.
+ * Landing round 16: the cards' arrival, at every width. One observer, nothing
+ * per frame: once the cards' box (its top is the padding over the first card)
+ * is above 45% of the screen, data-cmc-back, and the phone sinks behind them
+ * and goes soft, the ring steps back and goes soft: CSS transitions of
+ * transform and opacity, on their own clock, so they never trail the finger.
+ * Scrolled back, they play backwards. Under reduced motion nothing is set.
  */
-function useStepScene(rootRef: React.RefObject<HTMLElement | null>) {
+function useBack(rootRef: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const root = rootRef.current
     if (!root || typeof IntersectionObserver !== "function") return
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const stage = root.querySelector(".cmc-stage")
     const cards = root.querySelector(".cmc-cards")
-    if (!stage || !cards) return
-    /* Round 15, second pass: the phone as the stage comes on screen, the words once the phone's top is up too (see PHONE_AT). */
-    const step = (attr: string, at: number, arm: boolean) =>
-      new IntersectionObserver(
-        ([e]) => {
-          if (!e.isIntersecting && e.boundingClientRect.height === 0) return
-          if (e.isIntersecting || e.boundingClientRect.top < 0) root.setAttribute(attr, "")
-          else {
-            /* Below the screen: arm the step again, unseen. Above it (flung past), it is played, never left hidden. */
-            root.removeAttribute(attr)
-            if (arm && e.boundingClientRect.top >= (e.rootBounds?.bottom ?? innerHeight)) root.setAttribute("data-cmc-armed", "")
-          }
-        },
-        { rootMargin: `0px 0px -${at}% 0px` },
-      )
-    const inIo = step("data-cmc-in", PHONE_AT, true)
-    const wordsIo = step("data-cmc-words", WORDS_AT, false)
-    const backIo = new IntersectionObserver(
-      /* The root is the top 45% of the screen: the cards in it (their box starts with the padding over the first card), or wholly above the screen, are back. */
-      ([e]) => root.toggleAttribute("data-cmc-back", e.isIntersecting || (e.boundingClientRect.bottom < 0 && e.boundingClientRect.height > 0)),
-      { rootMargin: "0px 0px -55% 0px" },
-    )
-    inIo.observe(stage)
-    wordsIo.observe(stage)
-    backIo.observe(cards)
+    if (!cards) return
+    /*
+     * The root runs from far above the screen down to 45% of it: the cards in
+     * it are back. Round 16: with the root the top 45% of the screen, a jump
+     * from past the cards to above the section (the status bar tapped) went
+     * from one outside to the other, no observer spoke, and the phone came
+     * back soft and sunk. Reaching far above, every such jump crosses it.
+     */
+    const io = new IntersectionObserver(([e]) => root.toggleAttribute("data-cmc-back", e.isIntersecting), { rootMargin: `${FAR_ABOVE} 0px -55% 0px` })
+    io.observe(cards)
     return () => {
-      inIo.disconnect()
-      wordsIo.disconnect()
-      backIo.disconnect()
-      root.removeAttribute("data-cmc-in")
-      root.removeAttribute("data-cmc-words")
-      root.removeAttribute("data-cmc-armed")
+      io.disconnect()
       root.removeAttribute("data-cmc-back")
     }
   }, [rootRef])
@@ -429,7 +401,7 @@ export function CheckoutScene() {
   const [stageRef] = useCommerceLive<HTMLDivElement>("50% 0px", false)
   useEntrances(rootRef)
   useNear(rootRef)
-  useStepScene(rootRef)
+  useBack(rootRef)
 
   return (
     <section ref={rootRef} className="cmc" data-story-section="checkout" aria-labelledby="cmc-title">
@@ -1435,125 +1407,84 @@ function VisRecover() {
 
 /* ── Styles ──────────────────────────────────────────────────────────── */
 
-const WORDS = CHECKOUT_HEADING.split(" ").length
 const f3 = (v: number) => String(+v.toFixed(3))
 
 /*
- * The scene's scroll. The track is a screen of stage plus DWELL of scroll,
- * the stage held in it (position: sticky, the browser's own scrolling,
- * nothing per frame). Over the first SETTLE percent of that hold the phone
- * comes down and the headline's words rise in, one after another. The cards
- * follow, pulled up by OVERLAP, so they come up the screen over the phone
- * before the hold ends.
+ * LANDING ROUND 16, THE SCENE'S SCROLL (the owner's reference recording, at
+ * every width): first the phone comes up BIG from the foot of the screen,
+ * only its top in view, the products round it; scrolling on, it gets smaller
+ * and settles low in the middle while the heading fades and rises in above it
+ * (no small line under it: the owner took the subheadings off in wave 13); scrolling on again, the heading fades and the cards come
+ * up over the phone.
+ *
+ * Every number is svh of the track's scroll, 0 being the track's top at the
+ * screen's top (where the stage is held on a computer; on a phone it is held
+ * under the header, HEADER_SVH earlier). Two things follow the scroll, and
+ * only two, each one compositor property pair on one box:
+ *   the phone   its world's transform, from big at --y0 to settled at --y1,
+ *               over SETTLE (round 15 had the phone rise 22svh from 1.12x)
+ *   the heading its opacity and transform, in over HEAD[0..1], out over
+ *               HEAD[2..3]
+ * The cards are not animated at all: they are in the page after the stage,
+ * CARDS_AT down, and the page's own scroll brings them up over the held
+ * stage, so they can never fall behind the finger. As they pass 45% of the
+ * screen one observer steps the phone and the ring back behind them
+ * (useBack, transitions).
+ *
+ * Round 14 and 15 history (iOS): Safari on an iPhone placed a dozen scroll
+ * timelines over a held stage a frame after the finger and the scene lurched.
+ * Round 16 keeps two, both moving with the page, not against it: the settle's
+ * curve is t squared (SETTLE_EASE), so the phone's own move is slowest where
+ * the page's is fastest and ends at under 0.8 of the scroll's speed, the
+ * moment the stage is held, so a frame late is a few pixels, not a lurch.
+ * Without scroll timelines (Safari before 26) the stage is held with the
+ * scene settled in it and the cards come up over it; nothing per frame in
+ * script.
  */
-/*
- * Landing round 15 (the owner: "far too much empty black space at the top", a
- * black block with the phone peeking at its foot): the phone settles and the
- * words rise while the section comes up the screen (SETTLE_FROM svh of scroll
- * before the hold), not in the first half of the hold, so the scene is there
- * by the time the stage is held. The hold before the cards is 20svh shorter
- * (DWELL 80svh, was 100svh) and every range after it moves up by as much.
+const SETTLE = [-88, 0] as const
+/** On a phone the stage is held under the header, about 8svh before the track's top reaches the screen's: the phone has settled by then. */
+const SETTLE_PHONE_END = -8
+const SETTLE_EASE = "cubic-bezier(.333,0,.667,.333)"
+/** The heading: in from, in by, out from, out by. It starts once the coming down phone is past where the heading stands, so the two never cross. */
+const HEAD = [-16, 8, 44, 68] as const
+const HEAD_EASE = "cubic-bezier(.33,1,.68,1)"
+/** How far the heading rises in (px), and how far it lifts as it fades. */
+const HEAD_RISE = 28
+const HEAD_LIFT = 14
+/** Where the cards' box starts under the stage: their first card's top comes on screen about 50svh into the hold. */
+const CARDS_AT = "40svh"
+/** The big phone over the settled one: a third of a laptop's screen wide over a fifth (the reference's frames), 1.6 on a phone. */
+const DESK_BIG = 5 / 3
+const PHONE_BIG = 1.6
+/**
+ * Where the big phone's top is on the stage: on a computer it comes on screen
+ * as the settle starts and comes down to its place. On a phone it is at its
+ * settled place from the first frame and only gets smaller round its top, so
+ * the big phone never runs into the heading over it and its top moves with
+ * the page, the browser's own scrolling, never a frame behind it.
  */
-const DWELL = "80svh"
-const OVERLAP = "56svh"
-const SETTLE_FROM = -84
-const SETTLE = 14
-/* Round 10: where the phone and the ring step back under the cards (svh of scroll into the hold), how faint and how small they end. The cards' top edge comes on screen at 24svh (round 15; 44svh before). Round 11: fainter, the cards are solid now and the products show only in the gaps. */
-const RECEDE = [28, 80] as const
+const BIG_TOP = "12svh"
+const BIG_TOP_PHONE = "var(--y1)"
+
 /*
  * Wave 18 (the owner: the products "a little lower in brightness, just a
- * little"): the ring is drawn at RING_DIM, one opacity on the ring's own layer
- * (it already fades behind the cards, so no new layer and no filter). Over the
- * section's black, an opacity is a brightness: 12% darker. Behind the cards it
- * ends at RECEDE_TO, the old 45% made the same touch darker.
+ * little"): the ring is drawn at RING_DIM, one opacity on the ring's own layer.
+ * Behind the cards it ends at RECEDE_TO.
  */
 const RING_DIM = 0.88
 const RECEDE_TO = 0.4
 const RECEDE_SCALE = 0.92
-/*
- * Round 12 (the owner: the phone was "too visible" behind the cards): the
- * sharp phone fades out while the cards come up. Its black shade goes after
- * it, once there is no sharp phone left to show through.
- *
- * Round 15 (the owner: the phone "should stay in the background behind those
- * cards, very blurred, sitting lower, moving smoothly behind them"): as the
- * sharp phone fades, its blurred copy (soft-phone.webp, baked, so nothing is
- * blurred per frame) comes up to PHONE_SOFT_TO, and the phone sinks by --sink
- * and steps back a little over the rest of the track, so it drifts down
- * behind the cards and the facts under them as the page scrolls. Transform
- * and opacity on the scroll timeline, as before.
- */
-const PHONE_OUT = [RECEDE[0], 60] as const
-const SHADE_OUT = [60, 66] as const
+/* Round 15 (the owner: the phone "should stay in the background behind those cards, very blurred, sitting lower"): its baked blurred copy comes up to PHONE_SOFT_TO as it sinks by --sink and steps back. */
 const PHONE_SOFT_TO = 0.3
 const PHONE_SINK_SCALE = 0.9
-/* The headline fades before the cards' top edge reaches it. */
-const COPY_OUT = [66, 96] as const
-/*
- * Round 15, phones (under 900px; the owner wants the moving scene back on a
- * phone, as on a computer). Round 14 had made it a still picture because
- * Safari on an iPhone places a scroll timeline a frame after the finger, and a
- * dozen of them over a held stage lurched. So on a phone nothing follows the
- * scroll frame by frame: the stage is held (position: sticky, the browser's
- * own scrolling) and the scene moves in two steps, each a CSS transition of
- * transform and opacity on the compositor, set off by an observer
- * (useStepScene): as the stage comes up the screen the phone rises from a
- * little low and large and settles while the words rise in one after another;
- * once the cards' top passes the middle of the screen the phone sinks behind
- * them and goes soft, the ring steps back and goes soft, and the headline
- * fades. Scrolled back, each step plays backwards. A transition runs on its
- * own clock, so it can never fall a frame behind the finger, and nothing is
- * read or written per frame.
- */
 const STEP_EASE = "cubic-bezier(.16,1,.3,1)"
-/*
- * Landing round 15, second pass (the owner's iPhone screenshot: a black band
- * under the white sheet, then a rounded black top with a lot of empty black
- * before the headline). Under 900px the stage is held under the site's header
- * (top: --hd, the header's own height, --home-header-height from hero.tsx),
- * not under the screen's top with the header's height left empty at its head,
- * so the section opens with --tt of black, the headline's two rows and the
- * phone's top, about 100px down instead of 190.
- *
- * The arrival, two observers, nothing per frame (useStepScene): once the
- * stage's top is PHONE_AT percent up the screen the phone rises PHONE_RISE
- * into place (a little larger first, PHONE_RISE_SCALE); once it is WORDS_AT
- * percent up, the phone's top on screen, the words rise one after another out
- * of their rows (each row clips them: bottom to top, WORD_DROP em). On a
- * computer the same rise follows the scroll: the phone comes up DESK_RISE
- * from a little larger (DESK_BIG, it was 1.72 times, a zoom more than a rise)
- * while the words rise out of their rows.
- */
-const PHONE_RISE = "7svh"
-const PHONE_RISE_SCALE = 1.04
-const PHONE_AT = 3
-const WORDS_AT = 22
-const WORD_DROP = 1.3
 const ROW_PAD = 0.16
-const DESK_BIG = 1.12
-const DESK_RISE = "22svh"
-/* Each word's stretch of the scroll, as the section comes up the screen: a fifth of a screen each, each starting a little after the one before, from the moment the headline's row comes on screen, all in before the section's top is half way up. */
-const wordRanges = () => Array.from({ length: WORDS }, (_, i) => `${NEAR} .cmc-w[data-w="${i}"]{animation-range:contain ${f3(SETTLE_FROM + i * 2.6)}svh contain ${f3(SETTLE_FROM + 21 + i * 2.6)}svh}`).join("\n    ")
-/* On a phone, the same words one after another on a timer: each 60ms after the one before. */
-const wordDelays = () => Array.from({ length: WORDS }, (_, i) => `.cmc-w[data-w="${i}"]{transition-delay:${i * 60}ms}`).join("\n    ")
-/*
- * Wave 17: the ring's turn runs the whole time the track is on screen, as it
- * did with "entry 0% exit 100%", but its start is written as a length of
- * scroll before "contain 0%" (the track's top at the screen's top). "entry
- * 0%" is the track's top at the screen's foot, so it moves with the
- * scrollport's height, and on an iPhone that grows and shrinks with Safari's
- * toolbar while svh does not: turning back mid-hold brought the toolbar out
- * and turned the ring a step (measured in Chromium at 390 wide with svh held
- * at a 664px screen, 664 -> 750 tall). "exit 100%" (the track's foot at the
- * screen's top) does not depend on the screen. Same numbers with the toolbar
- * out.
- */
-const SPIN_RANGE = "contain -100svh exit 100%"
+
 /*
  * Round 12 (the page audit: the scroll timeline animations were sampled while
  * the section was screens away): they apply only while the section is within
  * half a screen of the screen (data-cmc-near, useNear). Only the animations:
- * the held stage, its sticky place and the cards' pull stay in the layout
+ * the held stage, its sticky place and the cards' place stay in the layout
  * always, so the page's length never changes when the attribute does.
  */
 const NEAR = ".cmc[data-cmc-near]"
@@ -1588,6 +1519,9 @@ const SHARP_UNTIL = 12
 const SOFT_FROM = 30
 const DEPTH_FAR = 0.5
 
+/** A point of the heading's range as a percent of it. */
+const headAt = (v: number) => f3(((v - HEAD[0]) / (HEAD[3] - HEAD[0])) * 100)
+
 const ORBIT_CSS = `
 ${FLOATS.map((f) => `.cmc-o[data-f="${f.id}"]{${spotVars(f.d, f)}}`).join("\n")}
 @media (max-width:899px){
@@ -1600,16 +1534,10 @@ ${FLOATS.map((f) => (f.m ? `  .cmc-o[data-f="${f.id}"]{${spotVars(f.m, f)}}` : "
 /* The sharp object beside the phone, its blurred copy round the back: one cross fade, opacity only. */
 @keyframes cmc-near{0%,${SHARP_UNTIL}%,${100 - SHARP_UNTIL}%,100%{opacity:1}${SOFT_FROM}%,${100 - SOFT_FROM}%{opacity:0}}
 @keyframes cmc-far{0%,${SHARP_UNTIL}%,${100 - SHARP_UNTIL}%,100%{opacity:0}${SOFT_FROM}%,${100 - SOFT_FROM}%{opacity:1}}
-@keyframes cmc-spin{from{transform:${ringBox(-SCROLL_TURN)}}to{transform:${ringBox(SCROLL_TURN)}}}
-@keyframes cmc-unspin{from{transform:rotateY(${SCROLL_TURN}deg) rotateX(calc(var(--tilt) * -1))}to{transform:rotateY(${-SCROLL_TURN}deg) rotateX(calc(var(--tilt) * -1))}}
-/* Round 11: the phone starts big and low, rising from the stage's foot, and settles smaller under the headline. */
+/* Round 16: the phone from big, its top low on the stage, to settled under the heading. */
 @keyframes cmc-settle{from{transform:translate3d(0,var(--y0),0) scale(1)}to{transform:translate3d(0,var(--y1),0) scale(var(--ps))}}
-@keyframes cmc-word{from{opacity:0;transform:translate3d(0,${WORD_DROP}em,0)}to{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes cmc-recede{from{opacity:${RING_DIM};transform:scale(1)}to{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}}
-@keyframes cmc-back{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(0,var(--sink),0) scale(${PHONE_SINK_SCALE})}}
-@keyframes cmc-soft-phone{from{opacity:0}to{opacity:${PHONE_SOFT_TO}}}
-@keyframes cmc-out{from{opacity:1}to{opacity:0}}
-@keyframes cmc-in{from{opacity:0}to{opacity:1}}
+/* Round 16: the heading fades and rises in, holds, and fades as it lifts a little. */
+@keyframes cmc-head{0%{opacity:0;transform:translate3d(0,${HEAD_RISE}px,0);animation-timing-function:${HEAD_EASE}}${headAt(HEAD[1])}%,${headAt(HEAD[2])}%{opacity:1;transform:translate3d(0,0,0)}100%{opacity:0;transform:translate3d(0,-${HEAD_LIFT}px,0)}}
 `
 
 /* The digital products, drawn as objects. Each is sized in its own container units, so it is the same picture at any size. */
@@ -1712,10 +1640,9 @@ const SCENE_CSS = `
  * the reference.
  *
  * Round 14, phones (the owner: "a giant empty black space at the top" and the
- * products not visible): under 900px the phone no longer starts big and low.
- * It is drawn at its settled size and place from the first frame, under a
- * headline that is simply there, so the section arrives with the headline and
- * the phone, not a screen of black. The phone is narrower (PHONE_PE) and the
+ * products not visible): under 900px the phone is at its settled place from
+ * the first frame (round 16: big there at first, getting smaller round its
+ * top, --y0 is --y1), so the section never arrives as a screen of black. The phone is narrower (PHONE_PE) and the
  * ring wider (PHONE_R), its centre at the phone's foot and leaning more
  * (-20deg), so a product clears the phone's edge and stays on the screen and
  * the ring's near side passes under the phone, where the screen was black;
@@ -1723,11 +1650,11 @@ const SCENE_CSS = `
  * cards follow the stage with no empty hold (round 15: margin 0 under 900px).
  */
 .cmc-stage{position:relative;height:calc(100svh - var(--hd));overflow:hidden;
-  --hd:var(--home-header-height,64px);--top:0px;--tt:clamp(18px,3svh,30px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(12px,2svh,20px);
+  --hd:var(--home-header-height,64px);--top:0px;--tt:clamp(18px,3svh,30px);--pb:clamp(10px,1.8svh,20px);--gap:clamp(14px,2.4svh,24px);
   --fs:clamp(27px,8.2vw,40px);
   --pe:min(${PHONE_PE},calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
-  --big:1;--ps:1;--pw:calc(var(--pe) * var(--big));
-  --y0:var(--y1);--y1:calc(var(--top) + var(--tt) + var(--fs) * 2.1 + var(--gap));
+  --big:${PHONE_BIG};--ps:${f3(1 / PHONE_BIG)};--pw:calc(var(--pe) * var(--big));
+  --y1:calc(var(--top) + var(--tt) + var(--fs) * 2.1 + var(--gap));--y0:${BIG_TOP_PHONE};
   --r:${PHONE_R};--pp:calc(var(--r) * 3);--cy:calc(var(--y1) + var(--pe) * 2.07);--tilt:-20deg;--iw:calc(var(--pe) * 1.45);--sink:16svh}
 .cmc-copy{position:absolute;z-index:4;left:var(--edge);right:var(--edge);top:calc(var(--top) + var(--tt));text-align:center}
 .cmc-title{margin:0 auto;font-size:var(--fs);font-weight:300;line-height:1.04;letter-spacing:-.045em;color:#fff}
@@ -1744,7 +1671,7 @@ const SCENE_CSS = `
  * in the phone's own box, so the very transforms that carry the phone carry
  * it. A twin beside the phone running the same animations could fall a frame
  * behind while scrolling and let a product show through the fading phone.
- * The wrap only steps back (cmc-back), the ring alone fades (cmc-recede).
+ * The wrap only steps back (data-cmc-back), the ring alone fades.
  * Round 12: the shade fades only after the phone has gone (SHADE_OUT after
  * PHONE_OUT), so there is never a fading phone over a product.
  */
@@ -1778,11 +1705,13 @@ const SCENE_CSS = `
 .cmc-soft,.cmc-far{position:absolute;left:0;top:0;display:block;width:${SOFT_W}%;max-width:none;height:auto;margin:-${SOFT_PAD}% 0 0 -${SOFT_PAD}%;opacity:0;pointer-events:none;-webkit-user-drag:none;transform:rotate(var(--rz))}
 ${ORBIT_CSS}
 ${THINGS_CSS}
+/* Round 16: on a computer the settled phone a fifth of the screen wide, its top at least 42svh down, its foot below the screen as in the reference; the big one five thirds of it, a third of the screen. */
 @media (min-width:900px){
-  .cmc-stage{height:100svh;--hd:69px;--top:var(--hd);--tt:clamp(28px,6svh,72px);--pb:clamp(14px,2.2svh,28px);--gap:clamp(16px,2.6svh,32px);
+  .cmc-stage{height:100svh;--hd:69px;--top:var(--hd);--tt:clamp(28px,6svh,72px);--pb:clamp(14px,2.2svh,28px);--gap:clamp(20px,4svh,48px);
     --fs:clamp(36px,min(4.3vw,7.2svh),68px);
-    --pe:min(400px,calc((100svh - var(--hd) - var(--tt) - var(--fs) * 2.1 - var(--gap) - var(--pb)) / 2.07));
-    --big:${DESK_BIG};--ps:${f3(1 / DESK_BIG)};--y0:calc(var(--y1) + ${DESK_RISE});
+    --pe:clamp(220px,20vw,440px);
+    --big:${f3(DESK_BIG)};--ps:${f3(1 / DESK_BIG)};--y0:${BIG_TOP};
+    --y1:max(42svh,calc(var(--top) + var(--tt) + var(--fs) * 2.1 + var(--gap)));
     --r:min(44vw,880px);--cy:60svh;--tilt:-12deg;--iw:calc(var(--pe) * 1.5);--sink:24svh}
 }
 
@@ -1807,71 +1736,42 @@ ${THINGS_CSS}
   }
 
   /*
-   * With scroll timelines (the compositor runs them, nothing per frame in
-   * script), from 900px: the stage holds for DWELL; the phone starts big and
-   * low and settles smaller under the headline as its words rise in (round 15:
-   * while the section comes up the screen, before the hold); the scroll turns
-   * the ring a little further. Under 900px the scene moves in steps instead
-   * (round 15, see STEP_EASE and the block after this one).
+   * Round 16: the stage is held at every width (under the header on a phone),
+   * the cards come CARDS_AT after it, and the phone's settle and the heading
+   * follow the scroll on the compositor. Where scroll timelines are missing
+   * (Safari before 26) the stage is held all the same with the scene settled
+   * in it, and the cards come up over it: one rAF read of scrollY per frame
+   * was tried and measured (390 wide, 4x CPU, a finger in Chromium): half the
+   * frames at 33ms, the timelines at 16.7ms.
    */
+  .cmc-stage{position:sticky;top:var(--hd)}
+  .cmc-track > .cmc-cards{margin-top:${CARDS_AT}}
   @media (min-width:900px){
+    .cmc-stage{top:0}
+  }
   @supports (animation-timeline:view()){
     .cmc[data-story-section] > .cmc-track.cmc-track{view-timeline:--cmc-t block}
-    .cmc-stage{position:sticky;top:0}
-    .cmc-track > .cmc-cards{margin-top:calc(${DWELL} - ${OVERLAP})}
-    ${NEAR} .cmc-world{animation:cmc-settle cubic-bezier(.4,0,.2,1) both;animation-timeline:--cmc-t;animation-range:contain ${SETTLE_FROM}svh contain ${SETTLE}svh}
-    ${NEAR} .cmc-w{animation:cmc-word cubic-bezier(.2,.7,.3,1) both;animation-timeline:--cmc-t}
-    ${wordRanges()}
-    /*
-     * Round 10: the stage stays held behind the cards. As they come up the
-     * ring steps back (a little smaller, faded to ${RECEDE_TO}) and goes soft
-     * (each sharp object fades into its blurred copy), the sharp phone fades
-     * into its blurred copy and sinks behind them for the rest of the track
-     * (round 15), the headline fades before the cards reach it, and the ring
-     * keeps turning behind them.
-     */
-    ${NEAR} .cmc-phone-wrap{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain 100%}
-    ${NEAR} .cmc-ring{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1]}svh}
-    ${NEAR} .cmc-sharp{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
-    ${NEAR} .cmc-soft{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain ${RECEDE[0]}svh contain ${RECEDE[1] - 8}svh}
-    ${NEAR} .cmc-rise > .cmc-phone{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${PHONE_OUT[0]}svh contain ${PHONE_OUT[1]}svh}
-    ${NEAR} .cmc-phone-soft{animation:cmc-soft-phone linear both;animation-timeline:--cmc-t;animation-range:contain ${PHONE_OUT[0]}svh contain ${PHONE_OUT[1]}svh}
-    ${NEAR} .cmc-shade{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${SHADE_OUT[0]}svh contain ${SHADE_OUT[1]}svh}
-    ${NEAR} .cmc-copy{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain ${COPY_OUT[0]}svh contain ${COPY_OUT[1]}svh}
-    ${NEAR} .cmc-orbit{animation:cmc-spin linear both;animation-timeline:--cmc-t;animation-range:${SPIN_RANGE}}
-    ${NEAR} .cmc-face{animation:cmc-unspin linear both,cmc-depth ${TURN_S}s linear infinite;animation-timeline:--cmc-t,auto;animation-range:${SPIN_RANGE};animation-delay:0s,calc(var(--p) * -${TURN_S}s);animation-play-state:running,paused}
-    ${NEAR}:not([data-cmc-covered]) .cmc-stage[data-commerce-live] .cmc-face{animation-play-state:running,running}
+    ${NEAR} .cmc-world{animation:cmc-settle ${SETTLE_EASE} both;animation-timeline:--cmc-t;animation-range:contain ${SETTLE[0]}svh contain ${SETTLE_PHONE_END}svh}
+    ${NEAR} .cmc-copy{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain ${HEAD[0]}svh contain ${HEAD[3]}svh}
+    @media (min-width:900px){
+      ${NEAR} .cmc-world{animation-range:contain ${SETTLE[0]}svh contain ${SETTLE[1]}svh}
+    }
   }
-  }
+  /* will-change only while the section is near, on the phone inside the moving world (not on the world): the phone keeps one raster as the world scales (390 wide, 4x CPU, Chromium: 7 frames over 34ms in the settle instead of 12 to 15). */
+  ${NEAR} .cmc-rise{will-change:transform}
 
-  /*
-   * Round 15, phones: the scene in two steps (useStepScene). The stage is
-   * held as on a computer and the cards follow it with no empty hold. The
-   * first step's start is put in place only while the stage is wholly below
-   * the screen, so it is never seen being set; the observer then plays it, and
-   * the second step once the cards are up.
-   */
-  @media (max-width:899px){
-    .cmc-stage{position:sticky;top:var(--hd)}
-    .cmc-track > .cmc-cards{margin-top:0}
-    .cmc-world{transition:transform 1.1s ${STEP_EASE}}
-    .cmc-w{transition:opacity .7s ease,transform 1s ${STEP_EASE}}
-    ${wordDelays()}
-    .cmc[data-cmc-armed]:not([data-cmc-in]) .cmc-world{transform:translate3d(0,calc(var(--y1) + ${PHONE_RISE}),0) scale(${PHONE_RISE_SCALE});transition-duration:0s}
-    .cmc[data-cmc-armed]:not([data-cmc-words]) .cmc-w{opacity:0;transform:translate3d(0,${WORD_DROP}em,0);transition-duration:0s;transition-delay:0s}
-    .cmc-phone-wrap{transition:transform 1.2s ${STEP_EASE}}
-    .cmc-ring{transition:opacity .9s ease,transform 1.2s ${STEP_EASE}}
-    .cmc-rise > .cmc-phone,.cmc-phone-soft,.cmc-sharp,.cmc-soft{transition:opacity .7s ease}
-    .cmc-shade{transition:opacity .2s ease}
-    .cmc-copy{transition:opacity .5s ease}
-    .cmc[data-cmc-back] .cmc-phone-wrap{transform:translate3d(0,var(--sink),0) scale(${PHONE_SINK_SCALE})}
-    .cmc[data-cmc-back] .cmc-ring{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}
-    .cmc[data-cmc-back] :is(.cmc-rise > .cmc-phone,.cmc-sharp,.cmc-copy){opacity:0}
-    .cmc[data-cmc-back] .cmc-soft{opacity:1}
-    .cmc[data-cmc-back] .cmc-phone-soft{opacity:${PHONE_SOFT_TO}}
-    /* The shade goes only once the sharp phone has gone, and is back before it returns. */
-    .cmc[data-cmc-back] .cmc-shade{opacity:0;transition-delay:.6s}
-  }
+  /* The cards' arrival (useBack): the phone sinks behind them and goes soft, the ring steps back and goes soft; scrolled back, the other way. */
+  .cmc-phone-wrap{transition:transform 1.2s ${STEP_EASE}}
+  .cmc-ring{transition:opacity .9s ease,transform 1.2s ${STEP_EASE}}
+  .cmc-rise > .cmc-phone,.cmc-phone-soft,.cmc-sharp,.cmc-soft{transition:opacity .7s ease}
+  .cmc-shade{transition:opacity .2s ease}
+  .cmc[data-cmc-back] .cmc-phone-wrap{transform:translate3d(0,var(--sink),0) scale(${PHONE_SINK_SCALE})}
+  .cmc[data-cmc-back] .cmc-ring{opacity:${RECEDE_TO};transform:scale(${RECEDE_SCALE})}
+  .cmc[data-cmc-back] :is(.cmc-rise > .cmc-phone,.cmc-sharp){opacity:0}
+  .cmc[data-cmc-back] .cmc-soft{opacity:1}
+  .cmc[data-cmc-back] .cmc-phone-soft{opacity:${PHONE_SOFT_TO}}
+  /* The shade goes only once the sharp phone has gone, and is back before it returns. */
+  .cmc[data-cmc-back] .cmc-shade{opacity:0;transition-delay:.6s}
 }
 
 /*

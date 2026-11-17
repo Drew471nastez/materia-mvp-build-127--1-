@@ -74,21 +74,25 @@ check("armed only while a part is wholly below the screen, so a part mounted on 
 // Changed on purpose (landing round 9): the owner: the phone comes first and comes down with the scroll; a scroll timeline of transform.
 // Changed on purpose (landing round 10): the track also holds the cards (the stage stays behind them), so the ranges are in svh of scroll, not percent of the track.
 /* Changed on purpose (landing round 15): on a computer it starts before the hold; on a phone it is a transition after data-cmc-in (useStepScene). */
-check("the phone's move is a transform on the scroll timeline, never from off screen", /\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t;animation-range:contain -?\d+svh contain \d+svh\}/.test(css) && !/data-cmc-in/.test(css.slice(0, css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:var(--hd)}") /* Changed on purpose (landing round 15): held under the header on a phone */)))
+// Changed on purpose (landing round 16): at every width, from 88svh before the hold.
+check("the phone's move is a transform on the scroll timeline", /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.333,0,\.667,\.333\) both;animation-timeline:--cmc-t;animation-range:contain -88svh contain -8svh\}/.test(css) && !/data-cmc-in/.test(css))
 // Changed on purpose (landing round 7): the words are armed by the headline's own attribute.
 // Changed on purpose (landing round 9): the owner: the heading "should not be there by default", it is revealed as the page scrolls; each word on the scroll timeline.
 // Changed on purpose (landing round 15): the words rise out of their rows (each row clips them), from 1.3em down.
-check("  the words fade and lift, transform and opacity only", /@keyframes cmc-word\{from\{opacity:0;transform:translate3d\(0,1\.3em,0\)\}to\{opacity:1;transform:translate3d\(0,0,0\)\}\}/.test(css) && /\.cmc-w\{animation:cmc-word [^;]*both;animation-timeline:--cmc-t\}/.test(css))
+// Changed on purpose (landing round 16): the heading fades and lifts as one box.
+check("  the heading fades and lifts, transform and opacity only", /@keyframes cmc-head\{0%\{opacity:0;transform:translate3d\(0,28px,0\);[^@]*100%\{opacity:0;transform:translate3d\(0,-14px,0\)\}\}/.test(css) && /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(css))
 // Changed on purpose (landing round 9): the owner asked for a short sticky stage here: one screen, the cards pulled up 56svh.
 // Changed on purpose (landing round 10): the stage is held for a screen and then stays behind the cards: the track holds both, the cards 44svh (100svh less 56svh) under the stage's foot.
 /* Changed on purpose (landing round 15): 80svh of hold before the cards. */
-check("the stage is held by sticky for one screen, the cards pulled up 56svh", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(80svh - 56svh\)\}/.test(css))
+// Changed on purpose (landing round 16): the cards 40svh after the held stage.
+check("the stage is held by sticky, the cards 40svh after it", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:40svh\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css))
 // Changed on purpose (landing round 7): the phone is centred under the headline; up to 390px wide on a computer.
 // Changed on purpose (landing round 9): the owner: "the phone is bigger".
 // Changed on purpose (landing round 11): the settled phone is up to 400px; it starts bigger.
 // Changed on purpose (wave 18): --hd is the header's measured 69px at 1440 and --tt the air under it is larger: the heading was glued to the header.
 // Changed on purpose (landing round 15): from 900px the stage is the whole screen again (under 900px it is held under the header).
-check("the phone is a little bigger on a computer (up to 400px wide, centred)", /@media \(min-width:900px\)\{\s*\.cmc-stage\{height:100svh;--hd:69px;[^}]*--pe:min\(400px,/.test(css))
+// Changed on purpose (landing round 16): a fifth of the screen on a computer (the owner's reference).
+check("the phone is a fifth of the screen on a computer, centred", /@media \(min-width:900px\)\{\s*\.cmc-stage\{height:100svh;--hd:69px;[^}]*--pe:clamp\(220px,20vw,440px\);/.test(css))
 // Changed on purpose (landing round 7): One-tap is the page's Apple Pay, the wallet's sheet and Payment complete.
 // Changed on purpose (landing round 11): the in-page checkout's moves.
 check("the One-tap demo's moves are transform and opacity", ["ic-pay", "ic-sheet", "ap-sheet", "ap-done", "ic-done"].every((k) => keyframes(k) && onlyCompositor(keyframes(k))))

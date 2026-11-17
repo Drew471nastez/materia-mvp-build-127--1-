@@ -49,7 +49,7 @@ console.log("\nHeading and line kept")
 {
   // Changed on purpose (landing round 13): the owner asked for a new heading and line (tests/home-landing-r13-business.test.ts).
   // Changed on purpose (landing round 14): the heading is "From a cookbook to a coaching call".
-  check("the heading and its line are round 13's", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ BUSINESS_HEADING === "Ship it, stream it or book it" /* Changed on purpose (landing round 15): the owner disliked "From a cookbook to a coaching call" and the green after it: "Ship it, stream it or book it", "book" in Storelib violet. */ && BUSINESS_SUB.split(/\s+/).length <= 10)
+  check("the heading and its line are round 13's", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ /* Changed on purpose (landing round 16): the owner disliked "Ship it, stream it or book it": "A page that fits what you sell", "fits" in the same purple. */ BUSINESS_HEADING === "A page that fits what you sell" /* Changed on purpose (landing round 15): the owner disliked "From a cookbook to a coaching call" and the green after it: "Ship it, stream it or book it", "book" in Storelib violet. */ && BUSINESS_SUB.split(/\s+/).length <= 10)
   check("five kinds in the same order", BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
 }
 
@@ -65,7 +65,7 @@ console.log("\nDigital and physical: round 12's retirements stay")
   check("no tee, cap, tote or print left in the scene or its pictures", !/bz-tee|bz-cap|bz-tote|bz-print|Studio Tee|Studio Cap|Market Tote|Field Study|PHYSICAL_PRODUCTS|TeeScene/.test(code(MOCKS) + code(SECTION) + physical) && !["bz-tee", "bz-cap", "bz-tote", "bz-print", "bz-presets", "bz-drums"].some((n) => existsSync(pic(n))))
   // Changed on purpose (landing round 14): the moment is in each shelf product's button: Buy, Downloading over a fill, done.
   /* Changed on purpose (landing round 15): the owner disliked the shelf; the buy is in the product page's button (Buy for $34, then In your library) and the purchase lands in the library. */
-  check("the download moment is still in the button: Pay, Downloading over a fill, done", /class="bs-btn bl-buy"><span class="a">Buy for \$34<\/span><span class="b">/.test(digital) && /In your library/.test(digital))
+  check("the download moment is still in the button: Pay, Downloading over a fill, done", /* Changed on purpose (landing round 16): Buy turns into Download PDF, the line over it says it is in the library. */ /class="bs-btn bk-btn"><span class="a">Buy for \$34<\/span><span class="b">/.test(digital) && /in your library/.test(digital))
   // Changed on purpose (landing round 14): no CSS loop at all; the store designs turn by Web Animations only while shown (tests/home-landing-r14-business.test.ts).
   check("one loop only, the store designs' walk", !/infinite/.test(motion) && !/bt-walk/.test(motion))
   void small

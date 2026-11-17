@@ -44,7 +44,7 @@ console.log("\nThe tab control: words and a ring, not pills with a line")
   // Changed on purpose (landing round 12): no scene loops any more (one e-book, one oil), so every turn is the usual length.
   // Changed on purpose (landing round 13): physical's turn is four moves of its line of store designs; the others the usual length.
   // Changed on purpose (landing round 14): digital's turn is 8 s, long enough for the shelf to show itself and its bought product to stand a moment.
-  check("every kind's turn is the usual length but physical's", BUSINESS_SLIDE_MS === 6500 && BUSINESS_SLIDES.every((s) => s.id === "physical" ? s.ms === 9600 : s.id === "digital" ? s.ms === 10400 : s.ms === undefined) && html.includes(`--biz-ms:10400ms`)) /* Changed on purpose (landing round 15): digital's turn is three purchases of 3.2 s and a moment for the last to stand, 10.4 s. */
+  check("every kind's turn is the usual length but physical's", BUSINESS_SLIDE_MS === 6500 && BUSINESS_SLIDES.every((s) => s.id === "physical" ? s.ms === 9600 : /* Changed on purpose (landing round 16): one purchase, the usual turn. */ s.ms === undefined) && html.includes(`--biz-ms:6500ms`)) /* Changed on purpose (landing round 15): digital's turn is three purchases of 3.2 s and a moment for the last to stand, 10.4 s. */
   const src = code(SECTION)
   check("autoplay stays: picking a word never stops it; hover, a finger, off screen and a hidden tab hold it", /onClick=\{\(\) => go\(i\)\}/.test(src) && !/t\.select\(/.test(src) && /\{\.\.\.t\.hoverProps\}/.test(src) && /onPointerDown=\{hold\}/.test(src) && /const run = t\.run && !held/.test(src) && /data-live=\{t\.live \|\| undefined\}/.test(src))
   check("arrow keys move along the row and down the index", /NEXT_KEYS = \["ArrowRight", "ArrowDown"\]/.test(src) && /PREV_KEYS = \["ArrowLeft", "ArrowUp"\]/.test(src))
@@ -74,7 +74,7 @@ console.log("\nDigital and physical: what round 9 removed stays removed")
   // Changed on purpose (landing round 13): two digital products and one order card.
   // Changed on purpose (landing round 14): digital is a shelf of six with the cookbook and the course on it.
   /* Changed on purpose (landing round 15): digital is a product page with three products bought in turn, the cookbook and the course among them. */
-  check("digital is two products with one order card", d.includes("Ancestral Kitchen") && d.includes("Daily Mobility") && (d.match(/class="bl-pane"/g) ?? []).length === 3)
+  check("digital is two products with one order card", /* Changed on purpose (landing round 16): one book and its buy card. */ d.includes("Ancestral Kitchen") && (d.match(/class="bs-card bk-buy"/g) ?? []).length === 1)
   check("the Second Brain tablet is gone, with its pictures", !/Second Brain|bs-tablet|bn-|Brain/.test(code(MOCKS)) && ["cover", "daily", "work", "health", "goals"].every((n) => !existsSync(`public/home/showcase/bz-brain-${n}.webp`)))
   const t = renderToStaticMarkup(createElement(TeeScene))
   // Changed on purpose (landing round 13): physical is six store designs in a line, each a sixth of the loop apart.

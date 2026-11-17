@@ -105,10 +105,12 @@ check("covering a sheet re-renders nothing but the section that asks (no React s
 console.log("\n4a. The domain reel")
 check("every ending is one Storelib connects, at www", DOMAIN_ENDINGS.every((e) => hostnameProblem(`${DOMAIN_NAME}.${e}`) === null && servingHost(`${DOMAIN_NAME}.${e}`) === `www.${DOMAIN_NAME}.${e}`), DOMAIN_ENDINGS.map((e) => [e, hostnameProblem(`${DOMAIN_NAME}.${e}`)]))
 const reel = renderToStaticMarkup(createElement(DomainReel))
-check("a column and the pill, each the list twice over, all loops .ev-loop", (reel.match(/class="pz-d-row"/g) ?? []).length === DOMAIN_ENDINGS.length * 4 && (reel.match(/ev-loop/g) ?? []).length === 3 && /class="pz-d-pill"/.test(reel) && /class="pz-d-globe"/.test(reel) && /pz-d-cursor/.test(reel))
+// Changed on purpose (landing round 16): the pointer rests, so the two lists are the only loops.
+check("a column and the pill, each the list twice over, all loops .ev-loop", (reel.match(/class="pz-d-row"/g) ?? []).length === DOMAIN_ENDINGS.length * 4 && (reel.match(/ev-loop/g) ?? []).length === 2 && /class="pz-d-pill"/.test(reel) && /class="pz-d-globe"/.test(reel) && /pz-d-cursor/.test(reel))
 check("the pill's ending in Storelib violet", /\.pz-d-end-on\{font-weight:650;color:#7c3aed\}/.test(DOMAIN_CSS))
 const keyframes = DOMAIN_CSS.match(/@keyframes [\s\S]*?\}\}/g) ?? []
-check("only transform moves, by translate3d and scale", keyframes.length === 2 && keyframes.every((k) => !/(top|left|height|width|margin|opacity|filter)\s*:/.test(k.replace(/transform:[^}]*/g, ""))))
+// Changed on purpose (landing round 16): the pointer's press went, so the reel's glide is the one keyframe set.
+check("only transform moves, by translate3d and scale", keyframes.length === 1 && keyframes.every((k) => !/(top|left|height|width|margin|opacity|filter)\s*:/.test(k.replace(/transform:[^}]*/g, ""))))
 check("the reel ends where it began (-50% is the second copy's first row)", /100%\{transform:translate3d\(0,-50%,0\)\}/.test(DOMAIN_CSS))
 check("aria hidden: it is a picture", /<div class="ev-vis pz-d" aria-hidden="true">/.test(reel))
 
