@@ -5,6 +5,11 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Services": "Servizi",
+ "Link in bio": "Link in bio",
+ "Your name, your Storelib address and a photo.": "Il tuo nome, il tuo indirizzo Storelib e una foto.",
+ "What brings you here?": "Cosa ti porta qui?",
+ "Pick all that apply.": "Scegli tutto ciò che fa per te.",
  "Sell online": "Vendere online",
  "Sell digital products": "Vendere prodotti digitali",
  "Run courses": "Tenere corsi",

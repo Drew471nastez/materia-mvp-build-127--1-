@@ -414,7 +414,7 @@ export function PlanCards({
           On a phone the aside takes its own line under the pill, at the right.
         */}
         {split != null ? (
-          <div data-plan-interval-row="" data-plan-split="" className="mb-6 flex flex-col items-start gap-4 sm:mb-8 md:flex-row md:items-end md:justify-between md:gap-8">
+          <div data-plan-interval-row="" data-plan-split="" className="mb-6 flex flex-col items-start gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between md:gap-8">
             <div className="min-w-0">{split}</div>
             {hideInterval ? null : (
               <div data-plan-split-switch="" className="shrink-0">

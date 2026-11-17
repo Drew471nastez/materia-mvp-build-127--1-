@@ -85,7 +85,7 @@ async function main() {
     const ob = readFileSync("components/app/creator-onboarding-modal.tsx", "utf8")
     /* Changed on purpose (the full screen redesign): floating white cards, 22px, over the home page's film darkened and blurred. */
     check("the card is less round and stands on a ground with depth", /rounded-\[22px\] bg-white shadow-/.test(ob) && !/rounded-\[44px\]/.test(ob) && /overlayClassName=\{ONBOARDING_GROUND\}/.test(ob) && /<OnboardingBackdrop \/>/.test(ob))
-    check("the page step is not about a store only", /Set up your page/.test(ob) && !/"Name your store"/.test(ob) && /Your name or brand/.test(ob))
+    check("the page step is not about a store only", /Let's get started/.test(ob) && !/"Name your store"/.test(ob) && /Your name or brand/.test(ob))
     /* Changed on purpose (the full screen redesign): the category step became what they came to do, several pills at once, in the step, never a second dialog. */
     check("what they came to do is pills in the step, never in a second dialog", /data-onboarding-goals=""/.test(ob) && !/More Categories/.test(ob) && /toggleGoal\(g\.id\)/.test(ob))
   }

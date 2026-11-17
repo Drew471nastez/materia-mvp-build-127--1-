@@ -130,7 +130,7 @@ for (const [label, viewport] of SIZES) {
   page.on("pageerror", (e) => errors.push(String(e)))
   await page.setViewport(viewport)
   await page.goto(base)
-  await page.waitForSelector("[data-onboarding-goals]", { timeout: 15000 })
+  await page.waitForSelector("[data-onboarding-identity]", { timeout: 15000 })
   await wait(400)
   const shot = async (name) => { if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `fs-${label}-${name}.png`) }) }
   const look = async (name) => {
@@ -149,20 +149,57 @@ for (const [label, viewport] of SIZES) {
     await wait(450)
   }
 
-  await shot("1-goals")
-  await look("goals")
-  await page.click('[data-onboarding-step] [data-onboarding-goal="digital_products"]')
-  await page.click('[data-onboarding-step] [data-onboarding-goal="courses"]')
-  await next()
+  /*
+    NOTHING MOVES UP OR DOWN WHEN THE STEP CHANGES. Every animation frame of a
+    change, where the arriving step's heading sits: from its first frame to
+    its last it holds one place, so a taller or shorter step only ever grows
+    downwards (the leaving one is held where it was, and only fades).
+  */
+  const steady = async (name) => {
+    const samples = page.evaluate(() => new Promise((done) => {
+      const out = []
+      const t0 = performance.now()
+      const tick = () => {
+        const all = [...document.querySelectorAll("[data-onboarding-step] header, [data-onboarding-step] [data-plan-split]")]
+        out.push(all.map((h) => Math.round(h.getBoundingClientRect().top)))
+        if (performance.now() - t0 < 520) requestAnimationFrame(tick)
+        else done(out)
+      }
+      requestAnimationFrame(tick)
+    }))
+    await page.click("[data-onboarding-step] [data-onboarding-next]")
+    const frames = await samples
+    await wait(120)
+    const tops = frames.flat()
+    const spread = tops.length ? Math.max(...tops) - Math.min(...tops) : 0
+    report[`${label} ${name} heading tops`] = { spread, frames: frames.length }
+    if (spread > 1) problems.push(`${at} ${name}: the heading moved ${spread}px up or down while the step changed`)
+  }
 
   await page.waitForSelector("[data-onboarding-step] [data-onboarding-identity]")
+  const head1 = await page.$eval("[data-onboarding-step] header h1", (el) => el.textContent.trim())
+  if (head1 !== "Let's get started") problems.push(`${at} the first step reads ${JSON.stringify(head1)}`)
+  if (await page.$("[data-onboarding-leave]")) problems.push(`${at} the top row still has a way out ("Not now")`)
   await page.evaluate(() => document.querySelector("[data-onboarding-step] [data-onboarding-name] input")?.focus())
   await page.keyboard.down("Control"); await page.keyboard.press("a"); await page.keyboard.up("Control")
   await page.type("[data-onboarding-step] [data-onboarding-name] input", "Andrei Balan Studio")
   await wait(900)
-  await shot("2-identity")
+  await shot("1-identity")
   await look("identity")
-  await next()
+  await steady("page to goals")
+  await wait(300)
+
+  await page.waitForSelector("[data-onboarding-step] [data-onboarding-goals]")
+  await shot("2-goals")
+  await look("goals")
+  const perRow = await page.evaluate(() => { const ys = [...document.querySelectorAll("[data-onboarding-step] [data-onboarding-goal]")].map((b) => Math.round(b.getBoundingClientRect().top)); return Math.max(...ys.map((y) => ys.filter((z) => z === y).length)) })
+  if (perRow !== 2) problems.push(`${at} the goals are ${perRow} to a row, not 2`)
+  const cut = await page.evaluate(() => [...document.querySelectorAll("[data-onboarding-step] [data-onboarding-goal] span")].filter((el) => el.scrollWidth > el.clientWidth + 0.5).map((el) => el.textContent))
+  if (cut.length) problems.push(`${at} goal labels are cut off: ${cut.join(", ")}`)
+  await page.click('[data-onboarding-step] [data-onboarding-goal="digital_products"]')
+  await page.click('[data-onboarding-step] [data-onboarding-goal="courses"]')
+  await steady("goals to socials")
+  await wait(300)
 
   await page.waitForSelector("[data-onboarding-step] [data-onboarding-socials]")
   await page.type('[data-onboarding-step] [data-onboarding-social="instagram"] input', "andreibalan")
@@ -172,16 +209,16 @@ for (const [label, viewport] of SIZES) {
   /* Back keeps what was typed, both ways. */
   await page.click("[data-onboarding-step] [data-onboarding-back]")
   await wait(450)
-  const kept = await page.evaluate(() => document.querySelector("[data-onboarding-step] [data-onboarding-name] input")?.value)
-  if (kept !== "Andrei Balan Studio") problems.push(`${at} Back lost the name (${JSON.stringify(kept)})`)
-  await page.click("[data-onboarding-step] [data-onboarding-back]")
-  await wait(450)
   const goalsKept = await page.evaluate(() => [...document.querySelectorAll('[data-onboarding-step] [data-onboarding-goal][aria-pressed="true"]')].map((b) => b.getAttribute("data-onboarding-goal")))
   if (goalsKept.join() !== "digital_products,courses") problems.push(`${at} Back lost the goals (${goalsKept.join()})`)
+  await page.click("[data-onboarding-step] [data-onboarding-back]")
+  await wait(450)
+  const kept = await page.evaluate(() => document.querySelector("[data-onboarding-step] [data-onboarding-name] input")?.value)
+  if (kept !== "Andrei Balan Studio") problems.push(`${at} Back lost the name (${JSON.stringify(kept)})`)
   await next(); await next()
   const socialKept = await page.evaluate(() => document.querySelector('[data-onboarding-step] [data-onboarding-social="instagram"] input')?.value)
   if (socialKept !== "andreibalan") problems.push(`${at} the Instagram name was lost (${JSON.stringify(socialKept)})`)
-  await next()
+  await steady("socials to plans")
 
   await page.waitForSelector("[data-onboarding-step] [data-plan-card]")
   await wait(500)
