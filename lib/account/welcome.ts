@@ -1,4 +1,4 @@
-import { BUYER_HOME, SELL_INTENT, type AuthIntent } from "@/lib/auth/continue"
+import { BUYER_HOME, SELL_INTENT, SELL_PATH, type AuthIntent } from "@/lib/auth/continue"
 
 /**
  * ===========================================================================
@@ -74,9 +74,35 @@ export function welcomeHref(destination: string | null | undefined): string {
   return next ? `${WELCOME_PATH}?next=${encodeURIComponent(next)}` : WELCOME_PATH
 }
 
-/** Where the decision sends them: through the question when it is wanted, else straight on. */
-export function throughWelcome(destination: string, input: Parameters<typeof welcomeWanted>[0]): string {
-  return welcomeWanted(input) ? welcomeHref(destination) : destination
+/*
+  NO QUESTION AT THE DOOR (the owner: "get rid of the intent thing; Sell,
+  Log in or Sign up on Storelib takes me through the normal onboarding").
+  A new account that came to Storelib itself (the home page, pricing,
+  features, nothing at all) is here to make something, so it goes straight
+  into seller onboarding on /sell. Only an account that came for something
+  it can buy or join (a product, a download, the library, a community, a
+  creator's page, an invite, Discover itself) gets the short profile slides
+  and then goes back to that thing.
+*/
+const PLAIN_PAGES = ["/", "/pricing", "/features", "/themes", "/alternatives", "/blog", "/faq", "/developers", "/sell", "/help", "/legal", "/instagram-bio"]
+
+/** The page they came from says nothing about buying or joining: no page at all, or Storelib's own marketing. */
+export function isPlainArrival(from: string | null | undefined): boolean {
+  if (from == null || from === "") return true
+  if (!from.startsWith("/") || from.startsWith("//")) return false
+  const path = from.split(/[?#]/)[0].toLowerCase().replace(/\/+$/, "") || "/"
+  return PLAIN_PAGES.some((p) => path === p || (p !== "/" && path.startsWith(`${p}/`)))
+}
+
+/**
+ * Where the decision sends them: through the first steps when they are wanted, else straight on.
+ * `from` is the page carried through the sign in (null when there was none); left out, it is not
+ * known and the profile slides are used as before.
+ */
+export function throughWelcome(destination: string, input: Parameters<typeof welcomeWanted>[0] & { from?: string | null }): string {
+  if (!welcomeWanted(input)) return destination
+  if (input.from !== undefined && isPlainArrival(input.from)) return SELL_PATH
+  return welcomeHref(destination)
 }
 
 /** Where to send someone who has not finished join onboarding, or null when they may stay. */

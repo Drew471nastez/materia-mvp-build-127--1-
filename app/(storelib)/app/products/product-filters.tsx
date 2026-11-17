@@ -1,12 +1,57 @@
 "use client"
 
 import { memo, useEffect, useState } from "react"
-import { Filter, X } from "lucide-react"
+import { Filter } from "lucide-react"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "../analytics/add-reports"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import type { ProductFilterValue, ProductListStatus, StockFilter } from "@/lib/products/admin-filters"
+
+/*
+  Products round 15: "smoother and cleaner, and the checkboxes too", and no X.
+  The sheet closes by its handle, a tap outside, Escape, or Apply and Reset;
+  a screen reader still has a Close button, out of sight until it has focus.
+*/
+
+/** A row is the whole press: the name on the left, the box on the right. */
+const ROW =
+  "group/filter flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl px-3 text-[15px] text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+
+/** A checkbox drawn for Storelib: a soft square that fills with the /app violet, and a tick that draws in. */
+function FilterCheck({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <span className="relative grid h-[22px] w-[22px] shrink-0 place-items-center">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-[7px] border-[1.5px] border-[#d1d5db] bg-white outline-none transition-[background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/filter:border-[#b6bac2] checked:border-[#8b5cf6] checked:bg-[#8b5cf6] group-hover/filter:checked:border-[#7c3aed] group-hover/filter:checked:bg-[#7c3aed] focus-visible:shadow-[0_0_0_3px_rgba(139,92,246,0.25)] motion-reduce:transition-none"
+      />
+      <svg
+        aria-hidden
+        viewBox="0 0 16 16"
+        className="pointer-events-none relative h-3.5 w-3.5 scale-50 text-white opacity-0 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] peer-checked:scale-100 peer-checked:opacity-100 motion-reduce:transition-none"
+      >
+        <path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  )
+}
+
+function Group<T extends string>({ legend, options, chosen, onToggle }: { legend: string; options: [T, string][]; chosen: T[]; onToggle: (id: T) => void }) {
+  return (
+    <fieldset className="min-w-0">
+      <legend className="mb-1 px-3 text-[13px] font-medium text-[#6b7280]">{legend}</legend>
+      {options.map(([id, label]) => (
+        <label key={id} className={ROW} data-filter-option={id}>
+          <span className="min-w-0 truncate">{label}</span>
+          <FilterCheck checked={chosen.includes(id)} onChange={() => onToggle(id)} />
+        </label>
+      ))}
+    </fieldset>
+  )
+}
 
 export const ProductFilters = memo(function ProductFilters({ value, onApply }: { value: ProductFilterValue; onApply: (value: ProductFilterValue) => void }) {
   const [open, setOpen] = useState(false)
@@ -37,21 +82,22 @@ export const ProductFilters = memo(function ProductFilters({ value, onApply }: {
       <Filter className="h-5 w-5" />
       {count > 0 ? <span aria-hidden className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#8b5cf6]" /> : null}
     </button>
-    <SheetDialog open={open} onClose={() => setOpen(false)} phone={phone} label={tt("Filters")} showCloseButton={false} sheet={{ fill: false, maxHeight: "90dvh", onClosed: () => { if (pending) { onApply(pending); setPending(null) } } }} className="max-w-[460px] gap-0 rounded-3xl bg-white p-0" dialog={{ "aria-describedby": undefined }}>
-      <div className="px-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] pt-2 md:pt-5">
-        <div className="relative mb-5 flex h-11 items-center justify-center">
-          <button type="button" aria-label={tt("Close")} onClick={() => setOpen(false)} className="absolute left-0 grid h-11 w-11 place-items-center rounded-full outline-none hover:bg-[#f5f6f8] focus-visible:ring-2"><X className="h-5 w-5" /></button>
-          <SheetDialogTitle className="text-[17px] font-semibold">{tt("Filters")}</SheetDialogTitle>
+    <SheetDialog open={open} onClose={() => setOpen(false)} phone={phone} label={tt("Filters")} showCloseButton={false} sheet={{ fill: false, maxHeight: "90dvh", onClosed: () => { if (pending) { onApply(pending); setPending(null) } } }} className="max-w-[420px] gap-0 rounded-2xl sm:max-w-[420px] border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]" dialog={{ "aria-describedby": undefined }}>
+      <div data-filters-sheet="" className="px-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] pt-1 md:px-3 md:pt-4">
+        <div className="relative mb-2 flex h-10 items-center justify-center">
+          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{tt("Filters")}</SheetDialogTitle>
+          {/* Out of sight: the handle, a tap outside and Escape close it; a screen reader or a Tab still finds this. */}
+          <button type="button" onClick={() => setOpen(false)} className="sr-only rounded-lg text-[14px] focus-visible:px-2 text-[#6b7280] outline-none focus-visible:not-sr-only focus-visible:absolute focus-visible:left-1 focus-visible:top-1.5 focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40">{tt("Close")}</button>
         </div>
-        <fieldset className="mb-6">
-          <legend className="mb-2 w-full border-b border-[#e5e7eb] pb-3 text-[16px] font-semibold">{tt("Status")}</legend>
-          {([ ["published", tt("Public")], ["draft", tt("Draft")], ["archived", tt("Archived")] ] as [ProductListStatus, string][]).map(([id, label]) => <label key={id} className="flex min-h-11 cursor-pointer items-center gap-3 text-[16px]"><input type="checkbox" checked={draft.statuses.includes(id)} onChange={() => toggle("statuses", id)} className="h-6 w-6 rounded-lg accent-[#1a1a2e]" />{label}</label>)}
-        </fieldset>
-        <fieldset className="mb-6">
-          <legend className="mb-2 w-full border-b border-[#e5e7eb] pb-3 text-[16px] font-semibold">{tt("Stock")}</legend>
-          {([["available", tt("Available")], ["sold-out", tt("Sold out")]] as [StockFilter, string][]).map(([id, label]) => <label key={id} className="flex min-h-11 cursor-pointer items-center gap-3 text-[16px]"><input type="checkbox" checked={draft.stock.includes(id)} onChange={() => toggle("stock", id)} className="h-6 w-6 rounded-lg accent-[#1a1a2e]" />{label}</label>)}
-        </fieldset>
-        <div className="grid gap-2"><button type="button" onClick={() => apply(draft)} className={cn(PRIMARY_BUTTON, "h-12 w-full")}>{tt("Apply filters")}</button><button type="button" onClick={() => apply({ statuses: [], stock: [] })} className={cn(SECONDARY_BUTTON, "h-12 w-full bg-[#f3f4f6]")}>{tt("Reset")}</button></div>
+        <div className="space-y-4">
+          <Group legend={tt("Status")} options={[["published", tt("Public")], ["draft", tt("Draft")], ["archived", tt("Archived")]] as [ProductListStatus, string][]} chosen={draft.statuses} onToggle={(id) => toggle("statuses", id)} />
+          <div className="mx-3 h-px bg-[#eef0f2]" aria-hidden />
+          <Group legend={tt("Stock")} options={[["available", tt("Available")], ["sold-out", tt("Sold out")]] as [StockFilter, string][]} chosen={draft.stock} onToggle={(id) => toggle("stock", id)} />
+        </div>
+        <div className="mt-5 grid grid-cols-[1fr_2fr] gap-2 px-2">
+          <button type="button" onClick={() => apply({ statuses: [], stock: [] })} className={cn(SECONDARY_BUTTON, "h-12 w-full rounded-xl border-transparent bg-[#f3f4f6] text-[15px] shadow-none transition-colors duration-150 hover:bg-[#eceef1] active:bg-[#e5e7eb]")}>{tt("Reset")}</button>
+          <button type="button" onClick={() => apply(draft)} className={cn(PRIMARY_BUTTON, "h-12 w-full rounded-xl text-[15px] transition-colors duration-150")}>{tt("Apply filters")}</button>
+        </div>
       </div>
     </SheetDialog>
   </>

@@ -248,7 +248,7 @@ function main() {
   check("/sell opens the onboarding with no second check and the same first frame as its loading",
     /<CreatorOnboardingModal[\s\S]*open=\{open\}[\s\S]*leave=\{\{ label: "Not now", href: leaveHref \}\}/.test(code("app/(storelib)/(auth)/sell/sell-onboarding.tsx"))
       && !/auth\.get(User|Session)/.test(code("app/(storelib)/(auth)/sell/sell-onboarding.tsx"))
-      && /AuthResolvingScreen/.test(code("app/(storelib)/(auth)/sell/loading.tsx")))
+      && /bg-\[#0b0b0f\]/.test(code("app/(storelib)/(auth)/sell/loading.tsx")) && /bg-\[#0b0b0f\]/.test(code("app/(storelib)/(auth)/sell/sell-onboarding.tsx")))
   check("a paid plan's checkout comes back to /sell",
     /successUrl: `\$\{origin\}\/sell\?stripe_success=1&tier=\$\{planId\}`/.test(code("components/app/creator-onboarding-modal.tsx")) && /cancelUrl: `\$\{origin\}\/sell`/.test(code("components/app/creator-onboarding-modal.tsx")))
 

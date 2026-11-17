@@ -127,7 +127,8 @@ check("  where capped, its drawing keeps its shape and sits in the middle (a 48 
 /* Changed on purpose (landing round 13, the owner: "like it's on desktop, but on mobile"): the computer's picture, only smaller, no layout of its own on a phone. */
 check("  a phone draws the computer's 48 x 42 picture, scaled", /\.cmc-vis\{height:auto;aspect-ratio:48\/42;/.test(css) && /\.cmc-vis-in\{font-size:calc\(100cqw \/ 48\)\}/.test(css))
 // Changed on purpose (landing round 11): the settled phone's width (--pe) is the room one screen leaves under a two row headline; the big phone it starts as is a multiple of it.
-check("the stage itself stays one small screen tall (svh), the phone sized from it", /\.cmc-stage\{position:relative;height:100svh;/.test(css) && /--pe:min\(400px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css))
+// Changed on purpose (landing round 15): under 900px the stage is held under the header, so it is the screen less the header there; from 900px one screen as before.
+check("the stage itself stays one small screen tall (svh), the phone sized from it", /\.cmc-stage\{position:relative;height:calc\(100svh - var\(--hd\)\);/.test(css) && /\.cmc-stage\{height:100svh;--hd:69px;/.test(css) && /--pe:min\(400px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css))
 
 console.log("\n6. Reduced motion and no scroll timelines")
 // Changed on purpose (landing round 11): the copies' rule is shared with cmc-far.

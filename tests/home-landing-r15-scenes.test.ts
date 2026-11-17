@@ -50,17 +50,20 @@ console.log("\n── checkout: no black block, the scene back on a phone ──
   const css = CHECKOUT_STYLES.map((s) => s.css).join("\n")
   const src = read("components/marketing/home/checkout-scene.tsx")
   const html = renderToStaticMarkup(createElement(CheckoutScene))
-  const desk = css.slice(css.indexOf("@media (min-width:900px){\n  @supports (animation-timeline:view()){"), css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:0}"))
-  const phone = css.slice(css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:0}"), css.indexOf("The cards: no ground of their own"))
+  // Changed on purpose (landing round 15, second pass): on a phone the stage is held under the header (top: --hd); it opens with the headline and the phone's top, not the header's height of black.
+  const desk = css.slice(css.indexOf("@media (min-width:900px){\n  @supports (animation-timeline:view()){"), css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:var(--hd)}"))
+  const phone = css.slice(css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:var(--hd)}"), css.indexOf("The cards: no ground of their own"))
   check("the settle and the words run as the section comes up the screen, before the hold", /\.cmc-world\{animation:cmc-settle[^}]*animation-range:contain -84svh contain 14svh\}/.test(desk) && /\.cmc-w\[data-w="0"\]\{animation-range:contain -84svh contain -63svh\}/.test(desk))
-  check("the big phone starts just under its settled place, not 40svh down a black stage", /--y0:calc\(var\(--y1\) \+ 12svh\)/.test(css) && !/--y0:40svh/.test(css))
+  // Changed on purpose (landing round 15, second pass): the phone rises 22svh into place from 1.12x (tests/home-landing-r15-checkout.test.ts).
+  check("the big phone starts just under its settled place, not 40svh down a black stage", /--y0:calc\(var\(--y1\) \+ 22svh\)/.test(css) && !/--y0:40svh/.test(css))
   check("20svh less hold before the cards", /\.cmc-track > \.cmc-cards\{margin-top:calc\(80svh - 56svh\)\}/.test(desk))
-  check("on a phone the stage is held and the cards follow it straight on", /\.cmc-stage\{position:sticky;top:0\}/.test(phone) && /\.cmc-track > \.cmc-cards\{margin-top:0\}/.test(phone))
+  check("on a phone the stage is held and the cards follow it straight on", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}/.test(phone) && /\.cmc-track > \.cmc-cards\{margin-top:0\}/.test(phone))
   check("on a phone nothing follows the scroll frame by frame: transitions only", phone.length > 0 && !/animation-timeline|animation:/.test(phone) && /transition:transform 1\.1s/.test(phone))
-  check("the phone rises and settles, the words rise one after another, once the observer plays it", /\.cmc\[data-cmc-armed\]:not\(\[data-cmc-in\]\) \.cmc-world\{transform:translate3d\(0,calc\(var\(--y1\) \+ 9svh\),0\) scale\(1\.12\);transition-duration:0s\}/.test(phone) && (phone.match(/\.cmc-w\[data-w="\d"\]\{transition-delay:\d+ms\}/g) ?? []).length === 8)
+  // Changed on purpose (landing round 15, second pass): the phone starts 7svh low at 1.04x; the words have their own step (data-cmc-words).
+  check("the phone rises and settles, the words rise one after another, once the observer plays it", /\.cmc\[data-cmc-armed\]:not\(\[data-cmc-in\]\) \.cmc-world\{transform:translate3d\(0,calc\(var\(--y1\) \+ 7svh\),0\) scale\(1\.04\);transition-duration:0s\}/.test(phone) && (phone.match(/\.cmc-w\[data-w="\d"\]\{transition-delay:\d+ms\}/g) ?? []).length === 8)
   check("behind the cards on a phone: the phone sinks and goes soft, the ring steps back, the headline fades", /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(phone) && /\.cmc\[data-cmc-back\] \.cmc-phone-soft\{opacity:0\.3\}/.test(phone) && /\.cmc\[data-cmc-back\] \.cmc-shade\{opacity:0;transition-delay:\.6s\}/.test(phone))
   check("the steps are set by observers only: no scroll listener, no rAF, no layout read", /function useStepScene/.test(src) && /useStepScene\(rootRef\)/.test(src) && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
-  check("reduced motion: nothing armed, nothing held", /if \(matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return\n\s*const stage/.test(src) && /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*@media \(max-width:899px\)\{\n\s*\.cmc-stage\{position:sticky;top:0\}/.test(css))
+  check("reduced motion: nothing armed, nothing held", /if \(matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return\n\s*const stage/.test(src) && /@media \(prefers-reduced-motion:no-preference\)\{[\s\S]*@media \(max-width:899px\)\{\n\s*\.cmc-stage\{position:sticky;top:var\(--hd\)\}/.test(css))
   check("on a computer the phone goes soft and sinks behind the cards to the track's end", /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 100%\}/.test(desk) && /\.cmc-phone-soft\{animation:cmc-soft-phone linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 60svh\}/.test(desk) && /--sink:24svh/.test(css))
   const soft = "/home/commerce/soft-phone.webp"
   const size = existsSync(join(root, "public", soft)) ? webp(soft) : null

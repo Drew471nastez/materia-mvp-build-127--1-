@@ -192,7 +192,7 @@ export async function GET(request: Request) {
   const handed = !hasSellerAccess(access) && !teamMember && !carry.next && !carry.intent ? await handedHomeFor(data.user.id) : null
   const opened = destinationWithAppOpen(handed ?? destinationAfterAuth(carry, access, { teamMember }), data.user.user_metadata, carry.next)
   if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
-  const destination = throughWelcome(opened.destination, { createdAt: data.user.created_at, meta: data.user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent })
+  const destination = throughWelcome(opened.destination, { createdAt: data.user.created_at, meta: data.user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent, from: handed || teamMember || opened.used ? undefined : carry.next })
 
   /*
     WHAT THEY BOUGHT AS A GUEST WITH THIS ADDRESS IS THEIRS NOW, as the

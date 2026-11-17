@@ -76,7 +76,8 @@ check("a short flick is a card", (SHOWCASE_GESTURE.axisSlop as number) === 4 && 
 
 console.log("\n── The showcase: the cards inside the section ──")
 /* Changed on purpose (landing round 6): the owner saw the captions cut by the section's edge; the cards now end inside it with room under their captions, and a phone card is a 4:3 card (tests/home-landing-r6-showcase.test.ts). */
-check("phone cards are 4:3, no longer 60% of the width tall", /--showcase-card:min\(78vw,440px\)/.test(showcase) && !/--showcase-height/.test(showcase) && !/51\.5vw/.test(showcase))
+// Changed on purpose (landing round 15): a phone card is 85% of the screen (the owner: "1.1 view, not 1.2").
+check("phone cards are 4:3, no longer 60% of the width tall", /--showcase-card:min\(85vw,440px\)/.test(showcase) && !/--showcase-height/.test(showcase) && !/51\.5vw/.test(showcase))
 // Changed on purpose (landing round 7): the owner: "the bottom padding of the section under the hero is too short"; 52 to 96px under the caption line, 44 to 64px on a phone (tests/home-landing-r7-frame.test.ts).
 check("padding under the cards", /\.build-showcase-card \{[^}]*padding:clamp\(72px,7vw,112px\) 0 clamp\(52px,5\.4vw,96px\)\}/.test(showcase) && /\.build-showcase-card\{padding:64px 0 clamp\(44px,12vw,64px\)\}/.test(showcase))
 check("the rail no longer runs past the bottom edge", !/margin-bottom:calc\([^)]*\* -\.(12|028)\)/.test(showcase))

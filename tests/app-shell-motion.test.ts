@@ -525,7 +525,7 @@ section("One scrollbar track on a computer, always there, never moving")
     const products = code("app/(storelib)/app/products/products-client.tsx")
     check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
       within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
-        && !heavy.test(products) && HALO_WITHIN.test(products) && !/focus-within:ring|focus:ring-\[#8b5cf6\]/.test(products)
+        && !heavy.test(products) && /* Changed on purpose (products refresh, 6355fb7): the Products search is a borderless field inside the toolbar, so it has no box to halo. */ (HALO_WITHIN.test(products) || /<label data-search="" className="flex min-w-0 flex-1/.test(products)) && !/focus-within:ring|focus:ring-\[#8b5cf6\]/.test(products)
         && !/placeholder="Search countries\.\.\."[\s\S]{0,500}focus:ring-\[#8b5cf6\]/.test(code("components/app/settings-form-new.tsx"))
         && /<ChoicePicker/.test(code("components/app/settings/country-picker.tsx")) && !/<input/.test(code("components/app/settings/country-picker.tsx"))
         && /focus-visible:shadow-\[inset_0_0_0_1px_#c9ccd3,0_0_0_3px_rgba\(17,17,19,0\.06\)\]/.test(code("components/app/app-search.tsx")) && !/focus-visible:ring-\[#8b5cf6\]/.test(code("components/app/app-search.tsx")),

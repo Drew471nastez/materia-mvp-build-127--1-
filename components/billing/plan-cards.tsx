@@ -143,13 +143,18 @@ function DarkArrow() {
  * (creators-carousel.tsx, .cc-cta-ic), the other way round: a white disc on
  * the purple with a purple arrow, set in at the button's right end so the
  * label stays centred like the other two. It nudges right on hover.
+ *
+ * Landing round 15, the owner: on hover a soft white outline eases in around
+ * the disc, a hair off its edge (.plan-disc::after in PLAN_BUTTON_CSS). It
+ * fades and grows from just inside to its place, so it never jumps; the
+ * box shadow it replaces stepped in as one ring.
  */
 function DiscArrow({ compact }: { compact?: boolean }) {
   return (
     <span
       aria-hidden="true"
       data-plan-arrow="disc"
-      className={`absolute right-[5px] top-1/2 grid ${compact ? "h-[30px] w-[30px]" : "h-[34px] w-[34px]"} -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_0_rgba(255,255,255,0)] transition-shadow duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_3px_rgba(255,255,255,0.34)] motion-reduce:transition-none`}
+      className={`plan-disc absolute right-[5px] top-1/2 grid h-[34px] w-[34px] -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18)]`}
     >
       <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-x-[2px] motion-reduce:transition-none">
         <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" />
@@ -162,7 +167,7 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
   const live = !action.settled && !action.loading
   const disc = live && featured
   const className =
-    `group relative inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full ${disc ? (compact ? "px-11" : "px-12") : "px-5"} ` +
+    `group relative inline-flex w-full h-11 items-center justify-center gap-2 rounded-full ${disc ? (compact ? "px-11" : "px-12") : "px-5"} ` +
     "text-[14px] no-underline select-none transition-[background-color,border-color,color,box-shadow] duration-200 " +
     "focus-visible:outline-none focus-visible:ring-4 " +
     (action.settled
@@ -352,7 +357,14 @@ export function PlanCards({
   hideInterval = false,
   contactSales = false,
   aside,
+  split,
 }: {
+  /**
+   * A heading for the row the cards sit under (the onboarding's plan step):
+   * it takes the left and Monthly / Yearly the right from 768px, both on the
+   * cards' own edges; on a phone the switch goes under the words.
+   */
+  split?: React.ReactNode
   /** Something at the top right of the cards, level with the Monthly and Yearly pill (/pricing's "Compare all features" link). */
   aside?: React.ReactNode
   /**
@@ -388,19 +400,29 @@ export function PlanCards({
     <>
       <style href="plan-cards" precedence="default">{PLAN_BUTTON_CSS}</style>
       {heading != null ? <div data-plan-heading-row="" className="mb-4">{heading}</div> : null}
-      {hideInterval || aside != null ? null : (
+      {hideInterval || aside != null || split != null ? null : (
         <div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">
           <IntervalSwitch value={interval} onChange={pick} />
         </div>
       )}
       {/* What the three cards (and the contact bar) sit in. Landing round 12, the owner: no light grey ground behind them any more (it was #efeff0, padded); the row keeps its width, so the cards take the room the ground had. */}
-      <div data-plan-ground="" className={`mx-auto w-full ${compact ? "max-w-[980px]" : "max-w-[1180px]"} ${className}`}>
+      <div data-plan-ground="" className={`mx-auto w-full ${compact ? (split != null ? "max-w-[1056px]" : "max-w-[980px]") : "max-w-[1180px]"} ${className}`}>
         {/*
           WITH SOMETHING AT THE TOP RIGHT (landing round 14, /pricing's
           "Compare all features"): the row sits inside the cards' own width,
           the pill still centred and the aside at the right edge of the cards.
           On a phone the aside takes its own line under the pill, at the right.
         */}
+        {split != null ? (
+          <div data-plan-interval-row="" data-plan-split="" className="mb-6 flex flex-col items-start gap-4 sm:mb-8 md:flex-row md:items-end md:justify-between md:gap-8">
+            <div className="min-w-0">{split}</div>
+            {hideInterval ? null : (
+              <div data-plan-split-switch="" className="shrink-0">
+                <IntervalSwitch value={interval} onChange={pick} />
+              </div>
+            )}
+          </div>
+        ) : null}
         {aside != null ? (
           <div data-plan-interval-row="" className="mb-4 flex flex-col items-center gap-3 sm:mb-6 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-4">
             <span aria-hidden="true" className="hidden sm:block" />
@@ -432,17 +454,29 @@ export function PlanCards({
 /*
   THE BUTTONS' HOVER (landing round 15, the owner). A band of faint light
   crosses a live button once as the pointer arrives: a pseudo element under
-  the label (z-index -1 in the button's own stacking context), moved by
-  a translate only. It snaps back with no transition when the pointer leaves,
-  hidden past the button's right edge, so it never sweeps backwards. Only
-  where there is a pointer that hovers, and never under reduced motion.
+  the label (z-index -1 in the button's own stacking context), moved by a
+  translate only. The owner, a second time: the light was too strong and too
+  quick. It is half as bright now (a peak of 8% white, not 16%), wider and
+  softer at its edges, and takes 1.6s on an even ease in and out, so it
+  drifts across rather than flashes. When the pointer leaves it fades out
+  first and only then goes back, hidden, so it never jumps or sweeps
+  backwards. Only where there is a pointer that hovers, and never under
+  reduced motion.
+
+  Grow's disc: a 1.5px white outline 3.5px off its edge, faded out and drawn
+  a little smaller until the button is hovered or focused, then eased to its
+  place (opacity and scale only).
 */
 const PLAN_BUTTON_CSS = `
 .plan-shine{overflow:hidden;isolation:isolate}
-.plan-shine::before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:0;width:45%;pointer-events:none;background:linear-gradient(105deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.16) 50%,rgba(255,255,255,0) 100%);translate:-105% 0}
+.plan-shine::before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:0;width:60%;pointer-events:none;background:linear-gradient(105deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.035) 30%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.035) 70%,rgba(255,255,255,0) 100%);translate:-105% 0;opacity:0;transition:opacity .3s ease,translate 0s linear .3s}
 @media (hover:hover) and (prefers-reduced-motion:no-preference){
-  .plan-shine:hover::before{translate:235% 0;transition:translate .85s cubic-bezier(.25,.7,.25,1)}
+  .plan-shine:hover::before{translate:175% 0;opacity:1;transition:translate 1.6s cubic-bezier(.45,.05,.35,1),opacity .4s ease}
 }
+.plan-disc::after{content:"";position:absolute;inset:-3.5px;border-radius:9999px;border:1.5px solid rgba(255,255,255,.62);opacity:0;scale:.88;pointer-events:none;transition:opacity .45s ease,scale .6s cubic-bezier(.22,1,.36,1)}
+.plan-shine:focus-visible .plan-disc::after{opacity:1;scale:1}
+@media (hover:hover){.plan-shine:hover .plan-disc::after{opacity:1;scale:1}}
+@media (prefers-reduced-motion:reduce){.plan-disc::after{transition:none}}
 `
 
 /**

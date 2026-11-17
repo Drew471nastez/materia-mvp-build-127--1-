@@ -41,7 +41,7 @@ console.log("\nA clearer, simpler heading")
   // Changed on purpose (landing round 11): the owner did not like "What will you sell?"; the heading is "One store, every kind of product" (tests/home-landing-r11-business.test.ts).
   // Changed on purpose (landing round 13): "Five ways to get paid" (tests/home-landing-r13-business.test.ts).
   // Changed on purpose (landing round 14): "From a cookbook to a coaching call".
-  check("the heading is short, not the old line", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ (BUSINESS_HEADING as string) === "Sell files, parcels or your time" && !read(SECTION).includes("One store for everything you sell."))
+  check("the heading is short, not the old line", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ (BUSINESS_HEADING as string) === "Ship it, stream it or book it" /* Changed on purpose (landing round 15): the owner disliked "From a cookbook to a coaching call" and the green after it: "Ship it, stream it or book it", "book" in Storelib violet. */ && !read(SECTION).includes("One store for everything you sell."))
   // Changed on purpose (landing round 10): the line under the heading is gone ("it doesn't make sense").
   const words = `${BUSINESS_HEADING} ${BUSINESS_SLIDES.map((s) => s.alt).join(" ")}`
   check("no banned words, no em dash, no 'fans' or 'enthusiasts'", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|\bfans\b|enthusiast/i.test(words) && !/—/.test(words + read(MOCKS)))
@@ -78,7 +78,8 @@ console.log("\nMoving scenes, transform and opacity only")
   // Changed on purpose (landing round 12): digital downloads in its button (be-fill), physical adds the oil to the cart (bz-in on its button).
   // Changed on purpose (landing round 13): physical is the line of store designs walking (bt-walk).
   // Changed on purpose (landing round 14): the download moment plays when a product is bought, and the store designs glide by Web Animations.
-  check("each scene has its own moment", [/\.bd-fill\{animation:be-fill/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
+  /* Changed on purpose (landing round 15): the digital moment is the library's list stepping down a row at each purchase. */
+  check("each scene has its own moment", [/\.bl-d\{animation:bl-drop/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
   check("the moments run only on the chosen scene (and the one fading out)", /className=\{on \? "biz-slide bz-on" : "biz-slide"\}/.test(read(SECTION)) && /const on = state === "active" \|\| state === "leaving"/.test(read(SECTION)))
   // Changed on purpose (landing round 14): the shelf answers a pointer with transitions, on opacity and transform only.
   check("nothing in the scenes is a transition (every change is one of those keyframes)", (BUSINESS_MOCK_CSS.match(/transition:[^;}]*/g) ?? []).every((t) => /^transition:((opacity|transform|visibility)[^,]*,?)+$/.test(t.replace(/\([^)]*\)/g, ""))))

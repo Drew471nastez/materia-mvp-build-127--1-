@@ -102,7 +102,7 @@ export const MARQUEE_TILTS = [-7, 45, 6, -4, 45, 9, -10, 45, 4] as const
 const CSS = `
 .um{position:relative;background:#fff;color:#18181b;overflow:clip;padding-block:clamp(64px,8vw,120px)}
 .um-head{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin:0 auto clamp(30px,3.4vw,52px);padding-inline:calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
-.um-sub{margin:18px 0 0;max-width:46ch;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#6b6874;text-wrap:pretty}
+/* Landing round 15, later (the owner): the line under the heading is gone at every width; the heading stands alone. */
 [data-landing-story] [data-story-section] > .um-rows,.um-rows{max-width:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(10px,1.6vw,28px)}
 .um-row{--pic:clamp(54px,5.6vw,108px);position:relative;width:100%;overflow:hidden;overflow:clip visible;padding-block:calc(var(--pic) * .1)}
 .um-row::before,.um-row::after{content:"";position:absolute;top:-30px;bottom:-30px;z-index:1;width:clamp(44px,13vw,260px);pointer-events:none}
@@ -137,8 +137,6 @@ const CSS = `
 /* Landing round 13 (the owner: now "too small"): half way back. At 390 the heading is 33px (wave 18: 30, before: 36), the photos 51px (47, before 54), the line 15.5px and the labels 17px. From 768px nothing changes. */
 @media(max-width:767px){
   .um .story-heading{font-size:clamp(28px,8.5vw,36px)}
-  /* Landing round 15, the owner: on a phone the heading stands alone, without the line under it. */
-  .um-sub{display:none}
   .um-row{--pic:clamp(46px,13vw,56px)}
   .um-item{gap:13px;margin-right:37px;font-size:17px}
 }
@@ -200,7 +198,6 @@ export function ProductMarquee() {
       {/* A header, not a div: the page's 1400px column rule for a section's divs does not reach it, so it takes the shared home width. */}
       <header className="um-head">
         <StoryHeading id="um-title" text="Unlimited possibilities" accent={["possibilities"]} />
-        <p className="um-sub">Whatever you make, there is a place for it on Storelib. Sell it, book it, teach it or ship it.</p>
       </header>
       <div className="um-rows">
         {MARQUEE_ROWS.map((row, i) => (

@@ -13,8 +13,11 @@
  *   PRODUCTS  what Gumroad has, one row each with a checkbox. A row opens to
  *             its title, price and option prices. A product Storelib cannot
  *             take as a digital product (a membership, a thing that ships, a
- *             bundle) says why and has no checkbox; one already imported
- *             links to its Storelib product instead.
+ *             bundle) says why and has no checkbox. One already in the
+ *             store (lib/products/import/duplicates: imported before, the
+ *             same address or the same title) says "Already in your
+ *             products", links to it, and is skipped unless the seller picks
+ *             Import a copy; the server refuses a second one otherwise.
  *   DONE      each product as it went in, a draft, with Edit beside it, and
  *             the one thing left to do: upload its files and publish.
  *
@@ -24,16 +27,19 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowLeft, ChevronDown } from "lucide-react"
+import { ArrowLeft, Check, ChevronDown, Loader2, Search } from "lucide-react"
+import { SiGumroad } from "@/components/icons/brand/SiGumroad"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { accentDepth } from "@/components/ui/depth-button"
 import { toMajor, toMinor } from "@/lib/payments/money"
 import { Checkbox, GUTTER, LIST_BAR, PaneBar, StatusBadge, buttonSecondary, card, formatMoney, iconButton } from "../../../orders/order-parts"
+import { Segmented } from "../../new/editor-controls"
 import { gumroadToHundredths, type ImportCandidate, type ImportNote } from "@/lib/products/import/gumroad"
+import type { DuplicateMatch } from "@/lib/products/import/duplicates"
 
-type Candidate = ImportCandidate & { importedProductId: string | null }
+type Candidate = ImportCandidate & { importedProductId: string | null; existing: DuplicateMatch | null }
 
 interface Listed {
   products: Candidate[]
@@ -127,6 +133,7 @@ export function GumroadImportClient() {
   const [open, setOpen] = React.useState<Set<string>>(new Set())
   const [progress, setProgress] = React.useState<{ done: number; total: number } | null>(null)
   const [results, setResults] = React.useState<{ id: string; title: string; outcome: Outcome }[] | null>(null)
+  const [query, setQuery] = React.useState("")
 
   async function findProducts(e: React.FormEvent) {
     e.preventDefault()
@@ -151,8 +158,11 @@ export function GumroadImportClient() {
       }
       const next: Record<string, Draft> = {}
       const needsPrice = new Set<string>()
+      /* An older server sent only the import link; it is the same answer. */
+      for (const p of body.products) p.existing = p.existing ?? (p.importedProductId ? { productId: p.importedProductId, title: p.title, by: "source" } : null)
       for (const p of body.products) {
-        const selectable = !p.unsupported && !p.importedProductId
+        /* Already in the store: skipped unless a copy is picked. */
+        const selectable = !p.unsupported && !p.existing
         next[p.gumroadId] = {
           selected: selectable,
           title: p.title,
@@ -172,9 +182,13 @@ export function GumroadImportClient() {
   }
 
   const products = listed?.products ?? []
+  /* A long list is searched by title; what is ticked stays ticked whether it shows or not. */
+  const shown = query.trim() ? products.filter((p) => (drafts[p.gumroadId]?.title || p.title).toLowerCase().includes(query.trim().toLowerCase())) : products
   const currency = listed?.currency ?? "USD"
-  const choosable = products.filter((p) => !p.unsupported && !p.importedProductId)
-  const chosen = choosable.filter((p) => drafts[p.gumroadId]?.selected)
+  const choosable = products.filter((p) => !p.unsupported && !p.existing)
+  /* Every product going in: the new ones ticked, and the ones already in the store a copy was picked for. */
+  const chosen = products.filter((p) => !p.unsupported && drafts[p.gumroadId]?.selected)
+  const already = products.filter((p) => !p.unsupported && p.existing).length
   const missingPrice = chosen.filter((p) => readPrice(drafts[p.gumroadId].price, currency) === null || !drafts[p.gumroadId].title.trim())
 
   const update = (id: string, change: Partial<Draft>) => setDrafts((d) => ({ ...d, [id]: { ...d[id], ...change } }))
@@ -185,7 +199,9 @@ export function GumroadImportClient() {
       else n.add(id)
       return n
     })
-  const setAll = (on: boolean) => setDrafts((d) => Object.fromEntries(Object.entries(d).map(([id, v]) => [id, { ...v, selected: on && choosable.some((p) => p.gumroadId === id) }])))
+  /* Select all and Clear leave the ones already in the store as they are. */
+  const setAll = (on: boolean) => setDrafts((d) => Object.fromEntries(Object.entries(d).map(([id, v]) => [id, choosable.some((p) => p.gumroadId === id) ? { ...v, selected: on } : v])))
+  const newChosen = chosen.filter((p) => !p.existing).length
 
   async function runImport() {
     if (!chosen.length || missingPrice.length) {
@@ -215,10 +231,12 @@ export function GumroadImportClient() {
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
           cache: "no-store",
-          body: JSON.stringify({ action: "import", item }),
+          body: JSON.stringify({ action: "import", item, url: p.gumroadUrl, copy: !!p.existing }),
         })
-        const body = (await res.json().catch(() => null)) as { status?: string; productId?: string; imagesFailed?: number; variantsSaved?: boolean; error?: string } | null
-        if (res.ok && body?.status === "imported" && body.productId) outcome = { kind: "imported", productId: body.productId, imagesFailed: body.imagesFailed ?? 0, variantsSaved: body.variantsSaved !== false }
+        const body = (await res.json().catch(() => null)) as { status?: string; productId?: string; imagesFailed?: number; variantsSaved?: boolean; error?: string; existing?: DuplicateMatch } | null
+        /* The server found it in the store since the list was read: nothing written, the one there is linked. */
+        if (body?.status === "duplicate" && body.existing) outcome = { kind: "exists", productId: body.existing.productId }
+        else if (res.ok && body?.status === "imported" && body.productId) outcome = { kind: "imported", productId: body.productId, imagesFailed: body.imagesFailed ?? 0, variantsSaved: body.variantsSaved !== false }
         else if (res.ok && body?.status === "exists" && body.productId) outcome = { kind: "exists", productId: body.productId }
         else outcome = { kind: "failed", message: res.status === 429 ? tt("Too many tries. Wait a few minutes and try again.") : importError(body?.status === "busy" ? "busy" : body?.error) }
         if (body?.error === "not_ready") {
@@ -262,6 +280,12 @@ export function GumroadImportClient() {
           <Done results={results} />
         ) : !listed ? (
           <form onSubmit={findProducts} className={cn(card, "p-4 sm:p-5")} data-gumroad-token="">
+            <div className="mb-3 flex items-center gap-3">
+              <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#e5e7eb] bg-white">
+                <SiGumroad size={18} color="#1a1a2e" />
+              </span>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Every product on your Gumroad account")}</p>
+            </div>
             <ol className="mb-4 list-decimal space-y-1 pl-5 text-[14px] leading-6 text-[#1a1a2e]">
               <li>{tt("In Gumroad, open Settings › Advanced.")}</li>
               <li>{tt("Under Applications, create one. Any name works; for the redirect URI type http://127.0.0.1.")}</li>
@@ -286,6 +310,7 @@ export function GumroadImportClient() {
             </p>
             <div className="mt-4 flex justify-end">
               <button type="submit" disabled={busy || !token.trim()} className={PRIMARY}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
                 {busy ? tt("Reading Gumroad") : tt("Find products")}
               </button>
             </div>
@@ -305,13 +330,26 @@ export function GumroadImportClient() {
                   {products.length === 0 ? tt("No products on this Gumroad account") : tt("{selected} of {count} selected", { selected: chosen.length, count: products.length })}
                 </p>
                 {choosable.length > 1 ? (
-                  <button type="button" className="h-11 text-[14px] font-medium text-[#6d28d9] sm:h-8 sm:text-[13px]" onClick={() => setAll(chosen.length < choosable.length)}>
-                    {chosen.length < choosable.length ? tt("Select all") : tt("Clear")}
+                  <button type="button" className="h-11 text-[14px] font-medium text-[#6d28d9] sm:h-8 sm:text-[13px]" onClick={() => setAll(newChosen < choosable.length)}>
+                    {newChosen < choosable.length ? tt("Select all") : tt("Clear")}
                   </button>
                 ) : null}
               </div>
+              {already > 0 ? (
+                <p className={cn(MUTED, "border-b border-[#eef0f2] px-4 py-2.5")} data-gumroad-already="">
+                  {already === 1 ? tt("1 is already in your products and is skipped unless you import a copy.") : tt("{count} are already in your products and are skipped unless you import a copy.", { count: already })}
+                </p>
+              ) : null}
+              {products.length > 8 ? (
+                <label className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-4">
+                  <Search aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
+                  <span className="sr-only">{tt("Search products")}</span>
+                  <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search products")} className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[14px]" />
+                </label>
+              ) : null}
+              {shown.length === 0 && products.length > 0 ? <p className={cn(MUTED, "px-4 py-6 text-center")}>{tt("No products match.")}</p> : null}
               <ul>
-                {products.map((p) => (
+                {shown.map((p) => (
                   <ProductRow
                     key={p.gumroadId}
                     product={p}
@@ -366,7 +404,10 @@ function ProductRow({
   onToggle: () => void
   onChange: (c: Partial<Draft>) => void
 }) {
-  const selectable = !p.unsupported && !p.importedProductId && !!draft
+  const existing = p.unsupported ? null : p.existing
+  /* A product already in the store has the Skip or Import a copy choice instead of a checkbox. */
+  const selectable = !p.unsupported && !existing && !!draft
+  const copying = !!existing && !!draft?.selected
   const price = draft ? readPrice(draft.price, currency) : null
   const notes = p.notes.map((n) => noteText(n, p, currency)).filter((n): n is string => !!n)
   const panel = `gumroad-row-${p.gumroadId.replace(/[^A-Za-z0-9_-]/g, "")}`
@@ -375,7 +416,11 @@ function ProductRow({
     <li className="border-b border-[#eef0f2] last:border-b-0" data-gumroad-row={p.gumroadId}>
       <div className="flex min-h-16 items-center gap-3 px-4 py-2.5">
         {selectable ? (
-          <Checkbox checked={!!draft?.selected} onChange={(on) => onChange({ selected: on })} label={tt("Import {name}", { name: p.title })} />
+          <label className="-m-3.5 grid h-11 w-11 shrink-0 cursor-pointer place-items-center">
+            <Checkbox checked={!!draft?.selected} onChange={(on) => onChange({ selected: on })} label={tt("Import {name}", { name: p.title })} />
+          </label>
+        ) : copying ? (
+          <Check className="h-4 w-4 shrink-0 text-[#8b5cf6]" strokeWidth={3} aria-hidden />
         ) : (
           <span className="h-4 w-4 shrink-0" aria-hidden />
         )}
@@ -388,10 +433,11 @@ function ProductRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-medium text-[#1a1a2e] sm:text-[14px]">{draft?.title || p.title}</p>
           <p className={cn(MUTED, !p.unsupported && "truncate")}>
+            {!p.published ? <span className="sm:hidden">{tt("Unpublished on Gumroad")} · </span> : null}
             {p.unsupported
               ? unsupportedText(p)
-              : p.importedProductId
-                ? tt("Already in your store")
+              : existing
+                ? tt("Already in your products")
                 : price !== null
                   ? p.payWhatYouWant
                     ? tt("Pay what you want, from {price}", { price: formatMoney(price, currency) })
@@ -399,10 +445,10 @@ function ProductRow({
                   : tt("Needs a price")}
           </p>
         </div>
-        {!p.published ? <StatusBadge tone="neutral" className="max-sm:hidden">{tt("Unpublished on Gumroad")}</StatusBadge> : null}
-        {p.importedProductId ? (
-          <Link href={editHref(p.importedProductId)} className={cn(buttonSecondary, "max-sm:h-10")}>
-            {tt("Edit")}
+        {!p.published ? <StatusBadge tone="neutral" className="shrink-0 max-sm:hidden">{tt("Unpublished on Gumroad")}</StatusBadge> : null}
+        {existing ? (
+          <Link href={editHref(existing.productId)} className={cn(buttonSecondary, "max-sm:h-10")}>
+            {tt("Open")}
           </Link>
         ) : selectable ? (
           <button
@@ -413,12 +459,24 @@ function ProductRow({
             onClick={onToggle}
             className={cn(iconButton, "h-11 w-11 sm:h-8 sm:w-8")}
           >
-            <ChevronDown className={cn("h-4 w-4 transition-transform duration-150", expanded && "rotate-180")} />
+            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200 motion-reduce:transition-none", expanded && "rotate-180")} />
           </button>
         ) : null}
       </div>
 
-      {selectable && expanded && draft ? (
+      {existing && draft ? (
+        <div className="px-4 pb-3 sm:pl-[60px]" data-gumroad-duplicate="">
+          <div className="sm:max-w-[280px]">
+            <Segmented<"skip" | "copy">
+              label={tt("Already in your products: {name}", { name: p.title })}
+              value={draft.selected ? "copy" : "skip"}
+              onChange={(v) => onChange({ selected: v === "copy" })}
+              options={[{ value: "skip", label: tt("Skip") }, { value: "copy", label: tt("Import a copy") }]}
+            />
+          </div>
+        </div>
+      ) : null}
+      {(selectable || copying) && expanded && draft ? (
         <div id={panel} className="space-y-3 px-4 pb-4 sm:pl-[60px]">
           <div>
             <label className={LABEL} htmlFor={`${panel}-title`}>
@@ -479,7 +537,7 @@ function ProductRow({
           ))}
         </div>
       ) : null}
-      {selectable && draft?.selected ? (
+      {(selectable || copying) && draft?.selected ? (
         <p className={cn(MUTED, "px-4 pb-3 sm:pl-[60px]")} data-files-note="">
           {tt("Files are not copied. Upload them again in the product editor.")}
         </p>
@@ -511,7 +569,7 @@ function Done({ results }: { results: { id: string; title: string; outcome: Outc
                       .filter(Boolean)
                       .join(" ")
                   : r.outcome.kind === "exists"
-                    ? tt("Already in your store")
+                    ? tt("Already in your products")
                     : r.outcome.message}
               </p>
             </div>
