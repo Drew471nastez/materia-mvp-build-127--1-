@@ -500,31 +500,29 @@ export function LandingStory({ children }: { children: ReactNode }) {
   over the same. Still once: a block is let go after it shows and never
   hidden again, scrolling back up or down.
 */
-const EASE = "cubic-bezier(.22,1,.36,1)"
-/** Landing round 11: the entrance on a phone or touch screen. */
-export const TOUCH_MS = 700
-export const TOUCH_RISE_PX = 12
-export const TOUCH_EASE = "cubic-bezier(.25,.6,.3,1)"
+const EASE = "cubic-bezier(.25,.6,.3,1)"
+/*
+  Landing round 15 (the owner: sections should come up "more smooth and clean ... not so visually heavy"): one calm
+  entrance everywhere, the touch one. A block fades as it rises REVEAL_RISE_PX over REVEAL_MS; a heading rises as one
+  piece (no word by word: a dozen staggered words per heading was the heavy part, and as many animations at once).
+*/
+export const REVEAL_MS = 600
+export const REVEAL_RISE_PX = 10
+/** Landing round 11: the entrance on a phone or touch screen (now the same everywhere). */
+export const TOUCH_MS = REVEAL_MS
+export const TOUCH_RISE_PX = REVEAL_RISE_PX
+export const TOUCH_EASE = EASE
 export const REVEAL_CSS = `
 [data-landing-story] .story-heading:not([data-story-showcase]):not(.ideas-h) [data-story-word]{display:inline-block;padding-block:.08em;margin-block:-.08em}
 @media (prefers-reduced-motion:no-preference){
-  [data-landing-story] [data-reveal]{transition:opacity .5s ${EASE} var(--reveal-delay,0ms),translate .5s ${EASE} var(--reveal-delay,0ms)}
-  [data-landing-story] [data-reveal="wait"]{opacity:0;translate:0 18px}
-  [data-landing-story] :is(.um-sub,.ideas-sub,.ideas-tabs-row,.ait-lede,.fcta-note,[class*="__points"])[data-reveal]{--reveal-delay:60ms}
-  [data-landing-story] :is(.um-rows,.ideas-stage,.ait-term,.cmm-card,.cme-card,[class*="__mock"])[data-reveal]{--reveal-delay:120ms}
-  [data-landing-story] .story-heading[data-reveal]{transition:none}
-  [data-landing-story] .story-heading[data-reveal="wait"]{opacity:1;translate:none}
-  [data-landing-story] .story-heading[data-reveal] [data-story-word]{transition:opacity .5s ${EASE},translate .55s ${EASE};transition-delay:calc(min(var(--word-index,0),10) * 40ms)}
-  [data-landing-story] .story-heading[data-reveal="wait"] [data-story-word]{opacity:0;translate:0 .5em}
+  [data-landing-story] [data-reveal]{transition:opacity ${REVEAL_MS}ms ${EASE} var(--reveal-delay,0ms),translate ${REVEAL_MS}ms ${EASE} var(--reveal-delay,0ms)}
+  [data-landing-story] [data-reveal="wait"]{opacity:0;translate:0 ${REVEAL_RISE_PX}px}
+  [data-landing-story] :is(.um-sub,.ideas-sub,.ideas-tabs-row,.ait-lede,.fcta-note,[class*="__points"])[data-reveal]{--reveal-delay:50ms}
+  [data-landing-story] :is(.um-rows,.ideas-stage,.ait-term,.cmm-card,.cme-card,[class*="__mock"])[data-reveal]{--reveal-delay:100ms}
+  [data-landing-story] .story-heading[data-reveal="wait"]{opacity:0;translate:0 8px}
+  [data-landing-story] .story-heading[data-reveal] [data-story-word]{transition:none;opacity:1;translate:none}
   [data-landing-story] [data-reveal-now],[data-landing-story] [data-reveal-now] [class*="__reveal"]{transition:none!important}
   [data-landing-story] [data-reveal-now][data-story-reveal]{opacity:1!important;transform:none!important}
-  @media (max-width:767px),(hover:none) and (pointer:coarse){
-    [data-landing-story] [data-reveal][data-reveal]{transition:opacity ${TOUCH_MS}ms ${TOUCH_EASE} var(--reveal-delay,0ms),translate ${TOUCH_MS}ms ${TOUCH_EASE} var(--reveal-delay,0ms)}
-    [data-landing-story] [data-reveal="wait"][data-reveal="wait"]{translate:0 ${TOUCH_RISE_PX}px}
-    [data-landing-story] .story-heading[data-reveal][data-reveal]{transition:opacity ${TOUCH_MS}ms ${TOUCH_EASE}}
-    [data-landing-story] .story-heading[data-reveal="wait"][data-reveal="wait"]{opacity:0;translate:none}
-    [data-landing-story] .story-heading[data-reveal] [data-story-word][data-story-word]{transition:none;opacity:1;translate:none}
-  }
   [data-landing-story] img[data-img="wait"]{opacity:0}
   [data-landing-story] img[data-img="in"]{animation:landing-img-in ${IMG_FADE_MS}ms ease-out}
 }

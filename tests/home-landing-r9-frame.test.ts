@@ -79,17 +79,17 @@ console.log("\nFlung: no empty box")
   // Changed on purpose (landing round 12): the one zero-delay setTimeout reads the scroll position after the frame (no layout in the scroll event); no timer marks anything.
   check("  at reading speed nothing is marked: the sections' entrances play as written", /if \(!entry\.isIntersecting\) near\.delete\(el\)\s*else if \(flung\) showNow\(el\)/.test(story) && !/setInterval|setTimeout/.test(story.replace("requestAnimationFrame(() => window.setTimeout(measure, 0))", "")))
   check("shown means the attribute is gone, so no transition rule matches", /\[data-landing-story\] \[data-reveal\]\{transition:/.test(REVEAL_CSS) && !/\[data-landing-story\] \.[\w-]+\{transition/.test(REVEAL_CSS))
-  check("the entrance is shorter: 500ms, lead lines 60ms and blocks 120ms behind", /transition:opacity \.5s [^;]*,translate \.5s/.test(REVEAL_CSS) && /--reveal-delay:60ms/.test(REVEAL_CSS) && /--reveal-delay:120ms/.test(REVEAL_CSS) && !/\.65s|170ms/.test(REVEAL_CSS))
+  /* Changed on purpose (landing round 15, the owner: sections should come up smoother, "not so visually heavy"): one calm entrance everywhere, the touch one: 600ms, a 10px rise, headings as one piece. */ check("one entrance: 600ms, lead lines 50ms and blocks 100ms behind", /transition:opacity 600ms [^;]*,translate 600ms/.test(REVEAL_CSS) && /--reveal-delay:50ms/.test(REVEAL_CSS) && /--reveal-delay:100ms/.test(REVEAL_CSS))
 }
 
 console.log("\nOn a phone nothing moves with the scroll")
 {
   const phone = REVEAL_CSS.slice(REVEAL_CSS.indexOf("@media (max-width:767px),(hover:none) and (pointer:coarse){"))
-  check("phones and touch screens have their own entrance", phone.length > 100 && phone.length < REVEAL_CSS.length)
+  /* Changed on purpose (landing round 15, the owner: sections should come up smoother, "not so visually heavy"): one calm entrance everywhere, the touch one: 600ms, a 10px rise, headings as one piece. */ check("phones and touch screens share the one entrance", !REVEAL_CSS.includes("@media (max-width:767px),(hover:none) and (pointer:coarse){"))
   // Changed on purpose (landing round 11): the owner found 380ms of a plain fade abrupt: 700ms with a 12px rise on a calm curve (tests/home-landing-r11-frame.test.ts).
-  check("  a block fades and comes up 12px, 700ms", /\[data-reveal\]\[data-reveal\]\{transition:opacity 700ms [^;]+,translate 700ms /.test(phone) && /\[data-reveal="wait"\]\[data-reveal="wait"\]\{translate:0 12px\}/.test(phone))
-  check("  a heading fades as one piece", /\.story-heading\[data-reveal="wait"\]\[data-reveal="wait"\]\{opacity:0;translate:none\}/.test(phone))
-  check("  its words stay where they are, each fully there", /\.story-heading\[data-reveal\] \[data-story-word\]\[data-story-word\]\{transition:none;opacity:1;translate:none\}/.test(phone))
+  /* Changed on purpose (landing round 15, the owner: sections should come up smoother, "not so visually heavy"): one calm entrance everywhere, the touch one: 600ms, a 10px rise, headings as one piece. */ check("  a block fades and comes up 10px, 600ms", /\[data-reveal="wait"\]\{opacity:0;translate:0 10px\}/.test(REVEAL_CSS))
+  /* Changed on purpose (landing round 15, the owner: sections should come up smoother, "not so visually heavy"): one calm entrance everywhere, the touch one: 600ms, a 10px rise, headings as one piece. */ check("  a heading rises as one piece", /\.story-heading\[data-reveal="wait"\]\{opacity:0;translate:0 8px\}/.test(REVEAL_CSS))
+  /* Changed on purpose (landing round 15, the owner: sections should come up smoother, "not so visually heavy"): one calm entrance everywhere, the touch one: 600ms, a 10px rise, headings as one piece. */ check("  its words stay where they are, each fully there", /\.story-heading\[data-reveal\] \[data-story-word\]\{transition:none;opacity:1;translate:none\}/.test(REVEAL_CSS))
   check("on a touch screen the heading's rise with the scroll is off (it trails a phone's scroll and shakes)", /@media \(hover:none\) and \(pointer:coarse\) \{\s*\.story-heading\.story-heading\.story-heading \{animation:none;transform:none\}\s*\}/.test(STORY_CSS))
   check("  a heading a section writes itself (the ideas') is covered: the rule needs the class alone", /className="story-heading ideas-h"/.test(read("components/marketing/home/ideas-come-to-life.tsx")))
   // Changed on purpose (landing round 11): the owner wants the sheet to rise on phones too; every pointer now.

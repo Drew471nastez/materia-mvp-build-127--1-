@@ -62,7 +62,7 @@ check("sections still wake a screen ahead", STORY_LIVE_AHEAD === "100% 0px")
 
 console.log("\n── round 11's entrance kept ──")
 check("pictures fade in once decoded, 450ms", IMG_FADE_MS === 450 && /landing-img-in/.test(REVEAL_CSS))
-check("on touch a block comes up 12px over 700ms", TOUCH_MS === 700 && TOUCH_RISE_PX === 12)
+/* Changed on purpose (landing round 15, the owner: sections should come up smoother, "not so visually heavy"): one calm entrance everywhere, the touch one: 600ms, a 10px rise, headings as one piece. */ check("on touch (and everywhere) a block comes up 10px over 600ms", TOUCH_MS === 600 && TOUCH_RISE_PX === 10)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
