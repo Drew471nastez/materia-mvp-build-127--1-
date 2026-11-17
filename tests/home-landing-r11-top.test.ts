@@ -29,7 +29,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace, EVERYTHING_STORES, EVERYTHING_STYLES } from "@/components/marketing/home/everything-in-one-place"
 import * as Ideas from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, CommunityMock, LoudlibSite, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, OnePageEditorMock, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -67,29 +67,21 @@ console.log("\n── 1. The builder's first site ──")
 // Changed on purpose (landing round 12): the owner dropped round 11's first site entirely (its box shots and studio hero are deleted); the first site is their own GodBless store, pinned in tests/home-landing-r12-top.test.ts.
 check("the earlier site's pictures are gone", ["mm-studio", "mm-game", "mm-late-round", "mm-family", "mm-crate"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))))
 
-console.log("\n── 2. The website builder moves on to loudlib ──")
+console.log("\n── 2. The website builder: Steez alone ──")
+// Changed on purpose (landing round 15): the owner asked for the builder to show only Steez. loudlib, its second
+// scene, its cross fade and its box pictures are gone, and so are the tabs' scenes (tests/home-landing-r15-stats.test.ts).
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-const ll = renderToStaticMarkup(createElement(LoudlibSite))
-check("both sites stand in the one canvas, the second hidden at first", /class="smk-frame wx-site bm-s1"/.test(wb) && /class="smk-frame wx-site bm-s2"/.test(wb) && /\.bm-s2\{opacity:0\}/.test(BUILDER_CSS))
-// Changed on purpose (landing round 12): the first site is GodBless, published at its storelib.com address.
-// Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
-check("the bar's name and the published address change with it", /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb) && /<span class="bm-s1">steez\.storelib\.com<\/span><span class="bm-s2">loudlib\.net<\/span>/.test(wb))
-// Changed on purpose (landing round 14): the owner asked for loudlib exactly as loudlib.net is: no hero, the real bar words and the real BESTSELLING grid (tests/home-landing-r14-ideas.test.ts).
-check("loudlib: the purple sale bar, the dark header, the bundle and Bestselling", /Sale 60% Off To All Products/.test(ll) && /class="ll-discover">Discover/.test(ll) && /Master Bundle 2025/.test(ll) && /class="ll-h">BESTSELLING/.test(ll))
-check("its packs are rendered boxes, three on sale", ["ll-serum", "ll-tech-house", "ll-drums", "ll-ambience", "ll-deep-house", "ll-unitech"].every((n) => webp(`home/showcase/${n}.webp`, 120)) && (ll.match(/class="ll-sale">On Sale</g) ?? []).length === 3)
-check("the builder rings the Hero and the products on loudlib too", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
-check("the change is a cross fade, opacity only", /\.bm-s1,\.bm-s2\{transition:opacity \.7s cubic-bezier\(\.4,0,\.2,1\)\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s1\{opacity:0\}/.test(BUILDER_CSS) && /\[data-scene="1"\] \.bm-s2\{opacity:1\}/.test(BUILDER_CSS))
-check("with reduced motion it simply changes", /@media\(prefers-reduced-motion:reduce\)\{\.bm-s1,\.bm-s2\{transition:none\}\}/.test(BUILDER_CSS))
+check("one site in the canvas, no second hidden behind it", (wb.match(/class="smk-frame wx-site"/g) ?? []).length === 1 && !/bm-s[12]/.test(wb + BUILDER_CSS))
+check("the bar's name and the published address are Steez's", /<b class="wx-name">Steez<\/b>/.test(wb) && /<b class="wx-pub-host">steez\.storelib\.com<\/b>/.test(wb) && !/loudlib/.test(wb))
+check("loudlib's box pictures are deleted", ["ll-serum", "ll-tech-house", "ll-ambience", "ll-deep-house", "ll-unitech"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`)) && !existsSync(join(root, `public/marketing/loudlib/${n}.webp`))))
+check("the builder rings the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 1)
 
-console.log("\n── The autoplay plays each scene, then the next tab ──")
+console.log("\n── The autoplay plays each tab's moment, then the next tab ──")
 const src = code(read(F.ideas))
-// Changed on purpose (landing round 13): the owner removed Idris Kane; the OnePage editor shows Desmond Ayo alone, one scene (tests/home-landing-r13-ideas.test.ts).
-check("the website builder has two scenes, the OnePage editor and the community one", Ideas.IDEAS_TABS.map((t) => t.scenes).join() === "2,1,1")
-check("the clock restarts for each scene", /key=\{`\$\{t\.index\}-\$\{scene\}`\}/.test(src) && /onAnimationEnd=\{onClockEnd\}/.test(src))
-check("a scene that is not the last moves the scene on, the last moves the tab on", /if \(scene \+ 1 < IDEAS_TABS\[t\.index\]\.scenes\) setShown\(\{ index: t\.index, scene: scene \+ 1 \}\)\s*else t\.advance\(\)/.test(src))
-check("the leaving panel keeps its scene while it fades, and goes back to the first at rest", /data-scene=\{i === shown\.index \? shown\.scene : 0\}/.test(src) && /const fading = \[\.\.\.t\.states\.values\(\)\]\.includes\("leaving"\)\s*if \(shown\.index !== t\.index && !fading\) setShown\(\{ index: t\.index, scene: 0 \}\)/.test(src) && !/setTimeout|setInterval/.test(src))
+check("no tab has scenes", Ideas.IDEAS_TABS.every((t) => !("scenes" in t)))
+check("the clock restarts for each tab and moves the tab on", /key=\{t\.index\}/.test(src) && /onAnimationEnd=\{t\.advance\}/.test(src) && !/setTimeout|setInterval/.test(src))
 const ideas = renderToStaticMarkup(createElement(Ideas.IdeasComeToLife))
-check("the first panel starts on its first scene", /id="ideas-panel-website"[^>]*data-scene="0"/.test(ideas))
+check("no panel carries a scene", !/data-scene/.test(ideas))
 
 console.log("\n── 3. Idris Kane is gone (landing round 13) ──")
 // Changed on purpose (landing round 13): the owner removed Idris Kane; the OnePage editor shows Desmond Ayo alone, one scene (tests/home-landing-r13-ideas.test.ts).

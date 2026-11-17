@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useState, type ComponentType } from "react"
+import { memo, type ComponentType } from "react"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
 import { BUILDER_CSS, BUILDER_DURATION_MS, CommunityMock, OnePageEditorMock, WB_DURATION_MS, WebsiteBuilderMock } from "./showcase-mocks/builder-mocks"
@@ -86,6 +86,10 @@ export const IDEAS_HEADING = "See your ideas come to life."
   section is selected, its Top padding slider dragged until the section has
   more space at its top, and published again. That moment is longer than the
   other editors' (WB_DURATION_MS), so each tab has its own clock length.
+
+  Landing round 15, later (the owner): the website builder shows only Steez.
+  loudlib, the tab's second scene, is gone, and with it the scenes: every tab
+  plays one moment and the autoplay moves on to the next tab.
 */
 export const IDEAS_HEADINGS = [IDEAS_HEADING, "A drag and drop editor.", "Full control over design."] as const
 /** How long each heading stays, in seconds; the three take turns in one CSS loop. */
@@ -96,8 +100,6 @@ type IdeasTab = {
   title: string
   alt: string
   Mock: ComponentType
-  /** How many scripted moments the tab plays before the next tab (landing round 11). */
-  scenes: number
   /** How long one moment lasts (landing round 15: the website builder's is its own). */
   ms: number
 }
@@ -106,9 +108,8 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
   {
     id: "website",
     title: "Website builder",
-    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself. First Steez, a streetwear store on the Materia Steez theme: the free shipping bar, the white STEEZ wordmark over a photo of four skaters on a sidewalk, Summer Madness '26 with Explore, then the Gradient Hoodie, Raw Tee, Grey Graphic T-shirt and Faith over fear Graphic T-shirt on light grey with their prices. Then loudlib, a sample pack store: the purple sale bar, the dark header with Discover, and Bestselling, six sample packs as black boxes, three on sale. On each site the heading is selected and new words are typed over it in the section's panel, then published; the page scrolls down, the products section is selected and its top padding dragged larger, then published again.",
+    alt: "Storelib's website builder: the dark bar with Publish, the Header, Page and Footer sections of the home page in the sidebar, and the page itself: Steez, a streetwear store on the Materia Steez theme: the free shipping bar, the white STEEZ wordmark over a photo of four skaters on a sidewalk, Summer Madness '26 with Explore, then the Gradient Hoodie, Raw Tee, Grey Graphic T-shirt and Faith over fear Graphic T-shirt on light grey with their prices. The heading is selected and new words are typed over it in the section's panel, then published; the page scrolls down, the products section is selected and its top padding dragged larger, then published again.",
     Mock: WebsiteBuilderMock,
-    scenes: 2,
     ms: WB_DURATION_MS,
   },
   {
@@ -116,7 +117,6 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
     title: "OnePage editor",
     alt: "Storelib's OnePage editor: Desmond Ayo's links, his pack of 14 film LUTs, a free LUT and a grade review call on the Links tab, beside his live page on the Ember theme, as his email signup block is switched on and saved.",
     Mock: OnePageEditorMock,
-    scenes: 1,
     ms: BUILDER_DURATION_MS,
   },
   {
@@ -124,7 +124,6 @@ export const IDEAS_TABS: readonly IdeasTab[] = [
     title: "Community",
     alt: "Inside The Strength Room, a paid Storelib community where coach Rina Castillo runs strength training for women: its barbell emblem, the community card with the name in heavy yellow on the cover, the next live form check, the space chips, and the pinned post with the new program getting a like while a member writes a new post.",
     Mock: CommunityMock,
-    scenes: 1,
     ms: BUILDER_DURATION_MS,
   },
 ]
@@ -153,16 +152,6 @@ function Accented({ text }: { text: string }) {
 export function IdeasComeToLife() {
   const t = useAutoTabs(IDEAS_TABS.length)
   const n = IDEAS_TABS.length
-  /* The scene a tab is on (landing round 11). The panel that is leaving keeps the one it showed until it is at rest. */
-  const [shown, setShown] = useState({ index: 0, scene: 0 })
-  const scene = shown.index === t.index ? shown.scene : 0
-  /* Once the old panel has faded out (no panel is leaving), the scene follows the new tab: set while rendering, no timer of its own. */
-  const fading = [...t.states.values()].includes("leaving")
-  if (shown.index !== t.index && !fading) setShown({ index: t.index, scene: 0 })
-  const onClockEnd = () => {
-    if (scene + 1 < IDEAS_TABS[t.index].scenes) setShown({ index: t.index, scene: scene + 1 })
-    else t.advance()
-  }
   return (
     <section
       ref={t.rootRef}
@@ -214,11 +203,11 @@ export function IdeasComeToLife() {
       </div>
       {/* The autoplay clock: one scripted moment, then the next tab. Invisible, and paused while unseen (use-auto-tabs.ts). */}
       <span
-        key={`${t.index}-${scene}`}
+        key={t.index}
         className="smk-clock"
         data-on={t.playing || undefined}
         style={{ animationDuration: `${IDEAS_TABS[t.index].ms}ms` }}
-        onAnimationEnd={onClockEnd}
+        onAnimationEnd={t.advance}
         aria-hidden="true"
       />
       <div className="ideas-stage" {...t.hoverProps}>
@@ -236,7 +225,6 @@ export function IdeasComeToLife() {
                 className="ideas-panel"
                 data-pane={state}
                 data-mock-live={(state === "active" && t.live) || undefined}
-                data-scene={i === shown.index ? shown.scene : 0}
               >
                 <IdeasMock i={i} />
               </div>

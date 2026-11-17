@@ -120,7 +120,8 @@ assert.equal((showcaseSrc.match(/figcaption\{opacity:1/g) || []).length, 2, "no 
 assert.ok(/@media\(hover:none\),\(pointer:coarse\)\{\.build-showcase-slide figcaption\{opacity:1;transition:none\}\.build-showcase-slide figcaption span\{transform:none;transition:none\}\}/.test(showcaseSrc), "a touch screen shows it over its card")
 // On a phone: the row starts on the heading's gutter, the first card about three quarters wide, the next peeking, 8px apart.
 /* Changed on purpose (landing round 6): the owner's reference, every phone card a 4:3 card 78% of the screen wide, 10px apart. */
-assert.ok(/--showcase-card:min\(78vw,440px\)/.test(showcaseSrc) && /--showcase-gap:10px;gap:var\(--showcase-gap\)/.test(showcaseSrc) && /padding-inline:var\(--showcase-gutter/.test(showcaseSrc))
+// Changed on purpose (landing round 15): a phone card is 85% of the screen (the owner: "1.1 view, not 1.2").
+assert.ok(/--showcase-card:min\(85vw,440px\)/.test(showcaseSrc) && /--showcase-gap:10px;gap:var\(--showcase-gap\)/.test(showcaseSrc) && /padding-inline:var\(--showcase-gutter/.test(showcaseSrc))
 {
   const first = 0.78 * 390
   const peek = 390 - 20 - first - 10
@@ -186,7 +187,8 @@ assert.ok(/\.smk-clock\{[^}]*opacity:0/.test(pills) && /\.smk-clock\[data-on\]\{
 for (const f of ["ideas-come-to-life.tsx"]) {
   const s = read(`components/marketing/home/${f}`)
   // Changed on purpose (landing round 12): since round 11 the clock ends a scene first (onClockEnd), and t.advance() moves the tab after the last scene (tests/home-landing-r11-top.test.ts).
-  assert.ok(s.includes("onAnimationEnd={onClockEnd}") && s.includes("else t.advance()") && s.includes('className="smk-clock"') && s.includes("animation-play-state:running"))
+  // Changed on purpose (landing round 15): no scenes any more (the builder shows only Steez), so the clock moves the tab on itself.
+  assert.ok(s.includes("onAnimationEnd={t.advance}") && s.includes('className="smk-clock"') && s.includes("animation-play-state:running"))
   assert.ok(s.includes("prefers-reduced-motion:reduce"))
   assert.ok(!/progress|Pause|setPlaying/.test(s), `${f}: no progress line or pause button`)
 }

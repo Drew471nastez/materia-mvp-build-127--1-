@@ -68,8 +68,8 @@ import { MockFrame, Pic, u } from "./frame"
                       tree-parts.tsx's grid, the page itself with the blue
                       ring and its "Selected" chip (sections/_shared.tsx), and
                       Publish's own panel (publish-panel.tsx). The site is
-                      the owner's Materia Steez theme (round 13), then
-                      loudlib (round 11).
+                      the owner's Materia Steez theme (round 13), alone
+                      since landing round 15 (loudlib gone from the tab).
     OnePage editor    components/onepage/onepage-editor.tsx and tabs/links-tab:
                       undo and redo, the Links / Design / Products pill row
                       and Settings, Save and Share your OnePage; the Links tab
@@ -116,7 +116,7 @@ function Cursor({ className }: { className: string }) {
   )
 }
 
-/* ================================================================ The sites in the website builder: Steez, then loudlib */
+/* ================================================================ The site in the website builder: Steez */
 /*
   Landing round 13 (the owner: the website builder example "needs to actually be accurate"): GodBless goes, and the
   first site is the owner's own Materia Steez theme (1.2.0), drawn from its export: templates/index.json for the
@@ -155,34 +155,13 @@ const STZ_PRODUCTS: Product[] = [
 const STZ_MENU = ["Home", "Shop", "Products", "Contact"]
 /** The heading the builder edits on each site: the words the site has, and the words typed over them (landing round 14). */
 export const STZ_EDIT = { was: "Summer Madness '26", now: "Winter Drop '26" } as const
-export const LL_EDIT = { was: "BESTSELLING", now: "NEW RELEASES" } as const
 
-/**
- * A product in a store's grid: its shot, a sale badge when it is reduced, the name and the price. With `sizes`, the
- * shot is one of loudlib's boxes drawn again (landing round 15, public/marketing/loudlib) in two widths
- * (`<name>-320.webp` and `<name>.webp`, 640), and the browser takes the one its drawn size needs at the screen's density.
- */
-function ShopCard({ p, cls, w = 480, h = 480, sizes }: { p: Product; cls: string; w?: number; h?: number; sizes?: string }) {
+/** A product in a store's grid: its shot, a sale badge when it is reduced, the name and the price. */
+function ShopCard({ p, cls, w = 480, h = 480 }: { p: Product; cls: string; w?: number; h?: number }) {
   return (
     <span className={`${cls}-card`}>
       <span className={`${cls}-img`}>
-        {sizes ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={llPic(p.pic)}
-            srcSet={`${llPic(`${p.pic}-320`)} 320w, ${llPic(p.pic)} ${w}w`}
-            sizes={sizes}
-            alt=""
-            width={w}
-            height={h}
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-            className="smk-pic"
-          />
-        ) : (
-          <Pic n={p.pic} w={w} h={h} />
-        )}
+        <Pic n={p.pic} w={w} h={h} />
         {p.was && <i className={`${cls}-sale`}>On Sale</i>}
       </span>
       <b>{p.name}</b>
@@ -305,81 +284,6 @@ export function SteezSite({ rings = false }: { rings?: boolean }) {
   )
 }
 
-/*
-  Landing round 11 (the owner: "after some time another template should appear, e.g. the loudlib website", their own
-  store): loudlib, a dark sample pack store.
-
-  Landing round 14 (the owner: "make it accurate to loudlib.net", "exactly like the real site"). The live site answers
-  automated requests with a Cloudflare challenge, so it is rebuilt from the owner's full page screenshot
-  (r14in/loudlib-full.webp, 460px wide for the 1440px page, so 1px there is 3.13px of the page and 2.23u here):
-  the purple bar with the sun and "Sale 60% Off To All Products"; the near black header with the thin "loud" and
-  "LIB." under it, the seven menu words with Home underlined, search, account and cart, and Discover in a purple
-  outlined pill; then straight away (no hero) BESTSELLING in heavy italic capitals and the grid of six packs, three
-  to a row, each a box shot on white with the purple On Sale badge, the name and the struck and sale prices. The
-  six box shots are cut from that screenshot and enlarged (the store's product photos are behind the same
-  challenge). The builder selects the grid and types NEW RELEASES over BESTSELLING.
-*/
-const LL_PRODUCTS: Product[] = [
-  { pic: "ll-serum", name: "Serum Presets Vol 1", price: "€8,99", was: "€22,47" },
-  { pic: "ll-tech-house", name: "Tech House Sample Pack - Master Bundle 2025", price: "€19,98", was: "€49,96" },
-  { pic: "ll-drums", name: "Tech House Drum Kit Vol I", price: "From €0,00" },
-  { pic: "ll-ambience", name: "Free Ambience Sample Pack Vol I", price: "Free" },
-  { pic: "ll-deep-house", name: "Deep House Production Suite - Serenade", price: "€9,98", was: "€24,94" },
-  { pic: "ll-unitech", name: "Tech House Sample Pack - Unitech", price: "€9,20" },
-]
-/*
-  Landing round 15 (the owner: loudlib's pictures "are blurry and low quality"). They were: each box shot was cut out of
-  a 460px wide screenshot of the whole page, so about 120px of real picture, then enlarged to 540. No width or
-  setting could sharpen that. The boxes are drawn again at 640 x 609 (the 267 x 254 of the grid cell), the box, its
-  spine and its words sharp, the art on the front taken from the store's own box (public/marketing/loudlib); a 320
-  copy serves a phone. A cell is
-  20% of the editor's frame: 18vw of a phone (70px, so 210 pixels at 3x: the 320), 14vw of a computer (about 200px
-  on a laptop, 400 pixels on a 2x screen: the 640), 290px at most.
-*/
-const LL_SIZES = "(max-width: 767px) 18vw, (min-width: 2020px) 290px, 14vw"
-const llPic = (name: string) => `/marketing/loudlib/${name}.webp`
-const LL_MENU = ["Home", "Shop", "Sample Packs", "Free Downloads", "Blog", "Work With Us", "Support"]
-
-export function LoudlibSite({ rings = false }: { rings?: boolean }) {
-  return (
-    <div className="ll">
-      <div className="ll-page">
-      <p className="ll-bar">
-        <Sun className="ll-sun" />
-        Sale 60% Off To All Products
-      </p>
-      <div className="ll-nav">
-        <span className="ll-logo">
-          loud<i>LIB.</i>
-        </span>
-        <span className="ll-menu">
-          {LL_MENU.map((m, i) => (
-            <span key={m} className={i === 0 ? "on" : undefined}>
-              {m}
-            </span>
-          ))}
-        </span>
-        <span className="ll-icons">
-          <Search />
-          <UserRound />
-          <ShoppingBag />
-        </span>
-        <span className="ll-discover">Discover</span>
-      </div>
-      <div className="ll-shop">
-        <p className="ll-h">{rings ? <Edit {...LL_EDIT} /> : LL_EDIT.was}</p>
-        <div className="ll-grid">
-          {LL_PRODUCTS.map((p) => (
-            <ShopCard key={p.name} p={p} cls="ll" w={640} h={609} sizes={LL_SIZES} />
-          ))}
-        </div>
-        {rings && <Ring />}
-      </div>
-      </div>
-    </div>
-  )
-}
-
 /* ================================================================ Website builder */
 /** A section row of the Page group: its blocks' chevron (when it has blocks), the grip, the name; `hl` marks the selected one. */
 type TreeRow = { name: string; twisty?: boolean; hl?: string }
@@ -387,9 +291,8 @@ type TreeRow = { name: string; twisty?: boolean; hl?: string }
   Landing round 13: each site has its own tree, cross faded with it. Steez's rows are what the builder calls an
   imported theme's sections, the names in their schemas (lib/website-builder/section-name.ts): the header group's
   announcement bar and header, the home page in the template's order without the Steez Club slideshow, and the
-  footer. loudlib, a Storelib theme, keeps its own. Both header groups hold two rows, so the rows the cursor and
-  the rings point at stand at the same height in both. Landing round 14: loudlib's rows follow its real page, the
-  Bestselling grid first (no hero), and each tree lights the one section the builder edits.
+  footer. Landing round 14: the tree lights the one section the builder edits. Landing round 15, later (the owner:
+  the builder shows only Steez): loudlib, its tree and its scene are gone.
 */
 type Tree = { header: string[]; page: TreeRow[] }
 const STEEZ_TREE: Tree = {
@@ -402,18 +305,6 @@ const STEEZ_TREE: Tree = {
     { name: "Collection List", twisty: true },
     { name: "Countdown Timer Flip", twisty: true },
     { name: "Category Banners", twisty: true },
-  ],
-}
-const LOUDLIB_TREE: Tree = {
-  header: ["Announcement bar", "Header"],
-  page: [
-    { name: "Featured products", twisty: true, hl: "wx-hl" },
-    { name: "Features", twisty: true },
-    { name: "Image banner", twisty: true },
-    { name: "Image with text", twisty: true },
-    { name: "Product tabs", twisty: true },
-    { name: "Newsletter" },
-    { name: "Blog posts", twisty: true },
   ],
 }
 
@@ -466,10 +357,10 @@ function AddRow() {
   )
 }
 
-/** The sidebar's tree for one site: the header group, the page's sections, the footer. */
-function SiteTree({ tree, className }: { tree: Tree; className: string }) {
+/** The sidebar's tree for the site: the header group, the page's sections, the footer. */
+function SiteTree({ tree }: { tree: Tree }) {
   return (
-    <div className={`wx-tree ${className}`}>
+    <div className="wx-tree">
       <p className="wx-group">Header</p>
       {tree.header.map((n) => (
         <ChromeRow key={n} name={n} Icon={PanelTop} />
@@ -513,10 +404,7 @@ function WbBar() {
         <span className="wx-key ghost">
           <ArrowLeftToLine />
         </span>
-        <b className="wx-name">
-          <span className="bm-s1">Steez</span>
-          <span className="bm-s2">loudlib</span>
-        </b>
+        <b className="wx-name">Steez</b>
         <i className="wx-live" />
         <span className="wx-key">
           <MoreHorizontal />
@@ -583,10 +471,7 @@ function PublishPanel() {
       <p className="wx-pub-l">Website URL</p>
       <span className="wx-pub-url">
         <Globe />
-        <b className="wx-pub-host">
-          <span className="bm-s1">steez.storelib.com</span>
-          <span className="bm-s2">loudlib.net</span>
-        </b>
+        <b className="wx-pub-host">steez.storelib.com</b>
         <Copy />
         <ExternalLink />
       </span>
@@ -675,35 +560,22 @@ export function WebsiteBuilderMock() {
       <WbBar />
       <aside className="wx-side">
         <WbTabs />
-        <div className="wx-trees">
-          <SiteTree tree={STEEZ_TREE} className="bm-s1" />
-          <SiteTree tree={LOUDLIB_TREE} className="bm-s2" />
-        </div>
-        {/* Landing round 15: the panels of the sections each site's edit selects, over the tree. */}
-        <span className="wx-panels bm-s1">
+        <SiteTree tree={STEEZ_TREE} />
+        {/* Landing round 15: the panels of the sections the edit selects, over the tree. */}
+        <span className="wx-panels">
           <SectionPanel name="Slideshow" settings={STZ_SLIDE} className="wx-pa" />
           <SectionPanel name="Products carousel" settings={STZ_CAROUSEL} className="wx-pz" />
         </span>
-        <span className="wx-panels bm-s2">
-          <SectionPanel name="Featured products" settings={LL_FEATURED} className="wx-pa" />
-        </span>
       </aside>
       <div className="wx-canvas">
-        <MockFrame label="" className="wx-site bm-s1">
+        <MockFrame label="" className="wx-site">
           <SteezSite rings />
-        </MockFrame>
-        {/* Landing round 11: the second site the tab moves on to (data-scene, ideas-come-to-life.tsx), cross faded in the same canvas. */}
-        <MockFrame label="" className="wx-site bm-s2">
-          <LoudlibSite rings />
         </MockFrame>
       </div>
       <PublishPanel />
-      {/* Landing round 14: one pointer per site, each with its own path to the heading it edits, faded with its site. */}
-      <span className="wx-curs bm-s1">
+      {/* Landing round 14: the pointer, on its path to the heading it edits. */}
+      <span className="wx-curs">
         <Cursor className="wx-cur wx-cur-stz" />
-      </span>
-      <span className="wx-curs bm-s2">
-        <Cursor className="wx-cur wx-cur-ll" />
       </span>
     </div>
   )
@@ -1160,8 +1032,8 @@ export const BUILDER_DURATION_MS = T * 1000
        up and the section gets the space at its top as the thumb moves (its contents and everything under it move down
        by transforms; the ring's bottom edge and its chip with them). Publish again.
 
-  Steez plays it when the tab opens, loudlib when the tab moves on to it (data-scene="1"), each once, so the finished
-  edit stays while the site fades. Every time below is in seconds of the website builder's own moment (WB_T); a
+  Steez plays it once when the tab opens, so the finished edit stays until the tab moves on (landing round 15,
+  later: loudlib's second scene is gone). Every time below is in seconds of the website builder's own moment (WB_T); a
   keyframe is its share of it. Only transform and opacity move. The resting picture (and reduced motion) is the
   editor with the site as it is: nothing selected, no panel, the old words.
 */
@@ -1179,7 +1051,7 @@ const TYPE_S = 1.2
 const k = (sec: number) => `${+((sec / WB_T) * 100).toFixed(2)}%`
 
 /** Where each pointer first points, the heading it edits, in the editor's 1280u: measured off the drawn page. */
-export const EDIT_AT = { stz: [872, 377], ll: [826, 226] } as const
+export const EDIT_AT = { stz: [872, 377] } as const
 const PUBLISH_AT = [1214, 21]
 const GO_AT = [1150, 298]
 
@@ -1199,7 +1071,6 @@ const fillAt = (p: number) => `calc(${-(TRACK - 10 - p * TRAVEL).toFixed(2)} * v
  * 1024u), where the pointer clicks the section after the scroll, and the panel's rows.
  */
 const STZ_PAD = { from: 66, to: 120, max: 160, steps: [66, 72, 80, 88, 96, 104, 112, 120] } as const
-const LL_PAD = { from: 100, to: 148, max: 200, steps: [100, 108, 116, 124, 132, 140, 148] } as const
 const SITE_PX = 0.711
 const STZ_SLIDE: readonly Setting[] = [
   { kind: "text", label: "Subheading", value: "NEW COLLECTION" },
@@ -1211,12 +1082,6 @@ const STZ_CAROUSEL: readonly Setting[] = [
   { kind: "slider", label: "Top padding", from: STZ_PAD.from, steps: STZ_PAD.steps, max: STZ_PAD.max },
   { kind: "slider", label: "Bottom padding", from: 66, max: STZ_PAD.max },
 ]
-const LL_FEATURED: readonly Setting[] = [
-  { kind: "text", label: "Heading", value: LL_EDIT.was, edit: LL_EDIT },
-  { kind: "text", label: "Collection", value: "Bestselling" },
-  { kind: "slider", label: "Top padding", from: LL_PAD.from, steps: LL_PAD.steps, max: LL_PAD.max },
-  { kind: "slider", label: "Bottom padding", from: 100, max: LL_PAD.max },
-]
 const site = (pad: { from: number; to: number; max: number; steps: readonly number[] }, slider: number, scroll: number, pick: readonly number[], field: number) => ({
   field: [150, ROW_Y(field) + 22 + 16],
   thumb: [thumbX(pad.from / pad.max), ROW_Y(slider) + 16 + 8 + 16],
@@ -1226,10 +1091,9 @@ const site = (pad: { from: number; to: number; max: number; steps: readonly numb
   pick,
   steps: pad.steps.length,
 })
-/* The slider sits after one text setting on Steez's carousel and two on loudlib's panel. */
+/* The slider sits after one text setting on Steez's carousel. */
 export const EDIT_PLAN = {
   stz: site(STZ_PAD, 1, 400, [700, 152], 1),
-  ll: site(LL_PAD, 2, 60, [640, 121], 0),
 } as const
 
 /** One pointer's path: to the heading, click; to the field, click, aside while typing; Publish, Publish changes; to the section, click; the thumb, drag; Publish, Publish changes; gone. */
@@ -1296,14 +1160,12 @@ function caretKeys(n: number) {
 const ONCE = "var(--bm-t) var(--bm-ease) 1 both"
 const STEP = "var(--bm-t) linear 1 both"
 const STZ = "[data-mock-live] .stz"
-const LL = '[data-mock-live][data-scene="1"] .ll'
-const PS = "[data-mock-live] .wx-panels.bm-s1"
-const PL = '[data-mock-live][data-scene="1"] .wx-panels.bm-s2'
+const PS = "[data-mock-live] .wx-panels"
 const motion = (sel: string, anim: string) => `@media(prefers-reduced-motion:no-preference){${sel}{animation:${anim}}}`
-/** One site's moment: the same script, its own numbers. */
-function siteMotion(id: "stz" | "ll", at: string, panels: string, page: string, below: string) {
+/** The site's moment. */
+function siteMotion(id: "stz", at: string, panels: string, page: string, below: string) {
   const plan = EDIT_PLAN[id]
-  const n = id === "stz" ? STZ_EDIT.now.length : LL_EDIT.now.length
+  const n = STZ_EDIT.now.length
   return [
     motion(`${at} .wx-hd`, `sxk-${id}-hd ${STEP}`),
     motion(`${at} .wx-was,${panels} .wx-was`, `sxk-ed-was ${STEP}`),
@@ -1326,16 +1188,13 @@ function siteMotion(id: "stz" | "ll", at: string, panels: string, page: string, 
     `@keyframes sxk-${id}-thumb{0%,${k(S.thumb)}{transform:none}${k(S.drag)}{transform:scale(1.18)}${k(S.dragged)}{transform:translateX(${plan.dx}u) scale(1.18)}${k(S.drop)},100%{transform:translateX(${plan.dx}u)}}`,
     `@keyframes sxk-${id}-fill{0%,${k(S.drag)}{transform:none}${k(S.dragged)},100%{transform:translateX(${plan.dx}u)}}`,
     `@keyframes sxk-${id}-num{0%,${k(S.drag)}{transform:none;animation-timing-function:steps(${plan.steps - 1},end)}${k(S.dragged)},100%{transform:translateY(-${(plan.steps - 1) * 30}u)}}`,
-    id === "stz"
-      ? `@keyframes sxk-stz-pa{0%,${k(S.panel)}{opacity:0;transform:translateX(-8u)}${k(S.panel + 0.25)},${k(S.picked)}{opacity:1;transform:none}${k(S.picked + 0.15)},100%{opacity:0;transform:none}}`
-      : `@keyframes sxk-ll-pa{0%,${k(S.panel)}{opacity:0;transform:translateX(-8u)}${k(S.panel + 0.25)},100%{opacity:1;transform:none}}`,
+    `@keyframes sxk-stz-pa{0%,${k(S.panel)}{opacity:0;transform:translateX(-8u)}${k(S.panel + 0.25)},${k(S.picked)}{opacity:1;transform:none}${k(S.picked + 0.15)},100%{opacity:0;transform:none}}`,
     cursorKeys(`sxk-cur-${id}`, EDIT_AT[id], plan),
   ].join("\n")
 }
 const EDIT_CSS = [
   `.wx-curs{position:absolute;inset:0;z-index:30;pointer-events:none}`,
   `.wx-cur-stz{left:${EDIT_AT.stz[0]}u;top:${EDIT_AT.stz[1]}u}`,
-  `.wx-cur-ll{left:${EDIT_AT.ll[0]}u;top:${EDIT_AT.ll[1]}u}`,
   `.wx-edit{position:relative;display:inline-grid;justify-items:center;vertical-align:top}`,
   `.wx-edit>span{grid-area:1/1;white-space:pre}`,
   `.wx-edit-f{justify-items:start}`,
@@ -1345,11 +1204,9 @@ const EDIT_CSS = [
   `.wx-mark{position:absolute;z-index:-1;inset:-.1em -.04em;background:rgba(59,130,246,.3);opacity:0}`,
   `.wx-now i{position:relative;font-style:inherit;opacity:0}`,
   `.wx-edit-f .wx-now i::after{content:"";position:absolute;right:-.06em;top:.05em;bottom:.02em;width:1.2u;background:currentColor;opacity:0}`,
-  motion(`[data-mock-live] .wx-tree.bm-s1 .wx-hl .wx-row-on,[data-mock-live][data-scene="1"] .wx-tree.bm-s2 .wx-hl .wx-row-on`, `sxk-ed-row ${STEP}`),
+  motion(`[data-mock-live] .wx-tree .wx-hl .wx-row-on`, `sxk-ed-row ${STEP}`),
   motion(`[data-mock-live] .wx-cur-stz`, `sxk-cur-stz ${ONCE}`),
-  motion(`[data-mock-live][data-scene="1"] .wx-cur-ll`, `sxk-cur-ll ${ONCE}`),
   siteMotion("stz", STZ, PS, ".stz-page", ".stz-grid,.stz-all,.stz-summer"),
-  siteMotion("ll", LL, PL, ".ll-page", ".ll-h,.ll-grid"),
   motion(`${PS} .wx-pz`, `sxk-stz-pz ${ONCE}`),
   `@keyframes sxk-stz-pz{0%,${k(S.picked)}{opacity:0;transform:translateX(-8u)}${k(S.picked + 0.25)},100%{opacity:1;transform:none}}`,
   shown("sxk-ed-row", S.click),
@@ -1360,11 +1217,10 @@ const EDIT_CSS = [
   `@keyframes sxk-ed-ch{0%,${k(S.type)}{opacity:0}${k(S.type + 0.02)},100%{opacity:1}}`,
   `@keyframes sxk-ed-ext{0%,${k(S.drag)}{transform:scaleY(0)}${k(S.dragged)},100%{transform:none}}`,
   caretKeys(STZ_EDIT.now.length),
-  caretKeys(LL_EDIT.now.length),
   `@keyframes sxk-ed-car-last{0%,${k(S.type)}{opacity:0}${k(S.type + 0.02)},${k(S.type + 0.9)}{opacity:1}${k(S.type + 0.92)},100%{opacity:0}}`,
 ].join("\n")
 
-/* Publish, twice a moment (shared by both sites, on the moment's loop): the button pressed, its panel, Publish changes pressed, Publishing, Published, the panel away. */
+/* Publish, twice a moment (on the moment's loop): the button pressed, its panel, Publish changes pressed, Publishing, Published, the panel away. */
 const twice = (name: string, a: number, b: number, c: number, d: number) =>
   `@keyframes ${name}{0%,${k(a)}{opacity:0}${k(a + 0.02)},${k(b)}{opacity:1}${k(b + 0.02)},${k(c)}{opacity:0}${k(c + 0.02)},${k(d)}{opacity:1}${k(d + 0.02)},100%{opacity:0}}`
 const PUBLISH_CSS = [
@@ -1451,46 +1307,11 @@ export const BUILDER_CSS = u(`
 /* Landing round 15: the products section stands over the slideshow under it, so the ring's sides, carried on below it as it takes more top padding, are drawn over the slideshow moving down with it. */
 .stz-shop{z-index:1}
 
-/* ---------- loudlib, after loudlib.net (landing round 14): its 1440px page at 1024u, measured off the owner's screenshot (1px there = 2.23u) */
-.ll{position:absolute;inset:0;background:#fff;color:#1f1f1f;font-family:var(--font-inter,Inter),Inter,sans-serif}
-.ll-page{display:flex;flex-direction:column;min-height:100%}
-.ll-bar{flex:none;height:32u;display:flex;align-items:center;justify-content:center;gap:6u;background:#6c2bd9;color:#fff;font-size:11u;letter-spacing:.01em}
-.ll .ll-sun{width:11.5u;height:11.5u;color:#ffc83d;fill:#ffc83d}
-.ll-nav{flex:none;height:68u;display:flex;align-items:center;padding:0 54u 0 55.5u;background:#141414;color:#fff}
-.ll-logo{display:flex;flex-direction:column;align-items:flex-end;margin-right:44u;font-size:30.6u;font-weight:300;line-height:1;letter-spacing:-.01em}
-.ll-logo i{margin:1u 11u 0 0;font-size:6.8u;font-style:normal;font-weight:600;line-height:1;letter-spacing:.06em}
-.ll-menu{display:flex;gap:15u;font-size:11.5u}
-.ll-menu .on{text-decoration:underline;text-underline-offset:4.3u;text-decoration-thickness:.75u}
-.ll-icons{display:flex;align-items:center;gap:18.5u;margin:0 32.7u 0 auto}
-.ll .ll-icons svg{width:15u;height:15u;stroke-width:1.6}
-.ll-discover{display:grid;place-items:center;width:91u;height:37u;border-radius:999u;box-shadow:inset 0 0 0 1.4u #6c2bd9;font-size:11.4u;font-weight:500}
-.ll-shop{position:relative;flex:1 0 auto;padding-top:70.4u}
-.ll-h{text-align:center;font-size:15.3u;font-style:italic;font-weight:800;line-height:1;letter-spacing:.035em;color:#1c2331}
-.ll-grid{display:grid;grid-template-columns:repeat(3,267u);grid-auto-rows:356u;column-gap:15.7u;margin:32.2u 0 0 97.9u}
-.ll-card{display:block}
-.ll-img{position:relative;display:block;height:254u;background:#fff}
-.ll-img img{width:100%!important;height:100%!important;object-fit:cover;background:none!important}
-.ll-sale{position:absolute;left:8.3u;top:223.4u;display:grid;place-items:center;height:19.9u;padding:0 8.5u;border-radius:6.4u;background:#6c2bd9;color:#fff;font-size:9.6u;font-style:normal;font-weight:500}
-.ll-card>b{display:block;margin:17.5u 0 0 9u;font-size:10.4u;font-weight:400;line-height:1.2;white-space:nowrap}
-.ll-price{display:flex;gap:7u;margin:9.8u 0 0 9u;font-size:10.2u;line-height:1.2}
-.ll-price s{color:#8a8a8a}
-
-/* Landing round 11: two sites in the builder, two pages in the OnePage editor. The tab shows the first, then (data-scene="1" on its panel, set on the autoplay clock) cross fades to the second; only opacity moves. */
-.bm-s1,.bm-s2{transition:opacity .7s cubic-bezier(.4,0,.2,1)}
-.bm-s2{opacity:0}
-[data-scene="1"] .bm-s1{opacity:0}
-[data-scene="1"] .bm-s2{opacity:1}
-.wx-name,.wx-pub-host,.wx-trees{display:grid}
-.wx-trees>.wx-tree{grid-area:1/1}
-.wx-name>span,.wx-pub-host>span{grid-area:1/1}
-.wx-pub-host>span{font-weight:400}
-@media(prefers-reduced-motion:reduce){.bm-s1,.bm-s2{transition:none}}
 /* Landing round 15: the ring as sections/_shared.tsx draws it, 2px of #3b82f6 inside the section's edge and "Selected" at its bottom right (11px, 600, 3px 8px, 4px corners), here in parts: the top and the sides (.wx-sel), the bottom edge (.wx-sel-b), and the sides carried on under the section while it grows (.wx-sel-x). Hidden at rest; shown when the section is picked. */
 .wx-sel{position:absolute;inset:0;box-shadow:inset 0 2u #3b82f6,inset 2u 0 #3b82f6,inset -2u 0 #3b82f6;pointer-events:none;opacity:0}
 .wx-sel-b{position:absolute;left:0;right:0;bottom:0;height:2u;background:#3b82f6}
 .wx-sel-x{position:absolute;left:0;right:0;top:100%;box-shadow:inset 2u 0 #3b82f6,inset -2u 0 #3b82f6;transform:scaleY(0);transform-origin:top}
 .stz .wx-sel-x{height:${EDIT_PLAN.stz.grow}u}
-.ll .wx-sel-x{height:${EDIT_PLAN.ll.grow}u}
 .wx-sel em{position:absolute;right:8u;bottom:8u;padding:3u 8u;border-radius:4u;background:#3b82f6;color:#fff;font-family:var(--font-inter,Inter),system-ui,sans-serif;font-size:11u;font-style:normal;font-weight:600;line-height:1;letter-spacing:.02em;box-shadow:0 1u 4u rgba(0,0,0,.18)}
 
 /* ---------- website builder (app/(storelib)/website-builder/editor, its bar, the sidebar card, the canvas) */
