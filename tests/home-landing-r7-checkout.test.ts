@@ -99,13 +99,15 @@ console.log("\nThe tab cards come over the phone, fading in")
 // Changed on purpose (landing round 9): the owner asked for a short sticky stage here: about one screen (100svh), only where scroll timelines exist; the cards are pulled 56svh up.
 // Changed on purpose (landing round 10): the track holds the stage and the cards, so the stage stays held behind them; the cards start 44svh under the stage's foot (the same 56svh overlap).
 /* Changed on purpose (landing round 15): the hold before the cards is 20svh shorter, so they are pulled 56svh up over 80svh of hold. */
-check("the stage holds one screen and the cards are pulled 56svh up over it, above it (z 5)", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(80svh - 56svh\)\}/.test(css))
+// Changed on purpose (landing round 16): the cards 40svh after the held stage.
+check("the stage holds one screen and the cards come up over it, above it (z 5)", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:40svh\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css))
 // Changed on purpose (landing round 8): each card slides up on its own, staggered, as the grid in the owner's recording does.
 // Changed on purpose (landing round 9): the ring cannot fade (opacity would flatten its 3D space) and the headline stays over the cards; the phone alone dims under them.
 // Changed on purpose (landing round 10): the phone and the ring step back together on the scroll timeline (the wrap round the 3D space fades, the space itself is untouched); no black veil.
 // Changed on purpose (landing round 11): the phone's box and the ring's step back together.
 // Changed on purpose (landing round 11): the phone's box steps back without fading (cmc-back), the ring fades (cmc-recede).
-check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;/.test(css) && /\.cmc-ring\{animation:cmc-recede linear both;animation-timeline:--cmc-t;/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
+// Changed on purpose (landing round 16): the phone and the ring step back as transitions once the cards are up.
+check("the cards slide up one after another; the phone steps back under them", /\.cmc\[data-cmc-over-armed\]:not\(\[data-cmc-over\]\) \.cmc-card\{opacity:0;transform:translate3d\(0,96px,0\)/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-ring\{opacity:0\.4;transform:scale\(0\.92\)\}/.test(css) && !/\.cmc-orbit\{[^}]*opacity/.test(css))
 // Changed on purpose (landing round 8): the transition is on each card.
 // Changed on purpose (landing round 9): the phone's move is the scroll timeline's now.
 // Changed on purpose (landing round 10): no veil to transition.

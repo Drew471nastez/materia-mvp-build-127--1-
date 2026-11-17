@@ -70,7 +70,8 @@ check("the ring is its own 3D space, drawn before the phone and under it (z 2 to
 // Changed on purpose (landing round 11, the ring fix): the shade was a twin box beside the phone running copies of its animations, and a product showed through the fading phone (1440 x 800, "Shoot Planner" over the screen). It is in the phone's own box now; the wrap only steps back.
 // Changed on purpose (landing round 12): the shade now fades too, but only after the phone has gone (80 to 86svh after the phone's 48 to 80), so it still never lets a product through a fading phone.
 /* Changed on purpose (landing round 15): the shade goes 20svh sooner (60 to 66svh), with the cards. */
-check("  under the phone, its shape in solid black, in the phone's own box under it, fading only once the phone is gone", /<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && (stage.match(/cmc-shade/g) ?? []).length === 1 && /\.cmc-shade\{position:absolute;inset:0;display:block;border-radius:calc\(var\(--pw\) \* \.178\);background:#000;pointer-events:none\}/.test(css) && /\.cmc-shade\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 60svh contain 66svh\}/.test(css))
+// Changed on purpose (landing round 16): the shade fades as a transition after the phone (data-cmc-back), not on the scroll.
+check("  under the phone, its shape in solid black, in the phone's own box under it, fading only once the phone is gone", /<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && (stage.match(/cmc-shade/g) ?? []).length === 1 && /\.cmc-shade\{position:absolute;inset:0;display:block;border-radius:calc\(var\(--pw\) \* \.178\);background:#000;pointer-events:none\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-shade\{opacity:0;transition-delay:\.6s\}/.test(css))
 check("  the phone's world holds no products and no 3D: nothing can be sorted in front of its screen", !/class="cmc-world">[^]*?class="cmc-o"/.test(stage.slice(stage.indexOf('class="cmc-phone-wrap"'))) && !/\.cmc-world\{[^}]*preserve-3d/.test(css))
 check("  set back by its radius, so its nearest point is level with the phone, then leaning and turning", /\.cmc-orbit\{position:absolute;left:50%;top:var\(--cy\);width:0;height:0;transform-style:preserve-3d;transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(0deg\)\}/.test(css))
 // Changed on purpose (wave 18): on a phone the ring is 50vw (up to 300px) with larger products, so they float round the phone on screen instead of off its edges (the reference).
@@ -99,27 +100,34 @@ const phoneAt = stage.indexOf('class="cmc-phone-wrap"')
 check("the ring comes before the phone in the stage, outside the phone's box, and no product is inside the phone's box", ringAt > 0 && phoneAt > ringAt && !/class="cmc-o"/.test(stage.slice(phoneAt)) && !/class="cmc-phone-wrap"/.test(stage.slice(ringAt, stage.indexOf('class="cmc-orbit"'))))
 check("  the ring's layer is below the phone's (z 2 to 3) and neither shares a 3D space with the other", /\.cmc-ring\{position:absolute;z-index:2;/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css) && !/\.cmc-(ring|phone-wrap|world|rise)\{[^}]*preserve-3d/.test(css))
 // Changed on purpose (landing round 12): the shade has one animation, its fade after the phone; still no transform or z-index of its own.
-check("  the shade moves only with the phone: no transform or z-index of its own, its only animation the fade after the phone", !/\.cmc-shade[^{]*\{[^}]*(transform|z-index)/.test(css) && (css.match(/\.cmc-shade\{animation:/g) ?? []).length === 1 && /class="cmc-rise"><span class="cmc-shade"/.test(stage))
-check("  the ring is set back by its radius: every product is behind the phone's plane", /\.cmc-orbit\{[^}]*transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX/.test(css) && /^from\{transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(-26deg\)\}to\{transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(26deg\)\}$/.test(keyframes("cmc-spin")))
+// Changed on purpose (landing round 16): its only fade is the transition after the phone.
+check("  the shade moves only with the phone: no transform or z-index of its own, its only fade the one after the phone", !/\.cmc-shade[^{]*\{[^}]*(transform|z-index)/.test(css) && !/\.cmc-shade\{animation:/.test(css) && /class="cmc-rise"><span class="cmc-shade"/.test(stage))
+// Changed on purpose (landing round 16): the scroll no longer turns the ring (cmc-spin is gone); it is still set back by its radius.
+check("  the ring is set back by its radius: every product is behind the phone's plane", /\.cmc-orbit\{[^}]*transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX/.test(css) && !/cmc-spin/.test(css))
 // Changed on purpose (landing round 12): the phone has its own fade rule now (48 to 80svh).
-check("  nothing that sits over the shade fades but the phone: the wrap, the world and the rise keep full opacity", !/\.cmc-(phone-wrap|world|rise)\{[^}]*animation:cmc-(recede|out|in)\b/.test(tl) && /\.cmc-rise > \.cmc-phone\{animation:cmc-out/.test(tl))
+// Changed on purpose (landing round 16): the phone fades as a transition once the cards are up; the wrap, the world and the rise never fade.
+check("  nothing that sits over the shade fades but the phone: the wrap, the world and the rise keep full opacity", !/\.cmc-(phone-wrap|world|rise)\{[^}]*(animation:cmc-(out|in)\b|opacity)/.test(css) && /\.cmc\[data-cmc-back\] :is\(\.cmc-rise > \.cmc-phone,\.cmc-sharp\)\{opacity:0\}/.test(css))
 // Changed on purpose (landing round 12): the owner found the phone too visible behind the cards; its blurred copy is gone.
 /* Changed on purpose (landing round 15): the owner wants the phone behind the cards, very blurred: its baked copy is back (cmc-soft-phone, opacity only). */
-check("  the phone's blurred copy behind the cards is a baked picture, faded in", !/cmc-in-half/.test(css) && /\.cmc-phone-soft\{animation:cmc-soft-phone linear both;/.test(css))
+// Changed on purpose (landing round 16): faded in as a transition once the cards are up.
+check("  the phone's blurred copy behind the cards is a baked picture, faded in", !/cmc-in-half/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-phone-soft\{opacity:0\.3\}/.test(css))
 
 console.log("\n2. The phone: big as the section arrives, smaller under a two row headline")
 // Changed on purpose (landing round 14): on a phone (under 900px) the phone is drawn settled from the first frame (--big:1), 50vw wide at most; the big start is the computer's alone.
 /* Changed on purpose (landing round 15): the big phone starts 12svh under its settled place, not 40svh down. */
-check("the settled phone is the room one screen leaves under the headline; the big one a multiple of it", /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css) && /--big:1\.12;--ps:0\.893;--y0:calc\(var\(--y1\) \+ 22svh\)/.test(desk) /* Changed on purpose (landing round 15): the phone rises into place from a little larger, not a 1.72x zoom */ && /--big:1;--ps:1;/.test(css))
+// Changed on purpose (landing round 16): a fifth of a computer's screen settled and five thirds of it big (the owner's reference); 1.6 times on a phone.
+check("the settled phone is the room one screen leaves under the headline on a phone, a fifth of the screen on a computer; the big one a multiple of it", /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css) && /--big:1\.667;--ps:0\.6;--y0:12svh;/.test(desk) && /--pe:clamp\(220px,20vw,440px\);/.test(css) && /--big:1\.6;--ps:0\.625;/.test(css))
 check("  the phone's box is the big phone's; the world carries it from big and low to settled, one transform", /\.cmc-phone-wrap\{position:absolute;z-index:3;left:50%;top:0;width:var\(--pw\);height:calc\(var\(--pw\) \* 2\.07\);margin-left:calc\(var\(--pw\) \/ -2\)\}/.test(css) && /\.cmc-world\{position:relative;width:100%;height:100%;transform-origin:50% 0;transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}/.test(css) && /^from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}to\{transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}$/.test(keyframes("cmc-settle")))
 /* Changed on purpose (landing round 15): from 84svh before the hold to 14svh into it, as the section comes up. */
-check("  on the scroll timeline as the section comes up, eased", /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.4,0,\.2,1\) both;animation-timeline:--cmc-t;animation-range:contain -84svh contain 14svh\}/.test(tl))
+// Changed on purpose (landing round 16): from 88svh before the hold, t squared, at every width.
+check("  on the scroll timeline as the section comes up, eased", /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.333,0,\.667,\.333\) both;animation-timeline:--cmc-t;animation-range:contain -88svh contain -8svh\}/.test(tl))
 // Changed on purpose (landing round 15): measured from --top: the header's height on a computer, none under 900px where the stage is held under the header.
 check("  it settles with its top under the headline's two rows (and so its foot on the stage's)", /--y1:calc\(var\(--top\) \+ var\(--tt\) \+ var\(--fs\) \* 2\.1 \+ var\(--gap\)\)/.test(css) && /\.cmc-title\{margin:0 auto;font-size:var\(--fs\);font-weight:300;line-height:1\.04;/.test(css))
 const rows = [...co.matchAll(/<span class="cmc-row">([\s\S]*?)<\/span>(?= ?<span class="cmc-row">|<\/h2>)/g)].map((m) => words(m[1]).trim())
 check("the headline is two rows, each kept whole: \"Checkout that turns\" / \"a tap into a sale\"", rows.length === 2 && rows[0] === "Checkout that turns" && rows[1] === "a tap into a sale" && words(co.slice(co.indexOf("<h2"), co.indexOf("</h2>"))).replace(/\s+/g, " ").trim() === CHECKOUT_HEADING && /\.cmc-row\{display:block;white-space:nowrap;/.test(css)) /* Changed on purpose (landing round 15): each row also clips its words as they rise out of it */
 /* Changed on purpose (landing round 15): the words rise as the section comes up. */
-check("  each word still rises in on the timeline, in order", (co.match(/class="cmc-w" data-w="\d"/g) ?? []).length === 8 && /\.cmc-w\[data-w="7"\]\{animation-range:contain -65\.8svh contain -44\.8svh\}/.test(tl))
+// Changed on purpose (landing round 16): the heading rises in as one box, on the timeline.
+check("  the heading rises in on the timeline, as one box", (co.match(/class="cmc-w" data-w="\d"/g) ?? []).length === 8 && /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(tl))
 
 console.log("\n3. Bring back the ones who almost bought: the email (round 12: the Recovered chart gone)")
 const rec = card("recover")
@@ -160,12 +168,14 @@ check("  the facts sit on a solid strip of the same ground and hairline", /\.cmc
 // Changed on purpose (landing round 11, the ring fix): only the ring fades; the phone's box steps back without fading, so the shade under the phone stays solid.
 // Changed on purpose (wave 18): a touch dimmer throughout (the owner), 0.4 behind the cards.
 /* Changed on purpose (landing round 15): the phone's box sinks by --sink and steps back to the track's end. */
-check("  the products still turn in the gaps, fainter (40%) behind them", /to\{opacity:0\.4;/.test(keyframes("cmc-recede")) && /\.cmc-ring\{animation:cmc-recede linear both;/.test(tl) && /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 100%\}/.test(tl) && /^from\{transform:translate3d\(0,0,0\) scale\(1\)\}to\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}$/.test(keyframes("cmc-back")))
+// Changed on purpose (landing round 16): behind the cards the ring and the phone step back as transitions once the cards are up.
+check("  the products still turn in the gaps, fainter (40%) behind them", /\.cmc\[data-cmc-back\] \.cmc-ring\{opacity:0\.4;transform:scale\(0\.92\)\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(css))
 check("the orbs stay as subtle as round 9 left them", /rgba\(139,92,246,\.085\)/.test(css) && /rgba\(255,255,255,\.035\)/.test(css))
 
 console.log("\n7. Performance")
 check("every keyframe in the section moves transform and opacity only", [...css.matchAll(/@keyframes ([\w-]+)\{/g)].map((m) => m[1]).every((k) => onlyCompositor(keyframes(k))))
-check("no filter, blur or backdrop filter; one will-change, on the turning ring only while it turns", !/filter|blur\(/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")) && (css.match(/will-change:/g) ?? []).length === 1)
+// Changed on purpose (landing round 16): one more, on the phone while the section is near.
+check("no filter, blur or backdrop filter; will-change on the turning ring only while it turns, and on the phone only while near", !/filter|blur\(/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")) && (css.match(/will-change:/g) ?? []).length === 2)
 check("nothing per frame in script: no scroll listener, rAF, layout read, timer or state", !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop|setTimeout|setInterval|useState/.test(code(src)))
 
 console.log("\nCopy and the push suite")
