@@ -1,15 +1,15 @@
-import { ArrowDownToLine, CalendarDays, Check, CheckCircle2, Heart, MessageCircle, MoreHorizontal, Play, Users, Video } from "lucide-react"
+import { ArrowDownToLine, CalendarDays, Check, CheckCircle2, Heart, MessageCircle, Play, Users, Video } from "lucide-react"
 import { useEffect, useRef, type CSSProperties } from "react"
 import { Pic, pic, u } from "./frame"
 
 /*
-  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 15).
+  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 16).
   Each kind of thing sold is one scene on its own calm ground: the thing
   itself, photographed, and the Storelib page that sells it, with one short
   moment playing while it is shown.
 
-    Digital product   A product page and a buyer's phone: three downloads
-                      bought in turn, each arriving in their library (round 15)
+    Digital product   A cookbook bought, then opening to its first spread
+                      (round 16)
     Physical product  A line of store designs for goods you ship, turning in
                       perspective by itself and under a drag (round 14)
     Course            Mixing in key, Tomás Reyes's course for new DJs (kept)
@@ -52,143 +52,92 @@ function Still({ src, w, h, className = "smk-pic" }: { src: string; w: number; h
 
 /* ================================================================ Digital product */
 /*
-  Round 15, the owner disliked the shelf of six with its hover and buy, and
-  asked for something smoother and cleaner. It is one calm scene now: a
-  product page on the left and, beside it, a buyer's phone open on their
-  Storelib library. Three digital products are bought in turn (a cookbook
-  PDF, a video course, a sample pack); each time the button says it is paid
-  and the purchase slides into the top of the library, tinted the way the
-  real library marks a new purchase (components/library/product-row.tsx,
-  #f7f5ff), and the one before it settles.
+  Round 16, the owner asked for another picture of a digital product: the
+  product page with a buyer's library (round 15) read as two screens of UI.
+  It is one thing now, large and calm: Ruth Calder's cookbook, Ancestral
+  Kitchen, closed on a linen ground beside its buy card. Buy is pressed, the
+  button turns into Download PDF, and the book opens to its first spread: a
+  photograph of the soup on the left page, its recipe on the right.
 
-  Every moment is a CSS animation on opacity and transform, one turn long,
-  run once while the scene is shown (`.bz-on`) and paused off screen
-  (business-carousel.tsx). The library's list is one layer that steps down
-  a row at each purchase (one animation, its keyframes holding between the
-  steps; three nested wrappers measured as more compositor work on a phone),
-  so no script runs and nothing is laid out again. Without motion the scene stands at its end: the sample
-  pack paid for and on top of the library.
+  Chosen over a video course player (the Courses card beside it already is
+  one), a sample pack's waveform (a sound drawn as bars is the least real
+  looking of the three) and a grid of covers (round 12's row of covers was
+  disliked): a book opening is a picture anyone reads at a glance, and it is
+  the only scene of the five with a single object at its middle, so it sits
+  well beside the course page, the club and the coach.
 
-  The library rows are the real row's phone layout: picture, name, maker
-  and date, then Download (or Open, for a course) and More.
+  The opening is three flat layers, not a 3D scene: the cover turns away on
+  its left edge to a quarter turn (edge on, gone), then the left page turns
+  in from a quarter turn on the spine, while the book slides from centred
+  closed to centred open. Each is a CSS animation on transform and opacity
+  with its own perspective(), run once per turn under `.bz-on` and paused
+  off screen (business-carousel.tsx). Without motion the scene stands at its
+  end: the book open, the PDF paid for.
+
+  Pictures: the cover is cut from the Ancestral Kitchen mockup the page
+  already used (public/home/sell-map), the soup is an Unsplash photograph
+  (photo-1476718406336), both re-encoded small in public/home/showcase.
 */
-export const DIGITAL_FLOW = [
-  {
-    id: "kitchen",
-    name: "Ancestral Kitchen",
-    kind: "Cookbook, PDF",
-    price: "$34",
-    src: "/home/sell-map/ancestral-kitchen-cookbook.webp",
-    by: "Ruth Calder",
-    gets: ["80 recipes from whole foods", "Weekly shopping lists", "212 pages, made to print"],
-    action: "Download",
-  },
-  {
-    id: "mobility",
-    name: "Daily Mobility",
-    kind: "Video course",
-    price: "$79",
-    src: "/home/sell-map/mobility-course.webp",
-    by: "Lena Park",
-    gets: ["21 lessons, 15 minutes a day", "Watch online or download", "Picks up where you stopped"],
-    action: "Open",
-  },
-  {
-    id: "drums",
-    name: "Drums One Shots",
-    kind: "Sample pack",
-    price: "$19",
-    src: "/home/showcase/ll-drums.webp",
-    by: "Loud",
-    gets: ["240 drum one shots, WAV", "Kicks, snares, hats, percussion", "Royalty free"],
-    action: "Download",
-  },
-] as const
-/** Bought before the scene starts: the library is not empty. */
-export const DIGITAL_OWNED = [
-  { id: "pricing", name: "Pricing Your Work", src: "/home/showcase/dg-pricing-guide.webp", by: "Owen Pratt", date: "Oct 2, 2026" },
-  { id: "planner", name: "Creator Planner", src: "/home/showcase/dg-creator-planner.webp", by: "Hana Ito", date: "Sep 14, 2026" },
-  { id: "cine", name: "Cine Tones", src: "/home/sell-map/cine-tones-lut-pack.webp", by: "Dario Ruiz", date: "Aug 30, 2026" },
-] as const
-/** One purchase's share of the turn, in seconds (the CSS below and the turn's length in business-carousel.tsx read it). */
-export const DIGITAL_BUY_S = 3.2
-/** A product's pane stands its step and fades out under the next one (written out: 3.2 + 0.4 in floating point is 3.6000000000000005). */
-const DIGITAL_PANE_S = 3.6
-const TODAY = "Nov 17, 2026"
-
-function LibraryRow({ name, by, src, date, action, k }: { name: string; by: string; src: string; date: string; action: string; k?: number }) {
-  return (
-    <li className="bl-row" style={k === undefined ? undefined : ({ "--k": k } as CSSProperties)} data-new={k === undefined ? undefined : ""}>
-      <span className="bl-thumb">
-        <Still src={src} w={600} h={600} />
-      </span>
-      <span className="bl-row-t">
-        <b>{name}</b>
-        <span>
-          <i>{by[0]}</i>
-          {by}
-          <s>·</s>
-          {date}
-        </span>
-      </span>
-      <span className="bl-acts">
-        <span className="bl-act">
-          {action === "Download" && <ArrowDownToLine />}
-          {action}
-        </span>
-        <span className="bl-more">
-          <MoreHorizontal />
-        </span>
-      </span>
-    </li>
-  )
-}
+export const DIGITAL_BOOK = {
+  name: "Ancestral Kitchen",
+  kind: "E-book, PDF",
+  by: "Ruth Calder",
+  price: "$34",
+  pages: 212,
+  cover: pic("dg-kitchen-cover"),
+  photo: pic("dg-kitchen-soup"),
+  recipe: "Roasted squash soup",
+  chapter: "Soups",
+  serves: "Serves 4 · 1 hour",
+  about: "80 recipes from whole foods, with a shopping list for every week.",
+  ingredients: ["1 butternut squash", "2 shallots", "1 tbsp cumin seeds", "750 ml stock", "Feta and pumpkin seeds"],
+  method: "Roast the squash until soft and dark at the edges, about 40 minutes.",
+} as const
 
 export function DigitalScene() {
-  const newest = [...DIGITAL_FLOW].reverse()
+  const b = DIGITAL_BOOK
   return (
     <div className="bs bs-digital">
-      <div className="bl-card">
-        {DIGITAL_FLOW.map((p, k) => (
-          <div key={p.id} className="bl-pane" style={{ "--k": k } as CSSProperties}>
-            <span className="bl-cover">
-              <Still src={p.src} w={600} h={600} />
-            </span>
-            <span className="bl-info">
-              <span className="bs-kicker">{p.kind}</span>
-              <b>{p.name}</b>
-              <span className="bs-by">by {p.by}</span>
-              <span className="bs-price">{p.price}</span>
-              <span className="bs-btn bl-buy">
-                <span className="a">Buy for {p.price}</span>
-                <span className="b">
-                  <Check /> In your library
-                </span>
-              </span>
-            </span>
-            <ul className="bl-gets">
-              {p.gets.map((g) => (
-                <li key={g}>{g}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <div className="bl-phone">
-        <div className="bl-screen">
-          <b className="bl-title">Library</b>
-          <div className="bl-win">
-            {/* One list, three rows up at the start, a row down at each purchase. */}
-            <ul className="bl-d">
-              {newest.map((p) => (
-                <LibraryRow key={p.id} name={p.name} by={p.by} src={p.src} date={TODAY} action={p.action} k={DIGITAL_FLOW.indexOf(p)} />
-              ))}
-              {DIGITAL_OWNED.map((p) => (
-                <LibraryRow key={p.id} name={p.name} by={p.by} src={p.src} date={p.date} action="Download" />
-              ))}
-            </ul>
-          </div>
+      <div className="bk">
+        <div className="bk-page bk-right">
+          <span className="bk-chap">{b.chapter}</span>
+          <b className="bk-title">{b.recipe}</b>
+          <span className="bk-serves">{b.serves}</span>
+          <ul className="bk-ing">
+            {b.ingredients.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+          <p className="bk-method">
+            <i>1</i>
+            {b.method}
+          </p>
+          <span className="bk-no">15</span>
         </div>
+        <div className="bk-page bk-left">
+          <Still src={b.photo} w={560} h={720} />
+        </div>
+        <div className="bk-cover">
+          <Still src={b.cover} w={396} h={510} />
+        </div>
+      </div>
+      <div className="bs-card bk-buy">
+        <span className="bs-kicker">{b.kind}</span>
+        <h4>{b.name}</h4>
+        <span className="bs-by">
+          by {b.by} · {b.pages} pages
+        </span>
+        <span className="bs-price">{b.price}</span>
+        <span className="bs-desc">{b.about}</span>
+        <span className="bk-paid">
+          <CheckCircle2 /> Paid, and in your library
+        </span>
+        <span className="bs-btn bk-btn">
+          <span className="a">Buy for {b.price}</span>
+          <span className="b">
+            <ArrowDownToLine /> Download PDF
+          </span>
+        </span>
       </div>
     </div>
   )
@@ -792,32 +741,21 @@ export function CoachScene() {
   without end while its scene is shown and the section is on screen.
 */
 const E = "cubic-bezier(.22,1,.36,1)"
-/*
-  The library list's steps, as one timeline: a row down at 1.5s into each purchase, over 0.8s on the scenes' curve,
-  holding between. Ends at the last step's end (2 steps + 2.3s).
-*/
-const DROP_S = Math.round((DIGITAL_BUY_S * 2 + 2.3) * 100) / 100
-const dropAt = (s: number) => `${Math.round((s / DROP_S) * 10000) / 100}%`
-const DROP_KEYS = [0, 1, 2]
-  .map((k) => {
-    const a = k * DIGITAL_BUY_S + 1.5
-    return `${dropAt(a)}{transform:translate3d(0,calc(var(--row) * ${k - 3}),0);animation-timing-function:${E}}${dropAt(a + 0.8)}{transform:translate3d(0,calc(var(--row) * ${k - 2}),0);animation-timing-function:linear}`
-  })
-  .join("")
-  .replace(/^/, `0%{transform:translate3d(0,calc(var(--row) * -3),0)}`)
 const MOTION = `
 @media(prefers-reduced-motion:no-preference){
-.bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard,.bz-on .bl-card,.bz-on .bl-phone{animation:bz-rise .8s ${E} .1s backwards}
+.bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s backwards}
 .bz-on .bs-coach-pic,.bz-on .bo-main-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
 
-.bz-on .bl-pane{animation:bl-pane ${DIGITAL_PANE_S}s linear calc(var(--k) * ${DIGITAL_BUY_S}s) both}
-.bz-on .bl-pane:last-child{animation:bl-fade-in .4s linear calc(var(--k) * ${DIGITAL_BUY_S}s) backwards}
-.bz-on .bl-info{animation:bz-up-in .6s ${E} calc(var(--k) * ${DIGITAL_BUY_S}s) backwards}
-.bz-on .bl-buy{animation:bz-press .36s ease calc(var(--k) * ${DIGITAL_BUY_S}s + 1s) both}
-.bz-on .bl-buy>.a{animation:bz-out .3s ease calc(var(--k) * ${DIGITAL_BUY_S}s + 1.1s) both}
-.bz-on .bl-buy>.b{animation:bz-in .4s ${E} calc(var(--k) * ${DIGITAL_BUY_S}s + 1.25s) both}
-.bz-on .bl-d{animation:bl-drop ${DROP_S}s linear both}
-.bz-on .bl-row[data-new]:not(:first-child)::after{animation:bl-fade-out .8s ease calc((var(--k) + 1) * ${DIGITAL_BUY_S}s + 1.6s) backwards}
+/* digital (round 16): bought, then the book opens. The book fades in where it stands (its transform is the slide). */
+.bz-on .bk{animation:bk-fade .6s ease .1s backwards,bk-slide 1.3s cubic-bezier(.45,0,.2,1) 1.8s both}
+.bz-on .bk-btn{animation:bz-press .36s ease 1.1s both}
+.bz-on .bk-btn>.a{animation:bz-out .3s ease 1.2s both}
+.bz-on .bk-btn>.b{animation:bz-in .4s ${E} 1.35s both}
+.bz-on .bk-paid{animation:bz-up-in .5s ${E} 1.5s both}
+/* The right page waits under the closed cover, drawn only once the cover lifts: a fade of the whole book is not promised to group its 3D layers, so the page showed through the cover as it faded in. */
+.bz-on .bk-right{animation:bk-fade .01s linear 1.8s backwards}
+.bz-on .bk-cover{animation:bk-cover .55s cubic-bezier(.55,0,.9,.55) 1.8s both}
+.bz-on .bk-left{animation:bk-left .8s cubic-bezier(.1,.45,.25,1) 2.35s both}
 
 .bz-on .bp-bar i{animation:bz-play 4.2s linear .6s both}
 .bz-on .bp-play{animation:bz-pop .5s ${E} .3s both}
@@ -836,6 +774,10 @@ const MOTION = `
 .bz-on .bs-coach .bs-press{animation:bz-press .36s ease 3.9s both}
 .bz-on .bs-booked{animation:bz-rise .6s ${E} 4.2s backwards}
 }
+@keyframes bk-fade{from{opacity:0}}
+@keyframes bk-slide{from{transform:translate3d(var(--bk-shift),0,0)}}
+@keyframes bk-cover{0%{opacity:1;transform:rotateY(0deg)}99%{opacity:1}100%{opacity:0;transform:rotateY(-90deg)}}
+@keyframes bk-left{0%{opacity:0;transform:rotateY(90deg)}1%{opacity:1}100%{opacity:1;transform:rotateY(0deg)}}
 @keyframes bz-rise{from{opacity:0;transform:translate3d(0,18u,0)}}
 @keyframes bz-push{from{transform:scale(1.05)}}
 @keyframes bz-tick{from{opacity:0;transform:scale(.3)}}
@@ -850,10 +792,6 @@ const MOTION = `
 @keyframes bz-up-in{from{opacity:0;transform:translate3d(0,8u,0)}}
 @keyframes bz-day{0%{opacity:0;transform:translate3d(calc(var(--day) * 1),0,0) scale(.8)}18%,42%{opacity:1;transform:translate3d(calc(var(--day) * 1),0,0)}}
 @keyframes bz-time{0%{opacity:0;transform:translate3d(calc(100% + 8u),-48u,0) scale(.8)}25%,45%{opacity:1;transform:translate3d(calc(100% + 8u),-48u,0)}}
-@keyframes bl-pane{0%{opacity:0}10%,88.9%{opacity:1}100%{opacity:0}}
-@keyframes bl-fade-in{from{opacity:0}}
-@keyframes bl-fade-out{from{opacity:1}}
-@keyframes bl-drop{${DROP_KEYS}}
 `
 
 export const BUSINESS_MOCK_CSS =
@@ -878,45 +816,34 @@ export const BUSINESS_MOCK_CSS =
 .bs-swap .a{opacity:0}
 
 /*
-  digital (round 15): a product page and a buyer's phone on a clean pale sage. The page holds a pane per product,
-  stacked, the one being bought shown (opacity only). The phone is the Storelib library on its page grey, its list
-  in one white card that clips at its top edge, so a purchase slides in from under it.
+  digital (round 16): the cookbook and its buy card on a warm linen ground. The book is a box as wide as its open
+  spread, with a perspective for its pages: the right page, the left page and the cover are flat siblings (no
+  preserve-3d), drawn in their order, each turned on its own hinge (the cover on its left edge, the left page on the
+  spine). At rest the book is open and the cover turned away; the moment (MOTION) starts it closed and centred.
 */
-.bs-digital{background:#ecf1ec}
-.bl-card{position:absolute;left:64u;top:63u;width:620u;height:444u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -30u rgba(16,24,40,.38)}
-.bl-pane{position:absolute;inset:0;display:grid;grid-template-columns:236u minmax(0,1fr);grid-template-rows:236u auto;column-gap:28u;padding:30u;border-radius:inherit;background:#fff;opacity:0}
-.bl-pane:last-child{opacity:1}
-.bl-cover{display:block;width:236u;height:236u;border-radius:14u;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06)}
-.bl-info{display:flex;flex-direction:column;min-width:0;padding-top:4u}
-.bl-info>b{margin-top:8u;font-size:30u;font-weight:650;line-height:1.08;letter-spacing:-.025em}
-.bl-info .bs-by{margin-top:8u!important}
-.bl-info .bs-price{margin-top:14u!important}
-.bl-buy{display:grid;height:50u;overflow:hidden}
-.bl-buy>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
-.bl-buy>.a{opacity:0}
-.bl-buy svg{width:16u;height:16u;color:#4ade80}
-.bl-gets{grid-column:1/-1;margin:22u 0 0;padding:0;list-style:none;border-top:1u solid #f0f0f1}
-.bl-gets li{padding:11u 0;border-bottom:1u solid #f4f4f5;font-size:14u;color:#3f3f46}
-.bl-gets li:last-child{border-bottom:0}
-.bl-phone{position:absolute;left:720u;top:34u;width:330u;height:600u;border-radius:52u;background:#1c1c20;box-shadow:inset 0 0 0 1.5u #3a3a40,0 2u 4u rgba(16,24,40,.08),0 40u 70u -36u rgba(16,24,40,.5)}
-.bl-screen{position:absolute;inset:9u;border-radius:43u;background:#f8f9fa;overflow:hidden}
-.bl-title{position:absolute;left:20u;top:46u;font-size:24u;font-weight:700;line-height:1.25;letter-spacing:-.01em;color:#1a1a2e}
-.bl-win{position:absolute;left:12u;right:12u;top:96u;bottom:-20u;border-radius:16u;background:#fff;box-shadow:0 0 0 1u rgba(228,231,236,.8),0 1u 2u rgba(16,24,40,.04);overflow:hidden}
-.bl-d{--row:127u;margin:0;padding:0;list-style:none}
-.bl-row{position:relative;isolation:isolate;display:grid;grid-template-columns:54u minmax(0,1fr);column-gap:12u;align-content:start;height:127u;padding:14u;border-bottom:1u solid #eef0f3}
-.bl-row::after{content:"";position:absolute;inset:0;z-index:-1;background:#f7f5ff;opacity:0}
-.bl-row:first-child::after{opacity:1}
-.bl-thumb{display:block;width:54u;height:54u;border-radius:11u;overflow:hidden;box-shadow:inset 0 0 0 1u rgba(0,0,0,.04)}
-.bl-row-t{display:grid;align-content:start;gap:5u;min-width:0;padding-top:2u}
-.bl-row-t b{font-size:14u;font-weight:600;line-height:1.3;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bl-row-t>span{display:flex;align-items:center;gap:6u;font-size:12u;color:#6b7280;white-space:nowrap}
-.bl-row-t i{display:grid;place-items:center;width:16u;height:16u;border-radius:50%;background:#e9e7f5;color:#4c3d8f;font-size:9u;font-style:normal;font-weight:700}
-.bl-row-t s{text-decoration:none;color:#c4c8cf}
-.bl-acts{grid-column:1/-1;display:flex;gap:8u;margin-top:10u}
-.bl-act,.bl-more{display:flex;align-items:center;justify-content:center;gap:6u;height:34u;border-radius:9u;border:1u solid #d5d9e0;background:#f3f4f6;color:#1a1a2e;font-size:12.5u;font-weight:600}
-.bl-act{flex:1}
-.bl-more{width:34u;flex:none}
-.bl-act svg,.bl-more svg{width:13u;height:13u}
+.bs-digital{background:#eee9e1}
+.bk{--bk-shift:-140u;position:absolute;left:84u;top:104u;width:560u;height:362u;perspective:1600u}
+.bk-page{position:absolute;top:0;bottom:0;width:50%;background:#fbf8f3;box-shadow:0 0 0 1u rgba(60,45,30,.06),0 26u 44u -26u rgba(60,45,30,.4)}
+.bk-right{right:0;display:flex;flex-direction:column;padding:34u 30u 0 34u;border-radius:0 4u 4u 0;background:linear-gradient(to right,rgba(60,45,30,.1),rgba(60,45,30,0) 9%),#fbf8f3;color:#2b2420}
+.bk-left{left:0;overflow:hidden;border-radius:4u 0 0 4u;transform-origin:100% 50%}
+.bk-left::after{content:"";position:absolute;inset:0;background:linear-gradient(to left,rgba(40,30,20,.2),rgba(40,30,20,0) 10%);pointer-events:none}
+.bk-cover{position:absolute;right:0;top:0;bottom:0;width:50%;overflow:hidden;border-radius:2u 6u 6u 2u;transform-origin:0 50%;transform:rotateY(-90deg);opacity:0;box-shadow:0 0 0 1u rgba(60,45,30,.08),0 26u 44u -24u rgba(60,45,30,.45)}
+.bk-chap{font-size:9.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#9a6b3f}
+.bk-title{margin-top:8u;font-family:Georgia,"Times New Roman",serif;font-size:24u;font-weight:400;line-height:1.1;letter-spacing:-.01em}
+.bk-serves{margin-top:8u;font-size:10.5u;color:#857a70}
+.bk-ing{margin:16u 0 0;padding:0;list-style:none;border-top:1u solid #ebe4da}
+.bk-ing li{padding:6u 0;border-bottom:1u solid #ebe4da;font-size:11u;line-height:1.3;color:#4a403a}
+.bk-method{display:flex;gap:8u;margin:14u 0 0;font-size:11u;line-height:1.5;color:#4a403a}
+.bk-method i{flex:none;font-family:Georgia,serif;font-size:15u;font-style:normal;line-height:1.1;color:#9a6b3f}
+.bk-no{position:absolute;left:0;right:0;bottom:14u;font-size:9.5u;text-align:center;color:#a39a91}
+.bk-buy{left:704u;top:104u;width:320u;height:362u}
+.bk-buy .bs-by{margin-top:6u!important}
+.bk-btn{display:grid;overflow:hidden}
+.bk-btn>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
+.bk-btn>.a{opacity:0}
+.bk-paid{display:flex;align-items:center;gap:7u;margin:auto 0 12u;font-size:13u;font-weight:500;color:#3f3f46}
+.bk-paid svg{width:16u;height:16u;color:#16a34a}
+.bk-paid+.bk-btn{margin-top:0}
 
 /* physical (round 14): store designs for goods you ship, a line turning in perspective in clean light (round 13's flat grey was too grey). The stage gives the perspective and takes the drag; the cards are flat siblings in the order the script sets (round 14: preserve-3d made the compositor sort a 3D scene every frame; without it a turn drops a quarter as many frames at 1920), each one flat picture with its corners and shadow drawn once. */
 .bs-store{background:radial-gradient(70% 80% at 50% 46%,#fff 0%,#f7f9fb 46%,#e9eef4 100%)}
@@ -1045,22 +972,17 @@ ${STORE_LINE}
   .bs h4{font-size:21u}
   .bs-price{margin-top:8u!important;font-size:20u}
 
-  .bl-card{left:14u;right:14u;top:14u;width:auto;height:190u;border-radius:18u}
-  .bl-pane{grid-template-columns:100u minmax(0,1fr);grid-template-rows:100u auto;column-gap:14u;padding:16u}
-  .bl-cover{width:100u;height:100u;border-radius:11u}
-  .bl-info{padding-top:0}
-  .bl-info .bs-kicker{font-size:10.5u}
-  .bl-info>b{margin-top:4u;font-size:19u}
-  .bl-info .bs-by{margin-top:4u!important;font-size:12.5u}
-  .bl-info .bs-price{margin-top:8u!important;font-size:18u}
-  .bl-info .bl-buy{position:absolute;left:16u;right:16u;bottom:16u;height:44u;font-size:14u}
-  .bl-gets{display:none}
-  .bl-phone{left:36u;top:220u;width:288u;height:420u;border-radius:44u}
-  .bl-screen{inset:8u;border-radius:37u}
-  .bl-title{left:16u;top:30u;font-size:20u}
-  .bl-win{left:10u;right:10u;top:72u}
-  .bl-row-t i{display:none}
-  .bl-row-t>span{gap:5u;font-size:11.5u}
+  .bk{--bk-shift:-79u;left:22u;top:22u;width:316u;height:204u;perspective:900u}
+  .bk-right{padding:16u 12u 0 16u}
+  .bk-chap{font-size:6.5u}
+  .bk-title{margin-top:4u;font-size:13u}
+  .bk-serves{margin-top:4u;font-size:7u}
+  .bk-ing{margin-top:8u}
+  .bk-ing li{padding:3u 0;font-size:7u}
+  .bk-method{display:none}
+  .bk-no{bottom:7u;font-size:6.5u}
+  .bk-buy{left:14u;right:14u;top:250u;bottom:14u;width:auto;height:auto}
+  .bk-paid{font-size:12.5u}
 
   .bt-stage{width:276u;height:345u;margin:-172u 0 0 -138u;perspective:950u}
   .bt-card{border-radius:11u}
