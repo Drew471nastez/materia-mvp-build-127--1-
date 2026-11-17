@@ -1,5 +1,7 @@
 import type { Metadata } from "next"
-import BlogListing from "./_blog-listing"
+import { BlogLists } from "./_components/blog-lists"
+import { blogIndexTitle } from "./_components/blog-titles"
+import { readBlogCategories } from "@/lib/blog/categories"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { pageMetadata } from "@/lib/seo/page-metadata"
 import { BLOG_FEED_ALTERNATE, BLOG_ORIGIN, blogPage, blogPagePath, type BlogPost } from "@/lib/blog/listing"
@@ -19,7 +21,7 @@ export function blogIndexMetadata(page: number): Metadata {
   const first = page <= 1
   return pageMetadata({
     path: blogPagePath(page),
-    title: first ? "Storelib Blog: guides for selling digital products" : `Storelib Blog, page ${page}`,
+    title: blogIndexTitle(page),
     absolute: true,
     description: first ? DESCRIPTION : `Older posts from the Storelib Blog, page ${page}. ${DESCRIPTION}`,
     robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
@@ -27,15 +29,17 @@ export function blogIndexMetadata(page: number): Metadata {
   })
 }
 
-export function BlogIndex({ posts, page, pages }: { posts: BlogPost[]; page: number; pages: number }) {
+export async function BlogIndex({ posts, page }: { posts: BlogPost[]; page: number; pages: number }) {
+  /* Every post and category, so a pill redraws the list in the browser (./_components/blog-lists.tsx). Both reads are the layout's own, cached for the request. */
+  const [all, categories] = await Promise.all([readBlogPosts(), readBlogCategories()])
   const crumbs = [{ name: "Blog", path: "/blog" }, ...(page > 1 ? [{ name: `Page ${page}`, path: blogPagePath(page) }] : [])]
   return (
     <>
       {/* The Blog with this page's posts as its blogPost items, and where the page sits. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(blogJsonLd(posts, { url: `${BLOG_ORIGIN}${blogPagePath(page)}`, description: DESCRIPTION })) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbListJsonLd(crumbs)) }} />
-      {/* The title, its line and the category pills are the blog's layout (./layout.tsx), the same on every list. */}
-      <BlogListing posts={posts} activeCategory={null} pagination={{ page, pages }} featured={page === 1} />
+      {/* The title, its line and the category pills are the blog's layout (./layout.tsx), the same on every list. This page's posts, drawn from all of them by its address. */}
+      <BlogLists posts={all} categories={categories.map(({ slug, name }) => ({ slug, name }))} />
     </>
   )
 }

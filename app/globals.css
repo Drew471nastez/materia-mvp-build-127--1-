@@ -1625,29 +1625,22 @@ html.capacitor body {
     laid out again in its frames. The fill sliding between the pills is in
     app/(marketing)/blog/_components/blog-nav.tsx. With reduced motion the
     list simply changes.
+    Landing round 15, the owner: it still flashed. A pill now redraws the
+    list in the browser with nothing to wait for (blog/_components/
+    blog-lists.tsx), so the fade out, which left a blank while the next
+    page loaded, and the title's fade, now that the title never changes,
+    are gone. Only the new list's 220ms fade and rise is left, and it starts
+    at 30% rather than nothing, so the cards never blink out for a frame.
   */
-  .blog-list-out {
-    opacity: 0;
-    transition: opacity 120ms cubic-bezier(0.4, 0, 1, 1);
-  }
   .blog-list-swap {
     animation: blog-list-swap 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
   @keyframes blog-list-swap {
-    from { opacity: 0; transform: translate3d(0, 6px, 0); }
+    from { opacity: 0.3; transform: translate3d(0, 6px, 0); }
     to { opacity: 1; transform: none; }
   }
-  /* The category's name and line above the pills: a plain fade, nothing moves. */
-  .blog-title-swap {
-    animation: blog-title-swap 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  }
-  @keyframes blog-title-swap {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
   @media (prefers-reduced-motion: reduce) {
-    .blog-list-out { opacity: 1; transition: none; }
-    .blog-list-swap, .blog-title-swap { animation: none; }
+    .blog-list-swap { animation: none; }
   }
 
   /*
