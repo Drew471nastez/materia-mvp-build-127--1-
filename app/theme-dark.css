@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 940 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 941 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -495,6 +495,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#050506\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0a0a0a\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0a0a0c\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0b0b0f\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0b0b12\]\/55:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.55); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0e0e10\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f0e13\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }

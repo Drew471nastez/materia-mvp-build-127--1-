@@ -149,7 +149,7 @@ function DiscArrow({ compact }: { compact?: boolean }) {
     <span
       aria-hidden="true"
       data-plan-arrow="disc"
-      className={`absolute right-[5px] top-1/2 grid ${compact ? "h-[30px] w-[30px]" : "h-[34px] w-[34px]"} -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_0_rgba(255,255,255,0)] transition-shadow duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_3px_rgba(255,255,255,0.34)] motion-reduce:transition-none`}
+      className={`absolute right-[5px] top-1/2 grid h-[34px] w-[34px] -translate-y-1/2 place-items-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_0_rgba(255,255,255,0)] transition-shadow duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:shadow-[0_1px_2px_rgba(46,16,101,0.18),0_0_0_3px_rgba(255,255,255,0.34)] motion-reduce:transition-none`}
     >
       <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="transition duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-x-[2px] motion-reduce:transition-none">
         <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" />
@@ -162,7 +162,7 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
   const live = !action.settled && !action.loading
   const disc = live && featured
   const className =
-    `group relative inline-flex w-full ${compact ? "h-10" : "h-11"} items-center justify-center gap-2 rounded-full ${disc ? (compact ? "px-11" : "px-12") : "px-5"} ` +
+    `group relative inline-flex w-full h-11 items-center justify-center gap-2 rounded-full ${disc ? (compact ? "px-11" : "px-12") : "px-5"} ` +
     "text-[14px] no-underline select-none transition-[background-color,border-color,color,box-shadow] duration-200 " +
     "focus-visible:outline-none focus-visible:ring-4 " +
     (action.settled
@@ -352,7 +352,14 @@ export function PlanCards({
   hideInterval = false,
   contactSales = false,
   aside,
+  split,
 }: {
+  /**
+   * A heading for the row the cards sit under (the onboarding's plan step):
+   * it takes the left and Monthly / Yearly the right from 768px, both on the
+   * cards' own edges; on a phone the switch goes under the words.
+   */
+  split?: React.ReactNode
   /** Something at the top right of the cards, level with the Monthly and Yearly pill (/pricing's "Compare all features" link). */
   aside?: React.ReactNode
   /**
@@ -388,19 +395,29 @@ export function PlanCards({
     <>
       <style href="plan-cards" precedence="default">{PLAN_BUTTON_CSS}</style>
       {heading != null ? <div data-plan-heading-row="" className="mb-4">{heading}</div> : null}
-      {hideInterval || aside != null ? null : (
+      {hideInterval || aside != null || split != null ? null : (
         <div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">
           <IntervalSwitch value={interval} onChange={pick} />
         </div>
       )}
       {/* What the three cards (and the contact bar) sit in. Landing round 12, the owner: no light grey ground behind them any more (it was #efeff0, padded); the row keeps its width, so the cards take the room the ground had. */}
-      <div data-plan-ground="" className={`mx-auto w-full ${compact ? "max-w-[980px]" : "max-w-[1180px]"} ${className}`}>
+      <div data-plan-ground="" className={`mx-auto w-full ${compact ? (split != null ? "max-w-[1056px]" : "max-w-[980px]") : "max-w-[1180px]"} ${className}`}>
         {/*
           WITH SOMETHING AT THE TOP RIGHT (landing round 14, /pricing's
           "Compare all features"): the row sits inside the cards' own width,
           the pill still centred and the aside at the right edge of the cards.
           On a phone the aside takes its own line under the pill, at the right.
         */}
+        {split != null ? (
+          <div data-plan-interval-row="" data-plan-split="" className="mb-6 flex flex-col items-start gap-4 sm:mb-8 md:flex-row md:items-end md:justify-between md:gap-8">
+            <div className="min-w-0">{split}</div>
+            {hideInterval ? null : (
+              <div data-plan-split-switch="" className="shrink-0">
+                <IntervalSwitch value={interval} onChange={pick} />
+              </div>
+            )}
+          </div>
+        ) : null}
         {aside != null ? (
           <div data-plan-interval-row="" className="mb-4 flex flex-col items-center gap-3 sm:mb-6 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-4">
             <span aria-hidden="true" className="hidden sm:block" />

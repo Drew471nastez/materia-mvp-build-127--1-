@@ -75,8 +75,9 @@ async function main() {
   console.log("\nBecoming a seller")
   {
     const ob = code("components/app/creator-onboarding-modal.tsx")
-    check("the stores people build, across the window, under a vignette", /url\(\/images\/onboarding\/seller-ground\.webp\)/.test(ob) && /radial-gradient\(ellipse_at_50%_50%/.test(ob) && existsSync("public/images/onboarding/seller-ground.webp"))
-    check("the Storelib mark at the top left", /data-onboarding-ground-mark=""/.test(ob) && /fixed left-7 top-6/.test(ob) && /<GroundMark open=\{open\} \/>/.test(ob))
+    /* Changed on purpose (the full screen redesign): the home page's hero film, darker and a little blurred, its poster first. */
+    check("the home page's film across the window, darkened and blurred", /HERO_VIDEO\.poster/.test(ob) && /heroVideoSource\(\)/.test(ob) && /\[filter:blur\(10px\)_brightness\(0\.62\)\]/.test(ob) && /prefers-reduced-motion: reduce/.test(ob))
+    check("the Storelib mark at the top left", /<div className="flex min-w-0 items-center justify-start">\s*<StorelibLogo size=\{36\}/.test(ob))
   }
 
   console.log("\nCarriers")

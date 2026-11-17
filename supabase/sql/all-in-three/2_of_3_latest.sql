@@ -5617,5 +5617,22 @@ BEGIN
 END $$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('469', '469_shopify_product_imports.sql', '1d40026de1baac51872973f55093479ec1df5486f387c90cceda6e8ef36cf10f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 470_payhip_product_imports.sql
+/* Part 470: product link imports from Payhip. The check on public.product_import_links.source now allows 'payhip' beside 'gumroad' and 'shopify', so a Payhip product link import is recorded once per store like the others. Existing links are unchanged. Run after parts 344 and 469. Safe to run again. */
+DO $$
+DECLARE constraint_name text;
+BEGIN
+  FOR constraint_name IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'public.product_import_links'::regclass
+      AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%source%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.product_import_links DROP CONSTRAINT %I', constraint_name);
+  END LOOP;
+  ALTER TABLE public.product_import_links ADD CONSTRAINT product_import_links_source_check
+    CHECK (source IN ('gumroad', 'shopify', 'payhip'));
+END $$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('470', '470_payhip_product_imports.sql', 'a75c1e2b5ea792096f11ab1ba57c99afcde4023204199b6696d064a9047d7722') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;

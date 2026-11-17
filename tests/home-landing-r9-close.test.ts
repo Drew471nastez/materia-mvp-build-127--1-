@@ -62,7 +62,7 @@ console.log("\n── pricing: no pill on the home page ──")
   const cards = read("components/billing/plan-cards.tsx")
   check("the home page's section asks for no pill, /pricing does not", /hideInterval=\{editorial\}/.test(pricing) && !/data-plan-interval-row/.test(pricing))
   /* Changed on purpose (pricing round 5): the heading row and the pill row are drawn apart now, the pill row skipped when hidden. */
-  check("without the pill the cards are monthly, whatever was held", /const interval = hideInterval \? "monthly" : controlled \?\? own/.test(cards) && /\{hideInterval \|\| aside != null \? null : \(/.test(cards)) // Changed on purpose (landing round 14): with an aside (/pricing's Compare all features) the pill row is drawn inside the cards' width.
+  check("without the pill the cards are monthly, whatever was held", /const interval = hideInterval \? "monthly" : controlled \?\? own/.test(cards) && /\{hideInterval \|\| aside != null( \|\| split != null)? \? null : \(/.test(cards) && /\{hideInterval \? null : \(\s*<div data-plan-split-switch/.test(cards)) // Changed on purpose (landing round 14): with an aside (/pricing's Compare all features) the pill row is drawn inside the cards' width.
   const actions = { free: { label: "Start free", href: "/signup" }, growth: { label: "Get Pro", href: "/signup" }, pro: { label: "Get Scale", href: "/signup" } } as Record<"free" | "growth" | "pro", PlanCardAction>
   const home = renderToStaticMarkup(createElement(PlanCards, { actions, hideInterval: true, interval: "yearly" }))
   const full = renderToStaticMarkup(createElement(PlanCards, { actions }))

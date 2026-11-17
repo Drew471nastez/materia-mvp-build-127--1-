@@ -5,6 +5,22 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Sell online": "Vendere online",
+ "Sell digital products": "Vendere prodotti digitali",
+ "Run courses": "Tenere corsi",
+ "Offer memberships": "Offrire abbonamenti",
+ "Build a community": "Creare una community",
+ "Link in bio page": "Pagina link in bio",
+ "What you want to do": "Cosa vuoi fare",
+ "Shown on your page and your store.": "Mostrata sulla tua pagina e nel tuo negozio.",
+ "yourname": "tuonome",
+ "A few words about you": "Qualche parola su di te",
+ "What do you want to do?": "Cosa vuoi fare?",
+ "Pick all that apply. You can change this later.": "Scegli tutto ciò che fa per te. Puoi cambiarlo in seguito.",
+ "Set up your page": "Configura la tua pagina",
+ "Your name, your address on Storelib and a photo. All of it can change later.": "Il tuo nome, il tuo indirizzo su Storelib e una foto. Tutto si può cambiare in seguito.",
+ "Where do people follow you?": "Dove ti seguono le persone?",
+ "Add the accounts you post on. Each one is optional.": "Aggiungi gli account su cui pubblichi. Ognuno è facoltativo.",
  "Cannot reach Storelib": "Impossibile raggiungere Storelib",
  "Still loading": "Caricamento in corso",
  "The connection is slow right now.": "La connessione è lenta in questo momento.",
@@ -13524,7 +13540,23 @@ const words: Record<string, string> = {
  "This product has already been imported. Open its draft to review it.": "Questo prodotto è già stato importato. Apri la bozza per controllarlo.",
  "This product uses {value}; your store uses {value2}. Match the currencies before importing.": "Questo prodotto usa {value}; il tuo negozio usa {value2}. Allinea le valute prima di importare.",
  "Your draft is ready. Review the product and add any files before publishing.": "La tua bozza è pronta. Controlla il prodotto e aggiungi i file prima di pubblicare.",
- "{value} images · {value2} variants": "{value} immagini · {value2} varianti"
+ "{value} images · {value2} variants": "{value} immagini · {value2} varianti",
+ "Every product on your Gumroad account": "Tutti i prodotti del tuo account Gumroad",
+ "Paste a product link from Shopify, Gumroad or Payhip. Paste a Shopify store's address to pick several products.": "Incolla il link di un prodotto Shopify, Gumroad o Payhip. Incolla l'indirizzo di un negozio Shopify per scegliere più prodotti.",
+ "Product or store link": "Link del prodotto o del negozio",
+ "Reading…": "Lettura…",
+ "Import every Gumroad product with an access token": "Importa tutti i prodotti Gumroad con un token di accesso",
+ "1 product on {store}": "1 prodotto su {store}",
+ "{count} products on {store}": "{count} prodotti su {store}",
+ "Not imported": "Non importati",
+ "In your products": "Tra i tuoi prodotti",
+ "This store lists no products with a price.": "Questo negozio non ha prodotti con un prezzo.",
+ "Import a copy of {name}": "Importa una copia di {name}",
+ "In your products. Tick to import a copy.": "Tra i tuoi prodotti. Seleziona per importarne una copia.",
+ "{count} variants": "{count} varianti",
+ "Ships": "Con spedizione",
+ "This store sells in {value}; your store uses {value2}. Match the currencies before importing.": "Questo negozio vende in {value}; il tuo negozio usa {value2}. Allinea le valute prima di importare.",
+ "Each comes in as a draft. Files are not copied.": "Ognuno arriva come bozza. I file non vengono copiati."
 }
 
 export default words

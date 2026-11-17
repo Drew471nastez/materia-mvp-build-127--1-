@@ -1370,6 +1370,8 @@ const SUITES = [
   /* Products › Import from Gumroad: the API's products as drafts (prices, currencies never converted, pay what you want, option combinations), pictures copied from Gumroad's CDN hosts only, descriptions through the allow list, once per Gumroad id (SQL part 344), the token in one header and nowhere else, the Products permission. */
   "tests/gumroad-import.test.ts",
   "tests/product-link-import.test.ts",
+  /* Products › Import from a link: Shopify (.js, .json and a store's /products.json), Gumroad (ProductPage props, Inertia) and Payhip pages read from realistic fixtures, the server half with a stand-in fetcher (the .json fallback, a moved store, a password page), and a Payhip draft end to end (SQL part 470). */
+  "tests/product-import-sources.test.ts",
   /* Products round 15: an import says which products are already in the store (by platform id, address, then title), skips them unless a copy is asked for, and both import routes refuse a duplicate on their own. */
   "tests/import-duplicates.test.ts",
   /* Round 45: every page a creator publishes, as a search engine reads it: page 2 of a shop or collection its own canonical and a page past the last a 404, an imported theme's shop at one address and a gone product a 404, /collections and /reviews and a community's public posts in the sitemaps, a website behind a password out of storelib.com's, IndexNow for collections and public posts, and every route of a website or a creator page held to a sitemap or a noindex. */

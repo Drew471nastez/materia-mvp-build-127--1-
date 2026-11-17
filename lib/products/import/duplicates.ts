@@ -68,12 +68,12 @@ export function normalizeSlug(slug: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
-/** The handle in a Shopify (/products/<handle>) or Gumroad (/l/<permalink>) product link, or null. */
+/** The handle in a Shopify (/products/<handle>), Gumroad (/l/<permalink>) or Payhip (/b/<key>) product link, or null. */
 export function handleFromUrl(url: string | null | undefined): string | null {
   if (!url) return null
   try {
     const path = new URL(url).pathname.replace(/\/+$/, "")
-    const m = path.match(/\/(?:products|l)\/([^/]+)$/)
+    const m = path.match(/\/(?:products|l|b)\/([^/]+)$/)
     const handle = m ? normalizeSlug(m[1]) : ""
     return handle || null
   } catch {

@@ -35,7 +35,7 @@ import { preparePublicImage } from "@/lib/storage/public-image"
 import { generateStoragePath } from "@/lib/storage/validation"
 import { PUBLIC_BUCKET } from "@/lib/storage/plans"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
-import { importImageUrl, type LinkProduct } from "./product-link"
+import { importImageUrl, type LinkProduct, type LinkSource } from "./product-link"
 import { GUMROAD_API, descriptionImages, gumroadImageUrl, slugFromTitle, type ImportItem } from "./gumroad"
 import { duplicateIndex, type ExistingProduct } from "./duplicates"
 
@@ -162,7 +162,7 @@ export async function importedProducts(db: Db, creatorId: string, ids: string[])
  * and, for this platform, which of its ids became which product. A store
  * before part 344 has no links, and the titles and addresses still match.
  */
-export async function duplicatesFor(db: Db, creatorId: string, source: "gumroad" | "shopify") {
+export async function duplicatesFor(db: Db, creatorId: string, source: LinkSource) {
   const { data } = await db.from("products").select("id, title, slug").eq("creator_id", creatorId).limit(5000)
   const products = ((data ?? []) as ExistingProduct[]).filter((p) => p && typeof p.id === "string")
   const imported = new Map<string, string>()
@@ -187,7 +187,7 @@ export async function fetchGumroadImage(raw: string): Promise<Uint8Array | null>
 }
 
 export interface ImportDeps {
-  source?: "gumroad" | "shopify"
+  source?: LinkSource
   linkProduct?: LinkProduct
   /** Link imports may copy only supported platform CDNs through the public-address fetch. */
   imageUrl?: (url: string) => string | null
@@ -265,11 +265,12 @@ export type ImportOutcome =
 
 type Claim = { kind: "claimed"; id: string } | { kind: "exists"; productId: string } | { kind: "busy" } | { kind: "not_ready" } | { kind: "failed" }
 
-async function claim(db: Db, creatorId: string, userId: string, gumroadId: string, now: number, source: "gumroad" | "shopify" = "gumroad"): Promise<Claim> {
+async function claim(db: Db, creatorId: string, userId: string, gumroadId: string, now: number, source: LinkSource = "gumroad"): Promise<Claim> {
   const stamp = new Date(now).toISOString()
   const ins = await db.from(LINKS_TABLE).insert({ creator_id: creatorId, source, external_id: gumroadId, created_by: userId, updated_at: stamp }).select("id").single()
   if (!ins.error && ins.data?.id) return { kind: "claimed", id: ins.data.id }
-  if (ins.error && (missingTable(ins.error) || (source === "shopify" && ins.error.code === "23514"))) return { kind: "not_ready" }
+  /* 23514: the source check from before part 469 (shopify) or 470 (payhip) refuses the platform. */
+  if (ins.error && (missingTable(ins.error) || (source !== "gumroad" && String(ins.error.code) === "23514"))) return { kind: "not_ready" }
   if (ins.error && String(ins.error.code) !== "23505") return { kind: "failed" }
 
   const { data: row, error } = await db.from(LINKS_TABLE).select("id, product_id, updated_at").eq("creator_id", creatorId).eq("source", source).eq("external_id", gumroadId).maybeSingle()

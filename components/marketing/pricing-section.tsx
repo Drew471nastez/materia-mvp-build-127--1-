@@ -39,9 +39,12 @@ export function PricingSection({
   headingLevel = 2,
   editorial = false,
   cardsAside,
+  compactHeading,
 }: {
   /** At the top right of the cards (/pricing: "Compare all features"). */
   cardsAside?: ReactNode
+  /** Compact only (the onboarding): a heading at the left of the row, with Monthly and Yearly at its right. */
+  compactHeading?: ReactNode
   /** 1 on /pricing, where this heading is the page's own; 2 where the section sits inside another page. */
   headingLevel?: 1 | 2
   /** Editorial homepage presentation; pricing/onboarding retain their existing layout. */
@@ -99,7 +102,7 @@ export function PricingSection({
   if (compact) {
     return (
       <div>
-        <PlanCards compact actions={actions} />
+        <PlanCards compact actions={actions} split={compactHeading} />
       </div>
     )
   }

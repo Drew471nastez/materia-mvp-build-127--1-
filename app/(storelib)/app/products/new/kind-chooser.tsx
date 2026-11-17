@@ -254,7 +254,7 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
             <X className="h-4 w-4" />
           </button>
         </div>
-        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => { target.current = `/app/products/${id}`; prefetchAppPage(router, target.current); setOpen(false); if (!phone) go() }} /> : <KindList onChoose={choose} onImport={() => setImporting(true)} />}
+        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => { target.current = `/app/products/${id}`; prefetchAppPage(router, target.current); setOpen(false); if (!phone) go() }} onImportedMany={() => { setOpen(false); router.refresh() }} /> : <KindList onChoose={choose} onImport={() => setImporting(true)} />}
       </div>
     </SheetDialog>
   )
@@ -298,7 +298,7 @@ export function NewProductKindPage() {
         </button>
       </div>
       <div className="mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => router.replace(`/app/products/${id}`)} /> : <KindList onChoose={choose} onImport={() => setImporting(true)} />}
+        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => router.replace(`/app/products/${id}`)} onImportedMany={() => returnToProducts(router, null)} /> : <KindList onChoose={choose} onImport={() => setImporting(true)} />}
       </div>
     </div>
   )

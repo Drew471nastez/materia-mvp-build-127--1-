@@ -128,7 +128,7 @@ console.log("\n── Pricing ──")
 
   const section = read("components/marketing/pricing-section.tsx")
   const cards = read("components/billing/plan-cards.tsx")
-  check("every surface draws these lines (the cards read them, nothing is handed in)", /const PLAN_LINES = publicPlanLines\(\)/.test(cards) && /<PlanCards compact actions=\{actions\} \/>/.test(section) && !/lines=\{/.test(section))
+  check("every surface draws these lines (the cards read them, nothing is handed in)", /const PLAN_LINES = publicPlanLines\(\)/.test(cards) && /<PlanCards compact actions=\{actions\}( split=\{compactHeading\})? \/>/.test(section) && !/lines=\{/.test(section))
   check("each line has a thin line icon in grey", /strokeWidth=\{1\.5\}/.test(cards) && /text-\[#3f3f46\]/.test(cards))
   check("/pricing still renders the section", /<PricingSection\b/.test(read("app/(storelib)/(marketing)/pricing/pricing-client.tsx")))
 }

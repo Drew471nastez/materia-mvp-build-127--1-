@@ -27,7 +27,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowLeft, Check, ChevronDown } from "lucide-react"
+import { ArrowLeft, Check, ChevronDown, Loader2, Search } from "lucide-react"
+import { SiGumroad } from "@/components/icons/brand/SiGumroad"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
@@ -132,6 +133,7 @@ export function GumroadImportClient() {
   const [open, setOpen] = React.useState<Set<string>>(new Set())
   const [progress, setProgress] = React.useState<{ done: number; total: number } | null>(null)
   const [results, setResults] = React.useState<{ id: string; title: string; outcome: Outcome }[] | null>(null)
+  const [query, setQuery] = React.useState("")
 
   async function findProducts(e: React.FormEvent) {
     e.preventDefault()
@@ -180,6 +182,8 @@ export function GumroadImportClient() {
   }
 
   const products = listed?.products ?? []
+  /* A long list is searched by title; what is ticked stays ticked whether it shows or not. */
+  const shown = query.trim() ? products.filter((p) => (drafts[p.gumroadId]?.title || p.title).toLowerCase().includes(query.trim().toLowerCase())) : products
   const currency = listed?.currency ?? "USD"
   const choosable = products.filter((p) => !p.unsupported && !p.existing)
   /* Every product going in: the new ones ticked, and the ones already in the store a copy was picked for. */
@@ -276,6 +280,12 @@ export function GumroadImportClient() {
           <Done results={results} />
         ) : !listed ? (
           <form onSubmit={findProducts} className={cn(card, "p-4 sm:p-5")} data-gumroad-token="">
+            <div className="mb-3 flex items-center gap-3">
+              <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#e5e7eb] bg-white">
+                <SiGumroad size={18} color="#1a1a2e" />
+              </span>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Every product on your Gumroad account")}</p>
+            </div>
             <ol className="mb-4 list-decimal space-y-1 pl-5 text-[14px] leading-6 text-[#1a1a2e]">
               <li>{tt("In Gumroad, open Settings › Advanced.")}</li>
               <li>{tt("Under Applications, create one. Any name works; for the redirect URI type http://127.0.0.1.")}</li>
@@ -300,6 +310,7 @@ export function GumroadImportClient() {
             </p>
             <div className="mt-4 flex justify-end">
               <button type="submit" disabled={busy || !token.trim()} className={PRIMARY}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
                 {busy ? tt("Reading Gumroad") : tt("Find products")}
               </button>
             </div>
@@ -329,8 +340,16 @@ export function GumroadImportClient() {
                   {already === 1 ? tt("1 is already in your products and is skipped unless you import a copy.") : tt("{count} are already in your products and are skipped unless you import a copy.", { count: already })}
                 </p>
               ) : null}
+              {products.length > 8 ? (
+                <label className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-4">
+                  <Search aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
+                  <span className="sr-only">{tt("Search products")}</span>
+                  <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search products")} className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[14px]" />
+                </label>
+              ) : null}
+              {shown.length === 0 && products.length > 0 ? <p className={cn(MUTED, "px-4 py-6 text-center")}>{tt("No products match.")}</p> : null}
               <ul>
-                {products.map((p) => (
+                {shown.map((p) => (
                   <ProductRow
                     key={p.gumroadId}
                     product={p}
@@ -397,7 +416,9 @@ function ProductRow({
     <li className="border-b border-[#eef0f2] last:border-b-0" data-gumroad-row={p.gumroadId}>
       <div className="flex min-h-16 items-center gap-3 px-4 py-2.5">
         {selectable ? (
-          <Checkbox checked={!!draft?.selected} onChange={(on) => onChange({ selected: on })} label={tt("Import {name}", { name: p.title })} />
+          <label className="-m-3.5 grid h-11 w-11 shrink-0 cursor-pointer place-items-center">
+            <Checkbox checked={!!draft?.selected} onChange={(on) => onChange({ selected: on })} label={tt("Import {name}", { name: p.title })} />
+          </label>
         ) : copying ? (
           <Check className="h-4 w-4 shrink-0 text-[#8b5cf6]" strokeWidth={3} aria-hidden />
         ) : (
@@ -412,6 +433,7 @@ function ProductRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-medium text-[#1a1a2e] sm:text-[14px]">{draft?.title || p.title}</p>
           <p className={cn(MUTED, !p.unsupported && "truncate")}>
+            {!p.published ? <span className="sm:hidden">{tt("Unpublished on Gumroad")} · </span> : null}
             {p.unsupported
               ? unsupportedText(p)
               : existing
@@ -423,7 +445,7 @@ function ProductRow({
                   : tt("Needs a price")}
           </p>
         </div>
-        {!p.published ? <StatusBadge tone="neutral" className="max-sm:hidden">{tt("Unpublished on Gumroad")}</StatusBadge> : null}
+        {!p.published ? <StatusBadge tone="neutral" className="shrink-0 max-sm:hidden">{tt("Unpublished on Gumroad")}</StatusBadge> : null}
         {existing ? (
           <Link href={editHref(existing.productId)} className={cn(buttonSecondary, "max-sm:h-10")}>
             {tt("Open")}
@@ -437,7 +459,7 @@ function ProductRow({
             onClick={onToggle}
             className={cn(iconButton, "h-11 w-11 sm:h-8 sm:w-8")}
           >
-            <ChevronDown className={cn("h-4 w-4 transition-transform duration-150", expanded && "rotate-180")} />
+            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200 motion-reduce:transition-none", expanded && "rotate-180")} />
           </button>
         ) : null}
       </div>
