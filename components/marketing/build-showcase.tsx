@@ -231,7 +231,7 @@ function ShowcaseStats() {
               <span data-stat="" style={{ width: `${text.length}ch` }}>
                 {text}
               </span>
-              {s.suffix}
+              {s.suffix ? <span className="build-showcase-unit">{s.suffix.trim()}</span> : null}
             </dd>
           </div>
         )
@@ -377,10 +377,11 @@ const CSS = `
   at 320px.
 */
 .build-showcase-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-width:1040px;margin:clamp(48px,5vw,80px) auto 0;padding:0 var(--showcase-gutter,clamp(20px,5.15vw,84px));box-sizing:border-box;text-align:center}
-.build-showcase-stats>div {display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;padding:clamp(4px,.6vw,10px) clamp(6px,2vw,32px)}
+.build-showcase-stats>div {display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-width:0;padding:clamp(4px,.6vw,10px) clamp(6px,2vw,32px)}
 .build-showcase-stats>div+div {border-left:1px solid rgba(255,255,255,.12)}
 .build-showcase-stats dd {order:-1;display:flex;align-items:baseline;justify-content:center;margin:0;font-size:clamp(34px,4.6vw,72px);font-weight:300;line-height:1;letter-spacing:-.035em;color:#fafafa;white-space:nowrap}
 .build-showcase-stats [data-stat] {display:inline-block;font-variant-numeric:tabular-nums;text-align:right}
+.build-showcase-unit {margin-left:.16em}
 .build-showcase-stats dt {margin-top:clamp(10px,1vw,14px);font-size:clamp(12px,1.05vw,15px);font-weight:500;line-height:1.3;color:#a1a1aa;text-wrap:balance}
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* Landing round 9: no fading mask on the rail (a mask over a moving layer is drawn again every frame of a drag); the rail is cut at the gutter. */
