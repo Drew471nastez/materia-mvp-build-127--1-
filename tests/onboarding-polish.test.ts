@@ -87,8 +87,8 @@ function main() {
   /* "Increase the whole modal a bit so it expands a little more on the screen, but without touching the edges." 930 by 540 became 1040 by 610. */
   /* Changed on purpose: 71769f95 (join card matches OnePage size) made the card 930 by 540, clamped to the window, and its column's limit follows it. */
   /* Changed on purpose (the full screen redesign): the setup is the whole window at every width, on the home page's film, so the app and the browser are the same screen. */
-  check("no fixed card: the steps sit in one page scroll on the film, centred when they fit and scrolled when they do not, so nothing is cut off at any zoom",
-    /data-onboarding-scroller=""\s*className="min-h-0 flex-1 overflow-y-auto overscroll-contain/.test(creator) && /className="my-auto grid w-full min-w-0 grid-cols-\[minmax\(0,1fr\)\]"/.test(creator)
+  check("no fixed card: the steps sit in one page scroll on the film, scrolled when they do not fit, so nothing is cut off at any zoom",
+    /data-onboarding-scroller=""\s*className="min-h-0 flex-1 overflow-y-auto overscroll-contain/.test(creator) && /data-onboarding-steps="" className="relative w-full min-w-0"/.test(creator)
       && /<OnboardingBackdrop \/>/.test(creator) && /heroVideoSource\(\)/.test(creator) && !/sm:(w|h|max-h)-\[(930|540)px\]/.test(creator) && !/sm:w-\[min\(930px/.test(creator))
   /* Changed on purpose: 0be8bd1a (two slide first run) lets Next drop its minimum width and set smaller type under 384px, instead of keeping 88px. */
   check("Back and Continue share the row by flex, so the narrowest phone fits them: Continue takes what Back leaves",
@@ -101,10 +101,10 @@ function main() {
     opacity and translate alone, inside a scroller that is not itself animated. scripts/check-onboarding.mjs
     samples it frame by frame with the CPU slowed four times.
   */
-  check("a step change crossfades the leaving and the arriving step in one cell, on opacity and translate alone",
+  check("a step change crossfades the leaving and the arriving step from the same top, on opacity and translate alone",
     /\[\{ opacity: 0, translate: `\$\{dx\}px 0` \}, \{ opacity: 1, translate: "0 0" \}\]/.test(creator)
       && /\[\{ opacity: 1, translate: "0 0" \}, \{ opacity: 0, translate: `\$\{-dx\}px 0` \}\]/.test(creator)
-      && /data-onboarding-leaving=\{leavingStep\.step\}/.test(creator) && /data-onboarding-steps=""/.test(creator) && /\[grid-area:1\/1\]/.test(creator)
+      && /data-onboarding-leaving=\{leavingStep\.step\}/.test(creator) && /data-onboarding-steps=""/.test(creator) && /absolute inset-x-0 top-0/.test(creator)
       && !/flex-1 min-h-0 overflow-y-auto transition-all/.test(creator) && !/isAnimating|slideDirection|STEP_SWAP_MS/.test(creator))
   /* Changed on purpose: 783f7748 (smoother morph) gives a join slide its own named arrival time, JOIN_STEP_IN_MS, on the same curve. */
   /* Changed on purpose (the full screen redesign): "polished 200ms transitions". */
@@ -125,7 +125,7 @@ function main() {
       && !/transition-\[width\]/.test(creator) && /role="progressbar"/.test(creator))
   check("one row of buttons, Back and Continue, drawn by one function for every step, at the foot of its card",
     (creator.match(/data-onboarding-footer=""/g) ?? []).length === 1 && /const renderNav = \(step: number\) =>/.test(creator)
-      && (creator.match(/\{renderNav\(step\)\}/g) ?? []).length === 2 && !/<div className="h-16" \/>/.test(creator))
+      && (creator.match(/\{renderNav\(step\)\}/g) ?? []).length === 1 && !/<div className="h-16" \/>/.test(creator))
 
   /* "in the store category step, make sure the Other button is next to See more, not in the bar at the bottom with Back, Skip, Next." */
   /* Changed on purpose (the full screen redesign): "Remove Skip buttons. Keep consistent Back/Continue navigation." The category step became what they came to do. */
@@ -133,7 +133,7 @@ function main() {
     !/data-onboarding-skip/.test(creator) && !/tt\("Skip"\)/.test(creator) && creator.indexOf('data-onboarding-back=""') < creator.indexOf('data-onboarding-next=""'))
   check("a chosen goal changes colour and its mark, not its size: several can be chosen",
     /const GOAL_ON = "bg-\[#1a1a2e\] text-white/.test(creator) && /aria-pressed=\{on\}/.test(creator) && /cur\.includes\(id\) \? cur\.filter/.test(creator)
-      && ["Sell online", "Sell digital products", "Run courses", "Offer memberships", "Build a community", "Link in bio page"].every((g) => creator.includes(g)))
+      && ["Sell online", "Digital products", "Courses", "Memberships", "Community", "Link in bio"].every((g) => creator.includes(g)))
   /* "text font size better, the heading, subheading ... cohesive." */
   /* Changed on purpose (the full screen redesign): the words sit on the film, white, from one table, and the cards hold only what is filled in. */
   check("one heading and one line under it on every step, from one table, in one type scale",
@@ -157,13 +157,19 @@ function main() {
       && /\[\{ opacity: 1, scale: "1" \}, \{ opacity: 0, scale: "0\.97" \}\]/.test(creator))
   check("the setup line rolls half a line as it changes, so the two lines pass rather than overlap", /value=\{state\}\s*\/\*[^*]*\*\/\s*lift="0\.55em"/.test(creator))
   /* "can't select a plan ... that fade there is too aggressive": the plans scroll on a computer too, under a 12px edge fade and no white veil. */
-  check("the plans are one wide card with every plan whole, the heading at the left and Monthly / Yearly at the right",
-    /data-onboarding-view="plans"/.test(creator) && /max-w-\[1120px\]/.test(creator) && /compactHeading=\{/.test(creator))
+  /* Changed on purpose (round 2 of the redesign): no modal round the plans; they sit on the film like every step, and Back is a round arrow beside the heading. */
+  check("the plans sit on the film with every plan whole, Back a round arrow beside the heading at the left and Monthly / Yearly at the right",
+    /data-onboarding-view="plans" className="mx-auto w-full max-w-\[1056px\]"/.test(creator) && /compactHeading=\{/.test(creator) && /aria-label="Back"/.test(creator))
+  check("the top row has no way out: no Not now", !/data-onboarding-leave/.test(creator))
+  check("the steps sit from the top and the leaving one takes no room, so nothing jumps when the next is taller or shorter",
+    /data-onboarding-steps="" className="relative w-full min-w-0"/.test(creator) && /className="pointer-events-none absolute inset-x-0 top-0"/.test(creator) && !/my-auto grid/.test(creator))
+  check("the page comes first and starts the setup: Let's get started", creator.indexOf("data-onboarding-identity") > -1 && /\{step === 1 && \(\s*<div data-onboarding-identity/.test(creator) && /Let's get started/.test(creator))
+  check("what brings them here is two pills to a row", /className="grid grid-cols-2 gap-2 sm:gap-3">/.test(creator) && /What brings you here\?/.test(creator))
   const cards = read("components/billing/plan-cards.tsx")
   /* Changed on purpose (wave 13): three plans now (Scale re-opened), so the onboarding row is 920px for the three, still with 6px more air on a phone. */
   /* Changed on purpose (pricing round 5): the compact cards sit on their grey ground, a 980px row with 8px of ground round them on a phone. */
   check("in the onboarding the plans row takes the card's width with the heading at its left and the switch at its right",
-    /split != null \? "max-w-\[1056px\]" : "max-w-\[980px\]"/.test(cards) && /data-plan-split="" className="mb-6 flex flex-col items-start gap-4 sm:mb-8 md:flex-row md:items-end md:justify-between/.test(cards)
+    /split != null \? "max-w-\[1056px\]" : "max-w-\[980px\]"/.test(cards) && /data-plan-split="" className="mb-6 flex flex-col items-start gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between/.test(cards)
       && /data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6"/.test(cards))
   /* The line used to be remounted per phase and faded in from nothing, so each change had a blank beat; now it is the shared swap. */
   check("its line crossfades from phase to phase (the shared TextSwap, no blank beat) over marks that fill on translate, and says plainly when it failed",

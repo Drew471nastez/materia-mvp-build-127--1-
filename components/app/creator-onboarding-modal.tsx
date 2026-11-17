@@ -98,7 +98,7 @@ async function claimStoreHandle(wanted: string): Promise<string | null> {
 
 const STEP_IN_MS = 220
 const STEP_OUT_MS = 160
-const STEP_SHIFT = 12
+const STEP_SHIFT = 8
 /** Each piece of the setup screen rising into place (see SETUP ARRIVES). */
 const SETUP_RISE_MS = 520
 const MOTION_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
@@ -140,7 +140,7 @@ const FIELD_REST = "bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),ins
 const FIELD_WELL = "border-2 border-transparent bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),inset_0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,border-color,box-shadow] duration-200 focus-within:border-[#6b7280] focus-within:bg-white focus-within:shadow-[inset_0_0_0_1px_rgba(107,114,128,0.12)]"
 const AVATAR_RING = "shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_2px_8px_-2px_rgba(17,24,39,0.14)]"
 const JOIN_STEP_IN_MS = 220
-const JOIN_STEP_SHIFT = 10
+const JOIN_STEP_SHIFT = 8
 
 type JoinSocialId = "tiktok" | "instagram" | "youtube" | "bluesky" | "twitter" | "linkedin"
 
@@ -219,7 +219,7 @@ const CATEGORY_ON = "bg-[#1a1a2e] text-white shadow-[0_0_0_1px_#1a1a2e,0_2px_6px
 const VIEW_TITLE = "text-[28px] font-semibold leading-[1.12] tracking-[-0.025em] text-white text-balance sm:text-[38px]"
 const VIEW_SUB = "mx-auto mt-2.5 max-w-[460px] text-[15px] leading-[22px] text-white/70 text-balance sm:text-[16px] sm:leading-6"
 const FLOAT_CARD = "rounded-[22px] bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_70px_-30px_rgba(0,0,0,0.65),0_8px_24px_-12px_rgba(0,0,0,0.35)]"
-const GOAL_PILL = "inline-flex h-11 items-center gap-2 rounded-full pl-3.5 pr-4 text-[15px] font-medium transition-[background-color,color,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 sm:h-12 sm:pl-4 sm:pr-5"
+const GOAL_PILL = "inline-flex h-12 min-w-0 items-center gap-1.5 rounded-full px-3 text-left text-[14px] font-medium min-[400px]:gap-2 min-[400px]:px-4 min-[400px]:text-[15px] transition-[background-color,color,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 sm:h-12 sm:pl-4 sm:pr-5"
 const GOAL_OFF = "bg-[#f3f4f6] text-[#1a1a2e] hover:bg-[#e9eaee]"
 const GOAL_ON = "bg-[#1a1a2e] text-white shadow-[0_2px_8px_-2px_rgba(26,26,46,0.45)]"
 const NAV_NEXT = "inline-flex h-12 min-w-0 flex-1 items-center justify-center rounded-full px-6 text-[15px] font-semibold transition-[background-color,box-shadow,scale] duration-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 motion-reduce:transition-none"
@@ -230,11 +230,11 @@ const FIELD = cn("flex h-[52px] w-full items-center gap-3 rounded-[12px] px-4 te
 /** What they came to do: the first step. Several at once. Saved on the account (storelib_goals) so the dashboard can start from it. */
 const SELL_GOALS = [
   { id: "sell_online", label: msg("Sell online") },
-  { id: "digital_products", label: msg("Sell digital products") },
-  { id: "courses", label: msg("Run courses") },
-  { id: "memberships", label: msg("Offer memberships") },
-  { id: "community", label: msg("Build a community") },
-  { id: "link_in_bio", label: msg("Link in bio page") },
+  { id: "digital_products", label: msg("Digital products") },
+  { id: "courses", label: msg("Courses") },
+  { id: "memberships", label: msg("Memberships") },
+  { id: "community", label: msg("Community") },
+  { id: "link_in_bio", label: msg("Link in bio") },
 ] as const
 type SellGoal = (typeof SELL_GOALS)[number]["id"]
 const GOALS_KEY = "storelib_goals"
@@ -251,6 +251,8 @@ const SELL_DRAFT_STORAGE = "storelib_sell_draft"
  * once; the film follows only when motion and data allow, and pauses when
  * the tab is hidden.
  */
+const FILM_GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`
+
 function OnboardingBackdrop() {
   const ref = useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = useState(false)
@@ -279,7 +281,7 @@ function OnboardingBackdrop() {
       <picture>
         <source media={HERO_VIDEO.phoneMedia} srcSet={HERO_VIDEO.phonePoster} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={HERO_VIDEO.poster} alt="" decoding="async" className="absolute inset-0 h-full w-full scale-[1.08] object-cover [filter:blur(10px)_brightness(0.62)]" />
+        <img src={HERO_VIDEO.poster} alt="" decoding="async" className="absolute inset-0 h-full w-full scale-[1.08] object-cover [filter:blur(10px)_brightness(0.5)]" />
       </picture>
       <video
         ref={ref}
@@ -290,10 +292,12 @@ function OnboardingBackdrop() {
         disablePictureInPicture
         tabIndex={-1}
         onPlaying={() => setPlaying(true)}
-        className="absolute inset-0 h-full w-full scale-[1.08] object-cover transition-opacity duration-700 ease-out [filter:blur(10px)_brightness(0.62)] motion-reduce:transition-none"
+        className="absolute inset-0 h-full w-full scale-[1.08] object-cover transition-opacity duration-700 ease-out [filter:blur(10px)_brightness(0.5)] motion-reduce:transition-none"
         style={{ opacity: playing ? 1 : 0 }}
       />
-      <div className="absolute inset-0 bg-[rgba(9,9,13,0.55)]" />
+      <div className="absolute inset-0 bg-[rgba(9,9,13,0.64)]" />
+      {/* A little film grain over it, still, so the dark reads as a picture and not a flat fill. */}
+      <div className="absolute inset-0 opacity-[0.11] mix-blend-overlay" style={{ backgroundImage: FILM_GRAIN, backgroundSize: "180px 180px" }} />
     </div>
   )
 }
@@ -1699,9 +1703,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       case JOIN_NOTIFY:
         return !joinSaving && !askingPush
       case 1:
-        return true // What they came to do: any, all or none
-      case 2:
         return displayName.trim().length > 0 && usernameAvailable === true
+      case 2:
+        return true // What brings them here: any, all or none
       case 3:
         return true // Socials are optional
       // Step 4 (plan) has its own card buttons, Continue is not shown there
@@ -1716,9 +1720,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       case JOIN_NOTIFY:
         return !joinSaving && !askingPush && pushAnswer === null
       case 1:
-        return true
-      case 2:
         return displayName.trim().length > 0 && usernameAvailable === true
+      case 2:
+        return true
       case 3:
         return true
       default:
@@ -2496,8 +2500,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         )}
 
         {/* Step 1: what they came to do. Pills, several at once (Shopify's setup is the reference). */}
-        {step === 1 && (
-          <div data-onboarding-goals="" role="group" aria-label={tt("What you want to do")} className="flex flex-wrap gap-2.5 sm:gap-3">
+        {step === 2 && (
+          <div data-onboarding-goals="" role="group" aria-label={tt("What you want to do")} className="grid grid-cols-2 gap-2 sm:gap-3">
             {SELL_GOALS.map((g) => {
               const on = goals.includes(g.id)
               return (
@@ -2509,8 +2513,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   onClick={() => toggleGoal(g.id)}
                   className={cn(GOAL_PILL, on ? GOAL_ON : GOAL_OFF)}
                 >
-                  {on ? <Check className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden /> : <Plus className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />}
-                  {tt(g.label)}
+                  {on ? <Check className="h-3.5 w-3.5 shrink-0 min-[400px]:h-4 min-[400px]:w-4" strokeWidth={2.5} aria-hidden /> : <Plus className="h-3.5 w-3.5 shrink-0 min-[400px]:h-4 min-[400px]:w-4" strokeWidth={2.25} aria-hidden />}
+                  <span className="min-w-0 truncate">{tt(g.label)}</span>
                 </button>
               )
             })}
@@ -2518,7 +2522,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         )}
 
         {/* Step 2: who they are. Photo, name, address, a line about them; prefilled from Google or Apple. */}
-        {step === 2 && (
+        {step === 1 && (
           <div data-onboarding-identity="" className="flex flex-col gap-3">
             <div className="mb-1 flex items-center gap-4">
               <button
@@ -2640,14 +2644,26 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           height, with the page itself scrolling when the window is shorter.
         */}
         {step === 4 && (
-          <div data-onboarding-plans="" className="[--plan-bleed:16px] sm:[--plan-bleed:32px]">
+          <div data-onboarding-plans="" className="[--plan-bleed:16px] sm:[--plan-bleed:24px]">
             <PricingSection
               compact
               hideDetailsLink
               compactHeading={
-                <div className="text-left">
-                  <h1 className="text-[28px] font-semibold leading-[1.12] tracking-[-0.025em] text-[#1a1a2e] sm:text-[34px]">{tt("Choose your plan")}</h1>
-                  <p className="mt-1.5 text-[15px] leading-[22px] text-[#6b7280] sm:text-[16px]">{tt("Start free and upgrade when you need to.")}</p>
+                <div className="flex items-start gap-3 text-left sm:gap-4">
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    disabled={!!planCheckoutLoading}
+                    data-onboarding-back=""
+                    aria-label={tt("Back")}
+                    className="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-white ring-1 ring-white/15 transition-colors duration-200 hover:bg-white/[0.16] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:mt-1"
+                  >
+                    <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                  </button>
+                  <div className="min-w-0">
+                    <h1 className={cn(VIEW_TITLE, "text-left")}>{tt("Choose your plan")}</h1>
+                    <p className="mt-2 text-[15px] leading-[22px] text-white/70 sm:text-[16px] sm:leading-6">{tt("Start free and upgrade when you need to.")}</p>
+                  </div>
                 </div>
               }
               onboardingCallbacks={{
@@ -2775,9 +2791,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const viewHead = (step: number): { title: string; sub: string } | null => {
     switch (step) {
       case 1:
-        return { title: tt("What do you want to do?"), sub: tt("Pick all that apply. You can change this later.") }
+        return { title: tt("Let's get started"), sub: tt("Your name, your Storelib address and a photo.") }
       case 2:
-        return { title: tt("Set up your page"), sub: tt("Your name, your address on Storelib and a photo. All of it can change later.") }
+        return { title: tt("What brings you here?"), sub: tt("Pick all that apply.") }
       case 3:
         return { title: tt("Where do people follow you?"), sub: tt("Add the accounts you post on. Each one is optional.") }
       case JOIN_NAME:
@@ -2842,10 +2858,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const renderView = (step: number) => {
     if (step === 4) {
       return (
-        <section data-onboarding-view="plans" className={cn(FLOAT_CARD, "mx-auto w-full max-w-[1120px] px-4 pb-5 pt-6 sm:px-8 sm:pb-8 sm:pt-8")}>
+        <div data-onboarding-view="plans" className="mx-auto w-full max-w-[1056px]">
           {renderStep(step)}
-          {renderNav(step)}
-        </section>
+        </div>
       )
     }
     if (step === 5 || step === JOIN_DONE) {
@@ -2919,22 +2934,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 />
               </div>
               <div className="flex min-w-0 items-center justify-end">
-                {!switchBack && leave && currentStep !== 5 ? (
-                  <a
-                    href={leave.href}
-                    onClick={(e) => {
-                      /* A way out that has something to say first, then the same address. */
-                      if (!leave.onLeave) return
-                      e.preventDefault()
-                      const go = () => window.location.assign(leave.href)
-                      Promise.race([leave.onLeave().catch(() => undefined), new Promise((r) => setTimeout(r, 2000))]).then(go, go)
-                    }}
-                    data-onboarding-leave=""
-                    className="inline-flex h-11 min-w-0 items-center rounded-full px-3 text-[14px] font-medium text-white/75 transition-colors duration-200 hover:bg-white/10 hover:text-white sm:px-4"
-                  >
-                    <span className="truncate">{leave.label}</span>
-                  </a>
-                ) : null}
                 {switchBack && currentStep !== 5 ? (
                   <button
                     type="button"
@@ -2968,8 +2967,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               data-onboarding-scroller=""
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
             >
-              <div className="flex min-h-full flex-col items-center px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-12 sm:pt-6">
-                <div data-onboarding-steps="" className="my-auto grid w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+              <div className="flex min-h-full flex-col items-center px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-[clamp(12px,4.5svh,40px)] sm:px-6 sm:pb-12 sm:pt-[clamp(24px,9svh,112px)]">
+                <div data-onboarding-steps="" className="relative w-full min-w-0">
                   {leavingStep && (
                     <div
                       key={leavingStep.step}
@@ -2977,13 +2976,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       data-onboarding-leaving={leavingStep.step}
                       aria-hidden="true"
                       inert
-                      className="pointer-events-none [grid-area:1/1]"
+                      className="pointer-events-none absolute inset-x-0 top-0"
                       style={{ marginTop: -leavingStep.offset }}
                     >
                       {renderView(leavingStep.step)}
                     </div>
                   )}
-                  <div key={currentStep} ref={stepEnterRef} data-onboarding-step={currentStep} className="[grid-area:1/1]">
+                  <div key={currentStep} ref={stepEnterRef} data-onboarding-step={currentStep} className="relative">
                     {renderView(currentStep)}
                   </div>
                 </div>
