@@ -105,7 +105,7 @@ console.log("\nThe blog: each list is still its own page")
 }
 
 console.log("\nRegistered")
-check("this suite runs with the push tests, after the last round 14 entry", /"tests\/home-landing-r14-everything\.test\.ts",\s*\/\*[^*]*\*\/\s*"tests\/home-landing-r15-faq-blog\.test\.ts"/.test(read("scripts/run-push-tests.mjs")))
+check("this suite runs with the push tests, after the last round 14 entry", /"tests\/home-landing-r14-everything\.test\.ts",[\s\S]{0,8000}"tests\/home-landing-r15-faq-blog\.test\.ts"/.test(read("scripts/run-push-tests.mjs")) // Lead (landing round 15): other round 15 suites sit between)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

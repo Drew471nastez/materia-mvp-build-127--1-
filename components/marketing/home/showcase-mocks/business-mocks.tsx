@@ -98,7 +98,7 @@ export const DIGITAL_FLOW = [
     name: "Drums One Shots",
     kind: "Sample pack",
     price: "$19",
-    src: "/marketing/loudlib/ll-drums.webp",
+    src: "/home/showcase/ll-drums.webp",
     by: "Loud",
     gets: ["240 drum one shots, WAV", "Kicks, snares, hats, percussion", "Royalty free"],
     action: "Download",
