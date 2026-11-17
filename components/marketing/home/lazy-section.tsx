@@ -208,18 +208,22 @@ function holdAbove(el: HTMLElement) {
 /** Once the page stands still, each held margin goes and the scroll moves by as much (nothing on screen moves), while that box's top is off screen. */
 function settleOwed() {
   if (!calm()) return idle(settleOwed)
-  let left = false
+  /*
+   * Landing round 15 (the owner's iPhone: a band of the page's dark ground
+   * between the white sheet and the checkout): a held margin used to wait
+   * while its box's top was on screen, so a box that grew or shrank as the
+   * reader reached it kept its margin, and a shrunk box showed a gap for
+   * good. Now every held margin goes once the page stands still: for a box
+   * whose top is above the foot of the screen the scroll moves by as much,
+   * so the box stays where it is and what is above it closes up; a box still
+   * wholly below the screen just drops it.
+   */
   for (const [box, m] of owed) {
     const top = box.getBoundingClientRect().top
-    if (top > -1 && top < window.innerHeight + 1) {
-      left = true
-      continue
-    }
     owed.delete(box)
     box.style.marginTop = ""
-    if (top < 0) scrollWith(m)
+    if (top < window.innerHeight) scrollWith(m)
   }
-  if (left) window.setTimeout(() => idle(settleOwed), 500)
 }
 
 /**
