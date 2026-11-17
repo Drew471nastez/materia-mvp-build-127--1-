@@ -93,7 +93,7 @@ console.log("\n── Digital: the file goes out ──")
   check("what it says is what happens: the link is emailed after paying (developers docs)", /the download link is emailed to them/.test(read("lib/developers/content.generated.ts")))
   check("it moves by transform and opacity only", /@keyframes ev-dl-fill\{from\{transform:scaleX\(0\)\}to\{transform:scaleX\(1\)\}\}/.test(css) && /\.ev-p-dl\{[^}]*transition:opacity \.35s ease,transform \.5s/.test(css))
   check("on a phone it has its own row under the card, not hidden", /@media\(max-width:479px\)\{[^@]*\.ev-p-dl\{left:0;right:0;top:calc\(100% \+ 10px\);width:auto;/.test(css) && !/\.ev-p-dl\{[^}]*display:none/.test(css))
-  check("reduced motion shows it finished", /\.ev-p-dl \*\{animation:none !important\}/.test(css))
+  check("reduced motion shows it finished", /\.ev-p-dl-bar i,\.ev-p-dl-a,\.ev-p-dl-b,\.ev-p-dl-ok\{animation:none !important\}/.test(css) /* each animated part named, no wildcard (tests/home-w12-platform) */)
   check("no banned words", !BANNED.test(text(html)))
 }
 
