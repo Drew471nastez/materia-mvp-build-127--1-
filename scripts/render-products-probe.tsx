@@ -13,6 +13,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
+import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { LanguageProvider } from "@/lib/i18n"
 import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
 import { SaveButton, barIconButton } from "@/app/(storelib)/app/products/new/editor-buttons"
@@ -64,6 +65,7 @@ document.head.insertAdjacentHTML("beforeend", "<style>html.app-layout, html.app-
 
 createRoot(document.getElementById("app")!).render(
   <LanguageProvider>
+    <PlatformSettingsProvider physicalCommerce={location.hash.includes("physical")} exploreMarketplace={false} buyerHeaderLight={false}>
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: HEADER, background: "#fff", borderBottom: "1px solid #eceef1" }} />
     <div className="app-content-scroll" style={{ position: "fixed", top: HEADER, left: sidebar ? 240 : 0, right: 0, overflowY: "auto" }}>
       <ProductsClient products={products} creatorUsername="astrid" />
@@ -75,5 +77,6 @@ createRoot(document.getElementById("app")!).render(
         <SaveButton phase="idle" disabled={false} onSave={() => {}} />
       </span>
     </div>
+    </PlatformSettingsProvider>
   </LanguageProvider>,
 )

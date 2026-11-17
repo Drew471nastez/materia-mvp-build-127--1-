@@ -15,7 +15,7 @@
  * page edge is never read twice), up to PRODUCT_LIST_CEILING.
  */
 export const PRODUCT_LIST_COLUMNS =
-  "id, creator_id, title, type, price_cents, status, thumbnail_url, slug, created_at, archived, description, includes_community, sales_count, community_id"
+  "id, creator_id, title, type, price_cents, status, thumbnail_url, slug, created_at, archived, description, includes_community, sales_count, community_id, inventory_count, max_purchases"
 export const PRODUCT_LIST_PAGE = 1000
 export const PRODUCT_LIST_CEILING = 20_000
 

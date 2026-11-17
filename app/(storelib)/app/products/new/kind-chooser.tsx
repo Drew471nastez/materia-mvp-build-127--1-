@@ -37,7 +37,6 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -50,9 +49,11 @@ import { NEW_PRODUCT_HREF, editorHref, kindHref, kindOptions, type ProductKind }
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { tt, msg } from "@/lib/i18n/text"
 
+import { ImportArt, LinkImportForm } from "./link-import-form"
+
 type Router = ReturnType<typeof useRouter>
 
-export const CHOOSER_TITLE = msg("What are you selling?")
+export const CHOOSER_TITLE = msg("Create new product")
 
 /** Both editors, fetched ahead in full; asking again for one the router holds costs nothing. */
 export function warmKinds(router: Router) {
@@ -62,52 +63,41 @@ export function warmKinds(router: Router) {
 
 /* ── The drawings ─────────────────────────────────────────────────────── */
 
-const INK = "#1a1a2e"
-const ACCENT = "#8b5cf6"
-
-/** A small drawing of each kind: a file coming down, a lesson playing, a parcel, people together. */
+/** Layered illustrations keep the product choices recognisable at a glance. */
 export function KindArt({ kind, className }: { kind: ProductKind; className?: string }) {
-  return (
-    <span aria-hidden className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f3f4f6]", className)}>
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        {kind === "digital" ? (
-          <>
-            <path d="M9 4.8h9l5.2 5.2v15.4a1.8 1.8 0 0 1-1.8 1.8H9a1.8 1.8 0 0 1-1.8-1.8V6.6A1.8 1.8 0 0 1 9 4.8z" stroke={INK} />
-            <path d="M18 4.8V10h5.2" stroke={INK} />
-            <path d="M15.2 13.4v7.4M12.2 17.9l3 3 3-3" stroke={ACCENT} />
-          </>
-        ) : kind === "physical" ? (
-          <>
-            <path d="M5.2 10.4 16 5l10.8 5.4v11.2L16 27l-10.8-5.4z" stroke={INK} />
-            <path d="M5.2 10.4 16 15.8l10.8-5.4M16 15.8V27" stroke={INK} />
-            <path d="m10.6 7.7 10.8 5.4" stroke={ACCENT} />
-          </>
-        ) : kind === "course" ? (
-          <>
-            <rect x="4.2" y="6.2" width="23.6" height="15.6" rx="2.6" stroke={INK} />
-            <path d="M13.6 10.6v6.8l5.6-3.4z" fill={ACCENT} stroke={ACCENT} strokeWidth="1.2" />
-            <path d="M4.8 26.2h22.4" stroke="#d1d5db" />
-            <path d="M4.8 26.2h9.6" stroke={ACCENT} />
-          </>
-        ) : (
-          <>
-            <circle cx="16" cy="11" r="3.6" stroke={INK} />
-            <path d="M9.4 25.6c0-3.8 3-6.6 6.6-6.6s6.6 2.8 6.6 6.6" stroke={INK} />
-            <circle cx="7.6" cy="13.4" r="2.6" stroke={ACCENT} />
-            <path d="M3.4 24.2c0-2.8 1.9-4.8 4.4-4.8" stroke={ACCENT} />
-            <circle cx="24.4" cy="13.4" r="2.6" stroke={ACCENT} />
-            <path d="M28.6 24.2c0-2.8-1.9-4.8-4.4-4.8" stroke={ACCENT} />
-          </>
-        )}
-      </svg>
-    </span>
-  )
+  return <span aria-hidden className={cn("relative grid h-20 w-20 shrink-0 place-items-center", className)}>
+    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      {kind === "physical" ? <>
+        <ellipse cx="40" cy="68" rx="30" ry="5" fill="#e5e7eb" />
+        <path d="M16 30 40 20l24 10v30L40 71 16 60Z" fill="#dca475" />
+        <path d="m40 41 24-11v30L40 71Z" fill="#bd8156" />
+        <path d="M16 30 40 41 29 52 5 39Zm24 11 24-11 11 9-24 13Z" fill="#f0c69e" />
+        <path d="m16 30 7-13 24 10-7 14Z" fill="#edc19b" />
+        <rect x="34" y="48" width="38" height="23" rx="5" fill="white" stroke="#d1d5db" />
+        <rect x="39" y="53" width="28" height="4" rx="2" fill="#e5e7eb" /><rect x="39" y="61" width="21" height="5" rx="2.5" fill="#1a1a2e" />
+      </> : kind === "course" ? <>
+        <ellipse cx="40" cy="70" rx="31" ry="4" fill="#e5e7eb" />
+        <rect x="9" y="17" width="59" height="41" rx="7" fill="#d9d6f8" stroke="#9388c9" />
+        <rect x="14" y="22" width="49" height="30" rx="4" fill="#f6f4ff" />
+        <path d="m33 29 14 9-14 9Z" fill="#9b7de2" />
+        <path d="M30 59v6h20v-6M22 68h36" stroke="#9ca3af" strokeWidth="3" />
+        <rect x="55" y="39" width="17" height="30" rx="4" fill="white" stroke="#6b7280" /><rect x="58" y="48" width="11" height="13" rx="2" fill="#b8e1d7" />
+      </> : <>
+        <ellipse cx="40" cy="70" rx="31" ry="4" fill="#e5e7eb" />
+        <rect x="12" y="10" width="40" height="56" rx="6" fill="white" stroke="#55586a" strokeWidth="1.5" />
+        <circle cx="18" cy="16" r="1" fill="#6b7280" /><circle cx="22" cy="16" r="1" fill="#6b7280" />
+        <rect x="18" y="38" width="23" height="24" rx="5" fill="#d84e6b" /><path d="M29.5 43v12m-5-5 5 5 5-5M24 58h11" stroke="white" strokeWidth="1.6" />
+        <rect x="40" y="31" width="24" height="39" rx="5" fill="white" stroke="#6b7280" strokeWidth="1.5" /><rect x="44" y="51" width="20" height="19" rx="4" fill="#55afa8" /><path d="M49 57h7v7h-7zm7 2 4-2v7l-4-2" stroke="white" />
+        <rect x="62" y="39" width="12" height="18" rx="3" fill="#e7bc53" /><path d="M70 43v7m0-7-4 1v7" stroke="white" strokeWidth="1.5" />
+      </>}
+    </svg>
+  </span>
 }
 
 /* ── The list ─────────────────────────────────────────────────────────── */
 
 const ROW =
-  "group/kind flex w-full items-center gap-3.5 rounded-xl px-3 py-3 text-left outline-none transition-colors duration-100 hover:bg-[#f5f6f8] active:bg-[#eef0f3] focus-visible:bg-[#f5f6f8] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent] md:py-2.5"
+  "group/kind flex min-h-28 w-full items-center gap-5 rounded-2xl border border-[#e2e4e8] bg-white px-4 py-4 text-left outline-none transition-[background-color,border-color,scale] duration-150 hover:border-[#c9cdd5] hover:bg-[#fafbfc] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
 /** Up, down, Home and End move between the answers; Enter and Space are the buttons' own. */
 function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
@@ -120,11 +110,11 @@ function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
   items[next].focus()
 }
 
-export function KindList({ onChoose }: { onChoose: (kind: ProductKind) => void }) {
+export function KindList({ onChoose, onImport }: { onChoose: (kind: ProductKind) => void; onImport?: () => void }) {
   const physical = usePhysicalCommerceEnabled()
   return (
     <div onKeyDown={moveFocus} data-kind-list="">
-      <ul className="space-y-0.5">
+      <ul className="space-y-3">
         {kindOptions(physical).map((o) => (
           <li key={o.kind}>
             <button
@@ -135,21 +125,16 @@ export function KindList({ onChoose }: { onChoose: (kind: ProductKind) => void }
             >
               <KindArt kind={o.kind} />
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold leading-5 text-[#1a1a2e]">{o.title}</span>
-                <span className="mt-0.5 block text-[13.5px] leading-[19px] text-[#6b7280]">{o.line}</span>
+                <span className="block text-[16px] font-semibold leading-5 text-[#1a1a2e]">{o.title}</span>
               </span>
               <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2] transition-[translate,color] duration-150 group-hover/kind:translate-x-0.5 group-hover/kind:text-[#6b7280]" />
             </button>
           </li>
         ))}
       </ul>
-      {/* Products from elsewhere: Gumroad's, as drafts (app/app/products/import/gumroad). A quiet line under the answers, not a third kind. */}
-      <div className="mx-3 mt-1 border-t border-[#eef0f2] pt-1">
-        <Link href={GUMROAD_IMPORT_HREF} data-import-gumroad="" className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-0 text-[14px] font-medium text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:text-[#1a1a2e] [-webkit-tap-highlight-color:transparent] md:min-h-9 md:text-[13.5px]">
-          <span>{tt("Import from Gumroad")}</span>
-          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2]" />
-        </Link>
-      </div>
+      <button type="button" data-kind="import" data-import-products="" onClick={onImport ?? (() => { window.location.href = "/app/products/new" })} className={cn(ROW, "mt-3")}>
+        <ImportArt /><span className="min-w-0 flex-1 text-[16px] font-semibold text-[#1a1a2e]">{tt("Import")}</span><ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2]" />
+      </button>
     </div>
   )
 }
@@ -168,8 +153,17 @@ const CLOSE =
  */
 export function useNewProductChooser(): { open: () => void; warm: () => void; chooser: React.ReactNode } {
   const router = useRouter()
+  const [importing, setImporting] = React.useState(false)
   const [isOpen, setOpen] = React.useState(false)
   const [phone, setPhone] = React.useState(false)
+  // Prepare the closed phone sheet before the first Add press.
+  React.useEffect(() => {
+    const mq = window.matchMedia(LAYER_PHONE)
+    const sync = () => setPhone(mq.matches)
+    sync()
+    mq.addEventListener("change", sync)
+    return () => mq.removeEventListener("change", sync)
+  }, [])
   const body = React.useRef<HTMLDivElement>(null)
   /* The control that opened it: the focus goes back there when the dialog closes (the sheet does this itself). */
   const opener = React.useRef<HTMLElement | null>(null)
@@ -180,6 +174,7 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
   const open = React.useCallback(() => {
     warm()
     target.current = null
+    setImporting(false)
     opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
     setPhone(window.matchMedia(LAYER_PHONE).matches)
     setOpen(true)
@@ -192,7 +187,10 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
     startNavigationLoading(href)
     /* An editor rises as a layer from here, and its Back comes back here. */
     if (href.startsWith(NEW_PRODUCT_HREF)) openEditor(router, href, true)
-    else router.push(href)
+    else if (/^\/app\/products\/[^/]+$/.test(href)) {
+      router.refresh()
+      openEditor(router, href, true)
+    } else router.push(href)
   }, [router])
 
   /* Every answer's address is known ahead (./product-kinds kindHref), so nothing is made by a pick. */
@@ -209,13 +207,13 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
       open={isOpen}
       onClose={close}
       phone={phone}
-      label={tt(CHOOSER_TITLE)}
+      label={importing ? tt("Import product") : tt(CHOOSER_TITLE)}
       showCloseButton={false}
       onOpenAutoFocus={(e) => {
         e.preventDefault()
         body.current?.querySelector<HTMLButtonElement>("[data-kind]")?.focus()
       }}
-      sheet={{ fill: false, aboveKeyboard: false, maxHeight: "min(86dvh, 720px)", dismissible: true, onClosed: go }}
+      sheet={{ fill: false, aboveKeyboard: true, maxHeight: "min(90dvh, 800px)", dismissible: true, onClosed: go }}
       dialog={{
         "aria-describedby": undefined,
         onCloseAutoFocus: (e) => {
@@ -227,14 +225,14 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
       }}
       className="w-[calc(100%-32px)] max-w-[520px] gap-0 sm:max-w-[520px] rounded-2xl border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]"
     >
-      <div ref={body} data-new-product-chooser="" className="px-2 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-1 md:pb-2 md:pt-2">
-        <div className="flex items-center justify-between gap-3 pb-2 pl-3 pr-1 md:pt-1">
-          <SheetDialogTitle className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{tt(CHOOSER_TITLE)}</SheetDialogTitle>
-          <button type="button" onClick={close} aria-label={tt("Close")} className={cn(CLOSE, "max-md:hidden")}>
+      <div ref={body} data-new-product-chooser="" className="overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] pt-2 md:pt-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <SheetDialogTitle className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{importing ? tt("Import product") : tt(CHOOSER_TITLE)}</SheetDialogTitle>
+          <button type="button" onClick={close} aria-label={tt("Close")} className={CLOSE}>
             <X className="h-4 w-4" />
           </button>
         </div>
-        <KindList onChoose={choose} />
+        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => { target.current = `/app/products/${id}`; prefetchAppPage(router, target.current); setOpen(false); if (!phone) go() }} /> : <KindList onChoose={choose} onImport={() => setImporting(true)} />}
       </div>
     </SheetDialog>
   )
@@ -255,6 +253,7 @@ export function asksInPlace(e: React.MouseEvent): boolean {
 
 export function NewProductKindPage() {
   const router = useRouter()
+  const [importing, setImporting] = React.useState(false)
   React.useEffect(() => {
     warmKinds(router)
     /* The first answer takes the focus on a computer, as in the dialog; a phone would scroll to show a ring nobody asked for. */
@@ -277,7 +276,7 @@ export function NewProductKindPage() {
         </button>
       </div>
       <div className="mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <KindList onChoose={choose} />
+        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => router.replace(`/app/products/${id}`)} /> : <KindList onChoose={choose} onImport={() => setImporting(true)} />}
       </div>
     </div>
   )

@@ -1363,6 +1363,7 @@ const SUITES = [
   "tests/ai-visits-r46.test.ts",
   /* Products › Import from Gumroad: the API's products as drafts (prices, currencies never converted, pay what you want, option combinations), pictures copied from Gumroad's CDN hosts only, descriptions through the allow list, once per Gumroad id (SQL part 344), the token in one header and nowhere else, the Products permission. */
   "tests/gumroad-import.test.ts",
+  "tests/product-link-import.test.ts",
   /* Round 45: every page a creator publishes, as a search engine reads it: page 2 of a shop or collection its own canonical and a page past the last a 404, an imported theme's shop at one address and a gone product a 404, /collections and /reviews and a community's public posts in the sitemaps, a website behind a password out of storelib.com's, IndexNow for collections and public posts, and every route of a website or a creator page held to a sitemap or a noindex. */
   "tests/seo-sites-r45.test.ts",
   /* Round 45 leftovers (a): a creator's contact address asked for on the click (/api/creator-contact, rate limited, noindex, no-store) and in no page's payload, nor a website contact form's inbox; Explore's cards without sign in ids; IndexNow for moderation, admin takedowns and bans; a product's JSON-LD in the page's language; one noindex on a 404; www and a trailing slash in one 308; the imported theme's 303 kept on purpose. */
