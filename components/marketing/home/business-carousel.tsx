@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useRef, useState, useSyncExternalStore, t
 import { StoryHeading } from "@/components/marketing/story-heading"
 import type { SectionStyle } from "./lazy-section"
 import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
-import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DIGITAL_BUY_S, DigitalScene, PhysicalScene, STORE_STEP_S } from "./showcase-mocks/business-mocks"
+import { BUSINESS_MOCK_CSS, ClubScene, CoachScene, CourseScene, DigitalScene, PhysicalScene, STORE_STEP_S } from "./showcase-mocks/business-mocks"
 import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
 
 /*
@@ -79,9 +79,16 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   the last verb, in the page's violet (#7c3aed, the story heading's own
   accent, the same as every other heading's on the page).
 */
-export const BUSINESS_HEADING = "Ship it, stream it or book it"
+/*
+  Round 16, the owner disliked "Ship it, stream it or book it" and asked for
+  another heading. It says what the five scenes show: each kind of thing is
+  sold on a page made for it (a book that opens, a store design, a course
+  player, a club's feed, a calendar). One accent word, "fits", in the same
+  purple.
+*/
+export const BUSINESS_HEADING = "A page that fits what you sell"
 /** The one accented word. */
-export const BUSINESS_ACCENT = ["book"] as const
+export const BUSINESS_ACCENT = ["fits"] as const
 /** Its colour: Storelib's violet, the page's heading accent (app/globals.css .story-heading). */
 export const BUSINESS_ACCENT_COLOR = "#7c3aed"
 /** The line under the heading: at most ten words (the owner). */
@@ -117,10 +124,8 @@ export const BUSINESS_SLIDES: readonly Kind[] = [
     label: "Digital products",
     tab: "Digital",
     line: "E-books, video courses, downloads",
-    /* Three purchases, one step each, and a moment for the last to stand. */
-    ms: Math.round((DIGITAL_BUY_S * 3 + 0.8) * 1000),
     Scene: DigitalScene,
-    alt: "Digital products on Storelib: a product page and a buyer's phone open on their library. Ancestral Kitchen, a cookbook PDF by Ruth Calder for $34, is bought and arrives at the top of the library with a Download button; then Daily Mobility, a video course by Lena Park for $79, with Open; then Drums One Shots, a sample pack by Loud for $19.",
+    alt: "A digital product on Storelib: Ancestral Kitchen, a cookbook PDF by Ruth Calder, 212 pages, $34. Buy is pressed, the button turns into Download PDF, and the book opens to its first spread: a bowl of roasted squash soup on the left page, the recipe on the right.",
   },
   {
     id: "physical",
@@ -451,8 +456,8 @@ const CSS = `
 @keyframes biz-ring-a{0%{transform:rotate(-180deg)}50%,100%{transform:rotate(0deg)}}
 @keyframes biz-ring-b{0%,50%{transform:rotate(0deg)}100%{transform:rotate(180deg)}}
 @media(max-width:767px){
-  /* Round 15: the heading's three verbs each keep their "it" on a phone (balanced, it broke "stream / it"). */
-  .biz .biz-h{max-width:10.5ch;font-size:clamp(32px,9vw,40px);text-wrap:wrap}
+  /* Round 16: two balanced lines on a phone, "A page that fits / what you sell". */
+  .biz .biz-h{max-width:none;font-size:clamp(32px,9vw,40px);text-wrap:balance}
   .biz-sub{font-size:16px}
   [data-landing-story] .biz>.biz-body,.biz-body{margin-top:24px}
 }

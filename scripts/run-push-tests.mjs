@@ -1626,6 +1626,8 @@ const SUITES = [
   "tests/home-landing-r15-stats.test.ts",
   /* Landing round 15, business: the heading "Ship it, stream it or book it", "book" in Storelib's purple; digital a product page and a buyer's phone on their library, a cookbook PDF, a video course and a sample pack bought in turn and landing on top of the library, CSS on opacity and transform only, run once a turn, paused off screen. */
   "tests/home-landing-r15-business.test.ts",
+  /* Landing round 16, business: the heading "A page that fits what you sell", "fits" in Storelib's purple; digital one cookbook bought, then opening to its first spread, three flat layers on transform and opacity, once a turn, paused off screen; every picture the section names is in public/. */
+  "tests/home-landing-r16-business.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
