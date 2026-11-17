@@ -18,8 +18,10 @@ process.on("exit", () => process.stdout.write(JSON.stringify({ args: process.arg
 `)
 let passed = 0
 const check = (label: string, run: () => void) => { run(); passed++; console.log(`  ok  ${label}`) }
-const launch = (flag?: string) => {
-  const env: NodeJS.ProcessEnv = { ...process.env, RAYON_NUM_THREADS: "1", TOKIO_WORKER_THREADS: "1" }
+const launch = (flag?: string, callerThreads: string | null = "1") => {
+  const env: NodeJS.ProcessEnv = { ...process.env }
+  if (callerThreads === null) { delete env.RAYON_NUM_THREADS; delete env.TOKIO_WORKER_THREADS }
+  else { env.RAYON_NUM_THREADS = callerThreads; env.TOKIO_WORKER_THREADS = callerThreads }
   delete env.STORELIB_BUILD_WEBPACK
   if (flag !== undefined) env.STORELIB_BUILD_WEBPACK = flag
   return JSON.parse(execFileSync(process.execPath, ["--require", preload, "scripts/build-next.mjs"], { encoding: "utf8", env })) as { args: string[]; rayon: string; tokio: string }
@@ -30,6 +32,7 @@ try {
   check("Turbopack remains an explicit benchmark option", () => assert.deepEqual(launch("0").args, ["build", "--turbopack"]))
   check("an unrecognised value keeps the conservative production default", () => assert.deepEqual(launch("false").args, ["build", "--webpack"]))
   check("caller thread limits survive build-only initialization", () => { const r = launch(); assert.equal(r.rayon, "1"); assert.equal(r.tokio, "1") })
+  check("the merged production defaults use one native thread", () => { const r = launch(undefined, null); assert.equal(r.rayon, "1"); assert.equal(r.tokio, "1") })
   const { default: config } = await import(pathToFileURL(join(process.cwd(), "next.config.mjs")).href)
   check("compiler workers and memory optimizations are enabled", () => { assert.equal(config.experimental.webpackBuildWorker, true); assert.equal(config.experimental.webpackMemoryOptimizations, true) })
   check("server compilation and tracing do not overlap their heaps", () => { assert.equal(config.experimental.parallelServerCompiles, false); assert.equal(config.experimental.parallelServerBuildTraces, false); assert.equal(config.experimental.cpus, 1) })

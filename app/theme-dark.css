@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 939 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 940 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -919,6 +919,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#c9ccd3\]:not([data-own-look], [data-own-look] *):focus-within { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#d9dce1\]:not([data-own-look], [data-own-look] *):focus-within { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:ring-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):focus-within { --tw-ring-color: rgba(255,255,255,0.24); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:ring-\[\#1a1a2e\]\/20:not([data-own-look], [data-own-look] *):focus-within { --tw-ring-color: rgba(255,255,255,0.048); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *):focus { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:bg-\[\#fef1ee\]:not([data-own-look], [data-own-look] *):focus { background-color: hsla(11,60%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:bg-\[\#fff6e0\]:not([data-own-look], [data-own-look] *):focus { background-color: hsla(43,60%,50%,0.16); }

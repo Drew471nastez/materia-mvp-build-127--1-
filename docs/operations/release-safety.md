@@ -56,7 +56,7 @@ The production Next CLI has a separate 5 GiB heap ceiling in `pnpm build`.
 The package's Node 22 engine keeps Vercel and local installs aligned with CI.
 Route-data and prerender work uses one worker in `next.config.mjs`.
 The Next CLI loads `scripts/build-limits.env` for build-only Rayon and Tokio
-thread defaults of two, rather than sizing native pools to each machine's
+thread defaults of one, rather than sizing native pools to each machine's
 CPU count. Explicit caller values take precedence; runtime environments
 and their service configuration are not changed.
 Production builds use Webpack's separate compiler workers and memory
@@ -73,7 +73,8 @@ budget is 6,500 MB for the 7 GB production machine; bundle budgets are unchanged
 ### Budgets
 
 The Webpack migration was measured at 5,193 MB peak process-tree RSS for the
-complete production build (6,500 MB ceiling). Its first-load chunking differs
+complete production build (6,500 MB ceiling), with two native threads. The later
+upstream one-thread limit is preserved. Its first-load chunking differs
 from Turbopack: Home is 373 KB gzip, Products 797.3 KB and the website editor
 1,582.8 KB. Limits for routes above the prior compiler's baseline were reset
 to the measured value plus 10%; existing limits were retained where met.
