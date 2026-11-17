@@ -129,7 +129,8 @@ console.log("\n── Wave 18: smaller on a phone ──")
   // Changed on purpose (landing round 13): the owner found wave 18 "too small"; the phone sizes are half way back (pinned in home-landing-r13-ideas). Still smaller than before wave 18, and only below 768px.
   check("the heading smaller than the shared 36px at 390", /\.um \.story-heading\{font-size:clamp\(28px,8\.5vw,36px\)\}/.test(phone))
   check("the photos never larger than before (56px at most)", /\.um-row\{--pic:clamp\(46px,13vw,56px\)\}/.test(phone))
-  check("the line and the labels set for a phone", /\.um-sub\{[^}]*font-size:15\.5px/.test(phone) && /\.um-item\{[^}]*font-size:17px/.test(phone))
+  /* Changed on purpose (landing round 15): the owner hid the line under the heading on a phone; the labels keep their phone size. */
+  check("the line hidden and the labels set for a phone", /\.um-sub\{display:none\}/.test(phone) && /\.um-item\{[^}]*font-size:17px/.test(phone))
   check("a computer keeps its sizes", /\.um-row\{--pic:clamp\(54px,5\.6vw,108px\);/.test(src) && /\.um-item\{[^}]*font-size:clamp\(18px,1\.75vw,31px\)/.test(src))
 }
 

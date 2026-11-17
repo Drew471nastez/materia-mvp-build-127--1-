@@ -300,6 +300,8 @@ const SUITES = [
   "tests/shopify-export-aw.test.ts",
   /* Landing round 15: the builder demo plays a real edit (heading, publish, scroll, product section top padding, publish) on transform and opacity only, sharp loudlib boxes, and three true stats that count up. */
   "tests/home-landing-r15-showcase.test.ts",
+  /* Landing round 15: the checkout held and moving on phones again, less black at its top, wider cards over a soft phone; the audience section as before round 14; three more store screens; the digital download notice. */
+  "tests/home-landing-r15-scenes.test.ts",
   "tests/editor-groups-saves.test.ts",
   "tests/site-resilience.test.ts",
   "tests/compat-engine.test.ts",

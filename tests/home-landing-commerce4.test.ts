@@ -133,14 +133,16 @@ check("the phone is there from the start and slides up once as the section comes
   /* Changed on purpose (landing round 7): the phone rises from lower (34%) when its own box comes up the screen, so the rise is seen. */
   // Changed on purpose (landing round 9): no rise by observer; the phone is big and centred when the section arrives and comes down with the scroll.
   // Changed on purpose (landing round 11): the phone starts big and low (--y0) and settles smaller.
-  assert.ok(/@keyframes cmc-settle\{from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}/.test(coCss) && !/data-cmc-in/.test(coCss))
+  /* Changed on purpose (landing round 15): on a phone (under 900px) the settle is a transition set off by an observer (data-cmc-in, useStepScene); on a computer it is still the scroll timeline. */
+  assert.ok(/@keyframes cmc-settle\{from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}/.test(coCss) && !/data-cmc-in/.test(coCss.slice(0, coCss.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:0}"))))
   const n = CHECKOUT_HEADING.split(" ").length
   assert.equal((co.match(/class="cmc-w"/g) ?? []).length, n)
 })
 check("the cards come up over the phone with the page", () => {
   // Changed on purpose (landing round 9): 56svh, with the one screen hold.
   // Changed on purpose (landing round 10): the cards are inside the track (so the stage stays held behind them), 44svh under the stage's foot: the same 56svh overlap.
-  assert.ok(/\.cmc-track > \.cmc-cards\{margin-top:calc\(100svh - 56svh\)\}/.test(coCss) && /\.cmc-cards\{[^}]*z-index:5/.test(coCss))
+  /* Changed on purpose (landing round 15): 80svh of hold before the cards, not 100svh. */
+  assert.ok(/\.cmc-track > \.cmc-cards\{margin-top:calc\(80svh - 56svh\)\}/.test(coCss) && /\.cmc-cards\{[^}]*z-index:5/.test(coCss))
 })
 check("the scroll never steps through a payment on the phone", () => {
   const phone = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))
@@ -152,7 +154,8 @@ check("the scroll never steps through a payment on the phone", () => {
 check("one observer, no scroll listener, no layout read, no orbit", () => {
   const src = read(CO)
   // Changed on purpose (landing round 12): a second observer (useNear) in the checkout scene; still no scroll listener, rAF or layout read.
-  assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 2 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
+  /* Changed on purpose (landing round 15): two more observers set off the phone's two steps (useStepScene). */
+  assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 4 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
   /* Changed on purpose (landing round 7): the ring is back (cmc-orbit, cmc-lap), still without a blur filter. */
   assert.ok(!/filter:\s*blur/.test(src))
 })

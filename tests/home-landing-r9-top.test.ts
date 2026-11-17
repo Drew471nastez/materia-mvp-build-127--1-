@@ -112,7 +112,8 @@ check("a drag on the globe reads no layout", !/getBoundingClientRect/.test(onMov
 console.log("\n── 1. The size drawn ──")
 const pieces = EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [...s.products] : []))
 // Changed on purpose (landing round 14): Jonah Wells's four pieces left with his store, and each page is drawn once in the strip, not twice.
-check("every piece in the strip has a 240px picture, small", pieces.length === 14 && pieces.every((p) => existsSync(join(root, "public", p.replace(/\.webp$/, "-240.webp"))) && statSync(join(root, "public", p.replace(/\.webp$/, "-240.webp"))).size < 12 * 1024))
+/* Changed on purpose (landing round 15): Fieldwork's four pieces left with it; the screenshots that came are one picture each, with their own 360px size (tests/home-landing-r15-scenes.test.ts). */
+check("every piece in the strip has a 240px picture, small", pieces.length === 10 && pieces.every((p) => existsSync(join(root, "public", p.replace(/\.webp$/, "-240.webp"))) && statSync(join(root, "public", p.replace(/\.webp$/, "-240.webp"))).size < 12 * 1024))
 check("a phone is offered the 240px one, a 2x computer the 360px one", (html.match(/srcSet="[^"]*-240\.webp 240w, [^"]*\.webp 360w" sizes="\(max-width:767px\) 80px, 150px"/g) ?? []).length === pieces.length && PIECE_SIZES === "(max-width:767px) 80px, 150px")
 check("every picture in the strip keeps its width and height, so nothing shifts when it arrives", [...html.slice(html.indexOf("data-ev-strip"), html.indexOf("ev-globe")).matchAll(/<img [^>]*>/g)].every((m) => /width="\d+" height="\d+"/.test(m[0]) && /decoding="async"/.test(m[0])))
 

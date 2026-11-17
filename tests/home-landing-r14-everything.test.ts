@@ -79,12 +79,15 @@ const satori = EVERYTHING_STORES.find((s) => s.key === "satori")
 check("Satori Studio is a page of the strip, the showcase's own picture of it", !!satori && satori.kind === "shot" && satori.src === "/home/showcase/a-satori.webp" && /a-satori-360\.webp 360w/.test(satori.srcSet) && existsSync(join(root, "public/home/showcase/a-satori.webp")))
 check("  its top at the card's top, filling it", /\.ev-shot-img\{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0\}/.test(evCss) && /a-satori\.webp/.test(html))
 check("the drawn creative director's OnePage is gone (and its name with it)", !EVERYTHING_STORES.some((s) => (s as { kind: string }).kind === "profile") && !/Idris|ev-pf/.test(seen) && !/\.ev-pf/.test(evCss))
-check("still seven pages, never two stores side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.every((s, i) => !(s.kind === "merch" && EVERYTHING_STORES[(i + 1) % 7].kind === "merch")))
+/* Changed on purpose (landing round 15): nine pages (Loudlib in Fieldwork's place, Sora and GodBless added), the stores still never side by side. */
+const isStore = (s: (typeof EVERYTHING_STORES)[number]) => s.kind === "merch" || (s.kind === "shot" && s.key !== "satori")
+check("nine pages, never two stores side by side", EVERYTHING_STORES.length === 9 && EVERYTHING_STORES.every((s, i) => !isStore(s) || !isStore(EVERYTHING_STORES[(i + 1) % EVERYTHING_STORES.length])))
 check("no disliked name in the section (Juno Kada's domain went from the support card)", !/junokada|Juno Kada/i.test(html) && !/junokada/i.test(JSON.stringify(EVERYTHING_SUPPORT)))
 
 console.log("\n── 2. the cards come up smoothly ──")
 const strip = renderToStaticMarkup(createElement(Storefronts, { live: true }))
-check("the strip holds each page once: 7 layers and 7 animations, not 14", (strip.match(/class="ev-s-slot"/g) ?? []).length === 7 && /const strip = EVERYTHING_STORES\n/.test(ev))
+/* Changed on purpose (landing round 15): nine pages. */
+check("the strip holds each page once: 9 layers and 9 animations, not 18", (strip.match(/class="ev-s-slot"/g) ?? []).length === 9 && /const strip = EVERYTHING_STORES\n/.test(ev))
 const support = renderToStaticMarkup(createElement(Support))
 check("one support thread plays at a time: the first is on, the others wait", (support.match(/class="ev-c-thread ev-loop"/g) ?? []).length === 3 && (support.match(/data-on=""/g) ?? []).length === 1 && SUPPORT_TURN_MS === 10000)
 check("  no endless animation in the support card (every part plays once as its thread comes in)", !/infinite/.test(evCss.slice(evCss.indexOf(".ev-c-thread{"), evCss.indexOf("@container (max-width:480px)"))) && /\.ev-c\[data-turning\] \.ev-c-thread\[data-on\] \.ev-c-dot\{animation:ev-dot 1\.1s ease-in-out 2\.35s 2\}/.test(evCss))

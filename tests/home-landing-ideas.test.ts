@@ -55,7 +55,8 @@ console.log("\nSee your ideas come to life: the heading changes by itself, thin 
   check("every heading is drawn", (html.match(/class="ideas-line"/g) ?? []).length === IDEAS_HEADINGS.length)
   check("the flip is still under reduced motion", /@media\(prefers-reduced-motion:reduce\)\{[^@]*\.ideas-line\{animation:none!important\}/.test(src.ideas))
   check("a tab for each editor, each named", (html.match(/class="ideas-tab"/g) ?? []).length === IDEAS_TABS.length && IDEAS_TABS.every((s) => html.includes(`<span>${s.title}</span>`)))
-  check("one scripted moment per tab, then the next", /animationDuration: `\$\{BUILDER_DURATION_MS\}ms`/.test(src.ideas) && BUILDER_DURATION_MS > 6000)
+  /* Changed on purpose (landing round 15): each tab has its own moment's length (the website builder's edit is longer), read from the tab the clock is on. */
+  check("one scripted moment per tab, then the next", /animationDuration: `\$\{IDEAS_TABS\[t\.index\]\.ms\}ms`/.test(src.ideas) && BUILDER_DURATION_MS > 6000 && IDEAS_TABS.every((s) => s.ms > 6000))
   check("autoplay and the editors' animations stop off screen and in a background tab", /useAutoTabs\(/.test(src.ideas) && /data-mock-live=\{\(state === "active" && t\.live\) \|\| undefined\}/.test(src.ideas))
   check("nothing animates before the section is seen", !/data-mock-live="/.test(html))
   check("no timers of its own", !/setInterval|setTimeout/.test(src.ideas))

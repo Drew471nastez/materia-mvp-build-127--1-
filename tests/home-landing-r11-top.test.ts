@@ -115,7 +115,9 @@ check("Soft Ground and Kiln Goods are gone", !/Kiln Goods|Soft Ground|soft-groun
 // Changed on purpose (landing round 14): the store of downloads (Jonah Wells) gave way to Liam Bailey's real product page, a download itself, at its live price (tests/home-landing-r14-everything.test.ts); two stores now.
 check("a downloadable product is still in the strip", EVERYTHING_STORES.some((s) => s.kind === "product"))
 check("its price as the live page shows it", /<span class="ev-pp-price">\$11\.87<\/span>/.test(html))
-check("still two stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 2 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
+/* Changed on purpose (landing round 15): nine pages; the stores are Slow Form and the owners' three screenshots (Loudlib, Sora, GodBless), still never two side by side. */
+const isStore = (s: (typeof EVERYTHING_STORES)[number]) => s.kind === "merch" || (s.kind === "shot" && s.key !== "satori")
+check("still never two stores side by side", EVERYTHING_STORES.length === 9 && EVERYTHING_STORES.filter(isStore).length === 4 && EVERYTHING_STORES.every((s, i) => !isStore(s) || !isStore(EVERYTHING_STORES[(i + 1) % EVERYTHING_STORES.length])))
 
 console.log("\n── Copy ──")
 const all = code(read(F.ev)) + code(read(F.ideas)) + code(read(F.builders))

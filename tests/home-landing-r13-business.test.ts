@@ -52,10 +52,12 @@ const rule = (src: string, sel: string) => src.match(new RegExp(`(?:^|[}\\s])${s
 console.log("\nHeading: specific, short, far less purple")
 {
   // Changed on purpose (landing round 14): the owner disliked "Five ways to get paid"; the heading is "From a cookbook to a coaching call".
-  check("Five ways to get paid", BUSINESS_HEADING === "From a cookbook to a coaching call" && html.includes('aria-label="From a cookbook to a coaching call"'))
+  /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */
+  check("Five ways to get paid", BUSINESS_HEADING === "Sell files, parcels or your time" && html.includes('aria-label="Sell files, parcels or your time"'))
   // Changed on purpose (landing round 14): the accent word is "call".
-  check("one accented word, and it is in the heading", BUSINESS_ACCENT.length === 1 && BUSINESS_ACCENT[0] === "call" && (html.match(/data-story-accent="true"/g) ?? []).length === 1)
-  check("the accent is a greyer violet than the page's, set on this heading only", BUSINESS_ACCENT_COLOR === "#7e6fb8" && css.includes(`.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};`))
+  check("one accented word, and it is in the heading", BUSINESS_ACCENT.length === 1 && /* Changed on purpose (landing round 15): "time". */ BUSINESS_ACCENT[0] === "time" && (html.match(/data-story-accent="true"/g) ?? []).length === 1)
+  /* Changed on purpose (landing round 15): not a violet: the slate green of the bookings card's photograph. */
+  check("the accent is a greyer violet than the page's, set on this heading only", BUSINESS_ACCENT_COLOR === "#46605c" && css.includes(`.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};`))
   check("the line names the five kinds in at most ten words", BUSINESS_SUB === "Downloads, goods, courses, communities and calls, one checkout." && BUSINESS_SUB.split(/\s+/).length <= 10)
   check("no banned words, em dashes or other brands in the copy", !BANNED.test([BUSINESS_HEADING, BUSINESS_SUB, ...BUSINESS_SLIDES.flatMap((s) => [s.label, s.line, s.alt]), digital, physical, club].join(" ")))
 }
@@ -77,8 +79,9 @@ console.log("\nPhysical: an endless 3D line of store designs")
   check("each picture is sized, chosen by srcset for its drawn width, decoded off the thread", (physical.match(/<img [^>]*srcSet="\/home\/showcase\/bt-\w+-380\.webp 380w, \/home\/showcase\/bt-\w+-560\.webp 560w"[^>]*width="560" height="700"[^>]*decoding="async"/g) ?? []).length === 6)
   check("a glide is shorter than a step", STORE_GLIDE_S < STORE_STEP_S)
   // Changed on purpose (landing round 14): no preserve-3d; the cards are flat siblings under the stage's perspective, drawn in an order the script sets (far cheaper to composite).
-  check("the stage holds the 3D: perspective and preserve-3d", /\.bt-stage\{[^}]*perspective:1500u;/.test(desk) && !/preserve-3d/.test(desk))
-  check("each card rests at its own place (the line whole without motion)", STORE_DESIGNS.every((_, i) => new RegExp(`\\.bt-card:nth-child\\(${i + 1}\\)\\{transform:translate3d\\(`).test(desk)) && /\.bt-card:nth-child\(1\)\{transform:translate3d\(0u,0,0u\) rotateY\(0deg\);opacity:1;z-index:3\}/.test(desk)) // Changed on purpose (landing round 14): each resting place carries its drawing order (z-index), the cards being flat siblings.
+  /* Changed on purpose (landing round 15): a closer perspective, 1200u. */
+  check("the stage holds the 3D: perspective and preserve-3d", /\.bt-stage\{[^}]*perspective:1200u;/.test(desk) && !/preserve-3d/.test(desk))
+  check("each card rests at its own place (the line whole without motion)", STORE_DESIGNS.every((_, i) => new RegExp(`\\.bt-card:nth-child\\(${i + 1}\\)\\{transform:translate3d\\(`).test(desk)) && /\.bt-card:nth-child\(1\)\{transform:translate3d\(0u,0,0u\) rotateY\(0deg\) scale\(1\);opacity:1;z-index:3\}/.test(desk)) /* Changed on purpose (landing round 15): each place carries a scale too. */ // Changed on purpose (landing round 14): each resting place carries its drawing order (z-index), the cards being flat siblings.
   check("no loop left in the scenes, and the section still pauses its moments off screen", !/infinite/.test(motion) && /\.biz:not\(\[data-live\]\) \.bz-on \*/.test(css))
   check("no filter, blur or will-change anywhere in the scenes", !/filter|blur\(|will-change|backdrop/.test(mocks))
   check("physical's turn on a computer is four moves long", BUSINESS_SLIDES[1].id === "physical" && BUSINESS_SLIDES[1].ms === STORE_STEP_S * 4000)

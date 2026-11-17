@@ -65,20 +65,23 @@ console.log("\nSmooth: the phone is there, then the cards come up over it with t
 // Changed on purpose (landing round 8): the owner's recording turns the products as the page scrolls (tests/home-landing-r8-checkout.test.ts).
 check("the objects turn with the page on a scroll timeline (transform only); no blurred pictures", /view-timeline:--cmc-t block/.test(src) && /cmc-orbit/.test(src) && !existsSync("public/home/commerce/float-ebook.webp") && !existsSync("public/home/commerce/float-cap-blur.webp") && !/filter:\s*blur/.test(src))
 // Changed on purpose (landing round 12): a second observer (useNear) marks the section near and the stage covered; still no scroll listener, no rAF, no layout read.
-check("two observers, no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 2 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
+/* Changed on purpose (landing round 15): useNear and useStepScene (the phone's two steps) add observers; still no scroll listener. */
+check("observers only (four), no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 4 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
 // Changed on purpose (landing round 7): each part (headline, phone, cards) is armed on its own attribute.
 // Changed on purpose (landing round 9): one part (the cards), so the attribute is named.
 check("armed only while a part is wholly below the screen, so a part mounted on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /* Changed on purpose (wave 17): only a mouse arms the cards; on a touch screen they ride in with their ground, which had come up over the phone empty (the owner's recording, a dark shade sweeping over the phone). */ /const arm = matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)\.matches/.test(src) && /if \(!arm \|\| root\.hasAttribute\("data-cmc-over-armed"\)\) root\.setAttribute\("data-cmc-over", ""\)/.test(src))
 // Changed on purpose (landing round 7): the phone rises from 34% low as its own box comes up the screen, so the rise is seen.
 // Changed on purpose (landing round 9): the owner: the phone comes first and comes down with the scroll; a scroll timeline of transform.
 // Changed on purpose (landing round 10): the track also holds the cards (the stage stays behind them), so the ranges are in svh of scroll, not percent of the track.
-check("the phone's move is a transform on the scroll timeline, never from off screen", /\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t;animation-range:contain 0svh contain \d+svh\}/.test(css) && !/data-cmc-in/.test(css))
+/* Changed on purpose (landing round 15): on a computer it starts before the hold; on a phone it is a transition after data-cmc-in (useStepScene). */
+check("the phone's move is a transform on the scroll timeline, never from off screen", /\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t;animation-range:contain -?\d+svh contain \d+svh\}/.test(css) && !/data-cmc-in/.test(css.slice(0, css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:0}"))))
 // Changed on purpose (landing round 7): the words are armed by the headline's own attribute.
 // Changed on purpose (landing round 9): the owner: the heading "should not be there by default", it is revealed as the page scrolls; each word on the scroll timeline.
 check("  the words fade and lift, transform and opacity only", /@keyframes cmc-word\{from\{opacity:0;transform:translate3d\(0,\.55em,0\)\}to\{opacity:1;transform:translate3d\(0,0,0\)\}\}/.test(css) && /\.cmc-w\{animation:cmc-word [^;]*both;animation-timeline:--cmc-t\}/.test(css))
 // Changed on purpose (landing round 9): the owner asked for a short sticky stage here: one screen, the cards pulled up 56svh.
 // Changed on purpose (landing round 10): the stage is held for a screen and then stays behind the cards: the track holds both, the cards 44svh (100svh less 56svh) under the stage's foot.
-check("the stage is held by sticky for one screen, the cards pulled up 56svh", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(100svh - 56svh\)\}/.test(css))
+/* Changed on purpose (landing round 15): 80svh of hold before the cards. */
+check("the stage is held by sticky for one screen, the cards pulled up 56svh", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(80svh - 56svh\)\}/.test(css))
 // Changed on purpose (landing round 7): the phone is centred under the headline; up to 390px wide on a computer.
 // Changed on purpose (landing round 9): the owner: "the phone is bigger".
 // Changed on purpose (landing round 11): the settled phone is up to 400px; it starts bigger.

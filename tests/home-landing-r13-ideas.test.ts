@@ -70,7 +70,7 @@ check("the page in the template's order, without Steez Club: bar, Summer Madness
 check("the announcement bar: #111, white, FREE SHIPPING THIS SUMMER, a close key", /<p class="stz-bar">FREE SHIPPING THIS SUMMER<svg[^>]*stz-x/.test(site) && /background:#111;color:#fff/.test(rule(BUILDER_CSS, ".stz-bar")) && rule(BUILDER_CSS, ".stz-bar").includes(`height:${U(24)}`))
 check("the transparent header over the slide: the white wordmark in the middle, menu left, icons right", /class="stz-nav"><span class="stz-menu">[\s\S]*?<\/span><img[^>]*src="\/home\/showcase\/stz-logo\.webp"[^>]*class="smk-pic stz-logo"[^>]*><span class="stz-icons">/.test(site) && /grid-template-columns:1fr auto 1fr/.test(rule(BUILDER_CSS, ".stz-nav")) && /color:#fff/.test(rule(BUILDER_CSS, ".stz-nav")))
 // (round 14: the heading is now the builder's editable heading, its old words first)
-check("the slideshow: 640px of the theme (455u), the demo photo, a 29% overlay, the words at the bottom centre", rule(BUILDER_CSS, ".stz-hero").includes(`height:${U(455)}`) && /justify-content:flex-end;align-items:center/.test(rule(BUILDER_CSS, ".stz-hero")) && /background:rgba\(0,0,0,\.29\)/.test(rule(BUILDER_CSS, ".stz-hero::before")) && /<span class="stz-sub">NEW COLLECTION<\/span><b><span class="wx-edit"><span class="wx-was"><i class="wx-mark"><\/i>Summer Madness &#x27;26<\/span>[\s\S]*?<\/b><em>EXPLORE<\/em>/.test(site))
+check("the slideshow: 640px of the theme (455u), the demo photo, a 29% overlay, the words at the bottom centre", rule(BUILDER_CSS, ".stz-hero").includes(`height:${U(455)}`) && /justify-content:flex-end;align-items:center/.test(rule(BUILDER_CSS, ".stz-hero")) && /background:rgba\(0,0,0,\.29\)/.test(rule(BUILDER_CSS, ".stz-hero::before")) && /<span class="stz-sub">NEW COLLECTION<\/span><b><span class="wx-edit"><i class="wx-hd"><\/i><span class="wx-was">Summer Madness &#x27;26<\/span>[\s\S]*?<\/b><em>EXPLORE<\/em>/.test(site)) /* Changed on purpose (landing round 15): the heading wears the editor's outline (wx-hd); its words are selected in the panel's field, not on the page. */
 check("the heading in Instrument Sans 600 at -0.034em, the theme's heading settings", /font-family:var\(--stz-head\);[^}]*font-weight:600;[^}]*letter-spacing:-\.034em/.test(rule(BUILDER_CSS, ".stz-pitch b")) && /--stz-head:"STZ Instrument"/.test(BUILDER_CSS))
 check("EXPLORE on the scheme's taupe key with its border", /border:calc\(1\*var\(--u\)\) solid #bab6b1;[^}]*background:#847265;color:#fff/.test(rule(BUILDER_CSS, ".stz-pitch em")))
 check("the theme's fonts ship as small subsets from the site itself", ["stz-instrument-500", "stz-instrument-600", "stz-montserrat-400", "stz-montserrat-500"].every((n) => { const f = join(root, `public/home/fonts/${n}.woff2`); return existsSync(f) && statSync(f).size < 12_000 && BUILDER_CSS.includes(`/home/fonts/${n}.woff2`) }) && !/fonts\.googleapis|fonts\.gstatic/.test(BUILDER_CSS))
@@ -82,7 +82,8 @@ check("4 to a row, 5px apart, 3:4 shots with 4px corners, centred", /grid-templa
 check("the progress bar and a square black View all", !/stz-progress/.test(site + BUILDER_CSS) && /<\/span><\/span><\/div><span class="stz-all">View all<\/span>/.test(site) && /background:#111;color:#fff/.test(rule(BUILDER_CSS, ".stz-all")) && !/border-radius/.test(rule(BUILDER_CSS, ".stz-all")))
 check("Summer Collection: DISCOVER, SHOP MENS and SHOP WOMENS on light keys", /<span class="stz-sub">DISCOVER<\/span><b>SUMMER COLLECTION<\/b><span class="stz-keys"><em>SHOP MENS<\/em><em>SHOP WOMENS<\/em><\/span>/.test(site) && /background:#ebebeb;color:#000/.test(rule(BUILDER_CSS, ".stz-summer .stz-pitch em")))
 // Changed on purpose (landing round 14): one ring, on the slideshow whose heading is edited.
-check("the rings: the first slideshow, then the products", /class="stz-hero">[\s\S]*?wx-ring[\s\S]*?class="stz-shop">/.test(site) && (site.match(/wx-ring/g) ?? []).length === 1)
+/* Changed on purpose (landing round 15): the heading is outlined, not its slideshow ringed; the one ring is the products section's, which the builder picks to give more top padding. */
+check("the rings: the heading outlined, the products section ringed", /class="stz-hero">[\s\S]*?wx-hd[\s\S]*?class="stz-shop">[\s\S]*?wx-ring/.test(site) && (site.match(/wx-ring/g) ?? []).length === 1)
 
 console.log("\n── Pictures: the theme's own where it has them, 2x and small ──")
 /* The site is 1024u in a canvas 986 of the frame's 1280, the frame at most about 1370px (1920 screen): 1u is at most about 1.03 CSS px. */
@@ -106,8 +107,9 @@ check("the first slideshow and the first products are the rows lit with the ring
 // Changed on purpose (landing round 14): the pointer now goes to each site's heading (its own path per site), pinned in tests/home-landing-r14-ideas.test.ts.
 check("both trees have two header rows, so the cursor lands on the products row in both (34u lower than round 12)", (wb.match(/class="wx-badge"/g) ?? []).length === 6)
 // Changed on purpose (landing round 14): the canvas scrolls to the products after Publish, once, and stays.
-check("the canvas scrolls the products into view when they are selected: a transform, live only, and still with reduced motion", /@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] \.stz-page\{animation:sxk-stz-scroll/.test(BUILDER_CSS) && /@keyframes sxk-stz-scroll\{0%,86%\{transform:none\}96%,100%\{transform:translateY\(calc\(-485\*var\(--u\)\)\)\}\}/.test(BUILDER_CSS))
-check("the selection ring and chip are the builder's (#3b82f6)", /\n\.wx-sel\{position:absolute;inset:0;box-shadow:inset 0 0 0 calc\(2\*var\(--u\)\) #3b82f6/.test(BUILDER_CSS))
+check("the canvas scrolls the products into view when they are selected: a transform, live only, and still with reduced motion", /@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] \.stz \.stz-page\{animation:sxk-stz-scroll/.test(BUILDER_CSS) && /@keyframes sxk-stz-scroll\{0%,49\.14%\{transform:none\}56\.9%,100%\{transform:translateY\(calc\(-400\*var\(--u\)\)\)\}\}/.test(BUILDER_CSS)) /* Changed on purpose (landing round 15): the canvas scrolls after the first publish (5.7s to 6.6s of 11.6), by 400u, to the products' top edge. */
+/* Changed on purpose (landing round 15): the ring in parts (top and sides, a bottom edge that moves down, the sides carried on) so a section can grow by transforms; the chip at the bottom right, as sections/_shared.tsx draws it. */
+check("the selection ring and chip are the builder's (#3b82f6)", /\n\.wx-sel\{position:absolute;inset:0;box-shadow:inset 0 calc\(2\*var\(--u\)\) #3b82f6/.test(BUILDER_CSS) && /\n\.wx-sel em\{position:absolute;right:calc\(8\*var\(--u\)\);bottom:calc\(8\*var\(--u\)\);[^}]*background:#3b82f6/.test(BUILDER_CSS))
 check("Steez, then loudlib: two scenes on the tab", Ideas.IDEAS_TABS[0].scenes === 2 && /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb))
 
 console.log("\n── GodBless is gone, with its files ──")
@@ -128,7 +130,8 @@ const um = read(F.marquee)
 const phone = um.match(/@media\(max-width:767px\)\{\n[\s\S]*?\n\}/)?.[0] ?? ""
 check("the heading 33px at 390 (wave 18: 30, before: 36)", /\.um \.story-heading\{font-size:clamp\(28px,8\.5vw,36px\)\}/.test(phone) && Math.round(390 * 0.085) === 33)
 check("the photos 51px at 390 (wave 18: 47, before: 54)", /\.um-row\{--pic:clamp\(46px,13vw,56px\)\}/.test(phone) && Math.round(390 * 0.13) === 51)
-check("the line 15.5px, the labels 17px, a little more room", /\.um-sub\{margin-top:15px;font-size:15\.5px\}/.test(phone) && /\.um-item\{gap:13px;margin-right:37px;font-size:17px\}/.test(phone))
+/* Changed on purpose (landing round 15): on a phone the line under the heading is hidden (the owner). */
+check("the line hidden, the labels 17px, a little more room", /\.um-sub\{display:none\}/.test(phone) && /\.um-item\{gap:13px;margin-right:37px;font-size:17px\}/.test(phone))
 check("a computer keeps its sizes", /\.um-row\{--pic:clamp\(54px,5\.6vw,108px\);/.test(um) && /\.um-item\{[^}]*font-size:clamp\(18px,1\.75vw,31px\)/.test(um))
 
 console.log("\n── Copy ──")

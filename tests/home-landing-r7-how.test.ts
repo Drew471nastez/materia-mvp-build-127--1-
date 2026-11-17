@@ -64,7 +64,7 @@ check("nothing imported from the checkout track's files", !/from "\.\/(checkout-
 // Changed on purpose (landing round 12): the owner replaced the pictures with the real dashboard (its rail has Payouts), a tip flow and a typed domain over a store, full width on the section with no grounds; tests/home-landing-r12-how.test.ts pins them. Retired here: "section 3's LUT pack and black tee".
 check("no You keep figures (the products card is gone)", !/You keep|Print cost|Selling price/.test(text) && typeof calculateStorelibFee === "function") // Changed on purpose (landing round 9)
 check("no course card (another section shows what you can build)", !/Sharpening a chisel|2 of 7 done|cmh-cp/.test(text + css) && !existsSync("public/home/how/lesson-plane.webp")) // Changed on purpose (landing round 9)
-const PICS = ["ines-avatar", "ines-cover"] // Changed on purpose (landing round 14): Ines Duarte in place of Ruben Linde.
+const PICS = ["ines-avatar"] // Changed on purpose (landing round 14): Ines Duarte in place of Ruben Linde. /* Changed on purpose (landing round 15): her cover photograph is gone, drawn in reds instead (TipCover). */
 // // Changed on purpose (landing round 10): the workshop picture went with his website.
 // // Changed on purpose (landing round 9): the tee and the pack are section 3's files; the white tee and the lesson still are deleted.
 check("its pictures are local webp files under 120 KB, all drawn", PICS.every((n) => existsSync(`public/home/how/${n}.webp`) && statSync(`public/home/how/${n}.webp`).size < 120 * 1024 && how.includes(`/home/how/${n}.webp`)))

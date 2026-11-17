@@ -326,6 +326,39 @@ function usePressTilt(ref: RefObject<HTMLElement | null>) {
   }, [ref])
 }
 
+/*
+  Landing round 15 (the owner: another moving picture for digital products, and on a phone the picture laid out for a
+  phone rather than left out). While Digital is shown, the pack's file goes out to the buyer: a small notice with the
+  file, a bar that fills, then a check and "Download link sent" (after paying, a digital product is in the buyer's
+  library at once and its link is emailed to them). On a computer it stands over the card's top right corner; under
+  480px it sits under the card, the card's own width, in the room above the tabs. Transform and opacity only, and it
+  plays once each time Digital comes on (the tabs only turn by themselves while the section is on screen).
+*/
+export const DELIVERY_FILE = "cine-tones-lut-pack.zip"
+function Delivery({ on }: { on: boolean }) {
+  return (
+    <div className="ev-p-dl" data-on={on || undefined} aria-hidden="true">
+      <span className="ev-p-dl-ic">
+        <svg viewBox="0 0 24 24">
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+          <path d="M14 3v5h5M12 11v6m0 0-2.5-2.5M12 17l2.5-2.5" />
+        </svg>
+      </span>
+      <span className="ev-p-dl-t">
+        <b>{DELIVERY_FILE}</b>
+        <span className="ev-p-dl-s">
+          <i className="ev-p-dl-a">Sending download link</i>
+          <i className="ev-p-dl-b">Download link sent</i>
+        </span>
+        <span className="ev-p-dl-bar">
+          <i />
+        </span>
+      </span>
+      <span className="ev-p-dl-ok" />
+    </div>
+  )
+}
+
 /** Also the first tile of /pricing's bento (landing round 13). */
 export function ProductSlides() {
   const [active, setActive] = useState(0)
@@ -375,6 +408,7 @@ export function ProductSlides() {
             ))}
           </div>
         </div>
+        <Delivery on={EVERYTHING_SLIDES[active].kind === "luts"} />
       </div>
       <div className="ev-tabs" role="group" aria-label="Product types">
         {EVERYTHING_SLIDES.map((s, i) => (
@@ -484,24 +518,28 @@ type ShotPage = {
   key: string
   src: string
   srcSet: string
+  /** The picture's own size (landing round 15: the owners' screenshots are not all 540 x 1056). */
+  w: number
+  h: number
   /** The page's own ground, shown until the picture is in. */
   tone: string
 }
 export type StripPage = MerchStore | LinkPage | ProductPage | ShotPage
 
+/*
+  Landing round 15 (the owner): three real stores as their phones show them, from the owners' own screenshots.
+  Loudlib's store takes Fieldwork's place, first in the strip; Sora (a soda brand) and GodBless (a clothing brand)
+  join it. Nine pages, a light one and a dark one taking turns but for the pair where the loop closes.
+*/
 export const EVERYTHING_STORES: readonly StripPage[] = [
   {
-    kind: "merch",
-    key: "fieldwork",
-    brand: "Fieldwork",
-    title: ["Cold", "Season"],
-    hero: `${ST}/knit-cover.webp`,
-    products: [
-      { src: `${ST}/knit-orange.webp`, name: "Signal Beanie", price: "$34" },
-      { src: `${ST}/knit-mustard.webp`, name: "Dock Rib Beanie", price: "$38" },
-      { src: `${ST}/knit-charcoal.webp`, name: "Everyday Cuff", price: "$32" },
-      { src: `${ST}/knit-lilac.webp`, name: "Lilac Fisherman", price: "$38" },
-    ],
+    kind: "shot",
+    key: "loudlib",
+    src: `${ST}/shot-loudlib.webp`,
+    srcSet: `${ST}/shot-loudlib-360.webp 360w, ${ST}/shot-loudlib.webp 434w`,
+    w: 434,
+    h: 852,
+    tone: "#ffffff",
   },
   {
     kind: "link",
@@ -515,16 +553,13 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
     products: [`${ST}/remy-journal.webp`, `${ST}/remy-planner.webp`],
   },
   {
-    kind: "merch",
-    key: "slow-form",
-    brand: "Outer Loop",
-    title: ["Slow", "Form"],
-    products: [
-      { src: `${ST}/loop-crew.webp`, name: "Sunday Crew", price: "$58" },
-      { src: `${ST}/loop-hood.webp`, name: "Harbor Hoodie", price: "$64" },
-      { src: `${ST}/loop-cap.webp`, name: "Washed Cap", price: "$24" },
-      { src: `${ST}/loop-tee.webp`, name: "Club Tee", price: "$30" },
-    ],
+    kind: "shot",
+    key: "sora",
+    src: `${ST}/shot-sora.webp`,
+    srcSet: `${ST}/shot-sora-360.webp 360w, ${ST}/shot-sora.webp 484w`,
+    w: 484,
+    h: 917,
+    tone: "#d8643f",
   },
   {
     kind: "link",
@@ -540,17 +575,16 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
     products: [`${ST}/kaia-book.webp`, `${ST}/kaia-tape.webp`],
   },
   {
-    kind: "product",
-    key: "liam",
-    seller: "liam bailey",
-    avatar: `${ST}/liam-av.webp`,
-    cover: `${ST}/liam-cover.webp`,
-    title: "Gym Beginner Program",
-    category: "Workout Plans",
-    price: "$11.87",
-    cta: "I want this!",
-    button: "#2563eb",
-    included: ["Instant download access", "All included files", "Lifetime access"],
+    kind: "merch",
+    key: "slow-form",
+    brand: "Outer Loop",
+    title: ["Slow", "Form"],
+    products: [
+      { src: `${ST}/loop-crew.webp`, name: "Sunday Crew", price: "$58" },
+      { src: `${ST}/loop-hood.webp`, name: "Harbor Hoodie", price: "$64" },
+      { src: `${ST}/loop-cap.webp`, name: "Washed Cap", price: "$24" },
+      { src: `${ST}/loop-tee.webp`, name: "Club Tee", price: "$30" },
+    ],
   },
   {
     kind: "link",
@@ -565,10 +599,34 @@ export const EVERYTHING_STORES: readonly StripPage[] = [
   },
   {
     kind: "shot",
+    key: "godbless",
+    src: `${ST}/shot-godbless.webp`,
+    srcSet: `${ST}/shot-godbless-360.webp 360w, ${ST}/shot-godbless.webp 435w`,
+    w: 435,
+    h: 844,
+    tone: "#111111",
+  },
+  {
+    kind: "shot",
     key: "satori",
     src: "/home/showcase/a-satori.webp",
     srcSet: "/home/showcase/a-satori-360.webp 360w, /home/showcase/a-satori.webp 540w",
+    w: 540,
+    h: 1056,
     tone: "#0b0b0c",
+  },
+  {
+    kind: "product",
+    key: "liam",
+    seller: "liam bailey",
+    avatar: `${ST}/liam-av.webp`,
+    cover: `${ST}/liam-cover.webp`,
+    title: "Gym Beginner Program",
+    category: "Workout Plans",
+    price: "$11.87",
+    cta: "I want this!",
+    button: "#2563eb",
+    included: ["Instant download access", "All included files", "Lifetime access"],
   },
 ]
 
@@ -727,13 +785,13 @@ function ProductCard({ s }: { s: ProductPage }) {
   )
 }
 
-/* Satori Studio's OnePage, the picture of the real page (landing round 14): its top at the card's top, its foot running off the strip like every page's. */
+/* A real page as a picture (Satori Studio's OnePage, landing round 14; Loudlib, Sora and GodBless, round 15): its top at the card's top, its foot running off the strip like every page's. */
 const SHOT_SIZES = "(max-width:767px) 200px, 360px"
 function ShotCard({ s }: { s: ShotPage }) {
   return (
     <div className="ev-st ev-shot" style={{ background: s.tone }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img className="ev-shot-img" src={s.src} srcSet={s.srcSet} sizes={SHOT_SIZES} alt="" width={540} height={1056} loading="eager" decoding="async" draggable={false} />
+      <img className="ev-shot-img" src={s.src} srcSet={s.srcSet} sizes={SHOT_SIZES} alt="" width={s.w} height={s.h} loading="eager" decoding="async" draggable={false} />
     </div>
   )
 }
@@ -1392,11 +1450,44 @@ const CSS = `
 .ev-tab[data-on] .ev-tab-fill{opacity:1;animation:ev-fill 4.6s linear both}
 @media(hover:hover){.ev-p:hover .ev-tab-fill{animation-play-state:paused}}
 @keyframes ev-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/*
+  Landing round 15: the file going out while Digital is shown (Delivery). It comes in once Digital is on, the bar
+  fills, the line under the name turns over and the check lands, once per turn of the tab.
+*/
+.ev-p-dl{position:absolute;right:-4%;top:0;z-index:2;display:flex;align-items:center;gap:10px;width:min(78%,300px);padding:10px 12px 10px 10px;border-radius:14px;background:#fff;box-shadow:0 18px 36px -22px rgba(40,32,20,.5),0 0 0 1px rgba(24,24,27,.05);box-sizing:border-box;opacity:0;transform:translate3d(0,-40%,0) scale(.96);transition:opacity .35s ease,transform .5s ${EASE};pointer-events:none}
+.ev-p-dl[data-on]{opacity:1;transform:translate3d(0,-62%,0);transition:opacity .5s ease .35s,transform .8s ${EASE} .35s}
+.ev-p-dl-ic{display:grid;flex:none;place-items:center;width:34px;height:34px;border-radius:10px;background:#0a0a0b;color:#fff}
+.ev-p-dl-ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ev-p-dl-t{display:flex;flex:1 1 auto;min-width:0;flex-direction:column;gap:3px}
+.ev-p-dl-t b{overflow:hidden;font-size:13px;font-weight:600;line-height:1.25;letter-spacing:-.01em;color:#18181b;white-space:nowrap;text-overflow:ellipsis}
+.ev-p-dl-s{display:grid;font-size:12px;line-height:1.3;color:#77757f}
+.ev-p-dl-s i{grid-area:1/1;font-style:normal;white-space:nowrap}
+.ev-p-dl-b{opacity:0}
+.ev-p-dl-bar{position:relative;display:block;height:3px;margin-top:3px;overflow:hidden;border-radius:2px;background:#eeedf1}
+.ev-p-dl-bar i{position:absolute;inset:0;border-radius:inherit;background:#18181b;transform:scaleX(0);transform-origin:0 50%}
+.ev-p-dl-ok{position:relative;flex:none;width:22px;height:22px;border-radius:50%;background:#22c55e;transform:scale(0)}
+.ev-p-dl-ok::after{content:"";position:absolute;left:8px;top:4.5px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ev-p-dl[data-on] .ev-p-dl-bar i{animation:ev-dl-fill 1.5s cubic-bezier(.45,0,.2,1) .9s both}
+.ev-p-dl[data-on] .ev-p-dl-a{animation:ev-dl-out .35s ease 2.45s both}
+.ev-p-dl[data-on] .ev-p-dl-b{animation:ev-dl-in .5s ${EASE} 2.55s both}
+.ev-p-dl[data-on] .ev-p-dl-ok{animation:ev-dl-ok .55s cubic-bezier(.34,1.56,.64,1) 2.5s both}
+@keyframes ev-dl-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes ev-dl-out{from{opacity:1;transform:none}to{opacity:0;transform:translate3d(0,-5px,0)}}
+@keyframes ev-dl-in{from{opacity:0;transform:translate3d(0,5px,0)}to{opacity:1;transform:none}}
+@keyframes ev-dl-ok{from{transform:scale(0)}to{transform:scale(1)}}
+@media(min-width:1600px){.ev-p-dl{width:min(70%,330px);gap:12px;padding:12px 14px 12px 12px}.ev-p-dl-ic{width:38px;height:38px}.ev-p-dl-t b{font-size:14px}.ev-p-dl-s{font-size:13px}}
 /* Landing round 7: on the wider pictures the tabs grow a little with the card. */
 @media(min-width:1600px){.ev-tabs{bottom:20px}.ev-tab{height:34px;padding:0 15px;font-size:14px;line-height:34px}}
 @media(max-width:479px){
   .ev-tab{padding:0 10px;font-size:12.5px}
-  .ev-p-stage{top:43%;width:92%}
+  /* Round 15: the stage stands a little higher, so the file's notice has its own row under the card, above the tabs. */
+  .ev-p-stage{top:38%;width:92%}
+  .ev-p-dl{left:0;right:0;top:calc(100% + 10px);width:auto;padding:8px 10px 8px 8px;border-radius:12px;transform:translate3d(0,8px,0)}
+  .ev-p-dl[data-on]{transform:none}
+  .ev-p-dl-ic{width:30px;height:30px;border-radius:9px}
+  .ev-p-dl-ic svg{width:16px;height:16px}
+  .ev-p-dl-t b{font-size:12.5px}
+  .ev-p-dl-s{font-size:11.5px}
   .ev-p-card{gap:12px}
   .ev-p-media{flex-basis:40%}
   .ev-p-stats{gap:8px 8px}
@@ -1585,7 +1676,11 @@ ${GLOBE_CSS()}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill{transition:none !important}
+  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill,.ev-p-dl{transition:none !important}
+  .ev-p-dl *{animation:none !important}
+  .ev-p-dl-bar i,.ev-p-dl-ok{transform:none}
+  .ev-p-dl-a{opacity:0}
+  .ev-p-dl-b{opacity:1}
   .ev-card{opacity:1;transform:none}
   .ev-loop,.ev-tab[data-on] .ev-tab-fill,.ev-p-bg{animation:none !important}
   .ev-tab-fill{display:none}

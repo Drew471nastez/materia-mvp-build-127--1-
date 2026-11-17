@@ -93,7 +93,8 @@ check("no Golden Hour presets, no camera picture, no purple gradient grounds", (
   // Changed on purpose (landing round 10): the domain card's soft turning light and the mask that fades its endings are gradients too.
   // Changed on purpose (landing round 11): the gradients are the LUT cover's shade, the tip list's still mask and the shade over his website's photograph.
   // Changed on purpose (landing round 12): no CSS gradient at all; the chart's 15% to 0 fill is the app's own, an SVG gradient in the markup.
-  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(false, m[1])
+  /* Changed on purpose (landing round 15): the owner asked for a little more gradient on the domain card's ground; that one rule is allowed, in the reel's lilacs. */
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*(?:linear|radial)-gradient/g)) assert.ok(m[1].trim().endsWith(".cmh-stage .pz-d"), m[1])
   // Changed on purpose (landing round 9): flat grounds, so the only gradient is the LUT cover's shade; violet is the accent again (the owner: "more colorful"), never as a gradient.
   assert.ok(!/gradient\([^)]*#(7c3aed|8b5cf6|a855f7)/.test(css))
 })

@@ -43,6 +43,7 @@ const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").repl
 const BANNED = /\b(unlock|elevate|seamless(ly)?|powerful|effortless(ly)?|supercharge|transform(s|ing)?)\b|passive income|—/i
 const BANNED_SAMPLES = /sourdough|weeknight pasta|golden hour|wheel throwing|drawing basics|saturday run club|dust & tape|elena ruiz|payout|\bfans?\b/i
 
+/* Changed on purpose (landing round 15): the owner asked for the audience section as it was before round 14, so audience-ownership.tsx and its stylesheet are f248e7d0a^'s again and the checks round 14 changed here are put back as they were (the four step sequence is gone; tests/home-landing-r14-purple.test.ts). */
 console.log("\n── audience: one picture, nothing moving ──")
 {
   const src = read(`${DIR}/audience-ownership.tsx`)
@@ -52,11 +53,11 @@ console.log("\n── audience: one picture, nothing moving ──")
   check("one picture: Contacts, with its count and Export CSV", (src.match(/\$\{s\.mock\}/g) ?? []).length === 1 && words.includes("Contacts") && words.includes("Export CSV") && words.includes("18,240"))
   check("five people, each a real face and a door Contacts names", AUDIENCE_PEOPLE.length === 5 && AUDIENCE_PEOPLE.every((p) => existsSync(join(root, "public/home/audience/people", `${p.photo}.webp`))) && ["OnePage", "Checkout", "Free download", "Website"].every((v) => AUDIENCE_PEOPLE.some((p) => p.via === v)))
 /* Changed on purpose (landing round 7): the platforms are the second scene of the picture now, each named under its mark. */
-  check("the five email platforms in their own marks", /* Changed on purpose (landing round 14): the synced step draws them again, Klaviyo large. */ /EMAIL_PLATFORMS\.map/.test(src) && (html.match(/<span class="[^"]*mark[^"]*"><svg/g) ?? []).length === 10)
-  check("three plain rows beside it, no composer", /* Changed on purpose (landing round 9): each row is one short line. */ (html.match(/<li><button /g) ?? []).length === 4 && !/Composer|Send test/.test(src))  /* Changed on purpose (landing round 14): the rows are the four steps, and the email step shows its To and Subject. */
+  check("the five email platforms in their own marks", /EMAIL_PLATFORMS\.map/.test(src) && (html.match(/<span class="[^"]*mark[^"]*"><svg/g) ?? []).length === 5)
+  check("three plain rows beside it, no composer", /* Changed on purpose (landing round 9): each row is one short line. */ (html.match(/<li>[^<]+<\/li>/g) ?? []).length === 3 && !/Composer|Send test|Subject/.test(src))
 /* Changed on purpose (landing round 7): the owner asked for a chart, then Synced with, then the export, autoplaying smooth and clean. It turns by one attribute, no state; only transitions on opacity and transform (tests/home-landing-r7-lower.test.ts). */
-  check("no state or reveals; one observer while on screen", /* Changed on purpose (landing round 9): no interval either; one observer writes one attribute and CSS runs the strip. */ /* Changed on purpose (landing round 14): one timeout waits after a tap before the steps play again. */ !/useState|setInterval|usePlatformSection|m\.reveal|m\.loop/.test(src) && (src.match(/new IntersectionObserver/g) ?? []).length === 1)
-  check("its loops are paused until on screen", /* Changed on purpose (landing round 14): the steps have their own moments (keyframes, each paused until live). */ (css.match(/infinite both paused;/g) ?? []).length === 2 && (css.match(/animation: [^;]*;/g) ?? []).every((a) => /paused;$|none( !important)?;$/.test(a)))  /* Changed on purpose (landing round 9): the list rolls one row at a time on a CSS clock. */
+  check("no state, timeouts or reveals; one interval while on screen", /* Changed on purpose (landing round 9): no interval either; one observer writes one attribute and CSS runs the strip. */ !/useState|setTimeout|setInterval|usePlatformSection|m\.reveal|m\.loop/.test(src) && (src.match(/new IntersectionObserver/g) ?? []).length === 1)
+  check("its CSS has two keyframes, paused until on screen", (css.match(/@keyframes/g) ?? []).length === 2 && (css.match(/infinite both paused;/g) ?? []).length === 2)  /* Changed on purpose (landing round 9): the list rolls one row at a time on a CSS clock. */
   check("words: no banned word, sample or em dash", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
 }
 

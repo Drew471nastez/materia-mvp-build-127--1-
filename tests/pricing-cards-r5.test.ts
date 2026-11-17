@@ -79,7 +79,8 @@ console.log("\n── Three plans, Grow in the middle ──")
   check("the hero's primary button is the same purple", /background: #7c3aed/.test(read("components/marketing/hero.tsx")))
   check("no grey ground behind the cards any more", (html.match(/data-plan-ground=""/g) ?? []).length === 1 && !/data-plan-ground="" class="[^"]*bg-/.test(html)) // Changed on purpose (landing round 12): the owner: no light grey background behind the cards.
   check("each card has a top panel with a pill (white since landing round 12)", (html.match(/data-plan-panel=""/g) ?? []).length === 3 && (html.match(/data-plan-pill=""/g) ?? []).length === 3)
-  check("one column on a phone, three from md up", /grid-cols-1 md:grid-cols-3/.test(html))
+  /* Changed on purpose (landing round 15): on a phone the cards are a sideways row with scroll snap, a card and a fifth of the next in view; three columns from md up. */
+  check("a sideways snapping row on a phone, three from md up", /max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto/.test(html) && /md:grid md:grid-cols-3/.test(html) && (html.match(/max-md:w-\[82%\] max-md:shrink-0 max-md:snap-start/g) ?? []).length === 3)
   check("the price reads with /month beside it", (html.match(/\/month/g) ?? []).length >= 3)
   check("the price one step heavier than the reference (semibold), not bold", /data-plan-price=""[^>]*>\s*<span class="[^"]*font-semibold/.test(html) && !/data-plan-price=""[^>]*>\s*<span class="[^"]*font-(bold|extrabold)/.test(html))
 }

@@ -62,17 +62,21 @@ console.log("\n1. The stage stays held behind the cards")
 const track = co.slice(co.indexOf('class="cmc-track"'))
 check("one track holds the stage and then the cards", /^class="cmc-track"><div class="cmc-stage">/.test(track) && track.indexOf('class="cmc-cards"') > track.indexOf('class="cmc-phone-wrap"') && /<\/ul><\/div><\/div><\/div><\/section>$/.test(co))
 check("  the stage is sticky and the track carries the timeline, only where scroll timelines exist", /\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(tl) && /\.cmc-stage\{position:sticky;top:0\}/.test(tl) && !/position:sticky/.test(base))
-check("  the cards start where round 9 had them: 56svh over the stage's foot, above the stage (z 5)", /\.cmc-track > \.cmc-cards\{margin-top:calc\(100svh - 56svh\)\}/.test(tl) && /\.cmc-cards\{position:relative;z-index:5;margin-top:-8svh\}/.test(css))
+/* Changed on purpose (landing round 15): 80svh of hold before the cards, not 100svh. */
+check("  the cards start where round 9 had them: 56svh over the stage's foot, above the stage (z 5)", /\.cmc-track > \.cmc-cards\{margin-top:calc\(80svh - 56svh\)\}/.test(tl) && /\.cmc-cards\{position:relative;z-index:5;margin-top:-8svh\}/.test(css))
 check("  no height on the track: it is the stage's and the cards' own", !/\.cmc-track\.cmc-track\{[^}]*height:(?!auto)/.test(css))
-check("the timeline's ranges are svh of scroll (the track is longer now), so the entrance keeps its pace", /\.cmc-world\{[^}]*animation-range:contain 0svh contain 44svh\}/.test(tl) && /\.cmc-w\[data-w="7"\]\{animation-range:contain 23\.2svh contain 44svh\}/.test(tl) && !/contain [\d.]+%/.test(tl.replace(/animation-range:entry 0% exit 100%/g, "")))
+/* Changed on purpose (landing round 15): the settle and the words run from 84svh before the hold; the phone sinks behind the cards to the track's end (contain 100%), the one range in percent. */
+check("the timeline's ranges are svh of scroll (the track is longer now), so the entrance keeps its pace", /\.cmc-world\{[^}]*animation-range:contain -84svh contain 14svh\}/.test(tl) && /\.cmc-w\[data-w="7"\]\{animation-range:contain -65\.8svh contain -44\.8svh\}/.test(tl) && !/contain [\d.]+%/.test(tl.replace(/animation-range:entry 0% exit 100%/g, "").replace("contain 28svh contain 100%", "")))
 
 console.log("\n2. As the cards come up, the phone and the ring step back")
 // Changed on purpose (landing round 11): the ring is its own 3D space under the phone now, and both step back to 45% (the cards are solid, the products show only in the gaps).
 // Changed on purpose (landing round 11): the phone's box only steps back now (cmc-back) and the ring alone fades, so the shade in the phone's box under it stays solid and no product shows through the fading phone.
 // Changed on purpose (wave 18): the ring starts at 0.88 (the owner: the products a touch dimmer) and fades to 0.4, the old 45% made as much darker.
-check("the phone's box and the ring's box get a little smaller and the ring fades to 40%, on the timeline", /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain 48svh contain 100svh\}/.test(tl) && /\.cmc-ring\{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain 48svh contain 100svh\}/.test(tl) && /^from\{opacity:0\.88;transform:scale\(1\)\}to\{opacity:0\.4;transform:scale\(0\.92\)\}$/.test(keyframes("cmc-recede")))
+/* Changed on purpose (landing round 15): every range after the settle starts 20svh sooner (28svh), and the phone's box also sinks (--sink) to the track's end. */
+check("the phone's box and the ring's box get a little smaller and the ring fades to 40%, on the timeline", /\.cmc-phone-wrap\{animation:cmc-back linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 100%\}/.test(tl) && /\.cmc-ring\{animation:cmc-recede linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 80svh\}/.test(tl) && /^from\{opacity:0\.88;transform:scale\(1\)\}to\{opacity:0\.4;transform:scale\(0\.92\)\}$/.test(keyframes("cmc-recede")))
 check("  the 3D space itself is never faded or filtered (that would flatten it)", !/\.cmc-(world|orbit|o)\{[^}]*(opacity|filter|mask|overflow)/.test(css) && !/\.cmc-(world|orbit|o)\{animation:cmc-(recede|out|in)/.test(css))
-check("  the headline fades before the cards reach it", /\.cmc-copy\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 86svh contain 116svh\}/.test(tl))
+/* Changed on purpose (landing round 15): 20svh sooner, with the cards. */
+check("  the headline fades before the cards reach it", /\.cmc-copy\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 66svh contain 96svh\}/.test(tl))
 /* Changed on purpose (wave 17): the stage wakes a screen ahead (it popped in on an iPhone recording); still paused off screen beyond that and in a hidden tab. */
 // Changed on purpose (landing round 12): the ring wakes half a screen ahead (the page audit), and its clock loops pause once the cards have come up half a screen past the top (data-cmc-covered); the scroll still turns it.
 check("the ring keeps turning behind the cards: its loop still runs on the stage's own observer, paused off screen", /\.cmc:not\(\[data-cmc-covered\]\) \.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /const \[stageRef\] = useCommerceLive<HTMLDivElement>\("50% 0px", false\)/.test(src) && /<div ref=\{stageRef\} className="cmc-stage">/.test(src))
@@ -83,7 +87,8 @@ const stage = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-c
 check("every object on the ring has a blurred copy beside it in its face", FLOATS.every((f) => new RegExp(`data-f="${f.id}"[^>]*><span class="cmc-face"><span class="cmc-sharp"><span class="cmc-near">[\\s\\S]*?</span></span><img class="cmc-far" src="/home/commerce/soft-${f.id}\\.webp"[^>]*><img class="cmc-soft" src="/home/commerce/soft-${f.id}\\.webp"`).test(stage)))
 // Changed on purpose (landing round 11): the shade comes first in the phone's box.
 // Changed on purpose (landing round 12): the owner found the phone "too visible" behind the cards: it has no blurred copy now, it fades out whole.
-check("  and the big phone has none: it fades out whole", /<div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && !/cmc-phone-soft|soft-phone/.test(stage))
+/* Changed on purpose (landing round 15): the owner wants the phone behind the cards again, very blurred and lower: its baked copy is back, after the phone in its box. */
+check("  and the big phone has one again, after it in its own box", /<div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && /<img class="cmc-phone-soft" src="\/home\/commerce\/soft-phone\.webp"/.test(stage))
 const softs = stage.match(/<img class="cmc-soft[^>]*>/g) ?? []
 // Changed on purpose (landing round 12): one copy fewer, the phone's.
 check("  each with its width and height, lazy, decoded off the main thread, no words", softs.length === FLOATS.length && (stage.match(/<img class="cmc-far"/g) ?? []).length === FLOATS.length && softs.every((t) => /width="\d+"/.test(t) && /height="\d+"/.test(t) && /loading="lazy"/.test(t) && /decoding="async"/.test(t) && /alt=""/.test(t)))
@@ -93,12 +98,14 @@ check("the copies are small webp files with alpha, each under 4 KB, all under 20
 check("  the sizes in the code are the files' own", files.every(([k, p]) => webpSize(p).w === SOFT[k].w && webpSize(p).h === SOFT[k].h))
 // Changed on purpose (landing round 11): the depth copy (cmc-far) shares the rule.
 // Changed on purpose (landing round 12): the phone's copy and its rule are gone.
-check("  a copy is its object's box with a fifth of its width spare on every side, turned with it", /\.cmc-soft,\.cmc-far\{position:absolute;left:0;top:0;display:block;width:140%;max-width:none;height:auto;margin:-20% 0 0 -20%;opacity:0;pointer-events:none;-webkit-user-drag:none;transform:rotate\(var\(--rz\)\)\}/.test(css) && /\.cmc-face\{position:relative;/.test(css) && !/\.cmc-phone-soft/.test(css))
+check("  a copy is its object's box with a fifth of its width spare on every side, turned with it", /\.cmc-soft,\.cmc-far\{position:absolute;left:0;top:0;display:block;width:140%;max-width:none;height:auto;margin:-20% 0 0 -20%;opacity:0;pointer-events:none;-webkit-user-drag:none;transform:rotate\(var\(--rz\)\)\}/.test(css) && /\.cmc-face\{position:relative;/.test(css))
 // Changed on purpose (landing round 12): the phone has its own, shorter fade (48 to 80svh); the objects keep theirs.
-check("the sharp object fades out as its copy fades in, on the same stretch of the timeline", /\.cmc-sharp\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 48svh contain 92svh\}/.test(tl) && /\.cmc-soft\{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain 48svh contain 92svh\}/.test(tl))
+/* Changed on purpose (landing round 15): 20svh sooner, with the cards. */
+check("the sharp object fades out as its copy fades in, on the same stretch of the timeline", /\.cmc-sharp\{animation:cmc-out linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 72svh\}/.test(tl) && /\.cmc-soft\{animation:cmc-in linear both;animation-timeline:--cmc-t;animation-range:contain 28svh contain 72svh\}/.test(tl))
 // Changed on purpose (landing round 11): the wrap no longer fades it, so the copy ends at 30% of the ring's 45% itself.
 // Changed on purpose (landing round 12): no copy of the phone comes up at all.
-check("  no copy of the phone comes up behind the cards, so the products lead", !/cmc-phone-soft|cmc-in-half/.test(css))
+/* Changed on purpose (landing round 15): the phone's blurred copy comes up again, faint (0.3), as the sharp phone goes. */
+check("  the phone's copy comes up faint behind the cards, the products still lead", /@keyframes cmc-soft-phone\{from\{opacity:0\}to\{opacity:0\.3\}\}/.test(css) && !/cmc-in-half/.test(css))
 check("  the card demos' own phone is not touched", !/(^|[^>] )\.cmc-phone\{animation/.test(css) && !/\.cmv-phone \.cmc-phone\{[^}]*animation/.test(css))
 // Changed on purpose (landing round 12): cmc-in-half is gone with the phone's copy.
 check("every new keyframe moves opacity and transform only", ["cmc-recede", "cmc-out", "cmc-in"].every((k) => onlyCompositor(keyframes(k))))

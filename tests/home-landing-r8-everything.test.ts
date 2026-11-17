@@ -98,9 +98,11 @@ check("touch leaves vertical swipes to the page", /touch-action:pan-y/.test(rule
 
 console.log("\n── 2. The pages ──")
 const ids = EVERYTHING_STORES.map((s) => s.key)
-check("Static Bloom is gone, Slow Form stays, Fieldwork in its place", !/Static Bloom|static-bloom|Half Light/.test(JSON.stringify(EVERYTHING_STORES) + html) && ids.includes("slow-form") && ids[0] === "fieldwork")
+/* Changed on purpose (landing round 15): Loudlib's real store took Fieldwork's place, first in the strip. */
+check("Static Bloom is gone, Slow Form stays, Loudlib first", !/Static Bloom|static-bloom|Half Light/.test(JSON.stringify(EVERYTHING_STORES) + html) && ids.includes("slow-form") && ids[0] === "loudlib")
 const fw = EVERYTHING_STORES.find((s) => s.key === "fieldwork")
-check("Fieldwork laid out as a Storelib store: menu, centred wordmark, cart, a wide photo, the drop, four priced pieces", fw?.kind === "merch" && !!fw.hero && /<span class="ev-ms-nav">Shop all<\/span><span class="ev-ms-mark">Fieldwork<\/span><span class="ev-ms-nav">Cart \(0\)<\/span>/.test(html) && /class="ev-ms-hero"/.test(html) && fw.products.length === 4 && fw.products.every((p) => /^\$\d+$/.test(p.price)))
+/* Changed on purpose (landing round 15): Fieldwork is gone; a real Storelib store stands first instead, as the owner's screenshot of Loudlib. */
+check("a real store first: Loudlib, its own picture at its own size", !fw && EVERYTHING_STORES[0].kind === "shot" && /<img class="ev-shot-img" src="\/home\/everything\/stores\/shot-loudlib\.webp"[^>]*width="434" height="852"/.test(html))
 const link = (k: string) => EVERYTHING_STORES.find((s) => s.key === k)
 const ollie = link("ollie")
 const remy = link("remy")

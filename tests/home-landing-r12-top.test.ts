@@ -92,8 +92,11 @@ const jonah = EVERYTHING_STORES.find((s) => s.key === "jonah")
 check("round 11's store is gone, with its pictures and its dark band", !/Noor Haddad|Saltwater|Shoot to Invoice|ev-dg-|data-digital/.test(JSON.stringify(EVERYTHING_STORES) + html + evCss + code(read(F.ev))) && !existsSync(join(root, "public/home/everything/stores/dg-saltwater.webp")))
 // Changed on purpose (landing round 14): the owner put Liam Bailey's real product page where Jonah Wells's store was; its checks are in tests/home-landing-r14-everything.test.ts. What stays from here: he is gone with his pictures, and the stores still never stand side by side.
 check("Jonah Wells is gone, with his pictures (landing round 14)", !jonah && !existsSync(join(root, "public/home/everything/stores/jonah-cover.webp")))
-check("still two stores, never two side by side", EVERYTHING_STORES.length === 7 && EVERYTHING_STORES.filter((s) => s.kind === "merch").length === 2 && EVERYTHING_STORES.every((s, i) => s.kind !== "merch" || EVERYTHING_STORES[(i + 1) % 7].kind !== "merch"))
-check("the other stores still say how many pieces they have", /<i>4 pieces<\/i>/.test(html))
+/* Changed on purpose (landing round 15): nine pages; the stores are Slow Form and the owners' three screenshots (Loudlib, Sora, GodBless), still never two side by side. */
+const isStore = (s: (typeof EVERYTHING_STORES)[number]) => s.kind === "merch" || (s.kind === "shot" && s.key !== "satori")
+check("still never two stores side by side", EVERYTHING_STORES.length === 9 && EVERYTHING_STORES.filter(isStore).length === 4 && EVERYTHING_STORES.every((s, i) => !isStore(s) || !isStore(EVERYTHING_STORES[(i + 1) % EVERYTHING_STORES.length])))
+/* Changed on purpose (landing round 15): "4 pieces" was Fieldwork's cover line; Slow Form never had one. */
+check("no store left with a cover line", !/<i>4 pieces<\/i>/.test(html))
 
 console.log("\n── Copy ──")
 const all = code(read(F.ev)) + code(read(F.ideas)) + code(read(F.builders))

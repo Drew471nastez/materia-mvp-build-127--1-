@@ -56,7 +56,8 @@ check("no outlined frame inside a card: no tip page inset, no dashboard corner o
 
 console.log("\n2. Take tips: Ines Duarte, edge to edge")
 check("a different creator: Ines Duarte, no Ruben Linde anywhere", HOW_SHOP.creator === "Ines Duarte" && text.includes("Ines Duarte") && text.includes("Good morning, Ines") && !/Ruben|Linde/.test(how + src))
-check("her cover and her face are local webp files under 30 KB, drawn lazily", [HOW_SHOP.cover, HOW_SHOP.avatar].every((p) => existsSync(`public${p}`) && statSync(`public${p}`).size < 30 * 1024 && how.includes(`src="${p}"`)) && !existsSync("public/home/how/linde-turning.webp") && !existsSync("public/home/how/linde-avatar.webp"))
+/* Changed on purpose (landing round 15): her cover is drawn in reds, not a photograph; her face stays a file. */
+check("her cover and her face are local webp files under 30 KB, drawn lazily", [HOW_SHOP.avatar].every((p) => existsSync(`public${p}`) && statSync(`public${p}`).size < 30 * 1024 && how.includes(`src="${p}"`)) && !existsSync("public/home/how/linde-turning.webp") && !existsSync("public/home/how/linde-avatar.webp"))
 check("the page is sized by the card's width alone, so a phone shows what a laptop does", /font-size:3\.5cqw/.test(rule(".cmh-tp")) && /left:0;right:0;bottom:0/.test(rule(".cmh-tp-sheet")))
 
 console.log("\n3. Understand your business: covering its card")

@@ -57,6 +57,7 @@ const keyframeProps = (css: string) => [...css.matchAll(/@keyframes [\w-]+\s*\{(
 /** Sample content the owner banned this round. */
 const BANNED_SAMPLES = /sourdough|weeknight pasta|golden hour|wheel throwing|drawing basics|saturday run club|dust & tape|elena ruiz|hemi walker|lowtide|payout/i
 
+/* Changed on purpose (landing round 15): the owner asked for the audience section as it was before round 14, so audience-ownership.tsx and its stylesheet are f248e7d0a^'s again and the checks round 14 changed here are put back as they were (the four step sequence is gone; tests/home-landing-r14-purple.test.ts). */
 console.log("\n── audience: smaller and lighter ──")
 {
   const src = read(`${DIR}/audience-ownership.tsx`)
@@ -64,12 +65,12 @@ console.log("\n── audience: smaller and lighter ──")
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
   /* Changed on purpose (landing round 5): the owner asked for a simpler, shorter section with one compact picture: Contacts, beside three plain rows. */
-  check("one picture only; the rest are plain rows", /* Changed on purpose (landing round 14): each row is the button for one of the picture's four steps. */ (src.match(/\$\{s\.mock\}/g) ?? []).length === 1 && (html.match(/<li><button [^>]*>(<i [^>]*><\/i>)?[^<]+<\/button><\/li>/g) ?? []).length === 4)  /* Changed on purpose (landing round 9): each point is one short line, no heading over a sentence. */
+  check("one picture only: Contacts; the rest are plain rows", (src.match(/\$\{s\.mock\}/g) ?? []).length === 1 && (html.match(/<li>[^<]+<\/li>/g) ?? []).length === 3)  /* Changed on purpose (landing round 9): each point is one short line, no heading over a sentence. */
   check("the rows are hairlines, not cards", /\.points li \{[^}]*border-top: 1px solid #ececf0;/.test(css) && !/\.points li \{[^}]*background/.test(css))
   check("the old tree, list and pill row are gone", !/s\.tree|s\.list|s\.yours|StorelibLogo/.test(src) && !/\.tree|\.yours|\.list\[/.test(css))
 /* Changed on purpose (landing round 7): the owner asked for a chart, then Synced with, then the export, autoplaying smooth and clean: one attribute a turn, no state, no keyframes, no reveal. */
-  check("calm: no React state, no reveal; the steps turn by attributes", /* Changed on purpose (landing round 9): one strip on one CSS clock (two keyframes, transform and opacity), no timer at all. */ /* Changed on purpose (landing round 14): the picture plays four steps; one Web Animation is the clock, and one timeout waits after a tap before it plays again. */ !/useState|setInterval|m\.reveal|m\.loop/.test(src) && (src.match(/setTimeout\(/g) ?? []).length === 1)  /* Changed on purpose (landing round 5): the owner saw it glitch and flash while scrolling; it is drawn once and still. */
-  check("the words the owner kept", /* Changed on purpose (landing round 9): half the words. */ ["Download every contact, any time", "Syncs with your email platform"].every((w) => words.includes(w)))  /* Changed on purpose (landing round 14): the lines are the four steps now; "One list from every sign-up" made room for the email and the layouts. */  /* Changed on purpose (landing round 5): the composer and its figures are gone. */
+  check("calm: no React state, no keyframes, no reveal; the scenes turn by one attribute", /* Changed on purpose (landing round 9): one strip on one CSS clock (two keyframes, transform and opacity), no timer at all. */ !/useState|setTimeout|setInterval|m\.reveal|m\.loop/.test(src) && (css.match(/@keyframes/g) ?? []).length === 2)  /* Changed on purpose (landing round 5): the owner saw it glitch and flash while scrolling; it is drawn once and still. */
+  check("the words the owner kept", /* Changed on purpose (landing round 9): half the words. */ ["Download every contact, any time", "Syncs with your email platform", "One list from every sign-up"].every((w) => words.includes(w)))  /* Changed on purpose (landing round 5): the composer and its figures are gone. */
 /* Changed on purpose (landing round 7): every section in the page's one width (--home-edge, --home-max). */
   check("in the page's one width", /\$\{s\.grid\} home-wrap/.test(src) && !/max-w-\[1400px\]/.test(src))
   check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))

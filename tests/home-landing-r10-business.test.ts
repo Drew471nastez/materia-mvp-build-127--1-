@@ -39,7 +39,7 @@ console.log("\nNo line under the heading")
   // Changed on purpose (landing round 11): the owner asked for a new heading and a subheading of at most ten words; the old round 10 line stays gone.
   // Changed on purpose (landing round 13): the owner asked for a better heading; "Five ways to get paid" (tests/home-landing-r13-business.test.ts).
   // Changed on purpose (landing round 14): "From a cookbook to a coaching call".
-  check("the heading is the new short line", (BUSINESS_HEADING as string) === "From a cookbook to a coaching call" && html.includes('id="biz-title"'))
+  check("the heading is the new short line", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ (BUSINESS_HEADING as string) === "Sell files, parcels or your time" && html.includes('id="biz-title"'))
   check("the round 10 line under the heading stays gone; round 11's own line is at most ten words", !/Each one gets its own page and checkout|Downloads, things you ship/.test(code(SECTION)) && String((Section as Record<string, unknown>).BUSINESS_SUB).split(/\s+/).length <= 10)
   check("the heading block holds the heading and that one line", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><p class="biz-sub">[^<]+<\/p><\/div><div class="biz-body">/.test(html))
 }

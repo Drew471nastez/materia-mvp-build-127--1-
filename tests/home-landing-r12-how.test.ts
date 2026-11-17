@@ -67,8 +67,10 @@ console.log("\n3. The numbers agree with each other")
 const orders = HOW_WEEK.reduce((a, [l, t]) => a + l + t, 0)
 const revenue = HOW_WEEK.reduce((a, [l, t]) => a + l * 29 + t * 32, 0)
 check("revenue is the week's orders at their prices ($29 pack, $32 tee): 24 orders, $720", HOW_PRODUCTS.map((p) => p.priceCents).join() === "2900,3200" && orders === 24 && revenue === 720 && HOW_DASH.orders === orders && HOW_DASH.revenue === revenue && HOW_DAY_DOLLARS.reduce((a, b) => a + b, 0) === revenue)
-check("conversion is orders over visitors: 24 / 846 = 2.8%", HOW_DASH_TEXT.conversion === `${((orders / HOW_DASH.visitors) * 100).toFixed(1)}%` && HOW_DASH_TEXT.conversion === "2.8%")
-check("drawn as the figures say: 846, $720, 24, 2.8%", seen.includes("846") && seen.includes("$720") && seen.includes("2.8%") && /Orders24/.test(seen.replace(/\s/g, "")))
+/* Changed on purpose (landing round 15): a whole percent, as dashboard-client writes it (Math.round). */
+check("conversion is orders over visitors: 24 / 846 = 3%", HOW_DASH_TEXT.conversion === `${Math.round((orders / HOW_DASH.visitors) * 100)}%` && HOW_DASH_TEXT.conversion === "3%")
+/* Changed on purpose (landing round 15): conversion a whole percent. */
+check("drawn as the figures say: 846, $720, 24, 3%", seen.includes("846") && seen.includes("$720") && seen.includes("3%") && /Orders24/.test(seen.replace(/\s/g, "")))
 check("each change is against the week before, as the app rounds it: 14%, 18%, 20%, 5%", howChange(846, 742) === 14 && howChange(720, 610) === 18 && howChange(24, 20) === 20 && howChange(howConversion(24, 846), howConversion(20, 742)) === 5 && ["14%", "18%", "20%", "5%"].every((p) => text.includes(p)))
 let v = HOW_DASH.visitors, o = HOW_DASH.orders, r = HOW_DASH.revenue
 const convs: number[] = []
@@ -81,8 +83,9 @@ check("the line draws in by two opposed transforms, never a dash offset", /@keyf
 console.log("\n4. Take tips: picked, paid, thanked")
 check("the tip block's own amounts and words", TIP_AMOUNTS.join() === tipDefaultAmounts("usd").map((c) => `$${c / 100}`).join() && ["Leave a tip", "$3", "$5", "$10", "Other", "Tip $3", "Tip $5", HOW_TIP.thanks].every((w) => text.includes(w)) && read("components/onepage/tip-block.tsx").includes('tt("Thank you for the {amount} tip."') && read("components/onepage/tip-block.tsx").includes('tt("Tip {amount}"'))
 // Changed on purpose (landing round 14): the owner disliked Ruben Linde and his cover; Ines Duarte, a landscape filmmaker.
-check("on her creator page: her cover, her face, her name", how.includes(`src="/home/how/ines-cover.webp"`) && how.includes(`src="/home/how/ines-avatar.webp"`) && text.includes("Ines Duarte") && !/Ruben|Linde/.test(text))
-check("the checkout sheet rises and goes by a transform, the page dims by an opacity", /@keyframes cmh-tp-sheet\{[^@]*translate3d\(0,105%,0\)/.test(css) && onlyCompositor(kfBodies.find(([n]) => n === "cmh-tp-scrim")![1]) && text.includes("Pay $5.00") && text.includes("Paid securely through Stripe"))
+/* Changed on purpose (landing round 15): her cover is drawn in reds (the owner disliked the photograph). */
+check("on her creator page: her cover, her face, her name", how.includes(`data-cover="red"`) && !how.includes("ines-cover") && how.includes(`src="/home/how/ines-avatar.webp"`) && text.includes("Ines Duarte") && !/Ruben|Linde/.test(text))
+check("the checkout sheet rises and goes by a transform, the page dims by an opacity", /* Changed on purpose (landing round 15): the sheet rests below by its height and its shadow's reach. */ /@keyframes cmh-tp-sheet\{[^@]*translate3d\(0,calc\(100% \+ 3em\),0\)/.test(css) && onlyCompositor(kfBodies.find(([n]) => n === "cmh-tp-scrim")![1]) && text.includes("Pay $5.00") && text.includes("Paid securely through Stripe"))
 
 console.log("\n5. Use your own domain: the owner's reference")
 // Changed on purpose (landing round 14): the owner asked for /pricing's domain reel in place of the store and its typed address (tests/home-landing-r14-lower.test.ts holds it).
@@ -94,10 +97,11 @@ check("every keyframe moves transform and opacity only", kfBodies.length >= 10 /
 check("every transition is an opacity, or the odometer's transform", [...css.matchAll(/transition:([^;}]+)/g)].every((m) => /^(opacity |none$)/.test(m[1].trim())) && !/transition-property:(?!transform)/.test(css))
 check("loops paused off screen and in a hidden tab; reduced motion shows the finished frames", /\.cmh-a\{[^}]*animation-play-state:paused!important/.test(css) && css.includes("[data-commerce-live] .cmh-a{animation-play-state:running!important}") && /@media \(prefers-reduced-motion:reduce\)\{\s*\.cmh-a\{animation:none!important\}\s*\.cmh-o\{animation:none!important\}/.test(css) && /\.cmh-tp-on5,\.cmh-tp-l5,\.cmh-tp-thx\{opacity:1\}/.test(css)  && /\.cmh-stage \.ev-loop\{animation:none!important\}/.test(css)) // Changed on purpose (landing round 14): the reel stands still on its first address.
 check("the pictures take no pointer and hold nothing to press", /\.cmh-stage\{[^}]*pointer-events:none/.test(css) && !/<(a|button|input|select)\b/.test(how) && !/addEventListener\("click"/.test(code))
-check("no blur, no glass, no CSS gradient", !/blur\(|backdrop-filter|filter:|gradient\(/.test(css))
+/* Changed on purpose (landing round 15): the owner asked for a little more gradient on the domain card's ground; that rule is the one gradient. */
+check("no blur, no glass, no CSS gradient", !/blur\(|backdrop-filter|filter:|gradient\(/.test(css.replace(/\.cmh-stage \.pz-d\{background:[^}]*\}/, "")))
 // The Storelib logo in the dashboard bar goes through StorelibLogo (next/image, the one path tests/brand-logo.test.ts allows), so it is checked there, not here.
 const imgs = [...how.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((t) => !/data-storelib-logo/.test(t))
-check("every picture lazy, decoded off the main thread, sized, a local file that exists", imgs.length >= 4 /* Changed on purpose (landing round 14): the store's four photographs went with it. */ && imgs.every((i) => /loading="lazy"/.test(i) && /decoding="async"/.test(i) && /width="\d+"/.test(i) && /height="\d+"/.test(i) && existsSync(`public${i.match(/src="([^"]+)"/)![1]}`)))
+check("every picture lazy, decoded off the main thread, sized, a local file that exists", imgs.length >= 3 /* Changed on purpose (landing round 14): the store's four photographs went with it. */ /* Changed on purpose (landing round 15): her cover is drawn (TipCover), not a photograph. */ && imgs.every((i) => /loading="lazy"/.test(i) && /decoding="async"/.test(i) && /width="\d+"/.test(i) && /height="\d+"/.test(i) && existsSync(`public${i.match(/src="([^"]+)"/)![1]}`)))
 check("the old pictures and their files are gone", !/cmh-tip-list|cmh-bar|cmh-read|cmh-dm-win|cmh-dm-cut|cmh-lut/.test(how + css) && !existsSync("public/home/how/cap-yellow.webp") && !existsSync("public/home/how/print-lasalle.webp"))
 
 console.log("\nCopy and registration")

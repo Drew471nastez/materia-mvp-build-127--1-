@@ -151,9 +151,11 @@ console.log("\n3d. The compare table's sticky row: one compact row")
 {
   const cmp = renderToStaticMarkup(createElement(ComparePlans, { actions }))
   check("name and price share one line, the button beside them", /<div role="columnheader" class="pz-cmp-plan" data-pz-plan="growth"><span class="pz-cmp-id"><span class="pz-cmp-name">Grow<\/span><span class="pz-cmp-price">\$29<span class="pz-cmp-per">\/month<\/span><\/span><\/span><a [^>]*class="pz-cmp-btn pz-cmp-btn-on"[^>]*><span class="pz-cmp-btn-t">Get Grow<\/span>/.test(cmp))
-  check("a row, not a column", /\.pz-cmp-plan\{display:flex;min-width:0;align-items:center;gap:8px\}/.test(COMPARE_CSS) && !/\.pz-cmp-plan\{[^}]*flex-direction:column/.test(COMPARE_CSS))
+  /* Changed on purpose (landing round 15): the owner wants each plan's button on a second line under its name and price in the row that sticks. */
+  check("the button on a second line under the name and price", /\.pz-cmp-plan\{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:8px\}/.test(COMPARE_CSS))
   check("little padding (10px, 12px from 768px)", /\.pz-cmp-plans\{padding:10px 0\}/.test(COMPARE_CSS) && /\.pz-cmp-plans\{padding:12px 0\}/.test(COMPARE_CSS))
-  check("a round arrow under 1280px, the words (still read) beside the price from 1280px", /\.pz-cmp-btn\{position:relative;display:inline-flex;flex:none;align-items:center;justify-content:center;gap:6px;width:28px;height:28px/.test(COMPARE_CSS) && /@media\(min-width:1280px\)\{\s*\.pz-cmp-plan\{gap:14px\}\s*\.pz-cmp-btn\{width:auto;height:34px;padding:0 15px\}/.test(COMPARE_CSS) && COMPARE_CSS.lastIndexOf("@media(min-width:1280px)") > COMPARE_CSS.lastIndexOf("@media(min-width:768px)"))
+  /* Changed on purpose (landing round 15): on its own line the button has room for its words at every width, so it is never an arrow alone. */
+  check("the button's words at every width, 30px tall (34px from 768px)", /\.pz-cmp-btn\{[^}]*height:30px;padding:0 12px/.test(COMPARE_CSS) && /\.pz-cmp-btn-t\{min-width:0;overflow:hidden;text-overflow:ellipsis\}/.test(COMPARE_CSS) && /\.pz-cmp-btn\{height:34px;padding:0 15px;font-size:13\.5px\}/.test(COMPARE_CSS) && !/min-width:1280px/.test(COMPARE_CSS))
 }
 
 console.log("\n3e. The domain reel")

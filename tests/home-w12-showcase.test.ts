@@ -10,7 +10,7 @@ import { u } from "../components/marketing/home/showcase-mocks/frame"
 /* Changed on purpose (landing round): section 6 is one product page per kind of thing sold (business-mocks), and the builders gained the Design slide. */
 /* Changed on purpose (landing round, second pass): the OnePage in the editor is Nina Sato's on the Air theme (NinaPage), not Maya Okafor's. */
 /* Changed on purpose (landing round 4): three editors (no Design slide), Desmond Ayo's OnePage on Ember, and the community drawn inside (CommunityMock). */
-import { CommunityMock, DesmondPage, OnePageEditorMock, WebsiteBuilderMock } from "../components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, CommunityMock, DesmondPage, OnePageEditorMock, WebsiteBuilderMock } from "../components/marketing/home/showcase-mocks/builder-mocks"
 
 const read = (p: string) => readFileSync(p, "utf8")
 const MOCKS = "components/marketing/home/showcase-mocks"
@@ -51,7 +51,8 @@ const srcs = new Set([...everyMock.matchAll(/<img(?![^>]*data-storelib-logo)[^>]
 /* Changed on purpose (landing round): fewer, calmer pictures (no storefront pairs, no florals). */
 /* Changed on purpose (landing round 7): only the editors' mocks are left to draw pictures. */
 assert.ok(srcs.size >= 6, `${srcs.size} pictures`)
-for (const src of srcs) assert.ok(src.startsWith("/home/showcase/") && existsSync(`public${src}`), `${src} exists`)
+/* Changed on purpose (landing round 15): loudlib's boxes are drawn again, sharp, in public/marketing/loudlib. */
+for (const src of srcs) assert.ok((src.startsWith("/home/showcase/") || src.startsWith("/marketing/loudlib/")) && existsSync(`public${src}`), `${src} exists`)
 /* The logo goes through next/image (lazy by default there; the test stub leaves the attribute out), so the photos are checked here. */
 const photos = everyMock.replace(/<img[^>]*data-storelib-logo[^>]*>/g, "")
 assert.ok(!/<img(?![^>]*loading="lazy")[^>]*>/.test(photos) && !/<img(?![^>]*height=)[^>]*>/.test(photos))
@@ -152,10 +153,11 @@ assert.ok(ideas.includes(IDEAS_TABS[0].alt.slice(11, 60)))
 assert.ok(!ideas.includes("data-mock-live=\""), "nothing animates before the section is seen")
 const builders = read(`${MOCKS}/builder-mocks.tsx`)
 // Animations attach only under [data-mock-live], only without reduced motion, and never via * or :has().
-const animRules = [...builders.matchAll(/\{animation:([\w-]+) var\(--bm-t\)/g)]
+/* Changed on purpose (landing round 15): the website builder's moment writes its rules from its timeline (builder-mocks.tsx siteMotion, PUBLISH_CSS), so the rules are counted in the stylesheet it produces, BUILDER_CSS, not in the file's text. */
+const animRules = [...BUILDER_CSS.matchAll(/\{animation:([\w-]+) var\(--bm-t\)/g)]
 /* Changed on purpose (wave 13): each editor has one quiet scripted moment (select a section and publish; switch a block on and save; write and post), fewer moving parts than before. */
 assert.ok(animRules.length >= 15, `${animRules.length} animation rules`)
-assert.equal((builders.match(/@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] /g) || []).length, animRules.length)
+assert.equal((BUILDER_CSS.match(/@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\]/g) || []).length, animRules.length)
 assert.ok(!/\.bm \*|:has\(/.test(builders))
 // Keyframes animate transform and opacity only.
 for (const block of builders.matchAll(/@keyframes [\w-]+\{(.*?)\}\}/g)) {

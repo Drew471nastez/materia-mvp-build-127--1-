@@ -248,10 +248,11 @@ function main() {
   const cards = readCode("components/billing/plan-cards.tsx")
   check("the cards come from OFFERED_PLANS", /OFFERED_PLANS\.map\(/.test(cards))
   /* Changed on purpose (wave 13): three plans, three across from md up, in a wider row. */
-  check("three columns from md up, one on a phone, in a row up to 1180px", /grid-cols-1 md:grid-cols-3/.test(cards) && /max-w-\[1180px\]/.test(cards))
+  check("three columns from md up, one on a phone, in a row up to 1180px", /md:grid md:grid-cols-3/.test(cards) && /max-md:overflow-x-auto/.test(cards) && /max-w-\[1180px\]/.test(cards)) /* Changed on purpose (landing round 15): on a phone a sideways row with scroll snap, not one column. */
   /* The headers are the owner's pictures, not a CSS gradient, and nothing floats over a card.
      The one gradient allowed is the fade laid over the bottom of the picture, which the owner asked for. */
-  const gradientLines = cards.split("\n").filter((l) => /bg-gradient|linear-gradient/.test(l))
+  /* Changed on purpose (landing round 15): the owner asked for a faint light crossing a button on hover, a white to clear band on the button (.plan-shine), not a gradient on a card. */
+  const gradientLines = cards.split("\n").filter((l) => /bg-gradient|linear-gradient/.test(l) && !/^\.plan-shine::before\{/.test(l))
   /* Added (wave 13): the owner asked for the checks simpler and lighter: thin, not bold, not in filled circles. */
   /* Changed on purpose (pricing round 5): each line has a small thin line icon, as in the owner's reference. */
   check("the plan lines carry thin line icons, not filled circles", /strokeWidth=\{1\.5\} aria-hidden="true" \/>/.test(cards) && !/rounded-full \$\{look/.test(cards) && !/strokeWidth=\{3\.25\}/.test(cards))

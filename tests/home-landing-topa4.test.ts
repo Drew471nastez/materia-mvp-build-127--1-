@@ -77,7 +77,7 @@ check("no yoga, surf coach or sourdough", !/stillwater|yoga|hemi|surf coach|lowt
 // Changed on purpose (landing round 12): the owner disliked Gia Romano's page and it is gone (tests/home-landing-r12-rails.test.ts).
 check("Gia Romano is gone, and no Weeknight Pasta", !/a-gia\.webp/.test(all) && !/weeknight/i.test(all + showcaseSrc))
 /* Changed on purpose (landing round 11): the owner did not like Kai Moreno and asked for loudlib in place of The Long Draft. */
-check("Kai Moreno and The Long Draft are gone, a podcast's OnePage and loudlib in their places", ["otc", "loud"].every((k) => all.includes(`/home/showcase/a-${k}.webp`)) && !/a-kai|a-draft|Kai Moreno|Long Draft/.test(all))
+check("Kai Moreno and The Long Draft are gone, a podcast's OnePage and loudlib in their places", ["otc", "loud"].every((k) => all.includes(`/home/showcase/a-${k}.webp`) || all.includes(`/marketing/loudlib/a-${k}.webp`)) /* Changed on purpose (landing round 15): loudlib's card files are in public/marketing/loudlib. */ && !/a-kai|a-draft|Kai Moreno|Long Draft/.test(all))
 check("every picture exists at its size's budget", SHOWCASE_EXAMPLES.every((e) => existsSync(join(root, "public", e.src)) && statSync(join(root, "public", e.src)).size < 120_000))
 check("the retired pictures are gone", ["stillwater", "hemi", "lowtide", "slowrise"].every((k) => !existsSync(join(root, `public/home/showcase/a-${k}.webp`))))
 check("captions are three words at most", SHOWCASE_EXAMPLES.every((e) => e.label.split(/\s+/).length <= 3))
@@ -123,7 +123,8 @@ check("the course and community pictures exist and are small", ["pilates", "ai-b
 
 console.log("\n── Make the work: Build a store that looks like you ──")
 /* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
-check("merch stores and link pages", EVERYTHING_STORES.filter((s) => s.kind === "merch").length >= 2 && EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3) // Changed on purpose (landing round 14): one store gave way to Liam Bailey's real product page.
+/* Changed on purpose (landing round 15): Fieldwork gave way to Loudlib's real store (a screenshot): one drawn store and three real ones. */
+check("stores and link pages", EVERYTHING_STORES.filter((s) => s.kind === "merch" || s.kind === "shot").length >= 2 && EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3) // Changed on purpose (landing round 14): one store gave way to Liam Bailey's real product page.
 check("every merch store shows four pieces, each with a name and a price", EVERYTHING_STORES.every((s) => s.kind !== "merch" || (s.products.length === 4 && s.products.every((p) => p.name && /^\$\d+$/.test(p.price)))))
 check("no wheel throwing, no sourdough in the stores", !BANNED.test(JSON.stringify(EVERYTHING_STORES)))
 /* Changed on purpose (landing round 7): the cap grows with a taller picture (58% of its height once over 270px). */

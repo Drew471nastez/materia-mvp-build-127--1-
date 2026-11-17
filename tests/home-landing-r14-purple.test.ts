@@ -18,24 +18,12 @@
  *              name and feature real. Transform and opacity only, paused off
  *              screen, cheap on a phone.
  */
-import { existsSync, readFileSync } from "node:fs"
+import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import {
-  AudienceOwnership,
-  AUDIENCE_FRAMES,
-  AUDIENCE_IDLE_MS,
-  AUDIENCE_LAYOUTS,
-  AUDIENCE_POINTS,
-  AUDIENCE_STEPS,
-  LAYOUT_MS,
-  layoutOffset,
-} from "@/components/marketing/home/audience-ownership"
+import { AudienceOwnership, AUDIENCE_PEOPLE, AUDIENCE_POINTS } from "@/components/marketing/home/audience-ownership"
 import { SellEverywhereMap, SELL_EVERYWHERE_STYLES } from "@/components/marketing/home/sell-everywhere-map"
-import { STARTERS, starterDraft } from "@/lib/email-campaigns/starters"
-import { BUTTON_ON_CARD, CARD, contrast, textOn } from "@/lib/email-campaigns/brand"
-import { describeRules, NO_RULES } from "@/lib/email-campaigns/segments"
 
 let passed = 0
 let failed = 0
@@ -79,70 +67,25 @@ console.log("\n── the map: the carousel centred, the phone card inset ──
   check("still the heading and the copy, no banned words", html.includes("Sell to buyers") && !BANNED.test(text(html)) && !NEVER.test(text(html)))
 }
 
-console.log("\n── the audience: four steps, every one real ──")
+/*
+  Changed on purpose (landing round 15): the owner asked for the audience section as it looked before round 14, so
+  audience-ownership.tsx and its stylesheet are round 9's again (git f248e7d0a^: the Contacts list with a new person
+  joining at the top, three lines beside it), and its hovers are new: Export CSV fills from the right and the
+  platform marks rise, transform only. The four step sequence this block checked is gone.
+*/
+console.log("\n── the audience: as before round 14, with smoother hovers (round 15) ──")
 {
   const src = read(`${DIR}/audience-ownership.tsx`)
   const css = read(`${DIR}/audience-ownership.module.css`)
   const html = renderToStaticMarkup(createElement(AudienceOwnership))
   const words = text(html)
-  check("four steps in the owner's order: contacts, synced, an email sent, the layouts", AUDIENCE_STEPS.map((s) => s.id).join() === "contacts,synced,send,layouts")
-  check("the contacts about 3s, the next two about 5s, each layout 3s", AUDIENCE_STEPS[0].ms === 3000 && AUDIENCE_STEPS[1].ms === 5000 && AUDIENCE_STEPS[2].ms === 5000 && LAYOUT_MS === 3000)
-  check("one frame per step and one per layout, in order", AUDIENCE_FRAMES.length === 3 + AUDIENCE_LAYOUTS.length && AUDIENCE_FRAMES.map((f) => `${f.step}.${f.t}`).join() === "0.0,1.0,2.0,3.0,3.1,3.2,3.3,3.4")
-  check("the lines beside the picture are the steps, a few words each, no banned words", AUDIENCE_POINTS.length === 4 && AUDIENCE_POINTS.every((p) => p.split(" ").length <= 6 && !BANNED.test(p)) && AUDIENCE_POINTS.every((p) => words.includes(p)), AUDIENCE_POINTS)
-  check("each line is a button that names its step, pressed while it plays", (html.match(/<button type="button" class="[^"]*" data-step-btn="\d" [^>]*aria-pressed="(true|false)"/g) ?? []).length === 4 && /data-step-btn="0" data-on="" aria-pressed="true"/.test(html))
-  check("four panes, each its own picture with a label, the contacts first", (html.match(/data-pane="\d"/g) ?? []).length === 4 && /data-pane="0" data-on="" role="img"/.test(html) && (html.match(/role="img" aria-label="[^"]+"/g) ?? []).length === 4)
-
-  /* The layouts are the composer's own five. */
-  const starterNames = STARTERS.map((s) => s.name).sort().join()
-  check("the five layouts are the composer's five, by name", AUDIENCE_LAYOUTS.map((l) => l.name).sort().join() === starterNames && AUDIENCE_LAYOUTS.every((l) => STARTERS.some((s) => s.id === l.id && s.name === l.name)), starterNames)
-  check("every layout name shows under the stack", AUDIENCE_LAYOUTS.every((l) => new RegExp(`data-nm="\\d"[^>]*>${l.name}<`).test(html)))
-  const sale = starterDraft("sale", { name: "Hollow Pines", storeUrl: "https://example.com" })
-  check("the sale says what the Sale starter writes: the subject, the code, the button, the line under it", sale.subject === "20% off until Sunday" && words.includes("20% off until Sunday") && words.includes("20% off everything") && words.includes("THANKYOU20") && words.includes("Shop the sale") && words.includes("One code per order."))
-  const ann = starterDraft("announcement", { name: "x" })
-  const prod = starterDraft("product", { name: "x" })
-  check("the other layouts' buttons and headings are the starters' own", JSON.stringify(ann.blocks).includes("Find out more") && words.includes("Find out more") && JSON.stringify(prod.blocks).includes("Just released") && words.includes("Just released") && words.includes("View product") && /cta: "View product"/.test(read("lib/email-campaigns/blocks.ts")) && words.includes("This month"))
-  check("each brand color is one a button can wear (WCAG, as brand.ts checks it) with white words", AUDIENCE_LAYOUTS.every((l) => contrast(l.accent, CARD) >= BUTTON_ON_CARD && textOn(l.accent) === "#ffffff"), AUDIENCE_LAYOUTS.map((l) => [l.accent, contrast(l.accent, CARD).toFixed(2)]))
-  check("five brand colors, five different ones, a swatch each and one ring that slides", new Set(AUDIENCE_LAYOUTS.map((l) => l.accent)).size === 5 && (html.match(/<i style="background:#[0-9a-f]{6}"><\/i>/g) ?? []).length === 5 && /<b data-ring=""><\/b>/.test(html))
-  check("the sent email's look: the logo, a white card, the name and Unsubscribe", (html.match(/Hollow Pines · Unsubscribe/g) ?? []).length === 6 && /#f4f5f7/.test(css) && /border: 1px solid #eceef1;/.test(css))
-  check("the logo is drawn in each brand's color", AUDIENCE_LAYOUTS.every((l) => html.includes(`<rect width="20" height="20" rx="5" fill="${l.accent}">`)))
-
-  /* The send and the sync, in the app's own words. */
-  const status = read("components/email/compose/send-status.tsx")
-  check("the send says what the send status says", /Getting ready to send/.test(status) && /Sending to \{total, plural/.test(status) && /Sent to \{out, plural/.test(status) && words.includes("Getting ready to send") && words.includes("Sending to 2,318 people") && words.includes("Sent to 2,318 people"))
-  check("to a segment, in the picker's words", describeRules({ ...NO_RULES, purchased: "bought" }) === "Bought something" && words.includes("Bought something"))
-  const sync = read("lib/integrations/marketing/sync-server.ts")
-  check("Klaviyo syncs every 15 minutes, as the cron does", /every quarter hour per connected store/.test(sync) && words.includes("Syncs every 15 minutes"))
-  const source = read("lib/contacts/contact-source.ts")
-  check("the doors are Contacts' own: a OnePage form, a checkout, an import, the website", /"onepage"/.test(source) && /"import"/.test(source) && /"checkout"/.test(source) && /"website"/.test(source) && ["OnePage form", "Checkout", "Imported from a CSV file", "Website form"].every((w) => words.includes(w)) && /Email me news and offers/.test(read("lib/contacts/checkout-contact.ts")))
-  check("every picture used is in the repo", ["/home/audience/ridge-hoodie-hero.webp", "/home/sell-map/trail-cap.webp"].every((p) => html.includes(p) && existsSync(join(root, "public", p))))
+  check("round 9's picture again: the Contacts list, Export CSV, synced platforms, three lines", AUDIENCE_POINTS.length === 3 && AUDIENCE_POINTS.every((p) => words.includes(p)) && AUDIENCE_PEOPLE.length === 5 && /Export CSV/.test(html) && /Synced with/.test(html) && !/AUDIENCE_STEPS|data-step-btn|data-pane/.test(src + html))
   check("no banned words, retired names or em dashes", !BANNED.test(words) && !NEVER.test(words) && !NEVER.test(html))
-}
-
-console.log("\n── the audience: how it moves ──")
-{
-  const src = read(`${DIR}/audience-ownership.tsx`)
-  const css = read(`${DIR}/audience-ownership.module.css`)
-  const frames = [...css.matchAll(/@keyframes ([\w-]+) \{([\s\S]*?)\n\}/g)]
-  const props = frames.flatMap((m) => [...m[2].matchAll(/([a-z-]+)\s*:/g)].map((p) => p[1]))
-  check("keyframes move transform and opacity only", frames.length >= 2 && props.every((p) => p === "transform" || p === "opacity"), [...new Set(props)])
+  check("Export CSV's hover is a fill that grows from the right, by transform only", /\.export::before \{[^}]*transform: scaleX\(0\);\s*transform-origin: right center;\s*transition: transform 0\.55s/.test(css) && /\.export:hover::before \{\s*transform: scaleX\(1\);/.test(css))
+  check("hovers only under a mouse, and only the button and the marks take the pointer", /@media \(hover: hover\) and \(pointer: fine\) \{\s*\.export,\s*\.mark \{\s*pointer-events: auto;/.test(css) && /pointer-events: none;/.test(css))
   const transitions = [...css.matchAll(/transition:([^;]+);/g)].map((m) => m[1])
-  check("transitions move transform and opacity only (no colour, no shadow)", transitions.length > 0 && transitions.every((t) => t.split(/,(?![^(]*\))/).every((x) => /^\s*(transform|opacity|none)\b/.test(x))), transitions)
-  check("the lines are dimmed by opacity, not a colour change", /\.pointBtn \{[^}]*opacity: 0\.6;[^}]*transition: opacity 400ms/.test(css) && /\.pointBtn\[data-on\] \{\s*opacity: 1;/.test(css))
-  check("every animation waits paused until the section is live", (css.match(/animation: [^;]*;/g) ?? []).every((a) => /paused;$|none;$|none !important;$/.test(a)) && /\.mock\[data-live\] \.pane:is\(\[data-on\], \[data-was\]\) :is\(\.syncing, \.synced, \.send, \.sendA, \.sendB, \.sendC, \.meter i\) \{\s*animation-play-state: running;/.test(css))
-  check("the clock is one Web Animation on the line's hairline (transform), its end the next step", /bar\.animate\(\[\{ transform: `scaleX\(/.test(src) && /clock\.onfinish = \(\) => go\(frame \+ 1, 1, false\)/.test(src) && !/setInterval|requestAnimationFrame/.test(src))
-  check("paused off screen and in a background tab: the clock pauses and plays", /else if \(on\) clock\.play\(\)\s*else clock\.pause\(\)/.test(src) && /rootMargin: LIVE_AHEAD/.test(src) && /document\.addEventListener\("visibilitychange", apply\)/.test(src))
-  check("a step writes attributes, never renders", !/useState|useReducer|textContent|innerHTML|dataset\./.test(src) && /put\(p, "data-on"/.test(src) && /put\(c, "data-o"/.test(src))
-  check("a tap, click or swipe holds the choice, and the autoplay comes back after a pause", /const hold = \(\) => \{\s*held = true\s*stop\(\)/.test(src) && /setTimeout\(\(\) => \{\s*held = false/.test(src) && AUDIENCE_IDLE_MS >= 5000 && AUDIENCE_IDLE_MS <= 10000)
-  check("a swipe: horizontal only past 8px, the page still scrolls (pan-y), a flick or 48px turns", /Math\.abs\(mx\) < 8 \|\| Math\.abs\(mx\) < Math\.abs\(my\)/.test(src) && /touch-action: pan-y;/.test(css) && /Math\.abs\(dx\) > 48/.test(src))
-  check("the swipe moves the layouts whole and a pane a little, by transform", /el\.style\.transform = `translate3d\(\$\{el === deck \? dx : dx \* 0\.4\}px,0,0\)`/.test(src) && /\.mock\[data-drag\] \.pane,\s*\.mock\[data-drag\] \.deck \{\s*transition: none;/.test(css))
-  check("a layout beside the front one can be tapped to bring it forward (found by where it is, on a tap only)", /const inFront = cards\.some/.test(src) && /Math\.abs\(layoutOffset\(num\(c, "data-t"\), front\)\) === 1 && hit\(c\)/.test(src))
-  check("a turn restyles the panes, not what is in them: no inherited value changes with a pane's state", !/--enter|--leave/.test(css) && !/\.pane\[data-on\] \{[^}]*pointer-events/.test(css) && !/\.pane:is\(\[data-on\], \[data-was\]\) \* \{/.test(css))
-  check("the layouts' places loop: 0 in front, one each side, the rest behind", layoutOffset(0, 0) === 0 && layoutOffset(1, 0) === 1 && layoutOffset(4, 0) === -1 && layoutOffset(2, 0) === 2 && layoutOffset(3, 0) === -2 && layoutOffset(0, 4) === 1)
-  check("one 3D stack: depth decides the front, not z-index", /\.deck \{[^}]*transform-style: preserve-3d;/.test(css) && !/z-index:/.test(css))
-  check("the card never changes size: the head, the rows and the foot", /\.panes \{\s*position: relative;\s*height: calc\(var\(--head\) \+ var\(--rh\) \* var\(--rows\) \+ var\(--foot\)\);/.test(css))
-  check("the layouts drawn at one size, scaled once on a phone", /--th: 268px;/.test(css) && /scale: var\(--fit\);/.test(css))
-  check("reduced motion: no autoplay, nothing moves, the finished states shown", /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/.test(src) && /if \(reduce \|\| held \|\| !live\) return/.test(src) && /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.mock \.pane \* \{\s*animation: none !important;[\s\S]*\.synced,\s*\.sendC \{\s*opacity: 1;/.test(css))
-  check("no picture decoded async (Safari drew them blank, wave 17)", !/decoding="async"/.test(src))
+  check("every transition moves transform (Export CSV's words also turn white)", transitions.length >= 3 && transitions.every((t) => t.split(/,(?![^(]*\))/).every((x) => /^\s*(transform|color|none)\b/.test(x))), transitions)
+  check("reduced motion: nothing slides, nothing eases", /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.export::before,[\s\S]*transition: none;/.test(css))
 }
 
 console.log("\n── registered ──")

@@ -49,7 +49,7 @@ console.log("\nHeading and line kept")
 {
   // Changed on purpose (landing round 13): the owner asked for a new heading and line (tests/home-landing-r13-business.test.ts).
   // Changed on purpose (landing round 14): the heading is "From a cookbook to a coaching call".
-  check("the heading and its line are round 13's", BUSINESS_HEADING === "From a cookbook to a coaching call" && BUSINESS_SUB.split(/\s+/).length <= 10)
+  check("the heading and its line are round 13's", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ BUSINESS_HEADING === "Sell files, parcels or your time" && BUSINESS_SUB.split(/\s+/).length <= 10)
   check("five kinds in the same order", BUSINESS_SLIDES.map((s) => s.id).join() === "digital,physical,courses,communities,bookings")
 }
 

@@ -3,10 +3,6 @@
   Two columns from 1024px, the words then the picture under that. Landing
   round 9: the picture is the list with a new person joining at the top;
   one strip moves by transform, one wash by opacity, and no box changes size.
-  Landing round 14: the picture plays four steps (contacts, synced, an email
-  sent, the layouts); the lines beside it are the steps. Every pane fills
-  one card of a fixed height; panes cross by opacity and a short slide; the
-  loops inside a pane run only while it is in turn and the section is live.
 */
 
 .grid {
@@ -26,7 +22,7 @@
   padding-left: var(--home-head-inset, 0px);
 }
 
-/* The steps: a few words each, a hairline over each; the hairline over the one in turn fills as it plays. */
+/* Three lines of a few words, a hairline over each. */
 .points {
   margin: clamp(22px, 3vw, 36px) 0 0;
   padding: 0;
@@ -34,70 +30,22 @@
   list-style: none;
 }
 .points li {
-  border-top: 1px solid #ececf0;
-}
-.pointBtn {
-  position: relative;
-  display: block;
-  width: 100%;
-  margin: 0;
   padding: 15px 0;
-  border: 0;
-  background: none;
-  font: inherit;
+  border-top: 1px solid #ececf0;
   font-size: clamp(17px, 1.35vw, 19px);
   font-weight: 500;
   line-height: 1.35;
   letter-spacing: -0.015em;
-  text-align: left;
   color: #0f0e13;
-  /* Landing round 14: dimmed by opacity, not a colour, so the change runs on the compositor (a colour transition restyled and repainted every frame). */
-  opacity: 0.6;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: opacity 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-.points li:last-child .pointBtn {
-  padding-bottom: 4px;
-}
-.pointBtn[data-on] {
-  opacity: 1;
-}
-@media (hover: hover) and (pointer: fine) {
-  .pointBtn:hover {
-    opacity: 1;
-  }
-}
-.pointBtn:focus-visible {
-  outline: 2px solid #7c3aed;
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-.bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: #0f0e13;
-  transform: scaleX(0);
-  transform-origin: 0 50%;
-  pointer-events: none;
+.points li:last-child {
+  padding-bottom: 0;
 }
 
-/*
-  THE PICTURE: a white card with a hairline, one height whatever is in it:
-  the head, the rows and the foot. A swipe moves it; a vertical drag scrolls
-  the page.
-*/
+/* The picture: Contacts, a white card with a hairline. Nothing in it answers the pointer. */
 .mock {
   --rh: 68px;
   --rows: 4;
-  --head: 76px;
-  --foot: 58px;
-  --glide: cubic-bezier(0.45, 0, 0.15, 1);
-  --soft: cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   max-width: 600px;
   justify-self: center;
@@ -108,79 +56,23 @@
     0 0 0 1px #e9e9ee,
     0 1px 2px rgba(16, 24, 40, 0.04),
     0 18px 36px -28px rgba(24, 24, 27, 0.2);
-  touch-action: pan-y;
+  pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
   color: #0f0e13;
-}
-.mock img {
-  -webkit-user-drag: none;
 }
 @media (min-width: 1024px) {
   .mock {
     justify-self: end;
   }
 }
-.panes {
-  position: relative;
-  height: calc(var(--head) + var(--rh) * var(--rows) + var(--foot));
-}
-
-/*
-  A pane: the whole card. The one in turn is shown; the one leaving slides a
-  little the other way as it fades (back the other way after a swipe back).
-  A turn changes only a pane's own opacity and transform, which nothing in it
-  inherits, so the browser restyles four panes and not the hundreds of
-  things inside them. The panes never take the pointer (pointer-events is
-  inherited too): the card hears every tap and swipe.
-*/
-.pane {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  opacity: 0;
-  transform: translate3d(28px, 0, 0);
-  transition:
-    opacity 420ms var(--soft),
-    transform 640ms var(--glide);
-  will-change: transform, opacity;
-  pointer-events: none;
-}
-.pane[data-was],
-.mock[data-dir="prev"] .pane {
-  transform: translate3d(-28px, 0, 0);
-}
-.mock[data-dir="prev"] .pane[data-was] {
-  transform: translate3d(28px, 0, 0);
-}
-.pane[data-on],
-.mock[data-dir="prev"] .pane[data-on] {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-}
-.mock[data-drag] .pane,
-.mock[data-drag] .deck {
-  transition: none;
-}
-
 .head {
   display: flex;
-  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  box-sizing: border-box;
-  height: var(--head);
-  padding: 0 22px;
+  padding: 18px 22px;
   border-bottom: 1px solid #f0f0f3;
-}
-.headWho {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 12px;
 }
 .headTitle {
   font-size: 17px;
@@ -196,28 +88,67 @@
   white-space: nowrap;
 }
 .export {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: 7px;
   height: 38px;
   padding: 0 14px;
+  overflow: hidden;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
   color: #1a1a2e;
   box-shadow: inset 0 0 0 1px #e2e4e8;
+  transition: color 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/*
+  Landing round 15 (the owner: the buttons' hover should grow from the
+  right, smooth and clean). The fill is a layer under the label that scales
+  in from the right edge (transform-origin right, scaleX), so the hover is a
+  transform on the compositor and nothing is laid out again. The mock takes
+  no pointer except here and on the platform marks.
+*/
+.export::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: #1a1a2e;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.export svg {
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .export,
+  .mark {
+    pointer-events: auto;
+  }
+  .export:hover {
+    color: #fff;
+  }
+  .export:hover::before {
+    transform: scaleX(1);
+  }
+  .export:hover svg {
+    transform: translate3d(0, 2px, 0);
+  }
 }
 
 /*
-  STEP 1, THE LIST: a box exactly --rows rows tall, clipping one strip. The
-  strip starts five rows up (showing the first four people) and comes down a
-  row at a time; after five it shows the first four again, and the loop starts
-  over on the same picture. It moves only while its pane is in turn.
+  THE LIST: a box exactly --rows rows tall, clipping one strip. The strip
+  starts five rows up (showing the first four people) and comes down a row
+  at a time; after five it shows the first four again, and the loop starts
+  over on the same picture.
 */
 .window {
   position: relative;
-  flex: none;
   height: calc(var(--rh) * var(--rows));
   overflow: hidden;
   contain: layout paint;
@@ -249,7 +180,6 @@
   background: #eceaf0;
 }
 .name {
-  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -271,8 +201,8 @@
   opacity: 0;
   animation: aud-fresh 3.2s linear 1.4s infinite both paused;
 }
-.mock[data-live] .pane[data-on] .track,
-.mock[data-live] .pane[data-on] .fresh {
+.mock[data-live] .track,
+.mock[data-live] .fresh {
   animation-play-state: running;
 }
 /* A row comes down over the first quarter of each 3.2s step, then rests. */
@@ -317,16 +247,13 @@
   }
 }
 
-/* Under the list: the email platforms, in their own marks. */
+/* Under the list: the five email platforms, in their own marks. */
 .foot {
   display: flex;
-  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  box-sizing: border-box;
-  height: var(--foot);
-  padding: 0 22px;
+  padding: 14px 22px;
   border-top: 1px solid #f0f0f3;
   background: #fff;
 }
@@ -339,577 +266,30 @@
   display: flex;
   gap: 8px;
 }
-.mark,
-.markLg {
+.mark {
   display: block;
-  flex: none;
   width: 30px;
   height: 30px;
   overflow: hidden;
   border-radius: 8px;
   box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.08);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.markLg {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-}
-
-/*
-  STEP 2, SYNCED: four doors, each person (or an import) turning from
-  Syncing to Synced in turn, then the head says Synced. Two words in one
-  cell, crossed by opacity: nothing reflows.
-*/
-.ins {
-  flex: none;
-  height: calc(var(--rh) * var(--rows));
-}
-.line {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 14px;
-  box-sizing: border-box;
-  height: var(--rh);
-  padding: 0 22px;
-  border-bottom: 1px solid #f4f4f6;
-}
-.line .face {
-  width: 40px;
-  height: 40px;
-}
-.door {
-  display: block;
-  margin-top: 1px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  color: #6b7280;
-}
-.file {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #f3f4f6;
-  box-shadow: inset 0 0 0 1px #e5e7eb;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #4b5563;
-}
-.state,
-.status,
-.send,
-.sendState {
-  display: inline-grid;
-  flex: none;
-  white-space: nowrap;
-}
-.state > span,
-.status > span,
-.send > span,
-.sendState > span {
-  grid-area: 1 / 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.state,
-.status {
-  justify-items: end;
-  font-size: 13.5px;
-  font-weight: 500;
-}
-.syncing {
-  color: #9ca3af;
-}
-.synced {
-  color: #15803d;
-  opacity: 0;
-}
-.status {
-  font-size: 14px;
-}
-
-/*
-  STEP 3, AN EMAIL TO A SEGMENT: the To and Subject of the composer over the
-  email itself; Send is pressed, the meter fills, and it is sent.
-*/
-.send {
-  justify-items: center;
-  height: 38px;
-  min-width: 92px;
-  padding: 0 16px;
-  box-sizing: border-box;
-  align-items: center;
-  border-radius: 10px;
-  background: #1a1a2e;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-}
-.sendB,
-.sendC {
-  opacity: 0;
-}
-.fields {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  height: calc(var(--rh) * var(--rows));
-}
-.field {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 14px;
-  box-sizing: border-box;
-  height: 48px;
-  padding: 0 22px;
-  border-bottom: 1px solid #f4f4f6;
-  font-size: 14.5px;
-  white-space: nowrap;
-}
-.fieldKey {
-  width: 56px;
-  flex: none;
-  color: #6b7280;
-}
-.fieldVal {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 500;
-}
-.muted {
-  font-weight: 400;
-  color: #6b7280;
-}
-/* The email as the composer previews it: on its grey ground, the top of it, fading out under the foot. */
-.preview {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  background: #f4f5f7;
-}
-.preview .mail {
-  width: 260px;
-  max-height: none;
-  margin: 0 auto;
-  padding-top: 14px;
-}
-.preview::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0;
-  height: 36px;
-  background: linear-gradient(rgba(244, 245, 247, 0), #f4f5f7);
-}
-.sendState {
-  font-size: 13.5px;
-  font-weight: 500;
-}
-.sendState .sendA {
-  color: #6b7280;
-}
-.sendState .sendC {
-  color: #15803d;
-}
-.meter {
-  position: relative;
-  flex: none;
-  width: 34%;
-  height: 4px;
-  overflow: hidden;
-  border-radius: 4px;
-  background: #eef0f2;
-}
-.meter i {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: #15803d;
-  transform: scaleX(0);
-  transform-origin: 0 50%;
-}
-
-/* The moments of steps 2 and 3, on the pane's own clock: they start when it comes in and finish if it leaves mid way. */
-.pane:is([data-on], [data-was]) .line .syncing {
-  animation: aud-out 300ms var(--soft) calc(600ms + var(--i) * 480ms) both paused;
-}
-.pane:is([data-on], [data-was]) .line .synced {
-  animation: aud-in 420ms var(--soft) calc(600ms + var(--i) * 480ms) both paused;
-}
-.pane:is([data-on], [data-was]) .status .syncing {
-  animation: aud-out 300ms var(--soft) 2700ms both paused;
-}
-.pane:is([data-on], [data-was]) .status .synced {
-  animation: aud-in 420ms var(--soft) 2700ms both paused;
-}
-.pane:is([data-on], [data-was]) .send {
-  animation: aud-press 360ms var(--soft) 1000ms both paused;
-}
-.pane:is([data-on], [data-was]) .sendA {
-  animation: aud-out 300ms var(--soft) 1200ms both paused;
-}
-.pane:is([data-on], [data-was]) .sendB {
-  animation: aud-mid 2300ms linear 1200ms both paused;
-}
-.pane:is([data-on], [data-was]) .sendC {
-  animation: aud-in 420ms var(--soft) 3500ms both paused;
-}
-.pane:is([data-on], [data-was]) .meter i {
-  animation: aud-fill 2200ms cubic-bezier(0.35, 0, 0.25, 1) 1300ms both paused;
-}
-.mock[data-live] .pane:is([data-on], [data-was]) :is(.syncing, .synced, .send, .sendA, .sendB, .sendC, .meter i) {
-  animation-play-state: running;
-}
-@keyframes aud-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 4px, 0);
+/* Round 15: a mark under the pointer rises a little, one eased transform. */
+@media (hover: hover) and (pointer: fine) {
+  .mark:hover {
+    transform: translate3d(0, -2px, 0) scale(1.06);
   }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-@keyframes aud-out {
-  from {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    opacity: 0;
-    transform: translate3d(0, -4px, 0);
-  }
-}
-@keyframes aud-mid {
-  0% {
-    opacity: 0;
-  }
-  14%,
-  88% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes aud-press {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  45% {
-    transform: scale(0.94);
-  }
-}
-@keyframes aud-fill {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-/*
-  STEP 4, THE LAYOUTS: the composer's five, one in front, its neighbours
-  beside it and dimmed, in one 3D stack (depth, not z-index, decides which is
-  in front, as the map's product stack does). A swipe drags the stack.
-*/
-.swatches {
-  --sw: 18px;
-  --gap: 9px;
-  position: relative;
-  display: flex;
-  flex: none;
-  gap: var(--gap);
-}
-.swatches i {
-  display: block;
-  width: var(--sw);
-  height: var(--sw);
-  border-radius: 999px;
-}
-/* The brand color in use: one ring that slides to it (transform), not a ring drawn on each swatch. */
-.swatches b {
-  position: absolute;
-  left: -4px;
-  top: -4px;
-  width: calc(var(--sw) + 8px);
-  height: calc(var(--sw) + 8px);
-  box-sizing: border-box;
-  border: 1.5px solid #0f0e13;
-  border-radius: 999px;
-  transform: translate3d(calc(var(--k, 0) * (var(--sw) + var(--gap))), 0, 0);
-  transition: transform 640ms var(--glide);
-}
-.layouts {
-  position: relative;
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  align-items: center;
-  min-height: 0;
-  padding-top: 16px;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-.deckFit {
-  --tw: 232px;
-  --th: 268px;
-  position: relative;
-  flex: none;
-  width: var(--tw);
-  height: var(--th);
-}
-.deck {
-  position: absolute;
-  inset: 0;
-  transform-style: preserve-3d;
-  transition: transform 640ms var(--glide);
-}
-.tpl {
-  position: absolute;
-  inset: 0 0 auto;
-  display: block;
-  border-radius: 14px;
-  box-shadow:
-    0 0 0 1px rgba(16, 24, 40, 0.07),
-    0 14px 30px -20px rgba(16, 24, 40, 0.45);
-  opacity: 0;
-  transform: translate3d(0, 0, -80px) scale(0.76);
-  transition:
-    transform 700ms var(--glide),
-    opacity 700ms var(--soft);
-  will-change: transform, opacity;
-}
-.mock[data-step="3"] .tpl {
-  cursor: pointer;
-}
-.tpl::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: #fff;
-  opacity: 0.5;
-  pointer-events: none;
-  transition: opacity 700ms var(--soft);
-}
-.tpl[data-o="0"] {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
-}
-.tpl[data-o="0"]::after {
-  opacity: 0;
-}
-.tpl[data-o="1"] {
-  opacity: 1;
-  transform: translate3d(66%, 0, -40px) scale(0.86);
-}
-.tpl[data-o="-1"] {
-  opacity: 1;
-  transform: translate3d(-66%, 0, -40px) scale(0.86);
-}
-.tpl[data-o="2"] {
-  transform: translate3d(110%, 0, -80px) scale(0.76);
-}
-.tpl[data-o="-2"] {
-  transform: translate3d(-110%, 0, -80px) scale(0.76);
-}
-.names {
-  display: grid;
-  justify-items: center;
-  margin-top: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #0f0e13;
-}
-.names span {
-  grid-area: 1 / 1;
-  opacity: 0;
-  transform: translate3d(0, 4px, 0);
-  transition:
-    opacity 400ms var(--soft),
-    transform 640ms var(--glide);
-}
-.names span[data-on] {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-}
-
-/* One email as it arrives (lib/email-campaigns/template.ts): the grey ground, the logo, a white card, the name and Unsubscribe. */
-.mail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-sizing: border-box;
-  width: 100%;
-  max-height: var(--th, none);
-  overflow: hidden;
-  padding: 12px 12px 10px;
-  border-radius: 14px;
-  background: #f4f5f7;
-  color: #1f2937;
-  text-align: left;
-}
-.logo {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 9px;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #111827;
-}
-.logo svg {
-  display: block;
-}
-.mailCard {
-  display: flex;
-  flex: 0 1 auto;
-  flex-direction: column;
-  gap: 6px;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 0;
-  overflow: hidden;
-  padding: 12px;
-  border: 1px solid #eceef1;
-  border-radius: 9px;
-  background: #fff;
-}
-.mailFoot {
-  flex: none;
-  margin-top: 8px;
-  font-size: 9px;
-  color: #9ca3af;
-}
-.mailHero {
-  display: block;
-  flex: none;
-  width: 100%;
-  height: 74px;
-  border-radius: 6px;
-  object-fit: cover;
-  background: #e5e7eb;
-}
-.mailH {
-  font-size: 13px;
-  line-height: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #111827;
-}
-.mailH3 {
-  font-size: 11px;
-  line-height: 15px;
-  font-weight: 600;
-  color: #111827;
-}
-.mailP {
-  display: block;
-  font-size: 10.5px;
-  line-height: 15px;
-  color: #4b5563;
-}
-.mailP b {
-  font-weight: 700;
-  color: #111827;
-}
-.mailBtn {
-  align-self: flex-start;
-  margin-top: 2px;
-  padding: 6px 11px;
-  border-radius: 6px;
-  background: var(--accent);
-  font-size: 10.5px;
-  font-weight: 600;
-  line-height: 13px;
-  color: #fff;
-}
-.mailCenter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  text-align: center;
-}
-.mailCenter .mailBtn {
-  align-self: center;
-}
-.mailNote {
-  font-size: 9.5px;
-  color: #6b7280;
-}
-.mailRule {
-  width: 100%;
-  margin: 2px 0;
-  border: 0;
-  border-top: 1px solid #eceef1;
-}
-.mailProduct {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px;
-  border: 1px solid #eceef1;
-  border-radius: 8px;
-}
-.mailProduct img {
-  display: block;
-  flex: none;
-  width: 52px;
-  height: 52px;
-  border-radius: 5px;
-  object-fit: cover;
-  background: #f3f4f6;
-}
-.mailProduct > span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 10.5px;
-  color: #6b7280;
-}
-.mailProduct b {
-  font-size: 11.5px;
-  color: #111827;
-}
-.mailBtnSm {
-  align-self: flex-start;
-  margin-top: 3px;
-  padding: 4px 8px;
-  border-radius: 5px;
-  background: var(--accent);
-  font-size: 9.5px;
-  font-style: normal;
-  font-weight: 600;
-  color: #fff;
-}
-.mailLink {
-  color: var(--accent);
-  text-decoration: underline;
 }
 
 @media (max-width: 639px) {
   .mock {
     --rh: 62px;
-    --head: 68px;
-    --foot: 52px;
+    --rows: 3;
     border-radius: 18px;
   }
   .head {
-    padding: 0 16px;
+    padding: 15px 16px;
   }
   .row {
     grid-template-columns: 40px minmax(0, 1fr) auto;
@@ -923,68 +303,12 @@
   .name {
     font-size: 15px;
   }
-  .line {
-    grid-template-columns: 36px minmax(0, 1fr) auto;
-    column-gap: 12px;
-    padding: 0 16px;
-  }
-  .line .face,
-  .file {
-    width: 36px;
-    height: 36px;
-  }
-  .state {
-    font-size: 13px;
-  }
-  .field {
-    padding: 0 16px;
-    font-size: 14px;
-  }
-  .fieldKey {
-    width: 52px;
-  }
   .foot {
-    padding: 0 16px;
+    padding: 12px 16px;
   }
   .mark {
     width: 28px;
     height: 28px;
-  }
-  .markLg {
-    width: 34px;
-    height: 34px;
-  }
-  .send {
-    min-width: 84px;
-    height: 36px;
-  }
-  .meter {
-    width: 26%;
-  }
-  .swatches {
-    --sw: 15px;
-    --gap: 8px;
-  }
-  /* The layouts are drawn at one size and shown a little smaller on a phone: one static scale, nothing re-laid out. */
-  .layouts {
-    padding-top: 12px;
-  }
-  .deckFit {
-    --fit: 0.9;
-    width: calc(var(--tw) * var(--fit));
-    height: calc(var(--th) * var(--fit));
-  }
-  .deck {
-    inset: auto;
-    left: 0;
-    top: 0;
-    width: var(--tw);
-    height: var(--th);
-    transform-origin: 0 0;
-    scale: var(--fit);
-  }
-  .names {
-    margin-top: 10px;
   }
 }
 
@@ -993,28 +317,10 @@
   .fresh {
     animation: none;
   }
-  .pane,
-  .tpl,
-  .tpl::after,
-  .deck,
-  .names span,
-  .swatches b,
-  .pointBtn {
+  .export,
+  .export::before,
+  .export svg,
+  .mark {
     transition: none;
-  }
-  .mock .pane * {
-    animation: none !important;
-  }
-  .syncing,
-  .sendA,
-  .sendB {
-    opacity: 0;
-  }
-  .synced,
-  .sendC {
-    opacity: 1;
-  }
-  .meter i {
-    transform: none;
   }
 }

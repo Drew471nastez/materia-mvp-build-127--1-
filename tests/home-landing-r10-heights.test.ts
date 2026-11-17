@@ -82,7 +82,7 @@ console.log("\n── pricing and earnings ──")
 {
   const home = renderToStaticMarkup(createElement(PricingSection, { editorial: true, hideDetailsLink: true }))
   const page = renderToStaticMarkup(createElement(PricingSection, {}))
-  check("the home section pads 64px a side on a short laptop", /class="bg-white py-20 sm:py-24 \[@media\(min-width:1024px\)_and_\(max-height:900px\)\]:!py-16"/.test(home))
+  check("the home section pads 64px a side on a short laptop", /class="py-20 sm:py-24 \[@media\(min-width:1024px\)_and_\(max-height:900px\)\]:!py-16"/.test(home) /* Changed on purpose (landing round 15): no ground of its own on the home page (the sheet is white), so its square corners never show inside the sheet's rounded ones. */)
   check("/pricing is untouched", !/max-height:900px/.test(page))
   const earn = read(`${DIR}/earnings-calculator.tsx`)
   check("the earnings heading has room for its one line (it broke at 1460px, leaving \"earn.\" alone)", /\[data-landing-story\] \.cme \.story-section-heading\{max-width:1240px\}/.test(earn))

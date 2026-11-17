@@ -43,6 +43,7 @@ const BANNED = /\b(unlock|elevate|seamless(ly)?|powerful|effortless(ly)?|superch
 const GONE = /nadia brooks|the loop\b|lasalle at dusk|nails by bea|nordline coffee|charla circle|static bloom|maren holt|harbor yarn|enthusiasts|\bfans\b/i
 const block = (css: string, sel: string) => css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.[\]]/g, "\\$&")} \\{([^}]*)\\}`))?.[1] ?? ""
 
+/* Changed on purpose (landing round 15): the owner asked for the audience section as it was before round 14, so audience-ownership.tsx and its stylesheet are f248e7d0a^'s again and the checks round 14 changed here are put back as they were (the four step sequence is gone; tests/home-landing-r14-purple.test.ts). */
 console.log("\n── audience: fewer words ──")
 {
   const src = read(`${DIR}/audience-ownership.tsx`)
@@ -51,9 +52,9 @@ console.log("\n── audience: fewer words ──")
   /* What the owner quoted in round 9, the copy as it stood. */
   const WAS = "One list from every sign-up Forms, checkouts and free downloads all add to it. Email it from Storelib, with opens and clicks counted. Already on an email platform? Sync with Klaviyo, Omnisend, Brevo, MailerLite or Kit. Unsubscribes come back. Download every contact, any time Names, emails, tags and where each person came from, as a CSV. No lock-in: if you ever leave, your list leaves with you."
   const now = AUDIENCE_POINTS.join(" ")
-  check("four points of a few words each", /* Changed on purpose (landing round 14): four lines, one per step the picture plays. */ AUDIENCE_POINTS.length === 4 && AUDIENCE_POINTS.every((p) => count(p) <= 6), AUDIENCE_POINTS)
+  check("three points of a few words each", AUDIENCE_POINTS.length === 3 && AUDIENCE_POINTS.every((p) => count(p) <= 6), AUDIENCE_POINTS)
   check("under half the words it had", count(now) <= count(WAS) / 2, [count(now), count(WAS)])
-  check("each is one line in the markup, no heading over a sentence", /* Changed on purpose (landing round 14): each line is its step's button. */ (html.match(/<li><button [^>]*>(<i [^>]*><\/i>)?[^<]+<\/button><\/li>/g) ?? []).length === 4 && !/<h3/.test(html) && !/<p[ >]/.test(html))
+  check("each is one line in the markup, no heading over a sentence", (html.match(/<li>[^<]+<\/li>/g) ?? []).length === 3 && !/<h3/.test(html) && !/<p[ >]/.test(html))
   check("the sentences the owner quoted are gone", !/Forms, checkouts|opens and clicks|Unsubscribes come back|No lock-in|Names, emails, tags/.test(words))
   check("the heading stays, with no subheading", html.includes("Your audience belongs to you.") && /<StoryHeading id="audience-ownership-title"[^>]*\/>\s*<ul className=\{s\.points\}>/.test(src))
   check("no banned words, em dashes or retired samples", !BANNED.test(words) && !GONE.test(words) && !GONE.test(html))
@@ -69,11 +70,11 @@ console.log("\n── audience: one picture, one moving idea ──")
   check("no email addresses, times or product names in the rows", !/@[a-z]+\.(com|me)|\b\d+m\b|\b\d+h\b|hoodie|LUT pack|Footer form/.test(words))
   check("a row is a face, a name and the door they came in by", AUDIENCE_PEOPLE.every((p) => Object.keys(p).sort().join() === "name,photo,via") && ["OnePage", "Checkout", "Free download", "Website"].every((w) => AUDIENCE_PEOPLE.some((p) => p.via === w)))
   check("at most four rows show; the strip ends on the people it began with", AUDIENCE_ROWS === 4 && (html.match(/<li class="[^"]*row[^"]*"/g) ?? []).length === AUDIENCE_PEOPLE.length + AUDIENCE_ROWS && /const STRIP = \[\.\.\.AUDIENCE_PEOPLE, \.\.\.AUDIENCE_PEOPLE\.slice\(0, AUDIENCE_ROWS\)\]/.test(src))
-  check("bigger: 44px faces and 68px rows (40 and 62 on a phone, three rows)", /width=\{44\} height=\{44\}/.test(src) && /--rh: 68px;\s*--rows: 4;/.test(block(css, ".mock")) && /@media \(max-width: 639px\) \{\s*\.mock \{\s*--rh: 62px;/.test(css))  /* Changed on purpose (landing round 14): four rows on a phone too: the card is tall enough for an email. */
+  check("bigger: 44px faces and 68px rows (40 and 62 on a phone, three rows)", /width=\{44\} height=\{44\}/.test(src) && /--rh: 68px;\s*--rows: 4;/.test(block(css, ".mock")) && /@media \(max-width: 639px\) \{\s*\.mock \{\s*--rh: 62px;\s*--rows: 3;/.test(css))
   /* Changed on purpose (wave 17): decoded as drawn, not decoding="async": Safari drew a face blank until it had decoded it, again after letting it go. */
   check("every face has its size and is drawn with its picture", (html.match(/<img [^>]*width="44" height="44"[^>]*>/g) ?? []).filter((t) => !/decoding="async"/.test(t)).length === AUDIENCE_PEOPLE.length + AUDIENCE_ROWS && AUDIENCE_PEOPLE.every((p) => existsSync(join(root, "public/home/audience/people", `${p.photo}.webp`))))
   check("the list is a box of a fixed height that clips and contains", /height: calc\(var\(--rh\) \* var\(--rows\)\);\s*overflow: hidden;\s*contain: layout paint;/.test(block(css, ".window")) && /height: var\(--rh\);/.test(block(css, ".row")))
-  check("Export CSV and Synced with stay, the five marks without names under them", words.includes("Export CSV") && words.includes("Synced with") && (html.match(/class="[^"]*mark[^"]*"><svg/g) ?? []).length === 10 && !/>(Omnisend|Brevo|MailerLite|Kit)</.test(html))  /* Changed on purpose (landing round 14): Klaviyo is named once, as the title of the synced step; the marks under the list still carry no names. */
+  check("Export CSV and Synced with stay, the five marks without names under them", words.includes("Export CSV") && words.includes("Synced with") && (html.match(/class="[^"]*mark[^"]*"><svg/g) ?? []).length === 5 && !/>(Klaviyo|Omnisend|Brevo|MailerLite|Kit)</.test(html))
   check("the picture's label still names the platforms and the doors", /aria-label="Contacts: 18,240 people, synced with Klaviyo, Omnisend, Brevo, MailerLite and Kit[^"]*OnePage[^"]*checkout[^"]*free download[^"]*website\."/.test(html))
 }
 
@@ -83,14 +84,15 @@ console.log("\n── audience: smooth as it comes on screen ──")
   const css = read(`${DIR}/audience-ownership.module.css`)
   const frames = [...css.matchAll(/@keyframes ([\w-]+) \{([\s\S]*?)\n\}/g)]
   const props = frames.flatMap((m) => [...m[2].matchAll(/([a-z-]+)\s*:/g)].map((p) => p[1]))
-  check("keyframes of transform and opacity only", /* Changed on purpose (landing round 14): the steps have their own moments. */ frames.map((m) => m[1]).slice(0, 2).join() === "aud-roll,aud-fresh" && props.every((p) => p === "transform" || p === "opacity"), [...new Set(props)])
-  check("what transitions moves by transform or opacity", /* Changed on purpose (landing round 14): the steps cross fade and the layouts slide. */ [...css.matchAll(/transition:([^;]+);/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((t) => /^\s*(transform|opacity|none)\b/.test(t))))
+  check("two keyframes, transform and opacity only", frames.length === 2 && frames.map((m) => m[1]).join() === "aud-roll,aud-fresh" && props.every((p) => p === "transform" || p === "opacity"), [...new Set(props)])
+  /* Changed on purpose (landing round 15): the section is round 9's again (round 14's sequence undone at the owner's ask), and its hovers are new: Export CSV's fill grows from the right and the marks rise, by transform; only the button's words change colour. The list itself still has no transition. */
+  check("nothing in the list transitions: no cross fade, no cover, no hairline filling; the hovers move by transform", [...css.matchAll(/transition:([^;]+);/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((t) => /^\s*(transform|color|none)\b/.test(t))) && !/transition/.test(block(css, ".track") + block(css, ".fresh") + block(css, ".window")))
   check("the strip comes down a row at a time and ends where it began", /0% \{\s*transform: translate3d\(0, calc\(var\(--rh\) \* -5\), 0\);/.test(css) && /85%,\s*100% \{\s*transform: translate3d\(0, 0, 0\);/.test(css) && /transform: translate3d\(0, calc\(var\(--rh\) \* -5\), 0\);\s*\/\*[^*]*\*\/\s*animation: aud-roll 16s/.test(block(css, ".track")))
   check("it waits before the first move, so it never starts in the frames the section arrives in", /animation: aud-roll 16s cubic-bezier\(0\.3, 0, 0\.1, 1\) 1\.4s infinite both paused;/.test(css) && /animation: aud-fresh 3\.2s linear 1\.4s infinite both paused;/.test(css))
   /* Changed on purpose (wave 17): running a screen before the card arrives (LIVE_AHEAD), not once 35% of it is on screen: it came in paused and on an iPhone its rows were drawn frames after the rest. */
-  check("paused until the card is a screen from the screen and the tab visible", /* Changed on purpose (landing round 14): and only while the contacts are the step in turn. */ /\.mock\[data-live\] \.pane\[data-on\] \.track,\s*\.mock\[data-live\] \.pane\[data-on\] \.fresh \{\s*animation-play-state: running;/.test(css) && /setLive\(seen && !document\.hidden\)/.test(src) && /mock\.setAttribute\("data-live", ""\)/.test(src) && /rootMargin: LIVE_AHEAD/.test(src) && !/threshold: 0\.35/.test(src))
-  check("no interval, no React state, no render when it comes on screen", /* Changed on purpose (landing round 14): one timeout waits after a tap; the steps are timed by a Web Animation. */ !/setInterval|requestAnimationFrame|useState|usePlatformSection|startTransition/.test(src))
-  check("no words are written into the page after the first draw", /* Changed on purpose (landing round 14): a step writes attributes, a swipe a transform. */ !/textContent|innerHTML|dataset\./.test(src))
+  check("paused until the card is a screen from the screen and the tab visible", /\.mock\[data-live\] \.track,\s*\.mock\[data-live\] \.fresh \{\s*animation-play-state: running;/.test(css) && /seen && !document\.hidden\) el\.setAttribute\("data-live", ""\)/.test(src) && /rootMargin: LIVE_AHEAD/.test(src) && !/threshold: 0\.35/.test(src))
+  check("no timer, no React state, no render when it comes on screen", !/setInterval|setTimeout|requestAnimationFrame|useState|usePlatformSection|startTransition/.test(src))
+  check("nothing is written into the page after the first draw", !/textContent|innerHTML|dataset\.|\.style\./.test(src))
   check("still under reduced motion", /@media \(prefers-reduced-motion: reduce\) \{\s*\.track,\s*\.fresh \{\s*animation: none;/.test(css))
   check("no blur and no big shadow layer", !/filter|backdrop/.test(css) && /0 18px 36px -28px/.test(block(css, ".mock")))
   check("in the page's one width, the words set in", /className=\{`\$\{s\.grid\} home-wrap`\}/.test(src) && /padding-left: var\(--home-head-inset, 0px\);/.test(block(css, ".words")))

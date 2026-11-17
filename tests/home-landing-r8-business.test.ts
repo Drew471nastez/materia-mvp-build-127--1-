@@ -41,7 +41,7 @@ console.log("\nA clearer, simpler heading")
   // Changed on purpose (landing round 11): the owner did not like "What will you sell?"; the heading is "One store, every kind of product" (tests/home-landing-r11-business.test.ts).
   // Changed on purpose (landing round 13): "Five ways to get paid" (tests/home-landing-r13-business.test.ts).
   // Changed on purpose (landing round 14): "From a cookbook to a coaching call".
-  check("the heading is short, not the old line", (BUSINESS_HEADING as string) === "From a cookbook to a coaching call" && !read(SECTION).includes("One store for everything you sell."))
+  check("the heading is short, not the old line", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ (BUSINESS_HEADING as string) === "Sell files, parcels or your time" && !read(SECTION).includes("One store for everything you sell."))
   // Changed on purpose (landing round 10): the line under the heading is gone ("it doesn't make sense").
   const words = `${BUSINESS_HEADING} ${BUSINESS_SLIDES.map((s) => s.alt).join(" ")}`
   check("no banned words, no em dash, no 'fans' or 'enthusiasts'", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|\bfans\b|enthusiast/i.test(words) && !/—/.test(words + read(MOCKS)))

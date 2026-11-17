@@ -76,7 +76,7 @@ check("the same autoplay clock (one 8.4 s moment per tab)", BUILDER_DURATION_MS 
 check("the picture keeps its 1280 x 752 shape, so the section keeps its height", /\.ideas-mock\{aspect-ratio:1280\/752;/.test(ideasCss) && /\.bm-frame>\.smk\{--w:1280\}/.test(BUILDER_CSS))
 // Changed on purpose (landing round 13): the Steez page scrolls its products into view when they are selected (sxk-stz-scroll, a transform); nothing else of the store moves.
 // Changed on purpose (landing round 14): the only things that move on the store are the builder's own edit (the ring, the heading's words) and the canvas scroll.
-check("nothing new moves: the store and the emblem are still pictures", !/@keyframes sxk-gb|@keyframes sxk-cx-mark/.test(BUILDER_CSS) && !/\.stz(?!-page| \.wx-)[^{,]*\{[^}]*(animation|transition)/.test(BUILDER_CSS.replace(/@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] \.stz-page\{[^}]*\}\}/, "")))
+check("nothing new moves: the store and the emblem are still pictures", !/@keyframes sxk-gb|@keyframes sxk-cx-mark/.test(BUILDER_CSS) && !/\.stz(?!-page| \.wx-)[^{,]*\{[^}]*(animation|transition)/.test(BUILDER_CSS.replace(/@media\(prefers-reduced-motion:no-preference\)\{[^{}]*\[data-mock-live\] \.stz [^{}]*\{animation:sxk-(?:stz|ed)-[^}]*\}\}/g, ""))) /* Changed on purpose (landing round 15): the edit's own moves on Steez (the scroll, the space its products section takes, the outline) are the builder's, all under reduced motion's no-preference. */
 check("the alt text tells the new story", /Steez/.test(IDEAS_TABS[0].alt) && /barbell emblem/.test(IDEAS_TABS[2].alt) && !/Plain Weather/.test(IDEAS_TABS.map((t) => t.alt).join()))
 
 console.log("\nCopy")

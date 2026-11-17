@@ -108,6 +108,7 @@ console.log("\n── earnings: no fee line, a wider photograph ──")
   check("in the page's one width, beating the old 1400px column, its heading set in", /\.cme-wrap,\[data-landing-story\] \.cme>\.cme-wrap\{[^}]*max-width:var\(--home-max,2020px\);[^}]*padding:0 var\(--home-edge,/.test(css) && /\.cme \.story-section-heading\{padding-left:var\(--home-head-inset,0px\)\}/.test(css))
 }
 
+/* Changed on purpose (landing round 15): the owner asked for the audience section as it was before round 14, so audience-ownership.tsx and its stylesheet are f248e7d0a^'s again and the checks round 14 changed here are put back as they were (the four step sequence is gone; tests/home-landing-r14-purple.test.ts). */
 console.log("\n── audience: growth, synced with, export; real faces ──")
 {
   const src = read(`${DIR}/audience-ownership.tsx`)
@@ -116,8 +117,9 @@ console.log("\n── audience: growth, synced with, export; real faces ──")
   const words = text(html)
   /* Changed on purpose (landing round 9): the owner found the three scenes "too much text and complex" and the section stuttering as it came on screen. The chart, the export file and the scene names are gone; the picture is the list with a new person joining (tests/home-landing-r9-white.test.ts). */
   check("the three scenes are gone", !/data-scene|contacts\.csv|Downloaded|Growth/.test(html) && !/\.scene\b|\.cover\b|\.steps\b/.test(css) && !/setInterval/.test(src))
-  check("still Synced with, the five platforms in their own marks, and Export CSV", words.includes("Synced with") && words.includes("Export CSV") && ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"].every((n) => html.includes(n)) && (html.match(/class="[^"]*mark[^"]*"><svg/g) ?? []).length === 10)  /* Changed on purpose (landing round 14): the synced step draws the marks again. */
-  check("only opacity and transform move", /* Changed on purpose (landing round 14): the steps cross by transitions, each of transform or opacity. */ [...css.matchAll(/transition:([^;]+);/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((t) => /^\s*(transform|opacity|none)\b/.test(t))) && [...css.matchAll(/@keyframes [\w-]+ \{([\s\S]*?)\n\}/g)].every((m) => !/(width|height|left|top|margin|padding|filter|box-shadow|background)\s*:/.test(m[1])))
+  check("still Synced with, the five platforms in their own marks, and Export CSV", words.includes("Synced with") && words.includes("Export CSV") && ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"].every((n) => html.includes(n)) && (html.match(/class="[^"]*mark[^"]*"><svg/g) ?? []).length === 5)
+  /* Changed on purpose (landing round 15): round 9's section again, with hovers that move by transform (Export CSV's words also turn white). */
+  check("only opacity and transform move", [...css.matchAll(/transition:([^;]+);/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((t) => /^\s*(transform|color|none)\b/.test(t))) && [...css.matchAll(/@keyframes [\w-]+ \{([\s\S]*?)\n\}/g)].every((m) => !/(width|height|left|top|margin|padding|filter|box-shadow|background)\s*:/.test(m[1])))
   check("plays only on screen with the tab visible; still under reduced motion", /new IntersectionObserver/.test(src) && /document\.hidden/.test(src) && /@media \(prefers-reduced-motion: reduce\)/.test(css))
   const faces = AUDIENCE_PEOPLE.map((p) => p.photo)
   check("five new faces, small webp files, none of the old stock profiles", faces.length === 5 && faces.every((f) => existsSync(join(root, "public/home/audience/people", `${f}.webp`)) && statSync(join(root, "public/home/audience/people", `${f}.webp`)).size < 40 * 1024) && !faces.some((f) => ["sofia", "jonah", "aiko", "liam", "priya"].includes(f)), faces)

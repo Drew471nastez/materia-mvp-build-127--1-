@@ -94,6 +94,7 @@ console.log("\n── the map, on the purple sheet ──")
   check("the switch keeps a reduced motion path and a focus ring", /\.cmm-flag:focus-visible\{outline:2px solid/.test(src) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-flag,/.test(src))
 }
 
+/* Changed on purpose (landing round 15): the owner asked for the audience section as it was before round 14, so audience-ownership.tsx and its stylesheet are f248e7d0a^'s again and the checks round 14 changed here are put back as they were (the four step sequence is gone; tests/home-landing-r14-purple.test.ts). */
 console.log("\n── audience, on the white sheet ──")
 {
   const src = read(`${DIR}/audience-ownership.tsx`)
@@ -103,7 +104,7 @@ console.log("\n── audience, on the white sheet ──")
   check("one white card with a hairline: no violet light, no lilac card", /\.mock \{[^}]*background: #fff;/.test(css) && !/radial-gradient|\.violet|\.stage/.test(css) && !/s\.violet|s\.stage/.test(src))
   /* Changed on purpose (landing round 4): the owner asked for a lighter structure; what stays yours is one plain line under three plain rows, no pills. */
   check("what stays yours is a plain line, not pills", /* Changed on purpose (landing round 9): the owner asked for half the words; the point is its five words now. */ html.includes("Download every contact, any time") && !/rounded-full bg-white px-3 py-1\.5/.test(src))  /* Changed on purpose (landing round 5): the line closes the Download row. */
-  check("the picture answers a swipe, never a scroll", /* Changed on purpose (landing round 14): the owner asked for a picture the visitor can tap, swipe and drag between steps. */ /\.mock \{[^}]*touch-action: pan-y;/.test(css) && /\$\{s\.mock\}/.test(src))  /* Changed on purpose (landing round 7): the picture is also a motion root now (it plays three scenes). */  /* Changed on purpose (landing round 5): one picture now. */
+  check("the picture is inert", /\.mock \{[^}]*pointer-events: none;/.test(css) && /\$\{s\.mock\}/.test(src))  /* Changed on purpose (landing round 7): the picture is also a motion root now (it plays three scenes). */  /* Changed on purpose (landing round 5): one picture now. */
   /* Changed on purpose (landing round 4): the Storelib logo above the platforms went with the tree. */
   check("still as the owner left it: Download every contact, real faces", html.includes("Download every contact, any time") && /people\/niamh\.webp/.test(html))  /* Changed on purpose (landing round 7): new faces, the owner asked for different, realistic people. */
   check("no tabs in the section", !/role="tab"/.test(html))
