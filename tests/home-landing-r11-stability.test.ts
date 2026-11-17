@@ -73,7 +73,8 @@ console.log("\nA box that changes height above the screen moves nothing on it")
   check("standing still: the scroll moves by the difference", /if \(calm\(\)\) scrollWith\(h - was\)/.test(hold) && /const calm = \(\) => performance\.now\(\) - lastScroll >= CALM_MS/.test(src))
   check("mid-fling (a script scroll would stop it on iOS): the box's top margin takes it, owed", /const m = \(owed\.get\(box\) \?\? 0\) \+ h - was/.test(hold) && /box\.style\.marginTop = `\$\{-m\}px`/.test(hold) && /idle\(settleOwed\)/.test(hold))
   const owed = fn("settleOwed")
-  check("the margin is traded for a scroll once calm, never while that box's top is on screen", /if \(!calm\(\)\) return idle\(settleOwed\)/.test(owed) && /if \(top > -1 && top < window\.innerHeight \+ 1\)/.test(owed) && /box\.style\.marginTop = ""\s+if \(top < 0\) scrollWith\(m\)/.test(owed))
+  // Changed on purpose (landing round 15): a held margin left while its box's top was on screen became a lasting gap on the owner's iPhone (a band of dark ground above the checkout); every held margin now goes once calm, the scroll moving by as much when the box's top is above the foot of the screen.
+  check("the margin is traded for a scroll once calm, whatever the box's place", /if \(!calm\(\)\) return idle\(settleOwed\)/.test(owed) && !/if \(top > -1 && top < window\.innerHeight \+ 1\)/.test(owed) && /box\.style\.marginTop = ""\s+if \(top < window\.innerHeight\) scrollWith\(m\)/.test(owed))
   check("a lazy section is held from its first frame, empty or mounted (React keeps the same box)", /useEffect\(\(\) => \{\s+const el = ref\.current\s+return el \? holdAbove\(el\) : undefined\s+\}, \[\]\)/.test(src))
   check("both kinds of box are held", (src.match(/holdAbove\(el\)/g) || []).length === 2)
 }

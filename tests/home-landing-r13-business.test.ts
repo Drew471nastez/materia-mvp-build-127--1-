@@ -34,7 +34,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "")
 const SECTION = "components/marketing/home/business-carousel.tsx"
 const MOCKS = "components/marketing/home/showcase-mocks/business-mocks.tsx"
 const { BUSINESS_HEADING, BUSINESS_SUB, BUSINESS_ACCENT, BUSINESS_ACCENT_COLOR, BUSINESS_SLIDES, BUSINESS_STYLES, BusinessCarousel } = Section
-const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, ClubScene, DIGITAL_PRODUCTS, STORE_DESIGNS, STORE_DESIGN_WIDTHS, STORE_STEP_S, STORE_GLIDE_S } = Mocks
+const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, ClubScene, DIGITAL_FLOW, STORE_DESIGNS, STORE_DESIGN_WIDTHS, STORE_STEP_S, STORE_GLIDE_S } = Mocks
 const css = (BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? "").replace(/\/\*[\s\S]*?\*\//g, "")
 const mocks = BUSINESS_MOCK_CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/calc\(([-\d.]+)\*var\(--u\)\)/g, "$1u")
 const phoneAt = mocks.indexOf("@media(max-width:767px)")
@@ -53,11 +53,11 @@ console.log("\nHeading: specific, short, far less purple")
 {
   // Changed on purpose (landing round 14): the owner disliked "Five ways to get paid"; the heading is "From a cookbook to a coaching call".
   /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */
-  check("Five ways to get paid", BUSINESS_HEADING === "Sell files, parcels or your time" && html.includes('aria-label="Sell files, parcels or your time"'))
+  check("Five ways to get paid",  /* Changed on purpose (landing round 15): the owner disliked "From a cookbook to a coaching call" and the green after it: "Ship it, stream it or book it", "book" in Storelib violet. */ BUSINESS_HEADING === "Ship it, stream it or book it" && html.includes('aria-label="Ship it, stream it or book it"'))
   // Changed on purpose (landing round 14): the accent word is "call".
-  check("one accented word, and it is in the heading", BUSINESS_ACCENT.length === 1 && /* Changed on purpose (landing round 15): "time". */ BUSINESS_ACCENT[0] === "time" && (html.match(/data-story-accent="true"/g) ?? []).length === 1)
+  check("one accented word, and it is in the heading", BUSINESS_ACCENT.length === 1 && /* Changed on purpose (landing round 15): "time". */ /* Changed on purpose (landing round 15, again): "book". */ BUSINESS_ACCENT[0] === "book" && (html.match(/data-story-accent="true"/g) ?? []).length === 1)
   /* Changed on purpose (landing round 15): not a violet: the slate green of the bookings card's photograph. */
-  check("the accent is a greyer violet than the page's, set on this heading only", BUSINESS_ACCENT_COLOR === "#46605c" && css.includes(`.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};`))
+  check("the accent is a greyer violet than the page's, set on this heading only", /* Changed on purpose (landing round 15, again): the owner asked for Storelib's own purple, the page's #7c3aed. */ BUSINESS_ACCENT_COLOR === "#7c3aed" && css.includes(`.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};`))
   check("the line names the five kinds in at most ten words", BUSINESS_SUB === "Downloads, goods, courses, communities and calls, one checkout." && BUSINESS_SUB.split(/\s+/).length <= 10)
   check("no banned words, em dashes or other brands in the copy", !BANNED.test([BUSINESS_HEADING, BUSINESS_SUB, ...BUSINESS_SLIDES.flatMap((s) => [s.label, s.line, s.alt]), digital, physical, club].join(" ")))
 }
@@ -65,7 +65,8 @@ console.log("\nHeading: specific, short, far less purple")
 console.log("\nDigital: the mobility course and Ancestral Kitchen")
 {
   // Changed on purpose (landing round 14): the owner disliked the digital card's ground and motion; it is a shelf of six downloads (tests/home-landing-r14-business.test.ts). The two products stay on it.
-  check("the two products, priced, from one store", DIGITAL_PRODUCTS.slice(0, 2).map((p) => `${p.name} ${p.price}`).join() === "Ancestral Kitchen $34,Daily Mobility $79" && digital.includes("by Ruth Calder"))
+  /* Changed on purpose (landing round 15): the shelf is gone; the two are the first bought on the product page (DIGITAL_FLOW). */
+  check("the two products, priced, from one store", DIGITAL_FLOW.slice(0, 2).map((p) => `${p.name} ${p.price}`).join() === "Ancestral Kitchen $34,Daily Mobility $79" && digital.includes("by Ruth Calder"))
   check("their pictures are the earlier rounds' own, small", ["ancestral-kitchen-cookbook", "mobility-course"].every((n) => digital.includes(`/home/sell-map/${n}.webp`) && statSync(`public/home/sell-map/${n}.webp`).size < 60_000))
   check("Slow Mornings, Night Face Oil and their photographs are gone", !/Slow Mornings|Night Face Oil|bz-ebook|bz-eggs|bz-oil|be-cover|be-page|bo-thumb/.test(code(MOCKS) + code(SECTION)) && ["bz-ebook", "bz-eggs", "bz-oil"].every((n) => !existsSync(`public/home/showcase/${n}.webp`)))
 }

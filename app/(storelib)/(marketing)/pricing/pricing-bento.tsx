@@ -49,8 +49,11 @@ export const BENTO_CARDS = [
   { key: "domain", size: "third", lead: "Connect your own domain.", rest: `Your store at an address you already own, like ${DOMAIN_NAME}.com, on ${domainPlans()}.` },
 ] as const
 
-/** The pictures that take nothing from the section. */
-const STILL = { sell: <ProductSlides />, support: <Support />, domain: <DomainReel /> }
+/**
+ * The pictures that take nothing from the section. Landing round 15, the owner: the products tile here shows the
+ * product card and its tabs only, without the home page's "sending a download link" notice over the Digital slide.
+ */
+const STILL = { sell: <ProductSlides delivery={false} />, support: <Support />, domain: <DomainReel /> }
 
 export function PricingBento() {
   const ref = useRef<HTMLElement>(null)
@@ -119,4 +122,6 @@ export const BENTO_CSS = `
   .pz-bento .pz-third .ev-vis{height:clamp(280px,min(25vw,46svh),480px)}
 }
 .pz-bento .ev-card{opacity:1;transform:none}
+/* Landing round 15: with no download notice to make room for under the card, the phone's card stands where it does on a computer. */
+@media(max-width:479px){.pz-bento [data-no-delivery] .ev-p-stage{top:44%}}
 `

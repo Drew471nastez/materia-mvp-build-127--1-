@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useRef, type CSSProperties } from "react"
-import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
-import { SITE_LANGUAGE_CODES } from "@/lib/markets/locales"
+import { CROSS_BORDER_REGION } from "@/lib/payments/stripe/payout-regions"
+import { MAX_UPLOAD_BYTES } from "@/lib/security/uploads/policy"
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { useShowcaseField } from "./showcase-field"
 import { StoryHeading } from "./story-heading"
@@ -55,7 +55,7 @@ const wide = (brand: string, label: string, alt: string, dir = "/home/showcase")
   /* A desktop card is 43% of the rail: 720 wide for 1x, 1440 for 2x. */
   srcSet: `${dir}/a-${brand}-720.webp 720w, ${dir}/a-${brand}.webp 1440w`,
   sizes: "(min-width: 2020px) 780px, 39vw",
-  /* A phone's card is 4:3, 78vw: its own 4:3 picture, 640 wide for 2x and 960 for 3x. */
+  /* A phone's card is 4:3, 85vw (landing round 15, later: was 78vw): its own 4:3 picture, 640 wide for 2x and 960 for 3x. */
   phoneSrcSet: `${dir}/m-${brand}-640.webp 640w, ${dir}/m-${brand}-960.webp 960w` as string | undefined,
   alt,
   label,
@@ -118,10 +118,9 @@ const portrait = (brand: string, label: string, alt: string, tone: string) => ({
   quality". The files and their sizes were right (1440 and 720 for a
   desktop card, 960 and 640 for a phone's); what was soft was the box art,
   cut from a 460px screenshot of the whole page and enlarged about four and
-  a half times. The six boxes are drawn again, sharp (the same boxes as the
-  website builder's loudlib, builder-mocks.tsx), and set into the same four
-  pictures in place of the soft ones; the page, the words and the badges
-  around them are as they were.
+  a half times. The six boxes are drawn again, sharp, and set into the same
+  four pictures in place of the soft ones; the page, the words and the
+  badges around them are as they were.
 */
 /* Every caption is three words at most (the owner, waves 13 and 14). */
 const GROUPS = [
@@ -150,31 +149,37 @@ export const SHOWCASE_EXAMPLES = GROUPS.flat()
 export const SHOWCASE_HEADING = "Build your page, sell your products, and manage everything in one place."
 
 /*
-  LANDING ROUND 15, THE OWNER: a row of three numbers under the heading,
-  after Squarespace's "14M+ Entrepreneurs Served" row (big light numbers, a
-  small line under each, centred on the dark ground), three across on a
-  phone too. Each is a fact about the product read from the code that makes
-  it true, never a figure about other people's sales:
-    7    the currencies checkout charges in: one fee rule per currency
-         (lib/payments/fees/currency-rules.ts CURRENCY_FEE_RULES).
-    43   the languages a website's settings offer it in
-         (lib/markets/locales.ts SITE_LANGUAGE_CODES).
-    $0   the Free plan's monthly price (lib/billing/plans.ts OFFERED_PLANS,
-         free.priceCents; tests/home-landing-r15-showcase.test.ts holds them equal).
+  LANDING ROUND 15, THE OWNER: a row of three numbers, after Squarespace's
+  "14M+ Entrepreneurs Served" row (big light numbers, a small line under
+  each, centred on the dark ground), three across on a phone too.
+  Later in round 15 the owner: no numbers under the heading at all; the
+  numbers stand under the pictures, with thin vertical lines between them,
+  count up smoothly, and are different ones. Each is a fact about the
+  product read from the code that makes it true, never a figure about other
+  people's sales:
+    79     the OnePage themes the Design tab offers
+           (components/onepage/tabs/design-tab.tsx THEME_TEMPLATES; too big a
+           module to load here, so tests/home-landing-r15-stats.test.ts holds
+           SHOWCASE_THEME_COUNT equal to its length).
+    34     the countries Stripe can pay a creator out in from Storelib: the
+           US, the UK, the EEA, Canada and Switzerland
+           (lib/payments/stripe/payout-regions.ts CROSS_BORDER_REGION).
+    10 GB  the largest product file the upload routes take, on every plan
+           (lib/security/uploads/policy.ts MAX_UPLOAD_BYTES.product_file).
 */
-export const SHOWCASE_FREE_MONTHLY_CENTS = 0
-export const SHOWCASE_STATS: readonly { value: number; prefix?: string; label: string }[] = [
-  { value: Object.keys(CURRENCY_FEE_RULES).length, label: "Currencies at checkout" },
-  { value: SITE_LANGUAGE_CODES.length, label: "Languages for your site" },
-  { value: SHOWCASE_FREE_MONTHLY_CENTS / 100, prefix: "$", label: "A month on Free" },
+export const SHOWCASE_THEME_COUNT = 79
+export const SHOWCASE_STATS: readonly { value: number; suffix?: string; label: string }[] = [
+  { value: SHOWCASE_THEME_COUNT, label: "OnePage themes" },
+  { value: CROSS_BORDER_REGION.size, label: "Countries you get paid in" },
+  { value: MAX_UPLOAD_BYTES.product_file / 1024 ** 3, suffix: " GB", label: "Largest file you can sell" },
 ]
 /** How long the numbers take to count up, once the row is on screen. */
-const COUNT_MS = 1400
+const COUNT_MS = 1600
 
 /**
- * The numbers count up once, when the row comes into view: one requestAnimationFrame loop, only for those 1.4s,
- * writing each number's textContent. Each number sits in a box as wide as its final text in tabular figures, so a
- * changing digit moves nothing around it. The server draws the final numbers, which is what reduced motion keeps, and
+ * The numbers count up once, when the row comes into view: one requestAnimationFrame loop, only for those 1.6s,
+ * writing each number's textContent, eased out so the last steps land softly. Each number sits in a box as wide as its
+ * final figures in tabular figures, so a changing figure moves nothing around it; a unit (GB) stands after the box. The server draws the final numbers, which is what reduced motion keeps, and
  * a row already on screen when it mounts keeps them too rather than jumping back to zero.
  */
 function ShowcaseStats() {
@@ -189,7 +194,7 @@ function ShowcaseStats() {
     const show = (k: number) =>
       nums.forEach((n, i) => {
         const s = SHOWCASE_STATS[i]
-        const text = `${s.prefix ?? ""}${Math.round(s.value * k)}`
+        const text = `${Math.round(s.value * k)}`
         if (n.textContent !== text) n.textContent = text
       })
     show(0)
@@ -201,12 +206,12 @@ function ShowcaseStats() {
         const start = performance.now()
         const step = (now: number) => {
           const t = Math.min(1, (now - start) / COUNT_MS)
-          show(1 - Math.pow(1 - t, 3))
+          show(1 - Math.pow(1 - t, 4))
           if (t < 1) raf = requestAnimationFrame(step)
         }
         raf = requestAnimationFrame(step)
       },
-      { threshold: 0.6 },
+      { threshold: 0.5 },
     )
     io.observe(el)
     return () => {
@@ -218,7 +223,7 @@ function ShowcaseStats() {
   return (
     <dl ref={root} className="build-showcase-stats">
       {SHOWCASE_STATS.map((s) => {
-        const text = `${s.prefix ?? ""}${s.value}`
+        const text = `${s.value}`
         return (
           <div key={s.label}>
             <dt>{s.label}</dt>
@@ -226,6 +231,7 @@ function ShowcaseStats() {
               <span data-stat="" style={{ width: `${text.length}ch` }}>
                 {text}
               </span>
+              {s.suffix ? <span className="build-showcase-unit">{s.suffix.trim()}</span> : null}
             </dd>
           </div>
         )
@@ -266,7 +272,6 @@ export function BuildShowcase() {
             dark
             showcase
           />
-          <ShowcaseStats />
         </div>
         <div
           className="build-showcase-viewport"
@@ -302,7 +307,7 @@ export function BuildShowcase() {
                     style={example.tone ? ({ "--showcase-tone": example.tone } as CSSProperties) : undefined}
                   >
                     <picture className="build-showcase-pic">
-                      {example.phoneSrcSet ? <source media="(max-width: 767px)" srcSet={example.phoneSrcSet} sizes="78vw" width={960} height={720} /> : null}
+                      {example.phoneSrcSet ? <source media="(max-width: 767px)" srcSet={example.phoneSrcSet} sizes="85vw" width={960} height={720} /> : null}
                       {/* Optimized Storelib page renders and one real OnePage screenshot; no full-size third-party downloads. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -328,6 +333,8 @@ export function BuildShowcase() {
             ))}
           </div>
         </div>
+        {/* Landing round 15, later: the numbers under the pictures. */}
+        <ShowcaseStats />
       </div>
     </section>
   )
@@ -363,12 +370,19 @@ const CSS = `
 .build-showcase-top {margin:0 calc(var(--showcase-gutter,clamp(20px,5.15vw,84px)) + var(--landing-card-inset,14px)) clamp(38px,4.8vw,65px)}
 .build-showcase h2 {max-width:none;margin:0;font-size:clamp(32px,3.4vw,58px);text-wrap:balance;line-height:1.13}
 .build-showcase .story-heading {--story-muted:#66666e}
-/* Landing round 15: the three numbers, centred under the heading, three across at every width. The label is a dt drawn under its number (order), so a screen reader hears the label first. */
-.build-showcase-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,3vw,56px);max-width:880px;margin:clamp(40px,4.4vw,64px) auto 0;padding:0;text-align:center}
-.build-showcase-stats>div {display:flex;flex-direction:column;align-items:center;min-width:0}
-.build-showcase-stats dd {order:-1;margin:0;font-size:clamp(34px,5.2vw,76px);font-weight:300;line-height:1;letter-spacing:-.035em;color:#fafafa}
-.build-showcase-stats [data-stat] {display:inline-block;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap}
-.build-showcase-stats dt {margin-top:clamp(8px,1vw,14px);font-size:clamp(12px,1.1vw,15px);font-weight:500;line-height:1.3;color:#a1a1aa}
+/*
+  Landing round 15, later (the owner): the three numbers under the pictures, "very smooth and clean", a thin vertical line
+  between each two (a 1px border, 12% white), three across at every width. The label is a dt drawn under its number
+  (order), so a screen reader hears the label first. The row keeps the rail's gutters, and its numbers stay on one line
+  at 320px.
+*/
+.build-showcase-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-width:1040px;margin:clamp(48px,5vw,80px) auto 0;padding:0 var(--showcase-gutter,clamp(20px,5.15vw,84px));box-sizing:border-box;text-align:center}
+.build-showcase-stats>div {display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-width:0;padding:clamp(4px,.6vw,10px) clamp(6px,2vw,32px)}
+.build-showcase-stats>div+div {border-left:1px solid rgba(255,255,255,.12)}
+.build-showcase-stats dd {order:-1;display:flex;align-items:baseline;justify-content:center;margin:0;font-size:clamp(34px,4.6vw,72px);font-weight:300;line-height:1;letter-spacing:-.035em;color:#fafafa;white-space:nowrap}
+.build-showcase-stats [data-stat] {display:inline-block;font-variant-numeric:tabular-nums;text-align:right}
+.build-showcase-unit {margin-left:.16em}
+.build-showcase-stats dt {margin-top:clamp(10px,1vw,14px);font-size:clamp(12px,1.05vw,15px);font-weight:500;line-height:1.3;color:#a1a1aa;text-wrap:balance}
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* Landing round 9: no fading mask on the rail (a mask over a moving layer is drawn again every frame of a drag); the rail is cut at the gutter. */
 .build-showcase-viewport {position:relative;overflow:hidden;margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}
@@ -437,8 +451,11 @@ const CSS = `
   should have the same height as the 4:3 images." A OnePage card keeps its
   own shape but is as tall as a 4:3 card: 0.75 of the card's width high, so
   0.75 * 540 / 1056 = 0.3835 of it wide.
+  LANDING ROUND 15, LATER, THE OWNER: "make them 1.1 view, not 1.2". A card
+  is 85% of the screen (was 78%): at 390 the screen past the gutter is 370px
+  over a 331px card, 1.12 of it, and the next one peeks about 29px (was 56).
 */
-@media(max-width:767px){.build-showcase{--showcase-card:min(78vw,440px)}.build-showcase-card{padding:64px 0 clamp(44px,12vw,64px)}.build-showcase-top{margin-inline:var(--showcase-gutter)}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0}.build-showcase-track{--showcase-gap:10px;gap:var(--showcase-gap);align-items:flex-start;padding-inline:var(--showcase-gutter);scroll-padding-inline:var(--showcase-gutter)}.build-showcase-group{display:contents}.build-showcase-slide{flex:0 0 var(--showcase-card);width:var(--showcase-card);scroll-snap-align:start;scroll-snap-stop:normal}.build-showcase-pic{aspect-ratio:4/3;border-radius:8px}.build-showcase-pic img{object-position:50% 0}.build-showcase-slide[data-format="portrait"]{flex-basis:calc(var(--showcase-card)*.3835);width:calc(var(--showcase-card)*.3835)}.build-showcase-slide[data-format="portrait"] .build-showcase-pic{aspect-ratio:540/1056}.build-showcase-slide figcaption{border-radius:0 0 8px 8px;padding:0 14px 12px;font-size:14px;line-height:18px}.build-showcase-slide[data-format="portrait"] figcaption{height:52%;padding:0 9px 10px;font-size:12px;line-height:15px;letter-spacing:0}.build-showcase-slide[data-format="portrait"] figcaption span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
+@media(max-width:767px){.build-showcase{--showcase-card:min(85vw,440px)}.build-showcase-card{padding:64px 0 clamp(44px,12vw,64px)}.build-showcase-top{margin-inline:var(--showcase-gutter)}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0}.build-showcase-track{--showcase-gap:10px;gap:var(--showcase-gap);align-items:flex-start;padding-inline:var(--showcase-gutter);scroll-padding-inline:var(--showcase-gutter)}.build-showcase-group{display:contents}.build-showcase-slide{flex:0 0 var(--showcase-card);width:var(--showcase-card);scroll-snap-align:start;scroll-snap-stop:normal}.build-showcase-pic{aspect-ratio:4/3;border-radius:8px}.build-showcase-pic img{object-position:50% 0}.build-showcase-slide[data-format="portrait"]{flex-basis:calc(var(--showcase-card)*.3835);width:calc(var(--showcase-card)*.3835)}.build-showcase-slide[data-format="portrait"] .build-showcase-pic{aspect-ratio:540/1056}.build-showcase-slide figcaption{border-radius:0 0 8px 8px;padding:0 14px 12px;font-size:14px;line-height:18px}.build-showcase-slide[data-format="portrait"] figcaption{height:52%;padding:0 9px 10px;font-size:12px;line-height:15px;letter-spacing:0}.build-showcase-slide[data-format="portrait"] figcaption span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
 @media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready] .build-showcase-pic img{opacity:1;transform:none;transition:none}.build-showcase-slide figcaption,.build-showcase-slide figcaption span{transform:none;transition:none}}
 `
 

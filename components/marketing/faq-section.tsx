@@ -93,27 +93,10 @@ const FAQ_ROWS_CSS = `
 `
 
 /*
-  LANDING ROUND 15, THE OWNER: "make the background a bit darker and the dot
-  pattern a bit more visible, smooth and clean". The questions sit on a soft
-  grey ground of their own (#f1f1f3), a rounded panel set in from the page's
-  edges and from the section's top and foot by --faq-out, so it never meets
-  the next block's rounded corners (their fillets are the sheet's white).
-  Over it a fine grid of round dots, strongest under the heading and fading
-  out down the panel by a still mask, so it is never busy behind the
-  answers. The rows turn white on the grey. Nothing moves; both layers are
-  pseudo elements, so the markup and the rows' motion are as they were.
+  LANDING ROUND 15, THE OWNER, A SECOND TIME: no grey panel behind the
+  questions and no dots. The section is the page's own background again (as
+  in round 14); the rows keep their own soft grey and open as before.
 */
-const FAQ_GROUND_CSS = `
-.faq-ground{--faq-out:clamp(10px,2vw,28px);position:relative;isolation:isolate;padding-block:calc(72px + var(--faq-out))}
-.faq-ground::before,.faq-ground::after{content:"";position:absolute;z-index:-1;top:var(--faq-out);bottom:var(--faq-out);left:var(--home-edge,20px);right:var(--home-edge,20px);border-radius:clamp(22px,3vw,40px);pointer-events:none}
-.faq-ground::before{background:#f1f1f3}
-.faq-ground::after{background-image:radial-gradient(circle,rgba(24,24,27,.15) 0,rgba(24,24,27,.15) 1px,transparent 1.45px);background-size:22px 22px;background-position:11px 11px;-webkit-mask-image:radial-gradient(130% 85% at 50% 0%,#000 25%,transparent 80%);mask-image:radial-gradient(130% 85% at 50% 0%,#000 25%,transparent 80%)}
-/* Under 1024px the column runs the page's width, so the panel reaches out past the rows by 14px a side (into the page's edge) instead of the rows stepping in. */
-@media (max-width:1023px){.faq-ground::before,.faq-ground::after{left:max(6px,calc(var(--home-edge,20px) - 14px));right:max(6px,calc(var(--home-edge,20px) - 14px))}}
-.faq-ground .faq-rows .faq-item{background:#fff;box-shadow:0 0 0 1px rgba(24,24,27,.05),0 1px 2px rgba(24,24,27,.03)}
-@media (hover:hover){.faq-ground .faq-rows .faq-item:hover{background:#fbfbfc}}
-@media (min-width:640px){.faq-ground{padding-block:calc(104px + var(--faq-out))}}
-`
 
 function FaqItem({ faq, index, isOpen, onToggle }: { faq: typeof FAQS[number]; index: number; isOpen: boolean; onToggle: () => void }) {
   const id = `faq-a-${index}`
@@ -154,13 +137,12 @@ export function FaqSection({ editorial = false }: { editorial?: boolean } = {}) 
       <section
         data-story-section="faq"
         data-faq-plain=""
-        className="faq-ground home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] !rounded-none"
+        className="py-20 sm:py-28 home-wrap !max-w-[var(--home-max)] !px-[var(--home-edge)] !rounded-none"
         style={{ background: "transparent" }}
         id="faq"
       >
         <style href="faq-section" precedence="default">{FAQ_CSS}</style>
         <style href="faq-section-rows" precedence="default">{FAQ_ROWS_CSS}</style>
-        <style href="faq-section-ground" precedence="default">{FAQ_GROUND_CSS}</style>
         <div data-faq-column="" className="!mx-auto w-full !max-w-[880px] !px-0">
           <AnimateOnScroll variant="fade-up">
             <div className="story-section-heading !mx-auto !mb-9 w-full !text-center sm:!mb-12">

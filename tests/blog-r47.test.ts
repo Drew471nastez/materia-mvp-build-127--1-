@@ -123,7 +123,8 @@ function main() {
     check("  each pill a 44px target", /className="group relative flex h-11 items-center/.test(nav))
     const css = read("app/globals.css")
     /* Changed on purpose (round 49): a crossfade with a 6px rise, opacity and transform only (tests/blog-r49.test.ts). */
-    check("the list's fade is opacity and transform only, and off with reduced motion", /@keyframes blog-list-swap \{\s*from \{ opacity: 0; transform: translate3d\(0, 6px, 0\); \}\s*to \{ opacity: 1; transform: none; \}\s*\}/.test(css) && /\.blog-list-swap, \.blog-title-swap \{ animation: none; \}/.test(css))
+    /* Changed on purpose (landing round 15): the list is redrawn in the browser with nothing to wait for, so it fades in from 30% (never a blank frame) and the title's fade is gone with the changing title (tests/home-landing-r15-faq-blog.test.ts). */
+    check("the list's fade is opacity and transform only, and off with reduced motion", /@keyframes blog-list-swap \{\s*from \{ opacity: 0\.3; transform: translate3d\(0, 6px, 0\); \}\s*to \{ opacity: 1; transform: none; \}\s*\}/.test(css) && /prefers-reduced-motion: reduce\) \{\s*\.blog-list-swap \{ animation: none; \}/.test(css))
   }
 
   /* Round 47, lead: before SQL part 345 a reader's view moves updated_at, so the published date stands in wherever a reader or a crawler sees "updated". */

@@ -1,15 +1,15 @@
-import { CalendarDays, Check, CheckCircle2, Download, Heart, MessageCircle, Play, Users, Video } from "lucide-react"
-import { useEffect, useRef, useState, type CSSProperties } from "react"
+import { ArrowDownToLine, CalendarDays, Check, CheckCircle2, Heart, MessageCircle, MoreHorizontal, Play, Users, Video } from "lucide-react"
+import { useEffect, useRef, type CSSProperties } from "react"
 import { Pic, pic, u } from "./frame"
 
 /*
-  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 14).
+  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 15).
   Each kind of thing sold is one scene on its own calm ground: the thing
   itself, photographed, and the Storelib page that sells it, with one short
   moment playing while it is shown.
 
-    Digital product   A shelf of six downloads and the one in view, which a
-                      visitor can point at, open and buy (round 14)
+    Digital product   A product page and a buyer's phone: three downloads
+                      bought in turn, each arriving in their library (round 15)
     Physical product  A line of store designs for goods you ship, turning in
                       perspective by itself and under a drag (round 14)
     Course            Mixing in key, Tomás Reyes's course for new DJs (kept)
@@ -25,7 +25,9 @@ import { Pic, pic, u } from "./frame"
 
   Round 14 made the digital and physical scenes the two a visitor can use
   (business-carousel.tsx draws them without the picture wrapper, and tells
-  them, as `on`, when they are shown and on screen).
+  them, as `on`, when they are shown and on screen). Round 15 made the
+  digital scene a picture again (the owner disliked the shelf), so the line
+  of store designs is the one a visitor can use.
 
   Drawn at one design size per layout (1100 x 570 from 768px, 360 x 520
   below; `--u` in frame.tsx), so a picture is the same at any width. Every
@@ -50,22 +52,27 @@ function Still({ src, w, h, className = "smk-pic" }: { src: string; w: number; h
 
 /* ================================================================ Digital product */
 /*
-  Round 14, the owner disliked the digital card's beige ground and its
-  motion, and wanted more digital products in it, something a visitor can
-  play with. It is a small shelf now: six downloads as they stand on a
-  Storelib page (a cookbook, a video course, a LUT pack, a sample pack, a
-  Notion template and a PDF guide) and, beside them, the one in view: what
-  comes in it and its button. Pointing at a product (on a phone, tapping it)
-  shows it there; its button buys it and the download happens in the
-  button, then the product is marked as yours on the shelf. Until someone
-  touches it the shelf shows itself: three products come up in turn and the
-  cookbook is bought.
+  Round 15, the owner disliked the shelf of six with its hover and buy, and
+  asked for something smoother and cleaner. It is one calm scene now: a
+  product page on the left and, beside it, a buyer's phone open on their
+  Storelib library. Three digital products are bought in turn (a cookbook
+  PDF, a video course, a sample pack); each time the button says it is paid
+  and the purchase slides into the top of the library, tinted the way the
+  real library marks a new purchase (components/library/product-row.tsx,
+  #f7f5ff), and the one before it settles.
 
-  Pictures: the cookbook, the course and the LUT pack are the map's
-  (public/home/sell-map), the sample pack the builder's; the planner and the
-  guide are covers drawn for this card (public/home/showcase/dg-*.webp).
+  Every moment is a CSS animation on opacity and transform, one turn long,
+  run once while the scene is shown (`.bz-on`) and paused off screen
+  (business-carousel.tsx). The library's list is one layer that steps down
+  a row at each purchase (one animation, its keyframes holding between the
+  steps; three nested wrappers measured as more compositor work on a phone),
+  so no script runs and nothing is laid out again. Without motion the scene stands at its end: the sample
+  pack paid for and on top of the library.
+
+  The library rows are the real row's phone layout: picture, name, maker
+  and date, then Download (or Open, for a course) and More.
 */
-export const DIGITAL_PRODUCTS = [
+export const DIGITAL_FLOW = [
   {
     id: "kitchen",
     name: "Ancestral Kitchen",
@@ -74,8 +81,7 @@ export const DIGITAL_PRODUCTS = [
     src: "/home/sell-map/ancestral-kitchen-cookbook.webp",
     by: "Ruth Calder",
     gets: ["80 recipes from whole foods", "Weekly shopping lists", "212 pages, made to print"],
-    doing: "Downloading the PDF",
-    done: "Downloaded, a copy is in your email",
+    action: "Download",
   },
   {
     id: "mobility",
@@ -83,21 +89,9 @@ export const DIGITAL_PRODUCTS = [
     kind: "Video course",
     price: "$79",
     src: "/home/sell-map/mobility-course.webp",
-    by: "Ruth Calder",
+    by: "Lena Park",
     gets: ["21 lessons, 15 minutes a day", "Watch online or download", "Picks up where you stopped"],
-    doing: "Adding 21 lessons",
-    done: "In your library, lesson 1 is ready",
-  },
-  {
-    id: "cine",
-    name: "Cine Tones",
-    kind: "LUT pack",
-    price: "$24",
-    src: "/home/sell-map/cine-tones-lut-pack.webp",
-    by: "Dario Ruiz",
-    gets: ["12 LUTs for warm film looks", "Premiere, Resolve and Final Cut", "Before and after stills"],
-    doing: "Downloading cine-tones.zip",
-    done: "Downloaded, 12 LUTs ready",
+    action: "Open",
   },
   {
     id: "drums",
@@ -107,129 +101,94 @@ export const DIGITAL_PRODUCTS = [
     src: "/home/showcase/ll-drums.webp",
     by: "Loud",
     gets: ["240 drum one shots, WAV", "Kicks, snares, hats, percussion", "Royalty free"],
-    doing: "Downloading 240 samples",
-    done: "Downloaded, ready to drop in",
-  },
-  {
-    id: "planner",
-    name: "Creator Planner",
-    kind: "Notion template",
-    price: "$15",
-    src: "/home/showcase/dg-creator-planner.webp",
-    by: "Hana Ito",
-    gets: ["Content board and calendar", "Sponsor deals and invoices", "Copies into your Notion"],
-    doing: "Making your copy",
-    done: "Your copy is in your Notion",
-  },
-  {
-    id: "pricing",
-    name: "Pricing Your Work",
-    kind: "Guide, PDF",
-    price: "$12",
-    src: "/home/showcase/dg-pricing-guide.webp",
-    by: "Owen Pratt",
-    gets: ["Set rates and quote projects", "Raise them without losing clients", "64 pages"],
-    doing: "Downloading the PDF",
-    done: "Downloaded, a copy is in your email",
+    action: "Download",
   },
 ] as const
-/** The shelf showing itself: the products that come up in turn (the last is bought), a step apart, then the buy. */
-export const DIGITAL_DEMO = { order: [2, 4, 0], stepMs: 1300, buyMs: 3500 } as const
+/** Bought before the scene starts: the library is not empty. */
+export const DIGITAL_OWNED = [
+  { id: "pricing", name: "Pricing Your Work", src: "/home/showcase/dg-pricing-guide.webp", by: "Owen Pratt", date: "Oct 2, 2026" },
+  { id: "planner", name: "Creator Planner", src: "/home/showcase/dg-creator-planner.webp", by: "Hana Ito", date: "Sep 14, 2026" },
+  { id: "cine", name: "Cine Tones", src: "/home/sell-map/cine-tones-lut-pack.webp", by: "Dario Ruiz", date: "Aug 30, 2026" },
+] as const
+/** One purchase's share of the turn, in seconds (the CSS below and the turn's length in business-carousel.tsx read it). */
+export const DIGITAL_BUY_S = 3.2
+/** A product's pane stands its step and fades out under the next one (written out: 3.2 + 0.4 in floating point is 3.6000000000000005). */
+const DIGITAL_PANE_S = 3.6
+const TODAY = "Nov 17, 2026"
 
-export function DigitalScene({ on = false }: { on?: boolean }) {
-  const [sel, setSel] = useState<number>(DIGITAL_DEMO.order[0])
-  const [peek, setPeek] = useState<number | null>(null)
-  const [owned, setOwned] = useState<readonly number[]>([])
-  /* Someone has touched the shelf: it stops showing itself and keeps what they did. */
-  const [mine, setMine] = useState(false)
-  const shown = peek ?? sel
-
-  useEffect(() => {
-    if (!on || mine || matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const { order, stepMs, buyMs } = DIGITAL_DEMO
-    const timers = order.map((i, k) => setTimeout(() => setSel(i), k * stepMs))
-    timers.push(setTimeout(() => setOwned([order[order.length - 1]]), buyMs))
-    return () => {
-      timers.forEach(clearTimeout)
-      /* Shown again later, it starts over. */
-      setOwned([])
-    }
-  }, [on, mine])
-
-  const take = () => setMine(true)
+function LibraryRow({ name, by, src, date, action, k }: { name: string; by: string; src: string; date: string; action: string; k?: number }) {
   return (
-    <div className="bs bs-digital" onPointerDown={take} onKeyDown={take}>
-      <div className="bd-shelf" onPointerLeave={() => setPeek(null)}>
-        {DIGITAL_PRODUCTS.map((p, i) => (
-          <button
-            key={p.id}
-            type="button"
-            className="bd-item"
-            aria-pressed={i === sel}
-            aria-label={`${p.name}, ${p.kind}, ${p.price}`}
-            data-shown={i === shown || undefined}
-            data-owned={owned.includes(i) || undefined}
-            onPointerEnter={(e) => {
-              if (e.pointerType === "mouse") setPeek(i)
-            }}
-            onClick={() => {
-              setSel(i)
-              setPeek(null)
-            }}
-          >
-            <span className="bd-cover">
+    <li className="bl-row" style={k === undefined ? undefined : ({ "--k": k } as CSSProperties)} data-new={k === undefined ? undefined : ""}>
+      <span className="bl-thumb">
+        <Still src={src} w={600} h={600} />
+      </span>
+      <span className="bl-row-t">
+        <b>{name}</b>
+        <span>
+          <i>{by[0]}</i>
+          {by}
+          <s>·</s>
+          {date}
+        </span>
+      </span>
+      <span className="bl-acts">
+        <span className="bl-act">
+          {action === "Download" && <ArrowDownToLine />}
+          {action}
+        </span>
+        <span className="bl-more">
+          <MoreHorizontal />
+        </span>
+      </span>
+    </li>
+  )
+}
+
+export function DigitalScene() {
+  const newest = [...DIGITAL_FLOW].reverse()
+  return (
+    <div className="bs bs-digital">
+      <div className="bl-card">
+        {DIGITAL_FLOW.map((p, k) => (
+          <div key={p.id} className="bl-pane" style={{ "--k": k } as CSSProperties}>
+            <span className="bl-cover">
               <Still src={p.src} w={600} h={600} />
-              <span className="bd-own">
-                <Check />
-              </span>
             </span>
-            <span className="bd-cap">
+            <span className="bl-info">
+              <span className="bs-kicker">{p.kind}</span>
               <b>{p.name}</b>
-              <em>{p.price}</em>
-              <i>{p.kind}</i>
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="bd-view">
-        {DIGITAL_PRODUCTS.map((p, i) => {
-          const here = i === shown
-          return (
-            <div key={p.id} className="bd-pane" data-on={here || undefined} aria-hidden={!here || undefined} inert={!here}>
-              <div className="bd-pane-top">
-                <span className="bd-pane-cover">
-                  <Still src={p.src} w={600} h={600} />
-                </span>
-                <span className="bd-pane-t">
-                  <span className="bs-kicker">{p.kind}</span>
-                  <b>{p.name}</b>
-                  <span className="bs-by">by {p.by}</span>
-                </span>
-              </div>
-              <ul className="bd-gets">
-                {p.gets.map((g) => (
-                  <li key={g}>{g}</li>
-                ))}
-              </ul>
-              {/* The whole moment is in the button: pressed, it pays and the file arrives in place. */}
-              <button
-                type="button"
-                className="bs-btn bd-buy"
-                data-go={owned.includes(i) || undefined}
-                onClick={() => setOwned((o) => (o.includes(i) ? o : [...o, i]))}
-              >
-                <span className="bd-fill" />
+              <span className="bs-by">by {p.by}</span>
+              <span className="bs-price">{p.price}</span>
+              <span className="bs-btn bl-buy">
                 <span className="a">Buy for {p.price}</span>
                 <span className="b">
-                  <Download /> {p.doing}
+                  <Check /> In your library
                 </span>
-                <span className="c">
-                  <Check /> {p.done}
-                </span>
-              </button>
-            </div>
-          )
-        })}
+              </span>
+            </span>
+            <ul className="bl-gets">
+              {p.gets.map((g) => (
+                <li key={g}>{g}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <div className="bl-phone">
+        <div className="bl-screen">
+          <b className="bl-title">Library</b>
+          <div className="bl-win">
+            {/* One list, three rows up at the start, a row down at each purchase. */}
+            <ul className="bl-d">
+              {newest.map((p) => (
+                <LibraryRow key={p.id} name={p.name} by={p.by} src={p.src} date={TODAY} action={p.action} k={DIGITAL_FLOW.indexOf(p)} />
+              ))}
+              {DIGITAL_OWNED.map((p) => (
+                <LibraryRow key={p.id} name={p.name} by={p.by} src={p.src} date={p.date} action="Download" />
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -833,24 +792,32 @@ export function CoachScene() {
   without end while its scene is shown and the section is on screen.
 */
 const E = "cubic-bezier(.22,1,.36,1)"
+/*
+  The library list's steps, as one timeline: a row down at 1.5s into each purchase, over 0.8s on the scenes' curve,
+  holding between. Ends at the last step's end (2 steps + 2.3s).
+*/
+const DROP_S = Math.round((DIGITAL_BUY_S * 2 + 2.3) * 100) / 100
+const dropAt = (s: number) => `${Math.round((s / DROP_S) * 10000) / 100}%`
+const DROP_KEYS = [0, 1, 2]
+  .map((k) => {
+    const a = k * DIGITAL_BUY_S + 1.5
+    return `${dropAt(a)}{transform:translate3d(0,calc(var(--row) * ${k - 3}),0);animation-timing-function:${E}}${dropAt(a + 0.8)}{transform:translate3d(0,calc(var(--row) * ${k - 2}),0);animation-timing-function:linear}`
+  })
+  .join("")
+  .replace(/^/, `0%{transform:translate3d(0,calc(var(--row) * -3),0)}`)
 const MOTION = `
 @media(prefers-reduced-motion:no-preference){
-.bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s backwards}
+.bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard,.bz-on .bl-card,.bz-on .bl-phone{animation:bz-rise .8s ${E} .1s backwards}
 .bz-on .bs-coach-pic,.bz-on .bo-main-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
 
-.bd-pane{transition:opacity .3s ease,visibility 0s linear .3s}
-.bd-pane[data-on]{transition:opacity .3s ease}
-.bd-pane-top,.bd-gets{transition:transform .45s ${E}}
-.bd-pane:not([data-on]) .bd-pane-top,.bd-pane:not([data-on]) .bd-gets{transform:translate3d(0,6u,0)}
-.bd-cover{transition:transform .35s ${E}}
-.bd-cover::after{transition:opacity .25s ease}
-.bd-own{transition:opacity .3s ease,transform .4s ${E}}
-.bd-item[data-owned] .bd-own{transition-delay:1.7s}
-.bd-buy[data-go]{animation:bz-press .36s ease both}
-.bd-buy[data-go]>.a{animation:bz-out .3s ease both}
-.bd-buy[data-go]>.b{animation:be-mid 1.6s linear .15s both}
-.bd-buy[data-go]>.bd-fill{animation:be-fill 1.6s linear .15s both}
-.bd-buy[data-go]>.c{animation:bz-in .4s ${E} 1.75s both}
+.bz-on .bl-pane{animation:bl-pane ${DIGITAL_PANE_S}s linear calc(var(--k) * ${DIGITAL_BUY_S}s) both}
+.bz-on .bl-pane:last-child{animation:bl-fade-in .4s linear calc(var(--k) * ${DIGITAL_BUY_S}s) backwards}
+.bz-on .bl-info{animation:bz-up-in .6s ${E} calc(var(--k) * ${DIGITAL_BUY_S}s) backwards}
+.bz-on .bl-buy{animation:bz-press .36s ease calc(var(--k) * ${DIGITAL_BUY_S}s + 1s) both}
+.bz-on .bl-buy>.a{animation:bz-out .3s ease calc(var(--k) * ${DIGITAL_BUY_S}s + 1.1s) both}
+.bz-on .bl-buy>.b{animation:bz-in .4s ${E} calc(var(--k) * ${DIGITAL_BUY_S}s + 1.25s) both}
+.bz-on .bl-d{animation:bl-drop ${DROP_S}s linear both}
+.bz-on .bl-row[data-new]:not(:first-child)::after{animation:bl-fade-out .8s ease calc((var(--k) + 1) * ${DIGITAL_BUY_S}s + 1.6s) backwards}
 
 .bz-on .bp-bar i{animation:bz-play 4.2s linear .6s both}
 .bz-on .bp-play{animation:bz-pop .5s ${E} .3s both}
@@ -883,8 +850,10 @@ const MOTION = `
 @keyframes bz-up-in{from{opacity:0;transform:translate3d(0,8u,0)}}
 @keyframes bz-day{0%{opacity:0;transform:translate3d(calc(var(--day) * 1),0,0) scale(.8)}18%,42%{opacity:1;transform:translate3d(calc(var(--day) * 1),0,0)}}
 @keyframes bz-time{0%{opacity:0;transform:translate3d(calc(100% + 8u),-48u,0) scale(.8)}25%,45%{opacity:1;transform:translate3d(calc(100% + 8u),-48u,0)}}
-@keyframes be-mid{0%{opacity:0;transform:translate3d(0,10u,0)}12%,88%{opacity:1;transform:none}100%{opacity:0;transform:translate3d(0,-10u,0)}}
-@keyframes be-fill{0%{opacity:1;transform:scaleX(0)}92%{opacity:1;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1)}}
+@keyframes bl-pane{0%{opacity:0}10%,88.9%{opacity:1}100%{opacity:0}}
+@keyframes bl-fade-in{from{opacity:0}}
+@keyframes bl-fade-out{from{opacity:1}}
+@keyframes bl-drop{${DROP_KEYS}}
 `
 
 export const BUSINESS_MOCK_CSS =
@@ -909,44 +878,45 @@ export const BUSINESS_MOCK_CSS =
 .bs-swap .a{opacity:0}
 
 /*
-  digital (round 14): a shelf of six downloads on a clean pale sage, and beside it the one in view on a white card.
-  Each product is a button: its cover, its name and price; the one in view has a dark ring, and one bought gets a
-  small check. The card holds a pane per product, stacked, the one in view shown (opacity only).
+  digital (round 15): a product page and a buyer's phone on a clean pale sage. The page holds a pane per product,
+  stacked, the one being bought shown (opacity only). The phone is the Storelib library on its page grey, its list
+  in one white card that clips at its top edge, so a purchase slides in from under it.
 */
 .bs-digital{background:#ecf1ec}
-.bd-shelf{position:absolute;left:46u;top:62u;display:grid;grid-template-columns:repeat(3,160u);gap:20u 18u;pointer-events:auto}
-.bd-item{display:grid;align-content:start;gap:10u;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.bd-item:focus-visible{outline:none}
-.bd-cover{position:relative;display:block;width:160u;height:160u;border-radius:14u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 1u 2u rgba(16,24,40,.05),0 14u 24u -18u rgba(16,24,40,.35)}
-.bd-cover .smk-pic{border-radius:inherit}
-.bd-cover::after{content:"";position:absolute;inset:-5u;border-radius:18u;box-shadow:inset 0 0 0 2u #18181b;opacity:0}
-.bd-item[data-shown] .bd-cover::after,.bd-item:focus-visible .bd-cover::after{opacity:1}
-@media(hover:hover){.bd-item:hover .bd-cover{transform:translate3d(0,-3u,0)}}
-.bd-own{position:absolute;right:8u;top:8u;display:grid;place-items:center;width:24u;height:24u;border-radius:50%;background:#18181b;color:#fff;box-shadow:0 0 0 2u #fff;opacity:0;transform:scale(.6)}
-.bd-own svg{width:13u;height:13u}
-.bd-item[data-owned] .bd-own{opacity:1;transform:none}
-.bd-cap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2u 8u;padding:0 2u}
-.bd-cap b{font-size:13.5u;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bd-cap em{font-size:13.5u;font-style:normal;font-weight:600}
-.bd-cap i{grid-column:1/-1;font-size:12u;font-style:normal;color:#71717a}
-.bd-view{position:absolute;right:46u;top:62u;width:440u;height:426u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -30u rgba(16,24,40,.38);pointer-events:auto}
-.bd-pane{position:absolute;inset:0;display:flex;flex-direction:column;padding:26u 26u 24u;opacity:0;visibility:hidden}
-.bd-pane[data-on]{opacity:1;visibility:visible}
-.bd-pane-top{display:grid;grid-template-columns:132u minmax(0,1fr);gap:20u;align-items:center}
-.bd-pane-cover{display:block;width:132u;height:132u;border-radius:12u;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06)}
-.bd-pane-t{display:grid;gap:6u}
-.bd-pane-t b{font-size:24u;font-weight:650;line-height:1.1;letter-spacing:-.02em}
-.bd-pane-t .bs-by{margin:0!important}
-.bd-gets{margin:20u 0 0;padding:0;list-style:none;border-top:1u solid #f0f0f1}
-.bd-gets li{padding:11u 0;border-bottom:1u solid #f4f4f5;font-size:14u;color:#3f3f46}
-.bd-buy{width:100%;height:50u;border:0;font-family:inherit;overflow:hidden;isolation:isolate;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.bd-buy:focus-visible{outline:2u solid #18181b;outline-offset:3u}
-.bd-buy>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
-.bd-buy>.b,.bd-buy>.c,.bd-buy[data-go]>.a{opacity:0}
-.bd-buy[data-go]>.c{opacity:1}
-.bd-buy svg{width:16u;height:16u}
-.bd-buy .c svg{color:#4ade80}
-.bd-fill{position:absolute!important;inset:0;z-index:-1;background:#3f3f46;transform:scaleX(0);transform-origin:0 50%}
+.bl-card{position:absolute;left:64u;top:63u;width:620u;height:444u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -30u rgba(16,24,40,.38)}
+.bl-pane{position:absolute;inset:0;display:grid;grid-template-columns:236u minmax(0,1fr);grid-template-rows:236u auto;column-gap:28u;padding:30u;border-radius:inherit;background:#fff;opacity:0}
+.bl-pane:last-child{opacity:1}
+.bl-cover{display:block;width:236u;height:236u;border-radius:14u;overflow:hidden;box-shadow:0 0 0 1u rgba(16,24,40,.06)}
+.bl-info{display:flex;flex-direction:column;min-width:0;padding-top:4u}
+.bl-info>b{margin-top:8u;font-size:30u;font-weight:650;line-height:1.08;letter-spacing:-.025em}
+.bl-info .bs-by{margin-top:8u!important}
+.bl-info .bs-price{margin-top:14u!important}
+.bl-buy{display:grid;height:50u;overflow:hidden}
+.bl-buy>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
+.bl-buy>.a{opacity:0}
+.bl-buy svg{width:16u;height:16u;color:#4ade80}
+.bl-gets{grid-column:1/-1;margin:22u 0 0;padding:0;list-style:none;border-top:1u solid #f0f0f1}
+.bl-gets li{padding:11u 0;border-bottom:1u solid #f4f4f5;font-size:14u;color:#3f3f46}
+.bl-gets li:last-child{border-bottom:0}
+.bl-phone{position:absolute;left:720u;top:34u;width:330u;height:600u;border-radius:52u;background:#1c1c20;box-shadow:inset 0 0 0 1.5u #3a3a40,0 2u 4u rgba(16,24,40,.08),0 40u 70u -36u rgba(16,24,40,.5)}
+.bl-screen{position:absolute;inset:9u;border-radius:43u;background:#f8f9fa;overflow:hidden}
+.bl-title{position:absolute;left:20u;top:46u;font-size:24u;font-weight:700;line-height:1.25;letter-spacing:-.01em;color:#1a1a2e}
+.bl-win{position:absolute;left:12u;right:12u;top:96u;bottom:-20u;border-radius:16u;background:#fff;box-shadow:0 0 0 1u rgba(228,231,236,.8),0 1u 2u rgba(16,24,40,.04);overflow:hidden}
+.bl-d{--row:127u;margin:0;padding:0;list-style:none}
+.bl-row{position:relative;isolation:isolate;display:grid;grid-template-columns:54u minmax(0,1fr);column-gap:12u;align-content:start;height:127u;padding:14u;border-bottom:1u solid #eef0f3}
+.bl-row::after{content:"";position:absolute;inset:0;z-index:-1;background:#f7f5ff;opacity:0}
+.bl-row:first-child::after{opacity:1}
+.bl-thumb{display:block;width:54u;height:54u;border-radius:11u;overflow:hidden;box-shadow:inset 0 0 0 1u rgba(0,0,0,.04)}
+.bl-row-t{display:grid;align-content:start;gap:5u;min-width:0;padding-top:2u}
+.bl-row-t b{font-size:14u;font-weight:600;line-height:1.3;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bl-row-t>span{display:flex;align-items:center;gap:6u;font-size:12u;color:#6b7280;white-space:nowrap}
+.bl-row-t i{display:grid;place-items:center;width:16u;height:16u;border-radius:50%;background:#e9e7f5;color:#4c3d8f;font-size:9u;font-style:normal;font-weight:700}
+.bl-row-t s{text-decoration:none;color:#c4c8cf}
+.bl-acts{grid-column:1/-1;display:flex;gap:8u;margin-top:10u}
+.bl-act,.bl-more{display:flex;align-items:center;justify-content:center;gap:6u;height:34u;border-radius:9u;border:1u solid #d5d9e0;background:#f3f4f6;color:#1a1a2e;font-size:12.5u;font-weight:600}
+.bl-act{flex:1}
+.bl-more{width:34u;flex:none}
+.bl-act svg,.bl-more svg{width:13u;height:13u}
 
 /* physical (round 14): store designs for goods you ship, a line turning in perspective in clean light (round 13's flat grey was too grey). The stage gives the perspective and takes the drag; the cards are flat siblings in the order the script sets (round 14: preserve-3d made the compositor sort a 3D scene every frame; without it a turn drops a quarter as many frames at 1920), each one flat picture with its corners and shadow drawn once. */
 .bs-store{background:radial-gradient(70% 80% at 50% 46%,#fff 0%,#f7f9fb 46%,#e9eef4 100%)}
@@ -1075,22 +1045,22 @@ ${STORE_LINE}
   .bs h4{font-size:21u}
   .bs-price{margin-top:8u!important;font-size:20u}
 
-  .bd-shelf{left:14u;top:14u;grid-template-columns:repeat(3,104u);gap:10u 10u}
-  .bd-cover{width:104u;height:104u;border-radius:12u}
-  .bd-cover::after{inset:-4u;border-radius:15u}
-  .bd-cap{display:none}
-  .bd-own{right:6u;top:6u;width:22u;height:22u}
-  .bd-view{left:14u;right:14u;top:246u;bottom:14u;width:auto;height:auto;border-radius:18u}
-  .bd-pane{padding:16u 16u 16u}
-  .bd-pane-top{grid-template-columns:76u minmax(0,1fr);gap:14u}
-  .bd-pane-cover{width:76u;height:76u;border-radius:10u}
-  .bd-pane-t{gap:3u}
-  .bd-pane-t b{font-size:19u}
-  .bd-pane-t .bs-kicker{font-size:10.5u}
-  .bd-gets{margin-top:12u}
-  .bd-gets li{padding:7u 0;font-size:13u}
-  .bd-gets li:nth-child(n+3){display:none}
-  .bd-buy{height:44u;margin-top:auto;font-size:14u}
+  .bl-card{left:14u;right:14u;top:14u;width:auto;height:190u;border-radius:18u}
+  .bl-pane{grid-template-columns:100u minmax(0,1fr);grid-template-rows:100u auto;column-gap:14u;padding:16u}
+  .bl-cover{width:100u;height:100u;border-radius:11u}
+  .bl-info{padding-top:0}
+  .bl-info .bs-kicker{font-size:10.5u}
+  .bl-info>b{margin-top:4u;font-size:19u}
+  .bl-info .bs-by{margin-top:4u!important;font-size:12.5u}
+  .bl-info .bs-price{margin-top:8u!important;font-size:18u}
+  .bl-info .bl-buy{position:absolute;left:16u;right:16u;bottom:16u;height:44u;font-size:14u}
+  .bl-gets{display:none}
+  .bl-phone{left:36u;top:220u;width:288u;height:420u;border-radius:44u}
+  .bl-screen{inset:8u;border-radius:37u}
+  .bl-title{left:16u;top:30u;font-size:20u}
+  .bl-win{left:10u;right:10u;top:72u}
+  .bl-row-t i{display:none}
+  .bl-row-t>span{gap:5u;font-size:11.5u}
 
   .bt-stage{width:276u;height:345u;margin:-172u 0 0 -138u;perspective:950u}
   .bt-card{border-radius:11u}

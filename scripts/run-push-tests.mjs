@@ -1611,6 +1611,16 @@ const SUITES = [
   "tests/home-landing-r14-purple.test.ts",
   /* Landing round 14, everything: Liam Bailey's real product page (full width cover, the live button) and Satori Studio's real OnePage in the store strip, each page once; one support thread at a time; the possibilities' and the apps' rows run by one gate (never stopped by a scroll under a resting pointer, played again on screen); the apps' gap half on a computer with three more real connections. */
   "tests/home-landing-r14-everything.test.ts",
+  /* Landing round 15, pricing: the plan buttons' light fainter and slower, Get Grow's disc an outline that eases in on hover; /pricing's products tile without the download notice; no grey panel or dots behind the questions. */
+  "tests/home-landing-r15-pricing.test.ts",
+  /* Landing round 15, checkout: no black band under the white sheet on an iPhone (its white goes on under the dark block), on a phone the stage held under the header with the phone in sight at once, the headline rising out of its rows (observers and transitions on a phone, the scroll on a computer), the phone rising into place. */
+  "tests/home-landing-r15-checkout.test.ts",
+  /* Landing round 15, faq-blog: /faq headed Frequently asked questions on a darker top; the blog's heading and line stay its own on every list, a category pill redraws the list in the browser at the category's real address (pushState, no page load, no blank), fading in from 30%, back and forward included. */
+  "tests/home-landing-r15-faq-blog.test.ts",
+  /* Landing round 15, stats: no numbers under the showcase heading; three true numbers under its pictures, thin vertical lines between, counting up once; phone cards at 85vw (about 1.1 on screen); the website builder shows only Steez; Unlimited possibilities without its line. */
+  "tests/home-landing-r15-stats.test.ts",
+  /* Landing round 15, business: the heading "Ship it, stream it or book it", "book" in Storelib's purple; digital a product page and a buyer's phone on their library, a cookbook PDF, a video course and a sample pack bought in turn and landing on top of the library, CSS on opacity and transform only, run once a turn, paused off screen. */
+  "tests/home-landing-r15-business.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

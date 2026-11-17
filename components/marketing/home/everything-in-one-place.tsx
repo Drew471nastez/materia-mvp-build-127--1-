@@ -359,15 +359,18 @@ function Delivery({ on }: { on: boolean }) {
   )
 }
 
-/** Also the first tile of /pricing's bento (landing round 13). */
-export function ProductSlides() {
+/**
+ * Also the first tile of /pricing's bento (landing round 13). Landing round 15: /pricing passes
+ * delivery={false}, the owner wanting a calm product view there without the download link going out.
+ */
+export function ProductSlides({ delivery = true }: { delivery?: boolean } = {}) {
   const [active, setActive] = useState(0)
   const n = EVERYTHING_SLIDES.length
   const next = useCallback(() => setActive((a) => (a + 1) % n), [n])
   const card = useRef<HTMLDivElement>(null)
   usePressTilt(card)
   return (
-    <div className="ev-vis ev-p">
+    <div className="ev-vis ev-p" data-no-delivery={delivery ? undefined : ""}>
       {EVERYTHING_SLIDES.map((s, i) => (
         <div key={s.tab} className={`ev-p-bg ev-p-bg${i}`} data-on={i === active || undefined} aria-hidden="true" />
       ))}
@@ -408,7 +411,7 @@ export function ProductSlides() {
             ))}
           </div>
         </div>
-        <Delivery on={EVERYTHING_SLIDES[active].kind === "luts"} />
+        {delivery ? <Delivery on={EVERYTHING_SLIDES[active].kind === "luts"} /> : null}
       </div>
       <div className="ev-tabs" role="group" aria-label="Product types">
         {EVERYTHING_SLIDES.map((s, i) => (

@@ -39,8 +39,8 @@ const CSS = `
 @media (min-width:768px){.fq{--fq-top:69px}}
 @media (min-width:1024px){.fq{--fq-chips:0px}}
 
-/* The top: dark, the dots, the heading and the search. */
-.fq-top{position:relative;isolation:isolate;overflow:clip;background:#16161a;color:#fafafa;padding:clamp(44px,7vw,112px) var(--fq-edge) calc(clamp(52px,6.4vw,104px) + var(--fq-r))}
+/* The top: dark, the dots, the heading and the search. Landing round 15, the owner: a little darker, #0e0e11 under the header's #16161a. */
+.fq-top{position:relative;isolation:isolate;overflow:clip;background:#0e0e11;color:#fafafa;padding:clamp(44px,7vw,112px) var(--fq-edge) calc(clamp(52px,6.4vw,104px) + var(--fq-r))}
 .fq-top-in{position:relative;z-index:1;max-width:880px;margin:0 auto;text-align:center}
 .fq-title{margin:0 auto;max-width:14ch;font-size:clamp(44px,6.2vw,92px);font-weight:500;line-height:1.02;letter-spacing:-.05em;color:#fafafa;text-wrap:balance}
 .fq-title span{color:#a3a0ac}
@@ -452,7 +452,7 @@ export function FaqPageClient({ topics, supportEmail, helpUrl }: { topics: FaqTo
         <DotField fade="edges" scatter />
         <div className="fq-top-in">
           <h1 id="fq-title" className="fq-title">
-            Questions about <span>Storelib</span>
+            Frequently <span>asked questions</span>
           </h1>
           <p className="fq-lede">
             {total} answers on selling, fees, payouts, plans, your website and your account. Search them, or pick a topic.

@@ -34,6 +34,19 @@
  *   With reduced motion nothing moves or fades: the pills and the list
  *     simply change.
  *
+ * Landing round 15, the owner: switching still flashed and glitched, and the
+ * title and its line changed to the category's. Now:
+ *   THE TITLE AND ITS LINE ARE THE BLOG'S on every list, never re-keyed, so
+ *     nothing above the pills moves or fades.
+ *   A PILL LOADS NO PAGE. It writes the category's address with
+ *     history.pushState (Next's router follows it, so usePathname, back and
+ *     forward all agree) and the list redraws in the browser from the posts
+ *     the page already holds (./blog-lists.tsx), fading in rising 6px. The
+ *     old list never fades out to nothing while a page loads, which was the
+ *     flash. A pill is still a real <a href> to a real page with its own
+ *     metadata and canonical, for a crawler, a new tab or a page with no
+ *     script; a page without the list in it (none today) still navigates.
+ *
  * The row sits under the site header by the header's own measured height
  * (`--blog-top`, the way the developer hub does it), with the phone's 65px
  * until that has run. Categories with no live posts are left out; the one
@@ -53,12 +66,12 @@ export interface BlogNavCategory {
 }
 
 /** /blog, /blog/page/N, /blog/category/<slug>, /blog/category/<slug>/page/N. */
-const LIST_PATH = /^\/blog(?:\/page\/\d+|\/category\/([^/]+)(?:\/page\/\d+)?)?\/?$/
+const LIST_PATH = /^\/blog(?:\/page\/(\d+)|\/category\/([^/]+)(?:\/page\/(\d+))?)?\/?$/
 
-/** Whether a path is one of the blog's lists, and which category (null for all of them). */
-export function blogListOf(pathname: string): { list: boolean; slug: string | null } {
+/** Whether a path is one of the blog's lists, which category (null for all of them) and which page of it. */
+export function blogListOf(pathname: string): { list: boolean; slug: string | null; page: number } {
   const m = LIST_PATH.exec(pathname)
-  return m ? { list: true, slug: m[1] ?? null } : { list: false, slug: null }
+  return m ? { list: true, slug: m[2] ?? null, page: Number(m[1] ?? m[3] ?? 1) } : { list: false, slug: null, page: 1 }
 }
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect
@@ -76,15 +89,11 @@ export function BlogNav({ categories, description, children }: { categories: Blo
   const row = useRef<HTMLUListElement>(null)
   /* A pill was pressed while the row was stuck: keep it stuck once the new page is in. */
   const restore = useRef(false)
-  /* The pill pressed, from the page it was pressed on: shown as current until that page has changed. */
+  /* The pill pressed, from the page it was pressed on: shown as current until the address has changed. */
   const [pressed, setPressed] = useState<{ from: string; slug: string | null } | null>(null)
-  /* The page a pill was last pressed on: the list fades in only after a press, never on a first load. */
-  const [swapFrom, setSwapFrom] = useState<string | null>(null)
   const [stuck, setStuck] = useState(false)
 
   const active = pressed && pressed.from === pathname ? pressed.slug : slug
-  /* The old list fades out from the press until the new page arrives. */
-  const leaving = pressed !== null && pressed.from === pathname
 
   /* The site header's height, measured, for the row's `top`; and whether the row is stuck under it. */
   useEffect(() => {
@@ -112,6 +121,8 @@ export function BlogNav({ categories, description, children }: { categories: Blo
 
   /* After a press: back to the row's stuck place, before the new list is painted. */
   useIsoLayoutEffect(() => {
+    /* The address has moved, so the press is spent: back and forward then mark the pill of the list they land on (landing round 15: back to a category still marked All). */
+    setPressed(null)
     if (!restore.current) return
     restore.current = false
     /* Measured from the new page, not the old one: a category's line can be a line taller or shorter on a phone (round 49: it was left 28px under the header). */
@@ -131,7 +142,6 @@ export function BlogNav({ categories, description, children }: { categories: Blo
 
   if (!list) return <>{children}</>
 
-  const current = slug ? categories.find((c) => c.slug === slug) : undefined
   const shown = categories.filter((c) => c.hasPosts || c.slug === slug)
 
   function press(e: MouseEvent<HTMLAnchorElement>, to: string | null) {
@@ -139,20 +149,24 @@ export function BlogNav({ categories, description, children }: { categories: Blo
     /* The page already being read: nothing changes, so nothing fades. */
     if (e.currentTarget.pathname === pathname) return
     setPressed({ from: pathname, slug: to })
-    setSwapFrom(pathname)
     const mark = sentinel.current
     const top = headerHeight()
     const y = mark ? mark.getBoundingClientRect().top : 0
     /* Stuck (scrolled past its place): keep it stuck, with the new list starting under it. Not stuck: leave the page where it is. */
     restore.current = !!mark && y < top
+    /* The list is on this page: redraw it here, at the pill's own address, with nothing fetched. */
+    if (root.current?.querySelector("[data-blog-client-list]")) {
+      e.preventDefault()
+      window.history.pushState(null, "", e.currentTarget.href)
+    }
   }
 
   return (
     <div ref={root} data-blog-lists="">
-      {/* Re-keyed by category so its name and line fade in with the list (opacity only) after a press. */}
-      <header key={slug ?? ""} className={`home-wrap pt-10 sm:pt-16 lg:pt-20 ${swapFrom !== null && swapFrom !== pathname ? "blog-title-swap" : ""}`} data-blog-list-header="">
-        <h1 className="text-[clamp(44px,5vw,76px)] font-medium leading-[1.04] tracking-[-0.05em] text-[#1a1a2e]">{current ? current.name : "Blog"}</h1>
-        <p className="mt-4 min-h-[4.8em] max-w-[62ch] text-[17px] leading-[1.6] text-[#6b6b76] sm:min-h-[3.2em] sm:text-[clamp(17px,1.35vw,19px)]">{current ? current.description : description}</p>
+      {/* The blog's own title and line on every list: never re-keyed, so a category switch leaves them exactly where they are. */}
+      <header className="home-wrap pt-10 sm:pt-16 lg:pt-20" data-blog-list-header="">
+        <h1 className="text-[clamp(44px,5vw,76px)] font-medium leading-[1.04] tracking-[-0.05em] text-[#1a1a2e]">Blog</h1>
+        <p className="mt-4 max-w-[62ch] text-[17px] leading-[1.6] text-[#6b6b76] sm:text-[clamp(17px,1.35vw,19px)]">{description}</p>
       </header>
 
       <div ref={sentinel} aria-hidden className="mt-6 h-px sm:mt-7" />
@@ -198,9 +212,8 @@ export function BlogNav({ categories, description, children }: { categories: Blo
         </div>
       </nav>
 
-      <div key={pathname} className={leaving ? "blog-list-out" : swapFrom !== null && swapFrom !== pathname ? "blog-list-swap" : undefined} data-blog-list-swap="">
-        {children}
-      </div>
+      {/* The list fades in itself, keyed by address (./blog-lists.tsx). */}
+      {children}
     </div>
   )
 }
@@ -215,7 +228,7 @@ export function BlogNav({ categories, description, children }: { categories: Blo
  */
 function Pill({ href, on, onClick, children }: { href: string; on: boolean; onClick: (e: MouseEvent<HTMLAnchorElement>) => void; children: ReactNode }) {
   return (
-    <Link href={href} scroll={false} onClick={onClick} aria-current={on ? "page" : undefined} className="group relative flex h-11 items-center outline-none [-webkit-tap-highlight-color:transparent]" data-blog-pill="">
+    <Link href={href} scroll={false} prefetch={false} onClick={onClick} aria-current={on ? "page" : undefined} className="group relative flex h-11 items-center outline-none [-webkit-tap-highlight-color:transparent]" data-blog-pill="">
       <span
         className={`relative inline-flex h-9 items-center whitespace-nowrap rounded-full border px-4 text-[14px] font-medium transition-[background-color,border-color,color,box-shadow,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-active:scale-[0.97] group-focus-visible:ring-[3px] group-focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none motion-reduce:group-active:scale-100 ${
           on

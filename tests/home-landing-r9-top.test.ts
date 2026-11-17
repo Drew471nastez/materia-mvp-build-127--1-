@@ -165,7 +165,8 @@ check("the hero has one picture (and the wordmark)", (hero.match(/<img /g) ?? []
 // Changed on purpose (landing round 13): Steez draws the wordmark, its two slideshow photos and four products.
 check("the whole store: the wordmark, two slideshow pictures and four products", (site.match(/<img /g) ?? []).length === 7)
 // Changed on purpose (landing round 14): one ring per site, around the section whose heading is edited.
-check("the rings are as they were", (renderToStaticMarkup(createElement(WebsiteBuilderMock)).match(/<em>Selected<\/em>/g) ?? []).length === 2)
+// Changed on purpose (landing round 15): one site, one ring.
+check("the rings are as they were", (renderToStaticMarkup(createElement(WebsiteBuilderMock)).match(/<em>Selected<\/em>/g) ?? []).length === 1)
 check("nothing new moves", !/\.gb[^{]*\{[^}]*(animation|transition)/.test(BUILDER_CSS))
 
 console.log("\n── 8. The Strength Room is intact ──")

@@ -95,7 +95,8 @@ check("its products are pictures that exist and are small", ["stz-hero", "stz-lo
   const f = join(root, `public/home/showcase/${n}.webp`)
   return existsSync(f) && statSync(f).size < 120_000 && site.includes(`/home/showcase/${n}.webp`)
 }))
-check("Publish puts steez.storelib.com live, the selected sections outlined", wb.includes("steez.storelib.com") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2)
+// Changed on purpose (landing round 15): one site, one ring.
+check("Publish puts steez.storelib.com live, the selected section outlined", wb.includes("steez.storelib.com") && (wb.match(/<em>Selected<\/em>/g) ?? []).length === 1)
 
 console.log("\n── The OnePage editor: a LUT pack on a real theme ──")
 const page = renderToStaticMarkup(createElement(DesmondPage))

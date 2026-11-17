@@ -72,7 +72,8 @@ check("phone: padding under the caption line", /\.build-showcase-card\{padding:6
 check("the left-gutter cover is gone (nothing fades over a moving card)", !/build-showcase-viewport::after/.test(css))
 
 console.log("\n── On a phone: the reference's shape ──")
-check("every card is 78% of the screen wide (440px at most), on the gutter", /--showcase-card:min\(78vw,440px\)/.test(phone) && /\.build-showcase-slide\{flex:0 0 var\(--showcase-card\);width:var\(--showcase-card\);scroll-snap-align:start;scroll-snap-stop:normal\}/.test(phone) && /padding-inline:var\(--showcase-gutter\);scroll-padding-inline:var\(--showcase-gutter\)/.test(phone))
+// Changed on purpose (landing round 15): 85% of the screen (the owner: "1.1 view, not 1.2").
+check("every card is 85% of the screen wide (440px at most), on the gutter", /--showcase-card:min\(85vw,440px\)/.test(phone) && /\.build-showcase-slide\{flex:0 0 var\(--showcase-card\);width:var\(--showcase-card\);scroll-snap-align:start;scroll-snap-stop:normal\}/.test(phone) && /padding-inline:var\(--showcase-gutter\);scroll-padding-inline:var\(--showcase-gutter\)/.test(phone))
 /* Changed on purpose (landing round 8): the owner wants a OnePage on a phone as a tall 9:16 card, as a short video is shown, not a phone screen stood in a 4:3 card; stores and websites stay 4:3 (tests/home-landing-r8-rails.test.ts). */
 check("4:3 landscape for stores and websites, 10px apart", /\.build-showcase-pic\{aspect-ratio:4\/3;border-radius:8px\}/.test(phone) && /--showcase-gap:10px/.test(phone))
 /* Changed on purpose (landing round 9): "Keep OnePages as they are", the page's own 540 x 1056 on a phone too. */
