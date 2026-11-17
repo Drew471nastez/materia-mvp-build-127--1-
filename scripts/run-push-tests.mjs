@@ -298,6 +298,8 @@ const SUITES = [
   "tests/shopify-import.test.ts",
   /* Round aw: an imported theme exported again uploads to Shopify clean (Theme Check: 0 errors on Dawn and Horizon) and is the theme the creator left. */
   "tests/shopify-export-aw.test.ts",
+  /* The production build folds each app/api area into one entry, so it fits Vercel's Standard build machine (scripts/fold-api-routes.mjs). */
+  "tests/fold-api-routes.test.ts",
   /* Landing round 15: the builder demo plays a real edit (heading, publish, scroll, product section top padding, publish) on transform and opacity only, sharp loudlib boxes, and three true stats that count up. */
   "tests/home-landing-r15-showcase.test.ts",
   /* Landing round 15: the checkout held and moving on phones again, less black at its top, wider cards over a soft phone; the audience section as before round 14; three more store screens; the digital download notice. */
