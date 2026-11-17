@@ -65,6 +65,15 @@
  *   domain     its ground a little more graded, in the reel's own lilacs.
  *   cards      on a phone each card's corners are 2px tighter (16px).
  *
+ * LANDING ROUND 16, THE OWNER:
+ *   tips       smoother and cleaner, and a better cover photograph (HOW_COVER:
+ *              a film camera at a valley's edge, the valley on its screen).
+ *              The chosen amount is one dark pill that glides from $3 to $5
+ *              (it was two pills crossfading), the button's words roll
+ *              rather than swap, the taps are softer and stay inside their
+ *              buttons, and the loop is 12s with room between the steps.
+ *   domain     the reel glides (domain-reel.tsx has why it stepped).
+ *
  * One shop runs through the dashboard and the tips: Ines Duarte, who films
  * landscapes and sells section 3's two products (made up; Unsplash
  * photographs for her cover and her face).
@@ -121,8 +130,21 @@ export const HOW_SHOP = {
   avatar: `${HOW}/ines-avatar.webp`,
 } as const
 
-/** Landing round 15: the cover of her creator page is drawn, in reds (the owner disliked the photograph). */
-export const HOW_COVER_REDS = ["#fde3dc", "#f7b4a4", "#e56a55", "#c53b2c", "#9b1c1c", "#6f1212"] as const
+/**
+ * Landing round 16, the owner: a better photograph for her cover, real and hers (round 15's drawn mesas
+ * read as a drawing). A film camera on its tripod at a valley's edge at first light, the valley on its
+ * screen: Andrea Badino on Unsplash (Unsplash Licence), photo-1653108826787-766c449f2cd2, cut to the
+ * cover's own shape (100:42.5) with the camera to the left of her face. Two widths, 600 and 1000, the
+ * larger for a 2x screen at the widest narrow card (about 500px, at 1099px).
+ */
+export const HOW_COVER = {
+  src: `${HOW}/ines-cover-1000.webp`,
+  srcSet: `${HOW}/ines-cover-600.webp 600w, ${HOW}/ines-cover-1000.webp 1000w`,
+  width: 1000,
+  height: 425,
+  /** The narrow card's width: a phone's column, half the row from 640px, a quarter of it from 1100px. */
+  sizes: "(min-width: 1100px) 25vw, (min-width: 640px) 50vw, 100vw",
+} as const
 
 /** The address the domain card's reel starts on (the reel's own name, with ".com", as a buyer types it), and what a domain a creator owns serves (lib/custom-domains DOMAIN_PURPOSES). */
 export const HOW_DOMAIN = {
@@ -784,7 +806,8 @@ function DashBoard() {
 
 /* ═══════════════════════════════════════════════════════════════════════════
    2. TIPS (landing round 12): a creator page, a tip picked, paid and
-   thanked for. One 10 second loop, every step a transform or an opacity:
+   thanked for. One loop (12 seconds since landing round 16), every step a
+   transform or an opacity:
    $3 is chosen, a tap lands on $5 and it is chosen, the button reads
    "Tip $5"; a tap on it, the checkout sheet rises over the page, a tap on
    Pay, the sheet goes down and the block says thank you; then it is as it
@@ -793,40 +816,14 @@ function DashBoard() {
 /** The amounts on her tip block (the block's defaults, lib/onepage/tips TIP_DEFAULT_AMOUNTS) and the one picked. */
 export const TIP_AMOUNTS = ["$3", "$5", "$10"] as const
 export const HOW_TIP = { picked: "$5", from: "$3", title: "Leave a tip", subtitle: "Toward the next film", thanks: "Thank you for the $5 tip." } as const
-export const HOW_TIP_LOOP_S = 10
-
-/**
- * Her cover, drawn (landing round 15): red mesas going back in haze under a
- * low sun, the reds of HOW_COVER_REDS from the pale sky to the near ridge.
- * Flat shapes, one gradient for the sky; it covers its box as the photograph
- * did (slice), so the card's crop is unchanged.
- */
-function TipCover() {
-  const [sky, glow, far, mid, near, front] = HOW_COVER_REDS
-  return (
-    <svg viewBox="0 0 840 560" preserveAspectRatio="xMidYMid slice" data-cover="red">
-      <defs>
-        <linearGradient id="cmh-tp-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={sky} />
-          <stop offset="1" stopColor={glow} />
-        </linearGradient>
-      </defs>
-      <rect width="840" height="560" fill="url(#cmh-tp-sky)" />
-      <circle cx="560" cy="300" r="64" fill="#fff4ef" opacity=".85" />
-      <path d="M0 330L70 312H150L176 288H262L284 314L380 322L452 298H540L566 320L700 318L740 296H840V560H0Z" fill={far} opacity=".55" />
-      <path d="M0 372L96 360L122 330H236L262 362L360 376L420 344H520L548 372L660 384L708 352H808L840 366V560H0Z" fill={mid} opacity=".8" />
-      <path d="M0 430C120 406 210 404 318 420C430 436 520 410 640 404C730 400 790 412 840 420V560H0Z" fill={near} />
-      <path d="M0 492C150 466 300 470 430 486C560 502 700 480 840 470V560H0Z" fill={front} />
-    </svg>
-  )
-}
+export const HOW_TIP_LOOP_S = 12
 
 function TipScene() {
   return (
     <div className="cmh-sc cmh-tp">
       <div className="cmh-tp-page">
         <span className="cmh-tp-cover">
-          <TipCover />
+          <img src={HOW_COVER.src} srcSet={HOW_COVER.srcSet} sizes={HOW_COVER.sizes} alt="" width={HOW_COVER.width} height={HOW_COVER.height} loading="lazy" decoding="async" />
         </span>
         <span className="cmh-tp-who">
           <img src={HOW_SHOP.avatar} alt="" width={160} height={160} loading="lazy" decoding="async" />
@@ -842,14 +839,17 @@ function TipScene() {
                 {[...TIP_AMOUNTS, "Other"].map((a) => (
                   <span key={a} className="cmh-tp-chip" data-amount={a}>
                     <span>{a}</span>
-                    {a === HOW_TIP.from || a === HOW_TIP.picked ? (
-                      <i className={`cmh-a cmh-tp-on${a === HOW_TIP.picked ? " cmh-tp-on5" : " cmh-tp-on3"}`}>
-                        <span>{a}</span>
-                      </i>
-                    ) : null}
                     {a === HOW_TIP.picked ? <i className="cmh-a cmh-tp-tap cmh-tp-tap1" /> : null}
                   </span>
                 ))}
+                {/* The chosen amount: one dark pill that glides from $3 to $5, the white amounts inside it held still against it. */}
+                <i className="cmh-a cmh-tp-sel">
+                  <i className="cmh-a cmh-tp-sel-in">
+                    {[...TIP_AMOUNTS, "Other"].map((a) => (
+                      <span key={a}>{a}</span>
+                    ))}
+                  </i>
+                </i>
               </span>
               <span className="cmh-a cmh-tp-btn">
                 <span className="cmh-a cmh-tp-l3">Tip {HOW_TIP.from}</span>
@@ -896,10 +896,12 @@ const EASE = "cubic-bezier(.22,1,.36,1)"
 const pc = (s: number, loop: number) => `${+((s / loop) * 100).toFixed(3)}%`
 const T = (s: number) => pc(s, HOW_TIP_LOOP_S)
 /**
- * Landing round 15: when the block goes back to $3, in the middle of the time the picker is fully hidden (out by
- * 5.25s, back from 8.7s). It was 8.75s, while the picker was already fading back in, so $5 visibly snapped to $3.
+ * When the block goes back to $3: in the middle of the time the picker is fully hidden (landing round 16:
+ * out by 6.45s, back from 10.3s).
  */
-export const TIP_RESET_S = 7
+export const TIP_RESET_S = 8
+/** Landing round 16: the glides (the chosen amount, the button's words) start and end at rest. */
+const GLIDE = "cubic-bezier(.65,0,.35,1)"
 /** Where the checkout sheet rests: below the card by its own height and its shadow's reach, so no shade shows at the foot. */
 const SHEET_DOWN = "calc(100% + 3em)"
 const HOW_CSS = `
@@ -1060,8 +1062,9 @@ const HOW_CSS = `
 /* ── 2. tips: her creator page, a $5 tip picked, paid and thanked for. Landing round 14: the page is the card, edge to edge, sized by the card's width alone, so it looks the same on every screen. ── */
 .cmh-tp{font-size:3.5cqw}
 .cmh-tp-page{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;overflow:hidden;background:#fff}
-.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:34%;background:${HOW_COVER_REDS[1]};overflow:hidden}
-.cmh-tp-cover svg{display:block;width:100%;height:100%}
+.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:34%;background:#c9c3bb;overflow:hidden}
+/* Landing round 16: her cover is a photograph again, cut to this box's shape. */
+.cmh-tp-cover img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 50%}
 .cmh-tp-who{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-2.6em;text-align:center}
 .cmh-tp-who img{display:block;width:5.2em;height:5.2em;border-radius:50%;object-fit:cover;background:#e7e5ee;box-shadow:0 0 0 .22em #fff}
 .cmh-tp-who b{margin-top:.55em;font-size:1.25em;font-weight:600;letter-spacing:-.02em}
@@ -1073,21 +1076,27 @@ const HOW_CSS = `
 .cmh-tp-swap{display:grid;margin-top:.9em}
 .cmh-tp-pick,.cmh-tp-thx{grid-area:1/1}
 .cmh-tp-pick{display:flex;flex-direction:column;gap:.6em;animation-name:cmh-tp-pick}
-.cmh-tp-chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5em}
+.cmh-tp-chips{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5em}
 .cmh-tp-chip{position:relative;display:grid;place-items:center;height:2.5em;border-radius:.75em;background:#f4f4f5;font-size:.92em;font-weight:600;font-variant-numeric:tabular-nums;color:#27272a}
-/* The chosen amount: a dark pill with the amount in white, over the chip, faded in and out. */
-.cmh-tp-on{position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;background:#18181b;color:#fff;font-style:normal}
-.cmh-tp-on3{animation-name:cmh-tp-on3}
-.cmh-tp-on5{animation-name:cmh-tp-on5}
-.cmh-tp-btn{position:relative;display:grid;place-items:center;height:2.9em;border-radius:.8em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;font-variant-numeric:tabular-nums;animation-name:cmh-tp-press}
+/*
+  Landing round 16: the chosen amount is one dark pill, a chip wide, that glides from $3 to $5 (it was two
+  pills, one fading out as the other faded in). Inside it the four amounts in white, laid out as the chips
+  are and moved the other way by the same distance, so they stand still while the pill passes over them.
+  A chip and its gap: the pill's own width and .5em; the inner row is four chips and three gaps wide, so
+  the same distance is a quarter of it and .125em.
+*/
+.cmh-tp-sel{position:absolute;left:0;top:0;width:calc((100% - 1.5em) / 4);height:100%;border-radius:.69em;background:#18181b;overflow:hidden;font-style:normal;animation-name:cmh-tp-sel}
+.cmh-tp-sel-in{position:absolute;left:0;top:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5em;width:calc(400% + 1.5em);height:100%;font-style:normal;animation-name:cmh-tp-sel-in}
+.cmh-tp-sel-in>span{display:grid;place-items:center;font-size:.92em;font-weight:600;font-variant-numeric:tabular-nums;color:#fff}
+.cmh-tp-btn{position:relative;display:grid;place-items:center;height:2.9em;border-radius:.8em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;animation-name:cmh-tp-press}
 .cmh-tp-l3,.cmh-tp-l5{grid-area:1/1}
 .cmh-tp-l3{animation-name:cmh-tp-l3}
 .cmh-tp-l5{opacity:0;animation-name:cmh-tp-l5}
 .cmh-tp-thx{display:flex;align-items:center;justify-content:center;gap:.5em;min-height:100%;font-size:.98em;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;color:#18181b;opacity:0;animation-name:cmh-tp-thx}
 .cmh-tp-thx svg{flex:none;width:1.5em;height:1.5em;padding:.25em;box-sizing:border-box;border-radius:50%;background:#dcfce7;color:#15803d}
 /* A tap: a soft ring that opens and fades where the finger lands. */
-.cmh-tp-tap{position:absolute;left:50%;top:50%;width:2.6em;height:2.6em;margin:-1.3em 0 0 -1.3em;border-radius:50%;background:rgba(24,24,27,.22);opacity:0;z-index:3}
-.cmh-tp-btn .cmh-tp-tap,.cmh-tp-pay .cmh-tp-tap{background:rgba(255,255,255,.35)}
+.cmh-tp-tap{position:absolute;left:50%;top:50%;width:2.6em;height:2.6em;margin:-1.3em 0 0 -1.3em;border-radius:50%;background:rgba(24,24,27,.16);opacity:0;z-index:3}
+.cmh-tp-btn .cmh-tp-tap,.cmh-tp-pay .cmh-tp-tap{background:rgba(255,255,255,.3)}
 .cmh-tp-tap1{animation-name:cmh-tp-tap1}
 .cmh-tp-tap2{animation-name:cmh-tp-tap2}
 .cmh-tp-tap3{animation-name:cmh-tp-tap3}
@@ -1098,25 +1107,32 @@ const HOW_CSS = `
 .cmh-tp-for{display:flex;align-items:center;gap:.5em;margin-top:1em;font-size:.9em;font-weight:500;color:#52525b}
 .cmh-tp-for img{width:1.7em;height:1.7em;border-radius:50%;object-fit:cover}
 .cmh-tp-amt{margin-top:.35em;font-size:2.3em;font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
-.cmh-tp-pay{position:relative;display:grid;place-items:center;width:100%;height:3em;margin-top:.8em;border-radius:.85em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;font-variant-numeric:tabular-nums;animation-name:cmh-tp-paypress}
+.cmh-tp-pay{position:relative;display:grid;place-items:center;width:100%;height:3em;margin-top:.8em;border-radius:.85em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;animation-name:cmh-tp-paypress}
 .cmh-tp-lock{display:flex;align-items:center;gap:.4em;margin-top:.75em;font-size:.78em;color:#71717a}
 .cmh-tp-lock svg{width:1.1em;height:1.1em}
-.cmh-tp-pick,.cmh-tp-on,.cmh-tp-btn,.cmh-tp-l3,.cmh-tp-l5,.cmh-tp-thx,.cmh-tp-tap,.cmh-tp-scrim,.cmh-tp-sheet,.cmh-tp-pay{animation-duration:${HOW_TIP_LOOP_S}s}
+.cmh-tp-pick,.cmh-tp-sel,.cmh-tp-sel-in,.cmh-tp-btn,.cmh-tp-l3,.cmh-tp-l5,.cmh-tp-thx,.cmh-tp-tap,.cmh-tp-scrim,.cmh-tp-sheet,.cmh-tp-pay{animation-duration:${HOW_TIP_LOOP_S}s}
+.cmh-tp-sel,.cmh-tp-sel-in,.cmh-tp-l3,.cmh-tp-l5{animation-timing-function:${GLIDE}}
 .cmh-tp-sheet{animation-timing-function:cubic-bezier(.32,.72,0,1)}
-.cmh-tp-tap{animation-timing-function:ease-out}
-@keyframes cmh-tp-on3{0%,${T(1.05)}{opacity:1}${T(1.3)},${T(TIP_RESET_S)}{opacity:0}${T(TIP_RESET_S + 0.01)},100%{opacity:1}}
-@keyframes cmh-tp-on5{0%,${T(1.05)}{opacity:0}${T(1.3)},${T(TIP_RESET_S)}{opacity:1}${T(TIP_RESET_S + 0.01)},100%{opacity:0}}
-@keyframes cmh-tp-l3{0%,${T(1.1)}{opacity:1}${T(1.35)},${T(TIP_RESET_S)}{opacity:0}${T(TIP_RESET_S + 0.01)},100%{opacity:1}}
-@keyframes cmh-tp-l5{0%,${T(1.1)}{opacity:0}${T(1.35)},${T(TIP_RESET_S)}{opacity:1}${T(TIP_RESET_S + 0.01)},100%{opacity:0}}
-@keyframes cmh-tp-tap1{0%,${T(0.95)}{opacity:0;transform:scale(.3)}${T(1.0)}{opacity:1;transform:scale(.45)}${T(1.5)},100%{opacity:0;transform:scale(1.5)}}
-@keyframes cmh-tp-tap2{0%,${T(2.2)}{opacity:0;transform:scale(.3)}${T(2.25)}{opacity:1;transform:scale(.45)}${T(2.75)},100%{opacity:0;transform:scale(2.2)}}
-@keyframes cmh-tp-tap3{0%,${T(4.05)}{opacity:0;transform:scale(.3)}${T(4.1)}{opacity:1;transform:scale(.45)}${T(4.6)},100%{opacity:0;transform:scale(2.2)}}
-@keyframes cmh-tp-press{0%,${T(2.2)}{transform:scale(1)}${T(2.32)}{transform:scale(.97)}${T(2.6)},100%{transform:scale(1)}}
-@keyframes cmh-tp-paypress{0%,${T(4.05)}{transform:scale(1)}${T(4.17)}{transform:scale(.97)}${T(4.45)},100%{transform:scale(1)}}
-@keyframes cmh-tp-scrim{0%,${T(2.6)}{opacity:0}${T(3.0)},${T(4.6)}{opacity:1}${T(5.0)},100%{opacity:0}}
-@keyframes cmh-tp-sheet{0%,${T(2.6)}{transform:translate3d(0,${SHEET_DOWN},0)}${T(3.15)},${T(4.55)}{transform:translate3d(0,0,0)}${T(5.1)},100%{transform:translate3d(0,${SHEET_DOWN},0)}}
-@keyframes cmh-tp-pick{0%,${T(5.0)}{opacity:1}${T(5.25)},${T(8.7)}{opacity:0}${T(9.2)},100%{opacity:1}}
-@keyframes cmh-tp-thx{0%,${T(5.2)}{opacity:0;transform:translate3d(0,.35em,0)}${T(5.6)},${T(8.2)}{opacity:1;transform:translate3d(0,0,0)}${T(8.6)},100%{opacity:0;transform:translate3d(0,0,0)}}
+.cmh-tp-tap{animation-timing-function:cubic-bezier(.2,.6,.3,1)}
+/*
+  Landing round 16, one 12 second loop with room between the steps: a tap on $5 (1.4s) and the pill glides
+  over (1.5 to 2.1s) as the button's words roll from "Tip $3" to "Tip $5"; a tap on the button (3s), the
+  sheet rises (3.3s); a tap on Pay (5.2s), the sheet goes (5.7s) and the block says thank you (6.35s) until
+  10s; it is set back to $3 at 8s while the picker is hidden, and the picker returns from 10.3s.
+*/
+@keyframes cmh-tp-sel{0%,${T(1.5)}{transform:translate3d(0,0,0)}${T(2.1)},${T(TIP_RESET_S)}{transform:translate3d(calc(100% + .5em),0,0)}${T(TIP_RESET_S + 0.01)},100%{transform:translate3d(0,0,0)}}
+@keyframes cmh-tp-sel-in{0%,${T(1.5)}{transform:translate3d(0,0,0)}${T(2.1)},${T(TIP_RESET_S)}{transform:translate3d(calc(-25% - .125em),0,0)}${T(TIP_RESET_S + 0.01)},100%{transform:translate3d(0,0,0)}}
+@keyframes cmh-tp-l3{0%,${T(1.5)}{opacity:1;transform:translate3d(0,0,0)}${T(1.85)},${T(TIP_RESET_S)}{opacity:0;transform:translate3d(0,-.7em,0)}${T(TIP_RESET_S + 0.01)},100%{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes cmh-tp-l5{0%,${T(1.75)}{opacity:0;transform:translate3d(0,.7em,0)}${T(2.15)},${T(TIP_RESET_S)}{opacity:1;transform:translate3d(0,0,0)}${T(TIP_RESET_S + 0.01)},100%{opacity:0;transform:translate3d(0,.7em,0)}}
+@keyframes cmh-tp-tap1{0%,${T(1.35)}{opacity:0;transform:scale(.5)}${T(1.45)}{opacity:1;transform:scale(.6)}${T(2.0)},100%{opacity:0;transform:scale(1.6)}}
+@keyframes cmh-tp-tap2{0%,${T(2.95)}{opacity:0;transform:scale(.5)}${T(3.05)}{opacity:1;transform:scale(.6)}${T(3.6)},100%{opacity:0;transform:scale(2)}}
+@keyframes cmh-tp-tap3{0%,${T(5.15)}{opacity:0;transform:scale(.5)}${T(5.25)}{opacity:1;transform:scale(.6)}${T(5.8)},100%{opacity:0;transform:scale(2)}}
+@keyframes cmh-tp-press{0%,${T(3.0)}{transform:scale(1)}${T(3.14)}{transform:scale(.98)}${T(3.45)},100%{transform:scale(1)}}
+@keyframes cmh-tp-paypress{0%,${T(5.2)}{transform:scale(1)}${T(5.34)}{transform:scale(.98)}${T(5.65)},100%{transform:scale(1)}}
+@keyframes cmh-tp-scrim{0%,${T(3.3)}{opacity:0}${T(3.8)},${T(5.7)}{opacity:1}${T(6.2)},100%{opacity:0}}
+@keyframes cmh-tp-sheet{0%,${T(3.3)}{transform:translate3d(0,${SHEET_DOWN},0)}${T(3.95)},${T(5.7)}{transform:translate3d(0,0,0)}${T(6.3)},100%{transform:translate3d(0,${SHEET_DOWN},0)}}
+@keyframes cmh-tp-pick{0%,${T(6.1)}{opacity:1}${T(6.45)},${T(10.3)}{opacity:0}${T(10.9)},100%{opacity:1}}
+@keyframes cmh-tp-thx{0%,${T(6.35)}{opacity:0;transform:translate3d(0,.35em,0)}${T(6.85)},${T(10.0)}{opacity:1;transform:translate3d(0,0,0)}${T(10.4)},100%{opacity:0;transform:translate3d(0,0,0)}}
 
 /* ── 3. your own domain: /pricing's domain reel (DomainReel; its own sheet, DOMAIN_CSS, is drawn beside this one as HOW_DOMAIN_STYLE), filling the card. Its loops run only while the card is live, like the others. ── */
 .cmh-stage .pz-d{position:absolute;inset:0;height:auto;border-radius:0;contain:strict}
@@ -1128,8 +1144,8 @@ const HOW_CSS = `
   .cmh-a{animation:none!important}
   .cmh-o{animation:none!important}
   .cmh-field canvas{transition:none}
-  .cmh-tp-on5,.cmh-tp-l5,.cmh-tp-thx{opacity:1}
-  .cmh-tp-on3,.cmh-tp-l3,.cmh-tp-pick{opacity:0}
+  .cmh-tp-l5,.cmh-tp-thx{opacity:1}
+  .cmh-tp-l3,.cmh-tp-pick{opacity:0}
   .cmh-stage .ev-loop{animation:none!important}
 }
 @media(scripting:none){.cmh-o{animation:none}}

@@ -250,7 +250,8 @@ console.log("\nCommerce: images")
 // Changed on purpose (landing round 12): the owner asked for a better heading and new pictures (the real dashboard, a tip flow, a typed domain over another creator's store).
   // Changed on purpose (landing round 14): Ines Duarte's face and cover in place of Ruben Linde's; Fernlyn's photographs went with the typed address (the domain card is /pricing's reel).
   /* Changed on purpose (landing round 15): the owner disliked her cover photograph; it is drawn in reds now (how-it-works TipCover), so only her face is a file. */
-  check("public/home/how holds Ines's avatar, webp, under 30 KB", howFiles.sort().join() === "ines-avatar.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
+  // Changed on purpose (landing round 16): the owner asked for a better cover photograph; it is a file again, at 600 and 1000 wide.
+  check("public/home/how holds Ines's avatar, webp, under 30 KB", howFiles.sort().join() === "ines-avatar.webp,ines-cover-1000.webp,ines-cover-600.webp" && howFiles.every((f) => statSync(join(howDir, f)).size < 30 * 1024), howFiles)
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   /* Changed on purpose (wave 17): the checkout's two tiny avatars (pc-av, cdx-av) load and decode at once, so they are never blank when the scene scrolls in on an iPhone. */
   const avatars = (all.match(/<img className="(pc|cdx)-av"[^>]*>/g) ?? []).filter((t) => !/loading=|decoding=/.test(t)).length

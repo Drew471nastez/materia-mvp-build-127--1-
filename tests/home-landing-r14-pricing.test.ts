@@ -166,9 +166,11 @@ console.log("\n3e. The domain reel")
   check("it brings its own stylesheet, so any page can import it", /<style data-precedence="w13-home" data-href="pz-domain">|<style[^>]*pz-domain/.test(reel) || /<style href="pz-domain" precedence="w13-home">/.test(read(`${DIR}/domain-reel.tsx`)))
   check("by default it fills its box (at least 220px), every size a share of it", /:where\(\.pz-d\)\{position:relative;overflow:hidden;width:100%;height:100%;min-height:220px/.test(DOMAIN_CSS) && /container-type:size/.test(DOMAIN_CSS))
   check("a box class of the caller's own", /<div class="my-card pz-d" aria-hidden="true">/.test(renderToStaticMarkup(createElement(DomainReel, { className: "my-card" }))))
-  check("smoother: 3s steps, the move 40% of each on a soft curve", /animation:pz-reel 21\.0s cubic-bezier\(\.45,\.05,\.15,1\) infinite/.test(DOMAIN_CSS))
+  // Changed on purpose (landing round 16): no holds, a 2.6s glide a row that starts and ends at rest (tests/home-landing-r16-how.test.ts).
+  check("smoother: 3s steps, the move 40% of each on a soft curve", /animation:pz-reel 18\.2s cubic-bezier\(\.7,0,\.3,1\) infinite/.test(DOMAIN_CSS))
   check("still transform only", (DOMAIN_CSS.match(/@keyframes [\s\S]*?\}\}/g) ?? []).every((k) => !/(top|left|height|width|margin|opacity|filter)\s*:/.test(k.replace(/transform:[^}]*/g, ""))))
-  check("still under reduced motion", /@media \(prefers-reduced-motion:reduce\)\{\.pz-d-track,\.pz-d-cursor\{animation:none/.test(DOMAIN_CSS))
+  // Changed on purpose (landing round 16): the pointer no longer moves, so only the lists stop.
+  check("still under reduced motion", /@media \(prefers-reduced-motion:reduce\)\{\.pz-d-track\{animation:none/.test(DOMAIN_CSS))
 }
 
 console.log("\nCopy")
