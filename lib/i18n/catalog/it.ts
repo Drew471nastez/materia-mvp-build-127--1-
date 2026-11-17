@@ -13548,7 +13548,6 @@ const words: Record<string, string> = {
  "Your draft is ready. Review the product and add any files before publishing.": "La tua bozza è pronta. Controlla il prodotto e aggiungi i file prima di pubblicare.",
  "{value} images · {value2} variants": "{value} immagini · {value2} varianti",
  "Every product on your Gumroad account": "Tutti i prodotti del tuo account Gumroad",
- "Shopify, Gumroad or Payhip.": "Shopify, Gumroad o Payhip.",
  "Paste a product link from Shopify, Gumroad or Payhip. Paste a Shopify store's address to pick several products.": "Incolla il link di un prodotto Shopify, Gumroad o Payhip. Incolla l'indirizzo di un negozio Shopify per scegliere più prodotti.",
  "Product or store link": "Link del prodotto o del negozio",
  "Reading…": "Lettura…",
