@@ -39,7 +39,7 @@ console.log("\nNo line under the heading")
   // Changed on purpose (landing round 11): the owner asked for a new heading and a subheading of at most ten words; the old round 10 line stays gone.
   // Changed on purpose (landing round 13): the owner asked for a better heading; "Five ways to get paid" (tests/home-landing-r13-business.test.ts).
   // Changed on purpose (landing round 14): "From a cookbook to a coaching call".
-  check("the heading is the new short line", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ (BUSINESS_HEADING as string) === "Sell files, parcels or your time" && html.includes('id="biz-title"'))
+  check("the heading is the new short line", /* Changed on purpose (landing round 15): "Sell files, parcels or your time". */ (BUSINESS_HEADING as string) === "Ship it, stream it or book it" /* Changed on purpose (landing round 15): the owner disliked "From a cookbook to a coaching call" and the green after it: "Ship it, stream it or book it", "book" in Storelib violet. */ && html.includes('id="biz-title"'))
   check("the round 10 line under the heading stays gone; round 11's own line is at most ten words", !/Each one gets its own page and checkout|Downloads, things you ship/.test(code(SECTION)) && String((Section as Record<string, unknown>).BUSINESS_SUB).split(/\s+/).length <= 10)
   check("the heading block holds the heading and that one line", /<div class="biz-head"><h2[^>]*id="biz-title"[\s\S]*?<\/h2><p class="biz-sub">[^<]+<\/p><\/div><div class="biz-body">/.test(html))
 }
@@ -55,7 +55,8 @@ console.log("\nA shorter stage, every scene the same picture")
   // Changed on purpose (landing round 12): digital is one e-book (cover 360 high from 96, its page from 122, 348 high) and physical one oil (its photograph 26 from top and bottom); both end inside the stage.
   // Changed on purpose (landing round 13): digital is two tiles and an order (404 tall, 83 from the top); physical is a line of store designs (420 tall, centred).
   // Changed on purpose (landing round 14): digital is a shelf and a pane, both inside the stage.
-  check("digital: the two tiles and the order end inside the stage", rule(".bd-shelf").includes(`top:${U(62)}`) && rule(".bd-view").includes(`top:${U(62)};width:${U(440)};height:${U(426)}`) && 62 + 426 < 570)
+  /* Changed on purpose (landing round 15): digital is a product page (63 from the top, 444 tall) beside a phone that runs off the stage's foot on purpose. */
+  check("digital: the two tiles and the order end inside the stage", rule(".bl-card").includes(`top:${U(63)};width:${U(620)};height:${U(444)}`) && 63 + 444 < 570)
   check("physical: the line of store designs is centred and inside the stage", rule(".bt-stage").includes(`width:${U(336)};height:${U(420)}`) && 420 < 570)
   check("course: the card 22 from top and bottom, the player 248 high", rule(".bs-ccard").includes(`top:${U(22)};bottom:${U(22)};width:${U(720)}`) && rule(".bp-player").includes(`height:${U(248)}`))
   check("community: the club's page 26 from top and bottom, the feed beside it from the same line", rule(".bs-com").includes(`left:${U(56)};top:${U(26)};bottom:${U(26)};width:${U(520)}`) && rule(".bs-feed").includes(`left:${U(616)};right:${U(56)};top:${U(26)}`))
