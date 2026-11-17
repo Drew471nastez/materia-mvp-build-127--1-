@@ -95,10 +95,16 @@ function main() {
     check("  never the old empty grey box", !/bg-\[#eef0f3\]/.test(card))
     const withCover = renderToStaticMarkup(createElement(PostCard, { post: post(2, "https://example.com/c.jpg") }))
     check("  a card with a cover is unchanged: its picture, no type", /<img/.test(withCover) && !/data-blog-cover-fallback/.test(withCover))
+    /* Changed on purpose (blog round 15): the owner wants the large post always pictured and never on a light purple panel. With no cover anywhere it draws the cards' own typographic cover inside a white card. */
     const lead = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, null), post(2, null)], activeCategory: null, featured: true }))
-    check("the large post with no cover is a panel of type, not a picture box", /data-blog-featured="" data-blog-featured-text=""/.test(lead) && /bg-\[#f3f0ff\]/.test(lead.slice(0, lead.indexOf("data-blog-featured-text"))))
+    const leadBox = lead.slice(lead.indexOf("data-blog-featured"), lead.indexOf("blog-list-title"))
+    check("the large post with no cover anywhere draws a typographic cover in a white card", /data-blog-featured=""/.test(lead) && !/data-blog-featured-text/.test(lead) && /data-blog-cover-fallback=""/.test(leadBox) && /bg-white/.test(lead.slice(0, lead.indexOf("data-blog-featured"))))
     const leadCover = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, "https://example.com/c.jpg"), post(2, null)], activeCategory: null, featured: true }))
     check("  with a cover, the picture beside the text as before", /data-blog-featured=""/.test(leadCover) && !/data-blog-featured-text/.test(leadCover))
+    /* Blog round 15: a newer post with no cover gives the lead to the newest one with a cover. */
+    const skip = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, null), post(2, "https://example.com/c.jpg"), post(3, null)], activeCategory: null, featured: true }))
+    const skipLead = skip.slice(0, skip.indexOf("blog-list-title"))
+    check("  a newer post with no cover: the newest with a cover leads, the other is a card", /Post 2 title/.test(skipLead) && /<img/.test(skipLead) && !/Post 1 title/.test(skipLead) && /Post 1 title/.test(skip.slice(skip.indexOf("blog-list-title"))) && (skip.match(/Post 2 title/g) ?? []).length === 1)
   }
 
   console.log("\nThe pills, kept in the layout")

@@ -19,16 +19,19 @@
  *     the new list starts right under it; when it is not, nothing scrolls.
  *
  * Round 49, the owner: switching "feels too direct and fast, cheap".
- *   THE DARK FILL SLIDES from the old pill to the new one (240ms, ease out),
- *     drawn as one indicator under the row's text: two round caps and a
- *     straight middle, each moved with transform alone (the middle scaled
- *     sideways, the caps never scaled, so the ends stay round mid way).
- *     Until the script has measured the row, and with no script, the
- *     current pill draws its own fill, so the first paint is the same.
  *   THE LIST CROSSFADES: the old one fades out fast (120ms) as soon as a
  *     pill is pressed, the new one fades in rising 6px (220ms), opacity and
  *     transform only (globals.css .blog-list-out / .blog-list-swap).
- *   With reduced motion nothing moves or fades: the fill and the list
+ *
+ * Blog round 15, the owner: the current pill was cut on its right edge,
+ * overlapped by the next one. The fill that slid from pill to pill was a
+ * separate shape placed from a measurement; whenever that measurement was
+ * stale the dark shape and the pill it belonged to disagreed. Now every
+ * pill draws its own fill, so a pill is always whole: the old one fades to
+ * white while the new one fades to ink (200ms), and a press sinks the pill
+ * a little. The row wraps from 640px, so nothing there can clip; on a phone
+ * it scrolls sideways with room on every side for the pills' shadows.
+ *   With reduced motion nothing moves or fades: the pills and the list
  *     simply change.
  *
  * The row sits under the site header by the header's own measured height
@@ -78,8 +81,6 @@ export function BlogNav({ categories, description, children }: { categories: Blo
   /* The page a pill was last pressed on: the list fades in only after a press, never on a first load. */
   const [swapFrom, setSwapFrom] = useState<string | null>(null)
   const [stuck, setStuck] = useState(false)
-  /* Where the sliding fill sits (px inside the row), null until measured. */
-  const [fill, setFill] = useState<{ x: number; y: number; w: number; h: number; animate: boolean } | null>(null)
 
   const active = pressed && pressed.from === pathname ? pressed.slug : slug
   /* The old list fades out from the press until the new page arrives. */
@@ -118,31 +119,12 @@ export function BlogNav({ categories, description, children }: { categories: Blo
     if (mark) window.scrollTo(0, Math.ceil(window.scrollY + mark.getBoundingClientRect().top - headerHeight()))
   }, [pathname])
 
-  /* The sliding fill: measured from the current pill when it changes (moving there with the transition), and again, without one, whenever the row changes size (fonts, a resize). */
-  useIsoLayoutEffect(() => {
-    const ul = row.current
-    if (!list || !ul) return
-    const place = (animate: boolean) => {
-      const pill = ul.querySelector<HTMLElement>('[data-blog-pill][aria-current="page"] > span')
-      if (!pill) return setFill(null)
-      const a = pill.getBoundingClientRect()
-      const b = ul.getBoundingClientRect()
-      const next = { x: a.left - b.left - ul.clientLeft + ul.scrollLeft, y: a.top - b.top - ul.clientTop + ul.scrollTop, w: a.width, h: a.height }
-      setFill((was) => (was && was.x === next.x && was.y === next.y && was.w === next.w && was.h === next.h ? was : { ...next, animate: animate && was !== null }))
-    }
-    place(true)
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => place(false)) : undefined
-    ro?.observe(ul)
-    ul.querySelectorAll("[data-blog-pill] > span").forEach((el) => ro?.observe(el))
-    return () => ro?.disconnect()
-  }, [list, active])
-
   /* The current pill in view inside the row, on a phone where the row scrolls sideways. Never moves the page. */
   useEffect(() => {
     const ul = row.current
     const pill = ul?.querySelector<HTMLElement>('[aria-current="page"]')
     if (!ul || !pill || ul.scrollWidth <= ul.clientWidth) return
-    /* The row is the pill's offsetParent (it is positioned, for the fill). */
+    /* The row is the pill's offsetParent (it is positioned). */
     const left = pill.offsetLeft
     if (left < ul.scrollLeft || left + pill.offsetWidth > ul.scrollLeft + ul.clientWidth) ul.scrollTo({ left: Math.max(0, left - 16) })
   }, [active])
@@ -174,15 +156,32 @@ export function BlogNav({ categories, description, children }: { categories: Blo
       </header>
 
       <div ref={sentinel} aria-hidden className="mt-6 h-px sm:mt-7" />
+      {/*
+        STUCK, THE ROW AND THE SITE HEADER ARE ONE BAR (blog round 15, the
+        owner: the header's soft shadow lay over the pills). While the row
+        is stuck the header drops its shadow and the row carries the same
+        one (--bar-depth) at its own foot, so the depth sits under both and
+        nothing fades over a pill. Written here, only while stuck, so every
+        other page keeps the header exactly as it is.
+      */}
+      {stuck ? <style>{`#platform-header-root{box-shadow:none!important}`}</style> : null}
       <nav
         aria-label="Blog categories"
         data-blog-categories=""
         data-stuck={stuck ? "true" : undefined}
-        className="sticky top-[var(--blog-top,65px)] z-30 border-b border-transparent bg-white transition-[border-color] duration-150 data-[stuck=true]:border-[#eceef1]"
+        className="sticky top-[var(--blog-top,65px)] z-30 bg-white transition-shadow duration-200 ease-out motion-reduce:transition-none data-[stuck=true]:[box-shadow:var(--bar-depth)]"
       >
         <div className="mx-auto w-full max-w-[var(--home-max)] min-[640px]:px-[var(--home-edge)]">
-          <ul ref={row} className="relative flex gap-2 overflow-x-auto px-[var(--home-edge)] py-1 min-[640px]:px-0 [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden data-[blog-fill-ready]:[&_[aria-current=page]>span]:border-transparent data-[blog-fill-ready]:[&_[aria-current=page]>span]:bg-transparent" data-blog-fill-ready={fill ? "true" : undefined}>
-            {fill ? <Fill {...fill} /> : null}
+          {/*
+            A phone: one line that scrolls sideways, padded on every side so
+            no pill, shadow or focus ring meets the scroller's edge. From
+            640px the pills wrap instead, so nothing scrolls or clips.
+          */}
+          <ul
+            ref={row}
+            className="relative flex gap-2 overflow-x-auto scroll-px-[var(--home-edge)] px-[var(--home-edge)] py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden min-[640px]:flex-wrap min-[640px]:overflow-visible min-[640px]:px-0"
+            data-blog-pills=""
+          >
             <li className="shrink-0">
               <Pill href="/blog" on={active === null} onClick={(e) => press(e, null)}>
                 All
@@ -207,42 +206,21 @@ export function BlogNav({ categories, description, children }: { categories: Blo
 }
 
 /**
- * THE SLIDING FILL (round 49). Three pieces under the pills' text, each
- * moved by transform only: a round cap on each end (half the pill's height
- * wide, never scaled) and a straight 1px middle scaled to the width between
- * them. The middle overlaps each cap by a pixel so no seam shows. The
- * wrapper is an <li> (the row is a list) hidden from screen readers, and
- * out of flow: as a flex item it took a gap and pushed every
- * pill 8px right once measured (seen as layout shift).
- */
-function Fill({ x, y, w, h, animate }: { x: number; y: number; w: number; h: number; animate: boolean }) {
-  const r = h / 2
-  const move = animate ? "transition-transform duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none" : ""
-  const piece = `pointer-events-none absolute left-0 top-0 bg-[#1a1a2e] will-change-transform ${move}`
-  return (
-    <li aria-hidden className="pointer-events-none absolute left-0 top-0" data-blog-fill="">
-      <span className={`${piece} rounded-l-full`} style={{ width: r, height: h, transform: `translate3d(${x}px, ${y}px, 0)` }} />
-      <span className={`${piece} origin-left`} style={{ width: 1, height: h, transform: `translate3d(${x + r - 1}px, ${y}px, 0) scaleX(${Math.max(0, w - 2 * r + 2)})` }} />
-      <span className={`${piece} rounded-r-full`} style={{ width: r, height: h, transform: `translate3d(${x + w - r}px, ${y}px, 0)` }} />
-    </li>
-  )
-}
-
-/**
  * One pill, in the integrations directory's style (components/app/settings/
  * integrations-directory.tsx), a size up for a public page: 36px drawn, in a
- * 44px tall link so a thumb finds it. Round 49: once the row has its
- * sliding fill (data-blog-fill-ready on the row), the current pill's own
- * fill and border step aside and the text changes colour with the fill's timing.
+ * 44px tall link so a thumb finds it. Blog round 15: each pill draws its own fill. At rest a
+ * white key with a hairline and a soft drop; current, Storelib's ink with a
+ * deeper drop; pressed, it sinks 3% and its drop flattens. Colour, border,
+ * shadow and the press ease together over 200ms.
  */
 function Pill({ href, on, onClick, children }: { href: string; on: boolean; onClick: (e: MouseEvent<HTMLAnchorElement>) => void; children: ReactNode }) {
   return (
     <Link href={href} scroll={false} onClick={onClick} aria-current={on ? "page" : undefined} className="group relative flex h-11 items-center outline-none [-webkit-tap-highlight-color:transparent]" data-blog-pill="">
       <span
-        className={`relative inline-flex h-9 items-center whitespace-nowrap rounded-full border px-4 text-[14px] font-medium transition-[color,border-color] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-focus-visible:ring-[3px] group-focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none ${
+        className={`relative inline-flex h-9 items-center whitespace-nowrap rounded-full border px-4 text-[14px] font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-active:scale-[0.97] group-focus-visible:ring-[3px] group-focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none motion-reduce:group-active:scale-100 ${
           on
-            ? "border-[#1a1a2e] bg-[#1a1a2e] text-white"
-            : "border-[#e4e4e9] bg-transparent text-[#3f3f46] group-hover:border-[#c9c9d1] group-hover:text-[#1a1a2e]"
+            ? "border-[#1a1a2e] bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(26,26,46,0.18),0_4px_12px_-4px_rgba(26,26,46,0.4)] group-active:shadow-[0_1px_2px_rgba(26,26,46,0.2)]"
+            : "border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.05)] group-hover:border-[#d1d5db] group-hover:text-[#1a1a2e] group-hover:shadow-[0_1px_2px_rgba(16,24,40,0.06),0_4px_10px_-6px_rgba(16,24,40,0.18)] group-active:bg-[#f8f9fa] group-active:shadow-none"
         }`}
       >
         {children}
