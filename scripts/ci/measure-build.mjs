@@ -10,7 +10,7 @@
  * resident memory. The highest sum seen is the peak.
  *
  * It fails when the build fails, or when the peak is over BUILD_PEAK_LIMIT_MB
- * (7,600 by default). Vercel's Standard build machine has 8 GB; a build that
+ * (6,500 by default). This deployment's Standard build machine has 7 GB; a build that
  * needs more is killed there with no useful message, so CI says it first,
  * on a runner with room to spare (about 16 GB).
  *
@@ -25,7 +25,7 @@ import { spawn } from "node:child_process"
 import { readFileSync, readdirSync, writeFileSync, appendFileSync, existsSync } from "node:fs"
 import { cpus, totalmem } from "node:os"
 
-const LIMIT_MB = Number(process.env.BUILD_PEAK_LIMIT_MB || 7600)
+const LIMIT_MB = Number(process.env.BUILD_PEAK_LIMIT_MB || 6500)
 const INTERVAL_MS = 250
 
 const sep = process.argv.indexOf("--")
@@ -156,7 +156,7 @@ child.on("exit", (code, signal) => {
       "| --- | --- |",
       `| Peak RSS (process tree) | **${result.peakRssMb ?? "n/a"} MB** |`,
       `| Peak PSS | ${result.peakPssMb ?? "n/a"} MB |`,
-      `| Limit | ${LIMIT_MB} MB (Vercel Standard has 8 GB) |`,
+      `| Limit | ${LIMIT_MB} MB (Vercel Standard deployment has 7 GB) |`,
       `| Time | ${seconds} s on ${result.cpus} CPUs |`,
       `| Result | ${code !== 0 ? "build failed" : over ? "over the limit" : "within the limit"} |`,
       "",
@@ -173,7 +173,7 @@ child.on("exit", (code, signal) => {
     process.exit(code || 1)
   }
   if (over) {
-    console.error(`measure-build: peak ${result.peakRssMb} MB is over the ${LIMIT_MB} MB limit. Vercel Standard (8 GB) would likely kill this build.`)
+    console.error(`measure-build: peak ${result.peakRssMb} MB is over the ${LIMIT_MB} MB limit. Vercel Standard (7 GB) would likely kill this build.`)
     process.exit(1)
   }
 })

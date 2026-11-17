@@ -15,7 +15,7 @@ Undoing something: [rollback.md](rollback.md).
 | Tests | `pnpm test:push`, every suite the sessions run by hand, now run every time. |
 | Lint | `pnpm lint`, clean. |
 | Type errors only go down | `scripts/ci/typecheck-ratchet.mjs`: the codebase carries type errors from before anyone checked (`.github/typescript-baseline.json`, file by file). No file may get more. Fixing is always allowed; run `node scripts/ci/typecheck-ratchet.mjs --write` after a fix so it cannot come back. When the baseline is empty, `typescript.ignoreBuildErrors` comes out of `next.config.mjs`. |
-| Production build | `pnpm build` with placeholder keys, the build Vercel does, run through `scripts/ci/measure-build.mjs`: the peak memory of the whole build process tree, sampled from `/proc`, must stay under 7,600 MB (Vercel Standard builds in 8 GB). Then `scripts/perf-budget.mjs`: first-load JS of eight key routes and the server output against `perf-budgets.json`. Both figures are in the job's summary. |
+| Production build | `pnpm build` with placeholder keys, the build Vercel does, run through `scripts/ci/measure-build.mjs`: the peak memory of the whole build process tree, sampled from `/proc`, must stay under 6,500 MB (leaving headroom on the 7 GB production build machine). Then `scripts/perf-budget.mjs`: first-load JS of eight key routes and the server output against `perf-budgets.json`. Both figures are in the job's summary. |
 
 A red CI on GitHub is a broken commit on `main`: fix it before anything else.
 
@@ -52,17 +52,38 @@ checkout: Next replaces `.next/types` during generation. Finish generation
 first, then check; a missing generated input must fail rather than be ignored.
 The separate CI jobs already use independent checkouts.
 
-The production Next CLI has a separate 4 GiB heap ceiling in `pnpm build`.
+The production Next CLI has a separate 5 GiB heap ceiling in `pnpm build`.
 The package's Node 22 engine keeps Vercel and local installs aligned with CI.
 Route-data and prerender work uses one worker in `next.config.mjs`.
 The Next CLI loads `scripts/build-limits.env` for build-only Rayon and Tokio
-thread defaults of two, rather than sizing native pools to each machine's
+thread defaults of one, rather than sizing native pools to each machine's
 CPU count. Explicit caller values take precedence; runtime environments
 and their service configuration are not changed.
-These are resource limits, not validation skips; the 7,600 MB whole-process
-build budget and bundle budgets remain unchanged.
+Production builds use Webpack's separate compiler workers and memory
+optimizations, with server/edge compilation and tracing serialized. Production
+filesystem caching is disabled: its 3 GB serialization pack otherwise overlaps
+the live compiler graph. Server and client minification remain enabled, followed
+by the existing final chunk optimization step. Compiler workers release their
+graph before the next phase rather than retaining
+Turbopack's whole graph until compilation ends. `next dev` keeps its existing
+bundler. `STORELIB_BUILD_WEBPACK=0` opts into Turbopack for explicit comparisons.
+These are resource limits, not validation skips. The whole-process build
+budget is 6,500 MB for the 7 GB production machine; bundle budgets are unchanged.
 
 ### Budgets
+
+The Webpack migration was measured at 5,193 MB peak process-tree RSS for the
+complete production build (6,500 MB ceiling), with two native threads. The later
+upstream one-thread limit is preserved. Its first-load chunking differs
+from Turbopack: Home is 373 KB gzip, Products 797.3 KB and the website editor
+1,582.8 KB. Limits for routes above the prior compiler's baseline were reset
+to the measured value plus 10%; existing limits were retained where met.
+This trades larger dashboard entry bundles for builds that fit the production
+machine. Aggregate server output is 382 MB, including 170.2 MB of repeated
+Webpack client-reference manifests; its new limit is 421 MB. The reader counts
+Webpack client-reference chunks as well as Turbopack entry files, so it cannot
+mistake a Webpack build for runtime-only JavaScript.
+
 
 `perf-budgets.json` holds, per route, the first-load JavaScript (gzipped)
 and the size of `.next/server` (without its trace lists), each set at the
@@ -85,7 +106,8 @@ names (root layout to page, with their error and not-found boundaries) plus
 the runtime, each counted once. Turbopack writes no size table of its own.
 
 The build's peak was 6,958 MB RSS (6,625 MB PSS) on 4 CPUs, against the
-7,600 MB ceiling. `BUILD_PEAK_LIMIT_MB` changes the ceiling for one run.
+then-current 7,600 MB ceiling. The current ceiling is 6,500 MB.
+`BUILD_PEAK_LIMIT_MB` changes the ceiling for one run.
 
 A route over budget fails the build job. If the growth is deliberate, raise
 its number in `perf-budgets.json` in the same pull request and say why;

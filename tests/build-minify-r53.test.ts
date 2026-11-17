@@ -45,6 +45,18 @@ const run = (code: string) => {
 check("a minified chunk is smaller and behaves the same", out.code.length < chunk.length && run(out.code) === run(chunk) && run(chunk) === "Cart|x")
 check("dead development branches are dropped", !out.code.includes("dev only"))
 
+/* Production can use Webpack workers too; preserve its CommonJS chunk exports. */
+const webpackChunk = `exports.id=42;exports.ids=[42];exports.modules={42:(module)=>{function label(key){if(false){console.log("dev only")}return key==="cart"?"Cart":key}module.exports=label}};`
+const webpackOut = await transform(webpackChunk, { minify: true, legalComments: "inline", charset: "utf8", logLevel: "silent" })
+const runWebpack = (code: string) => {
+  const exported: { modules?: Record<string, (module: { exports: unknown }) => void> } = {}
+  new Function("exports", code)(exported)
+  const module: { exports: unknown } = { exports: {} }
+  exported.modules!["42"](module)
+  return (module.exports as (key: string) => string)("cart")
+}
+check("Webpack chunks retain their exports after separate minification", webpackOut.code.length < webpackChunk.length && runWebpack(webpackChunk) === "Cart" && runWebpack(webpackOut.code) === "Cart")
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

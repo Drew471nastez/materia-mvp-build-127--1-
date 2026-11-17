@@ -34,14 +34,15 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import Link from "next/link"
-import { ArrowLeft, Check, ChevronRight, Link2, Loader2, Search } from "lucide-react"
+import { ArrowLeft, Check, Link2, Loader2, Search } from "lucide-react"
 import { SiGumroad } from "@/components/icons/brand/SiGumroad"
 import { SiShopify } from "@/components/icons/brand/SiShopify"
 import { SiPayhip } from "@/components/icons/brand/SiPayhip"
 import { PRIMARY_BUTTON } from "../../analytics/add-reports"
 import { Checkbox, buttonSecondary, formatMoney } from "../../orders/order-parts"
 import { Segmented } from "./editor-controls"
+import { KEYBOARD_CHANGE_EVENT } from "@/lib/ui/keyboard-safe-sheet"
+import { useInSheet } from "@/components/ui/sheet-dialog"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
@@ -124,6 +125,7 @@ export function LinkImportForm({ onBack, onImported, onImportedMany }: { onBack:
   const controller = useRef<AbortController | null>(null)
   const field = useRef<HTMLInputElement>(null)
   const physical = usePhysicalCommerceEnabled()
+  const inSheet = useInSheet()
   useEffect(() => () => controller.current?.abort(), [])
   /* A computer's cursor goes straight to the link; a phone waits for a tap (NO KEYBOARD ON THE WAY IN). */
   useEffect(() => {
@@ -132,6 +134,37 @@ export function LinkImportForm({ onBack, onImported, onImportedMany }: { onBack:
     const frame = requestAnimationFrame(() => field.current?.focus({ preventScroll: true }))
     return () => cancelAnimationFrame(frame)
   }, [])
+
+  // The sheet sizes itself above the keys. Only scroll a covered field, after
+  // that resize settles; centring it during every keyboard frame clips the title.
+  useEffect(() => {
+    if (!inSheet) return
+    let timer: ReturnType<typeof setTimeout>
+    const reveal = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const input = field.current
+        if (!input || document.activeElement !== input) return
+        const scroller = input.closest<HTMLElement>("[data-sheet-scroll]")
+        if (!scroller) return
+        const r = input.getBoundingClientRect(), box = scroller.getBoundingClientRect()
+        const viewport = window.visualViewport
+        const bottom = Math.min(box.bottom, viewport ? viewport.offsetTop + viewport.height : window.innerHeight) - 12
+        if (r.bottom > bottom) scroller.scrollTop += r.bottom - bottom
+        else if (r.top < box.top + 12) scroller.scrollTop -= box.top + 12 - r.top
+      }, 300)
+    }
+    window.visualViewport?.addEventListener("resize", reveal)
+    window.addEventListener(KEYBOARD_CHANGE_EVENT, reveal)
+    field.current?.addEventListener("focus", reveal)
+    const input = field.current
+    return () => {
+      clearTimeout(timer)
+      window.visualViewport?.removeEventListener("resize", reveal)
+      window.removeEventListener(KEYBOARD_CHANGE_EVENT, reveal)
+      input?.removeEventListener("focus", reveal)
+    }
+  }, [inSheet])
 
   const reset = () => { setProduct(null); setCatalog(null); setExisting(null); setError("") }
 
@@ -199,14 +232,14 @@ export function LinkImportForm({ onBack, onImported, onImportedMany }: { onBack:
   ]
   const typed = sourceOf(url)
 
-  return <div data-link-import="" aria-busy={!!busy} className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
+  return <div data-keyboard-own={inSheet ? "" : undefined} data-link-import="" aria-busy={!!busy} className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
     <button type="button" onClick={onBack} disabled={!!busy} className="-ml-2 mb-2 inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#6b7280] outline-none transition-colors duration-200 hover:bg-[#f5f6f8] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"><ArrowLeft className="h-4 w-4" />{tt("Back")}</button>
     {done ? <div role="status" className="space-y-4 py-3 text-center">
       <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e7f5eb] text-[#277344]"><Check className="h-5 w-5" /></span>
       <p className="text-[15px] leading-6 text-[#4b5563]">{done.message}</p>
       <button type="button" onClick={() => onImported(done.id)} className={BUTTON}>{tt("Open product")}</button>
     </div> : outcomes ? <Outcomes outcomes={outcomes} onOpen={onImported} onDone={onImportedMany ?? onBack} /> : <>
-      {!product && !catalog ? <p className="mb-3 text-[14px] leading-5 text-[#6b7280]">{tt("Paste a product link from Shopify, Gumroad or Payhip. Paste a Shopify store's address to pick several products.")}</p> : null}
+      {!product && !catalog ? <p className="mb-3 text-[14px] leading-5 text-[#6b7280]">{tt("Shopify, Gumroad or Payhip.")}</p> : null}
       <form onSubmit={(e) => { e.preventDefault(); void request("preview") }}>
         <label htmlFor="product-import-url" className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">{tt("Product or store link")}</label>
         <div className={FIELD}>
@@ -215,12 +248,6 @@ export function LinkImportForm({ onBack, onImported, onImportedMany }: { onBack:
         </div>
         {!product && !catalog ? <button type="submit" disabled={!!busy || !url.trim()} className={cn(BUTTON, "mt-3")}>{busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}{busy === "preview" ? tt("Reading…") : tt("Continue")}</button> : null}
       </form>
-
-      {!product && !catalog && !busy ? <Link href="/app/products/import/gumroad" data-gumroad-account="" className="mt-3 flex min-h-12 items-center gap-3 rounded-xl px-1 text-[14px] text-[#1a1a2e] outline-none transition-colors duration-200 hover:bg-[#f8f9fa] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[#e5e7eb] bg-white"><SourceMark source="gumroad" /></span>
-        <span className="min-w-0 flex-1">{tt("Import every Gumroad product with an access token")}</span>
-        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2]" />
-      </Link> : null}
 
       {product ? <div data-link-preview="" className={cn("mt-4 space-y-4", ENTER)}>
         <div className={cn(SURFACE, "flex items-center gap-3 p-2.5")}>

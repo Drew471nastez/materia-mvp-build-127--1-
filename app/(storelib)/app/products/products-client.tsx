@@ -63,9 +63,9 @@ interface Product {
  * lists draw them. Only what a product has that an order does not is its
  * own: the picture, product metadata and illustrated creation sheet.
  */
-/** Products round 15: the bar's Add in the /app violet, white plus and word; a deeper violet on hover and press, and a small give under the finger. */
-const ADD_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#8b5cf6] pl-3 pr-3.5 text-[14px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(76,29,149,0.22)] outline-none transition-[background-color,box-shadow,scale] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#7c3aed] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_2px_6px_rgba(124,58,237,0.28)] active:scale-[0.96] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
-const NEW_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.05)] outline-none transition-[background-color,scale] duration-150 hover:bg-[#f8f9fa] active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-300 motion-reduce:transition-none"
+/** Products round 15: the bar's Add in the /app violet, white plus and word; a deeper violet on hover and press, with steady geometry under the finger. */
+const ADD_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#8b5cf6] pl-3 pr-3.5 text-[14px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(76,29,149,0.22)] outline-none transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#7c3aed] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_2px_6px_rgba(124,58,237,0.28)] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+const NEW_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.05)] outline-none transition-[background-color] duration-150 hover:bg-[#f8f9fa] focus-visible:ring-2 focus-visible:ring-violet-300 motion-reduce:transition-none"
 /** A phone's press is 44px tall around a 32px bar button, as Orders' Export is. */
 const BAR_PRESS = "relative before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden"
 
@@ -971,7 +971,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
               className={ADD_LOOK}
             >
               <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-              <span>{tt("Add")}</span>
+              <span>{tt("Add product")}</span>
             </Link>
           </div>
         ) : null}

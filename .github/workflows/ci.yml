@@ -86,8 +86,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The build itself, with the peak memory of its whole process tree
-      # sampled from /proc. Over 7,600 MB fails: Vercel Standard builds in
-      # 8 GB. The figure is in the job summary.
+      # sampled from /proc. Over 6,500 MB fails, leaving headroom on the
+      # 7 GB production build machine. The figure is in the job summary.
       - name: Build, peak memory measured
         run: node scripts/ci/measure-build.mjs -- pnpm build
       # First-load JS of the key routes and the server output, against

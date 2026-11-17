@@ -5,7 +5,7 @@
   "engines": { "node": "22.x" },
   "private": true,
   "scripts": {
-    "build": "node scripts/build-sql-catalog.mjs && node scripts/build-brand-icons.mjs && node scripts/build-sites-assets.mjs && node scripts/gen-theme-dark.mjs && node scripts/build-css.mjs && node scripts/fold-api-routes.mjs && node --max-old-space-size=4096 scripts/build-next.mjs && node scripts/trace-error-pages.mjs && node scripts/minify-after-build.mjs",
+    "build": "node scripts/build-sql-catalog.mjs && node scripts/build-brand-icons.mjs && node scripts/build-sites-assets.mjs && node scripts/gen-theme-dark.mjs && node scripts/build-css.mjs && node scripts/fold-api-routes.mjs && node --max-old-space-size=5120 scripts/build-next.mjs && node scripts/trace-error-pages.mjs && node scripts/minify-after-build.mjs",
     "dev": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && next dev",
     "lint": "eslint .",
     "typecheck": "node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit -p tsconfig.json --pretty false",
@@ -38,6 +38,7 @@
     "@emotion/is-prop-valid": "latest",
     "@hookform/resolvers": "^3.10.0",
     "@monaco-editor/react": "4.7.0",
+    "@noble/hashes": "1.8.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",

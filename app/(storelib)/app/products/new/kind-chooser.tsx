@@ -119,7 +119,7 @@ export function KindArt({ kind, className }: { kind: ProductKind; className?: st
 
 /* Products round 15: about 15% shorter than the 112px rows, with 64px drawings rather than 80px. */
 const ROW =
-  "group/kind flex min-h-[88px] w-full items-center gap-4 rounded-2xl border border-[#e2e4e8] bg-white px-4 py-3 text-left outline-none transition-[background-color,border-color,scale] duration-150 hover:border-[#c9cdd5] hover:bg-[#fafbfc] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+  "group/kind flex min-h-[88px] w-full items-center gap-4 rounded-2xl border border-[#e2e4e8] bg-white px-4 py-3 text-left outline-none transition-[background-color,border-color] duration-150 hover:border-[#c9cdd5] hover:bg-[#fafbfc] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
 /** Up, down, Home and End move between the answers; Enter and Space are the buttons' own. */
 function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
@@ -173,7 +173,18 @@ const CLOSE =
  * for the button's hover, touch and focus; `chooser` goes anywhere in the
  * page's tree (it draws in a portal).
  */
+type ChooserControl = { open: () => void; warm: () => void }
+
+// Keep sheet state below its caller: opening it must not redraw the product list.
 export function useNewProductChooser(): { open: () => void; warm: () => void; chooser: React.ReactNode } {
+  const control = React.useRef<ChooserControl | null>(null)
+  const open = React.useCallback(() => control.current?.open(), [])
+  const warm = React.useCallback(() => control.current?.warm(), [])
+  const chooser = React.useMemo(() => <NewProductChooser control={control} />, [])
+  return { open, warm, chooser }
+}
+
+const NewProductChooser = React.memo(function NewProductChooser({ control }: { control: React.RefObject<ChooserControl | null> }) {
   const router = useRouter()
   const [importing, setImporting] = React.useState(false)
   const [isOpen, setOpen] = React.useState(false)
@@ -194,6 +205,7 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
 
   const warm = React.useCallback(() => warmKinds(router), [router])
   const open = React.useCallback(() => {
+    hapticTap("soft")
     warm()
     target.current = null
     setImporting(false)
@@ -223,6 +235,10 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
     if (!phone) go()
   }
   const close = () => setOpen(false)
+  const heading = <div className="flex shrink-0 items-center justify-between gap-3 bg-white px-5 pb-3 pt-2 md:px-0 md:pt-0">
+    <SheetDialogTitle className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{importing ? tt("Import product") : tt(CHOOSER_TITLE)}</SheetDialogTitle>
+    <button type="button" onClick={close} aria-label={tt("Close")} className={CLOSE}><X className="h-4 w-4" /></button>
+  </div>
 
   const chooser = (
     <SheetDialog
@@ -233,9 +249,9 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
       showCloseButton={false}
       onOpenAutoFocus={(e) => {
         e.preventDefault()
-        body.current?.querySelector<HTMLButtonElement>("[data-kind]")?.focus()
+        body.current?.querySelector<HTMLButtonElement>("[data-kind]")?.focus({ preventScroll: true })
       }}
-      sheet={{ fill: false, aboveKeyboard: true, maxHeight: "min(90dvh, 800px)", dismissible: true, onClosed: go }}
+      sheet={{ fill: false, aboveKeyboard: true, maxHeight: "min(800px, calc(var(--vv-h, 100dvh) - max(env(safe-area-inset-top, 0px), 16px) - 12px))", header: heading, dismissible: true, onClosed: go }}
       dialog={{
         "aria-describedby": undefined,
         onCloseAutoFocus: (e) => {
@@ -247,20 +263,16 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
       }}
       className="w-[calc(100%-32px)] max-w-[520px] gap-0 sm:max-w-[520px] rounded-2xl border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]"
     >
-      <div ref={body} data-new-product-chooser="" className="overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] pt-2 md:pt-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <SheetDialogTitle className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{importing ? tt("Import product") : tt(CHOOSER_TITLE)}</SheetDialogTitle>
-          <button type="button" onClick={close} aria-label={tt("Close")} className={CLOSE}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => { target.current = `/app/products/${id}`; prefetchAppPage(router, target.current); setOpen(false); if (!phone) go() }} onImportedMany={() => { setOpen(false); router.refresh() }} /> : <KindList onChoose={choose} onImport={() => setImporting(true)} />}
+      <div ref={body} data-new-product-chooser="" className="min-h-0 px-5 pb-3 md:pt-5">
+        {!phone ? heading : null}
+        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => { target.current = `/app/products/${id}`; prefetchAppPage(router, target.current); setOpen(false); if (!phone) go() }} onImportedMany={() => { setOpen(false); router.refresh() }} /> : <KindList onChoose={choose} onImport={() => { hapticTap("soft"); setImporting(true) }} />}
       </div>
     </SheetDialog>
   )
 
-  return { open, warm, chooser }
-}
+  React.useImperativeHandle(control, () => ({ open, warm }), [open, warm])
+  return chooser
+})
 
 /**
  * A press on a link to /app/products/new that should ask in place instead:
@@ -298,7 +310,7 @@ export function NewProductKindPage() {
         </button>
       </div>
       <div className="mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => router.replace(`/app/products/${id}`)} onImportedMany={() => returnToProducts(router, null)} /> : <KindList onChoose={choose} onImport={() => setImporting(true)} />}
+        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => router.replace(`/app/products/${id}`)} onImportedMany={() => returnToProducts(router, null)} /> : <KindList onChoose={choose} onImport={() => { hapticTap("soft"); setImporting(true) }} />}
       </div>
     </div>
   )

@@ -20,7 +20,8 @@
  * with no reference to the clock, the environment or the account. That is
  * what makes a theme exportable: what compiled here compiles there.
  */
-import { createHash } from "node:crypto"
+import { sha256 } from "@noble/hashes/sha256"
+import { bytesToHex } from "@noble/hashes/utils"
 
 import { DEFAULT_LANGUAGE_VERSION } from "../language"
 import { validateBlockSchema, validateSectionSchema } from "../schema/validate"
@@ -33,7 +34,9 @@ import { compileTemplate, contentForRefs, pathRefs, pathsRead, type CompiledTemp
 import { readsSchemeAsVariables, schemeFollowingSettings } from "../scheme-vars"
 
 export function sourceHash(source: string): string {
-  return createHash("sha256").update(source, "utf8").digest("hex")
+  // The compiler also runs in the website editor. Keep its SHA-256 cache
+  // keys identical in Node and browsers without importing a Node-only module.
+  return bytesToHex(sha256(source))
 }
 
 export interface CompileOptions {
