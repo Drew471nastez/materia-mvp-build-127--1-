@@ -76,7 +76,7 @@ async function main() {
   {
     const ob = code("components/app/creator-onboarding-modal.tsx")
     /* Changed on purpose (the full screen redesign): the home page's hero film, darker and a little blurred, its poster first. */
-    check("the home page's film across the window, darkened and blurred", /HERO_VIDEO\.poster/.test(ob) && /heroVideoSource\(\)/.test(ob) && /\[filter:blur\(10px\)_brightness\(0\.5\)\]/.test(ob) && /FILM_GRAIN/.test(ob) && /prefers-reduced-motion: reduce/.test(ob))
+    check("the home page's film across the window, darkened, blurred and a little grainy", /<OnboardingBackdrop \/>/.test(ob) && ((film) => /HERO_VIDEO\.poster/.test(film) && /heroVideoSource\(\)/.test(film) && /\[filter:blur\(10px\)_brightness\(0\.5\)\]/.test(film) && /FILM_GRAIN/.test(film) && /prefers-reduced-motion: reduce/.test(film))(readFileSync("components/onboarding/film-backdrop.tsx", "utf8")))
     check("the Storelib mark at the top left", /<div className="flex min-w-0 items-center justify-start">\s*<StorelibLogo size=\{36\}/.test(ob))
   }
 

@@ -89,7 +89,7 @@ function main() {
   /* Changed on purpose (the full screen redesign): the setup is the whole window at every width, on the home page's film, so the app and the browser are the same screen. */
   check("no fixed card: the steps sit in one page scroll on the film, scrolled when they do not fit, so nothing is cut off at any zoom",
     /data-onboarding-scroller=""\s*className="min-h-0 flex-1 overflow-y-auto overscroll-contain/.test(creator) && /data-onboarding-steps="" className="relative w-full min-w-0"/.test(creator)
-      && /<OnboardingBackdrop \/>/.test(creator) && /heroVideoSource\(\)/.test(creator) && !/sm:(w|h|max-h)-\[(930|540)px\]/.test(creator) && !/sm:w-\[min\(930px/.test(creator))
+      && /<OnboardingBackdrop \/>/.test(creator) && /heroVideoSource\(\)/.test(readFileSync(join(process.cwd(), "components/onboarding/film-backdrop.tsx"), "utf8")) && !/sm:(w|h|max-h)-\[(930|540)px\]/.test(creator) && !/sm:w-\[min\(930px/.test(creator))
   /* Changed on purpose: 0be8bd1a (two slide first run) lets Next drop its minimum width and set smaller type under 384px, instead of keeping 88px. */
   check("Back and Continue share the row by flex, so the narrowest phone fits them: Continue takes what Back leaves",
     /const NAV_NEXT = "inline-flex h-12 min-w-0 flex-1/.test(creator) && /const NAV_BACK = "inline-flex h-12 shrink-0/.test(creator))
@@ -133,7 +133,7 @@ function main() {
     !/data-onboarding-skip/.test(creator) && !/tt\("Skip"\)/.test(creator) && creator.indexOf('data-onboarding-back=""') < creator.indexOf('data-onboarding-next=""'))
   check("a chosen goal changes colour and its mark, not its size: several can be chosen",
     /const GOAL_ON = "bg-\[#1a1a2e\] text-white/.test(creator) && /aria-pressed=\{on\}/.test(creator) && /cur\.includes\(id\) \? cur\.filter/.test(creator)
-      && ["Sell online", "Digital products", "Courses", "Memberships", "Community", "Link in bio"].every((g) => creator.includes(g)))
+      && ["Sell online", "Digital products", "Courses", "Communities", "Services", "Link in bio"].every((g) => creator.includes(g)))
   /* "text font size better, the heading, subheading ... cohesive." */
   /* Changed on purpose (the full screen redesign): the words sit on the film, white, from one table, and the cards hold only what is filled in. */
   check("one heading and one line under it on every step, from one table, in one type scale",
