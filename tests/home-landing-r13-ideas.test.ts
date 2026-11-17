@@ -98,19 +98,22 @@ check("the wordmark at 3x for its 64u width", !!logo && logo.w >= 192, logo)
 
 console.log("\n── The builder around it ──")
 const wb = renderToStaticMarkup(createElement(WebsiteBuilderMock))
-check("one tree per site, cross faded with it", /class="wx-tree bm-s1"/.test(wb) && /class="wx-tree bm-s2"/.test(wb) && /\.wx-trees>\.wx-tree\{grid-area:1\/1\}/.test(BUILDER_CSS))
-const steezTree = wb.slice(wb.indexOf('class="wx-tree bm-s1"'), wb.indexOf('class="wx-tree bm-s2"'))
+// Changed on purpose (landing round 15): the builder shows only Steez (the owner): its one tree, nothing cross faded.
+check("one tree, Steez's", (wb.match(/class="wx-tree"/g) ?? []).length === 1 && !/wx-trees/.test(BUILDER_CSS))
+const steezTree = wb.slice(wb.indexOf('class="wx-tree"'), wb.indexOf('class="wx-panels"'))
 const rows = [...steezTree.matchAll(/<b>([^<]+)<\/b>/g)].map((m) => m[1])
 check("Steez's rows are its sections' schema names, in the template's order, no Steez Club", rows.join() === "Announcement Bar Basic,Header,Slideshow,Products carousel,Slideshow,Products carousel,Collection List,Countdown Timer Flip,Category Banners,Footer", rows)
 // Changed on purpose (landing round 14): one row lit, the slideshow whose heading is edited.
 check("the first slideshow and the first products are the rows lit with the rings", /class="wx-row wx-hl">(?:(?!<\/b>)[\s\S])*<b>Slideshow<\/b>/.test(steezTree) && (steezTree.match(/wx-hl/g) ?? []).length === 1)
 // Changed on purpose (landing round 14): the pointer now goes to each site's heading (its own path per site), pinned in tests/home-landing-r14-ideas.test.ts.
-check("both trees have two header rows, so the cursor lands on the products row in both (34u lower than round 12)", (wb.match(/class="wx-badge"/g) ?? []).length === 6)
+// Changed on purpose (landing round 15): Steez's tree alone: its two header rows and the footer.
+check("the tree has two header rows, so the cursor lands on the products row (34u lower than round 12)", (wb.match(/class="wx-badge"/g) ?? []).length === 3)
 // Changed on purpose (landing round 14): the canvas scrolls to the products after Publish, once, and stays.
 check("the canvas scrolls the products into view when they are selected: a transform, live only, and still with reduced motion", /@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] \.stz \.stz-page\{animation:sxk-stz-scroll/.test(BUILDER_CSS) && /@keyframes sxk-stz-scroll\{0%,49\.14%\{transform:none\}56\.9%,100%\{transform:translateY\(calc\(-400\*var\(--u\)\)\)\}\}/.test(BUILDER_CSS)) /* Changed on purpose (landing round 15): the canvas scrolls after the first publish (5.7s to 6.6s of 11.6), by 400u, to the products' top edge. */
 /* Changed on purpose (landing round 15): the ring in parts (top and sides, a bottom edge that moves down, the sides carried on) so a section can grow by transforms; the chip at the bottom right, as sections/_shared.tsx draws it. */
 check("the selection ring and chip are the builder's (#3b82f6)", /\n\.wx-sel\{position:absolute;inset:0;box-shadow:inset 0 calc\(2\*var\(--u\)\) #3b82f6/.test(BUILDER_CSS) && /\n\.wx-sel em\{position:absolute;right:calc\(8\*var\(--u\)\);bottom:calc\(8\*var\(--u\)\);[^}]*background:#3b82f6/.test(BUILDER_CSS))
-check("Steez, then loudlib: two scenes on the tab", Ideas.IDEAS_TABS[0].scenes === 2 && /<span class="bm-s1">Steez<\/span><span class="bm-s2">loudlib<\/span>/.test(wb))
+// Changed on purpose (landing round 15): Steez alone, no scenes (the owner).
+check("Steez alone on the tab", !("scenes" in Ideas.IDEAS_TABS[0]) && /<b class="wx-name">Steez<\/b>/.test(wb) && !/loudlib/.test(wb))
 
 console.log("\n── GodBless is gone, with its files ──")
 const all = code(read(F.builders)) + code(read(F.ideas))
@@ -121,7 +124,8 @@ console.log("\n── 2. The OnePage editor: Desmond alone ──")
 const ope = renderToStaticMarkup(createElement(OnePageEditorMock))
 check("Idris Kane is gone from the editor, the code and the alt text", !/Idris|idriskane|IdrisPage|IDRIS/.test(ope + all + Ideas.IDEAS_TABS[1].alt) && !/\.ik[-{ ]|\.dp\.ik/.test(BUILDER_CSS))
 check("his pictures are deleted", ["ik-portrait", "ik-av", "ik-print", "ik-print-128", "lt-field", "lt-field-128", "lt-street", "lt-street-128"].every((n) => !existsSync(join(root, `public/home/showcase/${n}.webp`))))
-check("one scene: one Links column, one page", Ideas.IDEAS_TABS[1].scenes === 1 && (ope.match(/class="ope-panel"/g) ?? []).length === 1 && (ope.match(/class="dp"/g) ?? []).length === 1 && !/bm-s[12]/.test(ope))
+// Changed on purpose (landing round 15): the tabs have no scenes any more; one Links column, one page.
+check("one scene: one Links column, one page", !("scenes" in Ideas.IDEAS_TABS[1]) && (ope.match(/class="ope-panel"/g) ?? []).length === 1 && (ope.match(/class="dp"/g) ?? []).length === 1 && !/bm-s[12]/.test(ope))
 check("the phone no longer scrolls, so his photo, name and corner keys stay in view", !/sxk-op-scroll/.test(BUILDER_CSS) && !/\.ope-phone \.dp\{animation/.test(BUILDER_CSS))
 check("the video is 156u, so the page with the signup on fits the phone (measured: 13u to spare)", rule(BUILDER_CSS, ".dp-video").includes(`height:${U(156)}`))
 
@@ -131,7 +135,8 @@ const phone = um.match(/@media\(max-width:767px\)\{\n[\s\S]*?\n\}/)?.[0] ?? ""
 check("the heading 33px at 390 (wave 18: 30, before: 36)", /\.um \.story-heading\{font-size:clamp\(28px,8\.5vw,36px\)\}/.test(phone) && Math.round(390 * 0.085) === 33)
 check("the photos 51px at 390 (wave 18: 47, before: 54)", /\.um-row\{--pic:clamp\(46px,13vw,56px\)\}/.test(phone) && Math.round(390 * 0.13) === 51)
 /* Changed on purpose (landing round 15): on a phone the line under the heading is hidden (the owner). */
-check("the line hidden, the labels 17px, a little more room", /\.um-sub\{display:none\}/.test(phone) && /\.um-item\{gap:13px;margin-right:37px;font-size:17px\}/.test(phone))
+// Changed on purpose (landing round 15): the line under the heading is gone at every width (the owner), so nothing to hide.
+check("the line gone, the labels 17px, a little more room", !/um-sub/.test(phone) && /\.um-item\{gap:13px;margin-right:37px;font-size:17px\}/.test(phone))
 check("a computer keeps its sizes", /\.um-row\{--pic:clamp\(54px,5\.6vw,108px\);/.test(um) && /\.um-item\{[^}]*font-size:clamp\(18px,1\.75vw,31px\)/.test(um))
 
 console.log("\n── Copy ──")

@@ -130,7 +130,8 @@ console.log("\n── Wave 18: smaller on a phone ──")
   check("the heading smaller than the shared 36px at 390", /\.um \.story-heading\{font-size:clamp\(28px,8\.5vw,36px\)\}/.test(phone))
   check("the photos never larger than before (56px at most)", /\.um-row\{--pic:clamp\(46px,13vw,56px\)\}/.test(phone))
   /* Changed on purpose (landing round 15): the owner hid the line under the heading on a phone; the labels keep their phone size. */
-  check("the line hidden and the labels set for a phone", /\.um-sub\{display:none\}/.test(phone) && /\.um-item\{[^}]*font-size:17px/.test(phone))
+  // Changed on purpose (landing round 15): the line under the heading is gone at every width (the owner).
+  check("the line gone and the labels set for a phone", !/um-sub/.test(phone) && /\.um-item\{[^}]*font-size:17px/.test(phone))
   check("a computer keeps its sizes", /\.um-row\{--pic:clamp\(54px,5\.6vw,108px\);/.test(src) && /\.um-item\{[^}]*font-size:clamp\(18px,1\.75vw,31px\)/.test(src))
 }
 

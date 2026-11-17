@@ -47,7 +47,7 @@ const cm = renderToStaticMarkup(createElement(CommunityMock))
 console.log("\nThe website builder shows a real store")
 // Changed on purpose (landing round 12): the owner dropped the earlier builder example entirely; the first site is their own GodBless store (tests/home-landing-r12-top.test.ts).
 // Changed on purpose (landing round 13): the owner asked for an accurate website builder example; GodBless is replaced by their Materia Steez theme (SteezSite), pinned in tests/home-landing-r13-ideas.test.ts.
-check("its name in the builder's bar, its own address in Publish", wb.includes('<span class="bm-s1">Steez</span>') && wb.includes('<span class="bm-s1">steez.storelib.com</span>'))
+check("its name in the builder's bar, its own address in Publish", wb.includes('<b class="wx-name">Steez</b>') && wb.includes('<b class="wx-pub-host">steez.storelib.com</b>')) // Changed on purpose (landing round 15): Steez alone.
 // Changed on purpose (landing round 12): the store's condensed heading face ships as a small self-hosted subset (gb-oswald.woff2); still nothing from a font service.
 check("a wordmark in the middle of the header, drawn as a picture", /class="smk-pic stz-logo"/.test(site) && site.includes("/home/showcase/stz-logo.webp") && /grid-template-columns:1fr auto 1fr/.test(BUILDER_CSS) && !/fonts\.googleapis|fonts\.gstatic/.test(BUILDER_CSS))
 check("the header's links and the shop's keys", ["Home", "Shop", "Products", "Contact"].every((w) => site.includes(w)) && /class="stz-icons"/.test(site))
@@ -60,7 +60,8 @@ check("Plain Weather and its pictures are gone", !/Plain Weather|plainweather|Pl
 check("the page is white", /\.stz\{[^}]*background:#fff;/.test(BUILDER_CSS))
 // Changed on purpose (landing round 11): two sites, so two pairs of rings.
 // Changed on purpose (landing round 14): one ring per site, around the section whose heading is edited.
-check("the builder still rings the Hero, then the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 2 && /class="wx-sel wx-ring"/.test(wb))
+// Changed on purpose (landing round 15): one site, one ring.
+check("the builder still rings the products", (wb.match(/<em>Selected<\/em>/g) ?? []).length === 1 && /class="wx-sel wx-ring"/.test(wb))
 
 console.log("\nThe Strength Room: a real emblem, a banner for a cover")
 const mark = cm.match(/<svg class="cx-mark"[\s\S]*?<\/svg>/)?.[0] ?? ""

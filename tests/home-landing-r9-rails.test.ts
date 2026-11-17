@@ -100,7 +100,8 @@ check("every picture has its size, decodes off the main thread and cannot be dra
 check("the first two are in the first load at high priority, the other ten lazy", figures.slice(0, 2).every((f) => /loading="eager"/.test(f) && /fetchPriority="high"/i.test(f)) && figures.slice(2).every((f) => /loading="lazy"/.test(f) && !/fetchPriority="high"/i.test(f)))
 check("a wide card: a 720 and a 1440 file for desktops", wides.every((e) => e.srcSet === `${e.src.replace(".webp", "-720.webp")} 720w, ${e.src} 1440w`) && (html.match(/sizes="\(min-width: 2020px\) 780px, 39vw"/g) ?? []).length === 8)
 /* Changed on purpose (landing round 15): loudlib's four files, with its boxes drawn again, are in public/marketing/loudlib. */
-check("and for a phone its own 4:3 source, 640 and 960 wide, at 78vw", (html.match(/<source media="\(max-width: 767px\)" srcSet="\/(?:home\/showcase|marketing\/loudlib)\/m-[a-z]+-640\.webp 640w, \/(?:home\/showcase|marketing\/loudlib)\/m-[a-z]+-960\.webp 960w" sizes="78vw"/g) ?? []).length === 8)
+// Changed on purpose (landing round 15): a phone card is 85vw now (the owner: "1.1 view, not 1.2").
+check("and for a phone its own 4:3 source, 640 and 960 wide, at 85vw", (html.match(/<source media="\(max-width: 767px\)" srcSet="\/(?:home\/showcase|marketing\/loudlib)\/m-[a-z]+-640\.webp 640w, \/(?:home\/showcase|marketing\/loudlib)\/m-[a-z]+-960\.webp 960w" sizes="85vw"/g) ?? []).length === 8)
 check("a OnePage card: a 360 and a 540 file, and no phone source (one shape everywhere)", talls.every((e) => e.srcSet === `${e.src.replace(".webp", "-360.webp")} 360w, ${e.src} 540w` && !e.phoneSrcSet))
 {
   const sizes: Record<string, { w: number; h: number }> = {}
