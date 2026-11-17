@@ -343,8 +343,9 @@ check("Products keeps its title, table and row sizes with a 56px touch toolbar",
   /<h1 className="min-w-0 truncate text-\[24px\]/.test(list) && /data-toolbar="" className="flex min-h-14/.test(list) && /className="group h-14 cursor-pointer"/.test(list) && /"h-10 w-10 rounded-\[9px\]"/.test(list))
 
 /* "In the Products page the New product button at the top should be purple." Then it went near black with every primary (7ea799ec), and: "the New product button needs to be purple there, both on mobile and desktop." */
-check("Add uses the Analytics circular surface with a plus and concise label",
-  /const NEW_LOOK = "[^"\n]*rounded-full bg-white/.test(list) && /<Plus className="h-4 w-4" aria-hidden/.test(list) && /<span>Add<\/span>/.test(list) && !/accentDepth/.test(list))
+/* Changed on purpose (products round 15): "give the + Add button a purple background, white icon and text, smooth and clean hover and press". The bar's Add is ADD_LOOK, the /app violet; Create product in the empty list keeps NEW_LOOK. */
+check("Add is the /app violet with a white plus and concise label",
+  /const NEW_LOOK = "[^"\n]*rounded-full bg-white/.test(list) && /const ADD_LOOK = "[^"\n]*rounded-full bg-\[#8b5cf6\][^"\n]*text-white[^"\n]*hover:bg-\[#7c3aed\][^"\n]*active:scale-\[0\.96\]/.test(list) && /className=\{ADD_LOOK\}\s*>\s*<Plus className="h-4 w-4" strokeWidth=\{2\.25\} aria-hidden/.test(list) && /<span>Add<\/span>/.test(list) && !/accentDepth/.test(list))
 
 /* "Make sure the three dots button in the products page has the same depth as the three dots button in the edit product page." */
 /* "Reduce the products page's overall scale by about 10%": the more button came down with it, the depth stayed. Then Preview joined it at the same size. */

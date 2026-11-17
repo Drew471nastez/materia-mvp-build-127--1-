@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 468: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 469: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -5919,6 +5919,23 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('467', '4
 /* Round BB, part 468: themes uploaded straight into the AI source bank. The admin can drop a zip, an HTML page, a stylesheet or a whole theme folder at /admin/ai-bank; it is kept as a reference the website AI reads (its pages, sections, styles and how it moves), with no library website behind it, so public.ai_template_bank.install_id may now be empty. Library entries keep their website and still go when it is deleted. Still server only. No existing rows change. Run after part 467. Safe to run again. */
 DO $do$ BEGIN IF to_regclass('public.ai_template_bank') IS NULL THEN RAISE NOTICE 'ai bank uploads: run part 467 first.'; RETURN; END IF; ALTER TABLE public.ai_template_bank ALTER COLUMN install_id DROP NOT NULL; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('468', '468_ai_bank_uploads.sql', '4df3b00fc92fe424423f3f0de5b6695013affe83be00bcf20c5dc149440af373') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 469_shopify_product_imports.sql
+/* Part 469: product link imports keep their platform. The check on public.product_import_links.source now allows 'shopify' beside 'gumroad', so a Shopify product link import is recorded like a Gumroad one. Existing Gumroad links are unchanged. Run after part 344. Safe to run again. */
+DO $$
+DECLARE constraint_name text;
+BEGIN
+  FOR constraint_name IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'public.product_import_links'::regclass
+      AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%source%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.product_import_links DROP CONSTRAINT %I', constraint_name);
+  END LOOP;
+  ALTER TABLE public.product_import_links ADD CONSTRAINT product_import_links_source_check
+    CHECK (source IN ('gumroad', 'shopify'));
+END $$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('469', '469_shopify_product_imports.sql', '1d40026de1baac51872973f55093479ec1df5486f387c90cceda6e8ef36cf10f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

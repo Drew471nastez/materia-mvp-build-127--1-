@@ -1,4 +1,4 @@
--- Allow link imports to retain their platform identity. Existing Gumroad links are unchanged.
+/* Part 469: product link imports keep their platform. The check on public.product_import_links.source now allows 'shopify' beside 'gumroad', so a Shopify product link import is recorded like a Gumroad one. Existing Gumroad links are unchanged. Run after part 344. Safe to run again. */
 DO $$
 DECLARE constraint_name text;
 BEGIN
@@ -12,4 +12,4 @@ BEGIN
   ALTER TABLE public.product_import_links ADD CONSTRAINT product_import_links_source_check
     CHECK (source IN ('gumroad', 'shopify'));
 END $$;
-NOTIFY pgrst, 'reload schema';
+notify pgrst, 'reload schema';

@@ -63,10 +63,16 @@ export function warmKinds(router: Router) {
 
 /* ── The drawings ─────────────────────────────────────────────────────── */
 
-/** Layered illustrations keep the product choices recognisable at a glance. */
+/**
+ * Layered illustrations keep the product choices recognisable at a glance.
+ * Products round 15: drawn again so each says what it is. A digital product
+ * is a file with its download; a video course is a lesson playing, its
+ * progress under it and the chapter list beside it. The same flat fills,
+ * 1.5px outlines and soft ground as the box and the Import tiles.
+ */
 export function KindArt({ kind, className }: { kind: ProductKind; className?: string }) {
-  return <span aria-hidden className={cn("relative grid h-20 w-20 shrink-0 place-items-center", className)}>
-    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" strokeLinecap="round" strokeLinejoin="round">
+  return <span aria-hidden className={cn("relative grid h-16 w-16 shrink-0 place-items-center", className)}>
+    <svg width="64" height="64" viewBox="0 0 80 80" fill="none" strokeLinecap="round" strokeLinejoin="round">
       {kind === "physical" ? <>
         <ellipse cx="40" cy="68" rx="30" ry="5" fill="#e5e7eb" />
         <path d="M16 30 40 20l24 10v30L40 71 16 60Z" fill="#dca475" />
@@ -76,19 +82,34 @@ export function KindArt({ kind, className }: { kind: ProductKind; className?: st
         <rect x="34" y="48" width="38" height="23" rx="5" fill="white" stroke="#d1d5db" />
         <rect x="39" y="53" width="28" height="4" rx="2" fill="#e5e7eb" /><rect x="39" y="61" width="21" height="5" rx="2.5" fill="#1a1a2e" />
       </> : kind === "course" ? <>
-        <ellipse cx="40" cy="70" rx="31" ry="4" fill="#e5e7eb" />
-        <rect x="9" y="17" width="59" height="41" rx="7" fill="#d9d6f8" stroke="#9388c9" />
-        <rect x="14" y="22" width="49" height="30" rx="4" fill="#f6f4ff" />
-        <path d="m33 29 14 9-14 9Z" fill="#9b7de2" />
-        <path d="M30 59v6h20v-6M22 68h36" stroke="#9ca3af" strokeWidth="3" />
-        <rect x="55" y="39" width="17" height="30" rx="4" fill="white" stroke="#6b7280" /><rect x="58" y="48" width="11" height="13" rx="2" fill="#b8e1d7" />
+        <ellipse cx="40" cy="71" rx="31" ry="4" fill="#e5e7eb" />
+        {/* The lesson playing, and how far into it */}
+        <rect x="5" y="13" width="54" height="42" rx="7" fill="#d9d6f8" stroke="#9388c9" strokeWidth="1.5" />
+        <rect x="10" y="18" width="44" height="25" rx="4" fill="#f6f4ff" />
+        <path d="M28.5 25.5v11l9-5.5Z" fill="#9b7de2" stroke="#9b7de2" strokeWidth="2" />
+        <rect x="10" y="47.5" width="44" height="3" rx="1.5" fill="#bdb6ea" />
+        <rect x="10" y="47.5" width="25" height="3" rx="1.5" fill="#7c5bd6" />
+        <circle cx="35" cy="49" r="3.2" fill="white" stroke="#7c5bd6" strokeWidth="1.5" />
+        {/* The chapters: one done, one playing, one to come */}
+        <rect x="45" y="31" width="30" height="37" rx="5" fill="white" stroke="#6b7280" strokeWidth="1.5" />
+        <circle cx="52" cy="40" r="3.2" fill="#55afa8" /><path d="m50.6 40.1 1 1 2-2.2" stroke="white" strokeWidth="1.3" />
+        <rect x="58" y="38.8" width="12" height="2.4" rx="1.2" fill="#d1d5db" />
+        <circle cx="52" cy="49.5" r="3.2" fill="#8b5cf6" /><path d="M51.2 48.2v2.6l2-1.3Z" fill="white" stroke="white" strokeWidth="0.8" />
+        <rect x="58" y="48.3" width="13" height="2.4" rx="1.2" fill="#9388c9" />
+        <circle cx="52" cy="59" r="2.8" fill="white" stroke="#c4c7cf" strokeWidth="1.3" />
+        <rect x="58" y="57.8" width="10" height="2.4" rx="1.2" fill="#e5e7eb" />
       </> : <>
-        <ellipse cx="40" cy="70" rx="31" ry="4" fill="#e5e7eb" />
-        <rect x="12" y="10" width="40" height="56" rx="6" fill="white" stroke="#55586a" strokeWidth="1.5" />
-        <circle cx="18" cy="16" r="1" fill="#6b7280" /><circle cx="22" cy="16" r="1" fill="#6b7280" />
-        <rect x="18" y="38" width="23" height="24" rx="5" fill="#d84e6b" /><path d="M29.5 43v12m-5-5 5 5 5-5M24 58h11" stroke="white" strokeWidth="1.6" />
-        <rect x="40" y="31" width="24" height="39" rx="5" fill="white" stroke="#6b7280" strokeWidth="1.5" /><rect x="44" y="51" width="20" height="19" rx="4" fill="#55afa8" /><path d="M49 57h7v7h-7zm7 2 4-2v7l-4-2" stroke="white" />
-        <rect x="62" y="39" width="12" height="18" rx="3" fill="#e7bc53" /><path d="M70 43v7m0-7-4 1v7" stroke="white" strokeWidth="1.5" />
+        <ellipse cx="40" cy="71" rx="28" ry="4" fill="#e5e7eb" />
+        {/* The file, its corner folded */}
+        <path d="M21 8h24l13 13v42a5 5 0 0 1-5 5H21a5 5 0 0 1-5-5V13a5 5 0 0 1 5-5Z" fill="white" stroke="#55586a" strokeWidth="1.5" />
+        <path d="M45 8v9a4 4 0 0 0 4 4h9" fill="#eef0f3" stroke="#55586a" strokeWidth="1.5" />
+        <rect x="22" y="15" width="13" height="7" rx="2" fill="#e7bc53" />
+        <rect x="22" y="28" width="26" height="3" rx="1.5" fill="#e5e7eb" />
+        <rect x="22" y="35" width="21" height="3" rx="1.5" fill="#e5e7eb" />
+        <rect x="22" y="42" width="14" height="3" rx="1.5" fill="#e5e7eb" />
+        {/* Its download */}
+        <circle cx="54" cy="55" r="14" fill="#d84e6b" stroke="white" strokeWidth="3" />
+        <path d="M54 47.5v10.5m-4.5-4.5 4.5 4.5 4.5-4.5M48.5 62.5h11" stroke="white" strokeWidth="2" />
       </>}
     </svg>
   </span>
@@ -96,8 +117,9 @@ export function KindArt({ kind, className }: { kind: ProductKind; className?: st
 
 /* ── The list ─────────────────────────────────────────────────────────── */
 
+/* Products round 15: about 15% shorter than the 112px rows, with 64px drawings rather than 80px. */
 const ROW =
-  "group/kind flex min-h-28 w-full items-center gap-5 rounded-2xl border border-[#e2e4e8] bg-white px-4 py-4 text-left outline-none transition-[background-color,border-color,scale] duration-150 hover:border-[#c9cdd5] hover:bg-[#fafbfc] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+  "group/kind flex min-h-[88px] w-full items-center gap-4 rounded-2xl border border-[#e2e4e8] bg-white px-4 py-3 text-left outline-none transition-[background-color,border-color,scale] duration-150 hover:border-[#c9cdd5] hover:bg-[#fafbfc] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
 /** Up, down, Home and End move between the answers; Enter and Space are the buttons' own. */
 function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
@@ -114,7 +136,7 @@ export function KindList({ onChoose, onImport }: { onChoose: (kind: ProductKind)
   const physical = usePhysicalCommerceEnabled()
   return (
     <div onKeyDown={moveFocus} data-kind-list="">
-      <ul className="space-y-3">
+      <ul className="space-y-2.5">
         {kindOptions(physical).map((o) => (
           <li key={o.kind}>
             <button
@@ -132,7 +154,7 @@ export function KindList({ onChoose, onImport }: { onChoose: (kind: ProductKind)
           </li>
         ))}
       </ul>
-      <button type="button" data-kind="import" data-import-products="" onClick={onImport ?? (() => { window.location.href = "/app/products/new" })} className={cn(ROW, "mt-3")}>
+      <button type="button" data-kind="import" data-import-products="" onClick={onImport ?? (() => { window.location.href = "/app/products/new" })} className={cn(ROW, "mt-2.5")}>
         <ImportArt /><span className="min-w-0 flex-1 text-[16px] font-semibold text-[#1a1a2e]">{tt("Import")}</span><ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2]" />
       </button>
     </div>

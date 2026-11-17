@@ -6,7 +6,7 @@ import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { fetchPublic } from "@/lib/api/public-fetch"
 import { fetchProductLink } from "@/lib/products/import/product-link-server"
 import { importImageUrl } from "@/lib/products/import/product-link"
-import { importGumroadItem } from "@/lib/products/import/gumroad-server"
+import { duplicatesFor, importGumroadItem } from "@/lib/products/import/gumroad-server"
 import { screenInBackground } from "@/lib/storage/upload-guard"
 
 export const runtime = "nodejs"
@@ -32,7 +32,11 @@ export async function POST(request: Request) {
     const product = await fetchProductLink(body.url)
     const currency = await storeCurrencyNow(gate.db, gate.creatorId)
     if (!currency) return json({ error: "Your store currency could not be read. Try again in a moment." }, 503)
-    if (body.action === "preview") return json({ product, storeCurrency: currency })
+    /* Already in the store? Said on the preview, and asked again before a write, so a stale page cannot make a second one (lib/products/import/duplicates). */
+    const existing = (await duplicatesFor(gate.db, gate.creatorId, product.source)).find({ title: product.title, externalId: product.externalId, url: product.url })
+    if (body.action === "preview") return json({ product, storeCurrency: currency, existing })
+    const copy = body.copy === true
+    if (existing && !copy) return json({ status: "duplicate", existing, error: "This product is already in your products. Import it as a copy, or open the one you have." }, 409)
     if (product.currency !== currency) return json({ error: `This product is priced in ${product.currency}; your store sells in ${currency}. Set the source to your store's currency before importing.` }, 400)
     if (body.type === "digital" || body.type === "course" || body.type === "physical") product.type = body.type
     if (product.type === "physical" && !(await isPhysicalCommerceEnabled())) return json({ error: "Physical products are not enabled for this store." }, 403)
@@ -57,6 +61,7 @@ export async function POST(request: Request) {
         } catch { return null }
       },
       afterUpload: ({ bucket, path, bytes }) => screenInBackground(gate.db, { bytes, bucket, path, context: "public_image", userId: gate.userId }),
+      copy,
     })
     if (result.status === "error") return json({ error: result.error === "not_ready" ? "Imports need their database update. Run SQL parts 344 and 469, then try again." : "The draft could not be saved. Check the import database updates and try again." }, result.error === "not_ready" ? 503 : 500)
     if (result.status === "busy") return json({ error: "This product is already being imported. Wait a moment and try again." }, 409)
