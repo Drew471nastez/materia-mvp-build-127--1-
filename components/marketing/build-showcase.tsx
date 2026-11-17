@@ -1,6 +1,8 @@
 "use client"
 
-import type { CSSProperties } from "react"
+import { useEffect, useRef, type CSSProperties } from "react"
+import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
+import { SITE_LANGUAGE_CODES } from "@/lib/markets/locales"
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { useShowcaseField } from "./showcase-field"
 import { StoryHeading } from "./story-heading"
@@ -47,13 +49,14 @@ import type { SectionStyle } from "./home/lazy-section"
   the words rising a few px) when the pointer rests on the card; on a touch
   screen, where there is no hover, it is always there.
 */
-const wide = (brand: string, label: string, alt: string) => ({
-  src: `/home/showcase/a-${brand}.webp`,
+/* `dir`: where the card's four files are (landing round 15: loudlib's, with its boxes drawn again, are in public/marketing/loudlib). */
+const wide = (brand: string, label: string, alt: string, dir = "/home/showcase") => ({
+  src: `${dir}/a-${brand}.webp`,
   /* A desktop card is 43% of the rail: 720 wide for 1x, 1440 for 2x. */
-  srcSet: `/home/showcase/a-${brand}-720.webp 720w, /home/showcase/a-${brand}.webp 1440w`,
+  srcSet: `${dir}/a-${brand}-720.webp 720w, ${dir}/a-${brand}.webp 1440w`,
   sizes: "(min-width: 2020px) 780px, 39vw",
   /* A phone's card is 4:3, 78vw: its own 4:3 picture, 640 wide for 2x and 960 for 3x. */
-  phoneSrcSet: `/home/showcase/m-${brand}-640.webp 640w, /home/showcase/m-${brand}-960.webp 960w` as string | undefined,
+  phoneSrcSet: `${dir}/m-${brand}-640.webp 640w, ${dir}/m-${brand}-960.webp 960w` as string | undefined,
   alt,
   label,
   format: "wide",
@@ -110,6 +113,16 @@ const portrait = (brand: string, label: string, alt: string, tone: string) => ({
   picture; on a desktop the card keeps its 1440 x 990 like its neighbours
   and the picture sits whole in it, its gradient carried on at the sides.
 */
+/*
+  LANDING ROUND 15, THE OWNER: loudlib's pictures are "blurry and low
+  quality". The files and their sizes were right (1440 and 720 for a
+  desktop card, 960 and 640 for a phone's); what was soft was the box art,
+  cut from a 460px screenshot of the whole page and enlarged about four and
+  a half times. The six boxes are drawn again, sharp (the same boxes as the
+  website builder's loudlib, builder-mocks.tsx), and set into the same four
+  pictures in place of the soft ones; the page, the words and the badges
+  around them are as they were.
+*/
 /* Every caption is three words at most (the owner, waves 13 and 14). */
 const GROUPS = [
   [
@@ -123,7 +136,7 @@ const GROUPS = [
     wide("strength", "Run a community", "The Strength Room, Rina Castillo's paid strength coaching community on Storelib: its barbell emblem, the community card, the next live form check and the pinned post with the new program"),
   ],
   [
-    wide("loud", "Sell sample packs", "loudlib's Storelib store under a purple sale bar and a dark header: Bestselling, Serum Presets Vol 1 for €8,99, the Tech House Master Bundle for €19,98 and a drum kit, each a boxed pack"),
+    wide("loud", "Sell sample packs", "loudlib's Storelib store under a purple sale bar and a dark header: Bestselling, Serum Presets Vol 1 for €8,99, the Tech House Master Bundle for €19,98 and a drum kit, each a boxed pack", "/marketing/loudlib"),
     portrait("otc", "Sell bonus episodes", "Off the Clock's OnePage on the Pop theme, Marcus Bell at his microphone: bonus episodes for $5 a month, tickets to a live show in Leeds and season one uncut", "#1d3fd8"),
     wide("nightshift", "Build a club", "Night Shift Devs, an indie game dev community on Storelib in the dark look: the pinned jam theme, a member's devlog and the jam kickoff stream"),
   ],
@@ -135,6 +148,91 @@ const GROUPS = [
 ]
 export const SHOWCASE_EXAMPLES = GROUPS.flat()
 export const SHOWCASE_HEADING = "Build your page, sell your products, and manage everything in one place."
+
+/*
+  LANDING ROUND 15, THE OWNER: a row of three numbers under the heading,
+  after Squarespace's "14M+ Entrepreneurs Served" row (big light numbers, a
+  small line under each, centred on the dark ground), three across on a
+  phone too. Each is a fact about the product read from the code that makes
+  it true, never a figure about other people's sales:
+    7    the currencies checkout charges in: one fee rule per currency
+         (lib/payments/fees/currency-rules.ts CURRENCY_FEE_RULES).
+    43   the languages a website's settings offer it in
+         (lib/markets/locales.ts SITE_LANGUAGE_CODES).
+    $0   the Free plan's monthly price (lib/billing/plans.ts OFFERED_PLANS,
+         free.priceCents; tests/home-landing-r15-showcase.test.ts holds them equal).
+*/
+export const SHOWCASE_FREE_MONTHLY_CENTS = 0
+export const SHOWCASE_STATS: readonly { value: number; prefix?: string; label: string }[] = [
+  { value: Object.keys(CURRENCY_FEE_RULES).length, label: "Currencies at checkout" },
+  { value: SITE_LANGUAGE_CODES.length, label: "Languages for your site" },
+  { value: SHOWCASE_FREE_MONTHLY_CENTS / 100, prefix: "$", label: "A month on Free" },
+]
+/** How long the numbers take to count up, once the row is on screen. */
+const COUNT_MS = 1400
+
+/**
+ * The numbers count up once, when the row comes into view: one requestAnimationFrame loop, only for those 1.4s,
+ * writing each number's textContent. Each number sits in a box as wide as its final text in tabular figures, so a
+ * changing digit moves nothing around it. The server draws the final numbers, which is what reduced motion keeps, and
+ * a row already on screen when it mounts keeps them too rather than jumping back to zero.
+ */
+function ShowcaseStats() {
+  const root = useRef<HTMLDListElement>(null)
+  useEffect(() => {
+    const el = root.current
+    if (!el || typeof IntersectionObserver === "undefined") return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const box = el.getBoundingClientRect()
+    if (box.top < window.innerHeight && box.bottom > 0) return
+    const nums = [...el.querySelectorAll<HTMLElement>("[data-stat]")]
+    const show = (k: number) =>
+      nums.forEach((n, i) => {
+        const s = SHOWCASE_STATS[i]
+        const text = `${s.prefix ?? ""}${Math.round(s.value * k)}`
+        if (n.textContent !== text) n.textContent = text
+      })
+    show(0)
+    let raf = 0
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        io.disconnect()
+        const start = performance.now()
+        const step = (now: number) => {
+          const t = Math.min(1, (now - start) / COUNT_MS)
+          show(1 - Math.pow(1 - t, 3))
+          if (t < 1) raf = requestAnimationFrame(step)
+        }
+        raf = requestAnimationFrame(step)
+      },
+      { threshold: 0.6 },
+    )
+    io.observe(el)
+    return () => {
+      io.disconnect()
+      cancelAnimationFrame(raf)
+      show(1)
+    }
+  }, [])
+  return (
+    <dl ref={root} className="build-showcase-stats">
+      {SHOWCASE_STATS.map((s) => {
+        const text = `${s.prefix ?? ""}${s.value}`
+        return (
+          <div key={s.label}>
+            <dt>{s.label}</dt>
+            <dd>
+              <span data-stat="" style={{ width: `${text.length}ch` }}>
+                {text}
+              </span>
+            </dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
+}
 
 /** Each desktop page is a complete wide–OnePage–wide composition. */
 export function BuildShowcase() {
@@ -168,6 +266,7 @@ export function BuildShowcase() {
             dark
             showcase
           />
+          <ShowcaseStats />
         </div>
         <div
           className="build-showcase-viewport"
@@ -264,6 +363,12 @@ const CSS = `
 .build-showcase-top {margin:0 calc(var(--showcase-gutter,clamp(20px,5.15vw,84px)) + var(--landing-card-inset,14px)) clamp(38px,4.8vw,65px)}
 .build-showcase h2 {max-width:none;margin:0;font-size:clamp(32px,3.4vw,58px);text-wrap:balance;line-height:1.13}
 .build-showcase .story-heading {--story-muted:#66666e}
+/* Landing round 15: the three numbers, centred under the heading, three across at every width. The label is a dt drawn under its number (order), so a screen reader hears the label first. */
+.build-showcase-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,3vw,56px);max-width:880px;margin:clamp(40px,4.4vw,64px) auto 0;padding:0;text-align:center}
+.build-showcase-stats>div {display:flex;flex-direction:column;align-items:center;min-width:0}
+.build-showcase-stats dd {order:-1;margin:0;font-size:clamp(34px,5.2vw,76px);font-weight:300;line-height:1;letter-spacing:-.035em;color:#fafafa}
+.build-showcase-stats [data-stat] {display:inline-block;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap}
+.build-showcase-stats dt {margin-top:clamp(8px,1vw,14px);font-size:clamp(12px,1.1vw,15px);font-weight:500;line-height:1.3;color:#a1a1aa}
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* Landing round 9: no fading mask on the rail (a mask over a moving layer is drawn again every frame of a drag); the rail is cut at the gutter. */
 .build-showcase-viewport {position:relative;overflow:hidden;margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}

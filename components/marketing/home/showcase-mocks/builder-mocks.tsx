@@ -1,6 +1,7 @@
 import type { ComponentType, SVGProps } from "react"
 import {
   Archive,
+  ArrowLeft,
   ArrowLeftToLine,
   BarChart2,
   Bell,
@@ -156,12 +157,32 @@ const STZ_MENU = ["Home", "Shop", "Products", "Contact"]
 export const STZ_EDIT = { was: "Summer Madness '26", now: "Winter Drop '26" } as const
 export const LL_EDIT = { was: "BESTSELLING", now: "NEW RELEASES" } as const
 
-/** A product in a store's grid: its shot, a sale badge when it is reduced, the name and the price. */
-function ShopCard({ p, cls, w = 480, h = 480 }: { p: Product; cls: string; w?: number; h?: number }) {
+/**
+ * A product in a store's grid: its shot, a sale badge when it is reduced, the name and the price. With `sizes`, the
+ * shot is one of loudlib's boxes drawn again (landing round 15, public/marketing/loudlib) in two widths
+ * (`<name>-320.webp` and `<name>.webp`, 640), and the browser takes the one its drawn size needs at the screen's density.
+ */
+function ShopCard({ p, cls, w = 480, h = 480, sizes }: { p: Product; cls: string; w?: number; h?: number; sizes?: string }) {
   return (
     <span className={`${cls}-card`}>
       <span className={`${cls}-img`}>
-        <Pic n={p.pic} w={w} h={h} />
+        {sizes ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={llPic(p.pic)}
+            srcSet={`${llPic(`${p.pic}-320`)} 320w, ${llPic(p.pic)} ${w}w`}
+            sizes={sizes}
+            alt=""
+            width={w}
+            height={h}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="smk-pic"
+          />
+        ) : (
+          <Pic n={p.pic} w={w} h={h} />
+        )}
         {p.was && <i className={`${cls}-sale`}>On Sale</i>}
       </span>
       <b>{p.name}</b>
@@ -174,21 +195,27 @@ function ShopCard({ p, cls, w = 480, h = 480 }: { p: Product; cls: string; w?: n
 }
 
 /**
- * A heading the builder edits in place (landing round 14): the site's own words, which a double click selects, and
- * the new words, one span per character, each lit on its own beat (its delay) as if typed, a caret after the newest.
- * The resting picture is the site as it is: the old words, the new ones hidden.
+ * A heading the builder edits (landing round 14): the site's own words and the new words, one span per character,
+ * each lit on its own beat (its delay) as if typed. The resting picture is the site as it is: the old words, the new
+ * ones hidden.
+ *
+ * Landing round 15 (the owner: "more accurate"): the words are typed where the real editor takes them, the Heading
+ * field of the section's panel (`field`: the old words selected in the browser's blue, a caret after the newest
+ * character), and the page follows character by character. On the page the heading wears the editor's outline
+ * (`.wx-hd`, canvas-hover.tsx's 2px blue round the one thing a click opened).
  */
-function Edit({ was, now }: { was: string; now: string }) {
-  const beat = (TYPE_SPAN * T) / now.length
+function Edit({ was, now, field = false }: { was: string; now: string; field?: boolean }) {
+  const beat = (TYPE_S / now.length).toFixed(4)
   return (
-    <span className="wx-edit">
+    <span className={field ? "wx-edit wx-edit-f" : "wx-edit"}>
+      {!field && <i className="wx-hd" />}
       <span className="wx-was">
-        <i className="wx-mark" />
+        {field && <i className="wx-mark" />}
         {was}
       </span>
       <span className="wx-now" aria-hidden="true">
         {[...now].map((c, i) => (
-          <i key={i} style={{ animationDelay: `${(i * beat).toFixed(3)}s` }}>
+          <i key={i} style={{ animationDelay: `${(i * Number(beat)).toFixed(3)}s` }}>
             {c}
           </i>
         ))}
@@ -202,6 +229,22 @@ function Edit({ was, now }: { was: string; now: string }) {
  * over the Summer Madness '26 slideshow, the t-shirts carousel, then the Summer Collection slideshow. `rings`
  * outlines the slideshow, the section the builder has selected.
  */
+/**
+ * The selection ring round a section (sections/_shared.tsx: 2px of #3b82f6 inside its edge, "Selected" at the bottom
+ * right). Landing round 15: drawn in parts so the section can take more top padding with transforms alone: the top and
+ * the sides stand still, the bottom edge and the chip move down by the new space (translate), and the sides are carried
+ * on over it by a strip under the section that grows from its top (scaleY).
+ */
+function Ring() {
+  return (
+    <span className="wx-sel wx-ring">
+      <i className="wx-sel-x" />
+      <i className="wx-sel-b" />
+      <em>Selected</em>
+    </span>
+  )
+}
+
 export function SteezSite({ rings = false }: { rings?: boolean }) {
   return (
     <div className="stz">
@@ -236,11 +279,6 @@ export function SteezSite({ rings = false }: { rings?: boolean }) {
             <b>{rings ? <Edit {...STZ_EDIT} /> : STZ_EDIT.was}</b>
             <em>EXPLORE</em>
           </span>
-          {rings && (
-            <span className="wx-sel wx-ring">
-              <em>Selected</em>
-            </span>
-          )}
         </div>
         <div className="stz-shop">
           <div className="stz-grid">
@@ -249,6 +287,7 @@ export function SteezSite({ rings = false }: { rings?: boolean }) {
             ))}
           </div>
           <span className="stz-all">View all</span>
+          {rings && <Ring />}
         </div>
         <div className="stz-hero stz-summer">
           <Pic n="stz-summer" w={1200} h={533} className="stz-photo" />
@@ -288,11 +327,23 @@ const LL_PRODUCTS: Product[] = [
   { pic: "ll-deep-house", name: "Deep House Production Suite - Serenade", price: "€9,98", was: "€24,94" },
   { pic: "ll-unitech", name: "Tech House Sample Pack - Unitech", price: "€9,20" },
 ]
+/*
+  Landing round 15 (the owner: loudlib's pictures "are blurry and low quality"). They were: each box shot was cut out of
+  a 460px wide screenshot of the whole page, so about 120px of real picture, then enlarged to 540. No width or
+  setting could sharpen that. The boxes are drawn again at 640 x 609 (the 267 x 254 of the grid cell), the box, its
+  spine and its words sharp, the art on the front taken from the store's own box (public/marketing/loudlib); a 320
+  copy serves a phone. A cell is
+  20% of the editor's frame: 18vw of a phone (70px, so 210 pixels at 3x: the 320), 14vw of a computer (about 200px
+  on a laptop, 400 pixels on a 2x screen: the 640), 290px at most.
+*/
+const LL_SIZES = "(max-width: 767px) 18vw, (min-width: 2020px) 290px, 14vw"
+const llPic = (name: string) => `/marketing/loudlib/${name}.webp`
 const LL_MENU = ["Home", "Shop", "Sample Packs", "Free Downloads", "Blog", "Work With Us", "Support"]
 
 export function LoudlibSite({ rings = false }: { rings?: boolean }) {
   return (
     <div className="ll">
+      <div className="ll-page">
       <p className="ll-bar">
         <Sun className="ll-sun" />
         Sale 60% Off To All Products
@@ -319,14 +370,11 @@ export function LoudlibSite({ rings = false }: { rings?: boolean }) {
         <p className="ll-h">{rings ? <Edit {...LL_EDIT} /> : LL_EDIT.was}</p>
         <div className="ll-grid">
           {LL_PRODUCTS.map((p) => (
-            <ShopCard key={p.name} p={p} cls="ll" w={540} h={513} />
+            <ShopCard key={p.name} p={p} cls="ll" w={640} h={609} sizes={LL_SIZES} />
           ))}
         </div>
-        {rings && (
-          <span className="wx-sel wx-ring">
-            <em>Selected</em>
-          </span>
-        )}
+        {rings && <Ring />}
+      </div>
       </div>
     </div>
   )
@@ -530,6 +578,7 @@ function PublishPanel() {
       <p className="wx-pub-st">
         <span className="wx-pub-was">Changes since published 2 days ago</span>
         <span className="wx-pub-now">Published just now</span>
+        <span className="wx-pub-again">Changes since published just now</span>
       </p>
       <p className="wx-pub-l">Website URL</p>
       <span className="wx-pub-url">
@@ -560,6 +609,66 @@ function PublishPanel() {
   )
 }
 
+/*
+  THE SECTION'S PANEL (landing round 15). A click on the page selects its section and the sidebar becomes that
+  section's panel, as in the editor (page.tsx, the selected section's panel): Back on its quiet tile and the section's
+  name (components/website-builder/panel-back.tsx), the menu at the right, then its settings, 14px in, 14px apart. A
+  text setting is a 32px field with its name over it in small grey (FieldEditor); a number is the editor's slider
+  (slider-number-control.tsx, .wb-black-slider in globals.css): a 6px #ececec track, the #111 fill, a 20px #111 thumb
+  ringed in white, and the number in a 58px box beside it.
+*/
+type Setting =
+  | { kind: "text"; label: string; value: string; edit?: { was: string; now: string } }
+  | { kind: "slider"; label: string; from: number; steps?: readonly number[]; max: number }
+/** A slider's number box: the value it starts at, or each value it steps through as the thumb is dragged, one under the next. */
+function SliderValue({ from, steps }: { from: number; steps?: readonly number[] }) {
+  return (
+    <span className="wx-num">
+      <span className={steps ? "wx-num-run" : undefined}>
+        {(steps ?? [from]).map((v) => (
+          <b key={v}>{v}px</b>
+        ))}
+      </span>
+    </span>
+  )
+}
+function SectionPanel({ name, settings, className }: { name: string; settings: readonly Setting[]; className: string }) {
+  return (
+    <div className={`wx-panel ${className}`}>
+      <div className="wx-pb">
+        <span className="wx-pb-back">
+          <ArrowLeft />
+        </span>
+        <b>{name}</b>
+        <MoreHorizontal className="wx-pb-more" />
+      </div>
+      <div className="wx-fields">
+        {settings.map((f) =>
+          f.kind === "text" ? (
+            <span key={f.label} className="wx-f">
+              <i>{f.label}</i>
+              <span className={f.edit ? "wx-in wx-in-ed" : "wx-in"}>{f.edit ? <Edit {...f.edit} field /> : f.value}</span>
+            </span>
+          ) : (
+            <span key={f.label} className="wx-f">
+              <i className="wx-f-sl">{f.label}</i>
+              <span className="wx-sl">
+                <span className="wx-track">
+                  <i className={f.steps ? "wx-fill wx-fill-run" : "wx-fill"} style={{ transform: `translateX(${fillAt(f.from / f.max)})` }}>
+                    <b />
+                  </i>
+                </span>
+                <i className={f.steps ? "wx-thumb wx-thumb-run" : "wx-thumb"} style={{ left: thumbAt(f.from / f.max) }} />
+                <SliderValue from={f.from} steps={f.steps} />
+              </span>
+            </span>
+          ),
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function WebsiteBuilderMock() {
   return (
     <div className="bm wb">
@@ -570,6 +679,14 @@ export function WebsiteBuilderMock() {
           <SiteTree tree={STEEZ_TREE} className="bm-s1" />
           <SiteTree tree={LOUDLIB_TREE} className="bm-s2" />
         </div>
+        {/* Landing round 15: the panels of the sections each site's edit selects, over the tree. */}
+        <span className="wx-panels bm-s1">
+          <SectionPanel name="Slideshow" settings={STZ_SLIDE} className="wx-pa" />
+          <SectionPanel name="Products carousel" settings={STZ_CAROUSEL} className="wx-pz" />
+        </span>
+        <span className="wx-panels bm-s2">
+          <SectionPanel name="Featured products" settings={LL_FEATURED} className="wx-pa" />
+        </span>
       </aside>
       <div className="wx-canvas">
         <MockFrame label="" className="wx-site bm-s1">
@@ -1027,79 +1144,261 @@ export function CommunityMock() {
 }
 
 /* ================================================================ styles */
-const T = 8.4 // seconds per scripted moment; the tabs move on after one
+const T = 8.4 // seconds per scripted moment of the OnePage editor and the community; the tabs move on after one
 
 export const BUILDER_DURATION_MS = T * 1000
 
 /*
-  Landing round 14 (the owner): the builder's moment is an edit. The pointer goes to the heading, a click selects
-  its section (the ring, the row in the sidebar), a double click selects the words, new words are typed over them,
-  then Publish, Publish changes, Published. Steez plays it when the tab opens; loudlib plays it when the tab moves on
-  to it (data-scene="1"), each once (1 iteration, both), so the finished edit stays while the site fades away and
-  the next showing starts from the site as it is. Publish's own panel is the editor's, shared, on the usual loop.
+  Landing round 15 (the owner: the website builder's demo "more accurate", its motion "smooth, clean, no glitches").
+  The moment reads as a real edit, twice saved:
+
+    1. The pointer comes to the heading; the editor outlines it (canvas-hover.tsx) and a click opens its section's
+       panel in the sidebar. A click in the Heading field selects its words; new ones are typed there, and the page
+       follows character by character. Publish, then Publish changes in Publish's panel: Publishing, Published.
+    2. The canvas scrolls down (one transform, eased). A click in the products section selects it: the ring and
+       "Selected" (sections/_shared.tsx), and its panel. The pointer drags the Top padding slider; the number steps
+       up and the section gets the space at its top as the thumb moves (its contents and everything under it move down
+       by transforms; the ring's bottom edge and its chip with them). Publish again.
+
+  Steez plays it when the tab opens, loudlib when the tab moves on to it (data-scene="1"), each once, so the finished
+  edit stays while the site fades. Every time below is in seconds of the website builder's own moment (WB_T); a
+  keyframe is its share of it. Only transform and opacity move. The resting picture (and reduced motion) is the
+  editor with the site as it is: nothing selected, no panel, the old words.
 */
-/** The share of the moment the typing takes, from 21% (when the selected words go) to 33%. */
-const TYPE_SPAN = 0.12
-const TYPE_AT = 21
-/** Where each pointer clicks the heading, in the editor's 1280u: measured off the drawn page (scripts in the round 14 notes). */
+const S = {
+  hover: 0.7, at: 0.9, click: 1, panel: 1.1, field: 1.75, focus: 1.8, type: 2.05, aside: 2.45,
+  pub: 3.85, open: 3.95, go: 4.6, working: 4.7, live: 5.25, close: 5.6, scroll: 5.7, scrolled: 6.6,
+  pick: 6.7, picked: 6.75, thumb: 7.35, drag: 7.5, dragged: 8.5, drop: 8.6,
+  pub2: 9.15, open2: 9.25, go2: 9.9, working2: 10, live2: 10.55, close2: 10.95, gone: 11.4,
+} as const
+/** The website builder's moment, in seconds. */
+const WB_T = 11.6
+export const WB_DURATION_MS = WB_T * 1000
+/** How long the new words take to type. */
+const TYPE_S = 1.2
+const k = (sec: number) => `${+((sec / WB_T) * 100).toFixed(2)}%`
+
+/** Where each pointer first points, the heading it edits, in the editor's 1280u: measured off the drawn page. */
 export const EDIT_AT = { stz: [872, 377], ll: [826, 226] } as const
 const PUBLISH_AT = [1214, 21]
 const GO_AT = [1150, 298]
-const pct = (n: number) => `${+n.toFixed(2)}%`
 
-/** One pointer's path: in from the lower right, click (the section), double click (the words), aside while typing, Publish, Publish changes, gone. */
-function cursorKeys(name: string, [x, y]: readonly number[]) {
-  const at = (px: number, py: number) => `translate(${px - x}u,${py - y}u)`
-  const p = at(PUBLISH_AT[0], PUBLISH_AT[1])
-  const g = at(GO_AT[0], GO_AT[1])
-  return `@keyframes ${name}{0%{opacity:0;transform:translate(170u,190u)}4%{opacity:1}12%{transform:none}13%{transform:scale(.86)}14%,15.5%{transform:none}16.5%{transform:scale(.86)}17.5%,19%{transform:none}22%,33%{transform:translate(26u,34u)}42%{transform:${p}}44%{transform:${p} scale(.86)}46%,49%{transform:${p}}58%{transform:${g}}60%{transform:${g} scale(.86)}62%,82%{opacity:1;transform:${g}}90%,100%{opacity:0;transform:${g}}}`
+/* The sidebar's panel, in the editor's 1280u: the panel starts at the sidebar's top (54u), Back's row is 44u, the
+   settings start 14u in, a text setting is 54u tall (its name 16u, 6u, the 32u field), a slider 56u (16u, 8u, 32u),
+   14u apart. A slider's track is the 260u row less the 58u number and its 10u gap: 192u; the 20u thumb travels 172u. */
+const ROW_Y = (i: number) => 54 + 44 + 14 + i * (54 + 14)
+const TRACK = 192
+const TRAVEL = TRACK - 20
+const thumbX = (p: number) => 14 + 10 + p * TRAVEL
+const thumbAt = (p: number) => `calc(${+(p * TRAVEL).toFixed(2)} * var(--u))`
+const fillAt = (p: number) => `calc(${-(TRACK - 10 - p * TRAVEL).toFixed(2)} * var(--u))`
+
+/**
+ * Each site's edit: the heading's words, its section's padding (from, to, the slider's top, the steps the number box
+ * shows), the canvas scroll and the space added in the site's own units (1px of the 1440px theme is .711u of its
+ * 1024u), where the pointer clicks the section after the scroll, and the panel's rows.
+ */
+const STZ_PAD = { from: 66, to: 120, max: 160, steps: [66, 72, 80, 88, 96, 104, 112, 120] } as const
+const LL_PAD = { from: 100, to: 148, max: 200, steps: [100, 108, 116, 124, 132, 140, 148] } as const
+const SITE_PX = 0.711
+const STZ_SLIDE: readonly Setting[] = [
+  { kind: "text", label: "Subheading", value: "NEW COLLECTION" },
+  { kind: "text", label: "Heading", value: STZ_EDIT.was, edit: STZ_EDIT },
+  { kind: "text", label: "Button label", value: "EXPLORE" },
+]
+const STZ_CAROUSEL: readonly Setting[] = [
+  { kind: "text", label: "Collection", value: "T-shirts" },
+  { kind: "slider", label: "Top padding", from: STZ_PAD.from, steps: STZ_PAD.steps, max: STZ_PAD.max },
+  { kind: "slider", label: "Bottom padding", from: 66, max: STZ_PAD.max },
+]
+const LL_FEATURED: readonly Setting[] = [
+  { kind: "text", label: "Heading", value: LL_EDIT.was, edit: LL_EDIT },
+  { kind: "text", label: "Collection", value: "Bestselling" },
+  { kind: "slider", label: "Top padding", from: LL_PAD.from, steps: LL_PAD.steps, max: LL_PAD.max },
+  { kind: "slider", label: "Bottom padding", from: 100, max: LL_PAD.max },
+]
+const site = (pad: { from: number; to: number; max: number; steps: readonly number[] }, slider: number, scroll: number, pick: readonly number[], field: number) => ({
+  field: [150, ROW_Y(field) + 22 + 16],
+  thumb: [thumbX(pad.from / pad.max), ROW_Y(slider) + 16 + 8 + 16],
+  dx: +((pad.to - pad.from) / pad.max * TRAVEL).toFixed(2),
+  grow: +((pad.to - pad.from) * SITE_PX).toFixed(1),
+  scroll,
+  pick,
+  steps: pad.steps.length,
+})
+/* The slider sits after one text setting on Steez's carousel and two on loudlib's panel. */
+export const EDIT_PLAN = {
+  stz: site(STZ_PAD, 1, 400, [700, 152], 1),
+  ll: site(LL_PAD, 2, 60, [640, 121], 0),
+} as const
+
+/** One pointer's path: to the heading, click; to the field, click, aside while typing; Publish, Publish changes; to the section, click; the thumb, drag; Publish, Publish changes; gone. */
+function cursorKeys(name: string, [x, y]: readonly number[], plan: (typeof EDIT_PLAN)["stz"]) {
+  const at = (px: number, py: number, sc = "") => (px === x && py === y && !sc ? "none" : `translate(${+(px - x).toFixed(2)}u,${+(py - y).toFixed(2)}u)${sc}`)
+  const down = " scale(.86)"
+  const [fx, fy] = plan.field
+  const [tx, ty] = plan.thumb
+  const [sx, sy] = plan.pick
+  const f: [number, string, number?][] = [
+    [0, at(x + 170, y + 190), 0],
+    [0.3, at(x + 120, y + 135), 1],
+    [S.at, at(x, y)],
+    [S.click, at(x, y, down)],
+    [S.click + 0.1, at(x, y)],
+    [S.panel + 0.3, at(x, y)],
+    [S.field, at(fx, fy)],
+    [S.focus, at(fx, fy, down)],
+    [S.focus + 0.1, at(fx, fy)],
+    [S.type + 0.05, at(fx, fy)],
+    [S.aside, at(fx + 30, fy + 34)],
+    [S.pub - 0.5, at(fx + 30, fy + 34)],
+    [S.pub, at(PUBLISH_AT[0], PUBLISH_AT[1])],
+    [S.pub + 0.05, at(PUBLISH_AT[0], PUBLISH_AT[1], down)],
+    [S.pub + 0.15, at(PUBLISH_AT[0], PUBLISH_AT[1])],
+    [S.open + 0.25, at(PUBLISH_AT[0], PUBLISH_AT[1])],
+    [S.go, at(GO_AT[0], GO_AT[1])],
+    [S.go + 0.05, at(GO_AT[0], GO_AT[1], down)],
+    [S.go + 0.15, at(GO_AT[0], GO_AT[1])],
+    [S.close - 0.1, at(GO_AT[0], GO_AT[1])],
+    [S.scrolled, at(sx, sy)],
+    [S.pick, at(sx, sy, down)],
+    [S.pick + 0.1, at(sx, sy)],
+    [S.picked + 0.2, at(sx, sy)],
+    [S.thumb, at(tx, ty)],
+    [S.thumb + 0.05, at(tx, ty, down)],
+    [S.drag, at(tx, ty, down)],
+    [S.dragged, at(tx + plan.dx, ty, down)],
+    [S.drop, at(tx + plan.dx, ty)],
+    [S.drop + 0.1, at(tx + plan.dx, ty)],
+    [S.pub2, at(PUBLISH_AT[0], PUBLISH_AT[1])],
+    [S.pub2 + 0.05, at(PUBLISH_AT[0], PUBLISH_AT[1], down)],
+    [S.pub2 + 0.15, at(PUBLISH_AT[0], PUBLISH_AT[1])],
+    [S.open2 + 0.25, at(PUBLISH_AT[0], PUBLISH_AT[1])],
+    [S.go2, at(GO_AT[0], GO_AT[1])],
+    [S.go2 + 0.05, at(GO_AT[0], GO_AT[1], down)],
+    [S.go2 + 0.15, at(GO_AT[0], GO_AT[1])],
+    [S.close2, at(GO_AT[0], GO_AT[1]), 1],
+    [S.gone, at(GO_AT[0], GO_AT[1]), 0],
+  ]
+  return `@keyframes ${name}{${f.map(([t, tr, o]) => `${k(t)}{${o === undefined ? "" : `opacity:${o};`}transform:${tr}}`).join("")}100%{opacity:0;transform:${at(GO_AT[0], GO_AT[1])}}}`
 }
+
+/** An element shown from `on` to `off` (seconds), each change over `fade`. */
+const shown = (name: string, on: number, off = WB_T, fade = 0.12) =>
+  `@keyframes ${name}{0%,${k(on)}{opacity:0}${k(on + fade)},${off >= WB_T ? "100%" : k(off)}{opacity:1}${off >= WB_T ? "" : `${k(off + fade)},100%{opacity:0}`}}`
 
 /** The caret after character i stays until the next one comes; after the last it stays a little longer. */
 function caretKeys(n: number) {
-  const w = (TYPE_SPAN * 100) / n
-  return `@keyframes sxk-ed-car-${n}{0%,${TYPE_AT}%{opacity:0}${pct(TYPE_AT + 0.2)},${pct(TYPE_AT + w)}{opacity:1}${pct(TYPE_AT + w + 0.2)},100%{opacity:0}}`
+  const w = TYPE_S / n
+  return `@keyframes sxk-ed-car-${n}{0%,${k(S.type)}{opacity:0}${k(S.type + 0.02)},${k(S.type + w)}{opacity:1}${k(S.type + w + 0.02)},100%{opacity:0}}`
 }
 
 const ONCE = "var(--bm-t) var(--bm-ease) 1 both"
+const STEP = "var(--bm-t) linear 1 both"
 const STZ = "[data-mock-live] .stz"
 const LL = '[data-mock-live][data-scene="1"] .ll'
+const PS = "[data-mock-live] .wx-panels.bm-s1"
+const PL = '[data-mock-live][data-scene="1"] .wx-panels.bm-s2'
 const motion = (sel: string, anim: string) => `@media(prefers-reduced-motion:no-preference){${sel}{animation:${anim}}}`
+/** One site's moment: the same script, its own numbers. */
+function siteMotion(id: "stz" | "ll", at: string, panels: string, page: string, below: string) {
+  const plan = EDIT_PLAN[id]
+  const n = id === "stz" ? STZ_EDIT.now.length : LL_EDIT.now.length
+  return [
+    motion(`${at} .wx-hd`, `sxk-${id}-hd ${STEP}`),
+    motion(`${at} .wx-was,${panels} .wx-was`, `sxk-ed-was ${STEP}`),
+    motion(`${at} .wx-now i,${panels} .wx-now i`, `sxk-ed-ch ${STEP}`),
+    motion(`${panels} .wx-mark`, `sxk-ed-mark ${STEP}`),
+    motion(`${panels} .wx-now i::after`, `sxk-ed-car-${n} ${STEP}`),
+    motion(`${panels} .wx-now i:last-child::after`, `sxk-ed-car-last ${STEP}`),
+    motion(`${panels} .wx-in-ed::after`, `sxk-ed-focus ${STEP}`),
+    motion(`${panels} .wx-pa`, `sxk-${id}-pa ${ONCE}`),
+    motion(`${at} .wx-ring`, `sxk-ed-pick ${STEP}`),
+    motion(`${at} ${page}`, `sxk-${id}-scroll ${ONCE}`),
+    motion(`${at} :is(${below}),${at} .wx-sel-b,${at} .wx-sel em`, `sxk-${id}-grow ${ONCE}`),
+    motion(`${at} .wx-sel-x`, `sxk-ed-ext ${ONCE}`),
+    motion(`${panels} .wx-thumb-run`, `sxk-${id}-thumb ${ONCE}`),
+    motion(`${panels} .wx-fill-run b`, `sxk-${id}-fill ${ONCE}`),
+    motion(`${panels} .wx-num-run`, `sxk-${id}-num ${ONCE}`),
+    `@keyframes sxk-${id}-hd{0%,${k(S.hover)}{opacity:0}${k(S.at)},${k(S.picked)}{opacity:1}${k(S.picked + 0.12)},100%{opacity:0}}`,
+    `@keyframes sxk-${id}-scroll{0%,${k(S.scroll)}{transform:none}${k(S.scrolled)},100%{transform:translateY(-${plan.scroll}u)}}`,
+    `@keyframes sxk-${id}-grow{0%,${k(S.drag)}{transform:none}${k(S.dragged)},100%{transform:translateY(${plan.grow}u)}}`,
+    `@keyframes sxk-${id}-thumb{0%,${k(S.thumb)}{transform:none}${k(S.drag)}{transform:scale(1.18)}${k(S.dragged)}{transform:translateX(${plan.dx}u) scale(1.18)}${k(S.drop)},100%{transform:translateX(${plan.dx}u)}}`,
+    `@keyframes sxk-${id}-fill{0%,${k(S.drag)}{transform:none}${k(S.dragged)},100%{transform:translateX(${plan.dx}u)}}`,
+    `@keyframes sxk-${id}-num{0%,${k(S.drag)}{transform:none;animation-timing-function:steps(${plan.steps - 1},end)}${k(S.dragged)},100%{transform:translateY(-${(plan.steps - 1) * 30}u)}}`,
+    id === "stz"
+      ? `@keyframes sxk-stz-pa{0%,${k(S.panel)}{opacity:0;transform:translateX(-8u)}${k(S.panel + 0.25)},${k(S.picked)}{opacity:1;transform:none}${k(S.picked + 0.15)},100%{opacity:0;transform:none}}`
+      : `@keyframes sxk-ll-pa{0%,${k(S.panel)}{opacity:0;transform:translateX(-8u)}${k(S.panel + 0.25)},100%{opacity:1;transform:none}}`,
+    cursorKeys(`sxk-cur-${id}`, EDIT_AT[id], plan),
+  ].join("\n")
+}
 const EDIT_CSS = [
   `.wx-curs{position:absolute;inset:0;z-index:30;pointer-events:none}`,
   `.wx-cur-stz{left:${EDIT_AT.stz[0]}u;top:${EDIT_AT.stz[1]}u}`,
   `.wx-cur-ll{left:${EDIT_AT.ll[0]}u;top:${EDIT_AT.ll[1]}u}`,
-  `.wx-edit{display:inline-grid;justify-items:center;vertical-align:top}`,
+  `.wx-edit{position:relative;display:inline-grid;justify-items:center;vertical-align:top}`,
   `.wx-edit>span{grid-area:1/1;white-space:pre}`,
+  `.wx-edit-f{justify-items:start}`,
+  /* The editor's outline round what a click opened (globals.css .wb-hover-outline): 2px of the canvas blue, 4px corners, a little outside the words. */
+  `.wx-hd{position:absolute;inset:-.08em -.22em;border-radius:4u;box-shadow:0 0 0 2u #3b82f6;opacity:0;pointer-events:none}`,
   `.wx-was{position:relative;z-index:0}`,
-  `.wx-mark{position:absolute;z-index:-1;inset:-.02em -.05em;background:rgba(59,130,246,.55);opacity:0}`,
+  `.wx-mark{position:absolute;z-index:-1;inset:-.1em -.04em;background:rgba(59,130,246,.3);opacity:0}`,
   `.wx-now i{position:relative;font-style:inherit;opacity:0}`,
-  `.wx-now i::after{content:"";position:absolute;right:-.06em;top:.1em;bottom:.08em;width:max(1.4u,.05em);background:currentColor;opacity:0}`,
-  motion(`${STZ} .wx-ring,[data-mock-live] .wx-tree.bm-s1 .wx-hl .wx-row-on`, `sxk-ed-sel ${ONCE}`),
-  motion(`${LL} .wx-ring,[data-mock-live][data-scene="1"] .wx-tree.bm-s2 .wx-hl .wx-row-on`, `sxk-ed-sel ${ONCE}`),
+  `.wx-edit-f .wx-now i::after{content:"";position:absolute;right:-.06em;top:.05em;bottom:.02em;width:1.2u;background:currentColor;opacity:0}`,
+  motion(`[data-mock-live] .wx-tree.bm-s1 .wx-hl .wx-row-on,[data-mock-live][data-scene="1"] .wx-tree.bm-s2 .wx-hl .wx-row-on`, `sxk-ed-row ${STEP}`),
   motion(`[data-mock-live] .wx-cur-stz`, `sxk-cur-stz ${ONCE}`),
   motion(`[data-mock-live][data-scene="1"] .wx-cur-ll`, `sxk-cur-ll ${ONCE}`),
-  ...[STZ, LL].flatMap((at) => [
-    motion(`${at} .wx-mark`, `sxk-ed-mark var(--bm-t) linear 1 both`),
-    motion(`${at} .wx-was`, `sxk-ed-was var(--bm-t) linear 1 both`),
-    motion(`${at} .wx-now i`, `sxk-ed-ch var(--bm-t) linear 1 both`),
-  ]),
-  motion(`${STZ} .wx-now i::after`, `sxk-ed-car-${STZ_EDIT.now.length} var(--bm-t) linear 1 both`),
-  motion(`${LL} .wx-now i::after`, `sxk-ed-car-${LL_EDIT.now.length} var(--bm-t) linear 1 both`),
-  motion(`${STZ} .wx-now i:last-child::after,${LL} .wx-now i:last-child::after`, `sxk-ed-car-last var(--bm-t) linear 1 both`),
-  `@keyframes sxk-ed-sel{0%,12.5%{opacity:0}13.5%,100%{opacity:1}}`,
-  `@keyframes sxk-ed-mark{0%,16.5%{opacity:0}17%,${TYPE_AT - 0.5}%{opacity:1}${TYPE_AT}%,100%{opacity:0}}`,
-  `@keyframes sxk-ed-was{0%,${TYPE_AT - 0.5}%{opacity:1}${TYPE_AT}%,100%{opacity:0}}`,
-  `@keyframes sxk-ed-ch{0%,${TYPE_AT}%{opacity:0}${TYPE_AT + 0.2}%,100%{opacity:1}}`,
+  siteMotion("stz", STZ, PS, ".stz-page", ".stz-grid,.stz-all,.stz-summer"),
+  siteMotion("ll", LL, PL, ".ll-page", ".ll-h,.ll-grid"),
+  motion(`${PS} .wx-pz`, `sxk-stz-pz ${ONCE}`),
+  `@keyframes sxk-stz-pz{0%,${k(S.picked)}{opacity:0;transform:translateX(-8u)}${k(S.picked + 0.25)},100%{opacity:1;transform:none}}`,
+  shown("sxk-ed-row", S.click),
+  shown("sxk-ed-pick", S.picked),
+  shown("sxk-ed-focus", S.focus, S.picked),
+  shown("sxk-ed-mark", S.focus + 0.02, S.type - 0.04, 0.04),
+  `@keyframes sxk-ed-was{0%,${k(S.type - 0.02)}{opacity:1}${k(S.type)},100%{opacity:0}}`,
+  `@keyframes sxk-ed-ch{0%,${k(S.type)}{opacity:0}${k(S.type + 0.02)},100%{opacity:1}}`,
+  `@keyframes sxk-ed-ext{0%,${k(S.drag)}{transform:scaleY(0)}${k(S.dragged)},100%{transform:none}}`,
   caretKeys(STZ_EDIT.now.length),
   caretKeys(LL_EDIT.now.length),
-  `@keyframes sxk-ed-car-last{0%,${TYPE_AT}%{opacity:0}${TYPE_AT + 0.2}%,${TYPE_AT + 8}%{opacity:1}${TYPE_AT + 8.2}%,100%{opacity:0}}`,
-  cursorKeys("sxk-cur-stz", EDIT_AT.stz),
-  cursorKeys("sxk-cur-ll", EDIT_AT.ll),
+  `@keyframes sxk-ed-car-last{0%,${k(S.type)}{opacity:0}${k(S.type + 0.02)},${k(S.type + 0.9)}{opacity:1}${k(S.type + 0.92)},100%{opacity:0}}`,
+].join("\n")
+
+/* Publish, twice a moment (shared by both sites, on the moment's loop): the button pressed, its panel, Publish changes pressed, Publishing, Published, the panel away. */
+const twice = (name: string, a: number, b: number, c: number, d: number) =>
+  `@keyframes ${name}{0%,${k(a)}{opacity:0}${k(a + 0.02)},${k(b)}{opacity:1}${k(b + 0.02)},${k(c)}{opacity:0}${k(c + 0.02)},${k(d)}{opacity:1}${k(d + 0.02)},100%{opacity:0}}`
+const PUBLISH_CSS = [
+  `@keyframes sxk-wx-press{0%,${k(S.pub)}{transform:none}${k(S.pub + 0.07)}{transform:scale(.94)}${k(S.pub + 0.17)},${k(S.pub2)}{transform:none}${k(S.pub2 + 0.07)}{transform:scale(.94)}${k(S.pub2 + 0.17)},100%{transform:none}}`,
+  `@keyframes sxk-wx-pub{0%,${k(S.open)}{opacity:0;transform:translateY(-4u) scale(.95)}${k(S.open + 0.25)},${k(S.close)}{opacity:1;transform:none}${k(S.close + 0.2)},${k(S.open2)}{opacity:0;transform:translateY(-4u) scale(.95)}${k(S.open2 + 0.25)},${k(S.close2)}{opacity:1;transform:none}${k(S.close2 + 0.2)},100%{opacity:0;transform:translateY(-4u) scale(.95)}}`,
+  `@keyframes sxk-wx-go{0%,${k(S.go)}{transform:none;opacity:1}${k(S.go + 0.07)}{transform:scale(.96)}${k(S.go + 0.17)},${k(S.live)}{transform:none;opacity:1}${k(S.live + 0.15)},${k(S.close + 0.2)}{opacity:.4}${k(S.close + 0.3)},${k(S.go2)}{transform:none;opacity:1}${k(S.go2 + 0.07)}{transform:scale(.96)}${k(S.go2 + 0.17)},${k(S.live2)}{transform:none;opacity:1}${k(S.live2 + 0.15)},${k(S.close2 + 0.2)}{opacity:.4}${k(S.close2 + 0.3)},100%{transform:none;opacity:1}}`,
+  `@keyframes sxk-wx-go-a{0%,${k(S.working)}{opacity:1}${k(S.working + 0.02)},${k(S.close + 0.25)}{opacity:0}${k(S.close + 0.27)},${k(S.working2)}{opacity:1}${k(S.working2 + 0.02)},${k(S.close2 + 0.25)}{opacity:0}${k(S.close2 + 0.27)},100%{opacity:1}}`,
+  twice("sxk-wx-go-b", S.working, S.live, S.working2, S.live2),
+  twice("sxk-wx-go-c", S.live, S.close + 0.25, S.live2, S.close2 + 0.25),
+  `@keyframes sxk-wx-was{0%,${k(S.live)}{opacity:1}${k(S.live + 0.02)},100%{opacity:0}}`,
+  `@keyframes sxk-wx-now{0%,${k(S.live)}{opacity:0}${k(S.live + 0.02)},${k(S.close + 0.25)}{opacity:1}${k(S.close + 0.27)},${k(S.live2)}{opacity:0}${k(S.live2 + 0.02)},100%{opacity:1}}`,
+  `@keyframes sxk-wx-again{0%,${k(S.close + 0.25)}{opacity:0}${k(S.close + 0.27)},${k(S.live2)}{opacity:1}${k(S.live2 + 0.02)},100%{opacity:0}}`,
+  `@keyframes sxk-wx-spin{0%,${k(S.working)}{transform:none}${k(S.live)},${k(S.working2)}{transform:rotate(720deg)}${k(S.live2)},100%{transform:rotate(1440deg)}}`,
+  `@keyframes sxk-wx-dot{0%,${k(S.live)}{opacity:1}${k(S.live + 0.02)},${k(S.drag)}{opacity:.5}${k(S.drag + 0.02)},${k(S.live2)}{opacity:1}${k(S.live2 + 0.02)},100%{opacity:.5}}`,
+  ...(
+    [
+      ["[data-mock-live] .wb .wx-publish", "sxk-wx-press", "var(--bm-ease)"],
+      ["[data-mock-live] .wx-pub", "sxk-wx-pub", "var(--bm-ease)"],
+      ["[data-mock-live] .wx-pub-go", "sxk-wx-go", "var(--bm-ease)"],
+      ["[data-mock-live] .wx-go-a", "sxk-wx-go-a", "linear"],
+      ["[data-mock-live] .wx-go-b", "sxk-wx-go-b", "linear"],
+      ["[data-mock-live] .wx-go-c,[data-mock-live] .wx-pub-dot::after", "sxk-wx-go-c", "linear"],
+      ["[data-mock-live] .wx-pub-was", "sxk-wx-was", "linear"],
+      ["[data-mock-live] .wx-pub-now", "sxk-wx-now", "linear"],
+      ["[data-mock-live] .wx-pub-again", "sxk-wx-again", "linear"],
+      ["[data-mock-live] .wx-spin", "sxk-wx-spin", "linear"],
+      ["[data-mock-live] .wx-publish i", "sxk-wx-dot", "linear"],
+    ] as const
+  ).map(([sel, name, ease]) => motion(sel, `${name} var(--bm-t) ${ease} infinite both`)),
 ].join("\n")
 
 export const BUILDER_CSS = u(`
 .bm{position:absolute;inset:0;background:#fff;color:#1a1a2e;font-family:var(--font-inter,Inter),Inter,sans-serif;font-size:13u;--bm-t:${T}s;--bm-ease:cubic-bezier(.45,0,.2,1)}
+.bm.wb{--bm-t:${WB_T}s}
 .bm svg{width:16u;height:16u}
 .bm-frame>.smk{--w:1280}
 .bm-cursor{position:absolute;z-index:30;width:22u!important;height:22u!important;opacity:0;filter:drop-shadow(0 2u 3u rgba(0,0,0,.25));pointer-events:none}
@@ -1149,12 +1448,12 @@ export const BUILDER_CSS = u(`
 .stz-card>b{margin-top:10.7u;font-family:var(--stz-head);font-size:10.7u;font-weight:600;letter-spacing:-.01em;color:#000;white-space:nowrap}
 .stz-price{margin-top:3.5u;font-size:10.7u;color:#1f1f1f}
 .stz-all{margin-top:27u;padding:10u 18.5u;background:#111;color:#fff;font-size:10u;font-weight:500;line-height:1}
-/* Landing round 14: once the change is live, the canvas scrolls down to the products (transform only), and stays there while loudlib fades in: it runs once per showing (the panel's data-mock-live comes and goes with it), not on a loop that would jump back mid fade. */
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .stz-page{animation:sxk-stz-scroll var(--bm-t) var(--bm-ease) 1 both}}
-@keyframes sxk-stz-scroll{0%,86%{transform:none}96%,100%{transform:translateY(-485u)}}
+/* Landing round 15: the products section stands over the slideshow under it, so the ring's sides, carried on below it as it takes more top padding, are drawn over the slideshow moving down with it. */
+.stz-shop{z-index:1}
 
 /* ---------- loudlib, after loudlib.net (landing round 14): its 1440px page at 1024u, measured off the owner's screenshot (1px there = 2.23u) */
-.ll{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:#1f1f1f;font-family:var(--font-inter,Inter),Inter,sans-serif}
+.ll{position:absolute;inset:0;background:#fff;color:#1f1f1f;font-family:var(--font-inter,Inter),Inter,sans-serif}
+.ll-page{display:flex;flex-direction:column;min-height:100%}
 .ll-bar{flex:none;height:32u;display:flex;align-items:center;justify-content:center;gap:6u;background:#6c2bd9;color:#fff;font-size:11u;letter-spacing:.01em}
 .ll .ll-sun{width:11.5u;height:11.5u;color:#ffc83d;fill:#ffc83d}
 .ll-nav{flex:none;height:68u;display:flex;align-items:center;padding:0 54u 0 55.5u;background:#141414;color:#fff}
@@ -1186,8 +1485,13 @@ export const BUILDER_CSS = u(`
 .wx-name>span,.wx-pub-host>span{grid-area:1/1}
 .wx-pub-host>span{font-weight:400}
 @media(prefers-reduced-motion:reduce){.bm-s1,.bm-s2{transition:none}}
-.wx-sel{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b82f6;pointer-events:none}
-.wx-sel em{position:absolute;left:8u;top:8u;padding:5u 7u;border-radius:6u;background:#3b82f6;color:#fff;font-size:11.5u;font-style:normal;font-weight:600;line-height:1;box-shadow:0 1u 4u rgba(0,0,0,.18)}
+/* Landing round 15: the ring as sections/_shared.tsx draws it, 2px of #3b82f6 inside the section's edge and "Selected" at its bottom right (11px, 600, 3px 8px, 4px corners), here in parts: the top and the sides (.wx-sel), the bottom edge (.wx-sel-b), and the sides carried on under the section while it grows (.wx-sel-x). Hidden at rest; shown when the section is picked. */
+.wx-sel{position:absolute;inset:0;box-shadow:inset 0 2u #3b82f6,inset 2u 0 #3b82f6,inset -2u 0 #3b82f6;pointer-events:none;opacity:0}
+.wx-sel-b{position:absolute;left:0;right:0;bottom:0;height:2u;background:#3b82f6}
+.wx-sel-x{position:absolute;left:0;right:0;top:100%;box-shadow:inset 2u 0 #3b82f6,inset -2u 0 #3b82f6;transform:scaleY(0);transform-origin:top}
+.stz .wx-sel-x{height:${EDIT_PLAN.stz.grow}u}
+.ll .wx-sel-x{height:${EDIT_PLAN.ll.grow}u}
+.wx-sel em{position:absolute;right:8u;bottom:8u;padding:3u 8u;border-radius:4u;background:#3b82f6;color:#fff;font-family:var(--font-inter,Inter),system-ui,sans-serif;font-size:11u;font-style:normal;font-weight:600;line-height:1;letter-spacing:.02em;box-shadow:0 1u 4u rgba(0,0,0,.18)}
 
 /* ---------- website builder (app/(storelib)/website-builder/editor, its bar, the sidebar card, the canvas) */
 .wb{background:#eef1f5}
@@ -1233,6 +1537,27 @@ export const BUILDER_CSS = u(`
 .wx-add .wx-col:last-of-type{margin-right:6u}
 .wx-add-key{display:grid;place-items:center;width:18u;height:18u;border-radius:6u;background:#fff;color:#4b5563;box-shadow:0 0 0 1u rgba(16,24,40,.1),0 1u 2u rgba(16,24,40,.1),inset 0 -1u 0 rgba(16,24,40,.05)}
 .wx-add-key svg{width:12u;height:12u;stroke-width:2.75}
+/* Landing round 15: a section's panel over the tree (page.tsx's selected section; panel-back.tsx; FieldEditor; slider-number-control.tsx and .wb-black-slider) */
+.wx-panels{position:absolute;inset:0;z-index:2;pointer-events:none}
+.wx-panel{position:absolute;inset:0;background:#fff;opacity:0}
+.wx-pb{display:flex;align-items:center;gap:6u;height:44u;padding:0 10u;border-bottom:1u solid #e5e7eb}
+.wx-pb-back{display:grid;place-items:center;width:32u;height:32u;border-radius:8u;border:1u solid rgba(0,0,0,.07);background:#f7f7f8;color:#4b5563;box-shadow:inset 0 -1u 0 rgba(0,0,0,.05),0 1u 0 rgba(0,0,0,.03)}
+.wx-pb b{flex:1;margin-left:4u;font-size:14u;font-weight:600;white-space:nowrap}
+.wx-pb .wx-pb-more{margin-right:6u;color:#6b7280}
+.wx-fields{display:grid;gap:14u;padding:14u}
+.wx-f{display:block}
+.wx-f>i{display:block;margin-bottom:6u;font-size:12u;font-style:normal;font-weight:500;line-height:16u;color:#6b7280}
+.wx-f>i.wx-f-sl{margin-bottom:8u;font-size:13u;color:#1a1a2e}
+.wx-in{position:relative;display:flex;align-items:center;height:32u;padding:0 10u;border:1u solid #e5e7eb;border-radius:6u;background:#fff;font-size:13u;color:#1a1a2e;white-space:nowrap}
+.wx-in-ed::after{content:"";position:absolute;inset:-1u;border-radius:6u;box-shadow:inset 0 0 0 1u #a3a3a3,0 0 0 2u rgba(23,23,23,.1);opacity:0}
+.wx-sl{position:relative;display:flex;align-items:center;gap:10u;height:32u}
+.wx-track{position:relative;flex:1;height:6u;border-radius:999u;background:#ececec;overflow:hidden}
+.wx-fill{position:absolute;inset:0}
+.wx-fill b{position:absolute;inset:0;border-radius:999u;background:#111}
+.wx-thumb{position:absolute;top:6u;width:20u;height:20u;border-radius:50%;background:#111;border:3u solid #fff;box-shadow:0 1u 3u rgba(0,0,0,.25),0 0 0 1u rgba(0,0,0,.06)}
+.wx-num{flex:none;display:block;width:58u;height:32u;border:1u solid #e5e5e5;border-radius:6u;overflow:hidden;font-size:12u;line-height:30u;text-align:center;font-variant-numeric:tabular-nums}
+.wx-num>span{display:grid}
+.wx-num b{display:block;height:30u;font-weight:400}
 .wx-canvas{position:absolute;left:294u;right:0;top:54u;bottom:0;border-radius:20u 20u 0 0;overflow:hidden;background:#fff}
 /* Publish's panel: hung under the button, right aligned (publish-panel.tsx, 420 wide, #1f1f1f) */
 .wx-pub{position:absolute;z-index:20;right:16u;top:54u;width:420u;padding:24u;border-radius:16u;background:#1f1f1f;color:#fff;box-shadow:0 0 0 1u rgba(255,255,255,.1),0 24u 80u -16u rgba(0,0,0,.7);transform-origin:top right;opacity:0;transform:translateY(-4u) scale(.95)}
@@ -1243,7 +1568,7 @@ export const BUILDER_CSS = u(`
 .wx-pub-dot::after{content:"";position:absolute;inset:0;border-radius:50%;background:#10b981;opacity:0}
 .wx-pub-st{display:grid;margin-top:10u!important;font-size:15u;color:rgba(255,255,255,.6)}
 .wx-pub-st>span{grid-area:1/1}
-.wx-pub-now{opacity:0}
+.wx-pub-now,.wx-pub-again{opacity:0}
 .wx-pub-l{margin-top:20u!important;margin-bottom:10u!important;font-size:15u;font-weight:500}
 .wx-pub-url{display:flex;align-items:center;gap:12u;padding:14u 16u;border-radius:12u;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1u rgba(255,255,255,.1);font-size:15u;color:rgba(255,255,255,.6)}
 .wx-pub-url b{flex:1;font-weight:400;color:#fff}
@@ -1256,24 +1581,7 @@ export const BUILDER_CSS = u(`
 .wx-go-b,.wx-go-c{opacity:0}
 .wx-spin{width:16u!important;height:16u!important}
 ${EDIT_CSS}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wb:not(.wd) .wx-publish{animation:sxk-wx-press var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-pub{animation:sxk-wx-pub var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-pub-go{animation:sxk-wx-go var(--bm-t) var(--bm-ease) infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-go-a{animation:sxk-wx-go-a var(--bm-t) linear infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-go-b{animation:sxk-wx-go-b var(--bm-t) linear infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-go-c,[data-mock-live] .wx-pub-now,[data-mock-live] .wx-pub-dot::after{animation:sxk-wx-go-c var(--bm-t) linear infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-pub-was{animation:sxk-wx-was var(--bm-t) linear infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-spin{animation:sxk-wx-spin var(--bm-t) linear infinite both}}
-@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-publish i{animation:sxk-wx-dot var(--bm-t) linear infinite both}}
-@keyframes sxk-wx-press{0%,43%{transform:none}44.5%{transform:scale(.94)}46%,100%{transform:none}}
-@keyframes sxk-wx-pub{0%,44%{opacity:0;transform:translateY(-4u) scale(.95)}47%,84%{opacity:1;transform:none}88%,100%{opacity:0;transform:translateY(-4u) scale(.95)}}
-@keyframes sxk-wx-go{0%,59%{transform:none;opacity:1}60.5%{transform:scale(.96)}62%,69.5%{transform:none;opacity:1}72%,94%{transform:none;opacity:.4}96%,100%{transform:none;opacity:1}}
-@keyframes sxk-wx-go-a{0%,60%{opacity:1}60.5%,100%{opacity:0}}
-@keyframes sxk-wx-go-b{0%,60%{opacity:0}60.5%,69.5%{opacity:1}70%,100%{opacity:0}}
-@keyframes sxk-wx-go-c{0%,69.5%{opacity:0}70%,94%{opacity:1}96%,100%{opacity:0}}
-@keyframes sxk-wx-was{0%,69.5%{opacity:1}70%,94%{opacity:0}96%,100%{opacity:1}}
-@keyframes sxk-wx-spin{0%,60%{transform:none}70%,100%{transform:rotate(1080deg)}}
-@keyframes sxk-wx-dot{0%,69.5%{opacity:1}70%,94%{opacity:.5}96%,100%{opacity:1}}
+${PUBLISH_CSS}
 
 /* ---------- OnePage editor */
 .ope{background:#fff}
