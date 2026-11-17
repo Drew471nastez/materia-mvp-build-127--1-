@@ -70,11 +70,19 @@ import { useAutoTabs } from "./showcase-mocks/use-auto-tabs"
   Moreno's training call ("Sell what you make" is already the Everything
   section's heading). The accent stays on one word, in the same quiet violet.
 */
-export const BUSINESS_HEADING = "From a cookbook to a coaching call"
+/*
+  Round 15, the owner asked for a better heading, and disliked the violet on
+  "call". The heading says plainly what the five cards are: things you post,
+  things you ship, and hours you give. The accented word is "time", the
+  bookings card's word, and it takes that card's own colour: the slate green
+  of its coach photograph's grade (bz-coach.webp reads #717871 on the wall and
+  #040f13 in the shadows), not a violet.
+*/
+export const BUSINESS_HEADING = "Sell files, parcels or your time"
 /** The one accented word. */
-export const BUSINESS_ACCENT = ["call"] as const
-/** Its colour: a quiet violet, greyer than the page's #7c3aed. */
-export const BUSINESS_ACCENT_COLOR = "#7e6fb8"
+export const BUSINESS_ACCENT = ["time"] as const
+/** Its colour: the slate green of the bookings card's photograph. */
+export const BUSINESS_ACCENT_COLOR = "#46605c"
 /** The line under the heading: at most ten words (the owner). */
 export const BUSINESS_SUB = "Downloads, goods, courses, communities and calls, one checkout."
 export const BUSINESS_SLIDE_MS = 6500
@@ -412,7 +420,8 @@ const CSS = `
 .biz{position:relative;background:#fff;color:#18181b;overflow-x:clip}
 /* Prefixed with the page root: the editorial rule "[data-landing-story] [data-story-section] > div" (1400px, the old gutter) is more specific than a class. */
 [data-landing-story] .biz>.biz-head,.biz-head{box-sizing:border-box;max-width:var(--home-max,2020px);margin:0 auto;padding:0 calc(var(--home-edge,clamp(20px,5.15vw,84px)) + var(--home-head-inset,14px))}
-.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};margin-inline:0;max-width:19ch;font-size:clamp(36px,5vw,72px)}
+/* Round 15: balanced, so the accented last word never stands alone on a line. */
+.biz .biz-h{--story-accent:${BUSINESS_ACCENT_COLOR};margin-inline:0;max-width:19ch;font-size:clamp(36px,5vw,72px);text-wrap:balance}
 .biz-sub{margin:clamp(8px,.9vw,14px) 0 0;max-width:64ch;font-size:clamp(16px,1.25vw,19px);line-height:1.45;letter-spacing:-.005em;color:#65616e}
 [data-landing-story] .biz>.biz-body,.biz-body{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);row-gap:clamp(8px,1.4vw,16px);max-width:var(--home-max,2020px);margin:clamp(20px,3vw,44px) auto 0;padding:0 var(--home-edge,clamp(20px,5.15vw,84px))}
 /* The words. A row here, an index from 1280px. The row reaches the screen's edges, so one wider than the screen slides under the thumb. */

@@ -50,6 +50,21 @@
  *              domain-reel.tsx, imported as it is), filling the card: one
  *              name with different endings, a row at a time.
  *
+ * LANDING ROUND 15, THE OWNER:
+ *   business   closer to the real /app home: the page behind the cards is
+ *              the app's #f8f9fa with the rail on white, Inter, conversion
+ *              as a whole percent (dashboard-client rounds it), and the
+ *              chart's show and hide chevron in the corner of the figures.
+ *   tips       her cover photograph (the owner disliked it) is now drawn: red
+ *              mesas under a low sun, in reds only (TipCover). The loop is
+ *              cleaned of its bumps: the $3 / $5 reset happens while the
+ *              picker is fully hidden (it used to snap while fading back in),
+ *              the checkout sheet rests far enough below the card that its
+ *              shadow no longer shows as a grey band at the foot, and every
+ *              amount is set in tabular figures.
+ *   domain     its ground a little more graded, in the reel's own lilacs.
+ *   cards      on a phone each card's corners are 2px tighter (16px).
+ *
  * One shop runs through the dashboard and the tips: Ines Duarte, who films
  * landscapes and sells section 3's two products (made up; Unsplash
  * photographs for her cover and her face).
@@ -104,9 +119,10 @@ export const HOW_SHOP = {
   line: "Landscape films and colour grades",
   /** Her face (Unsplash, cropped square, 160px). */
   avatar: `${HOW}/ines-avatar.webp`,
-  /** The cover of her creator page: a photographer on a ridge over a sea of fog at sunrise (Unsplash, 840x560). */
-  cover: `${HOW}/ines-cover.webp`,
 } as const
+
+/** Landing round 15: the cover of her creator page is drawn, in reds (the owner disliked the photograph). */
+export const HOW_COVER_REDS = ["#fde3dc", "#f7b4a4", "#e56a55", "#c53b2c", "#9b1c1c", "#6f1212"] as const
 
 /** The address the domain card's reel starts on (the reel's own name, with ".com", as a buyer types it), and what a domain a creator owns serves (lib/custom-domains DOMAIN_PURPOSES). */
 export const HOW_DOMAIN = {
@@ -303,13 +319,14 @@ export const HOW_TICK_MS = 1900
 /** The live count beside the period, step by step. */
 const LIVE_STEPS = [5, 6, 6, 7, 6, 5, 4, 5, 6, 5, 4, 4]
 
-/** The figures, as the dashboard writes them (dashboard-client: a whole amount without .00; conversion as Analytics writes a rate under 10%, one decimal). */
+/** The figures, as the dashboard writes them (dashboard-client: a whole amount without .00; conversion a whole percent). */
 type DashFigures = { visitors: number; orders: number; revenue: number; live: number }
 const fmtDash = (f: DashFigures) => ({
   visitors: String(f.visitors),
   revenue: `$${f.revenue}`,
   orders: String(f.orders),
-  conversion: `${howConversion(f.orders, f.visitors).toFixed(1)}%`,
+  /* Landing round 15: as the dashboard writes it (dashboard-client: Math.round of the rate). */
+  conversion: `${Math.round(howConversion(f.orders, f.visitors))}%`,
   live: String(f.live),
 })
 const DASH_START: DashFigures = { visitors: HOW_DASH.visitors, orders: HOW_DASH.orders, revenue: HOW_DASH.revenue, live: HOW_DASH.live }
@@ -438,6 +455,7 @@ const Lucide = ({ d, className }: { d: string[]; className?: string }) => (
   </svg>
 )
 const L_CHEVRON = ["m6 9 6 6 6-6"]
+const L_CHEVRON_UP = ["m18 15-6-6-6 6"]
 const L_SEARCH = ["M19 11a8 8 0 1 1-16 0a8 8 0 1 1 16 0Z", "m21 21-4.3-4.3"]
 const L_BELL = ["M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9", "M10.3 21a1.94 1.94 0 0 0 3.4 0"]
 const L_GEAR = [
@@ -720,6 +738,10 @@ function DashBoard() {
                     <span className="cmh-db-tf">{tab.foot}</span>
                   </span>
                 ))}
+                {/* The chart's show and hide toggle, in the corner of the figures (dashboard-client, ChevronUp while the chart is open). */}
+                <span className="cmh-db-fold">
+                  <Lucide d={L_CHEVRON_UP} />
+                </span>
               </span>
               <span className="cmh-db-chart">
                 <span className="cmh-db-plot">
@@ -773,12 +795,38 @@ export const TIP_AMOUNTS = ["$3", "$5", "$10"] as const
 export const HOW_TIP = { picked: "$5", from: "$3", title: "Leave a tip", subtitle: "Toward the next film", thanks: "Thank you for the $5 tip." } as const
 export const HOW_TIP_LOOP_S = 10
 
+/**
+ * Her cover, drawn (landing round 15): red mesas going back in haze under a
+ * low sun, the reds of HOW_COVER_REDS from the pale sky to the near ridge.
+ * Flat shapes, one gradient for the sky; it covers its box as the photograph
+ * did (slice), so the card's crop is unchanged.
+ */
+function TipCover() {
+  const [sky, glow, far, mid, near, front] = HOW_COVER_REDS
+  return (
+    <svg viewBox="0 0 840 560" preserveAspectRatio="xMidYMid slice" data-cover="red">
+      <defs>
+        <linearGradient id="cmh-tp-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={sky} />
+          <stop offset="1" stopColor={glow} />
+        </linearGradient>
+      </defs>
+      <rect width="840" height="560" fill="url(#cmh-tp-sky)" />
+      <circle cx="560" cy="300" r="64" fill="#fff4ef" opacity=".85" />
+      <path d="M0 330L70 312H150L176 288H262L284 314L380 322L452 298H540L566 320L700 318L740 296H840V560H0Z" fill={far} opacity=".55" />
+      <path d="M0 372L96 360L122 330H236L262 362L360 376L420 344H520L548 372L660 384L708 352H808L840 366V560H0Z" fill={mid} opacity=".8" />
+      <path d="M0 430C120 406 210 404 318 420C430 436 520 410 640 404C730 400 790 412 840 420V560H0Z" fill={near} />
+      <path d="M0 492C150 466 300 470 430 486C560 502 700 480 840 470V560H0Z" fill={front} />
+    </svg>
+  )
+}
+
 function TipScene() {
   return (
     <div className="cmh-sc cmh-tp">
       <div className="cmh-tp-page">
         <span className="cmh-tp-cover">
-          <img src={HOW_SHOP.cover} alt="" width={640} height={420} loading="lazy" decoding="async" />
+          <TipCover />
         </span>
         <span className="cmh-tp-who">
           <img src={HOW_SHOP.avatar} alt="" width={160} height={160} loading="lazy" decoding="async" />
@@ -847,6 +895,13 @@ function TipScene() {
 const EASE = "cubic-bezier(.22,1,.36,1)"
 const pc = (s: number, loop: number) => `${+((s / loop) * 100).toFixed(3)}%`
 const T = (s: number) => pc(s, HOW_TIP_LOOP_S)
+/**
+ * Landing round 15: when the block goes back to $3, in the middle of the time the picker is fully hidden (out by
+ * 5.25s, back from 8.7s). It was 8.75s, while the picker was already fading back in, so $5 visibly snapped to $3.
+ */
+export const TIP_RESET_S = 7
+/** Where the checkout sheet rests: below the card by its own height and its shadow's reach, so no shade shows at the foot. */
+const SHEET_DOWN = "calc(100% + 3em)"
 const HOW_CSS = `
 /* Its own box: no data-story-section. The same --home-pad top and bottom. A stacking context, so the dot field sits behind the words and never behind the page. */
 .cmh{position:relative;isolation:isolate;background:#fff;color:#18181b;padding-block:var(--home-pad,clamp(48px,5.6vw,80px))}
@@ -872,6 +927,8 @@ const HOW_CSS = `
 .cmh-card{min-width:0}
 /* Landing round 14, the owner: the picture covers the whole card, no frame or grey ground inside it, and the card has an extremely subtle depth: a hairline and a soft, low shadow. */
 .cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;aspect-ratio:4/5;border-radius:18px;background:#fff;overflow:hidden;isolation:isolate;container-type:inline-size;font-family:inherit;box-shadow:0 0 0 1px rgba(24,24,27,.055),0 1px 2px rgba(24,24,27,.04),0 14px 34px -24px rgba(24,24,27,.16)}
+/* Landing round 15, the owner: on a phone every card's corners 2px tighter. */
+@media(max-width:767px){.cmh-stage{border-radius:16px}}
 /* One shape on every screen (the owner: a phone shows the cards as a laptop does): narrow 4:5, wide 5:3. */
 .cmh-wide .cmh-stage{aspect-ratio:5/3}
 /* From 1100px, one row: every card as tall as a narrow card is at 4:5 (a quarter of the row less its gaps, times 5/4); the wide card's shape follows, about 5:3. */
@@ -893,7 +950,7 @@ const HOW_CSS = `
 /* ── 1. the dashboard: /app's home in its own sizes (dashboard-client, sidebar, metric-tab), laid out at --db-w and scaled whole into its stage (useDashFit) ── */
 /* Landing round 14: from the card's top left, the card's width once scaled, and as tall as the card at that scale (useDashFit); no frame of its own, the card's corners clip it. */
 .cmh-db-fit{position:absolute;left:0;top:0;width:var(--db-w,1040px);height:var(--db-h,650px);container-type:inline-size;transform-origin:0 0;transform:scale(var(--db-s,.6))}
-.cmh-db{position:relative;display:flex;flex-direction:column;height:100%;overflow:hidden;background:#fff;font-size:14px;line-height:1.35;color:#1a1a2e}
+.cmh-db{position:relative;display:flex;flex-direction:column;height:100%;overflow:hidden;background:#f8f9fa;font-family:var(--font-inter,Inter),Inter,ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:1.35;color:#1a1a2e}
 .cmh-db img{display:block}
 .cmh-db svg{display:block;flex:none}
 .cmh-db-top{flex:none;display:flex;align-items:center;gap:16px;height:58px;padding:0 20px;background:#131316;color:#fff}
@@ -912,7 +969,7 @@ const HOW_CSS = `
 .cmh-db-tools b{font-size:15px;font-weight:600;color:#fff}
 .cmh-db-body{flex:1;min-height:0;display:flex;align-items:stretch}
 /* The rail: 240px, its rows 38px, 15px type at 470, the row you are on #e8e8e8 at 575 (sidebar-desktop-nav ROW and its colours). */
-.cmh-db-rail{flex:none;display:flex;flex-direction:column;gap:0;width:240px;box-sizing:border-box;padding:12px 7px 20px;border-right:1px solid rgba(229,229,229,.6)}
+.cmh-db-rail{flex:none;display:flex;flex-direction:column;gap:0;width:240px;box-sizing:border-box;padding:12px 7px 20px;border-right:1px solid rgba(229,229,229,.6);background:#fff}
 .cmh-db-row{display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:12px;font-size:15px;font-weight:470;letter-spacing:-.01em;color:#666;white-space:nowrap}
 .cmh-db-row svg{width:20px;height:20px}
 .cmh-db-row[data-on]{background:#e8e8e8;color:#202020;font-weight:575;box-shadow:0 1px 2px rgba(16,18,27,.07),inset 0 0 0 1px rgba(16,18,27,.045)}
@@ -931,7 +988,9 @@ const HOW_CSS = `
 .cmh-db-handle{flex:none;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid #e5e7eb;font-size:13px;font-weight:500;color:#374151}
 .cmh-db-handle svg{width:13px;height:13px;color:#9ca3af}
 .cmh-db-card{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;border-radius:16px;border:1px solid rgba(229,231,235,.6);box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
-.cmh-db-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.cmh-db-tabs{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.cmh-db-fold{position:absolute;right:8px;top:8px;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;color:#6b7280}
+.cmh-db-fold svg{width:16px;height:16px}
 .cmh-db-tab{position:relative;display:block;min-width:0;padding:14px 16px;background:#fff}
 .cmh-db-tab+.cmh-db-tab{border-left:1px solid rgba(229,231,235,.6)}
 .cmh-db-tab[data-on]{background:#f9fafb}
@@ -1001,8 +1060,8 @@ const HOW_CSS = `
 /* ── 2. tips: her creator page, a $5 tip picked, paid and thanked for. Landing round 14: the page is the card, edge to edge, sized by the card's width alone, so it looks the same on every screen. ── */
 .cmh-tp{font-size:3.5cqw}
 .cmh-tp-page{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;overflow:hidden;background:#fff}
-.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:34%;background:#5d6b7c}
-.cmh-tp-cover img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 58%}
+.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:34%;background:${HOW_COVER_REDS[1]};overflow:hidden}
+.cmh-tp-cover svg{display:block;width:100%;height:100%}
 .cmh-tp-who{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-2.6em;text-align:center}
 .cmh-tp-who img{display:block;width:5.2em;height:5.2em;border-radius:50%;object-fit:cover;background:#e7e5ee;box-shadow:0 0 0 .22em #fff}
 .cmh-tp-who b{margin-top:.55em;font-size:1.25em;font-weight:600;letter-spacing:-.02em}
@@ -1020,11 +1079,11 @@ const HOW_CSS = `
 .cmh-tp-on{position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;background:#18181b;color:#fff;font-style:normal}
 .cmh-tp-on3{animation-name:cmh-tp-on3}
 .cmh-tp-on5{animation-name:cmh-tp-on5}
-.cmh-tp-btn{position:relative;display:grid;place-items:center;height:2.9em;border-radius:.8em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;animation-name:cmh-tp-press}
+.cmh-tp-btn{position:relative;display:grid;place-items:center;height:2.9em;border-radius:.8em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;font-variant-numeric:tabular-nums;animation-name:cmh-tp-press}
 .cmh-tp-l3,.cmh-tp-l5{grid-area:1/1}
 .cmh-tp-l3{animation-name:cmh-tp-l3}
 .cmh-tp-l5{opacity:0;animation-name:cmh-tp-l5}
-.cmh-tp-thx{display:flex;align-items:center;justify-content:center;gap:.5em;min-height:100%;font-size:.98em;font-weight:500;color:#18181b;opacity:0;animation-name:cmh-tp-thx}
+.cmh-tp-thx{display:flex;align-items:center;justify-content:center;gap:.5em;min-height:100%;font-size:.98em;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;color:#18181b;opacity:0;animation-name:cmh-tp-thx}
 .cmh-tp-thx svg{flex:none;width:1.5em;height:1.5em;padding:.25em;box-sizing:border-box;border-radius:50%;background:#dcfce7;color:#15803d}
 /* A tap: a soft ring that opens and fades where the finger lands. */
 .cmh-tp-tap{position:absolute;left:50%;top:50%;width:2.6em;height:2.6em;margin:-1.3em 0 0 -1.3em;border-radius:50%;background:rgba(24,24,27,.22);opacity:0;z-index:3}
@@ -1034,33 +1093,35 @@ const HOW_CSS = `
 .cmh-tp-tap3{animation-name:cmh-tp-tap3}
 .cmh-tp-scrim{position:absolute;inset:0;background:rgba(9,9,11,.32);opacity:0;animation-name:cmh-tp-scrim}
 /* Landing round 14: the card is the phone's screen, so the sheet spans it. */
-.cmh-tp-sheet{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;padding:.7em 1.4em 1.4em;box-sizing:border-box;border-radius:1.4em 1.4em 0 0;background:#fff;box-shadow:0 -1em 3em -1.5em rgba(0,0,0,.35);transform:translate3d(0,105%,0);animation-name:cmh-tp-sheet}
+.cmh-tp-sheet{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;padding:.7em 1.4em 1.4em;box-sizing:border-box;border-radius:1.4em 1.4em 0 0;background:#fff;box-shadow:0 -1em 3em -1.5em rgba(0,0,0,.35);transform:translate3d(0,${SHEET_DOWN},0);animation-name:cmh-tp-sheet}
 .cmh-tp-grab{width:2.6em;height:.3em;border-radius:1em;background:#e4e4e7}
 .cmh-tp-for{display:flex;align-items:center;gap:.5em;margin-top:1em;font-size:.9em;font-weight:500;color:#52525b}
 .cmh-tp-for img{width:1.7em;height:1.7em;border-radius:50%;object-fit:cover}
 .cmh-tp-amt{margin-top:.35em;font-size:2.3em;font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
-.cmh-tp-pay{position:relative;display:grid;place-items:center;width:100%;height:3em;margin-top:.8em;border-radius:.85em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;animation-name:cmh-tp-paypress}
+.cmh-tp-pay{position:relative;display:grid;place-items:center;width:100%;height:3em;margin-top:.8em;border-radius:.85em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;font-variant-numeric:tabular-nums;animation-name:cmh-tp-paypress}
 .cmh-tp-lock{display:flex;align-items:center;gap:.4em;margin-top:.75em;font-size:.78em;color:#71717a}
 .cmh-tp-lock svg{width:1.1em;height:1.1em}
 .cmh-tp-pick,.cmh-tp-on,.cmh-tp-btn,.cmh-tp-l3,.cmh-tp-l5,.cmh-tp-thx,.cmh-tp-tap,.cmh-tp-scrim,.cmh-tp-sheet,.cmh-tp-pay{animation-duration:${HOW_TIP_LOOP_S}s}
 .cmh-tp-sheet{animation-timing-function:cubic-bezier(.32,.72,0,1)}
 .cmh-tp-tap{animation-timing-function:ease-out}
-@keyframes cmh-tp-on3{0%,${T(1.05)}{opacity:1}${T(1.3)},${T(8.75)}{opacity:0}${T(8.8)},100%{opacity:1}}
-@keyframes cmh-tp-on5{0%,${T(1.05)}{opacity:0}${T(1.3)},${T(8.75)}{opacity:1}${T(8.8)},100%{opacity:0}}
-@keyframes cmh-tp-l3{0%,${T(1.1)}{opacity:1}${T(1.35)},${T(8.75)}{opacity:0}${T(8.8)},100%{opacity:1}}
-@keyframes cmh-tp-l5{0%,${T(1.1)}{opacity:0}${T(1.35)},${T(8.75)}{opacity:1}${T(8.8)},100%{opacity:0}}
+@keyframes cmh-tp-on3{0%,${T(1.05)}{opacity:1}${T(1.3)},${T(TIP_RESET_S)}{opacity:0}${T(TIP_RESET_S + 0.01)},100%{opacity:1}}
+@keyframes cmh-tp-on5{0%,${T(1.05)}{opacity:0}${T(1.3)},${T(TIP_RESET_S)}{opacity:1}${T(TIP_RESET_S + 0.01)},100%{opacity:0}}
+@keyframes cmh-tp-l3{0%,${T(1.1)}{opacity:1}${T(1.35)},${T(TIP_RESET_S)}{opacity:0}${T(TIP_RESET_S + 0.01)},100%{opacity:1}}
+@keyframes cmh-tp-l5{0%,${T(1.1)}{opacity:0}${T(1.35)},${T(TIP_RESET_S)}{opacity:1}${T(TIP_RESET_S + 0.01)},100%{opacity:0}}
 @keyframes cmh-tp-tap1{0%,${T(0.95)}{opacity:0;transform:scale(.3)}${T(1.0)}{opacity:1;transform:scale(.45)}${T(1.5)},100%{opacity:0;transform:scale(1.5)}}
 @keyframes cmh-tp-tap2{0%,${T(2.2)}{opacity:0;transform:scale(.3)}${T(2.25)}{opacity:1;transform:scale(.45)}${T(2.75)},100%{opacity:0;transform:scale(2.2)}}
 @keyframes cmh-tp-tap3{0%,${T(4.05)}{opacity:0;transform:scale(.3)}${T(4.1)}{opacity:1;transform:scale(.45)}${T(4.6)},100%{opacity:0;transform:scale(2.2)}}
 @keyframes cmh-tp-press{0%,${T(2.2)}{transform:scale(1)}${T(2.32)}{transform:scale(.97)}${T(2.6)},100%{transform:scale(1)}}
 @keyframes cmh-tp-paypress{0%,${T(4.05)}{transform:scale(1)}${T(4.17)}{transform:scale(.97)}${T(4.45)},100%{transform:scale(1)}}
 @keyframes cmh-tp-scrim{0%,${T(2.6)}{opacity:0}${T(3.0)},${T(4.6)}{opacity:1}${T(5.0)},100%{opacity:0}}
-@keyframes cmh-tp-sheet{0%,${T(2.6)}{transform:translate3d(0,105%,0)}${T(3.15)},${T(4.55)}{transform:translate3d(0,0,0)}${T(5.1)},100%{transform:translate3d(0,105%,0)}}
+@keyframes cmh-tp-sheet{0%,${T(2.6)}{transform:translate3d(0,${SHEET_DOWN},0)}${T(3.15)},${T(4.55)}{transform:translate3d(0,0,0)}${T(5.1)},100%{transform:translate3d(0,${SHEET_DOWN},0)}}
 @keyframes cmh-tp-pick{0%,${T(5.0)}{opacity:1}${T(5.25)},${T(8.7)}{opacity:0}${T(9.2)},100%{opacity:1}}
 @keyframes cmh-tp-thx{0%,${T(5.2)}{opacity:0;transform:translate3d(0,.35em,0)}${T(5.6)},${T(8.2)}{opacity:1;transform:translate3d(0,0,0)}${T(8.6)},100%{opacity:0;transform:translate3d(0,0,0)}}
 
 /* ── 3. your own domain: /pricing's domain reel (DomainReel; its own sheet, DOMAIN_CSS, is drawn beside this one as HOW_DOMAIN_STYLE), filling the card. Its loops run only while the card is live, like the others. ── */
 .cmh-stage .pz-d{position:absolute;inset:0;height:auto;border-radius:0;contain:strict}
+/* Landing round 15, the owner: a little more gradient on this card's ground, in the reel's own lilacs (/pricing keeps its own). */
+.cmh-stage .pz-d{background:radial-gradient(75% 55% at 50% 50%,#f8f5ff 0%,rgba(248,245,255,0) 100%),radial-gradient(60% 45% at 0% 0%,rgba(255,255,255,.7) 0%,rgba(255,255,255,0) 100%),linear-gradient(165deg,#f0ebff 0%,#e4dbff 52%,#d7caff 100%)}
 .cmh-card:not([data-commerce-live]) .ev-loop{animation-play-state:paused}
 
 @media (prefers-reduced-motion:reduce){

@@ -268,20 +268,30 @@ export function DigitalScene({ on = false }: { on?: boolean }) {
   hidden behind is hidden for real (visibility), so five pictures are drawn
   at most, each a 4:5 webp at about its drawn size. With reduced motion the
   line stands still and a drag or a tap moves it without gliding.
+
+  Round 15, the owner: smoother, cleaner and more 3D. The side cards stand
+  further back, turn a little more and are drawn a little smaller (a scale on
+  top of the depth), under a closer perspective, over a soft floor shadow.
+  A step is longer, on an even ease in and out. The drawing order no longer
+  changes on a timer beside the glide (a late timer was a card popping over
+  another): each card's order is keyframed with its glide, on the same clock,
+  so it swaps exactly half way, wherever the glide is. During a drag the
+  order and visibility are written only when they change.
 */
 export const STORE_DESIGNS = ["sora", "shine", "sunbalm", "lunea", "fusion", "vision"] as const
 /** Widths each design is saved at (public/home/showcase/bt-<id>-<w>.webp), 4:5. */
 export const STORE_DESIGN_WIDTHS = [380, 560] as const
 /** One move of the line: a hold, then the glide to the next place (seconds). */
 export const STORE_STEP_S = 2.4
-export const STORE_GLIDE_S = 0.95
+export const STORE_GLIDE_S = 1.1
 /** How long the line waits after a drag or a tap before it turns by itself again. */
 export const STORE_IDLE_MS = 3200
 /* The places, by distance from the front (-3 to 3; -3 and 3 are the same place, far behind, unseen). */
-const PLACE_X = [0, -446, -262, 0, 262, 446, 0]
-const PLACE_Z = [-760, -430, -190, 0, -190, -430, -760]
-const PLACE_R = [0, 32, 24, 0, -24, -32, 0]
-const PLACE_O = [0, 0.6, 1, 1, 1, 0.6, 0]
+const PLACE_X = [0, -452, -268, 0, 268, 452, 0]
+const PLACE_Z = [-820, -500, -240, 0, -240, -500, -820]
+const PLACE_R = [0, 38, 28, 0, -28, -38, 0]
+const PLACE_S = [0.84, 0.88, 0.94, 1, 0.94, 0.88, 0.84]
+const PLACE_O = [0, 0.55, 1, 1, 1, 0.55, 0]
 type Scale = { x: number; z: number; w: number }
 /** A computer draws the line at a 336u stage; a phone a little smaller and closer together. */
 const DESK: Scale = { x: 1, z: 1, w: 336 }
@@ -296,11 +306,11 @@ export function storePlace(k: number) {
   const b = Math.min(a + 1, 6)
   const f = w - a
   const mix = (t: readonly number[]) => t[a] + (t[b] - t[a]) * f
-  return { x: mix(PLACE_X), z: mix(PLACE_Z), r: mix(PLACE_R), o: mix(PLACE_O) }
+  return { x: mix(PLACE_X), z: mix(PLACE_Z), r: mix(PLACE_R), s: mix(PLACE_S), o: mix(PLACE_O) }
 }
 const placeCss = (k: number, s: Scale) => {
   const p = storePlace(k)
-  return `transform:translate3d(${+(p.x * s.x).toFixed(1)}u,0,${+(p.z * s.z).toFixed(1)}u) rotateY(${p.r}deg);opacity:${p.o}`
+  return `transform:translate3d(${+(p.x * s.x).toFixed(1)}u,0,${+(p.z * s.z).toFixed(1)}u) rotateY(${p.r}deg) scale(${p.s});opacity:${p.o}`
 }
 /** Which card is drawn over which: the nearer the front, the higher (3 in front, 0 far behind); it changes only half way between two places. */
 export const storeLayer = (k: number) => 3 - Math.round(Math.abs(wrapK(k)))
@@ -330,8 +340,9 @@ const curve = (x1: number, y1: number, x2: number, y2: number) => {
   }
 }
 type Curve = ReturnType<typeof curve>
-const WALK = curve(0.55, 0, 0.25, 1)
-const FLING = curve(0.2, 0.75, 0.25, 1)
+/* Round 15: an even ease in and out for a step (no lurch at the start), a long soft settle for a fling. */
+const WALK = curve(0.65, 0, 0.35, 1)
+const FLING = curve(0.16, 0.84, 0.3, 1)
 
 type StoreLine = { live: (on: boolean) => void; stop: () => void }
 
@@ -349,7 +360,8 @@ function storeLine(stage: HTMLElement): StoreLine {
   let glide: { from: number; to: number; start: number; dur: number; ease: Curve } | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let raf = 0
-  let layers: ReturnType<typeof setTimeout>[] = []
+  /* What each card was last given, so a drag frame writes only what changed. */
+  const shown: { z: number; v: boolean }[] = cards.map(() => ({ z: -1, v: true }))
   let idleUntil = 0
   let drag: { id: number; x0: number; q0: number; moved: boolean; pts: [number, number][] } | null = null
 
@@ -362,7 +374,7 @@ function storeLine(stage: HTMLElement): StoreLine {
   const frame = (k: number) => {
     const p = storePlace(k)
     return {
-      transform: `translate3d(${(p.x * scale.x * unit).toFixed(2)}px,0,${(p.z * scale.z * unit).toFixed(2)}px) rotateY(${p.r.toFixed(2)}deg)`,
+      transform: `translate3d(${(p.x * scale.x * unit).toFixed(2)}px,0,${(p.z * scale.z * unit).toFixed(2)}px) rotateY(${p.r.toFixed(2)}deg) scale(${p.s.toFixed(4)})`,
       opacity: +p.o.toFixed(3),
     }
   }
@@ -371,17 +383,26 @@ function storeLine(stage: HTMLElement): StoreLine {
       const f = frame(i - at)
       c.style.transform = f.transform
       c.style.opacity = String(f.opacity)
-      c.style.visibility = f.opacity > 0.001 ? "visible" : "hidden"
+      show(i, f.opacity > 0.001)
     })
     order(at)
   }
+  const show = (i: number, v: boolean) => {
+    if (shown[i].v === v) return
+    shown[i].v = v
+    cards[i].style.visibility = v ? "visible" : "hidden"
+  }
   /* The cards are flat siblings under the stage's perspective (no preserve-3d: the compositor then draws five plain quads in order, far cheaper than sorting a 3D scene), so their order is set here. */
-  const order = (at: number) => cards.forEach((c, i) => (c.style.zIndex = String(storeLayer(i - at))))
+  const order = (at: number) =>
+    cards.forEach((c, i) => {
+      const z = storeLayer(i - at)
+      if (shown[i].z === z) return
+      shown[i].z = z
+      c.style.zIndex = String(z)
+    })
   /** Where the line is now, mid glide or not. */
   const where = () => (glide ? glide.from + (glide.to - glide.from) * glide.ease.at(Math.min(1, (now() - glide.start) / glide.dur)) : q)
   const halt = () => {
-    layers.forEach(clearTimeout)
-    layers = []
     if (!glide) return
     q = where()
     glide = null
@@ -413,24 +434,30 @@ function storeLine(stage: HTMLElement): StoreLine {
     for (let s = dir > 0 ? Math.floor(from) + 1 : Math.ceil(from) - 1; dir > 0 ? s < to : s > to; s += dir) stops.push(s)
     stops.push(to)
     const span = Math.abs(to - from)
-    anims = cards.map((c, i) => {
-      const frames = stops.map((s) => ({ ...frame(i - s), offset: Math.abs(s - from) / span }))
-      if (frames.some((f) => f.opacity > 0.001)) c.style.visibility = "visible"
-      return c.animate(frames, { duration: dur, easing: ease.css, fill: "forwards" })
-    })
-    /* The order changes half way between two places: at those moments of the glide (the easing solved for them), set it. */
-    for (let h = Math.floor(Math.min(from, to) - 0.5) + 0.5; h < Math.max(from, to); h++) {
-      if (h <= Math.min(from, to)) continue
-      const part = Math.abs(h - from) / span
-      let lo = 0
-      let hi = 1
-      for (let k = 0; k < 16; k++) {
-        const m = (lo + hi) / 2
-        if (ease.at(m) < part) lo = m
-        else hi = m
+    const timing: KeyframeAnimationOptions = { duration: dur, easing: ease.css, fill: "forwards" }
+    anims = cards.flatMap((c, i) => {
+      const at = (s: number) => Math.abs(s - from) / span
+      const frames = stops.map((s) => ({ ...frame(i - s), offset: at(s) }))
+      if (frames.some((f) => f.opacity > 0.001)) show(i, true)
+      /*
+        Two animations on one clock: the move (transform and opacity, on the compositor) and the drawing order. The
+        order is keyframed at the places and at every half way point between them, held on each side, so it swaps
+        exactly when the card is half way, at the same eased moment as the move, with no timer to run late.
+      */
+      const zs: Keyframe[] = [{ zIndex: storeLayer(i - stops[0]), offset: 0 }]
+      for (let k = 1; k < stops.length; k++) {
+        const a = stops[k - 1]
+        const b = stops[k]
+        const h = Math.floor(Math.min(a, b)) + 0.5
+        if (h > Math.min(a, b) && h < Math.max(a, b)) {
+          zs.push({ zIndex: storeLayer(i - a), offset: at(h) })
+          zs.push({ zIndex: storeLayer(i - b), offset: at(h) })
+        }
+        zs.push({ zIndex: storeLayer(i - b), offset: at(b) })
       }
-      layers.push(setTimeout(() => order(h + dir * 0.01), hi * dur))
-    }
+      shown[i].z = -1
+      return [c.animate(frames, timing), c.animate(zs, timing)]
+    })
     const mine = { from, to, start: now(), dur, ease }
     glide = mine
     anims[0].onfinish = () => {
@@ -528,7 +555,6 @@ function storeLine(stage: HTMLElement): StoreLine {
     },
     stop() {
       clearTimeout(timer)
-      layers.forEach(clearTimeout)
       cancelAnimationFrame(raf)
       anims.forEach((a) => a.cancel())
       ro?.disconnect()
@@ -924,8 +950,10 @@ export const BUSINESS_MOCK_CSS =
 
 /* physical (round 14): store designs for goods you ship, a line turning in perspective in clean light (round 13's flat grey was too grey). The stage gives the perspective and takes the drag; the cards are flat siblings in the order the script sets (round 14: preserve-3d made the compositor sort a 3D scene every frame; without it a turn drops a quarter as many frames at 1920), each one flat picture with its corners and shadow drawn once. */
 .bs-store{background:radial-gradient(70% 80% at 50% 46%,#fff 0%,#f7f9fb 46%,#e9eef4 100%)}
-.bt-stage{position:absolute;left:50%;top:50%;width:336u;height:420u;margin:-212u 0 0 -168u;perspective:1500u;perspective-origin:50% 45%;pointer-events:auto;touch-action:pan-y;cursor:grab;outline:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.bt-stage{position:absolute;left:50%;top:50%;width:336u;height:420u;margin:-212u 0 0 -168u;perspective:1200u;perspective-origin:50% 42%;pointer-events:auto;touch-action:pan-y;cursor:grab;outline:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 .bt-stage[data-drag]{cursor:grabbing}
+/* Round 15: a soft floor under the line, drawn once, so the cards stand in a room rather than float. */
+.bt-stage::before{content:"";position:absolute;left:-18%;right:-18%;bottom:-34u;height:60u;border-radius:50%;background:radial-gradient(closest-side,rgba(16,24,40,.16),rgba(16,24,40,0));pointer-events:none}
 .bt-stage:focus-visible::after{content:"";position:absolute;inset:-10u;border-radius:20u;box-shadow:0 0 0 2u #18181b}
 .bt-card{position:absolute;inset:0;border-radius:14u;overflow:hidden;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.06),0 2u 4u rgba(16,24,40,.05),0 22u 40u -22u rgba(16,24,40,.38)}
 .bt-card img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0;user-select:none;-webkit-user-select:none}
@@ -1064,7 +1092,7 @@ ${STORE_LINE}
   .bd-gets li:nth-child(n+3){display:none}
   .bd-buy{height:44u;margin-top:auto;font-size:14u}
 
-  .bt-stage{width:276u;height:345u;margin:-172u 0 0 -138u;perspective:1100u}
+  .bt-stage{width:276u;height:345u;margin:-172u 0 0 -138u;perspective:950u}
   .bt-card{border-radius:11u}
   ${STORE_LINE_PHONE}
 
