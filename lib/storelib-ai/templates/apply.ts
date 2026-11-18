@@ -33,6 +33,7 @@ import type { DirectionChoice } from "@/lib/storelib-ai/direction/choose"
 import { DESIGN_MD_PATH, renderDesignMd, type DesignMdSection } from "@/lib/storelib-ai/direction/design-md"
 import { DESIGN_CONTRACT_SETTING, designMdTokensFrom, flatTokens } from "@/lib/ai-builder/design-contract"
 import { tokensToThemeSettings } from "@/lib/ai-builder/agent/tokens"
+import { repairPalette } from "@/lib/storelib-ai/palette-contrast"
 import { versionOf } from "@/lib/ai-builder/agent/version"
 import type { ProjectStore, StoredPage } from "@/lib/ai-builder/agent/ports"
 import type { DesignTokens, FileAuthor } from "@/lib/ai-builder/types"
@@ -85,11 +86,13 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 /** The template's tokens, with the direction's palette and fonts when one is given. */
 export function tokensFor(template: SiteTemplate, choice?: ApplyOptions["choice"]): DesignTokens {
   const t = clone(template.tokens)
-  if (!choice) return t
+  /* Round 56: every pair a visitor reads is readable before the palette lands (lightness only, the brand kept). */
+  const readable = (x: DesignTokens): DesignTokens => ({ ...x, colors: repairPalette(x.colors).colors })
+  if (!choice) return readable(t)
   const p = choice.palette
   t.colors = { background: p.background, surface: p.surface, text: p.text, muted: p.muted, accent: p.accent, accentText: p.accentText, border: p.border, ...(p.inverse ? { inverse: { ...p.inverse } } : t.colors.inverse ? { inverse: t.colors.inverse } : {}) }
   t.fonts = { heading: choice.fonts.display, body: choice.fonts.body, ...(choice.fonts.mono ? { accent: choice.fonts.mono } : t.fonts.accent ? { accent: t.fonts.accent } : {}) }
-  return t
+  return readable(t)
 }
 
 /** A slot's prompt for this creator's business: the template's picture, said for them. */

@@ -14,6 +14,7 @@ import { readDesignContract } from "@/lib/storelib-ai/design-contract-server"
 import { AI_IMAGE_BUCKET, AI_IMAGE_FOLDER } from "@/lib/storelib-ai/images/types"
 import { mediaUrl } from "@/lib/storage/media-url"
 import type { NativeEngineDeps } from "./engine"
+import { recentSiteDesigns } from "@/lib/ai-builder/recent-designs"
 import type { NativeForm, NativeImage } from "./types"
 
 type Db = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -46,6 +47,8 @@ export function nativeServerDeps(admin: Db, job: { creatorId: string; ownerUserI
       if (error || !Array.isArray(data)) return []
       return (data as { state?: { native?: { recipeId?: unknown } | null } | null }[]).map((r) => r.state?.native?.recipeId).filter((x): x is string => typeof x === "string" && !!x)
     },
+    /* Round 56: the platform's last finished sites (both engines): directions, recipes and fingerprints, ids and words only. */
+    recentDesigns: recentSiteDesigns(admin),
     async designMd() {
       return (await readDesignContract(admin, job.installId))?.text ?? null
     },

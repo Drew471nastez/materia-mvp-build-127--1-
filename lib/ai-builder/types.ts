@@ -239,6 +239,12 @@ export interface DesignTokens {
     border: string
     /** A dark band, for contrast sections. */
     inverse?: { background: string; text: string; accent: string }
+    /**
+     * Round 56: the brand colour as chosen, when the accent had to move to be read as text or a control
+     * (lib/storelib-ai/palette-contrast.ts). It fills the accent band, the dark band's links where it reads
+     * there, and var(--t-brand) for large type and decoration.
+     */
+    brand?: string
   }
   fonts: { heading: string; body: string; accent?: string }
   /**

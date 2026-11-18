@@ -134,6 +134,8 @@ export async function runEval(opts: EvalRunOptions = {}): Promise<EvalRunResult>
     reportPath = join(out, "index.html")
     writeFileSync(reportPath, html)
     writeFileSync(join(out, "results.json"), JSON.stringify(results.map((r) => ({ engine: r.site.engine, engineLabel: r.site.engineLabel, scenario: r.site.scenario.id, status: r.site.status, template: r.site.template, notes: r.site.notes, checks: r.checks })), null, 2))
+    /* Round 56: every site whole (pages, files, settings, the browser's measurements), so a run can be scored again with changed checks and no model call (evaluateSites over this file). */
+    writeFileSync(join(out, "sites.json"), JSON.stringify(results.map((r) => ({ ...r.site, scenario: { ...r.site.scenario, expect: undefined, id: r.site.scenario.id } }))))
   }
   return { results, reportPath, serverErrors: [...w.j.serverErrors, ...w.j.afterErrors], refusedHosts: [...w.j.net.refused] }
 }

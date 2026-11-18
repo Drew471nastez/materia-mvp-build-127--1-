@@ -25,7 +25,7 @@ import type { AgentJobInput, ProjectStore } from "./ports"
 import type { LoopCheckpoint } from "./state"
 import type { VisualConcept } from "./concept"
 import { briefFrom, refineBrief, type CreativeBrief } from "@/lib/storelib-ai/direction/brief"
-import { checkConceptAgainstDirection, chooseDirection, directionForPrompt, directionSeeds, type DirectionChoice, type ReferenceHint } from "@/lib/storelib-ai/direction/choose"
+import { checkConceptAgainstDirection, chooseDirection, chooseFreshDirection, directionForPrompt, directionSeeds, type DirectionChoice, type ReferenceHint } from "@/lib/storelib-ai/direction/choose"
 import { DESIGN_CONTRACT_SETTING, DESIGN_MD_PATH, contractForPrompt, contractFromPlan, designMdFromSettings, readContractMeta, recordAiTokens, renderContract } from "../design-contract"
 import { versionOf } from "./version"
 import { designBrainFor } from "@/lib/storelib-ai/library/brain"
@@ -37,18 +37,21 @@ export { refineBrief }
 export const directionSeed = (job: Pick<AgentJobInput, "creatorId" | "installId">) => `${job.creatorId}:${job.installId}`
 
 /** The brief, the choice and what the first turn says about them. Deterministic. */
-export function planDirection(job: AgentJobInput, caps: RuntimeCapabilities | null, references: ReferenceHint[] = []): { brief: CreativeBrief; choice: DirectionChoice; seeds: Direction[]; block: string; prefer: string[]; preferType?: string } {
+export function planDirection(job: AgentJobInput, caps: RuntimeCapabilities | null, references: ReferenceHint[] = [], recent: { directions?: string[]; recipes?: string[] } = {}): { brief: CreativeBrief; choice: DirectionChoice; seeds: Direction[]; block: string; prefer: string[]; preferType?: string; avoid: string[] } {
   const brief = briefFrom(job.prompt, job.options ?? null, caps)
   /* Round R (R1): the design brain's recipe for this brief names the directions it realises, so the direction and the recipe agree. */
-  const { prefer, preferType } = brainPreference(brief)
-  const choice = chooseDirection(brief, references, { seed: directionSeed(job), prefer, ...(preferType ? { preferType } : {}) })
-  return { brief, choice, seeds: directionSeeds(choice, brief), block: directionForPrompt(brief, choice), prefer, ...(preferType ? { preferType } : {}) }
+  const { prefer, preferType } = brainPreference(brief, recent.recipes ?? [])
+  /* Round 56: the directions recent sites on the platform used are pushed down, so two businesses in a row do not share a palette direction. */
+  const avoid = [...new Set((recent.directions ?? []).filter((d) => typeof d === "string" && d))].slice(0, 6)
+  const fresh = chooseFreshDirection(brief, references, { seed: directionSeed(job), prefer, ...(preferType ? { preferType } : {}), ...(avoid.length ? { avoid } : {}) })
+  const choice = fresh.choice
+  return { brief, choice, seeds: directionSeeds(choice, brief), block: directionForPrompt(brief, choice), prefer: fresh.prefer, ...(preferType ? { preferType } : {}), avoid }
 }
 
 /** The directions and the type system the design brain's recipe realises for a brief (empty when the brain is unavailable). */
-export function brainPreference(brief: CreativeBrief): { prefer: string[]; preferType?: string } {
+export function brainPreference(brief: CreativeBrief, avoidRecipes: string[] = []): { prefer: string[]; preferType?: string } {
   try {
-    const brain = designBrainFor(brief)
+    const brain = designBrainFor(brief, avoidRecipes.length ? { avoidRecipes } : {})
     return { prefer: brain.directions, preferType: brain.typeSystem }
   } catch {
     return { prefer: [] }
@@ -58,7 +61,7 @@ export function brainPreference(brief: CreativeBrief): { prefer: string[]; prefe
 /** The choice a checkpoint was planned with, chosen again (deterministic from the brief and the seed). */
 export function choiceOf(cp: Pick<LoopCheckpoint, "brief" | "direction">): DirectionChoice | null {
   if (!cp.brief || !cp.direction) return null
-  return chooseDirection(cp.brief, cp.direction.refs ?? [], { seed: cp.direction.seed, ...(cp.direction.prefer?.length ? { prefer: cp.direction.prefer } : {}), ...(cp.direction.preferType ? { preferType: cp.direction.preferType } : {}) })
+  return chooseDirection(cp.brief, cp.direction.refs ?? [], { seed: cp.direction.seed, ...(cp.direction.prefer?.length ? { prefer: cp.direction.prefer } : {}), ...(cp.direction.preferType ? { preferType: cp.direction.preferType } : {}), ...(cp.direction.avoid?.length ? { avoid: cp.direction.avoid } : {}) })
 }
 
 /** The direction's objections to a concept, as sentences (errors refuse it). */

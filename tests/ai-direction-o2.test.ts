@@ -21,7 +21,7 @@ import { TYPE_SYSTEMS, suggestTypeSystems } from "@/lib/storelib-ai/library/type
 import { layoutStoryFor } from "@/lib/storelib-ai/layout"
 import { OFFERED_FAMILIES, FAMILY_WEIGHTS } from "@/lib/website-builder/font-link"
 import { DESIGN_CONTRACT_SETTING, askedGroups, contractFromPlan, designMdFromSettings, protectOverrides, readContractMeta, recordAiTokens, renderContract, settingsPatchFromDesignMd, tokensFromPlan, userOverrides } from "@/lib/ai-builder/design-contract"
-import { themeSettingsToTokens } from "@/lib/ai-builder/tokens"
+import { contrastOf, themeSettingsToTokens } from "@/lib/ai-builder/tokens"
 import { tokensToThemeSettings as agentTokens } from "@/lib/ai-builder/agent/tokens"
 import { createToolSet } from "@/lib/ai-builder/agent/tools-impl"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
@@ -287,8 +287,14 @@ async function main() {
     const first = await toolsFor(jobInput()).set_tokens({ tokens: aiTokens } as never)
     const s1 = await store.readSettings()
     const meta = readContractMeta(s1)
-    check("the AI's set_tokens records its values in the contract metadata", first.ok === true && !!meta && meta.ai["colors.accent"] === aiTokens.colors.accent.toLowerCase() && userOverrides(s1).length === 0, { first, meta })
-    check("and DESIGN.md follows the settings it set", /\n {2}primary: "#e1251b"\n/.test(store.project.files["DESIGN.md"]))
+    /*
+      Changed on purpose (r56): set_tokens makes every pair a visitor reads readable before it writes
+      (lib/storelib-ai/palette-contrast.ts). This red read 4.20:1 as a link on the near black ground, so the accent
+      written is a lighter red of the same hue and the red as chosen is kept as the brand colour.
+    */
+    const written = themeSettingsToTokens(s1).colors
+    check("the AI's set_tokens records its values in the contract metadata", first.ok === true && !!meta && meta.ai["colors.accent"] === written.accent.toLowerCase() && written.brand === aiTokens.colors.accent && userOverrides(s1).length === 0, { first, meta })
+    check("and DESIGN.md follows the settings it set", store.project.files["DESIGN.md"].includes(`\n  primary: "${written.accent}"\n`))
     /* The creator sets their own accent and heading font in Theme settings. */
     const t1 = themeSettingsToTokens(s1)
     await store.writeSettings(agentTokens({ colors: { ...t1.colors, accent: "#ffd400", accentText: "#0b0b0b" }, fonts: { ...t1.fonts, heading: "Anton" } } as Partial<DesignTokens>, s1).settings)
@@ -306,7 +312,9 @@ async function main() {
     /* A request that asks for new colours may change them. */
     await toolsFor(jobInput({ edit: true, prompt: "Make the accent colour blue" })).set_tokens({ tokens: { colors: { ...t3.colors, accent: "#1f4fd1", accentText: "#ffffff" } } } as never)
     const s4 = await store.readSettings()
-    check("a request about colour may change the accent; the font stays the creator's", themeSettingsToTokens(s4).colors.accent === "#1f4fd1" && themeSettingsToTokens(s4).fonts.heading === "Anton")
+    /* Changed on purpose (r56): the blue asked for is kept in hue and made readable on the dark ground (it read under 4.5:1 as a link there). */
+    const blue = themeSettingsToTokens(s4).colors
+    check("a request about colour may change the accent; the font stays the creator's", (blue.accent === "#1f4fd1" || blue.brand === "#1f4fd1") && contrastOf(blue.accent, blue.background) >= 4.5 && themeSettingsToTokens(s4).fonts.heading === "Anton", blue)
     check("asked groups read from plain words", askedGroups("make the corners sharper and the font bigger").has("radius") && askedGroups("make the corners sharper").has("fonts") === false && askedGroups("add a page").size === 0)
     const p = protectOverrides({ colors: { ...t3.colors, accent: "#000000" } }, s3, "add a blog")
     check("protectOverrides alone: the override replaces the AI's value", p.kept.includes("colors.accent") && p.tokens.colors?.accent === "#ffd400", p)

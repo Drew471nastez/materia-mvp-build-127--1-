@@ -42,7 +42,7 @@ import { addUnique, newCheckpoint, type CriticState, type LoopCheckpoint } from 
 import { describeConcept } from "./concept"
 import { belowTarget, defectLine, type CriticReport, type Defect } from "../visual-critic/types"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
-import { directionsFor, libraryKnowledge, libraryReferences, librarySlop } from "./knowledge"
+import { directionsFor, libraryKnowledge, libraryReferences, librarySlop, templateSlopBaseline } from "./knowledge"
 import { referencesForPrompt } from "@/lib/storelib-ai/references/prompt"
 import type { AgentImage } from "@/lib/sites/agent/attachments"
 import { contractBlock, planDirection } from "./direction"
@@ -204,12 +204,14 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const shown = pictured.length ? await referenceSource.images(pictured).catch(() => []) : []
     cp.references = refs.map((r) => r.id)
     cp.referenceImages = shown.map((x) => x.id)
+    let recent: { directions: string[]; recipes: string[] } = { directions: [], recipes: [] }
     if (!scoped) {
       try {
         const hints = refs.map((r) => ({ id: r.id, styles: r.styleTags, industries: r.industries }))
-        const plan = planDirection(job, caps, hints)
+        recent = await (deps.recentDesigns?.().catch(() => ({ directions: [], recipes: [] })) ?? Promise.resolve({ directions: [], recipes: [] }))
+        const plan = planDirection(job, caps, hints, recent)
         cp.brief = plan.brief
-        cp.direction = { primary: plan.choice.primary.id, secondary: plan.choice.secondary?.id ?? null, typeSystem: plan.choice.typeSystem.id, seed: plan.choice.seed, ...(hints.length ? { refs: hints } : {}), ...(plan.prefer.length ? { prefer: plan.prefer } : {}), ...(plan.preferType ? { preferType: plan.preferType } : {}) }
+        cp.direction = { primary: plan.choice.primary.id, secondary: plan.choice.secondary?.id ?? null, typeSystem: plan.choice.typeSystem.id, seed: plan.choice.seed, ...(hints.length ? { refs: hints } : {}), ...(plan.prefer.length ? { prefer: plan.prefer } : {}), ...(plan.preferType ? { preferType: plan.preferType } : {}), ...(plan.avoid.length ? { avoid: plan.avoid } : {}) }
         directions = plan.seeds
         direction = { brief: plan.brief, choice: plan.choice }
       } catch {
@@ -217,7 +219,8 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       }
     }
     const contract = scoped ? await contractBlock(deps.store) : ""
-    const design = await jobDesignBrief({ job, caps, files, references: { list: refs, withImages: cp.referenceImages }, ...(direction ? { direction } : {}), ...(contract ? { contract } : {}) }).catch(() => null)
+    const design = await jobDesignBrief({ job, caps, files, references: { list: refs, withImages: cp.referenceImages }, ...(direction ? { direction } : {}), ...(contract ? { contract } : {}), ...(recent.recipes.length ? { avoidRecipes: recent.recipes } : {}) }).catch(() => null)
+    if (design?.brain?.recipeId) cp.recipe = design.brain.recipeId
     /*
       TEMPLATE FIRST (round P, P5, ./templates.ts): a NEW website starts from the closest starting template
       (P2's chooseTemplate + applyTemplate, with the brief and direction just chosen), then the agent adapts it.
@@ -717,6 +720,9 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   */
   const settings = scoped ? undefined : await deps.store.readSettings()
   const home = stored.find((p) => p.key === "home")
+  /* Round 56: what the starting template shipped with is reported but not held against the budget (knowledge.ts templateSlopBaseline). */
+  const started = cp.template ? templatesOf(deps).byId(cp.template.id) : null
+  const slopBaseline = started ? (() => { try { return templateSlopBaseline(started) } catch { return [] } })() : []
   if (files.length) {
     issues.push(
       ...(await (deps.slop ?? librarySlop)({
@@ -727,6 +733,7 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
         ...(settings ? { settings } : {}),
         rendered: scoped ? rendered.filter((r) => cp.pagesTouched.includes(r.page)) : rendered,
         ...(!scoped && home ? { sections: home.sections.filter((s) => !s.hidden && !s.group).map((s) => ({ type: s.type })) } : {}),
+        ...(slopBaseline.length ? { baseline: slopBaseline } : {}),
       }).catch(() => [])),
     )
   }

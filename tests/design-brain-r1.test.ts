@@ -163,7 +163,11 @@ section("4. Ranking: deterministic, cached, diverse, fitted to the business")
   const fit = rankBrain(RECIPES, { text: "luxury premium", business: "fitness" })
   check("business fit: a fitness brief ranks the fitness recipe over luxury words", fit[0].record.id === "rcp_performance-floor", fit.slice(0, 3).map((x) => x.record.id))
   check("a recipe that fits the business poorly is pushed down", fit.findIndex((x) => x.record.id === "rcp_mineral-luxe") > 2)
-  check("avoidRecipes moves a recently used recipe aside", designBrainFor(brief, { avoidRecipes: ["rcp_performance-floor"] }).recipe.id !== "rcp_performance-floor")
+  /* Changed on purpose (r56): a recipe is only avoided when another recipe made for the trade exists; fitness has one, so it stays. */
+  check("avoidRecipes keeps the only recipe a trade has", designBrainFor(brief, { avoidRecipes: ["rcp_performance-floor"] }).recipe.id === "rcp_performance-floor")
+  const jewel = briefFrom("A jewellery brand selling handmade rings and earrings online")
+  const jewelFirst = designBrainFor(jewel).recipe.id
+  check("avoidRecipes moves a recently used recipe aside when the trade has another", designBrainFor(jewel, { avoidRecipes: [jewelFirst] }).recipe.id !== jewelFirst, jewelFirst)
   const small = designBrainFor(brief, { maxChars: 1_200 })
   check("the block keeps to its cap and keeps the recipe and the blockers' heading", small.block.length <= 1_200 && small.block.startsWith(`DESIGN BRAIN (${BRAIN_VERSION})`), small.block.length)
   check("the default block keeps to BRAIN_BLOCK_MAX_CHARS", c.block.length <= BRAIN_BLOCK_MAX_CHARS)

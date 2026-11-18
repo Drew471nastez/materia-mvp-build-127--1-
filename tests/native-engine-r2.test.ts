@@ -220,9 +220,11 @@ async function main() {
   check("  the brain's hints are read defensively (any shape)", readBrainHints(brain.hints)!.sectionStrategy.length > 2 && !!readBrainHints(brain.hints)!.tokens && readBrainHints({ sectionStrategy: "x", tokens: { a: { b: 1 } } })?.sectionStrategy.length === 0 && readBrainHints({ sectionStrategy: "x", tokens: { a: { b: 1 } } })?.tokens === null && readBrainHints(null) === null)
   const userText = String((first.turns[0] as { content: string }).content)
   const plan0 = strategyPlan(readBrainHints(brain.hints), offeredTypes(ctxFor(fit.caps, fit.prompt)))
-  check("  the brain's section strategy is the STARTING SECTION PLAN, each step with real offered types", plan0.length >= 3 && /STARTING SECTION PLAN/.test(userText) && plan0.every((st) => st.types.every((t) => !!reg.sections[t] && t !== "proof_testimonials") && userText.includes(st.types.join(" or "))), plan0)
+  /* Changed on purpose (r56): the brain's strategy is offered as SECTION IDEAS (ingredients), not a plan in order to follow. */
+  check("  the brain's section strategy is offered as SECTION IDEAS, each with real offered types", plan0.length >= 3 && /SECTION IDEAS/.test(userText) && !/STARTING SECTION PLAN/.test(userText) && plan0.every((st) => st.types.every((t) => !!reg.sections[t] && t !== "proof_testimonials") && userText.includes(st.types.join(" or "))), plan0)
   check("  the brain's tokens are in the prompt, said to be applied", /TOKENS \(applied to Theme settings/.test(userText) && userText.includes(brain.hints.tokens.colors.background))
-  check("  versions recorded", r.promptVersion === "native-r2.1" && r.site.version.startsWith("native-r2.1/") && r.brainVersion === brain.version)
+  /* Changed on purpose (r56): NATIVE_PROMPT_VERSION native-r56. */
+  check("  versions recorded", r.promptVersion === "native-r56" && r.site.version.startsWith("native-r56/") && r.brainVersion === brain.version)
   check("  the spend of both calls is counted", r.spend.calls === 2 && r.spend.usd > 0)
   const always = { native: [] as ProviderRequest[], other: [] as CallLog[] }
   const r2 = await generateNativeSite({ request: fit.prompt, ctx: ctxFor(fit.caps, fit.prompt) }, { model: { provider: scripted([broken], always), model: PLAN_MODEL } })
@@ -269,7 +271,7 @@ async function main() {
   const planned = fit.answer.pages[0].sections.map((s) => s.type)
   check("the job completes", job.status === "complete" || job.status === "partial", { status: job.status, error: job.error, findings: job.state.findings })
   check("  one native call, no classic plan call", jobLog.native.length === 1 && !jobLog.other.some((c) => c.kind === "plan"))
-  check("  the plan carries the native site; the record has versions and counts", isNativePlan(job.plan) && job.state.native?.promptVersion === "native-r2.1" && job.state.native.sections === 8 && !job.state.native.fallback)
+  check("  the plan carries the native site; the record has versions and counts", isNativePlan(job.plan) && job.state.native?.promptVersion === "native-r56" && job.state.native.sections === 8 && !job.state.native.fallback)
   check("  home holds exactly the generated sections, in order, between header and footer", homeBody.map((s) => s.type).join() === planned.join() && st.pages.home[0].type === "header" && st.pages.home[st.pages.home.length - 1].type === "footer", homeBody.map((s) => s.type))
   const heroS = homeBody[0]
   check("  the generated words are on the sections (not the preset's demo copy)", heroS.settings.heading === "Get strong without guessing" && homeBody.find((s) => s.type === "faq_accordion")?.blocks?.map((b) => b.settings.question).join("|") === "Do I need any experience?|What should I bring?|Can I pause a block?")
@@ -354,7 +356,7 @@ async function main() {
     save: (j) => saveJob(admin, j),
   })
   const row = w.j.rows("ai_site_jobs").find((r) => r.id === jobId)
-  check("the job ran on the real store and saved its row", (ran.status === "complete" || ran.status === "partial") && row?.step === "done" && !!row?.plan?.native && row?.state?.native?.promptVersion === "native-r2.1", { status: ran.status, error: ran.error, step: row?.step })
+  check("the job ran on the real store and saved its row", (ran.status === "complete" || ran.status === "partial") && row?.step === "done" && !!row?.plan?.native && row?.state?.native?.promptVersion === "native-r56" /* Changed on purpose (r56) */, { status: ran.status, error: ran.error, step: row?.step })
   const pages = installPages(w, installId)
   const draftHome = (pages.home?.draft ?? []) as { id: string; type: string; settings: Record<string, unknown>; blocks?: { settings: Record<string, unknown> }[] }[]
   check("  drafts only: the live sections are untouched", draftHome.some((s) => s.type === "hero_media") && !(pages.home?.sections ?? []).some((s: { type: string }) => s.type === "hero_media"))

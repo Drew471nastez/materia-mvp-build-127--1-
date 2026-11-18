@@ -189,7 +189,8 @@ async function main() {
     check("real bindings, and the fields a bound list prints", /ONLY ids from list_capabilities/.test(sys) && /block\.settings\.title/.test(sys) && /block\.id \(for data-storelib-add-to-cart\)/.test(sys))
     check("editable: every visible word a setting, repeats are blocks, manifest allowed", /Every word a visitor reads is a setting/.test(sys) && /are blocks with their own settings/.test(sys) && /pass a manifest to write_file/.test(sys))
     check("links: no '#' fallback taught any more; CTAs, nav and commerce need real destinations; anchors to real ids allowed", !/default: '#'/.test(sys) && /Never href="#", href="", javascript:/.test(sys) && /href="#classes" with id="classes"/.test(sys))
-    check("visual diversity and mobile first, with render_check before finish", /do not repeat one section skeleton/.test(sys) && /design at 375px wide/.test(sys) && /render_check every page you made or changed/.test(sys))
+    /* Changed on purpose (r56): the diversity rule is said once, in the CRAFT block ("contrast of scale and density is the design") and the machine look. */
+    check("visual diversity and mobile first, with render_check before finish", /contrast of scale and density is the design/.test(sys) && /design at 375px wide/.test(sys) && /render_check every page you made or changed/.test(sys))
     const brief = (mode: "blank" | "theme") => briefMessage({ job: jobInput({ mode, options: { generation: mode, category: "fitness_coach" } }), caps: CAPS, pages: [{ key: "home", sections: [] }], files: [], knowledge: [] })
     check("the theme-mode brief does not invite keeping the theme's sections", !/may stay/.test(brief("theme")) && /they are not the design/.test(brief("theme")))
     check("the first turn names the real products with ids and ends on the order of work", /prod_8week/.test(brief("blank")) && /render_check on every page, finish\.$/.test(brief("blank")))

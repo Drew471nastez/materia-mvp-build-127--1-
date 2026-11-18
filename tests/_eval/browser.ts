@@ -132,6 +132,34 @@ async function measurePage(browser: Browser, html: string, view: "desktop" | "mo
   }
 }
 
+/**
+ * Round 56: the home page's first screen for people at the four widths the brief asks for (360, 390, 768, 1280), JS
+ * off, at device pixel ratio 2, as `${stem}-w<width>.jpg`. Pictures only, no measurement.
+ */
+export const PEOPLE_WIDTHS = [360, 390, 768, 1280] as const
+
+async function peopleShots(browser: Browser, html: string, stem: string): Promise<void> {
+  for (const width of PEOPLE_WIDTHS) {
+    const tab = await browser.newPage()
+    try {
+      await tab.setJavaScriptEnabled(false)
+      await fence(tab, null)
+      await tab.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
+      const height = width < 700 ? 800 : width < 1000 ? 1024 : 800
+      await tab.setViewport({ width, height, deviceScaleFactor: 2, isMobile: width < 700, hasTouch: width < 700 })
+      await tab.setContent(html, { waitUntil: "load", timeout: 20_000 }).catch(() => undefined)
+      await tab.waitForNetworkIdle({ idleTime: 250, timeout: 5_000 }).catch(() => undefined)
+      await tab.evaluate("document.fonts && document.fonts.ready.then(() => true)").catch(() => undefined)
+      const buf = Buffer.from(await tab.screenshot({ type: "jpeg", quality: 82, clip: { x: 0, y: 0, width, height: Math.min(2400, height * 2) }, captureBeyondViewport: true }))
+      await sharp(buf).jpeg({ quality: 78 }).toFile(`${stem}-w${width}.jpg`)
+    } catch {
+      /* a picture for people only: the measured checks above stand without it */
+    } finally {
+      await tab.close().catch(() => undefined)
+    }
+  }
+}
+
 /* ── JS on: the live site's runtime, from the Q1 probe ────────────────── */
 
 let probeJs: string | null = null
@@ -257,6 +285,7 @@ export async function browseSite(browser: Browser | null, site: EvalSite, shotSt
     const stem = shotStem ? `${shotStem}-${key}` : null
     const d = await measurePage(browser, html, "desktop", stem)
     const m = await measurePage(browser, html, "mobile", stem)
+    if (stem && key === "home") await peopleShots(browser, html, stem)
     pages.push({ page: key, desktop: d.m, mobile: m.m, defects: [...measuredDefects(key, d.m), ...measuredDefects(key, m.m)] })
     shots.push({ page: key, ...(d.full ? { desktop: d.full } : {}), ...(m.full ? { mobile: m.full } : {}), ...(d.fold ? { desktopFold: d.fold } : {}), ...(m.fold ? { mobileFold: m.fold } : {}) })
   }

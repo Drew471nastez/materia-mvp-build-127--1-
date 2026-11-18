@@ -122,6 +122,8 @@ export type SlopEvaluator = (input: {
   rendered?: { page: string; html: string; css?: string }[]
   /** Home's sections in order, for the page-level rules (template skeleton). */
   sections?: { type: string }[]
+  /** Round 56: the P1 rules the starting template shipped with: reported, tagged, not counted against the budget. */
+  baseline?: string[]
 }) => Promise<ValidationIssue[]>
 
 /** A page drawn with the template engine (interpretation only) and checked. */
@@ -227,6 +229,11 @@ export interface AgentDeps {
    * novelty warning at verify. Absent or failing: no comparison (never blocks a job).
    */
   recentFingerprints?: () => Promise<SiteFingerprint[]>
+  /**
+   * Round 56: the art directions and design brain recipes the platform's most recent sites used (both engines), so
+   * the next site leans away from them. Ids only, never another creator's content. Absent: no pressure.
+   */
+  recentDesigns?: () => Promise<{ directions: string[]; recipes: string[] }>
   renderCheck?: RenderChecker
   tokensToSettings?: TokensMapper
   /**

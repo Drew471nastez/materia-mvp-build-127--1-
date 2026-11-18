@@ -74,6 +74,8 @@ export async function jobDesignBrief(input: {
   references?: { list: readonly DesignReference[]; withImages?: readonly string[] }
   direction?: { brief: CreativeBrief; choice: DirectionChoice }
   contract?: string
+  /** Round 56: recipes recent sites used, pushed down when the trade has another (designBrainFor avoidRecipes). */
+  avoidRecipes?: string[]
 }): Promise<JobDesignBrief> {
   const { job } = input
   const scoped = !!job.edit || job.redesign === "changes"
@@ -94,7 +96,8 @@ export async function jobDesignBrief(input: {
     const refs = referencesForPrompt(list, { withImages: input.references?.withImages ?? [] })
     /* The brain gets what the direction and the references leave of the brief's budget (never the references' room). */
     const room = MAX_DESIGN_BRIEF_CHARS - direction.length - (refs ? refs.length : 0) - 600
-    const designed = room >= 800 ? safeBrain(() => designBrainFor(brief, { direction: choice, maxChars: Math.min(BRAIN_BRIEF_MAX_CHARS, room) })) : null
+    /* Round 56: seeded per site, so two sites of one trade do not get the same home order (varySpine). */
+    const designed = room >= 800 ? safeBrain(() => designBrainFor(brief, { direction: choice, maxChars: Math.min(BRAIN_BRIEF_MAX_CHARS, room), seed: `${job.creatorId}:${job.installId}`, ...(input.avoidRecipes?.length ? { avoidRecipes: input.avoidRecipes } : {}) })) : null
     if (designed) {
       blocks.push(designed.block)
       brain = { version: designed.version, recipeId: designed.recipe.id, hints: designed.hints }

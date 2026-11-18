@@ -31,7 +31,7 @@ import type { BlockInstance, SectionInstance } from "@/lib/website-builder/types
 import { manifestToSchema, BINDING_CONTROL, withManifest as mergeManifest } from "../manifest"
 import { WRITABLE_PATH, type AgentToolInputs, type AgentToolOutputs, type PlacedSectionInput, type ToolSet } from "../agent-tools"
 import type { RuntimeCapabilities } from "../runtime-contract"
-import { isAiComponentType, type AgentEvent, type AgentPhase, type ComponentManifest, type DataBindingKind, type FileWriteResult, type ValidationIssue } from "../types"
+import { isAiComponentType, type AgentEvent, type AgentPhase, type ComponentManifest, type DataBindingKind, type DesignTokens, type FileWriteResult, type ValidationIssue } from "../types"
 import type { AgentDeps, AgentJobInput, StoredPage } from "./ports"
 import { describeConcept, readConcept } from "./concept"
 import { conceptClicheIssues } from "../slop"
@@ -46,6 +46,7 @@ import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./s
 import { versionOf } from "./version"
 import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
 import { protectOverrides } from "../design-contract"
+import { repairPalette } from "@/lib/storelib-ai/palette-contrast"
 import { presetParts } from "./content-check"
 import { runListTemplates } from "@/lib/storelib-ai/templates"
 import { artDirection } from "@/lib/storelib-ai/direction/directions"
@@ -633,8 +634,23 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         fontIssues.push({ severity: "error", code: "token.default_font", message: `"${String(tokens.fonts.heading).slice(0, 60)}" was not set as the heading font: it is the face every generated site uses. Pick a display face with character from the type library (search_knowledge "type library").` })
         tokens = { ...tokens, fonts: { ...tokens.fonts, heading: undefined } } as unknown as typeof tokens
       }
+      /*
+        Round 56: a palette is written only once every pair a visitor reads is readable (palette-contrast.ts): lightness
+        moves, hue kept, the brand colour kept for fills and large type. The creator's own colour edits are never moved.
+      */
+      const contrastIssues: ValidationIssue[] = []
+      const colors = tokens?.colors as DesignTokens["colors"] | undefined
+      if (colors && (["background", "surface", "text", "muted", "accent", "accentText", "border"] as const).every((k) => typeof colors[k] === "string")) {
+        const lock = guarded.kept.filter((k) => k.startsWith("colors.")).map((k) => k.slice(7))
+        const fixed = repairPalette(colors, { lock })
+        if (fixed.moves.length) {
+          tokens = { ...tokens, colors: fixed.colors } as typeof tokens
+          contrastIssues.push({ severity: "warning", code: "token.contrast", message: `Moved for readable text (hue kept): ${fixed.moves.join(" ")}` })
+        }
+        if (fixed.unresolved.length) contrastIssues.push({ severity: "warning", code: "token.contrast", message: `Still under the minimum: ${fixed.unresolved.map((p) => `${p.label} ${p.ratio}:1 (needs ${p.min})`).join("; ")}. Change the colour the creator did not set.` })
+      }
       const mapped0 = (deps.tokensToSettings ?? tokensToThemeSettings)(tokens ?? {}, current)
-      const mapped = { ...mapped0, issues: [...fontIssues, ...mapped0.issues] }
+      const mapped = { ...mapped0, issues: [...fontIssues, ...contrastIssues, ...mapped0.issues] }
       /*
         The site's own Theme settings (round N, N5, lib/ai-builder/site-settings.ts): declared groups,
         read against the tokens this call sets, so a setting bound to colors.accent reads the new accent.

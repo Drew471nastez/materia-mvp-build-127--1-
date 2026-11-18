@@ -26,6 +26,9 @@ export const CHECKS = [
   { id: "sections.relevant", label: "Relevant sections (O5 story)" },
   { id: "novelty.distinct", label: "Distinct from the other five (O3)" },
   { id: "tokens.coherent", label: "Coherent tokens" },
+  /* Round 56. */
+  { id: "palette.contrast", label: "Every pair a visitor reads is readable (9 pairs)" },
+  { id: "slop.look", label: "No AI look past the budget (the site's own files)" },
   { id: "editor.saved", label: "Edited and saved through the editor routes" },
   { id: "publish.ok", label: "Publish path unaffected" },
 ] as const

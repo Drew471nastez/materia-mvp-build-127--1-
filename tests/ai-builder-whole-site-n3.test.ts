@@ -117,9 +117,10 @@ async function main() {
     check("a whole plan is accepted", ok.ok === true, ok)
     const no = readSitePlan([{ key: "home", sections: ["a", "b"] }, { key: "about", sections: ["x"] }], CAPS)
     const missing = no.ok === false ? no.missing.join("\n") : ""
-    check("  short home refused with the number", /home: 2 sections planned; a home page has at least 10/.test(missing), missing)
+    /* Changed on purpose (r56): the home floor is 6 (was 10) and other pages 3 (was 6); see lib/ai-builder/agent/site-plan.ts. */
+    check("  short home refused with the number", /home: 2 sections planned; a home page has at least 6/.test(missing), missing)
     check("  every missing template named, product and collection required while the store sells", /product \(Product page/.test(missing) && /collection \(Collection page/.test(missing) && /search \(Search results/.test(missing) && /404/.test(missing) && /cart/.test(missing), missing)
-    check("  a page under six sections with no reason refused", /about: 1 section planned; a page has at least 6/.test(missing), missing)
+    check("  a page under three sections with no reason refused", /about: 1 section planned; a page has at least 3/.test(missing), missing)
     const withReason = sitePlan(["about"]).map((p) => (p.key === "about" ? { key: "about", sections: ["story"], reason: "A short page: the story is all it needs." } : p))
     check("  a page with fewer and a reason is accepted", readSitePlan(withReason, CAPS).ok === true)
     const productReason = sitePlan([]).map((p) => (p.key === "product" ? { key: "product", sections: [], reason: "The platform's layout will do for now." } : p))

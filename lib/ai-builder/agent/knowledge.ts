@@ -7,7 +7,7 @@ import "server-only"
  */
 import { capabilitiesFromSite, runSearchKnowledge, suggestDirections, type Direction, type KnowledgeCapability } from "@/lib/storelib-ai/library"
 import { searchReferences } from "@/lib/storelib-ai/references"
-import { slopIssues } from "../slop"
+import { evaluateSlop, slopIssues } from "../slop"
 import { themeSettingsToTokens } from "../tokens"
 import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 import type { DesignTokens } from "../types"
@@ -41,7 +41,7 @@ export function libraryKnowledge(ctx: { industry?: string; concept?: () => Visua
  * Round O: with the creator's own words (only they can ask for the editorial serif or purple look), the
  * Theme settings' tokens a visitor really sees, the pages as drawn and home's section order.
  */
-export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities, brief, settings, rendered, sections }) => {
+export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities, brief, settings, rendered, sections, baseline }) => {
   const c = capabilities
   const facts = c ? { numbers: [String(c.products.length), ...(c.reviews.count ? [String(c.reviews.count), ...(c.reviews.average !== null ? [c.reviews.average.toFixed(1)] : [])] : [])].filter((n) => n !== "0"), reviews: c.reviews.count > 0, quotes: false, logos: false } : undefined
   /*
@@ -62,7 +62,17 @@ export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities,
       ...(sections?.length ? { sections } : {}),
     },
     (concept as VisualConcept | null) ?? null,
+    baseline?.length ? { baseline } : {},
   )
+}
+
+/**
+ * Round 56: the P1 rules a starting template already trips as shipped (its own files, tokens and home order), so a
+ * site that starts from it is held to what it added. Never an error rule: P0 is never excused.
+ */
+export function templateSlopBaseline(template: { files: Record<string, string>; tokens?: Partial<DesignTokens>; pages?: { key: string; sections: { type: string }[] }[] }): string[] {
+  const report = evaluateSlop({ sources: Object.entries(template.files).map(([path, content]) => ({ path, content })), ...(template.tokens ? { tokens: template.tokens } : {}), sections: (template.pages?.find((p) => p.key === "home")?.sections ?? []).map((s) => ({ type: s.type })) })
+  return [...new Set(report.findings.filter((f) => f.severity === "warn").map((f) => f.rule))]
 }
 
 /** Starting directions for the plan phase: distinct, suited to the industry first. */

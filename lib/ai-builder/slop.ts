@@ -437,8 +437,24 @@ function glow(c: Ctx): Raw[] {
   }]
 }
 
+/**
+ * Round 56: a blur behind a surface that is 85% opaque or more (a docked bar over scrolling content) is not frosted
+ * glass: nothing shows through it. The opacity is read from the same rule's background.
+ */
+export function opaqueEnough(body: string): boolean {
+  const bg = /background(?:-color)?\s*:\s*([^;}]+)/i.exec(body)?.[1] ?? ""
+  const mix = /color-mix\([^,]+,[^,]*?\s(\d{1,3})%\s*,\s*transparent\)/i.exec(bg)
+  if (mix) return +mix[1] >= 85
+  const alpha = /(?:rgba?|hsla?)\([^)]*[,/]\s*(0?\.\d+|1(?:\.0+)?|\d{1,3}%)\s*\)/i.exec(bg)
+  if (alpha) return alpha[1].endsWith("%") ? parseFloat(alpha[1]) >= 85 : parseFloat(alpha[1]) >= 0.85
+  const hex8 = /#[0-9a-f]{6}([0-9a-f]{2})\b/i.exec(bg)
+  if (hex8) return parseInt(hex8[1], 16) / 255 >= 0.85
+  return /^\s*(?:#[0-9a-f]{3}|#[0-9a-f]{6}|var\(|rgb\([^/,)]*\)|[a-z]+\s*$)/i.test(bg) && !/transparent/i.test(bg)
+}
+
 function glass(c: Ctx): Raw[] {
-  const found = [...all(/backdrop-filter\s*:\s*blur\([^)]*\)/gi, c.css), ...all(/\bbackdrop-blur(?:-[a-z0-9]+)?\b/g, c.html)]
+  const blurred = cssRules(c.css).filter((r) => /backdrop-filter\s*:\s*blur\(/i.test(r.body))
+  const found = [...blurred.filter((r) => !opaqueEnough(r.body)).map((r) => /backdrop-filter\s*:\s*blur\([^)]*\)/i.exec(r.body)![0]), ...all(/\bbackdrop-blur(?:-[a-z0-9]+)?\b/g, c.html)]
   if (!found.length) return []
   const fallback = /@supports/.test(c.css)
   return [{
@@ -557,8 +573,18 @@ function typography(c: Ctx): Raw[] {
   )
   for (const f of [c.input.tokens?.fonts?.heading, c.input.tokens?.fonts?.body, c.input.tokens?.fonts?.accent]) if (f) families.push(f.toLowerCase())
   const fams = uniq(families)
-  const sizes = uniq(all(/font-size\s*:\s*([^;}]+)/gi, c.css).map((d) => d.replace(/font-size\s*:\s*/i, "").trim()).filter((s) => !/^(inherit|1em|100%)$/.test(s)))
-  const twSizes = uniq(all(/\btext-(?:xs|sm|base|lg|xl|[2-9]xl|\[\d+(?:\.\d+)?(?:px|rem)\])\b/g, c.html))
+  /*
+    Round 56: sizes are judged per section (per file), the way a reader meets them. Counted across a whole site, 17
+    sections of 4 sizes each read as "43 sizes" though no section had more than 15.
+  */
+  const sizesIn = (css: string, html: string) => ({
+    css: uniq(all(/font-size\s*:\s*([^;}]+)/gi, css).map((d) => d.replace(/font-size\s*:\s*/i, "").trim()).filter((s) => !/^(inherit|1em|100%)$/.test(s))),
+    tw: uniq(all(/\btext-(?:xs|sm|base|lg|xl|[2-9]xl|\[\d+(?:\.\d+)?(?:px|rem)\])\b/g, html)),
+  })
+  const perUnit = (c.units.length ? c.units : [{ css: c.css, html: c.html }]).map((u) => sizesIn(u.css, u.html))
+  const worst = perUnit.reduce((w, x) => (x.css.length + x.tw.length > w.css.length + w.tw.length ? x : w), { css: [] as string[], tw: [] as string[] })
+  const sizes = worst.css
+  const twSizes = worst.tw
   const allSizes = sizes.length + twSizes.length
   const out: Raw[] = []
   if (fams.length > 3) {
@@ -570,7 +596,7 @@ function typography(c: Ctx): Raw[] {
     out.push({
       rule: "typography",
       severity: allSizes > 14 ? "warn" : "info",
-      message: `${allSizes} different font sizes.`,
+      message: `${allSizes} different font sizes in one section.`,
       fix: "Use a type scale of 6 to 8 steps as tokens (typography-scale) and replace near duplicates with one value.",
       evidence: sample([...sizes, ...twSizes], 8),
       knowledge: "anti-slop-typography-chaos",
@@ -596,9 +622,28 @@ function radii(c: Ctx): number[] {
   return out
 }
 
+/**
+ * Round 56: a round control (an icon button as wide as it is tall, a cart count, a dot, a swatch) is round on purpose,
+ * not a pill. Rules with a full radius that are square, or name such a control, are not counted.
+ */
+const ROUND_CONTROL = /(?:icon|btn|button|toggle|close|burger|menu|cart|count|qty|dot|swatch|avatar|thumb|knob|handle|arrow|play|search|bubble)/i
+
+function roundControls(css: string): number {
+  let n = 0
+  for (const r of cssRules(css)) {
+    const full = /border-radius\s*:\s*(?:50%|9{2,}px|[1-9]\d{2,}px|100vmax|calc\(infinity)/i.test(r.body)
+    if (!full) continue
+    const w = /(?:^|;)\s*(?:min-)?width\s*:\s*([\d.]+(?:px|rem|em))/i.exec(r.body)?.[1]
+    const h = /(?:^|;)\s*(?:min-)?height\s*:\s*([\d.]+(?:px|rem|em))/i.exec(r.body)?.[1]
+    const square = (w && h && w === h) || /aspect-ratio\s*:\s*1(?:\s*\/\s*1)?\s*(?:;|$)/i.test(r.body) || /inline-size\s*:\s*([\d.]+\w+)[^}]*block-size\s*:\s*\1/i.test(r.body)
+    if (square || ROUND_CONTROL.test(r.selector)) n++
+  }
+  return n
+}
+
 function pills(c: Ctx): Raw[] {
   const r = radii(c)
-  const pill = r.filter((x) => x >= 99).length
+  const pill = r.filter((x) => x >= 99).length - roundControls(c.css)
   /* Avatars and dots are round on purpose; discount one per img inside a rounded-full. */
   const avatars = (c.html.match(/<img[^>]*rounded-full|avatar/gi) ?? []).length
   /* Round O: a wall of badge, pill and chip elements by name, whatever their radius. */
@@ -1371,7 +1416,9 @@ function rawHex(c: Ctx): Raw[] {
 function accentOveruse(c: Ctx): Raw[] {
   const worst: string[] = []
   for (const u of c.units) {
-    const n = (u.css.match(/var\(--(?:t-|theme-|s-|scheme-|color-)?(?:accent|primary|brand)\b/gi) ?? []).length + (u.html.match(/var\(--(?:t-|theme-|s-|scheme-|color-)?(?:accent|primary|brand)\b/gi) ?? []).length
+    /* Round 56: a colour on hover or focus is feedback, not a use of the accent on the page. */
+    const still = cssRules(u.css).filter((r) => !/:(?:hover|focus|focus-visible|focus-within|active)\b/i.test(r.selector)).map((r) => r.body).join("\n")
+    const n = (still.match(/var\(--(?:t-|theme-|s-|scheme-|color-)?(?:accent|primary|brand)\b/gi) ?? []).length + (u.html.match(/var\(--(?:t-|theme-|s-|scheme-|color-)?(?:accent|primary|brand)\b/gi) ?? []).length
     if (n >= 6) worst.push(`${u.path ?? "the page"}: ${n} uses`)
   }
   if (!worst.length) return []
@@ -1727,13 +1774,20 @@ export function evaluateSlop(input: SlopInput, concept?: VisualConcept | null): 
  * too, because a site with that many soft tells reads as machine-made even
  * when no single one would.
  */
-export function slopIssues(input: SlopInput, concept?: VisualConcept | null, opts: { budget?: number } = {}): ValidationIssue[] {
+export function slopIssues(input: SlopInput, concept?: VisualConcept | null, opts: { budget?: number; baseline?: Iterable<SlopRule | string> } = {}): ValidationIssue[] {
   const report = evaluateSlop(input, concept)
+  /*
+    Round 56: a P1 warning the starting template already shipped with (its rule in `baseline`) is still reported, tagged,
+    but not counted against the budget: the site is held to what it added, not to the template it was handed. P0
+    errors are never excused this way.
+  */
+  const base = new Set<string>(opts.baseline ?? [])
+  const inherited = (f: SlopFinding) => f.severity === "warn" && base.has(f.rule)
   const issues: ValidationIssue[] = report.findings
     .filter((f) => f.severity !== "info")
-    .map((f) => ({ severity: f.severity === "error" ? "error" : "warning", code: `slop.${f.rule}`, message: `[${f.tier}] ${f.message} Fix: ${f.fix}`, path: f.path }))
+    .map((f) => ({ severity: f.severity === "error" ? "error" : "warning", code: `slop.${f.rule}`, message: `[${f.tier}]${inherited(f) ? " [from the starting template]" : ""} ${f.message} Fix: ${f.fix}`, path: f.path }))
   const budget = opts.budget ?? SLOP_WARNING_BUDGET
-  const warnings = report.findings.filter((f) => f.severity === "warn")
+  const warnings = report.findings.filter((f) => f.severity === "warn" && !inherited(f))
   if (warnings.length > budget) {
     issues.push({ severity: "error", code: "slop.budget", message: `${warnings.length} anti-slop warnings (${uniq(warnings.map((f) => f.rule)).join(", ")}), more than the ${budget} a finished site may carry. Fix the warnings above until at most ${budget} remain.` })
   }
