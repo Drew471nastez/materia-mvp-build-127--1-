@@ -5,6 +5,9 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "What brings you here": "Qué te trae por aquí",
+ "Pay yearly": "Pagar al año",
+ "Pay monthly": "Pagar al mes",
  "Shopify, Gumroad or Payhip.": "Shopify, Gumroad o Payhip.",
  "Services": "Servicios",
  "Link in bio": "Enlace en la bio",

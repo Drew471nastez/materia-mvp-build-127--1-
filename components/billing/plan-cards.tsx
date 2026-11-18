@@ -220,7 +220,10 @@ function PlanCard({
   compact,
   interval,
   nameLevel = 3,
+  onFilm = false,
 }: {
+  /** On the onboarding's dark film: every card level, with a little more depth under it. */
+  onFilm?: boolean
   plan: OfferedPlan
   action: PlanCardAction
   label?: string
@@ -255,9 +258,13 @@ function PlanCard({
       data-plan-featured={featured ? "" : undefined}
       onClick={pick ? (e) => { if (!(e.target as Element).closest("[data-plan-action]")) pick() } : undefined}
       className={`flex w-full flex-col rounded-[22px] bg-white p-[5px] ring-[1.1px] ring-[#e7e7e9] ${
-        featured
-          ? "relative z-[1] shadow-[0_22px_44px_-22px_rgba(24,24,27,0.30),0_4px_12px_-6px_rgba(24,24,27,0.10)] md:-translate-y-2"
-          : "shadow-[0_1px_2px_rgba(24,24,27,0.04)]"
+        onFilm
+          ? featured
+            ? "relative z-[1] shadow-[0_32px_60px_-24px_rgba(0,0,0,0.7),0_12px_24px_-12px_rgba(0,0,0,0.45)]"
+            : "shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6),0_8px_16px_-10px_rgba(0,0,0,0.35)]"
+          : featured
+            ? "relative z-[1] shadow-[0_22px_44px_-22px_rgba(24,24,27,0.30),0_4px_12px_-6px_rgba(24,24,27,0.10)] md:-translate-y-2"
+            : "shadow-[0_1px_2px_rgba(24,24,27,0.04)]"
       } ${pick ? "cursor-pointer" : ""}`}
     >
       {/* Landing round 12, the owner: no light grey on the cards either. The top panel is white, set off from the lines by a hairline. */}
@@ -418,7 +425,7 @@ export function PlanCards({
             <div className="min-w-0">{split}</div>
             {hideInterval ? null : (
               <div data-plan-split-switch="" className="shrink-0">
-                <IntervalSwitch value={interval} onChange={pick} />
+                <IntervalToggle value={interval} onChange={pick} />
               </div>
             )}
           </div>
@@ -441,7 +448,7 @@ export function PlanCards({
         <div data-plan-cards className={`flex w-full items-stretch max-md:-mx-[var(--plan-bleed,0px)] max-md:w-auto max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:overscroll-x-contain max-md:scroll-px-[var(--plan-bleed,0px)] max-md:px-[var(--plan-bleed,0px)] max-md:-mt-2 max-md:pt-2 max-md:pb-7 max-md:-mb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3 ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"} md:pt-2`}>
           {OFFERED_PLANS.map((plan) => (
             <div key={plan.id} data-plan-slot={plan.id} className={`flex max-md:w-[82%] max-md:shrink-0 max-md:snap-start ${lead === plan.id ? "order-first md:order-none" : ""}`}>
-              <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} interval={interval} nameLevel={nameLevel} />
+              <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} interval={interval} nameLevel={nameLevel} onFilm={split != null} />
             </div>
           ))}
         </div>
@@ -489,6 +496,45 @@ const PLAN_BUTTON_CSS = `
  * exactly one column wide by construction and moving it is a shift by its
  * own width (100%): nothing to measure, nothing laid out again.
  */
+/*
+  PAY MONTHLY / PAY YEARLY ON THE FILM (the onboarding's plans). A small
+  switch and the words for what is on, not a wide two part pill: the thumb
+  slides on translate, the track turns Storelib's violet for yearly. One
+  44px press for the whole row.
+*/
+function IntervalToggle({ value, onChange }: { value: BillingInterval; onChange: (next: BillingInterval) => void }) {
+  const yearly = value === "yearly"
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={yearly}
+      aria-label={tt("Pay yearly")}
+      data-billing-interval={value}
+      data-interval-toggle=""
+      onClick={() => onChange(yearly ? "monthly" : "yearly")}
+      className="group inline-flex h-11 items-center gap-3 rounded-full pr-1 text-left outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-white/50"
+    >
+      <span
+        aria-hidden="true"
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-[3px] ring-1 transition-[background-color,box-shadow] duration-200 motion-reduce:transition-none ${
+          yearly ? "bg-[#7c3aed] ring-[#8b5cf6]/60 shadow-[0_4px_14px_-4px_rgba(124,58,237,0.7)]" : "bg-white/[0.08] ring-white/15 group-hover:bg-white/[0.12]"
+        }`}
+      >
+        <span
+          className={`block h-[22px] w-[22px] rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-[translate,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${yearly ? "translate-x-5 bg-white" : "translate-x-0 bg-white/70"}`}
+        />
+      </span>
+      <span className="text-[15px] font-medium text-white">
+        <TextSwap value={value} items={{ monthly: tt("Pay monthly"), yearly: tt("Pay yearly") }} />
+      </span>
+      <span className="rounded-full bg-[#7c3aed]/20 px-2 py-0.5 text-[12px] font-semibold text-[#c4b5fd]">
+        {tt("Save")} {YEARLY_SAVING_PERCENT}%
+      </span>
+    </button>
+  )
+}
+
 function IntervalSwitch({ value, onChange }: { value: BillingInterval; onChange: (next: BillingInterval) => void }) {
   const yearly = value === "yearly"
   return (

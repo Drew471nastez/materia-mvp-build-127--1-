@@ -414,7 +414,7 @@ function main() {
     const swap = readCode("components/ui/text-swap.tsx")
     /* Changed on purpose (pricing round 5): the price and its period swap; the description is the same either way. */
     check("every changing line on a card goes through the shared TextSwap, and plan-cards has no swap of its own",
-      /import \{ SWAP_EASE, SWAP_MS, TextSwap \} from "@\/components\/ui\/text-swap"/.test(cards) && !/function Morph\b/.test(cards) && (cards.match(/<TextSwap\b/g) ?? []).length === 3)
+      /import \{ SWAP_EASE, SWAP_MS, TextSwap \} from "@\/components\/ui\/text-swap"/.test(cards) && !/function Morph\b/.test(cards) && (cards.match(/<TextSwap\b/g) ?? []).length === 4) /* Changed on purpose (onboarding round 3): the fourth is Pay monthly / Pay yearly beside the onboarding's switch. */
     check("a line that is the same either way (Free) is drawn as plain text, with nothing to fade or move",
       /keys\.every\(\(k\) => items\[k\] === first\)\) return <>\{first\}<\/>/.test(swap))
     check("only the part that changes swaps: a shared start stays as plain text, never split inside a word",

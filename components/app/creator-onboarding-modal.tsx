@@ -219,9 +219,9 @@ const CATEGORY_ON = "bg-[#1a1a2e] text-white shadow-[0_0_0_1px_#1a1a2e,0_2px_6px
 const VIEW_TITLE = "text-[28px] font-semibold leading-[1.12] tracking-[-0.025em] text-white text-balance sm:text-[38px]"
 const VIEW_SUB = "mx-auto mt-2.5 max-w-[460px] text-[15px] leading-[22px] text-white/70 text-balance sm:text-[16px] sm:leading-6"
 const FLOAT_CARD = "rounded-[22px] bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_70px_-30px_rgba(0,0,0,0.65),0_8px_24px_-12px_rgba(0,0,0,0.35)]"
-const GOAL_PILL = "inline-flex h-12 min-w-0 items-center gap-1.5 rounded-full px-3 text-left text-[14px] font-medium min-[400px]:gap-2 min-[400px]:px-4 min-[400px]:text-[15px] transition-[background-color,color,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 sm:h-12 sm:pl-4 sm:pr-5"
-const GOAL_OFF = "bg-[#f3f4f6] text-[#1a1a2e] hover:bg-[#e9eaee]"
-const GOAL_ON = "bg-[#1a1a2e] text-white shadow-[0_2px_8px_-2px_rgba(26,26,46,0.45)]"
+const GOAL_PILL = "inline-flex h-12 flex-auto items-center justify-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium min-[400px]:gap-2 min-[400px]:px-4 min-[400px]:text-[15px] transition-[background-color,color,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 sm:h-12 sm:pl-4 sm:pr-5"
+const GOAL_OFF = "bg-[#f4f4f6] text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),inset_0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.06)] hover:bg-[#ececf0]"
+const GOAL_ON = "bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_4px_10px_-4px_rgba(26,26,46,0.5)]"
 const NAV_NEXT = "inline-flex h-12 min-w-0 flex-1 items-center justify-center rounded-full px-6 text-[15px] font-semibold transition-[background-color,box-shadow,scale] duration-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 motion-reduce:transition-none"
 const NAV_NEXT_OFF = "bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed"
 const NAV_BACK = "inline-flex h-12 shrink-0 items-center justify-center gap-1 rounded-full bg-white px-5 text-[15px] font-medium text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow] duration-200 hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2"
@@ -237,6 +237,8 @@ const SELL_GOALS = [
   { id: "link_in_bio", label: msg("Link in bio") },
 ] as const
 type SellGoal = (typeof SELL_GOALS)[number]["id"]
+/* Two to a row, a short one beside a longer one, each as wide as its words: the row is filled, nothing is cut. */
+const GOAL_ROWS: SellGoal[][] = [["courses", "digital_products"], ["sell_online", "community"], ["services", "link_in_bio"]]
 const GOALS_KEY = "storelib_goals"
 /** An X handle from what was typed, without the @ or an address round it. */
 function xHandle(soc: { twitter?: string }): string {
@@ -2445,23 +2447,28 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
         {/* Step 1: what they came to do. Pills, several at once (Shopify's setup is the reference). */}
         {step === 2 && (
-          <div data-onboarding-goals="" role="group" aria-label={tt("What you want to do")} className="grid grid-cols-2 gap-2 sm:gap-3">
-            {SELL_GOALS.map((g) => {
-              const on = goals.includes(g.id)
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  aria-pressed={on}
-                  data-onboarding-goal={g.id}
-                  onClick={() => toggleGoal(g.id)}
-                  className={cn(GOAL_PILL, on ? GOAL_ON : GOAL_OFF)}
-                >
-                  {on ? <Check className="h-3.5 w-3.5 shrink-0 min-[400px]:h-4 min-[400px]:w-4" strokeWidth={2.5} aria-hidden /> : <Plus className="h-3.5 w-3.5 shrink-0 min-[400px]:h-4 min-[400px]:w-4" strokeWidth={2.25} aria-hidden />}
-                  <span className="min-w-0 truncate">{tt(g.label)}</span>
-                </button>
-              )
-            })}
+          <div data-onboarding-goals="" role="group" aria-label={tt("What brings you here")} className="flex flex-col gap-2 sm:gap-2.5">
+            {GOAL_ROWS.map((row) => (
+              <div key={row.join()} data-onboarding-goal-row="" className="flex gap-2 sm:gap-2.5">
+                {row.map((id) => {
+                  const g = SELL_GOALS.find((x) => x.id === id)!
+                  const on = goals.includes(g.id)
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      aria-pressed={on}
+                      data-onboarding-goal={g.id}
+                      onClick={() => toggleGoal(g.id)}
+                      className={cn(GOAL_PILL, on ? GOAL_ON : GOAL_OFF)}
+                    >
+                      {on ? <Check className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden /> : <Plus className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />}
+                      <span className="whitespace-nowrap">{tt(g.label)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
           </div>
         )}
 
@@ -2852,7 +2859,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           overlayClassName={ONBOARDING_GROUND}
         >
           <OnboardingBackdrop />
-          <div data-onboarding-card="" data-native={nativeFullScreen || undefined} className="absolute inset-0 flex flex-col font-sans">
+          <div data-onboarding-card="" data-own-look="" data-native={nativeFullScreen || undefined} className="absolute inset-0 flex flex-col font-sans">
             {/*
               THE TOP ROW. Storelib at the left, the progress in the middle of
               the window whatever is beside it (1fr auto 1fr), and the way out

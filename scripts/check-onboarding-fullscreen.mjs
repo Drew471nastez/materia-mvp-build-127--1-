@@ -194,6 +194,9 @@ for (const [label, viewport] of SIZES) {
   await look("goals")
   const perRow = await page.evaluate(() => { const ys = [...document.querySelectorAll("[data-onboarding-step] [data-onboarding-goal]")].map((b) => Math.round(b.getBoundingClientRect().top)); return Math.max(...ys.map((y) => ys.filter((z) => z === y).length)) })
   if (perRow !== 2) problems.push(`${at} the goals are ${perRow} to a row, not 2`)
+  /* A short goal beside a longer one, each as wide as its words: the widths in a row differ. */
+  const mixed = await page.evaluate(() => [...document.querySelectorAll("[data-onboarding-step] [data-onboarding-goal-row]")].some((row) => { const w = [...row.children].map((b) => Math.round(b.getBoundingClientRect().width)); return w[0] !== w[1] }))
+  if (!mixed) problems.push(`${at} every goal pill is the same width`)
   const cut = await page.evaluate(() => [...document.querySelectorAll("[data-onboarding-step] [data-onboarding-goal] span")].filter((el) => el.scrollWidth > el.clientWidth + 0.5).map((el) => el.textContent))
   if (cut.length) problems.push(`${at} goal labels are cut off: ${cut.join(", ")}`)
   await page.click('[data-onboarding-step] [data-onboarding-goal="digital_products"]')
@@ -210,7 +213,7 @@ for (const [label, viewport] of SIZES) {
   await page.click("[data-onboarding-step] [data-onboarding-back]")
   await wait(450)
   const goalsKept = await page.evaluate(() => [...document.querySelectorAll('[data-onboarding-step] [data-onboarding-goal][aria-pressed="true"]')].map((b) => b.getAttribute("data-onboarding-goal")))
-  if (goalsKept.join() !== "digital_products,courses") problems.push(`${at} Back lost the goals (${goalsKept.join()})`)
+  if (goalsKept.slice().sort().join() !== "courses,digital_products") problems.push(`${at} Back lost the goals (${goalsKept.join()})`)
   await page.click("[data-onboarding-step] [data-onboarding-back]")
   await wait(450)
   const kept = await page.evaluate(() => document.querySelector("[data-onboarding-step] [data-onboarding-name] input")?.value)
@@ -254,7 +257,7 @@ for (const [label, viewport] of SIZES) {
     if (Math.abs(plans.heading.x - plans.ground.x) > 1) problems.push(`${at} the plans' heading does not start at the left of the row (${plans.heading.x} vs ${plans.ground.x})`)
     if (Math.abs(plans.sw.right - plans.ground.right) > 1) problems.push(`${at} Monthly / Yearly does not end at the right of the row (${plans.sw.right} vs ${plans.ground.right})`)
   }
-  if (viewport.width >= 768 && plans.cards.length === 3 && new Set(plans.cards.map((c) => c.y)).size > 2) problems.push(`${at} the three plans are not one row`)
+  if (viewport.width >= 768 && plans.cards.length === 3 && new Set(plans.cards.map((c) => c.y)).size !== 1) problems.push(`${at} the three plans do not start on one line (${plans.cards.map((c) => c.y).join(", ")})`)
   /* The page at the foot of the plans, so the shot shows the cards' feet. */
   await page.evaluate(() => { const s = document.querySelector("[data-onboarding-scroller]"); s.scrollTo({ top: s.scrollHeight, behavior: "instant" }) })
   await wait(150)

@@ -164,7 +164,7 @@ function main() {
   check("the steps sit from the top and the leaving one takes no room, so nothing jumps when the next is taller or shorter",
     /data-onboarding-steps="" className="relative w-full min-w-0"/.test(creator) && /className="pointer-events-none absolute inset-x-0 top-0"/.test(creator) && !/my-auto grid/.test(creator))
   check("the page comes first and starts the setup: Let's get started", creator.indexOf("data-onboarding-identity") > -1 && /\{step === 1 && \(\s*<div data-onboarding-identity/.test(creator) && /Let's get started/.test(creator))
-  check("what brings them here is two pills to a row", /className="grid grid-cols-2 gap-2 sm:gap-3">/.test(creator) && /What brings you here\?/.test(creator))
+  check("what brings them here is two pills to a row, a short one beside a longer one, each as wide as its words", /const GOAL_ROWS: SellGoal\[\]\[\] = \[/.test(creator) && /data-onboarding-goal-row="" className="flex gap-2 sm:gap-2\.5"/.test(creator) && /inline-flex h-12 flex-auto/.test(creator) && /What brings you here\?/.test(creator))
   const cards = read("components/billing/plan-cards.tsx")
   /* Changed on purpose (wave 13): three plans now (Scale re-opened), so the onboarding row is 920px for the three, still with 6px more air on a phone. */
   /* Changed on purpose (pricing round 5): the compact cards sit on their grey ground, a 980px row with 8px of ground round them on a phone. */
