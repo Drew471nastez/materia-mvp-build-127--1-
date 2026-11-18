@@ -25,7 +25,7 @@ import type { AgentJobInput, ProjectStore } from "./ports"
 import type { LoopCheckpoint } from "./state"
 import type { VisualConcept } from "./concept"
 import { briefFrom, refineBrief, type CreativeBrief } from "@/lib/storelib-ai/direction/brief"
-import { checkConceptAgainstDirection, chooseDirection, directionForPrompt, directionSeeds, type DirectionChoice, type ReferenceHint } from "@/lib/storelib-ai/direction/choose"
+import { checkConceptAgainstDirection, chooseDirection, chooseFreshDirection, directionForPrompt, directionSeeds, type DirectionChoice, type ReferenceHint } from "@/lib/storelib-ai/direction/choose"
 import { DESIGN_CONTRACT_SETTING, DESIGN_MD_PATH, contractForPrompt, contractFromPlan, designMdFromSettings, readContractMeta, recordAiTokens, renderContract } from "../design-contract"
 import { versionOf } from "./version"
 import { designBrainFor } from "@/lib/storelib-ai/library/brain"
@@ -43,8 +43,9 @@ export function planDirection(job: AgentJobInput, caps: RuntimeCapabilities | nu
   const { prefer, preferType } = brainPreference(brief, recent.recipes ?? [])
   /* Round 56: the directions recent sites on the platform used are pushed down, so two businesses in a row do not share a palette direction. */
   const avoid = [...new Set((recent.directions ?? []).filter((d) => typeof d === "string" && d))].slice(0, 6)
-  const choice = chooseDirection(brief, references, { seed: directionSeed(job), prefer, ...(preferType ? { preferType } : {}), ...(avoid.length ? { avoid } : {}) })
-  return { brief, choice, seeds: directionSeeds(choice, brief), block: directionForPrompt(brief, choice), prefer, ...(preferType ? { preferType } : {}), avoid }
+  const fresh = chooseFreshDirection(brief, references, { seed: directionSeed(job), prefer, ...(preferType ? { preferType } : {}), ...(avoid.length ? { avoid } : {}) })
+  const choice = fresh.choice
+  return { brief, choice, seeds: directionSeeds(choice, brief), block: directionForPrompt(brief, choice), prefer: fresh.prefer, ...(preferType ? { preferType } : {}), avoid }
 }
 
 /** The directions and the type system the design brain's recipe realises for a brief (empty when the brain is unavailable). */

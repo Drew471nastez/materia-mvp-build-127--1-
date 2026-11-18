@@ -289,6 +289,27 @@ export function chooseDirection(brief: CreativeBrief, references: ReferenceHint[
   return { primary, secondary, alternates, typeSystem, fonts, palette, matrix: primary.matrix, radius: primary.radius, reasons, requested, seed }
 }
 
+/**
+ * Round 56: a direction no recent site used, when one fits. chooseDirection marks a recent direction down, but the
+ * design brain's lift for its recipe's direction can still outweigh that, and two businesses in a row (a fitness coach
+ * and a consultancy) came out the same Swiss red. When the choice is one of `avoid`, the secondary or first alternate
+ * that fits or suits this business and is not recent is chosen instead, preferred the same way. A direction the
+ * creator asked for by name is never moved. Returns the choice and the `prefer` list that reproduces it (store it,
+ * so chooseDirection gives the same answer again). Deterministic.
+ */
+export function chooseFreshDirection(brief: CreativeBrief, references: ReferenceHint[] = [], opts: { seed?: string; avoid?: string[]; prefer?: string[]; preferType?: string } = {}): { choice: DirectionChoice; prefer: string[] } {
+  const prefer = opts.prefer ?? []
+  const choice = chooseDirection(brief, references, opts)
+  const avoid = opts.avoid ?? []
+  if (choice.requested || !avoid.includes(choice.primary.id)) return { choice, prefer }
+  const kind = brief.business.kind
+  const alt = [choice.secondary, ...choice.alternates].find((d) => !!d && !avoid.includes(d.id) && [...d.fits, ...d.suits].includes(kind))
+  if (!alt) return { choice, prefer }
+  const nextPrefer = [alt.id, ...prefer.filter((id) => id !== alt.id && id !== choice.primary.id)]
+  const next = chooseDirection(brief, references, { ...opts, prefer: nextPrefer })
+  return next.primary.id === choice.primary.id ? { choice, prefer } : { choice: next, prefer: nextPrefer }
+}
+
 /* ── the direction as starting seeds for the existing prompt block ─────── */
 
 /** The choice as concept.ts `Direction` seeds (primary, secondary, alternates), for briefMessage's STARTING DIRECTIONS. */

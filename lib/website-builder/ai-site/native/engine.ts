@@ -27,7 +27,7 @@ import { toSitePlan, type NativeSitePlan } from "./plan"
 import type { NativeForm, NativeImage, NativeMapping } from "./types"
 import { NO_RECENT, type RecentDesigns } from "@/lib/ai-builder/recent-designs"
 import { fingerprintSimilarity, noveltyIssues, siteFingerprint, NOVELTY_THRESHOLD, type SiteFingerprint } from "@/lib/ai-builder/novelty"
-import type { DirectionChoice } from "@/lib/storelib-ai/direction/choose"
+import { chooseFreshDirection, type DirectionChoice } from "@/lib/storelib-ai/direction/choose"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 
 /**
@@ -53,7 +53,7 @@ export function nativeDesign(
       return { choice, brain: null, nearest: null }
     }
   }
-  const first = pick(chooseDirection(brief, [], { seed: o.siteSeed, ...o.prefer, ...(o.avoidDirections.length ? { avoid: o.avoidDirections } : {}) }))
+  const first = pick(chooseFreshDirection(brief, [], { seed: o.siteSeed, ...o.prefer, ...(o.avoidDirections.length ? { avoid: o.avoidDirections } : {}) }).choice)
   if (first.nearest === null || first.nearest < NOVELTY_THRESHOLD) return first
   /* The next fitting direction (O2's secondary or first alternate that fits or suits this business), chosen the same way with it preferred. */
   const kind = brief.business.kind
