@@ -729,12 +729,12 @@ export function useStorefrontHooks({
     if (!scriptRoot) return
     const doc = scriptRoot.ownerDocument
     let armed = false
-    const onDown = (e: PointerEvent) => {
+    const onDown = (e: Event) => {
       const d = popDrawerRef.current
       /* Only a press on the website itself: in the editor, the panels around the canvas keep every click. */
       armed = !!d && d.matches(":popover-open") && e.target instanceof Element && !d.contains(e.target) && !!e.target.closest("[data-storelib-theme]")
     }
-    const onClick = (e: MouseEvent) => {
+    const onClick = (e: Event) => {
       if (!armed) return
       armed = false
       e.preventDefault()
@@ -783,7 +783,7 @@ export function useStorefrontHooks({
   useEffect(() => {
     if (!scriptRoot || !(flags.locale || flags.currency)) return
     const open = () => Array.from(scriptRoot.querySelectorAll<HTMLElement>(`[${H.dropdown}][data-open="true"]`))
-    const onDown = (e: PointerEvent) => {
+    const onDown = (e: Event) => {
       for (const list of open()) if (!list.contains(e.target as Node)) setDropdown(list, false)
     }
     const onKey = (e: KeyboardEvent) => {
