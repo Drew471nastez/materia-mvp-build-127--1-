@@ -265,9 +265,12 @@ async function main() {
     const sys = AGENT_SYSTEM
     check("a senior designer-developer free of any theme", /senior designer-developer/.test(sys) && /free of any theme/.test(sys))
     check("its own header, footer, cart drawer, search and switches with the shared hooks", ["data-storelib-cart-panel", "data-storelib-search-panel", "data-storelib-search-result", "data-storelib-locale-list", "data-storelib-currency-list", "data-storelib-locale-current"].every((h) => sys.includes(h)) && sys.includes(HEADLESS_HOOK_GUIDE) && /NO built-in header, footer/.test(sys))
-    check("10 or more sections on home, every page complete", /10 or more sections/.test(sys) && /No page is a single heading/.test(sys))
-    check("no default display face, a clamp scale and tracking", /never the display face unless the creator named one/.test(sys) && /clamp\(\) on every heading/.test(sys) && /tracking/.test(sys))
-    check("no template layouts and restrained interactions, CSS first, sandbox limits", /centred hero over a row of three cards/.test(sys) && /two or three kinds per site/.test(sys) && /animation-timeline: view\(\)/.test(sys) && /cannot measure the page/.test(sys))
+    /* Changed on purpose (r56): as many sections as the story needs (usually 6 to 12), not "10 or more", which contradicted "cut a section before adding one". */
+    check("home sized by the story, every page complete", /usually 6 to 12/.test(sys) && /No page is a single heading/.test(sys))
+    /* Changed on purpose (r56): the type rules are one CRAFT block of principles; the default faces are body faces "not display, unless the creator named one". */
+    check("no default display face, a clamp scale and tracking", /are body faces here, not display, unless the creator named one/.test(sys) && /clamp\(\) on every heading/.test(sys) && /tracking/.test(sys))
+    /* Changed on purpose (r56): the template layouts are named once, in the machine look (design-rules.ts MACHINE_LOOK: "a centred \"Transform your X\" hero ... three icon cards"). */
+    check("no template layouts and restrained interactions, CSS first, sandbox limits", /centred "Transform your X" hero/.test(sys) && /two or three kinds per site/.test(sys) && /animation-timeline: view\(\)/.test(sys) && /cannot measure the page/.test(sys))
     const ids = [...sys.matchAll(/\bai_[a-z_]+\b/g)].map((m) => m[0]).filter((id) => !/^ai_(?:slug)$/.test(id))
     check("every example the prompt names exists", ids.length >= 14 && ids.every((id) => !!exampleById(id)), ids.filter((id) => !exampleById(id)))
     check("rounds L and M rules kept: concept refusal, real data, links, mobile first, no em dash", /refused concept comes back ok: false/.test(sys) && /ONLY ids from list_capabilities/.test(sys) && /Never href="#"/.test(sys) && /design at 375px wide/.test(sys) && /No em dashes/.test(sys) && !/—/.test(sys))

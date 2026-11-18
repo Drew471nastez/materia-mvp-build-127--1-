@@ -148,7 +148,8 @@ async function main() {
       check(`${s}: no em dash`, !/—/.test(t))
       check(`${s}: names the indigo accent, emoji icons and instructions to the creator`, (s === "classic_fill" || /indigo/i.test(t)) && /emoji/i.test(t) && /(?:Add your|instructions? to the creator)/i.test(t), t.slice(0, 300))
     }
-    check("the website agent gets the whole set: seven sins, soft tells, combinations, 80/20", DESIGN_RULES === designRulesFor("site_agent") && /SEVEN CARDINAL SINS/.test(DESIGN_RULES) && /SOFT TELLS/.test(DESIGN_RULES) && /Editorial serif slop/.test(DESIGN_RULES) && /No instruction to the creator in the visible copy/.test(DESIGN_RULES) && /80% PROVEN/.test(DESIGN_RULES))
+    /* Changed on purpose (r56): the agent gets the standard, the machine look said once (soft tells and cliché combinations folded in), the seven sins the code refuses, honesty and copy. */
+    check("the website agent gets the whole set: the standard, the machine look, seven sins, honesty", DESIGN_RULES === designRulesFor("site_agent") && /THE STANDARD/.test(DESIGN_RULES) && /SEVEN CARDINAL SINS/.test(DESIGN_RULES) && /THE MACHINE LOOK/.test(DESIGN_RULES) && /Editorial serif slop/.test(DESIGN_RULES) && /No instruction to the creator in the visible copy/.test(DESIGN_RULES) && /REAL DATA ONLY/.test(DESIGN_RULES))
     check("every Tailwind default indigo hex is in the rules", AI_DEFAULT_INDIGO.every((h) => DESIGN_RULES.includes(h)))
     check("the cliché combination names Andrew's look (italic serif, cream, mono caps, terracotta)", /italic display serif/i.test(DESIGN_RULES) && /cream/i.test(DESIGN_RULES) && /mono all-caps/i.test(DESIGN_RULES) && /terracotta/i.test(DESIGN_RULES))
     check("the Sites agent's rules speak of its own font variable, not Storelib's theme", /var\(--font-display\)/.test(designRulesFor("sites_agent")) && !/--theme-font-heading/.test(designRulesFor("sites_agent")))

@@ -149,7 +149,8 @@ section("2. The website agent: one cached prefix, a brief per job")
   const sb = b.seen[0]?.system ?? ""
   check("the system prefix is byte identical across the two jobs", sa === sb && sa === AGENT_SYSTEM && sa.length > 10_000)
   check("and the tools are the same list", JSON.stringify(a.seen[0]?.tools) === JSON.stringify(b.seen[0]?.tools))
-  check("the prefix holds the design rules and the studio's craft", sa.includes(designRulesFor("site_agent")) && sa.includes(STUDIO_CRAFT))
+  /* Changed on purpose (r56): the design rules hold the standard and the machine look once; STUDIO_CRAFT is no longer repeated in the agent's prefix. */
+  check("the prefix holds the design rules, once", sa.includes(designRulesFor("site_agent")) && !sa.includes(STUDIO_CRAFT) && sa.split(designRulesFor("site_agent")).length === 2)
   const ba = firstText(a.seen[0])
   const bb = firstText(b.seen[0])
   check("while the first turns (the briefs) differ", ba !== bb && /personal training/.test(ba) && /sample packs/.test(bb))

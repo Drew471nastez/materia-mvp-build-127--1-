@@ -125,7 +125,8 @@ section("One gate for both engines")
 
 section("The agent is told what the classic job is told")
 {
-  check("STUDIO_CRAFT is in the agent's system prompt, whole", AGENT_SYSTEM.includes(STUDIO_CRAFT))
+  /* Changed on purpose (r56): the agent's prompt says the standard and the machine look once (design-rules.ts); STUDIO_CRAFT repeated the same list a fourth time. The classic coder still carries it. */
+  check("STUDIO_CRAFT's list is not repeated in the agent's system prompt; its review rule is", !AGENT_SYSTEM.includes(STUDIO_CRAFT) && /Review your own work before finish/.test(AGENT_SYSTEM))
   check("it writes its own header and footer in place of the theme's", /write its header and footer as your own components/.test(AGENT_SYSTEM) &&/in place of any theme header or footer/.test(AGENT_SYSTEM))
   check("it is told a section with no settings is refused", /refuses a section with no settings/.test(AGENT_SYSTEM))
   check("it is no longer told to leave a slot for the creator", !/\("Your class times go here"\), never invented facts/.test(AGENT_SYSTEM) && /Never a slot/.test(AGENT_SYSTEM))
