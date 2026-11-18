@@ -169,19 +169,27 @@ export function localeChip(p: string, id: string, opts: { up?: boolean } = {}): 
 
 /** The chip's look: quiet text with a hairline on hover, a small two column panel. */
 export function localeChipCss(p: string): string {
-  const has = `:has([data-storelib-locale-list]:not([hidden]) [data-storelib-locale-option]:not([hidden]), [data-storelib-currency-list]:not([hidden]) [data-storelib-currency-option]:not([hidden]))`
+  /*
+    Shown once the host has written two or more choices into a list. The host
+    copies the hidden pattern option and takes the hook off the copies
+    (site-chrome-hooks fillOptions marks them data-storelib-option-item), so
+    asking for a visible [data-storelib-locale-option] never matched and the
+    chip was hidden on every site, two languages and three currencies or not
+    (measured in round 56). A visible option under either name counts.
+  */
+  const opt = (hook: string) => `:is([data-storelib-option-item], [${hook}]):not([hidden])`
+  const has = `:has([data-storelib-locale-list]:not([hidden]) ${opt("data-storelib-locale-option")}, [data-storelib-currency-list]:not([hidden]) ${opt("data-storelib-currency-option")})`
   return `
 .${p}-loc { position: relative; display: inline-flex; }
 .${p}-loc:not(${has}) { display: none; }
-.${p}-loc__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
-.${p}-loc__chip:hover, .${p}-loc__chip:focus-visible, .${p}-loc:has(:popover-open) .${p}-loc__chip { border-color: color-mix(in srgb, currentColor 28%, transparent); }
+.${p}-loc__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: none; color: inherit; font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
+.${p}-loc__chip:hover, .${p}-loc__chip:focus-visible, .${p}-loc:has(:popover-open) .${p}-loc__chip { border-bottom-color: currentColor; }
 .${p}-loc__now:empty { display: none; }
 .${p}-loc__now:empty + .${p}-loc__sep, .${p}-loc__sep:has(+ .${p}-loc__now:empty) { display: none; }
-.${p}-loc__sep { opacity: 0.45; }
 .${p}-loc__caret svg { transition: transform 200ms ease; }
 .${p}-loc:has(:popover-open) .${p}-loc__caret svg { transform: rotate(180deg); }
 .${p}-loc__globe, .${p}-loc__caret, .${p}-loc__tick { display: inline-flex; }
-.${p}-loc__panel { position: fixed; inset: auto; margin: 0; padding: 14px; width: min(340px, calc(100vw - 24px)); border: 1px solid var(--s-border); border-radius: 14px; background: var(--s-bg); color: var(--s-text); box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.35); }
+.${p}-loc__panel { position: fixed; inset: auto; margin: 0; padding: 14px; width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; border: 1px solid var(--s-border); border-radius: var(--theme-card-radius, 8px); background: var(--s-bg); color: var(--s-text); box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.35); }
 .${p}-loc__panel:popover-open { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 4px 14px; }
 @supports (position-area: bottom) {
   .${p}-loc__panel { position-area: bottom span-left; margin-top: 6px; }
@@ -191,10 +199,10 @@ export function localeChipCss(p: string): string {
 .${p}-loc__col { display: grid; align-content: start; gap: 2px; }
 .${p}-loc__col[hidden] { display: none; }
 .${p}-loc__h { margin: 0 0 4px; padding: 0 10px; font-size: 0.8125rem; opacity: 0.6; }
-.${p}-loc__opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-align: left; cursor: pointer; }
+.${p}-loc__opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 0 10px; border: 0; border-radius: var(--theme-input-radius, 4px); background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-align: left; cursor: pointer; }
 .${p}-loc__opt:hover, .${p}-loc__opt:focus-visible { background: color-mix(in srgb, currentColor 8%, transparent); }
 .${p}-loc__opt[hidden] { display: none; }
-.${p}-loc__tick { visibility: hidden; color: var(--s-accent); }
+.${p}-loc__tick { visibility: hidden; color: currentColor; }
 .${p}-loc__opt[aria-current="true"] { font-weight: 600; }
 .${p}-loc__opt[aria-current="true"] .${p}-loc__tick { visibility: visible; }
 @media (prefers-reduced-motion: no-preference) {
@@ -209,11 +217,11 @@ export function localeChipCss(p: string): string {
 /** Round icon buttons with a press, and a count badge on the bag. */
 export function iconButtonCss(p: string): string {
   return `
-.${p}-ib { position: relative; display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; text-decoration: none; cursor: pointer; transition: background-color 160ms ease, transform 160ms ease; }
+.${p}-ib { position: relative; display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--theme-input-radius, 4px); background: none; color: inherit; font: inherit; text-decoration: none; cursor: pointer; transition: background-color 160ms ease, transform 160ms ease; }
 .${p}-ib > [data-storelib-icon] { display: inline-flex; }
 .${p}-ib:hover { background: color-mix(in srgb, currentColor 9%, transparent); }
 .${p}-ib:active { transform: scale(0.92); }
-.${p}-badge { position: absolute; top: 4px; right: 1px; display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; box-shadow: 0 0 0 2px var(--s-bg); border-radius: 999px; background: var(--s-btn, var(--s-accent)); color: var(--s-btn-text, var(--s-bg)); font-size: 0.6875rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; pointer-events: none; }
+.${p}-badge { position: absolute; top: 4px; right: 1px; display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; box-shadow: 0 0 0 2px var(--s-bg); border-radius: 3px; background: var(--s-btn, var(--s-accent)); color: var(--s-btn-text, var(--s-bg)); font-size: 0.75rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; pointer-events: none; }
 .${p}-badge:empty, .${p}-badge[data-count="0"] { display: none; }
 @media (prefers-reduced-motion: no-preference) { .${p}-badge:not(:empty) { animation: ib-pop 320ms cubic-bezier(0.3, 1.6, 0.5, 1); } }
 @keyframes ib-pop { from { transform: scale(0.4); } }
@@ -298,11 +306,11 @@ export function footerBitsCss(p: string): string {
 .${p}-pay { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; opacity: 0.8; }
 .${p}-pay__mark { display: inline-flex; }
 .${p}-social { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.${p}-social a { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 999px; color: inherit; transition: background-color 180ms ease, color 180ms ease, transform 180ms ease; }
+.${p}-social a { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--theme-input-radius, 4px); color: inherit; transition: background-color 180ms ease, color 180ms ease, transform 180ms ease; }
 .${p}-social a > [data-storelib-icon] { display: inline-flex; }
 .${p}-social a:hover { background: var(--s-text); color: var(--s-bg); transform: translateY(-2px); }
 .${p}-top { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 4px; color: inherit; text-decoration: none; }
-.${p}-top > [data-storelib-icon] { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 999px; transition: transform 220ms ease; }
+.${p}-top > [data-storelib-icon] { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: var(--theme-input-radius, 4px); transition: transform 220ms ease; }
 .${p}-top:hover > [data-storelib-icon] { transform: translateY(-3px); }
 .${p}-run { overflow: hidden; container-type: inline-size; }
 .${p}-run__track { display: flex; width: max-content; }

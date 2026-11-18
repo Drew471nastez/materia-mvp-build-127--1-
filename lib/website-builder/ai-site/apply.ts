@@ -200,6 +200,39 @@ export function buildSite(input: {
   return { ops, site, placed, notes }
 }
 
+/** Pages a visitor books, enquires or gets in touch through, best first. */
+const ACTION_PAGES: [RegExp, (title: string) => string][] = [
+  [/\b(book|booking|appointment|reserve|schedule)/i, (t) => t],
+  [/\b(enquir|inquir|quote|brief|consult)/i, (t) => t],
+  [/\b(contact|get in touch|hire|work with)/i, () => "Get in touch"],
+]
+
+/** A main action that is buying something. */
+const BUYING = /\b(shop|buy|order|purchase|browse|store|cart)\b/i
+
+/** Words that fit the header's button whole (it cuts at 160px, about twenty characters). */
+const BUTTON_WORDS = 20
+
+/**
+ * The header button's words and page (round 56). The plan's main action decides: a site whose main action is
+ * buying and that has published products gets it (or Shop now) to /products; a site whose main action is
+ * booking, commissioning or enquiring gets it to the page a visitor does that on, even when the store also has
+ * products (a photographer with a few prints, a consultant with a guide); a site with neither gets no button.
+ * Pure.
+ */
+export function headerAction(plan: SitePlan, site: SiteState, shop: boolean): { label: string; url: string } | null {
+  const conversion = (plan.conversion ?? "").replace(/\s+/g, " ").trim()
+  const buying = !conversion || BUYING.test(conversion)
+  const fits = conversion.length > 0 && conversion.length <= BUTTON_WORDS
+  if (shop && buying) return { label: fits ? conversion : "Shop now", url: "/products" }
+  const pages = plan.pages.filter((p) => p.key !== "home" && site.pages[p.key])
+  for (const [re, label] of ACTION_PAGES) {
+    const page = pages.find((p) => re.test(`${p.key} ${p.title}`))
+    if (page) return { label: fits && !buying ? conversion : label(page.title).slice(0, BUTTON_WORDS), url: pagePath(page.key) }
+  }
+  return null
+}
+
 /** The header's own links and the footer's column for this site's pages (and its Photo credits page, once it has one). Pure. */
 export function chromeOps(site: SiteState, plan: SitePlan, schemas: SchemaMap | undefined, opts: { shop: boolean; credits: boolean }): ThemeOp[] {
   const home = site.pages.home ?? []
@@ -214,6 +247,24 @@ export function chromeOps(site: SiteState, plan: SitePlan, schemas: SchemaMap | 
     /* Its own links, not the store's Main menu: the menu is shared by every website of the store. */
     if (ids.has("menu")) set.menu = ""
     if (ids.has("logo_text") && plan.brand.name) set.logo_text = plan.brand.name
+    /*
+      THE HEADER'S BUTTON IS THE SITE'S MAIN ACTION, IN THE SITE'S COLOURS
+      (round 56). The starting website's header carried "Shop now" to
+      /products painted in its preset's own indigo, so every native site drew
+      an indigo Shop now whatever it was and whatever its palette. Its colour
+      fields are cleared so the button takes the header's scheme (the site's
+      accent and button label, contrast checked where it is drawn), and the
+      words are what the site does: Shop now where it sells, its booking or
+      contact page where it does not, and no button where it has neither.
+    */
+    if (!opts.credits) {
+      const action = headerAction(plan, site, opts.shop)
+      if (ids.has("show_cta_button")) set.show_cta_button = !!action
+      if (action && ids.has("cta_text")) set.cta_text = action.label
+      if (action && ids.has("cta_url")) set.cta_url = action.url
+      if (ids.has("cta_color")) set.cta_color = ""
+      if (ids.has("cta_text_color")) set.cta_text_color = ""
+    }
     if (Object.keys(set).length) ops.push({ kind: "update_section", id: header.id, settings: set })
     if (!opts.credits) {
       for (const b of header.blocks ?? []) if (b.type === "nav_link") ops.push({ kind: "remove_block", sectionId: header.id, blockId: b.id })

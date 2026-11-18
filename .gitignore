@@ -117,3 +117,6 @@ tsconfig.*.generated.json
 # Local single-test bundles (esbuild output), never committed
 .tmp-test/
 .*-shots/
+
+# scripts/check-ai-site-chrome-r56.mjs: the last run, read by tests/ai-site-chrome-r56.test.ts on this machine
+/.ai-site-chrome-r56-last.json

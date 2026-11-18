@@ -172,7 +172,8 @@ function FooterPolicies({
         <a
           key={link.id}
           href={link.url}
-          className="underline-offset-2 hover:underline"
+          /* At least 44px each way: a finger, not a pointer (round 56). */
+          className="inline-flex min-h-11 min-w-11 items-center underline-offset-2 hover:underline"
           style={{ color: linkColor }}
           data-footer-policy
         >
@@ -387,13 +388,14 @@ export function FooterSection({
               {column.heading}
             </div>
           )}
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          <ul className="m-0 flex list-none flex-col p-0">
             {column.links.map((link) => (
               <li key={link.id} className="min-w-0">
                 <a
                   /* A menu link set to open in a new tab: the mark off its address, target="_blank" on (lib/website-builder/new-tab.ts). */
                   {...newTabLink(link.url)}
-                  className="break-words text-[14px] leading-5 transition-opacity hover:opacity-70"
+                  /* A 44px row each and no gap between them: the list keeps its rhythm and every link takes a finger (round 56). */
+                  className="inline-flex min-h-11 min-w-11 items-center break-words text-[14px] leading-5 transition-opacity hover:opacity-70"
                   style={{ color: linkColor }}
                 >
                   {link.label}
@@ -478,12 +480,12 @@ export function FooterSection({
         )}
 
         {loose.length > 0 && (
-          <div className={cn("mt-8 flex flex-wrap items-center gap-x-5 gap-y-2", centered && "justify-center")}>
+          <div className={cn("mt-8 flex flex-wrap items-center gap-x-5", centered && "justify-center")}>
             {loose.map((link) => (
               <a
                 key={link.id}
                 {...newTabLink(link.url)}
-                className="text-[14px] transition-opacity hover:opacity-70"
+                className="inline-flex min-h-11 min-w-11 items-center text-[14px] transition-opacity hover:opacity-70"
                 style={{ color: linkColor }}
               >
                 {link.label}
@@ -506,9 +508,9 @@ export function FooterSection({
           data-footer-bottom
           style={{ borderColor: divider, color: textColor }}
         >
-          <div className={cn("flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1", centered && "justify-center")}>
+          <div className={cn("flex min-w-0 flex-wrap items-center gap-x-5", centered && "justify-center")}>
             <span>{str(s.copyright, `© ${year} ${brand}`)}</span>
-            <nav aria-label="Policies" className={cn("flex flex-wrap items-baseline gap-x-4 gap-y-1", centered && "justify-center")}>
+            <nav aria-label="Policies" className={cn("flex flex-wrap items-center gap-x-4", centered && "justify-center")}>
               {showPolicies && (
                 <FooterPolicies
                   alreadyLinked={linkedUrls}
@@ -520,7 +522,7 @@ export function FooterSection({
               <button
                 type="button"
                 onClick={() => openCookiePreferences()}
-                className="cursor-pointer border-0 bg-transparent p-0 text-left underline-offset-2 hover:underline"
+                className="inline-flex min-h-11 cursor-pointer items-center border-0 bg-transparent p-0 text-left underline-offset-2 hover:underline"
                 style={{ color: textColor }}
                 data-cookie-preferences
               >

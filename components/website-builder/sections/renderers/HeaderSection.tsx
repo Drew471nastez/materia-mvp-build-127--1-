@@ -33,6 +33,7 @@ import { CartLineProperties } from "@/components/website-builder/cart-line-prope
 import { cartPathFor, drawerCheckout, drawerCheckoutHref } from "@/lib/website-builder/cart-checkout"
 import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
+import { legibleLabel } from "@/lib/website-builder/button-legible"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { useSiteWishlist } from "../../site-wishlist"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
@@ -594,7 +595,7 @@ function HeaderSearchPanel({
             <button
               type="submit"
               aria-label="Search"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-full transition-colors theme-tint-hover"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center rounded-full transition-colors theme-tint-hover"
               style={{ color: scheme.heading }}
             >
               <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -604,7 +605,7 @@ function HeaderSearchPanel({
             type="button"
             onClick={onClose}
             aria-label="Close search"
-            className="h-9 w-9 shrink-0 self-center flex items-center justify-center rounded-full transition-colors theme-tint-hover"
+            className="h-11 w-11 shrink-0 self-center flex items-center justify-center rounded-full transition-colors theme-tint-hover"
             style={{ color: scheme.heading }}
           >
             <X className="h-5 w-5" strokeWidth={1.8} />
@@ -709,7 +710,7 @@ function CartButton() {
       type="button"
       onClick={() => setOpen(true)}
       aria-label={ready && count > 0 ? `Cart, ${count} item${count === 1 ? "" : "s"}` : "Cart"}
-      className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+      className="relative h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
     >
       <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.8} />
       {ready && count > 0 && (
@@ -896,7 +897,7 @@ function CartDrawerInner({
             onClick={onClose}
             aria-label="Close cart"
             data-drawer-focus=""
-            className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
+            className="theme-tint-hover h-11 w-11 flex items-center justify-center rounded-full transition-colors"
           >
             <X className="h-5 w-5" strokeWidth={2} />
           </button>
@@ -1335,7 +1336,7 @@ function MobileDrawerInner({
               onClick={onClose}
               aria-label="Close menu"
               data-drawer-focus=""
-              className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
+              className="theme-tint-hover h-11 w-11 flex items-center justify-center rounded-full transition-colors"
             >
               <X className="h-5 w-5" strokeWidth={2} />
             </button>
@@ -1509,7 +1510,7 @@ function MobileDrawerInner({
                 href={WISHLIST_PATH}
                 aria-label={wishlistLabel}
                 onClick={handleLinkClick(WISHLIST_PATH)}
-                className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors -ml-2"
+                className="relative h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors -ml-2"
                 style={{ color: scheme.nav_link }}
               >
                 <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} />
@@ -1522,7 +1523,7 @@ function MobileDrawerInner({
                 href={WISHLIST_PATH}
                 aria-label={wishlistLabel}
                 onClick={handleLinkClick(WISHLIST_PATH)}
-                className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors -mr-2"
+                className="relative h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors -mr-2"
                 style={{ color: scheme.nav_link }}
               >
                 <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} />
@@ -1621,6 +1622,28 @@ function MobileDrawerInner({
 // icons — no trigger row, no expanding panel, no state.
 
 
+/** The default preset's primary, which the starting website wrote into the header's button colour. */
+const STARTER_INDIGO = "#6366f1"
+
+/**
+ * The header button's label, readable on its fill (round 56). The fill is the
+ * site's (its scheme's button, or the header's own colour); a label under
+ * 4.5:1 on it, at rest or hovered, becomes the palette colour that reads
+ * (lib/website-builder/button-legible.ts).
+ */
+function legibleHeaderButton(button: ReturnType<typeof schemeButton>, scheme: { bg: string; heading: string; text: string }): ReturnType<typeof schemeButton> {
+  const style = button.style as Record<string, string>
+  const palette = [scheme.bg, scheme.heading, scheme.text]
+  return {
+    ...button,
+    style: {
+      ...style,
+      "--sl-btn-fg": legibleLabel(style["--sl-btn-bg"], style["--sl-btn-fg"], palette),
+      "--sl-btn-hover-fg": legibleLabel(style["--sl-btn-hover-bg"], style["--sl-btn-hover-fg"], palette),
+    } as CSSProperties,
+  }
+}
+
 export function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceMode, wrapperId, onEditorNavigate, canvasRoundedTopPx, insideEditor }: SectionProps) {
   // Treat ANY presence of `onEditorNavigate` as "we're inside the editor",
   // as a safety-net fallback for call sites that haven't yet been updated
@@ -1650,7 +1673,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   */
   const scheme = sectionColors({ ...section, settings: { ...s, color_scheme: schemeKey } }, theme)
   /** The call to action, painted by the header's scheme and its own colours, hover included. */
-  const ctaButton = schemeButton(scheme, "primary", { background: str(s.cta_color), text: str(s.cta_text_color) })
+  /* The starting website's indigo, never chosen by anyone, on a site whose own primary is something else: the site's colours instead (round 56). */
+  const staleIndigo = str(s.cta_color).trim().toLowerCase() === STARTER_INDIGO && str((theme as Record<string, unknown>).primary_color).trim().toLowerCase() !== STARTER_INDIGO
+  const ctaButton = legibleHeaderButton(schemeButton(scheme, "primary", staleIndigo ? {} : { background: str(s.cta_color), text: str(s.cta_text_color) }), scheme)
   /**
    * `header_transparent` is the control the panel offers; `transparent_on_hero`
    * is what it used to be called. Headers saved under the old name are still
@@ -2452,7 +2477,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           aria-haspopup="menu"
           aria-expanded={dropdownOpen}
           aria-controls={`${block.id}-menu`}
-          className="text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
+          className="min-h-11 min-w-11 justify-center text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
           style={{ color: navLinkColor }}
           onClick={e => {
             e.stopPropagation()
@@ -2471,7 +2496,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           href={href}
           target={openInNew ? "_blank" : undefined}
           rel={openInNew ? "noopener noreferrer" : undefined}
-          className="text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
+          className="min-h-11 min-w-11 justify-center text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
           style={{ color: navLinkColor }}
           /**
            * Intercepted whenever this header is INSIDE THE EDITOR, not only
@@ -2687,7 +2712,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             aria-label="Search"
             aria-expanded={searchOpen}
             onClick={(e) => { e.stopPropagation(); toggleSearch() }}
-            className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+            className="h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
           >
             <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </button>
@@ -2696,7 +2721,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             href="/search"
             aria-label="Search"
             onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
-            className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+            className="h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
           >
             <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </a>
@@ -2708,7 +2733,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           aria-label={account.label}
           title={account.label}
           onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(account.href, true) } : undefined}
-          className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+          className="h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <User className="h-[18px] w-[18px]" strokeWidth={1.8} />
         </a>
@@ -2718,7 +2743,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           href={WISHLIST_PATH}
           aria-label={wishlistLabel}
           onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(WISHLIST_PATH, true) } : undefined}
-          className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+          className="relative h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <Heart className="h-[18px] w-[18px]" strokeWidth={1.8} />
           <SavedCount className="-top-0.5 -right-0.5" />
@@ -2762,9 +2787,15 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
              * item that is not allowed to shrink never gets down to its
              * min-content width in the first place. So it shrinks, it has a
              * ceiling, and anything past that is an ellipsis.
+             *
+             * Round 56: from 1024px, 44px tall, and up to 200px so a site's
+             * own main action ("Commission a story") is read whole. At 768
+             * the menu and the button did not fit side by side (up to 83px
+             * past the edge, measured), and a tablet reaches the action in
+             * the page itself.
              */
-            "ml-1 min-w-0 max-w-[160px] truncate font-semibold px-3 py-1.5 text-[13px]",
-            hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden md:inline-block",
+            "ml-1 min-w-0 max-w-[200px] truncate font-semibold px-3 py-3 text-[13px] leading-5",
+            hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden lg:inline-block",
           )}
           /**
            * The header offered a CTA colour and a CTA label colour and painted
@@ -2799,7 +2830,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       aria-expanded={mobileNavOpen}
       data-menu-button={forDesktop ? "desktop" : "phone"}
       className={cn(
-        "h-9 w-9 items-center justify-center rounded-full theme-tint-hover transition-colors shrink-0",
+        "h-11 w-11 items-center justify-center rounded-full theme-tint-hover transition-colors shrink-0",
         forDesktop
           ? "flex"
           : hasDeviceMode
@@ -2933,7 +2964,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       <a
         href="/"
         aria-label="Go to the home page"
-        className="inline-flex min-w-0 items-center no-underline"
+        className="inline-flex min-h-11 min-w-0 items-center no-underline"
         style={{ color: "inherit" }}
         onClick={(e) => {
           if (!onEditorNavigate) return
