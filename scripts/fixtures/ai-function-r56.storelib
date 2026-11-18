@@ -1,0 +1,126 @@
+<template>
+<section class="fx">
+  <header class="fx__bar">
+    <a class="fx__brand" href="/">Field Notes</a>
+    <nav class="fx__nav" aria-label="Main">
+      <a href="/about">About</a>
+      <a href="#visit">Visit</a>
+      <a href="mailto:hello@fieldnotes.example">Email</a>
+      <a href="tel:+447700900123">Call</a>
+    </nav>
+    <form class="fx__find" role="search">
+      <label class="fx__vh" for="fx-q">Search the shop</label>
+      <input id="fx-q" type="search" name="q" placeholder="Search the shop">
+    </form>
+    <button type="button" class="fx__bag" data-storelib-cart aria-label="Open cart">Bag <span data-storelib-cart-count></span></button>
+  </header>
+
+  <h1 class="fx__h">{{ settings.heading }}</h1>
+
+  <ul class="fx__grid">
+    {% for block in products %}
+    <li class="fx__card" data-card="{{ block.settings.slug }}">
+      <a class="fx__title" href="{{ block.settings.url | url }}">{{ block.settings.title }}</a>
+      <span class="fx__price">{{ block.settings.price }}</span>
+      {% if block.settings.variants.size > 0 %}
+      <fieldset class="fx__opts">
+        <legend>Size</legend>
+        {% for v in block.settings.variants %}
+        <label class="fx__opt"><input type="radio" name="variant" value="{{ v.id }}" data-price="{{ v.price }}" data-variant-name="{{ v.name }}" {% if forloop.first %}checked{% endif %}> {{ v.name }}</label>
+        {% endfor %}
+      </fieldset>
+      {% endif %}
+      <label class="fx__qty">Quantity <input type="number" name="quantity" min="1" max="99" value="1" placeholder="1"></label>
+      <div class="fx__acts">
+        <button type="button" class="fx__add" data-storelib-add-to-cart="{{ block.id }}" data-title="{{ block.settings.title }}" data-price="{{ block.settings.price }}" data-image="{{ block.settings.image }}" data-url="{{ block.settings.url }}" data-kind="{{ block.settings.kind }}">Add to bag</button>
+        {% if block.settings.checkout_url != "" %}<a class="fx__buy" href="{{ block.settings.checkout_url | url }}">Buy now</a>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <aside class="fx__panel" data-storelib-cart-panel aria-label="Cart">
+    <button type="button" data-storelib-cart-close aria-label="Close cart">Close</button>
+    <p data-storelib-cart-empty>Your bag is empty.</p>
+    <ul data-storelib-cart-lines>
+      <li class="fx__line" data-storelib-cart-line hidden><a data-line-url><span data-line-title></span></a> <span data-line-variant></span> x<span data-line-qty></span> <span data-line-price></span><button type="button" data-line-dec aria-label="One less">-</button><button type="button" data-line-inc aria-label="One more">+</button><button type="button" data-line-remove>Remove</button></li>
+    </ul>
+    <div data-storelib-cart-filled><span data-storelib-cart-subtotal></span><button type="button" data-storelib-checkout>Check out</button></div>
+  </aside>
+
+  <div class="fx__forms">
+    <form class="fx__contact" data-storelib-form="contact">
+      <h2>Book a fitting</h2>
+      <label>Name <input name="name" autocomplete="name" placeholder="Your name" required></label>
+      <label>Email <input type="email" name="email" autocomplete="email" placeholder="you@example.com" required></label>
+      <label>Phone <input type="tel" name="phone" placeholder="07700 900123"></label>
+      <label>Service <select name="service"><option value="">Choose one</option><option value="fit">Fitting</option><option value="repair">Repair</option></select></label>
+      <label>Preferred date <input type="date" name="date"></label>
+      <label>People <input type="number" name="people" min="1" max="6" placeholder="1"></label>
+      <fieldset><legend>Best time</legend><label><input type="checkbox" name="time" value="Morning"> Morning</label><label><input type="checkbox" name="time" value="Evening"> Evening</label></fieldset>
+      <label>Message <textarea name="message" placeholder="What do you need?" required></textarea></label>
+      <div class="fx__trap" aria-hidden="true"><label>Company <input name="company" tabindex="-1" autocomplete="off" placeholder=""></label></div>
+      <label><input type="checkbox" name="consent" value="yes"> Email me news</label>
+      <button type="submit">Send</button>
+    </form>
+
+    <form class="fx__news" data-storelib-form="subscribe">
+      <h2>Letters</h2>
+      <label>Email <input type="email" name="email" placeholder="you@example.com" required></label>
+      <button type="submit">Sign up</button>
+    </form>
+
+    <form class="fx__dead">
+      <h2>Waitlist</h2>
+      <label>Your name <input name="name" placeholder="Your name"></label>
+      <button type="submit">Join</button>
+    </form>
+  </div>
+
+  <div class="fx__booking" data-storelib-native-form="{{ settings.form_id }}" data-presentation="inline"></div>
+
+  <div id="visit" class="fx__visit"><h2>Visit</h2><p>12 Mill Lane, open Thursday to Sunday.</p></div>
+</section>
+</template>
+<style>
+.fx { container-type: inline-size; padding: 24px 16px 48px; font: 16px/1.5 system-ui, sans-serif; color: #1c1b19; background: #f4f1ea; }
+.fx__vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.fx__bar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+.fx__brand { font-weight: 700; color: inherit; text-decoration: none; }
+.fx__nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.fx__nav a { color: inherit; min-height: 44px; display: inline-flex; align-items: center; }
+.fx__find input { min-height: 44px; padding: 0 12px; border: 1px solid #1c1b19; background: transparent; font: inherit; width: min(240px, 60vw); }
+.fx__bag { min-height: 44px; padding: 0 14px; border: 1px solid #1c1b19; background: none; font: inherit; }
+.fx__h { margin: 32px 0 20px; font-size: clamp(2rem, 1.2rem + 4cqi, 3.5rem); line-height: 1; }
+.fx__grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.fx__card { display: grid; gap: 10px; padding: 16px; border-top: 2px solid #1c1b19; }
+.fx__title { font-weight: 600; color: inherit; }
+.fx__opts { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.fx__opts legend { width: 100%; font-size: 14px; }
+.fx__opt { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #1c1b19; }
+.fx__qty input { width: 72px; min-height: 44px; font: inherit; }
+.fx__acts { display: flex; flex-wrap: wrap; gap: 10px; }
+.fx__add, .fx__buy { min-height: 48px; padding: 0 18px; display: inline-flex; align-items: center; font: inherit; border: 1px solid #1c1b19; }
+.fx__add { background: #1c1b19; color: #f4f1ea; }
+.fx__buy { color: inherit; text-decoration: none; }
+.fx__panel { position: fixed; inset: 0 0 0 auto; width: min(400px, 100%); padding: 20px; background: #fff; transform: translateX(100%); transition: transform 250ms ease; }
+.fx__panel[data-open="true"] { transform: none; }
+.fx__forms { display: grid; gap: 32px; margin-top: 40px; }
+.fx__forms form { display: grid; gap: 10px; }
+.fx__forms label { display: grid; gap: 4px; }
+.fx__forms input, .fx__forms select, .fx__forms textarea { min-height: 44px; font: inherit; padding: 8px 10px; border: 1px solid #1c1b19; background: #fff; min-width: 0; }
+.fx__forms fieldset { border: 0; padding: 0; display: flex; gap: 16px; flex-wrap: wrap; }
+.fx__forms fieldset label { display: inline-flex; align-items: center; gap: 6px; }
+.fx__forms button { min-height: 48px; font: inherit; background: #1c1b19; color: #f4f1ea; border: 0; justify-self: start; padding: 0 20px; }
+.fx__trap { position: absolute; left: -9999px; }
+.fx__booking { margin-top: 40px; }
+.fx__visit { margin-top: 40px; scroll-margin-top: 16px; }
+@container (min-width: 700px) { .fx__grid { grid-template-columns: 1fr 1fr; } .fx__forms { grid-template-columns: 1fr 1fr; } }
+@media (prefers-reduced-motion: reduce) { .fx__panel { transition: none; } }
+</style>
+<schema>
+{ "language_version": 1, "type": "ai_function_r56", "name": "Everything that can be pressed", "category": "products", "settings": [
+  { "type": "text", "id": "heading", "label": "Heading", "default": "Workwear, mended and made" },
+  { "type": "text", "id": "form_id", "label": "Booking form", "default": "6f1f6a3e-2222-4c2b-9a1e-0b6c2d1e3f40" }
+], "presets": [{ "name": "Everything that can be pressed" }] }
+</schema>
