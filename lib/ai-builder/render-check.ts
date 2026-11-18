@@ -51,6 +51,13 @@
  *   import.remote         a <script src>, a remote stylesheet or @import
  *   script.syntax         the section's script does not parse
  *   token.undefined       var(--t-name) with no such token and no fallback
+ *   render.form           a form the page cannot send (round 56): no hook,
+ *                         no action and no email box; an unknown
+ *                         data-storelib-form; native with no action; a sign
+ *                         up or contact form with no email box or with a file
+ *                         box; a contact form with nothing beyond a name and
+ *                         an email. Search and filter forms are not checked
+ *                         (./agent/form-fields.ts formProblems).
  *   render.motion         a data-storelib-motion island that does not exist
  *                         (error: nothing would run), or a param out of range,
  *                         an unknown param, too many showcases or WebGL
@@ -66,6 +73,7 @@ import type { ValidationIssue } from "./types"
 import type { RuntimeCapabilities } from "./runtime-contract"
 import { bindableIds } from "./capabilities"
 import { motionFindings } from "@/lib/storelib-theme/motion-islands"
+import { formProblems } from "./agent/form-fields"
 import { renderStorelibSection, isStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { checkRenderedSection, checkResponsiveStructure } from "@/lib/storelib-ai/structural"
 import { customTokenVars } from "@/lib/website-builder/theme-css"
@@ -492,6 +500,9 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
       if (/^This page has|more than once/.test(f.message)) continue
       push({ severity: f.severity, code: "render.motion", message: f.message, ...at })
     }
+
+    /* Forms that go nowhere, or to a place that cannot take what they ask for (round 56, ./agent/form-fields.ts formProblems). */
+    for (const f of formProblems(html)) push({ severity: "error", code: "render.form", message: f.message, ...at })
 
     /* Panels of the site's own (round N): a search window, a language or currency list that cannot work. */
     for (const p of hookProblems(html, pageHtml)) push({ severity: p.severity, code: "render.hook_incomplete", message: p.message, ...at })

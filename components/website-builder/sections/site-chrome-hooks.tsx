@@ -72,6 +72,65 @@ import { iconSvg } from "@/lib/website-builder/storelib-icons"
 const TRIGGERS = `[${H.cart}],[${H.search}],[${H.menu}]`
 /* A cart of the section's own: its buttons (lib/website-builder/storefront-hooks.ts, A CART OF THE SECTION'S OWN). */
 const CART_ACTIONS = `[${H.addToCart}],[${H.checkout}],[${H.cartClose}],[data-line-inc],[data-line-dec],[data-line-remove]`
+/**
+ * THE QUANTITY BOX BESIDE AN ADD TO CART (round 56). A product card or a
+ * product page draws `<input name="quantity">` (or a <select>) next to its
+ * button; the button named no quantity, so a visitor who chose 3 got 1. The
+ * box counts when it is the ONE quantity box in the nearest card or form that
+ * holds the button: walking up from the button, the first ancestor with any
+ * quantity box decides, and if it holds two (two products side by side), or
+ * an add button for another product, it is not clear which is meant, so
+ * neither is taken. Never past the section.
+ * addToCartLine still clamps the number and keeps a download at one.
+ */
+export function quantityNear(button: Element, stop: Element): string | null {
+  const box = fieldNear<HTMLInputElement | HTMLSelectElement>(button, stop, "quantity", (all) => (all.length === 1 ? all[0] : null))
+  const v = box?.value.trim() ?? ""
+  return /^\d{1,3}$/.test(v) ? v : null
+}
+
+/**
+ * The nearest card's field named `name` for an add button, by the rule above:
+ * the first ancestor holding any decides; `pick` chooses among what it holds
+ * (null when that is not clear); an ancestor that also holds another
+ * product's add button is not this card.
+ */
+function fieldNear<T extends Element>(button: Element, stop: Element, name: string, pick: (all: T[]) => T | null): T | null {
+  const own = button.getAttribute(H.addToCart)
+  for (let at: Element | null = button.parentElement; at && stop.contains(at); at = at.parentElement) {
+    const all = Array.from(at.querySelectorAll<T>(`input[name="${name}"], select[name="${name}"]`))
+    if (all.length === 0) {
+      if (at === stop) break
+      continue
+    }
+    if (Array.from(at.querySelectorAll(`[${H.addToCart}]`)).some((b) => b.getAttribute(H.addToCart) !== own)) return null
+    return pick(all)
+  }
+  return null
+}
+
+/**
+ * THE OPTION A VISITOR PICKED (round 56): a group of radios or a <select>
+ * named "variant" in the same card, whose value is the option's id
+ * (data-variant-id's value), for an add button that names no option itself.
+ * The picked radio or <option> may carry data-price and data-variant-name;
+ * its own words are the name otherwise. The price is what the cart shows;
+ * checkout prices from the database, as for every line.
+ */
+export function variantNear(button: Element, stop: Element): { id: string; name: string | null; price: string | null } | null {
+  const picked = fieldNear<HTMLInputElement | HTMLSelectElement>(button, stop, "variant", (all) => {
+    if (all.every((x) => x instanceof HTMLInputElement && x.type === "radio")) return all.find((x) => (x as HTMLInputElement).checked) ?? null
+    return all.length === 1 ? all[0] : null
+  })
+  if (!picked) return null
+  const option: Element | null = picked instanceof HTMLSelectElement ? picked.selectedOptions[0] ?? null : picked
+  const id = (picked.value ?? "").trim()
+  if (!option || !id) return null
+  const words = picked instanceof HTMLSelectElement ? option.textContent : (picked.closest("label") ?? (picked.id ? stop.querySelector(`label[for="${CSS.escape(picked.id)}"]`) : null))?.textContent
+  const name = option.getAttribute("data-variant-name") || (words ?? "").replace(/\s+/g, " ").trim() || null
+  return { id, name, price: option.getAttribute("data-price") }
+}
+
 /** A line copied from the pattern, so the next draw can take it out again. */
 const LINE_ITEM = "data-storelib-cart-line-item"
 /** A search result, a language or a currency copied from its pattern, likewise. */
@@ -677,7 +736,17 @@ export function useStorefrontHooks({
     e.preventDefault()
     e.stopPropagation()
     if (el.hasAttribute(H.addToCart)) {
-      const line = addToCartLine((name) => el.getAttribute(name))
+      /* A quantity box beside the button counts when the button names no quantity of its own (round 56). */
+      const qty = el.hasAttribute("data-quantity") ? null : quantityNear(el, e.currentTarget)
+      /* And the option picked beside it, when the button names none (round 56). */
+      const picked = el.getAttribute("data-variant-id") ? null : variantNear(el, e.currentTarget)
+      const line = addToCartLine((name) => {
+        if (name === "data-quantity" && qty !== null) return qty
+        if (picked && name === "data-variant-id") return picked.id
+        if (picked && name === "data-variant-name" && picked.name) return picked.name
+        if (picked && name === "data-price" && picked.price) return picked.price
+        return el.getAttribute(name)
+      })
       if (!line) return true
       /* Printed in the market's currency on this page: kept in the store's, as every other line is, so the cart does not convert it twice. */
       const own = storeCentsFromShown(line.priceCents, display)

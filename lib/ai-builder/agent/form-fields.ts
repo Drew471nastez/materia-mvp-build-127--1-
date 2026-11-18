@@ -69,3 +69,87 @@ export function fieldIssues(path: string, text: string): ValidationIssue[] {
   if (holders.length) issues.push({ severity: "error", code: "form.placeholder", message: `${holders.length} field${holders.length === 1 ? "" : "s"} with no placeholder (${holders[0].tag}). Give each input and textarea a placeholder that shows what to type ("you@example.com"), from a setting if it should be editable.`, path })
   return issues
 }
+
+/**
+ * ===========================================================================
+ *  EVERY FORM GOES SOMEWHERE (round 56)
+ * ===========================================================================
+ * A form the page cannot send is a form a visitor fills in for nothing. The
+ * page sends a form by the rule in lib/website-builder/form-intent.ts; this
+ * reads DRAWN markup (no template tags left) and names each form that rule
+ * cannot send, or sends to a place that cannot take what it asks for:
+ *
+ *   nowhere      no data-storelib-form, no action and no email box: the
+ *                page stops it and nothing is sent
+ *   unknown      data-storelib-form="<something else>": not a kind the page
+ *                knows, so it would be guessed at
+ *   native       data-storelib-form="native" with no action to post to
+ *   no_email     a sign up or a contact form with no email box: there is
+ *                nobody to write back to
+ *   file         a sign up or a contact form with a file box: those take
+ *                words only, so the file would be lost (a published Storelib
+ *                form takes files: data-storelib-native-form)
+ *   no_message   a contact form that asks only for a name and an email: the
+ *                message would be empty, and the endpoint refuses that
+ *
+ * Not checked: a shop's filters (data-storelib-filters) and a search form
+ * (role="search", a search box, or an action to /search), which the page and
+ * the browser handle. Pure, so the tests and the render check share it.
+ */
+export type FormProblemKind = "nowhere" | "unknown" | "native" | "no_email" | "file" | "no_message"
+
+export interface FormProblem {
+  kind: FormProblemKind
+  /** The form's opening tag, cut short, so the message says which. */
+  tag: string
+  message: string
+}
+
+const KNOWN_FORMS = new Set(["subscribe", "contact", "native"])
+/** Names the contact endpoint reads that are not the message itself. */
+const CONTACT_BARE = new Set(["name", "email", "company", "consent", "subject"])
+
+/** Whether a form is a search box or a shop's filters, which go where the browser sends them. */
+export function isSearchForm(tag: string, inner: string): boolean {
+  if (/\sdata-storelib-filters\b/i.test(tag) || /\srole\s*=\s*["']?search/i.test(tag)) return true
+  const action = attr(tag, "action") ?? ""
+  if (/^\/search(?:[?#]|$)/.test(action)) return true
+  return /<input\b[^>]*\stype\s*=\s*["']?search/i.test(inner)
+}
+
+export function formProblems(html: string): FormProblem[] {
+  const out: FormProblem[] = []
+  for (const m of html.matchAll(/(<form\b[^>]*>)([\s\S]*?)<\/form>/gi)) {
+    const tag = m[1]
+    const inner = m[2]
+    if (isSearchForm(tag, inner)) continue
+    const short = tag.slice(0, 120)
+    const declared = (attr(tag, "data-storelib-form") ?? "").trim().toLowerCase()
+    const action = (attr(tag, "action") ?? "").trim()
+    const hasAction = action !== "" && action !== "#"
+    const fields = [...inner.matchAll(/<(input|textarea|select)\b([^>]*)>/gi)].map((f) => ({ el: f[1].toLowerCase(), tag: f[0], type: f[1].toLowerCase() === "input" ? (attr(f[0], "type") ?? "text").toLowerCase() : f[1].toLowerCase(), name: (attr(f[0], "name") ?? "").toLowerCase() }))
+    const email = fields.some((f) => f.type === "email" || f.name === "email")
+    const file = fields.some((f) => f.type === "file")
+    const push = (kind: FormProblemKind, message: string) => out.push({ kind, tag: short, message })
+    if (declared && !KNOWN_FORMS.has(declared)) {
+      push("unknown", `A form says data-storelib-form="${declared}", which the page does not know (${short}). Use "contact" for a message to the creator, "subscribe" for an email sign up, or "native" with an action.`)
+      continue
+    }
+    const intent = declared || (hasAction ? "native" : email ? "subscribe" : "")
+    if (!intent) {
+      push("nowhere", `A form goes nowhere (${short}): it has no data-storelib-form, no action and no email box, so the page stops it and nothing is sent. Make it data-storelib-form="contact" (name, email, message) or "subscribe" (an email box), or place a published form with data-storelib-native-form.`)
+      continue
+    }
+    if (intent === "native") {
+      if (!hasAction) push("native", `A form is data-storelib-form="native" with no action to post to (${short}). Give it the address it posts to, or make it "contact" or "subscribe".`)
+      continue
+    }
+    const what = intent === "contact" ? "A contact form" : "A sign up form"
+    if (!email) push("no_email", `${what} has no email box (${short}). Add <input type="email" name="email"> with its label: without it nobody can be written back to.`)
+    if (file) push("file", `${what} has a file box (${short}). It sends words only, so the file would be lost. Leave the file out, or place a published Storelib form (data-storelib-native-form), which takes files.`)
+    if (intent === "contact" && !fields.some((f) => f.name && !CONTACT_BARE.has(f.name) && !/^(hidden|submit|button|reset|image|file)$/.test(f.type))) {
+      push("no_message", `A contact form asks only for a name and an email (${short}), so the message would be empty. Add <textarea name="message"> or the question it is for (every other named field reaches the creator under its label).`)
+    }
+  }
+  return out
+}

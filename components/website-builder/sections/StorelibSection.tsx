@@ -27,7 +27,7 @@ import { useStorefront } from "../theme/storefront-context"
 import { withProductFaqs } from "@/lib/products/page-product"
 import { formIntent } from "@/lib/website-builder/form-intent"
 import { signupMode, subscribeToCreator } from "@/lib/website-builder/subscribe-client"
-import { pageKeyOfTemplate, sendContactMessage } from "@/lib/website-builder/contact-client"
+import { contactMessageFrom, pageKeyOfTemplate, sendContactMessage, type ContactExtraField } from "@/lib/website-builder/contact-client"
 import { useSiteWishlist } from "../site-wishlist"
 import { WISHLIST_SAMPLE_COUNT } from "@/lib/site-accounts/wishlist-list"
 import { useSectionScript } from "./section-sandbox"
@@ -36,6 +36,7 @@ import { useHeaderScroll } from "./header-scroll"
 import { enhanceReviewWidgets } from "@/lib/reviews/widgets/enhance"
 import { morphInto } from "@/lib/website-builder/morph-html"
 import { StorefrontHooks, asksForDrawers } from "./site-chrome-hooks"
+import { searchPageHref as searchPageFor } from "@/lib/website-builder/storefront-hooks"
 import { drawLive } from "@/lib/website-builder/storelib-live-fill"
 import { isLive } from "@/lib/website-builder/live-settings"
 import { OfferIslands } from "./offer-islands"
@@ -90,6 +91,63 @@ function settle(form: HTMLFormElement, state: "sending" | "done" | "error" | "no
 export function isAccountAction(action: string | null): boolean {
   const path = (action ?? "").split(/[?#]/)[0]
   return path.startsWith("/api/site-account/") || path === "/account/logout"
+}
+
+/**
+ * What a search form with no action of its own was asked (round 56): the
+ * text of its search box, or null when the form is not a search. A search
+ * form is role="search" or holds an <input type="search"> or name="q".
+ */
+export function searchOf(form: HTMLFormElement): string | null {
+  const box = form.querySelector<HTMLInputElement>('input[type="search"], input[name="q"]')
+  if (!box && form.getAttribute("role") !== "search") return null
+  return (box ?? form.querySelector<HTMLInputElement>('input[type="text"]'))?.value.trim() ?? ""
+}
+
+/** The words of a label without the field inside it (a <select>'s options are text too). */
+function wordsOf(el: Element | null | undefined): string {
+  if (!el) return ""
+  const copy = el.cloneNode(true) as Element
+  copy.querySelectorAll("input, select, textarea, button, [aria-hidden='true']").forEach((n) => n.remove())
+  return (copy.textContent ?? "").replace(/\s+/g, " ").trim()
+}
+
+/**
+ * EVERY OTHER FIELD OF A CONTACT FORM (round 56), as the visitor read it:
+ * its name, the words it was labelled with (a box or a choice in a group by
+ * the group's legend) and what was typed or picked. Read from the form's own
+ * elements, so a field drawn by any section counts. Files, unticked boxes
+ * and empty choices are left out; lib/website-builder/contact-client.ts
+ * contactMessageFrom decides the rest.
+ */
+export function formFields(form: HTMLFormElement): ContactExtraField[] {
+  const out: ContactExtraField[] = []
+  for (const el of Array.from(form.elements)) {
+    if (!(el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement)) continue
+    const name = el.name
+    if (!name || el.disabled) continue
+    if (el instanceof HTMLInputElement && /^(file|submit|button|reset|image|hidden|password)$/i.test(el.type)) continue
+    const box = el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")
+    if (box && !(el as HTMLInputElement).checked) continue
+    const own = (el.id && form.querySelector(`label[for="${CSS.escape(el.id)}"]`)) || el.closest("label")
+    const legend = el.closest("fieldset")?.querySelector("legend")
+    let value: string
+    let label: string
+    if (box) {
+      const v = (el as HTMLInputElement).value
+      value = v && v !== "on" ? v : wordsOf(own) || "Yes"
+      label = wordsOf(legend) || (v && v !== "on" ? wordsOf(own) : "") || el.getAttribute("aria-label") || ""
+    } else if (el instanceof HTMLSelectElement) {
+      const picked = Array.from(el.selectedOptions).filter((o) => o.value !== "")
+      value = picked.map((o) => o.textContent?.trim() || o.value).join(", ")
+      label = wordsOf(own) || el.getAttribute("aria-label") || wordsOf(legend)
+    } else {
+      value = el.value
+      label = wordsOf(own) || el.getAttribute("aria-label") || wordsOf(legend) || el.placeholder || ""
+    }
+    out.push({ name, label, value })
+  }
+  return out
 }
 
 export function StorelibSection({
@@ -377,11 +435,26 @@ export function StorelibSection({
         no code is emailed from the editor.
       */
       if (intent === "native" && isAccountAction(form.getAttribute("action"))) settle(form, "note", "Signing in works on your live site. Nothing is sent from the editor.")
+      /* A search box with nowhere of its own opens the site's search, in the canvas too (round 56). */
+      if (intent === "inert" && searchOf(form) !== null) onEditorNavigate?.(searchPageFor(searchOf(form) ?? ""))
+      /* A form that goes nowhere says so to the person designing it (round 56); the render check refuses it before it ships. */
+      else if (intent === "inert") settle(form, "note", "This form is not connected, so nothing would be sent. Make it a contact or sign up form in its code, or place a published form.")
       return
     }
     if (intent === "native") return
     e.preventDefault()
-    if (intent === "inert") return
+    if (intent === "inert") {
+      /*
+        ROUND 56. A search box with no action of its own goes to the site's
+        search page with what was typed, as the header's search does. Any
+        other form with nowhere to go says so, instead of a button that does
+        nothing: the visitor knows their words were not sent.
+      */
+      const q = searchOf(form)
+      if (q !== null) window.location.assign(searchPageFor(q))
+      else settle(form, "error", "This form cannot send anything yet. Please reach the owner another way.")
+      return
+    }
 
     /*
       A MESSAGE TO THE CREATOR. The fields are read by name: name, email,
@@ -402,7 +475,8 @@ export function StorelibSection({
         name: field("name"),
         email: field("email") || (form.querySelector<HTMLInputElement>('input[type="email"]')?.value ?? ""),
         subject: field("subject"),
-        message: field("message"),
+        /* Every other field the form asks for, under its label (round 56): typed by the visitor, so it reaches the creator. */
+        message: contactMessageFrom(field("message"), formFields(form)),
         consent: form.querySelector<HTMLInputElement>('input[name="consent"]')?.checked === true,
         company: field("company"),
         elapsed: shownAt.current ? Date.now() - shownAt.current : 0,
