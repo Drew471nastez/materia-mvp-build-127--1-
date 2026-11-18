@@ -47,15 +47,16 @@ export const header = defineSection({
 </header>`,
   style: `
 .ccn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
-.ccn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
+.ccn__notes a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .ccn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
-.ccn__notice { margin: 0; padding: 8px var(--theme-padding-x, 20px); background: var(--s-text); color: var(--s-bg); ${SMALL} text-align: center; }
-.ccn__notice a { color: inherit; }
+.ccn__notice { margin: 0; padding: 0 var(--theme-padding-x, 20px); background: var(--s-text); color: var(--s-bg); ${SMALL} text-align: center; }
+.ccn__notice a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
+.ccn__notice:not(:has(a)) { padding-block: 12px; }
 .ccn__bar { display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 0 var(--theme-padding-x, 20px); }
-.ccn__logo { margin-right: auto; ${D} font-size: 1.375rem; letter-spacing: -0.035em; text-decoration: none; }
+.ccn__logo { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; margin-right: auto; ${D} font-size: 1.375rem; letter-spacing: -0.035em; text-decoration: none; }
 .ccn__logo img { display: block; max-height: 32px; width: auto; height: auto; }
 .ccn__nav { display: none; gap: 24px; }
-.ccn__nav a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: none; }
+.ccn__nav a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; text-decoration: none; }
 .ccn__nav a:hover { text-decoration: underline; text-underline-offset: 6px; }
 .ccn__tools { display: flex; align-items: center; gap: 4px; }
 .ccn__tool { display: inline-flex; align-items: center; gap: 6px; min-width: 44px; min-height: 44px; justify-content: center; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
@@ -63,12 +64,12 @@ export const header = defineSection({
 .ccn__count { min-width: 1.5em; padding: 0 5px; background: var(--s-accent); color: var(--s-text); text-align: center; font-size: 0.75rem; font-weight: 700; }
 .ccn__cta { display: none; align-items: center; min-height: 44px; padding: 0 18px; background: var(--s-btn); color: var(--s-btn-text); font-weight: 700; text-decoration: none; }
 .ccn__cta--wide { display: flex; justify-content: center; min-height: 54px; margin: 8px 0 14px; }
-.ccn__sheet { inset: 0 0 0 auto; width: min(420px, 100%); height: 100%; max-height: none; margin: 0; padding: 18px 22px 28px; border: 0; background: var(--s-bg); color: var(--s-text); overflow-y: auto; }
+.ccn__sheet { inset: 0 0 0 auto; width: min(420px, 100%); height: 100dvh; max-height: none; margin: 0; padding: calc(18px + env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) 22px; border: 0; background: var(--s-bg); color: var(--s-text); overflow-y: auto; }
 .ccn__list { margin: 24px 0 12px; padding: 0; list-style: none; }
 .ccn__link { display: block; padding: 10px 0; ${D} font-size: 2rem; letter-spacing: -0.035em; text-decoration: none; border-bottom: 1px solid var(--s-border); }
 .ccn__sub { margin: 6px 0; padding: 0; list-style: none; }
-.ccn__sub a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
-.ccn__acct { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 12px; color: inherit; }
+.ccn__sub a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
+.ccn__acct { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; margin-bottom: 12px; color: inherit; }
 .ccn :focus-visible { outline: 3px solid var(--s-accent); outline-offset: 2px; }
 ${panelCss("ccn", { cartFrom: "right", searchFrom: "top" })}
 ${headerScrollCss("ccn", "ccn__notice")}
@@ -131,7 +132,7 @@ export const hero = defineSection({
 .cch__btn { display: inline-flex; align-items: center; min-height: 56px; padding: 0 30px; background: var(--s-btn); color: var(--s-btn-text); font-weight: 700; font-size: 1.0625rem; text-decoration: none; transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); }
 .cch__btn:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); transform: translateY(calc(var(--t-motion-lift, 4px) * -1)); }
 .cch__btn:active { transform: translateY(1px); }
-.cch__link { display: inline-flex; min-height: 44px; align-items: center; color: inherit; font-weight: 600; text-underline-offset: 6px; }
+.cch__link { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; font-weight: 600; text-underline-offset: 6px; }
 .cch__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; margin: 34px 0 0; padding-top: 18px; border-top: 1px solid var(--s-border); }
 .cch__facts dt { ${SMALL} opacity: 0.7; }
 .cch__facts dd { margin: 2px 0 0; ${D} font-size: 1.25rem; letter-spacing: -0.02em; }
@@ -561,7 +562,7 @@ export const footer = defineSection({
 </footer>`,
   style: `
 .cco2__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
-.cco2__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
+.cco2__links a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .cco2 { padding: 72px var(--theme-padding-x, 20px) 28px; background: var(--s-bg); color: var(--s-text); border-top: 1px solid var(--s-border); container-type: inline-size; }
 .cco2__label { display: block; font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-weight: 800; font-size: clamp(2rem, 1.2rem + 4cqi, 4.5rem); letter-spacing: -0.045em; line-height: 0.95; max-width: 16ch; }
 .cco2__sub { max-width: 46ch; margin: 14px 0 20px; line-height: 1.55; }
@@ -570,7 +571,7 @@ export const footer = defineSection({
 .cco2__row button { min-height: 54px; padding: 0 24px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-weight: 700; cursor: pointer; }
 .cco2__base { display: grid; gap: 18px; margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--s-border); }
 .cco2__nav { display: flex; flex-wrap: wrap; gap: 0 22px; }
-.cco2__nav a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: none; }
+.cco2__nav a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; text-decoration: none; }
 .cco2__small { margin: 0; font-size: 0.8125rem; opacity: 0.75; }
 ${panelCss("cco2")}
 ${footerBitsCss("cco2")}

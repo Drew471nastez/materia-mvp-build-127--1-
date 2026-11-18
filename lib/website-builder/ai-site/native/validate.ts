@@ -27,6 +27,7 @@
  * as the editor stores it, through sanitizeSections.
  */
 import { pagePath } from "../../site-pages"
+import { asksToBook, intoShop, requestPage } from "../../action-words"
 import { sanitizeRichText } from "../../sanitize"
 import { sanitizeSections } from "../../sanitize-sections"
 import { copyProblem } from "../../agent/review"
@@ -393,7 +394,23 @@ function buttonsThatGoNowhere(
       if (typeof words !== "string" || !words.trim()) continue
       const wroteUrl = Object.prototype.hasOwnProperty.call(settings, partner.id)
       const address = wroteUrl ? settings[partner.id] : partner.default
-      if (resolves(partner, address)) continue
+      if (resolves(partner, address)) {
+        /*
+          Round 56: words that ask to book, enquire or get in touch on a button into the shop
+          (../../action-words.ts). It goes to the site's contact or booking page when it has one;
+          with none, it is not drawn and the generator is told.
+        */
+        if (partner.role !== "link" || typeof address !== "string" || !intoShop(address) || !asksToBook(words, links.has("/products"))) continue
+        const page = requestPage([...links].map((l) => l.replace(/^\//, "")))
+        if (page) {
+          settings[partner.id] = `/${page}`
+          notes.push(`${at}: "${words.slice(0, 40)}" asks to book or get in touch; it goes to /${page}, not ${address}`)
+          continue
+        }
+        settings[t.id] = ""
+        if (wroteText || wroteUrl) issues.push({ path: `${at}.settings.${partner.id}`, message: `"${words.slice(0, 40)}" asks the visitor to book or get in touch, and "${partner.id}" goes to ${address}, the shop; this site has no contact or booking page to send it to, so add one, or give the button words that fit the shop` })
+        continue
+      }
       settings[t.id] = ""
       const shown = typeof address === "string" && address ? `"${address}"` : "nothing"
       if (wroteUrl && typeof address === "string" && address.startsWith("#")) {

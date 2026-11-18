@@ -61,20 +61,20 @@ export const header = defineSection({
 </header>`,
   style: `
 .esn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
-.esn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
+.esn__notes a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .esn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); }
 .esn--over { margin-bottom: -76px; color: #fff; }
 .esn--over:is(:is([data-scrolled]:not([data-scrolled="false"]):not([data-scrolled="0"]), [data-scrolled]:not([data-scrolled="false"]):not([data-scrolled="0"]) *)) { color: var(--s-text); }
 .esn__bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 76px; padding: 0 var(--theme-padding-x, 20px); }
-.esn__logo { ${SERIF} color: inherit; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(1.25rem, 1rem + 1vw, 1.75rem); letter-spacing: 0.02em; text-decoration: none; text-align: center; }
-.esn__logo img { display: block; max-height: 36px; width: auto; height: auto; margin: 0 auto; }
+.esn__logo { display: block; min-width: 44px; min-height: 44px; line-height: 44px; ${SERIF} color: inherit; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(1.25rem, 1rem + 1vw, 1.75rem); letter-spacing: 0.02em; text-decoration: none; text-align: center; }
+.esn__logo img { display: block; max-height: 36px; width: auto; height: auto; margin: 4px auto; }
 .esn__tools { display: flex; justify-content: flex-end; gap: 2px; }
 .esn__tool { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; ${SMALL} text-decoration: none; cursor: pointer; }
 .esn__menu { justify-self: start; padding-left: 0; }
 .esn__tool:hover { text-decoration: underline; text-underline-offset: 5px; }
 .esn__wide { display: none; }
 .esn__count:empty, .esn__count[data-count="0"] { display: none; }
-.esn__drawer { inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--s-bg); color: var(--s-text); overflow-y: auto; }
+.esn__drawer { inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); border: 0; background: var(--s-bg); color: var(--s-text); overflow-y: auto; }
 .esn__drawer-in { display: grid; min-height: 100%; }
 .esn__drawer-nav { display: grid; align-content: start; gap: 24px; padding: 20px var(--theme-padding-x, 20px) 40px; }
 .esn__list { margin: 12px 0 0; padding: 0; list-style: none; counter-reset: esn; }
@@ -82,7 +82,7 @@ export const header = defineSection({
 .esn__link { display: flex; align-items: baseline; gap: 16px; padding: 14px 0; ${SERIF} font-size: clamp(2.25rem, 1.6rem + 3.5vw, 4rem); line-height: 1; letter-spacing: -0.02em; text-decoration: none; }
 .esn__link::before { content: counter(esn, decimal-leading-zero); font-family: var(--theme-font-body), sans-serif; font-size: 0.75rem; color: var(--s-accent); }
 .esn__sub { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0 0 14px; padding: 0; list-style: none; }
-.esn__sub a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
+.esn__sub a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .esn__row { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; }
 .esn__row .esn__tool { padding-left: 0; }
 .esn__acct { color: inherit; min-height: 44px; display: inline-flex; align-items: center; }
@@ -316,7 +316,7 @@ export const residences = defineSection({
 .esr { ${BOX} }
 .esr__head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; margin-bottom: 32px; }
 .esr__h { margin: 0; ${SERIF} font-size: clamp(2rem, 1.4rem + 3cqi, 4rem); letter-spacing: -0.02em; line-height: 1.02; }
-.esr__all { display: inline-flex; min-height: 44px; align-items: center; color: inherit; ${SMALL} text-underline-offset: 5px; }
+.esr__all { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; ${SMALL} text-underline-offset: 5px; }
 .esr__list { display: grid; gap: 36px 20px; margin: 0; padding: 0; list-style: none; }
 .esr__link { display: grid; gap: 8px; color: inherit; text-decoration: none; }
 .esr__frame { display: block; overflow: hidden; aspect-ratio: 4 / 5; }
@@ -600,15 +600,15 @@ export const footer = defineSection({
 </footer>`,
   style: `
 .eso__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
-.eso__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
+.eso__links a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .eso { padding: 80px var(--theme-padding-x, 20px) 28px; background: var(--s-bg); color: var(--s-text); border-top: 1px solid var(--s-border); container-type: inline-size; overflow: hidden; }
 .eso__grid { display: grid; gap: 36px; }
 .eso__nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-.eso__k { display: inline-flex; min-height: 32px; align-items: center; margin: 0 0 6px; font-size: 0.8125rem; letter-spacing: 0.04em; color: var(--s-accent); text-decoration: none; }
+.eso__k { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; margin: 0 0 6px; font-size: 0.8125rem; letter-spacing: 0.04em; color: var(--s-accent); text-decoration: none; }
 .eso__v { margin: 0; line-height: 1.6; }
 .eso__col ul { margin: 0; padding: 0; list-style: none; }
 .eso__col--flat:has(ul:empty) { display: none; }
-.eso__col li a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; text-decoration: none; }
+.eso__col li a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; text-decoration: none; }
 .eso__row { display: flex; gap: 0; border-bottom: 1px solid var(--s-text); }
 .eso__row input { flex: 1; min-width: 0; min-height: 48px; border: 0; background: none; color: inherit; font: inherit; }
 .eso__row button { min-height: 48px; padding: 0 4px 0 14px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }

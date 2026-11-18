@@ -45,15 +45,15 @@ export const header = defineSection({
 </header>`,
   style: `
 .sbn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
-.sbn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
+.sbn__notes a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .sbn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 2px solid var(--s-text); }
-.sbn__util { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 18px; padding: 8px var(--theme-padding-x, 20px); background: var(--s-text); color: var(--s-bg); ${SMALL} }
-.sbn__util a { color: inherit; }
+.sbn__util { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0 18px; padding: 0 var(--theme-padding-x, 20px); min-height: 44px; background: var(--s-text); color: var(--s-bg); ${SMALL} }
+.sbn__util a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
 .sbn__bar { display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 0 var(--theme-padding-x, 20px); }
-.sbn__logo { margin-right: auto; ${D} font-size: 1.625rem; letter-spacing: -0.02em; text-decoration: none; }
+.sbn__logo { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; margin-right: auto; ${D} font-size: 1.625rem; letter-spacing: -0.02em; text-decoration: none; }
 .sbn__logo img { display: block; max-height: 40px; width: auto; height: auto; }
 .sbn__nav { display: none; gap: 22px; }
-.sbn__nav a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; font-weight: 600; text-decoration: none; }
+.sbn__nav a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; font-weight: 600; text-decoration: none; }
 .sbn__nav a:hover { text-decoration: underline; text-decoration-color: var(--s-accent); text-decoration-thickness: 3px; text-underline-offset: 6px; }
 .sbn__tools { display: flex; align-items: center; gap: 2px; }
 .sbn__tool { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
@@ -61,16 +61,16 @@ export const header = defineSection({
 .sbn__count:empty, .sbn__count[data-count="0"] { display: none; }
 .sbn__count { min-width: 1.5em; padding: 0 5px; background: var(--s-accent); color: var(--s-text); text-align: center; font-size: 0.75rem; }
 .sbn__book { position: fixed; z-index: 35; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; min-height: 56px; background: var(--s-accent); color: var(--s-text); ${D} font-size: 1.125rem; text-decoration: none; box-shadow: 0 2px 0 var(--s-text); }
-.sbn__sheet { inset: auto 0 0 0; width: 100%; max-width: none; max-height: 90svh; margin: 0; padding: 16px var(--theme-padding-x, 20px) 28px; border: 0; border-top: 2px solid var(--s-text); background: var(--s-bg); color: var(--s-text); overflow-y: auto; }
+.sbn__sheet { inset: auto 0 0 0; width: 100%; max-width: none; max-height: 90dvh; margin: 0; padding: 16px max(var(--theme-padding-x, 20px), env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(var(--theme-padding-x, 20px), env(safe-area-inset-left)); border: 0; border-top: 2px solid var(--s-text); background: var(--s-bg); color: var(--s-text); overflow-y: auto; }
 .sbn__sheet-head { display: flex; align-items: center; justify-content: space-between; }
 .sbn__sheet-title { margin: 0; ${D} font-size: 1.25rem; }
 .sbn__list { margin: 16px 0; padding: 0; list-style: none; }
 .sbn__link { display: block; padding: 10px 0; ${D} font-size: 2rem; letter-spacing: -0.02em; text-decoration: none; border-bottom: 1px solid var(--s-border); }
 .sbn__sub { margin: 4px 0 8px; padding: 0; list-style: none; }
-.sbn__sub a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
+.sbn__sub a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .sbn__row { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 12px; }
 .sbn__row .sbn__tool { padding-left: 0; }
-.sbn__acct { display: inline-flex; min-height: 44px; align-items: center; color: inherit; font-weight: 600; }
+.sbn__acct { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; font-weight: 600; }
 .sbn :focus-visible { outline: 3px solid var(--s-accent); outline-offset: 2px; }
 ${panelCss("sbn", { cartFrom: "bottom", searchFrom: "top" })}
 ${headerScrollCss("sbn", "sbn__util")}
@@ -140,7 +140,7 @@ export const hero = defineSection({
 .sbh__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; margin-top: 26px; }
 .sbh__btn { display: inline-flex; align-items: center; min-height: 58px; padding: 0 30px; background: var(--s-accent); color: var(--s-text); ${D} font-size: 1.25rem; text-decoration: none; box-shadow: 0 3px 0 var(--s-text); transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); }
 .sbh__btn:active { transform: translateY(3px); box-shadow: none; }
-.sbh__link { display: inline-flex; min-height: 44px; align-items: center; color: inherit; font-weight: 600; text-underline-offset: 6px; }
+.sbh__link { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; font-weight: 600; text-underline-offset: 6px; }
 .sbh__facts { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: 30px 0 0; padding-top: 16px; border-top: 2px solid var(--s-text); }
 .sbh__facts dt { ${SMALL} }
 .sbh__facts dd { margin: 2px 0 0; ${D} font-size: 1.375rem; }
@@ -398,7 +398,7 @@ export const visit = defineSection({
 .sbv__hours td { text-align: right; }
 .sbv__addr { margin: 20px 0 6px; ${D} font-size: 1.375rem; }
 .sbv__links { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 0; }
-.sbv__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; font-weight: 600; }
+.sbv__links a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; font-weight: 600; }
 .sbv__img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border: 2px solid var(--s-text); }
 @container (min-width: 900px) { .sbv__grid { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: center; gap: 64px; } }`,
   settings: [
@@ -545,13 +545,13 @@ export const footer = defineSection({
 </footer>`,
   style: `
 .sbo__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
-.sbo__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
+.sbo__links a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .sbo { padding: 56px var(--theme-padding-x, 20px) calc(96px + env(safe-area-inset-bottom)); background: var(--s-bg); color: var(--s-text); border-top: 2px solid var(--s-text); container-type: inline-size; }
 .sbo__grid { display: grid; gap: 28px; }
 .sbo__name { margin: 0 0 8px; font-family: var(--theme-font-heading), serif; color: var(--s-heading); font-weight: 700; font-size: 2rem; }
 .sbo__v { margin: 0 0 4px; line-height: 1.5; }
 .sbo__nav { display: grid; align-content: start; }
-.sbo__nav a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; font-weight: 600; text-decoration: none; }
+.sbo__nav a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; font-weight: 600; text-decoration: none; }
 .sbo__nav a:hover { text-decoration: underline; }
 .sbo__form label { display: block; margin-bottom: 8px; font-weight: 600; }
 .sbo__row { display: flex; flex-wrap: wrap; gap: 8px; }

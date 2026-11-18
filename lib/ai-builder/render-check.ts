@@ -20,6 +20,10 @@
  *   render.broken_link    a link to an address this website does not have
  *   render.placeholder    a link to "#", "" or nowhere that is not a hook
  *   render.anchor         a link to #id where nothing on the page has that id
+ *   render.action_mismatch a call to action that asks to book, enquire or get
+ *                         in touch and goes into the shop, or one into the
+ *                         shop of a store with nothing for sale (round 56,
+ *                         actionMismatch)
  *   render.dead_button    a <button> with nothing behind it (no hook, no
  *                         form, no script, no control it opens)
  *   binding.empty         a product list or picker that draws empty titles,
@@ -74,6 +78,7 @@ import type { RuntimeCapabilities } from "./runtime-contract"
 import { bindableIds } from "./capabilities"
 import { motionFindings } from "@/lib/storelib-theme/motion-islands"
 import { formProblems } from "./agent/form-fields"
+import { asksToBook, intoShop, requestPage } from "@/lib/website-builder/action-words"
 import { renderStorelibSection, isStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { checkRenderedSection, checkResponsiveStructure } from "@/lib/storelib-ai/structural"
 import { customTokenVars } from "@/lib/website-builder/theme-css"
@@ -313,6 +318,27 @@ export function linkProblem(
   return { code: "render.broken_link", detail: `${path} (this website has no such page)` }
 }
 
+/**
+ * A call to action whose words and address disagree (round 56): one that asks
+ * to book, enquire or get in touch and goes into the shop (the scripted
+ * consulting site's "Book an intro call" kept a template's /products), or one
+ * into the shop of a store with nothing for sale. An error with a job: the
+ * repair turn is told the page that takes the request when the site has one
+ * (lib/website-builder/action-words.ts). Ordinary links in running text are
+ * left alone. Null when they agree. Pure.
+ */
+export function actionMismatch(text: string, href: string, known: { pages: Set<string>; products: Set<string>; productSlugs: Set<string>; extra?: Set<string> } | null, role: "nav" | "cta" | "text"): string | null {
+  if (role === "text" || !intoShop(decodeHref(href))) return null
+  const path = decodeHref(href).split(/[?#]/)[0]
+  const words = text.replace(/\s+/g, " ").trim()
+  const sells = !known || known.products.size > 0 || known.productSlugs.size > 0
+  const page = known ? requestPage([...known.pages, ...[...(known.extra ?? [])].map((r) => r.replace(/^\//, ""))]) : undefined
+  const to = page ? `the site's /${page} page` : "the page that takes the request (a contact page with a form, or a booking page)"
+  if (asksToBook(words, sells)) return `"${words.slice(0, 40)}" asks the visitor to book or get in touch, and it goes to ${path}, the shop. Point it at ${to}.`
+  if (role === "cta" && !sells) return `"${words.slice(0, 40) || "(no words)"}" goes to ${path}, and this store has nothing for sale: the visitor finds an empty shop. Point it at ${to}, or at a page with what the site offers.`
+  return null
+}
+
 /** CSS a phone shows sideways, beyond what structural.ts already finds. */
 export function overflowProne(css: string): string[] {
   const out: string[] = []
@@ -469,6 +495,8 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
         if (job && !HOOK_ATTR.test(a.tag)) push({ severity: "error", code: "render.placeholder", message: `${what} has no href: it goes nowhere. Give it a url setting with a real default (a page, a product's url, a form's page) and print it with | url, or hide it with {% if %} while it is empty.`, ...at })
         continue
       }
+      const mismatch = actionMismatch(a.text, a.href, known, role)
+      if (mismatch) push({ severity: "error", code: "render.action_mismatch", message: `${what}: ${mismatch}`, ...at })
       const problem = linkProblem(a.href, known)
       if (!problem) continue
       if (problem.code === "render.placeholder" && HOOK_ATTR.test(a.tag)) continue

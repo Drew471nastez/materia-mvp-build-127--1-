@@ -2793,8 +2793,17 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
              * the menu and the button did not fit side by side (up to 83px
              * past the edge, measured), and a tablet reaches the action in
              * the page itself.
+             *
+             * Round 56 (r56-d): a theme whose buttons are uppercase and
+             * widely tracked set "COMMISSION A STORY" 219px wide, so 200px
+             * cut it with an ellipsis at 1024 and 1280 (measured by
+             * scripts/check-ai-site-chrome-r56.mjs). The ceiling is now a
+             * share of the screen, 30vw up to 320px, which a plan's main
+             * action always fits (lib/website-builder/ai-site/apply.ts keeps
+             * it under BUTTON_WORDS); only a label a creator types past that
+             * still ends in an ellipsis rather than pushing the page.
              */
-            "ml-1 min-w-0 max-w-[200px] truncate font-semibold px-3 py-3 text-[13px] leading-5",
+            "ml-1 min-w-0 max-w-[min(320px,30vw)] truncate font-semibold px-3 py-3 text-[13px] leading-5",
             hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden lg:inline-block",
           )}
           /**

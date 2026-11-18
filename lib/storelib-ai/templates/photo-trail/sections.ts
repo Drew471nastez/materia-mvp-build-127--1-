@@ -44,13 +44,13 @@ export const header = defineSection({
 </header>`,
   style: `
 .pfn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
-.pfn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
+.pfn__notes a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .pfn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); }
 .pfn__bar { display: flex; align-items: center; gap: 20px; min-height: 64px; padding: 0 var(--theme-padding-x, 20px); }
-.pfn__logo { margin-right: auto; ${D} font-size: 1.0625rem; letter-spacing: -0.01em; text-decoration: none; }
+.pfn__logo { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; margin-right: auto; ${D} font-size: 1.0625rem; letter-spacing: -0.01em; text-decoration: none; }
 .pfn__logo img { display: block; max-height: 28px; width: auto; height: auto; }
 .pfn__nav { display: none; gap: 22px; }
-.pfn__nav a, .pfn__tool { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; ${SMALL} text-decoration: none; cursor: pointer; }
+.pfn__nav a, .pfn__tool { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; ${SMALL} text-decoration: none; cursor: pointer; }
 .pfn__nav a:hover, .pfn__tool:hover { text-decoration: underline; text-underline-offset: 5px; }
 .pfn__tools { display: flex; gap: 16px; }
 .pfn__tools .pfn__tool:first-child { display: none; }
@@ -58,12 +58,12 @@ export const header = defineSection({
 .pfn__count::before { content: "("; }
 .pfn__count::after { content: ")"; }
 .pfn__drop { inset: 64px var(--theme-padding-x, 20px) auto auto; width: min(320px, calc(100% - 32px)); margin: 0; padding: 16px; border: 1px solid var(--s-border); background: var(--s-bg); color: var(--s-text); }
-.pfn__sheet { inset: 0 0 auto 0; width: 100%; max-width: none; margin: 0; padding: 18px var(--theme-padding-x, 20px) 28px; border: 0; border-bottom: 1px solid var(--s-border); background: var(--s-bg); color: var(--s-text); }
+.pfn__sheet { inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: calc(18px + env(safe-area-inset-top)) max(var(--theme-padding-x, 20px), env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(var(--theme-padding-x, 20px), env(safe-area-inset-left)); overflow-y: auto; overscroll-behavior: contain; border: 0; border-bottom: 1px solid var(--s-border); background: var(--s-bg); color: var(--s-text); }
 .pfn__list { margin: 20px 0; padding: 0; list-style: none; }
 .pfn__link { display: block; padding: 6px 0; ${D} font-size: clamp(2rem, 1.4rem + 4vw, 3rem); letter-spacing: -0.03em; text-decoration: none; }
 .pfn__sub { margin: 0 0 10px; padding: 0; list-style: none; }
-.pfn__sub a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
-.pfn__acct { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 12px; color: inherit; }
+.pfn__sub a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
+.pfn__acct { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; margin-bottom: 12px; color: inherit; }
 .pfn :focus-visible { outline: 1px solid var(--s-text); outline-offset: 3px; }
 ${panelCss("pfn", { cartFrom: "right", searchFrom: "full" })}
 ${headerScrollCss("pfn")}
@@ -177,7 +177,7 @@ export const series = defineSection({
 .pfs__meta div { display: flex; gap: 6px; }
 .pfs__meta dt { opacity: 0.6; }
 .pfs__meta dd { margin: 0; }
-.pfs__link { justify-self: start; display: inline-flex; min-height: 44px; align-items: center; color: inherit; ${SMALL} text-underline-offset: 5px; }
+.pfs__link { justify-self: start; display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; ${SMALL} text-underline-offset: 5px; }
 @container (min-width: 900px) { .pfs__cap { grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 24px; } }
 @media (prefers-reduced-motion: no-preference) { @supports (animation-timeline: view()) { .pfs:not([data-motion="off"]) .pfs__img { animation: pfs-drift linear both; animation-timeline: view(); } } }
 .pfs__frame[data-motion-ready] .pfs__img { animation: none; }
@@ -409,7 +409,7 @@ export const prints = defineSection({
 .pfp { ${BOX} }
 .pfp__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; margin-bottom: 28px; }
 .pfp__h { margin: 0; ${D} font-size: clamp(1.75rem, 1.2rem + 2.4cqi, 3rem); letter-spacing: -0.03em; }
-.pfp__all { display: inline-flex; min-height: 44px; align-items: center; color: inherit; ${SMALL} }
+.pfp__all { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; ${SMALL} }
 .pfp__list { display: grid; gap: 40px 24px; margin: 0; padding: 0; list-style: none; }
 .pfp__link { display: grid; gap: 6px; color: inherit; text-decoration: none; }
 .pfp__mat { display: block; padding: 9%; background: var(--s-bg); outline: 1px solid var(--s-border); outline-offset: -1px; }
@@ -486,7 +486,7 @@ export const contactBand = defineSection({
 .pfz__mail { display: block; margin: 10px 0 24px; ${D} font-size: clamp(1.75rem, 0.8rem + 6cqi, 7rem); letter-spacing: -0.045em; line-height: 1; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
 .pfz__mail:hover { color: var(--s-accent); }
 .pfz__links { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 0; padding: 0; list-style: none; ${SMALL} }
-.pfz__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
+.pfz__links a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 ${revealCss("pfz", ".pfz__mail", "pfz-rise")}`,
   settings: [text("heading", "Small line", "Booking from April"), text("link_label", "Shown as", "studio@verahollis.com"), url("link", "Goes to", "mailto:studio@verahollis.com"), ...motion(), scheme("site"), ...spacing(120, 120)],
   blocks: [{ type: "link", name: "Link", settings: [text("label", "Label", "Instagram"), url("url", "Goes to", "")] }],
@@ -518,12 +518,12 @@ export const footer = defineSection({
 </footer>`,
   style: `
 .pfo__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
-.pfo__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
+.pfo__links a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; }
 .pfo { display: grid; gap: 22px; padding: 40px var(--theme-padding-x, 20px) 24px; background: var(--s-bg); color: var(--s-text); border-top: 1px solid var(--s-border); font-size: 0.8125rem; container-type: inline-size; }
 .pfo__row { display: grid; gap: 16px; }
 .pfo__name { margin: 0; font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-size: 1rem; }
 .pfo__nav { display: flex; flex-wrap: wrap; gap: 0 20px; }
-.pfo__nav a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: none; }
+.pfo__nav a { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; text-decoration: none; }
 .pfo__nav a:hover { text-decoration: underline; }
 .pfo__form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .pfo__form input { flex: 1 1 200px; min-width: 0; min-height: 44px; border: 0; border-bottom: 1px solid var(--s-text); background: none; color: inherit; font: inherit; }
