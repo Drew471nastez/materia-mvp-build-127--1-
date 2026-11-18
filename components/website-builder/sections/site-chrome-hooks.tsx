@@ -260,6 +260,14 @@ function fillMenuLinks(panel: HTMLElement, linksFor: (handle: string) => HookNav
   so two panels in a row never leave it locked. The scrollbar's width is kept
   as padding so nothing moves sideways.
 */
+/** A popover that is a drawer, not a small panel: most of the screen's height, or nearly its width and a good part of its height. */
+export function drawerLike(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  return r.height >= vh * 0.6 || (r.width >= vw * 0.9 && r.height >= vh * 0.4)
+}
+
 const scrollLocks = new Map<HTMLElement, { n: number; overflow: string; padding: string }>()
 export function lockPageScroll(inCanvas: boolean): () => void {
   const target = (inCanvas ? document.getElementById("wb-preview-root") : null) ?? document.documentElement
@@ -616,6 +624,36 @@ export function useStorefrontHooks({
   const anyOwnOpen = ownMenuOpen || panelOpen || ownSearchOpen
   useEffect(() => (anyOwnOpen ? lockPageScroll(inCanvas) : undefined), [anyOwnOpen, inCanvas])
   useFocusTrap(ownMenuOpen, menuPanelRef, !inCanvas)
+
+  /*
+    A DRAWER THAT IS A POPOVER (round 56). The chrome kit's menu drawer, and
+    any header a site writes the same way, opens with the browser's popover
+    (popovertarget): Escape and a press outside close it, but nothing kept
+    the page behind still, moved the keyboard into it or held it there.
+    Measured on every generated site at 360 to 1280: the page scrolled under
+    the open menu and Tab walked out of it into the page. A popover this
+    section opens that covers most of the screen is now treated as the
+    built-in drawer is: the page holds still, focus goes in and stays, and
+    comes back to the button when it shuts. A small popover (a language
+    list, a mega panel) is left as it is.
+  */
+  const [popDrawer, setPopDrawer] = useState<HTMLElement | null>(null)
+  const popDrawerRef = useRef<HTMLElement | null>(null)
+  popDrawerRef.current = popDrawer
+  useEffect(() => {
+    if (!scriptRoot) return
+    const onToggle = (e: Event) => {
+      const el = e.target
+      if (!(el instanceof HTMLElement) || !el.hasAttribute("popover")) return
+      const open = (e as Event & { newState?: string }).newState === "open"
+      if (open && drawerLike(el)) setPopDrawer(el)
+      else if (!open) setPopDrawer((cur) => (cur === el ? null : cur))
+    }
+    scriptRoot.addEventListener("toggle", onToggle, true)
+    return () => scriptRoot.removeEventListener("toggle", onToggle, true)
+  }, [scriptRoot])
+  useEffect(() => (popDrawer ? lockPageScroll(inCanvas) : undefined), [popDrawer, inCanvas])
+  useFocusTrap(!!popDrawer, popDrawerRef, !inCanvas)
   useEffect(() => {
     if (!ownMenuOpen) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeOwnPanel(cart.setOpen, "menu") }
