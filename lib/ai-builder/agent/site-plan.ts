@@ -48,12 +48,16 @@ import { isAiComponentType, type GenerationMode, type ValidationIssue } from "..
 /* Round O (O5): the site story per business and the generic-skeleton check (lib/storelib-ai/layout). */
 import { layoutStoryFor, planSkeletonIssue, type StoryBrief } from "@/lib/storelib-ai/layout"
 
-/** The AI's own sections a home page needs, header and footer not counted. */
-export const MIN_HOME_SECTIONS = 10
-/** Of those, at least this many different components: ten copies of one strip is not a home page. */
-export const MIN_HOME_DISTINCT = 6
-/** Every other main page, unless the plan says why it has fewer. */
-export const MIN_PAGE_SECTIONS = 6
+/**
+ * The AI's own sections a home page needs, header and footer not counted. Round 56: 6, was 10. Ten made the model pad
+ * a page the prompt also told it to edit down ("remove a section before adding one"); a finished home page that tells
+ * a whole story is often 6 to 9 sections. The floor stops a stub, not a considered short page.
+ */
+export const MIN_HOME_SECTIONS = 6
+/** Of those, at least this many different components: six copies of one strip is not a home page. Round 56: 5, was 6. */
+export const MIN_HOME_DISTINCT = 5
+/** Every other main page, unless the plan says why it has fewer. Round 56: 3, was 6. */
+export const MIN_PAGE_SECTIONS = 3
 /** A reason is a sentence, not a word. */
 const MIN_REASON = 12
 
@@ -273,7 +277,7 @@ export function completenessIssues(input: CompletenessInput): ValidationIssue[] 
 
   if (!input.plan) err("site.plan_missing", "There is no site plan. Send report_progress phase \"plan\" with pages: every page and template with its sections.")
 
-  /* Home: ten of the AI's own, six of them different. */
+  /* Home: six of the AI's own, five of them different (round 56). */
   const home = byKey.get("home") ?? []
   const homeOwn = own(home)
   const distinct = new Set(homeOwn.map((s) => s.type)).size

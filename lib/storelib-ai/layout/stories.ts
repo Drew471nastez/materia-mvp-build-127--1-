@@ -41,7 +41,7 @@ export interface SiteStory {
   action: string
   /** The motion feel it suggests unless the creator said otherwise. */
   motion: MotionTier
-  /** The home page, in order: at least 10 beats. */
+  /** Jobs a home page for this business can do (round 56: ingredients to choose from and order, not a fixed spine). */
   beats: StoryBeat[]
   /** What the plan must cover to be this story and not a generic skeleton: one pattern per essential beat. */
   essentials: { label: string; pattern: RegExp }[]
@@ -436,22 +436,21 @@ export interface LayoutStory {
   text: string
 }
 
-/** The story for a brief, with its objective and motion feel, and the prompt block. */
-export function layoutStoryFor(brief: StoryBrief): LayoutStory {
+/** The story for a brief, with its objective and motion feel, and the prompt block. `motion` (round 56): the job's one motion level, when another part of the brief already chose it. */
+export function layoutStoryFor(brief: StoryBrief, opts: { motion?: MotionTier } = {}): LayoutStory {
   const story = classifyStory(brief)
   const objective = objectiveOf(brief.objective) ?? objectiveOf(brief.primaryAction) ?? story.objective
   const words = [brief.prompt, brief.businessType].filter(Boolean).join(" ")
   const asked = motionTierFor(words)
   /* The creator's own words about motion win; otherwise the trade's feel. */
-  const motion = /\b(?:motion|animat|movement|scroll|static|immersive|cinematic)\w*/i.test(words) ? asked : story.motion
-  const lines = story.beats.map((x, i) => `${i + 1}. ${x.beat} [${x.composition}${compositionById(x.composition)?.examples[0] ? `, e.g. ${compositionById(x.composition)!.examples[0]}` : ""}]`)
-  const text = `SITE STORY (${story.name}; a suggestion for the order and the jobs of the home page, not a template)
+  const motion = opts.motion ?? (/\b(?:motion|animat|movement|scroll|static|immersive|cinematic)\w*/i.test(words) ? asked : story.motion)
+  const lines = story.beats.map((x) => `- ${x.beat} [${x.composition}${compositionById(x.composition)?.examples[0] ? `, e.g. ${compositionById(x.composition)!.examples[0]}` : ""}]`)
+  const text = `SITE STORY (${story.name}): jobs a home page for this business can do. Choose the ones this site needs, order them for this visitor, and add one only this business would have; this is a pantry, not a recipe.
 ${lines.join("\n")}
 - Primary action: ${objective}. Wire it to ${story.action}. It has a home in the first screen and at the end.
 - ${story.note}
 - Other pages: ${story.pages.join("; ")}.
-- The plan must cover: ${story.essentials.map((e) => e.label).join(", ")}. A home page that is Hero, Features, Pricing, FAQ, CTA is a software landing page; it is refused for a business that is not software.
-- Vary the compositions (split editorial, full bleed, narrow reading column, asymmetric grid, index, product-led demo, conversion block); no two neighbours share a width and density.
+- The plan covers: ${story.essentials.map((e) => e.label).join(", ")}. Hero, Features, Pricing, FAQ, CTA is a software landing page and is refused for a business that is not software.
 - Motion feel ${motion}: ${MOTION_TIER_PARAMS[motion].describe}.
 LAYOUT RULES
 ${[...CONVERSION_RULES, ...RESPONSIVE_RULES, ...COPY_RULES].map((r) => `- ${r}`).join("\n")}`

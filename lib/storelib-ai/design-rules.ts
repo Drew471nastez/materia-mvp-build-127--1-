@@ -70,16 +70,32 @@ const COPY = `COPY: specific, compact, the owner's own voice. Never: unlock, ele
 
 const EDIT_RULES = `KEEP THE SITE'S OWN DIRECTION: change only what was asked, in the site's tokens, type and spacing. A change never introduces the defaults: no indigo or violet accent, no purple to blue gradient, no emoji icons, no hardcoded Inter or system-ui heading, no rounded card with a coloured left border, no invented numbers or quotes, no filler or instructions to the creator in visible text ("Add your photo", "Your name", "Replace this"); a missing fact stays out or goes in an editor-only empty state ({% if request.design_mode %}). Never drift toward the editorial-serif cliché (italic display serif + cream background + mono caps captions + terracotta) or the SaaS-gradient cliché unless the creator asked for that look.`
 
-/** The whole rule set, for the website agent's system prompt. */
+/**
+ * Round 56: the goal, said once, as a designer would hear it. The owner asked for output "like a top designer would
+ * make, without so many filters", Awwwards calibre, different every time. The prohibitions below stay (the code
+ * enforces them), but they are the floor, not the brief.
+ */
+export const DESIGN_STANDARD = `THE STANDARD: design this site the way the best independent studio you know would, for this one client. The bar is the work on curated galleries (Awwwards, Siteinspire, Godly): one clear idea carried through every page, type used as image, the client's real work or product as the hero, a rhythm of scale and density that changes on purpose, details that reward a second look, and a phone layout designed rather than shrunk. You have taste: use it. Decide, commit, and make one move nobody would expect from a generated site. Clean means considered, not empty.`
+
+/**
+ * Round 56: the machine look, said once. It replaces the four overlapping anti-slop lists the agent was given. A
+ * technique on this list is not banned: it is the default a machine reaches for without a reason.
+ */
+export const MACHINE_LOOK = `THE MACHINE LOOK (what to avoid unless the concept chose it on purpose; any single technique can be right when the concept chose it, the combination without a reason is what reads as generated):
+- Editorial serif slop: a huge italic display serif (Instrument Serif, Fraunces, Playfair, DM Serif, Cormorant) on cream or off-white, mono all-caps eyebrows and captions, a terracotta or rust accent, letter-spaced mono caps buttons. A personal trainer is not a literary magazine.
+- SaaS-gradient slop: purple or blue gradient glow, a centred "Transform your X" hero, a pill badge, three icon cards, a floating dashboard for a business with no dashboard.
+- Kit habits: rows of identical rounded cards, card inside card, bento grids, 20px corners and a soft shadow on everything, glass panels, an eyebrow over every heading, icons beside every label, walls of pills, decorative blobs and glows, every section the same width and padding.
+- Sameness: the same layout for a coach, a photographer and a consultant; stock people smiling at laptops; perpetual marquees and reveal-on-everything; small grey text in the name of minimalism.`
+
+/** The whole rule set, for the website agent's system prompt (round 56: the standard, the look to avoid, what the code refuses, the copy). */
 export const DESIGN_RULES = [
-  "ANTI-AI-SLOP RULES (checked in code on every file you write and on every rendered page; a P0 finding refuses finish)",
+  "DESIGN RULES (the code checks every file you write and every rendered page; a P0 finding refuses finish)",
+  DESIGN_STANDARD,
   BUSINESS_FIT,
+  MACHINE_LOOK,
   SEVEN_SINS,
-  SOFT_TELLS,
-  CLICHE_COMBINATIONS,
   HONEST,
   COPY,
-  SOUL,
 ].join("\n\n")
 
 const SECTION_WRITER = [

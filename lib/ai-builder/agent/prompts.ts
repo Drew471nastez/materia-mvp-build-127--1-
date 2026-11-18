@@ -30,8 +30,6 @@ import { describeTypeSystem, suggestTypeSystems, type TypeSystem } from "@/lib/s
 import { editDesignContext, surfaceRules, TYPE_FROM_DIRECTION } from "@/lib/storelib-ai/surfaces"
 import type { JobDesignBrief } from "./design-brief"
 import { startContext } from "@/lib/website-builder/ai-site/start-options"
-/* Round AQ: the classic job's design rules (round AP), the same text for both engines. */
-import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
 /* Round N (N3): pages and templates, its own block so the design rules above it can change without touching it. */
 import { PAGES_AND_TEMPLATES } from "./site-plan"
 /* Round O (O5): the business's site story and the motion feel, its own block (O6 owns this file's assembly). */
@@ -48,7 +46,7 @@ import { motionIslandsForPrompt } from "@/lib/storelib-theme/motion-islands"
  * say which prompts it ran on. The blocks stay modular: each lane's text is
  * its own export, assembled here.
  */
-export const PROMPT_VERSION = "2026-11-r1"
+export const PROMPT_VERSION = "2026-11-r56"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -67,8 +65,9 @@ export const COMPLETE_SECTIONS = `COMPLETE SECTIONS (checked at write and at fin
  * ROUND P (P5): TEMPLATE FIRST, for a new website that starts from a starting template (./templates.ts). Only
  * in the first turn of such a job (briefMessage `template`), never in the shared prefix.
  */
-export const TEMPLATE_FIRST = `TEMPLATE FIRST: this new website starts from the starting template below, already placed with its items filled. It is a starting point, never the result. Adapt it to this business and the concept:
-- Read each component before you change it (read_file), then rebrand it: every word for this business (its name, offer, audience, real facts), the palette and type through set_tokens, the imagery (each picture slot gets this business's own picture), the composition (reorder, drop or add sections, change layouts) where the concept asks.
+export const TEMPLATE_FIRST = `TEMPLATE FIRST: this new website starts from the starting template below, already placed with its items filled. It is working material, never the result: a site that still looks like the template has failed. Make it this business's own:
+- Read each component before you change it (read_file), then rebrand it: every word for this business (its name, offer, audience, real facts), the palette and type through set_tokens, the imagery (each picture slot gets this business's own picture).
+- Recompose it. Change the order, drop what this business does not need, write the sections only it would have, and change layouts, proportions and the type scale until the composition is yours. The template's craft is worth keeping; its arrangement is not sacred.
 - Keep its craft: complete schemas, filled items, real links, responsive layout, motion with reduced motion. Write new components to the same bar.
 - Finish is refused while any component or section still carries the template's words as shipped, or (when pictures can be made) its pictures.`
 
@@ -108,25 +107,24 @@ REAL DATA ONLY
 DESIGN
 - A new website starts from a visual concept: before any write, call report_progress with phase "plan", a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves; text on background at least 4.5:1) and the plan as tasks. Writes are refused until it is accepted. A refused concept comes back ok: false with every problem listed: fix them all and send the whole concept again; nothing else starts until one is accepted.
 - The concept is for THIS business: its name, what it sells, who it is for. Start from the DIRECTION FOR THIS SITE in the brief when there is one; starting directions are seeds, not answers; a concept that would fit any business is not finished. Think like the best sites in curated galleries: one strong idea held everywhere, type as image, the real work or product as the hero, a rhythm that changes on purpose.
-- The theme is optional. Storelib's default theme (Foundation) is not a starting point: do not keep its look, its sections or its section catalogue because they are there. Design original components for this business and concept; keep a theme section only when it already fits the concept. Avoid the default AI look: purple gradients, glassmorphism, identical card grids, a giant centred hero over three cards, random pills, icons beside every label, excessive rounding. Vary rhythm, scale and density between sections, and do not repeat one section skeleton with new words. If it could belong to any business, redesign it.
+- The theme is optional. Storelib's default theme (Foundation) is not a starting point: do not keep its look, its sections or its section catalogue because they are there. Design original components for this business and concept; keep a theme section only when it already fits the concept.
 - Mobile first: design at 375px wide, then widen with min-width or container queries. No fixed widths, no width: 100vw, big type through clamp(), tap targets at least 44px, nothing that scrolls sideways.
 - A new website has its own frame: write its header and footer as your own components and place them in group "header"/"footer", in place of any theme header or footer. Nothing of the theme's frame is required.
 - Every component is editable: a <schema> with settings for its words, pictures, colour scheme and spacing. write_file refuses a section with no settings.
 
 ${surfaceRules("site_agent")}
 
-${STUDIO_CRAFT}
+THE BRIEF IS STARTING MATERIAL, NOT A SPEC
+- The direction, the design brain's recipe, the site story, the template and the references below were chosen by rules, quickly. They are a well read starting point. Where they disagree with each other, or with what would make this site better, you decide, and say why in the concept. The creator's own words and the store's real facts are the only fixed inputs.
 
 WHOLE SITE
-- The home page has 10 or more sections that each do a different job for this business (opening, the offer or the work, products bound to real ids, how it works, the story, a gallery or index, details people ask for, a sign up, ...), each with its own form; never ten variations of one card grid. Every other page is complete too: an about page with a real story layout, a shop or programme page with bound products, a contact page with a real form or address settings, and the pages the brief needs. No page is a single heading.
+- The home page has as many sections as this business's story needs, usually 6 to 12, each doing a different job (the opening, the offer or the work, products bound to real ids, how it works, the story, an index of the work, the details people ask about, a sign up...), each with its own form. Cut a section that only fills space before you add one. Every other page is complete too: an about page with a real story, a shop or programme page with bound products, a contact page with a real form or address settings, and the pages the brief needs. No page is a single heading.
 
-TYPE
-- ${TYPE_FROM_DIRECTION} Pick the type system from the type library (search_knowledge "type library"): that display face and a calm text face, both from the Typography list so they load. Labels in mono or spaced capitals only where the design has a reason, never above every heading. Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Plus Jakarta Sans, Raleway, Arial, Helvetica or system-ui are never the display face unless the creator named one (then the concept says allow "default-fonts"); they may be body text.
-- A fluid scale with clamp() on every heading, display tracking chosen (negative for large lowercase, positive for caps and labels), leading 0.86 to 1.05 for display, weights chosen on purpose, tabular numerals for prices and times. Read fonts with var(--theme-font-heading) and var(--theme-font-body) plus a real stack.
-
-LAYOUT AND INTERACTION
-- No template layouts: no centred hero over a row of three cards, no more than one equal card grid per page, not every section the same width, padding and alignment, no rounded-2xl on everything, no gradient blobs, glass or glows, no emoji as icons, no stock phrases ("Welcome to our website", "Why choose us", "Get started today"). Vary width (full bleed, narrow column, offset), density and alignment between sections, with spacing set by what each section holds.
-- Interactions with restraint: two or three kinds per site, each with a reason (a marquee of real dates, a hover image index, sticky stacked panels, a sideways gallery, tabs, an accordion, before and after, counters from real numbers only, a parallax band, a video opening). CSS first: scroll-driven animation (animation-timeline: view()), :has(), details/summary, popover, position sticky; a script only for state, and it runs in a sandbox on a copy of its markup (it cannot measure the page, observe intersections, focus, or play video). Everything works by keyboard and stands still under prefers-reduced-motion. Working examples you can ask for by id: ai_scroll_reveal, ai_marquee, ai_sticky_stack, ai_hscroll_gallery, ai_hover_reveal_list, ai_split_text, ai_before_after, ai_tabs, ai_faq_accordion, ai_counters, ai_parallax_media, ai_video_hero, ai_site_header, ai_site_footer. Adapt them to the concept; never paste one unchanged.
+CRAFT
+- Type: ${TYPE_FROM_DIRECTION} Pick the display face and a calm text face from the type library (search_knowledge "type library"), both from the Typography list so they load. Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Plus Jakarta Sans, Raleway, Arial, Helvetica and system-ui are body faces here, not display, unless the creator named one (then the concept allows "default-fonts"). A fluid scale with clamp() on every heading, tracking and leading set for the size (tight for large display, open for small caps), weights on purpose, tabular numerals for prices and times. Fonts through var(--theme-font-heading) and var(--theme-font-body) with a real stack.
+- Composition: contrast of scale and density is the design. Let widths, alignment and spacing change with what each section holds: a full bleed picture, then a narrow reading column, then an offset index. Labels earn their place; one equal card grid on a page at most.
+- Interaction: two or three kinds per site, each with a reason (a marquee of real dates, a hover image index, sticky stacked panels, a sideways gallery, tabs, an accordion, before and after, counters from real numbers, a parallax band, a video opening). CSS first: scroll-driven animation (animation-timeline: view()), :has(), details/summary, popover, position sticky; a script only for state, and it runs in a sandbox on a copy of its markup (it cannot measure the page, observe intersections, focus, or play video). Everything works by keyboard and stands still under prefers-reduced-motion. Working examples by id: ai_scroll_reveal, ai_marquee, ai_sticky_stack, ai_hscroll_gallery, ai_hover_reveal_list, ai_split_text, ai_before_after, ai_tabs, ai_faq_accordion, ai_counters, ai_parallax_media, ai_video_hero, ai_site_header, ai_site_footer. Adapt them; a pasted example is not a design.
+- Review your own work before finish, as the client would: if a screenshot could belong to any business, change the layout, the type scale or the words until it could only be this one.
 
 WORKING
 - Work in small verified steps: write a component, place it, check it. Before finish, render_check every page you made or changed and fix its errors. A file that does not compile is not saved and you get its errors with line numbers: fix that file only, with edit_file when the fix is small. A file has a limited number of refused attempts.
@@ -180,7 +178,8 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     motion primitives. The structure, the header and drawers and the moves come from the owner's library (the worked
     examples in the brief, lib/ai-builder/agent/bank-templates.ts); the motion rules (tokens, reduced motion) stay.
   */
-  const story = !job.edit && !job.redesign ? motionForPrompt(layoutStoryFor({ prompt: job.prompt, category: job.options?.category ?? null }).motion, { primitives: false }) : ""
+  /* Round 56: one motion level per job: the design brain's, when the brief carries it (it already weighs the creator's words), else the story's. */
+  const story = !job.edit && !job.redesign ? motionForPrompt(input.design?.brain?.hints.motionTier ?? layoutStoryFor({ prompt: job.prompt, category: job.options?.category ?? null }).motion, { primitives: false }) : ""
   const chrome = ""
   /* The creator's choices on Describe your website, in L1's words (start-options.ts startContext): kind, blank or theme, preset, preferences. */
   const choices = job.redesign ? "" : startContext(job.options ?? null)
