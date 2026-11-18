@@ -32,7 +32,8 @@ check("near-gate.tsx is gone and not mounted", !existsSync(join(process.cwd(), "
 
 console.log("\n── fewer layers ──")
 check("how it works: the bars fill backwards, so a finished rise holds no layer", /\.cmh-o\{animation-duration:\.7s;[^\n]*animation-fill-mode:backwards/.test(how) && !/\.cmh-o\{[^\n]*animation-fill-mode:both/.test(how))
-check("business: the slide and the cards fill backwards", /animation:biz-in \.6s cubic-bezier\(\.2,\.7,\.2,1\) backwards\}/.test(biz) && (bizMocks.match(/bz-rise \.\d+s \$\{E\} [\d.]+s backwards\}/g) || []).length === 2)
+// Changed on purpose (landing round 17): the digital scene's email rises in the same way, backwards, a third one.
+check("business: the slide and the cards fill backwards", /animation:biz-in \.6s cubic-bezier\(\.2,\.7,\.2,1\) backwards\}/.test(biz) && (bizMocks.match(/bz-rise \.\d+s \$\{E\} [\d.]+s backwards\}/g) || []).length === 3)
 check("integrations: the icon's face has no backface-visibility (its turn never shows the back)", !/backface-visibility: hidden/.test(integ.replace(/\/\*[\s\S]*?\*\//g, "")))
 check("the possibilities rows: paint containment on the track, with room kept for the hover ring", /\.um-track\{[^}]*padding-block:24px;margin-block:-24px;contain:paint/.test(marquee))
 /* Changed on purpose (landing round 12, merged in round 6 perf): round 12 made the same fix its own way (no will-change, 26s a turn). */

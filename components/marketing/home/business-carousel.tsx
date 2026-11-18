@@ -121,11 +121,12 @@ type Kind = {
 export const BUSINESS_SLIDES: readonly Kind[] = [
   {
     id: "digital",
-    label: "Digital products",
-    tab: "Digital",
-    line: "E-books, video courses, downloads",
+    /* Round 17, the owner: a name and a line that say at a glance what this is (a file, sent when they pay), and a new picture (business-mocks.tsx). */
+    label: "Digital downloads",
+    tab: "Downloads",
+    line: "E-books and files, sent the moment they pay",
     Scene: DigitalScene,
-    alt: "A digital product on Storelib: Ancestral Kitchen, a cookbook PDF by Ruth Calder, 212 pages, $34. Buy is pressed, the button turns into Download PDF, and the book opens to its first spread: a bowl of roasted squash soup on the left page, the recipe on the right.",
+    alt: "A digital download on Storelib: Ancestral Kitchen, a PDF cookbook by Ruth Calder, $34. Buy is pressed and turns into Paid, the buyer's receipt email comes in, the PDF lands in it, Download now is pressed and the file is downloaded.",
   },
   {
     id: "physical",

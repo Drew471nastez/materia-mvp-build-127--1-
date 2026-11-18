@@ -28,7 +28,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "")
 const SECTION = "components/marketing/home/business-carousel.tsx"
 const MOCKS = "components/marketing/home/showcase-mocks/business-mocks.tsx"
 const { BUSINESS_HEADING, BUSINESS_SUB, BUSINESS_ACCENT, BUSINESS_ACCENT_COLOR, BUSINESS_SLIDES, BUSINESS_STYLES, BusinessCarousel } = Section
-const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, CourseScene, ClubScene, CoachScene, DIGITAL_BOOK, STORE_DESIGNS, STORE_DESIGN_WIDTHS } = Mocks
+const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, CourseScene, ClubScene, CoachScene, STORE_DESIGNS, STORE_DESIGN_WIDTHS } = Mocks
 const css = (BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? "").replace(/\/\*[\s\S]*?\*\//g, "")
 const mocks = BUSINESS_MOCK_CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/calc\(([-\d.]+)\*var\(--u\)\)/g, "$1u")
 const phoneAt = mocks.indexOf("@media(max-width:767px)")
@@ -51,27 +51,17 @@ console.log("\nHeading")
   check("no banned words, em dashes, disliked names or other brands", !BANNED.test(words), words.match(BANNED)?.[0])
 }
 
-console.log("\nDigital: a cookbook bought, then opening")
+console.log("\nDigital: replaced in round 17")
 {
-  check("one book: Ancestral Kitchen, a PDF by Ruth Calder, $34", DIGITAL_BOOK.name === "Ancestral Kitchen" && DIGITAL_BOOK.by === "Ruth Calder" && DIGITAL_BOOK.price === "$34" && /PDF/.test(DIGITAL_BOOK.kind))
-  check("a cover, a left page with the photograph, a right page with the recipe", /<div class="bk"><div class="bk-page bk-right">[\s\S]*Roasted squash soup[\s\S]*<\/div><div class="bk-page bk-left"><img[^>]*dg-kitchen-soup\.webp[^>]*><\/div><div class="bk-cover"><img[^>]*dg-kitchen-cover\.webp/.test(digital))
-  check("its buy card: Buy for $34 turns into Download PDF, a line says it is in the library", /<span class="bs-btn bk-btn"><span class="a">Buy for \$34<\/span><span class="b">[\s\S]*?Download PDF<\/span><\/span>/.test(digital) && /class="bk-paid"[\s\S]*in your library/.test(digital))
-  check("its pictures exist in public/ and are small", [DIGITAL_BOOK.cover, DIGITAL_BOOK.photo].every((s) => existsSync(`public${s}`) && statSync(`public${s}`).size < 60_000))
-  check("a labelled picture, the usual turn, no script", !BUSINESS_SLIDES[0].live && BUSINESS_SLIDES[0].ms === undefined && !/useState/.test(code(MOCKS)) && /<div class="smk-frame bz-frame" role="img" aria-label="A digital product on Storelib: Ancestral Kitchen/.test(html))
-}
-
-console.log("\nDigital: smooth and cheap")
-{
-  const own = motion.split("\n").filter((l) => /\.bk/.test(l) && /animation/.test(l))
-  check("every moment is under .bz-on (restarts when shown, paused off screen by the section)", own.length >= 7 && own.every((l) => l.startsWith(".bz-on ")))
-  const keys = [...motion.matchAll(/@keyframes bk-[\w-]+\{([\s\S]*?\})\}/g)].map((m) => m[1]).join("")
-  const props = [...keys.matchAll(/([a-z-]+):/g)].map((m) => m[1])
-  check("its keyframes touch transform and opacity only", props.length > 0 && props.every((p) => ["transform", "opacity"].includes(p)), props)
-  check("flat layers under one perspective: no preserve-3d, no will-change, filter or blur", /perspective:1600u/.test(rule(desk, ".bk")) && !/preserve-3d|will-change|filter:|blur\(|backdrop/.test(mocks))
-  check("the cover turns on its left edge, the left page on the spine", rule(desk, ".bk-cover").includes("transform-origin:0 50%") && rule(desk, ".bk-left").includes("transform-origin:100% 50%"))
-  check("the right page waits under the closed cover (it showed through as the book faded in)", /\.bz-on \.bk-right\{animation:bk-fade \.01s linear 1\.8s backwards\}/.test(motion))
-  check("the book slides from centred closed to centred open, half a page on each layout", rule(desk, ".bk").includes("--bk-shift:-140u") && rule(desk, ".bk").includes("width:560u") && rule(phone, ".bk").includes("--bk-shift:-79u") && rule(phone, ".bk").includes("width:316u") && /@keyframes bk-slide\{from\{transform:translate3d\(var\(--bk-shift\),0,0\)\}\}/.test(motion))
-  check("without motion it stands at its end: the cover turned away, the button paid", /opacity:0/.test(rule(desk, ".bk-cover")) && rule(desk, ".bk-btn>.a").includes("opacity:0") && !/\.bk[\w-]*[^{]*\{[^}]*animation/.test(desk + phone))
+  /*
+    Changed on purpose (landing round 17): the owner disliked the cookbook opening. The scene is a PDF bought and
+    landing in the buyer's email, pinned in tests/home-landing-r17-business.test.ts; what still holds from here is
+    that the scene is a labelled picture on the usual turn, cheap, and standing at its end without motion.
+  */
+  check("the book opening is gone", !/bk-cover|bk-left|bk-right|bk-slide|DIGITAL_BOOK/.test(code(MOCKS) + mocks))
+  check("a labelled picture, the usual turn, no script", !BUSINESS_SLIDES[0].live && BUSINESS_SLIDES[0].ms === undefined && !/useState/.test(code(MOCKS)) && /<div class="smk-frame bz-frame" role="img" aria-label="A digital download on Storelib: Ancestral Kitchen/.test(html))
+  check("no preserve-3d, will-change, filter or blur in the scenes", !/preserve-3d|will-change|filter:|blur\(|backdrop/.test(mocks))
+  check("without motion it stands at its end: paid, no moment outside the motion block", rule(desk, ".dl-pay>.a").includes("opacity:0") && !/\.dl-[\w-]*[^{]*\{[^}]*animation/.test(desk + phone) && /\.bz-on \.dl-fly\{animation:dl-fly/.test(motion) && Mocks.DIGITAL_FILE.cover !== undefined && existsSync(`public${Mocks.DIGITAL_FILE.cover}`) && statSync(`public${Mocks.DIGITAL_FILE.cover}`).size < 60_000)
 }
 
 console.log("\nEvery picture the section names exists")

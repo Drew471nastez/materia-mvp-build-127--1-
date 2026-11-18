@@ -59,7 +59,7 @@ console.log("\nHeading: not five ways to get paid")
   check("one accented word, call, in the same quiet violet", /* Changed on purpose (landing round 15, again): "book", in the page's violet. */ /* Changed on purpose (landing round 16): "fits". */ BUSINESS_ACCENT.join() === "fits" && (html.match(/data-story-accent="true"/g) ?? []).length === 1 && BUSINESS_ACCENT_COLOR === "#7c3aed")
   check("not the Everything section's \"Sell what you make\" again", !/Sell what you make/i.test(BUSINESS_HEADING))
   check("the heading is wide enough for two lines on a computer", /\.biz \.biz-h\{[^}]*max-width:19ch/.test(css))
-  check("no store jargon, banned words, em dashes, disliked names or other brands", !/\bstore\b|checkout page|storefront/i.test(BUSINESS_HEADING) && !BANNED.test([BUSINESS_HEADING, BUSINESS_SUB, ...BUSINESS_SLIDES.flatMap((s) => [s.label, s.line, s.alt]), digital, physical, /* Changed on purpose (landing round 16): one book. */ Mocks.DIGITAL_BOOK.name, Mocks.DIGITAL_BOOK.kind, Mocks.DIGITAL_BOOK.about, ...Mocks.DIGITAL_BOOK.ingredients].join(" ")))
+  check("no store jargon, banned words, em dashes, disliked names or other brands", !/\bstore\b|checkout page|storefront/i.test(BUSINESS_HEADING) && !BANNED.test([BUSINESS_HEADING, BUSINESS_SUB, ...BUSINESS_SLIDES.flatMap((s) => [s.label, s.line, s.alt]), digital, physical, /* Changed on purpose (landing round 16): one book. */ /* Changed on purpose (landing round 17): one file, and the email it lands in. */ ...Object.values(Mocks.DIGITAL_FILE).map(String)].join(" ")))
 }
 
 console.log("\nDigital: a shelf a visitor can use")
