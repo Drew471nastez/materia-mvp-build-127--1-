@@ -3,13 +3,14 @@ import { useEffect, useRef, type CSSProperties } from "react"
 import { Pic, pic, u } from "./frame"
 
 /*
-  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 17).
+  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 18).
   Each kind of thing sold is one scene on its own calm ground: the thing
   itself, photographed, and the Storelib page that sells it, with one short
   moment playing while it is shown.
 
-    Digital download  A PDF bought, then landing in the buyer's email and
-                      downloaded (round 17)
+    Digital download  Six downloads of six kinds gliding up past one
+                      Instant download tag, each delivered as it passes
+                      (round 18, in place of round 17's one PDF and email)
     Physical product  A line of store designs for goods you ship, turning in
                       perspective by itself and under a drag (round 14; on
                       a phone, round 17, smaller and inside its card)
@@ -53,112 +54,103 @@ function Still({ src, w, h, className = "smk-pic" }: { src: string; w: number; h
 
 /* ================================================================ Digital product */
 /*
-  Round 17, the owner disliked the cookbook opening (round 16) and asked for
-  a picture that says at a glance what a digital product is: you sell a
-  file, and the buyer has it the moment they pay. So the scene is that, in
-  three beats, left to right (top to bottom on a phone):
+  Round 18, the owner: not the round 17 receipt (one PDF, one email), but
+  several digital products, with a simpler, cleaner moving picture. So the
+  scene is six real downloads of six kinds, each a card with its cover, its
+  kind and its price, gliding up a column past one fixed "Instant download"
+  tag. The card that comes to rest under the tag is the one being bought:
+  its price turns into Delivered and the tag's arrow dips. The cards
+  above it are delivered, the ones below still show their price.
 
-    1  the product card: Ancestral Kitchen, a PDF cookbook, $34. Buy is
-       pressed and turns into Paid.
-    2  the buyer's email comes in beside it, from the seller, worded the way
-       a Storelib receipt is (lib/emails: "Your receipt for ...", "Download
-       now"), with an empty place for the file.
-    3  the file itself, a PDF, lifts off the Buy button and lands in that
-       place; Download now is pressed, a thin bar fills and the file reads
-       Downloaded.
+  Why a column and not a grid: a grid of six covers is a store's shelf (the
+  round 14 shelf the owner disliked), and rows on a phone screen were the
+  round 15 library. A column moving past one tag says one thing, every
+  product is sent the moment it is paid for, and it reads the same on a
+  laptop and on a phone, where it fits the card's height without cutting
+  anything at its sides.
 
-  One cover, one file, one email, nothing else moving. The flying file is a
-  copy of the one in the email, drawn over the scene and landing exactly on
-  it (both placed in design units), so the hand over is a crossfade between
-  two identical pictures. Each moment is a CSS animation on transform and
-  opacity under `.bz-on` (MOTION), paused off screen by the section; without
-  motion the scene stands at its end: paid, the email in, the file
-  downloaded.
+  The motion is drawn as one loop of DIGITAL_STEPS steps (DIGITAL_BEAT_S
+  each: a glide, then a rest). Every card runs the same keyframes (dz-ride),
+  its place in the loop set by a negative delay, so all six share one clock
+  and a card passes behind the scene's foot back to the bottom unseen. Its
+  price and its Delivered run on the same clock (dz-price, dz-sent). A thin
+  progress bar along the card's foot was tried and read as a heavy black
+  edge on a phone, so the tick alone says it. It plays DIGITAL_RUN_STEPS
+  steps once a turn and stops in the rest after the last one, its Delivered
+  in (DIGITAL_RUN_S; each card's run is cut to that length, --n, so they
+  all stop on the same frame), like the other scenes' moments: no endless
+  loop (round 13). All
+  of it is transform and opacity under `.bz-on`, paused off screen by the
+  section and restarted when the scene is shown. Without motion the scene
+  stands at the loop's first rest: Ancestral Kitchen just delivered under
+  the tag, two delivered above, two priced below.
 
-  Picture: the cover cut from the Ancestral Kitchen mockup (public/home/showcase/dg-kitchen-cover.webp).
+  Pictures: the covers the page already sells (sell-map and showcase),
+  cut to 240px squares as dz-*.webp in public/home/showcase.
 */
-export const DIGITAL_FILE = {
-  name: "Ancestral Kitchen",
-  kind: "E-book · PDF",
-  by: "Ruth Calder",
-  initials: "RC",
-  price: "$34",
-  pages: 212,
-  cover: pic("dg-kitchen-cover"),
-  file: "Ancestral-Kitchen.pdf",
-  size: "PDF · 18 MB",
-  subject: "Your receipt for Ancestral Kitchen",
-  heading: "Thanks for your order",
-  body: "Here is your copy. It is in your library too.",
-  button: "Download now",
-} as const
+export const DIGITAL_PRODUCTS = [
+  { id: "kitchen", name: "Ancestral Kitchen", kind: "E-book · PDF", price: "$34", cover: pic("dz-kitchen") },
+  { id: "mobility", name: "Daily Mobility", kind: "Video course · 21 lessons", price: "$79", cover: pic("dz-mobility") },
+  { id: "cine", name: "Cine Tones", kind: "LUT pack · .cube", price: "$29", cover: pic("dz-cine") },
+  { id: "drums", name: "Drums One Shots", kind: "Sample pack · WAV", price: "$19", cover: pic("dz-drums") },
+  { id: "planner", name: "Creator Planner", kind: "Notion template", price: "$12", cover: pic("dz-planner") },
+  { id: "pricing", name: "Pricing Your Work", kind: "Guide · PDF", price: "$15", cover: pic("dz-pricing") },
+] as const
 
-/** The file as the email shows it; the copy that flies in is the same markup. */
-function FileTile({ fly = false }: { fly?: boolean }) {
-  const f = DIGITAL_FILE
-  return (
-    <span className={fly ? "dl-file dl-fly" : "dl-file"}>
-      <span className="dl-doc">
-        <i>PDF</i>
-      </span>
-      <span className="dl-name">
-        <b>{f.file}</b>
-        <span className="dl-meta">
-          <span className="a">{f.size}</span>
-          <span className="b">
-            <Check /> Downloaded
-          </span>
-        </span>
-      </span>
-      <span className="dl-get">
-        <ArrowDownToLine className="a" />
-        <Check className="b" />
-      </span>
-      <span className="dl-bar">
-        <i />
-      </span>
-    </span>
-  )
-}
+export const DIGITAL_BADGE = "Instant download"
+/** One step of the column: a glide, then a rest. */
+export const DIGITAL_BEAT_S = 1.5
+/** The part of a step spent gliding. */
+export const DIGITAL_GLIDE = 0.4
+export const DIGITAL_STEPS = DIGITAL_PRODUCTS.length
+/** Steps played in a turn (6 s of the 6.5 s turn): Daily Mobility, Cine Tones, Drums One Shots and Creator Planner delivered in turn. */
+export const DIGITAL_RUN_STEPS = 4
+/** When it stops: the fourth card has come to rest under the tag (6 s) and its Delivered is in (0.5 s later), before the next glide (6.9 s). */
+export const DIGITAL_RUN_S = DIGITAL_RUN_STEPS * DIGITAL_BEAT_S + 0.6
+
+/*
+  Where card k stands at the loop's first rest: k places under the tag (0 is under it, 1 and 2 below, 3 hidden
+  under the foot, 4 and 5 above). In the loop a card starts hidden under the foot (place 3) and rises a place a
+  step, so at the first rest it is `digitalStep(k)` steps into its loop.
+*/
+export const digitalPlace = (k: number) => ((k + 2) % DIGITAL_STEPS) - 2
+export const digitalStep = (k: number) => (2 - k + DIGITAL_STEPS) % DIGITAL_STEPS
+const PLACE_OPACITY = [1, 0.62, 0.22, 0]
+export const digitalLook = (place: number) => ({ o: PLACE_OPACITY[Math.min(3, Math.abs(place))], s: place === 0 ? 1 : 0.95 })
+/** How many loops card k runs (a fraction) so it stops DIGITAL_RUN_S after the first rest, on the same frame as all the others. */
+export const digitalRuns = (k: number) => +(((digitalStep(k) + DIGITAL_GLIDE) * DIGITAL_BEAT_S + DIGITAL_RUN_S) / (DIGITAL_STEPS * DIGITAL_BEAT_S)).toFixed(4)
 
 export function DigitalScene() {
-  const f = DIGITAL_FILE
   return (
     <div className="bs bs-digital">
-      <div className="bs-card dl-buy">
-        <span className="dl-cover">
-          <Still src={f.cover} w={396} h={510} />
-        </span>
-        <span className="dl-info">
-          <span className="bs-kicker">{f.kind}</span>
-          <h4>{f.name}</h4>
-          <span className="bs-by">
-            by {f.by} · {f.pages} pages
-          </span>
-          <span className="bs-price">{f.price}</span>
-        </span>
-        <span className="bs-btn dl-pay">
-          <span className="a">Buy for {f.price}</span>
-          <span className="b">
-            <CheckCircle2 /> Paid
-          </span>
-        </span>
+      <div className="dz-col">
+        {DIGITAL_PRODUCTS.map((p, k) => {
+          const place = digitalPlace(k)
+          const look = digitalLook(place)
+          return (
+            <div
+              key={p.id}
+              className={place <= 0 ? "dz-card is-sent" : "dz-card"}
+              style={{ "--p": place, "--o": look.o, "--sc": look.s, "--m": digitalStep(k), "--n": digitalRuns(k) } as CSSProperties}
+            >
+              <Still src={p.cover} w={240} h={240} />
+              <span className="dz-txt">
+                <span className="dz-kind">{p.kind}</span>
+                <b className="dz-name">{p.name}</b>
+                <span className="dz-state">
+                  <span className="a">{p.price}</span>
+                  <span className="b">
+                    <CheckCircle2 /> Delivered
+                  </span>
+                </span>
+              </span>
+            </div>
+          )
+        })}
       </div>
-      <div className="dl-mail">
-        <span className="dl-from">
-          <i>{f.initials}</i>
-          <span>
-            <b>{f.by}</b>
-            <em>{f.subject}</em>
-          </span>
-          <s>now</s>
-        </span>
-        <b className="dl-head">{f.heading}</b>
-        <span className="dl-body">{f.body}</span>
-        <FileTile />
-        <span className="bs-btn dl-dl">{f.button}</span>
-      </div>
-      <FileTile fly />
+      <span className="dz-tag">
+        <ArrowDownToLine /> {DIGITAL_BADGE}
+      </span>
     </div>
   )
 }
@@ -771,25 +763,41 @@ export function CoachScene() {
   without end while its scene is shown and the section is on screen.
 */
 const E = "cubic-bezier(.22,1,.36,1)"
+
+/*
+  The digital column's loop (round 18), worked out from DIGITAL_STEPS, DIGITAL_BEAT_S and DIGITAL_GLIDE so the
+  keyframes and the delays can never disagree. A card's loop starts hidden under the foot (place 3); in step m it
+  glides from place 3 - m to 2 - m, then rests. It comes to rest under the tag at the end of step 2's glide
+  (DIGITAL_ARRIVE of the loop); its price, Delivered and bar are timed from there.
+*/
+const LOOP_S = DIGITAL_STEPS * DIGITAL_BEAT_S
+export const DIGITAL_LOOP_S = LOOP_S
+export const DIGITAL_ARRIVE = (2 + DIGITAL_GLIDE) / DIGITAL_STEPS
+const at = (x: number) => `${+(x * 100).toFixed(3)}%`
+const after = (s: number) => at(DIGITAL_ARRIVE + s / LOOP_S)
+const placeKey = (p: number) => {
+  const { o, s } = digitalLook(p)
+  return `{opacity:${o};transform:translate3d(0,calc(var(--dz-step) * ${p}),0)${s === 1 ? "" : ` scale(${s})`}}`
+}
+const RIDE = Array.from({ length: DIGITAL_STEPS }, (_, m) => `${at(m / DIGITAL_STEPS)}${placeKey(3 - m)}${at((m + DIGITAL_GLIDE) / DIGITAL_STEPS)}${placeKey(2 - m)}`).join("") + `100%${placeKey(-3)}`
+const delay = `calc((var(--m) + ${DIGITAL_GLIDE}) * -${DIGITAL_BEAT_S}s)`
+const loop = (name: string, ease: string) => `${name} ${LOOP_S}s ${ease} ${delay} var(--n) both`
+const DIGITAL_MOTION = `.bz-on .dz-card{animation:${loop("dz-ride", "cubic-bezier(.65,0,.35,1)")}}
+.bz-on .dz-state .a{animation:${loop("dz-price", "ease")}}
+.bz-on .dz-state .b{animation:${loop("dz-sent", "ease")}}
+.bz-on .dz-tag svg{animation:dz-nudge ${DIGITAL_BEAT_S}s ease .05s ${DIGITAL_RUN_STEPS + 1} both}`
+const DIGITAL_KEYFRAMES = `@keyframes dz-ride{${RIDE}}
+@keyframes dz-price{0%,${after(0.1)}{opacity:1;transform:none}${after(0.4)},100%{opacity:0;transform:translate3d(0,-8u,0)}}
+@keyframes dz-sent{0%,${after(0.15)}{opacity:0;transform:translate3d(0,8u,0)}${after(0.5)},100%{opacity:1;transform:none}}
+@keyframes dz-nudge{0%,34%,100%{transform:none}14%{transform:translate3d(0,3u,0)}}`
 const MOTION = `
 @media(prefers-reduced-motion:no-preference){
 .bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s backwards}
 .bz-on .bs-coach-pic,.bz-on .bo-main-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
 
 
-/* digital (round 17): paid, the email comes in, the file flies into it, then it is downloaded. */
-.bz-on .dl-pay{animation:bz-press .36s ease 1s both}
-.bz-on .dl-pay>.a{animation:bz-out .3s ease 1.1s both}
-.bz-on .dl-pay>.b{animation:bz-in .4s ${E} 1.25s both}
-.bz-on .dl-mail{animation:bz-rise .7s ${E} 1.3s backwards}
-.bz-on .dl-fly{animation:dl-fly 1s cubic-bezier(.5,0,.2,1) 1.7s both}
-.bz-on .dl-mail .dl-file{animation:dl-show .01s linear 2.58s backwards}
-.bz-on .dl-dl{animation:bz-press .36s ease 3.1s both}
-.bz-on .dl-mail .dl-bar{animation:dl-bar 1.4s linear 3.3s both}
-.bz-on .dl-mail .dl-bar i{animation:dl-fill 1.1s cubic-bezier(.4,0,.3,1) 3.4s both}
-.bz-on .dl-mail .dl-file .a{animation:bz-out .3s ease 4.6s both}
-.bz-on .dl-mail .dl-meta .b{animation:bz-in .4s ${E} 4.7s both}
-.bz-on .dl-mail .dl-get .b{animation:bz-tick .4s ${E} 4.7s both}
+/* digital (round 18): the column glides up past the tag, one product delivered a step (DIGITAL_MOTION). */
+${DIGITAL_MOTION}
 
 .bz-on .bp-bar i{animation:bz-play 4.2s linear .6s both}
 .bz-on .bp-play{animation:bz-pop .5s ${E} .3s both}
@@ -808,10 +816,7 @@ const MOTION = `
 .bz-on .bs-coach .bs-press{animation:bz-press .36s ease 3.9s both}
 .bz-on .bs-booked{animation:bz-rise .6s ${E} 4.2s backwards}
 }
-@keyframes dl-fly{0%{opacity:0;transform:translate3d(var(--dl-dx),var(--dl-dy),0) scale(.55)}14%{opacity:1}86%{opacity:1;transform:none}100%{opacity:0;transform:none}}
-@keyframes dl-show{from{opacity:0}}
-@keyframes dl-bar{0%{opacity:0}6%{opacity:1}90%{opacity:1}100%{opacity:0}}
-@keyframes dl-fill{from{transform:scaleX(0)}}
+${DIGITAL_KEYFRAMES}
 @keyframes bz-rise{from{opacity:0;transform:translate3d(0,18u,0)}}
 @keyframes bz-push{from{transform:scale(1.05)}}
 @keyframes bz-tick{from{opacity:0;transform:scale(.3)}}
@@ -850,50 +855,26 @@ export const BUSINESS_MOCK_CSS =
 .bs-swap .a{opacity:0}
 
 /*
-  digital (round 17): the product card on the left, the buyer's email on the right, on a warm linen ground. Everything
-  inside the email is placed in design units, so the file in it and the copy that flies in over the scene
-  (.dl-fly, the same box at the same place) are one picture when they meet.
+  digital (round 18): one column of product cards on a warm paper ground, one fixed tag over the card at rest in
+  the middle. Each card stands in the middle and is moved to its place by --p (its place, from the script) times
+  --dz-step; --o and --sc are that place's opacity and scale, the picture without motion.
 */
-.bs-digital{--dl-dx:-480u;--dl-dy:135u;background:#eee9e1}
-.dl-buy{left:110u;top:64u;width:400u;height:442u}
-.dl-cover{display:grid;place-items:center;height:214u;margin:-28u -28u 0;border-radius:22u 22u 0 0;background:#e4ddd1}
-.dl-cover .smk-pic{width:132u;height:170u;border-radius:3u 5u 5u 3u;box-shadow:0 0 0 1u rgba(60,45,30,.08),0 18u 30u -16u rgba(60,45,30,.55)}
-.dl-info{display:flex;flex-direction:column;margin-top:22u}
-.dl-info .bs-price{margin-top:10u!important}
-.dl-pay{display:grid;overflow:hidden}
-.dl-pay>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
-.dl-pay>.a{opacity:0}
-.dl-pay svg{width:17u;height:17u;color:#4ade80}
-.dl-mail{position:absolute;left:590u;top:115u;width:400u;height:340u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -28u rgba(16,24,40,.4)}
-.dl-mail::before{content:"";position:absolute;left:24u;right:24u;top:78u;height:1u;background:#f0ece6}
-.dl-from{position:absolute;left:24u;right:24u;top:22u;display:flex;align-items:center;gap:11u}
-.dl-from>i{display:grid;place-items:center;flex:none;width:36u;height:36u;border-radius:50%;background:#9a6b3f;color:#fff;font-size:12.5u;font-style:normal;font-weight:600;letter-spacing:.02em}
-.dl-from>span{display:grid;min-width:0}
-.dl-from b{font-size:14u;font-weight:600}
-.dl-from em{overflow:hidden;font-size:12.5u;font-style:normal;color:#71717a;white-space:nowrap;text-overflow:ellipsis}
-.dl-from>s{margin-left:auto;align-self:flex-start;font-size:12u;color:#a1a1aa;text-decoration:none}
-.dl-head{position:absolute;left:24u;top:98u;font-size:20u;font-weight:650;letter-spacing:-.02em}
-.dl-body{position:absolute;left:24u;right:24u;top:130u;font-size:13.5u;line-height:1.45;color:#52525b}
-.dl-file{position:absolute;left:24u;top:170u;width:352u;height:74u;display:flex;align-items:center;gap:12u;padding:0 16u;overflow:hidden;border-radius:14u;background:#faf8f5;box-shadow:inset 0 0 0 1u #ebe5dc}
-.dl-fly{left:614u;top:285u;z-index:3;opacity:0;box-shadow:inset 0 0 0 1u #ebe5dc,0 18u 34u -16u rgba(16,24,40,.35)}
-.dl-doc{position:relative;flex:none;width:38u;height:46u;border-radius:5u;background:#fff;box-shadow:inset 0 0 0 1u #e2dcd2}
-.dl-doc::before{content:"";position:absolute;right:0;top:0;width:12u;height:12u;border-radius:0 5u 0 3u;background:linear-gradient(225deg,#faf8f5 50%,#e6dfd4 50%)}
-.dl-doc i{position:absolute;left:5u;bottom:7u;padding:1.5u 4u;border-radius:3u;background:#dc2626;color:#fff;font-size:8.5u;font-style:normal;font-weight:700;letter-spacing:.04em;line-height:1.3}
-.dl-name{display:grid;flex:1;gap:3u;min-width:0}
-.dl-name b{overflow:hidden;font-size:14u;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
-.dl-meta{display:grid;overflow:hidden}
-.dl-meta>span{grid-area:1/1;display:flex;align-items:center;gap:5u;font-size:12.5u;color:#71717a}
-.dl-meta>.b{color:#15803d;font-weight:500}
-.dl-meta svg{width:13u;height:13u}
-.dl-get{display:grid;place-items:center;flex:none;width:36u;height:36u;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1u #e4e4e7}
-.dl-get svg{grid-area:1/1;width:16u;height:16u}
-.dl-get .b{color:#16a34a}
-.dl-file .a{opacity:0}
-.dl-fly .a{opacity:1}
-.dl-fly .b{opacity:0}
-.dl-bar{position:absolute;left:0;right:0;bottom:0;height:3u;opacity:0;background:#ece6dd}
-.dl-bar i{display:block;height:100%;background:#18181b;transform-origin:0 50%}
-.dl-dl{position:absolute;left:24u;right:24u;bottom:24u}
+.bs-digital{--dz-step:146u;background:#efece6}
+.dz-col{position:absolute;inset:0}
+.dz-card{position:absolute;left:300u;top:221u;width:500u;height:128u;display:flex;align-items:center;gap:20u;padding:12u 24u 12u 12u;overflow:hidden;border-radius:20u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 24u 44u -26u rgba(16,24,40,.38);opacity:var(--o);transform:translate3d(0,calc(var(--dz-step) * var(--p)),0) scale(var(--sc))}
+.dz-card .smk-pic{flex:none;width:104u;height:104u;border-radius:12u;object-fit:cover}
+.dz-txt{display:grid;gap:3u;min-width:0}
+.dz-kind{font-size:12.5u;color:#71717a;white-space:nowrap}
+.dz-name{font-size:21u;font-weight:650;line-height:1.15;letter-spacing:-.02em;white-space:nowrap}
+.dz-state{display:grid;margin-top:7u}
+.dz-state>span{grid-area:1/1;display:flex;align-items:center;gap:6u;height:22u;font-size:16.5u;font-weight:600}
+.dz-state>.b{font-size:14u;color:#15803d}
+.dz-state svg{width:16u;height:16u}
+.dz-state>.b{opacity:0}
+.is-sent .dz-state>.a{opacity:0}
+.is-sent .dz-state>.b{opacity:1}
+.dz-tag{position:absolute;right:318u;top:205u;z-index:2;display:flex;align-items:center;gap:7u;height:30u;padding:0 14u 0 11u;border-radius:15u;background:#18181b;color:#fff;font-size:12.5u;font-weight:600;white-space:nowrap;box-shadow:0 10u 20u -12u rgba(16,24,40,.6)}
+.dz-tag svg{width:14u;height:14u}
 
 /* physical (round 14): store designs for goods you ship, a line turning in perspective in clean light (round 13's flat grey was too grey). The stage gives the perspective and takes the drag; the cards are flat siblings in the order the script sets (round 14: preserve-3d made the compositor sort a 3D scene every frame; without it a turn drops a quarter as many frames at 1920), each one flat picture with its corners and shadow drawn once. */
 .bs-store{background:radial-gradient(70% 80% at 50% 46%,#fff 0%,#f7f9fb 46%,#e9eef4 100%)}
@@ -1023,29 +1004,15 @@ ${STORE_LINE}
   .bs-price{margin-top:8u!important;font-size:20u}
 
 
-  .bs-digital{--dl-dx:0u;--dl-dy:-225u}
-  .dl-buy{top:14u;height:200u}
-  .dl-cover{position:absolute;left:18u;top:18u;width:84u;height:108u;margin:0;border-radius:4u;background:none}
-  .dl-cover .smk-pic{width:100%;height:100%}
-  .dl-info{margin:0 0 0 100u}
-  .dl-buy h4{font-size:19u}
-  .dl-buy .bs-by{font-size:12.5u}
-  .dl-pay{height:40u}
-  .dl-mail{left:14u;right:14u;top:226u;bottom:14u;width:auto;height:auto;border-radius:18u}
-  .dl-mail::before{left:16u;right:16u;top:62u}
-  .dl-from{left:16u;right:16u;top:16u;gap:10u}
-  .dl-from>i{width:32u;height:32u;font-size:11.5u}
-  .dl-from b{font-size:13.5u}
-  .dl-from em{font-size:12u}
-  .dl-head{left:16u;top:74u;font-size:17u}
-  .dl-body{left:16u;right:16u;top:100u;font-size:12.5u;line-height:1.4}
-  .dl-file{left:16u;top:146u;width:296u;height:62u;gap:10u;padding:0 12u 0 14u}
-  .dl-fly{left:30u;top:372u}
-  .dl-doc{width:34u;height:42u}
-  .dl-name b{font-size:13u}
-  .dl-meta>span{font-size:12u}
-  .dl-get{width:32u;height:32u}
-  .dl-dl{left:16u;right:16u;bottom:16u;height:40u}
+  .bs-digital{--dz-step:120u}
+  .dz-card{left:20u;top:208u;width:320u;height:104u;gap:14u;padding:12u 14u 12u 12u;border-radius:18u}
+  .dz-card .smk-pic{width:80u;height:80u;border-radius:10u}
+  .dz-kind{font-size:11.5u}
+  .dz-name{font-size:17.5u}
+  .dz-state{margin-top:5u}
+  .dz-state>span{height:20u;font-size:15u}
+  .dz-state>.b{font-size:13.5u}
+  .dz-tag{right:34u;top:193u;height:28u;padding:0 12u 0 10u;font-size:12u}
 
   .bt-stage{width:228u;height:285u;margin:-148u 0 0 -114u;perspective:950u}
   .bt-card{border-radius:11u}

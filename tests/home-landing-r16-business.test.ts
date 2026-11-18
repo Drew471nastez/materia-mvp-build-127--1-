@@ -59,9 +59,11 @@ console.log("\nDigital: replaced in round 17")
     that the scene is a labelled picture on the usual turn, cheap, and standing at its end without motion.
   */
   check("the book opening is gone", !/bk-cover|bk-left|bk-right|bk-slide|DIGITAL_BOOK/.test(code(MOCKS) + mocks))
-  check("a labelled picture, the usual turn, no script", !BUSINESS_SLIDES[0].live && BUSINESS_SLIDES[0].ms === undefined && !/useState/.test(code(MOCKS)) && /<div class="smk-frame bz-frame" role="img" aria-label="A digital download on Storelib: Ancestral Kitchen/.test(html))
+  // Changed on purpose (landing round 18): six products in a column; the alt starts "Digital downloads on Storelib: Ancestral Kitchen".
+  check("a labelled picture, the usual turn, no script", !BUSINESS_SLIDES[0].live && BUSINESS_SLIDES[0].ms === undefined && !/useState/.test(code(MOCKS)) && /<div class="smk-frame bz-frame" role="img" aria-label="Digital downloads on Storelib: Ancestral Kitchen/.test(html))
   check("no preserve-3d, will-change, filter or blur in the scenes", !/preserve-3d|will-change|filter:|blur\(|backdrop/.test(mocks))
-  check("without motion it stands at its end: paid, no moment outside the motion block", rule(desk, ".dl-pay>.a").includes("opacity:0") && !/\.dl-[\w-]*[^{]*\{[^}]*animation/.test(desk + phone) && /\.bz-on \.dl-fly\{animation:dl-fly/.test(motion) && Mocks.DIGITAL_FILE.cover !== undefined && existsSync(`public${Mocks.DIGITAL_FILE.cover}`) && statSync(`public${Mocks.DIGITAL_FILE.cover}`).size < 60_000)
+  // Changed on purpose (landing round 18): without motion the column stands at its first rest, the card under the tag delivered; every cover small.
+  check("without motion it stands at its end: paid, no moment outside the motion block", rule(desk, ".is-sent .dz-state>.a").includes("opacity:0") && !/\.dz-[\w-]*[^{]*\{[^}]*animation/.test(desk + phone) && /\.bz-on \.dz-card\{animation:dz-ride/.test(motion) && Mocks.DIGITAL_PRODUCTS.every((d) => existsSync(`public${d.cover}`) && statSync(`public${d.cover}`).size < 60_000))
 }
 
 console.log("\nEvery picture the section names exists")
