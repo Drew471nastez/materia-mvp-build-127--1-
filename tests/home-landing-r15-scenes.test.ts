@@ -107,7 +107,8 @@ console.log("\n── the store strip: Loudlib, Sora and GodBless ──")
 
 console.log("\n── Digital: the file goes out ──")
 {
-  const html = renderToStaticMarkup(createElement(ProductSlides))
+  // Changed on purpose (landing round 18): the notice is off by default now; these checks read it where it is asked for.
+  const html = renderToStaticMarkup(createElement(ProductSlides, { delivery: true }))
   const css = EVERYTHING_STYLES.map((s) => s.css).join("\n")
   check("the notice is drawn under the card, quiet until Digital is on", /<div class="ev-p-dl" aria-hidden="true">/.test(html) && html.includes(DELIVERY_FILE) && /Download link sent/.test(html))
   check("what it says is what happens: the link is emailed after paying (developers docs)", /the download link is emailed to them/.test(read("lib/developers/content.generated.ts")))

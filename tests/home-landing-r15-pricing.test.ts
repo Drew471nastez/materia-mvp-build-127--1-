@@ -66,7 +66,8 @@ console.log("\n2. /pricing's products tile")
   check("  the Digital slide and its tab are still there", /Cine Tones LUT Pack/.test(calm) && /<span class="ev-tab-label">Digital<\/span>/.test(calm) && /data-no-delivery=""/.test(calm))
   check("  on a phone the card stands where it does on a computer", /@media\(max-width:479px\)\{\.pz-bento \[data-no-delivery\] \.ev-p-stage\{top:44%\}\}/.test(BENTO_CSS))
   const home = renderToStaticMarkup(createElement(ProductSlides))
-  check("the home page keeps it by default", /class="ev-p-dl"/.test(home) && home.includes(DELIVERY_FILE) && !/data-no-delivery/.test(home))
+  // Changed on purpose (landing round 18): the owner wants no download notice on the home page either, so it is off by default.
+  check("the home page has no download notice either", !/class="ev-p-dl"/.test(home) && !home.includes(DELIVERY_FILE))
 }
 
 console.log("\n3. The questions")

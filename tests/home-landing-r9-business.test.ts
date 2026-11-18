@@ -74,7 +74,8 @@ console.log("\nDigital and physical: what round 9 removed stays removed")
   // Changed on purpose (landing round 13): two digital products and one order card.
   // Changed on purpose (landing round 14): digital is a shelf of six with the cookbook and the course on it.
   /* Changed on purpose (landing round 15): digital is a product page with three products bought in turn, the cookbook and the course among them. */
-  check("digital is two products with one order card", /* Changed on purpose (landing round 16): one book and its buy card. */ /* Changed on purpose (landing round 17): one file and its buy card. */ d.includes("Ancestral Kitchen") && (d.match(/class="bs-card dl-buy"/g) ?? []).length === 1)
+  // Changed on purpose (landing round 18): six products, each its own card in one column, no order card.
+  check("digital is two products with one order card", /* Changed on purpose (landing round 16): one book and its buy card. */ /* Changed on purpose (landing round 17): one file and its buy card. */ d.includes("Ancestral Kitchen") && (d.match(/class="dz-card[ "]/g) ?? []).length === 6)
   check("the Second Brain tablet is gone, with its pictures", !/Second Brain|bs-tablet|bn-|Brain/.test(code(MOCKS)) && ["cover", "daily", "work", "health", "goals"].every((n) => !existsSync(`public/home/showcase/bz-brain-${n}.webp`)))
   const t = renderToStaticMarkup(createElement(TeeScene))
   // Changed on purpose (landing round 13): physical is six store designs in a line, each a sixth of the loop apart.

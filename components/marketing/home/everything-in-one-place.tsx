@@ -363,7 +363,8 @@ function Delivery({ on }: { on: boolean }) {
  * Also the first tile of /pricing's bento (landing round 13). Landing round 15: /pricing passes
  * delivery={false}, the owner wanting a calm product view there without the download link going out.
  */
-export function ProductSlides({ delivery = true }: { delivery?: boolean } = {}) {
+/* Landing round 18, the owner: no "download link sent" notice on the Digital slide anywhere (home and /pricing), so it is off unless asked for. */
+export function ProductSlides({ delivery = false }: { delivery?: boolean } = {}) {
   const [active, setActive] = useState(0)
   const n = EVERYTHING_SLIDES.length
   const next = useCallback(() => setActive((a) => (a + 1) % n), [n])
