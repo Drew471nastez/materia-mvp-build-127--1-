@@ -574,8 +574,10 @@ section("The header, the announcement bar, and the space between them")
      *
      * Changed on purpose (r56): the ceiling is 200px, so a site's own main
      * action is read whole; it still shrinks and still has one.
+     * Changed on purpose (r56-d): 30vw up to 320px. An uppercase, widely
+     * tracked theme set "COMMISSION A STORY" 219px wide and 200px cut it.
      */
-    /"ml-1 min-w-0 max-w-\[200px\] truncate font-semibold/.test(source),
+    /"ml-1 min-w-0 max-w-\[min\(320px,30vw\)\] truncate font-semibold/.test(source),
   )
   check(
     "and the entrance animation leaves the chrome alone",
