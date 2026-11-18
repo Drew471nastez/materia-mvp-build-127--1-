@@ -144,10 +144,11 @@ function DarkArrow() {
  * the purple with a purple arrow, set in at the button's right end so the
  * label stays centred like the other two. It nudges right on hover.
  *
- * Landing round 15, the owner: on hover a soft white outline eases in around
- * the disc, a hair off its edge (.plan-disc::after in PLAN_BUTTON_CSS). It
- * fades and grows from just inside to its place, so it never jumps; the
- * box shadow it replaces stepped in as one ring.
+ * Landing round 17, the owner: round 15's white outline round the disc is
+ * gone. On hover the button itself turns into an outline button (.plan-grow
+ * in PLAN_BUTTON_CSS) and the disc stays a solid white circle; a purple
+ * hairline on its own edge fades in with it, so the circle still reads on
+ * the white.
  */
 function DiscArrow({ compact }: { compact?: boolean }) {
   return (
@@ -173,7 +174,7 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
     (action.settled
       ? "border border-[#e4e4e7] bg-white font-medium text-[#6b7280] cursor-default"
       : featured
-        ? "bg-[#7c3aed] font-semibold text-white shadow-[0_1px_2px_rgba(76,29,149,0.20),0_8px_20px_-12px_rgba(76,29,149,0.55)] hover:bg-[#6d28d9] active:bg-[#6d28d9] focus-visible:ring-[#7c3aed]/30 disabled:cursor-not-allowed disabled:opacity-70"
+        ? "bg-[#7c3aed] font-semibold text-white shadow-[0_1px_2px_rgba(76,29,149,0.20),0_8px_20px_-12px_rgba(76,29,149,0.55)] focus-visible:ring-[#7c3aed]/30 disabled:cursor-not-allowed disabled:opacity-70"
         : "bg-[#0f0e13] font-semibold text-white hover:bg-[#2a2833] active:bg-[#2a2833] focus-visible:ring-[#18181b]/20 disabled:cursor-not-allowed disabled:opacity-70")
   const content = action.loading ? (
     <>
@@ -188,8 +189,11 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
     </>
   )
   const kind = action.settled ? "settled" : featured ? "purple" : "dark"
-  /* Landing round 15, the owner: a faint light crosses a live button on hover (PLAN_BUTTON_CSS). */
-  const shine = live ? " plan-shine" : ""
+  /*
+    Landing round 15, the owner: a faint light crosses a live dark button on hover (PLAN_BUTTON_CSS).
+    Landing round 17, the owner: Get Grow turns into an outline button on hover instead (.plan-grow), so it carries no light.
+  */
+  const shine = disc ? " plan-grow" : live ? " plan-shine" : ""
 
   if (action.href && !action.disabled && !action.settled) {
     return (
@@ -470,9 +474,17 @@ export function PlanCards({
   backwards. Only where there is a pointer that hovers, and never under
   reduced motion.
 
-  Grow's disc: a 1.5px white outline 3.5px off its edge, faded out and drawn
-  a little smaller until the button is hovered or focused, then eased to its
-  place (opacity and scale only).
+  GET GROW (landing round 17, the owner): on hover or keyboard focus the
+  button itself becomes an outline button. Its purple fill fades to white,
+  the card's own ground; a 1.5px purple line eases in on its inside edge
+  (an inset box shadow, so the button keeps its size and nothing moves);
+  its label turns purple. The disc stays a solid white circle and takes a
+  fine purple hairline on its own edge, so it still reads on the white; no
+  ring round it any more (round 15's ::after is gone). 250ms on an ease out
+  for colour and shadow, no transition under reduced motion. Hover only
+  where a pointer hovers, so a tap on a phone never leaves it stuck white.
+  These rules sit outside Tailwind's layers, so they win over the button's
+  utility classes without !important.
 */
 const PLAN_BUTTON_CSS = `
 .plan-shine{overflow:hidden;isolation:isolate}
@@ -480,10 +492,15 @@ const PLAN_BUTTON_CSS = `
 @media (hover:hover) and (prefers-reduced-motion:no-preference){
   .plan-shine:hover::before{translate:175% 0;opacity:1;transition:translate 1.6s cubic-bezier(.45,.05,.35,1),opacity .4s ease}
 }
-.plan-disc::after{content:"";position:absolute;inset:-3.5px;border-radius:9999px;border:1.5px solid rgba(255,255,255,.62);opacity:0;scale:.88;pointer-events:none;transition:opacity .45s ease,scale .6s cubic-bezier(.22,1,.36,1)}
-.plan-shine:focus-visible .plan-disc::after{opacity:1;scale:1}
-@media (hover:hover){.plan-shine:hover .plan-disc::after{opacity:1;scale:1}}
-@media (prefers-reduced-motion:reduce){.plan-disc::after{transition:none}}
+.plan-grow{box-shadow:inset 0 0 0 1.5px rgba(124,58,237,0),0 1px 2px rgba(76,29,149,.2),0 8px 20px -12px rgba(76,29,149,.55);transition:background-color .25s cubic-bezier(.22,1,.36,1),box-shadow .25s cubic-bezier(.22,1,.36,1),color .25s cubic-bezier(.22,1,.36,1)}
+.plan-grow .plan-disc{box-shadow:0 0 0 1px rgba(124,58,237,0),0 1px 2px rgba(46,16,101,.18);transition:box-shadow .25s cubic-bezier(.22,1,.36,1)}
+.plan-grow:focus-visible{background-color:#fff;color:#7c3aed;box-shadow:inset 0 0 0 1.5px #7c3aed,0 0 0 4px rgba(124,58,237,.18),0 8px 20px -12px rgba(76,29,149,0)}
+.plan-grow:focus-visible .plan-disc{box-shadow:0 0 0 1px rgba(124,58,237,.32),0 1px 2px rgba(46,16,101,0)}
+@media (hover:hover){
+  .plan-grow:hover{background-color:#fff;color:#7c3aed;box-shadow:inset 0 0 0 1.5px #7c3aed,0 1px 2px rgba(76,29,149,0),0 8px 20px -12px rgba(76,29,149,0)}
+  .plan-grow:hover .plan-disc{box-shadow:0 0 0 1px rgba(124,58,237,.32),0 1px 2px rgba(46,16,101,0)}
+}
+@media (prefers-reduced-motion:reduce){.plan-grow,.plan-grow .plan-disc{transition:none}}
 `
 
 /**

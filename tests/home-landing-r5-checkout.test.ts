@@ -66,7 +66,8 @@ console.log("\nSmooth: the phone is there, then the cards come up over it with t
 check("the objects turn with the page on a scroll timeline (transform only); no blurred pictures", /view-timeline:--cmc-t block/.test(src) && /cmc-orbit/.test(src) && !existsSync("public/home/commerce/float-ebook.webp") && !existsSync("public/home/commerce/float-cap-blur.webp") && !/filter:\s*blur/.test(src))
 // Changed on purpose (landing round 12): a second observer (useNear) marks the section near and the stage covered; still no scroll listener, no rAF, no layout read.
 /* Changed on purpose (landing round 15): useNear and useStepScene (the phone's two steps) add observers; still no scroll listener. */
-check("observers only (four), no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 4 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
+// Changed on purpose (landing round 17): six: useWords adds the words' arm and play.
+check("observers only (six), no scroll listener, no rAF, no layout read", (src.match(/new IntersectionObserver/g) ?? []).length === 6 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop/.test(src))
 // Changed on purpose (landing round 7): each part (headline, phone, cards) is armed on its own attribute.
 // Changed on purpose (landing round 9): one part (the cards), so the attribute is named.
 check("armed only while a part is wholly below the screen, so a part mounted on screen is simply there", /else if \(e\.boundingClientRect\.top > 0 \|\| e\.boundingClientRect\.height === 0\)/.test(src) && /* Changed on purpose (wave 17): only a mouse arms the cards; on a touch screen they ride in with their ground, which had come up over the phone empty (the owner's recording, a dark shade sweeping over the phone). */ /const arm = matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)\.matches/.test(src) && /if \(!arm \|\| root\.hasAttribute\("data-cmc-over-armed"\)\) root\.setAttribute\("data-cmc-over", ""\)/.test(src))
@@ -80,19 +81,22 @@ check("the phone's move is a transform on the scroll timeline", /\.cmc-world\{an
 // Changed on purpose (landing round 9): the owner: the heading "should not be there by default", it is revealed as the page scrolls; each word on the scroll timeline.
 // Changed on purpose (landing round 15): the words rise out of their rows (each row clips them), from 1.3em down.
 // Changed on purpose (landing round 16): the heading fades and lifts as one box.
-check("  the heading fades and lifts, transform and opacity only", /@keyframes cmc-head\{0%\{opacity:0;transform:translate3d\(0,28px,0\);[^@]*100%\{opacity:0;transform:translate3d\(0,-14px,0\)\}\}/.test(css) && /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(css))
+// Changed on purpose (landing round 17): the words rise on a timer, the heading fades and lifts behind the cards, transitions of transform and opacity.
+check("  the heading fades and lifts, transform and opacity only", /\.cmc-copy\{transition:opacity \.5s ease,transform \.8s [^}]*\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-copy\{opacity:0;transform:translate3d\(0,-14px,0\)\}/.test(css))
 // Changed on purpose (landing round 9): the owner asked for a short sticky stage here: one screen, the cards pulled up 56svh.
 // Changed on purpose (landing round 10): the stage is held for a screen and then stays behind the cards: the track holds both, the cards 44svh (100svh less 56svh) under the stage's foot.
 /* Changed on purpose (landing round 15): 80svh of hold before the cards. */
 // Changed on purpose (landing round 16): the cards 40svh after the held stage.
-check("the stage is held by sticky, the cards 40svh after it", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:40svh\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css))
+// Changed on purpose (landing round 17): the cards start from the phone's foot.
+check("the stage is held by sticky, the cards from the phone's foot", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(css) && /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\) - 100svh \+ var\(--at\) - var\(--cpad\)\)\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;/.test(css))
 // Changed on purpose (landing round 7): the phone is centred under the headline; up to 390px wide on a computer.
 // Changed on purpose (landing round 9): the owner: "the phone is bigger".
 // Changed on purpose (landing round 11): the settled phone is up to 400px; it starts bigger.
 // Changed on purpose (wave 18): --hd is the header's measured 69px at 1440 and --tt the air under it is larger: the heading was glued to the header.
 // Changed on purpose (landing round 15): from 900px the stage is the whole screen again (under 900px it is held under the header).
 // Changed on purpose (landing round 16): a fifth of the screen on a computer (the owner's reference).
-check("the phone is a fifth of the screen on a computer, centred", /@media \(min-width:900px\)\{\s*\.cmc-stage\{height:100svh;--hd:69px;[^}]*--pe:clamp\(220px,20vw,440px\);/.test(css))
+// Changed on purpose (landing round 17): the numbers are on the track; the width also capped by the room under the heading.
+check("the phone is a fifth of the screen on a computer, centred", /@media \(min-width:900px\)\{\s*\.cmc-track\{--hd:69px;[^}]*--pe:min\(clamp\(220px,20vw,440px\),/.test(css))
 // Changed on purpose (landing round 7): One-tap is the page's Apple Pay, the wallet's sheet and Payment complete.
 // Changed on purpose (landing round 11): the in-page checkout's moves.
 check("the One-tap demo's moves are transform and opacity", ["ic-pay", "ic-sheet", "ap-sheet", "ap-done", "ic-done"].every((k) => keyframes(k) && onlyCompositor(keyframes(k))))

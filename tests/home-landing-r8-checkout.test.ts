@@ -91,12 +91,14 @@ check("  they come up one after another as the grid reaches the screen (transfor
 // Changed on purpose (wave 18): the ring is drawn a touch dimmer (0.88, the owner: the products a little lower in brightness) and ends at 0.4 behind the cards.
 /* Changed on purpose (landing round 15): the hold before the cards is 80svh, not 100svh. */
 // Changed on purpose (landing round 16): the cards 40svh after the held stage; the ring dims as a transition once they are up.
-check("  over the phone: above it, the phone dimmed under", /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:40svh\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-ring\{opacity:0\.4;transform:scale\(0\.92\)\}/.test(css))
+// Changed on purpose (landing round 17): the cards start from the phone's foot.
+check("  over the phone: above it, the phone dimmed under", /\.cmc-cards\{position:relative;z-index:5;/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\) - 100svh \+ var\(--at\) - var\(--cpad\)\)\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-ring\{opacity:0\.4;transform:scale\(0\.92\)\}/.test(css))
 // Changed on purpose (landing round 11): the owner: on phones "they should not be a carousel: just normal stacked cards".
 check("two across on a computer; stacked one under another on a phone, no sideways scroll", /\.cmc-bento\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:16px\}/.test(css) && /\.cmc-bento\{grid-template-columns:minmax\(0,1fr\);gap:12px\}/.test(css) && !/scroll-snap|overflow-x:auto/.test(css))
 check("each card's demo runs only while that card is on screen (its own observer, no React state)", /function Card\([\s\S]*?useCommerceLive<HTMLElement>\("0px 0px", false\)/.test(src) && /const ON = "\.cmc-card\[data-commerce-live\]"/.test(src) && !/\[data-commerce-live\] \.cmc-panel/.test(css))
 check("four facts under the cards, each true of checkout (no invented metrics)", (co.match(/class="cmc-fact"/g) ?? []).length === 4 && ["1 page", "1 tap", `${COMMERCE_CURRENCY_COUNT} currencies`, "1 hour"].every((t) => words(co).includes(t)) && !/%</.test(co.slice(co.indexOf("cmc-facts"))))
-check("the cards and facts sit in the shared content box", /max-width:var\(--home-max,2020px\)/.test(css) && /\.cmc-cards-in\{[^}]*padding:clamp\(72px,10vh,120px\) var\(--edge\)/.test(css))
+// Changed on purpose (landing round 17): the room over the first card is --cpad, shared with the cards' start.
+check("the cards and facts sit in the shared content box", /max-width:var\(--home-max,2020px\)/.test(css) && /\.cmc-cards-in\{[^}]*padding:var\(--cpad\) var\(--edge\)/.test(css) && /--cpad:clamp\(72px,10vh,120px\)/.test(css))
 
 console.log("\nWhat is sold: a t-shirt and the Cine Tones LUT Pack")
 check("the LUT pack is the digital product, Mara Quinn's, on the cover Sell what you make shows", LUTS.title === "Cine Tones LUT Pack" && EBOOK.title === LUTS.title && EBOOK.author === "Mara Quinn" && /lut-still\.webp/.test(read(EB)) && /\.ebc-name\{[^}]*font-weight:800/.test(EBOOK_COVER_CSS) && co.includes('<span class="ebc-tag">LUT Pack</span>'))

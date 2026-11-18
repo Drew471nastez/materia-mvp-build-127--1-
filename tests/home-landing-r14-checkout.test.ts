@@ -52,7 +52,8 @@ check("  the bake script knows it", /const IDS = \["tee", "luts", "cap", "course
 
 console.log("\n2. Phones: no black screen at the top, the products beside the phone")
 // Changed on purpose (landing round 15): under 900px the stage is the screen less the header (held under it).
-const phoneStage = css.slice(css.indexOf(".cmc-stage{position:relative;height:calc(100svh - var(--hd))"), css.indexOf("}", css.indexOf(".cmc-stage{position:relative;height:calc(100svh - var(--hd))")))
+// Changed on purpose (landing round 17): the stage's numbers are on the track.
+const phoneStage = css.slice(css.indexOf(".cmc-track{--hd:var(--home-header-height,64px)"), css.indexOf("}", css.indexOf(".cmc-track{--hd:var(--home-header-height,64px)")))
 // Changed on purpose (landing round 16): on a phone the phone is at its settled place from the first frame, big there, and gets smaller round its top as the section comes up.
 check("under 900px the phone is at its settled place from the first frame: nothing to come down, only smaller", /--big:1\.6;--ps:0\.625;/.test(phoneStage) && /--y0:var\(--y1\)/.test(phoneStage))
 check("  narrower, 50vw (up to 230px), still as tall as the screen allows", /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\)/.test(phoneStage))
@@ -61,16 +62,20 @@ check("  the ring 54vw, its centre at the phone's foot and leaning more, so prod
 // Changed on purpose (landing round 15): under 900px the stage is held under the header (top: --hd).
 const phoneStep = css.slice(css.indexOf("@media (max-width:899px){\n    .cmc-stage{position:sticky;top:var(--hd)}"))
 // Changed on purpose (landing round 16): the cards start 40svh after the held stage at every width.
-check("  the cards start 40svh after the held stage at every width", /\.cmc-track > \.cmc-cards\{margin-top:40svh\}/.test(css))
+// Changed on purpose (landing round 17): the cards start from the phone's foot at every width.
+check("  the cards start from the phone's foot at every width", /\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\)/.test(css))
 // Changed on purpose (landing round 16): at every width the phone steps back as a transition once the cards are up.
-check("  the phone steps back as a transition once the cards are up, nothing on the scroll timeline", /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(css) && !/\.cmc-phone-wrap\{animation/.test(css))
+// Changed on purpose (landing round 17): the phone's sink follows the scroll (the owner: smooth, as you scroll on); a transition only without scroll timelines.
+check("  the phone sinks with the scroll as the cards come up", /\.cmc-phone-wrap\{animation:cmc-sink/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(css))
 const settleAt = css.indexOf(".cmc-world{animation:cmc-settle")
 // Changed on purpose (landing round 16): the settle and the heading run on the scroll at every width.
-check("  the settle and the heading run on the scroll at every width", settleAt > 0 && css.split(".cmc-world{animation:cmc-settle").length === 2 && /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.333,0,\.667,\.333\) both;animation-timeline:--cmc-t;animation-range:contain -88svh contain -8svh\}/.test(css) && /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(css))
+// Changed on purpose (landing round 17): the heading's words rise on a timer; the settle is on the scroll.
+check("  the settle runs on the scroll at every width", settleAt > 0 && css.split(".cmc-world{animation:cmc-settle").length === 2 && /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.333,0,\.667,\.333\) both;animation-timeline:--cmc-t;animation-range:contain -88svh contain -8svh\}/.test(css))
 /* Changed on purpose (landing round 15): the big phone starts 12svh under its settled place, not 40svh down the stage (the owner: too much empty black at the top). */
 // Changed on purpose (landing round 15): the owner wants the phone to rise into place behind the headline; it starts 22svh low and 1.12x, not a 1.72x zoom.
 // Changed on purpose (landing round 16): on a computer the phone starts big (a third of the screen) and high on the stage, 12svh, and comes down to its settled place.
-check("  the computer starts big, a third of the screen, and comes down into place", /--big:1\.667;--ps:0\.6;--y0:12svh;/.test(css))
+// Changed on purpose (landing round 17): it grows round the settled phone's top.
+check("  the computer starts big, a third of the screen, and comes down into place", /--big:1\.667;--ps:0\.6;/.test(css))
 check("  phones' spots stand higher and lower along the phone's side", FLOATS.filter((f) => f.m).length === 5 && Math.max(...FLOATS.filter((f) => f.m).map((f) => Math.abs(f.m!.y))) >= 0.4)
 
 console.log("\n3. Frames on a phone")

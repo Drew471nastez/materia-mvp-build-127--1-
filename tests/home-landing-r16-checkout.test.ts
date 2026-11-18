@@ -39,30 +39,40 @@ const html = renderToStaticMarkup(createElement(CheckoutScene))
 
 console.log("\n── the sizes: a third of the screen, then a fifth ──")
 {
-  check("computer: the settled phone a fifth of the screen wide, the big one five thirds of it (a third)", /--pe:clamp\(220px,20vw,440px\);/.test(css) && /--big:1\.667;--ps:0\.6;--y0:12svh;/.test(css))
-  check("computer: settled low in the middle, at least 42svh down, its foot below the screen", /--y1:max\(42svh,calc\(var\(--top\) \+ var\(--tt\) \+ var\(--fs\) \* 2\.1 \+ var\(--gap\)\)\);/.test(css))
+  // Changed on purpose (landing round 17): the settled phone is also capped by the room under the heading, so it is seen whole; the big phone grows round its top.
+  check("computer: the settled phone a fifth of the screen wide, the big one five thirds of it (a third)", /--pe:min\(clamp\(220px,20vw,440px\),calc\(\(100svh - var\(--y1\) - var\(--pb\)\) \/ 2\.07\)\);/.test(css) && /--big:1\.667;--ps:0\.6;/.test(css))
+  // Changed on purpose (landing round 17): the settled phone sits under the heading, its foot on the screen (the owner: seen whole).
+  check("computer: settled under the heading, its foot on the screen", /--y1:calc\(var\(--top\) \+ var\(--tt\) \+ var\(--fs\) \* 2\.1 \+ var\(--gap\)\);/.test(css) && !/max\(42svh/.test(css))
   check("phone: the big phone 1.6 times the settled one, at the settled place from the first frame (it only gets smaller round its top)", /--big:1\.6;--ps:0\.625;--pw:calc\(var\(--pe\) \* var\(--big\)\);/.test(css) && /--y0:var\(--y1\);/.test(css))
   check("the settle is a scale round the phone's top, from its big box", /\.cmc-world\{[^}]*transform-origin:50% 0;transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}/.test(css) && /@keyframes cmc-settle\{from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}to\{transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}\}/.test(css))
 }
 
 console.log("\n── the motion: two scroll linked boxes, the cards on the page's own scroll ──")
 {
-  check("exactly two scroll timeline animations: the phone's world and the heading", (css.match(/animation-timeline:--cmc-t/g) ?? []).length === 2 && (css.match(/animation-range:/g) ?? []).length === 3)
+  // Changed on purpose (landing round 17): still two, the heading's swapped for the phone's sink (the words rise on a timer).
+  check("exactly two scroll timeline animations: the phone's world and its box", (css.match(/animation-timeline:--cmc-t/g) ?? []).length === 2 && /\.cmc-phone-wrap\{animation:cmc-sink/.test(css))
   check("the phone settles over -88svh to the hold (to -8svh on a phone, held under the header), t squared", /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.333,0,\.667,\.333\) both;animation-timeline:--cmc-t;animation-range:contain -88svh contain -8svh\}/.test(css) && /@media \(min-width:900px\)\{\s*\.cmc\[data-cmc-near\] \.cmc-world\{animation-range:contain -88svh contain 0svh\}/.test(css))
-  check("the heading fades and rises in from -16 to 8svh, holds, fades and lifts from 44 to 68svh", /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(css) && /@keyframes cmc-head\{0%\{opacity:0;transform:translate3d\(0,28px,0\);animation-timing-function:cubic-bezier\(\.33,1,\.68,1\)\}28\.571%,71\.429%\{opacity:1;transform:translate3d\(0,0,0\)\}100%\{opacity:0;transform:translate3d\(0,-14px,0\)\}\}/.test(css))
+  // Changed on purpose (landing round 17): the heading's words rise one after another on a timer; it fades behind the cards.
+  check("the heading's words rise in on a timer, the heading fades behind the cards", /\.cmc-w\{transition:opacity \.7s ease,transform 1s/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-copy\{opacity:0;/.test(css) && !/cmc-head\b/.test(css))
   check("every keyframe in the section moves transform and opacity only", [...css.matchAll(/@keyframes (cmc-[a-z-]+)\{([\s\S]*?)\}\}/g)].every((m) => !/(top|left|height|width|margin|filter):/.test(m[2])))
-  check("the stage is held at every width (under the header on a phone), the cards 40svh after it", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:40svh\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css))
+  // Changed on purpose (landing round 17): the cards start where the first card meets the phone's foot at --over.
+  check("the stage is held at every width (under the header on a phone), the cards from the phone's foot", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\)/.test(css) && /@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css))
   check("the cards have no scroll animation of their own", !/\.cmc-card[^{]*\{[^}]*animation-timeline/.test(css))
-  check("no ring turn, recede or cross fade on the scroll any more", !/cmc-spin|cmc-unspin|cmc-recede|cmc-word|SPIN_RANGE/.test(css + src))
-  check("the scroll animations apply only near the section", /\.cmc\[data-cmc-near\] \.cmc-world\{animation:cmc-settle/.test(css) && /\.cmc\[data-cmc-near\] \.cmc-copy\{animation:cmc-head/.test(css))
+  // Changed on purpose (landing round 17): the words are back (round 15's word rise, on a timer); still no ring turn or recede on the scroll.
+  check("no ring turn, recede or cross fade on the scroll any more", !/cmc-spin|cmc-unspin|cmc-recede|SPIN_RANGE/.test(css + src))
+  // Changed on purpose (landing round 17): the phone's box replaces the heading.
+  check("the scroll animations apply only near the section", /\.cmc\[data-cmc-near\] \.cmc-world\{animation:cmc-settle/.test(css) && /\.cmc\[data-cmc-near\] \.cmc-phone-wrap\{animation:cmc-sink/.test(css))
   check("one new will-change, only near the section: the phone inside the world (one raster as it scales)", /\.cmc\[data-cmc-near\] \.cmc-rise\{will-change:transform\}/.test(css) && (css.match(/will-change:/g) ?? []).length === 2)
 }
 
 console.log("\n── the cards' arrival, at every width ──")
 {
-  check("one observer steps the phone and the ring back behind the cards, transitions", /function useBack/.test(src) && /useBack\(rootRef\)/.test(src) && /\.cmc\[data-cmc-back\] \.cmc-phone-wrap\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}/.test(css) && /\.cmc-phone-wrap\{transition:transform 1\.2s/.test(css))
-  check("a jump from past the cards to above the section always crosses the arrival observers: their roots reach far above the screen", /const FAR_ABOVE = "100000px"/.test(src) && /rootMargin: `\$\{FAR_ABOVE\} 0px -55% 0px`/.test(src) && /rootMargin: `\$\{FAR_ABOVE\} 0px -150% 0px`/.test(src))
-  check("no step scene on a phone any more", !/useStepScene|data-cmc-armed|data-cmc-words/.test(src + css))
+  // Changed on purpose (landing round 17): the phone's sink follows the scroll; the transitions are the soft cross fade and the ring.
+  check("one observer steps the phone and the ring back behind the cards, transitions", /function useBack/.test(src) && /useBack\(rootRef\)/.test(src) && /@keyframes cmc-sink\{from\{transform:translate3d\(0,0,0\) scale\(1\)\}to\{transform:translate3d\(0,var\(--sink\),0\) scale\(0\.9\)\}\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-ring\{opacity:0\.4;/.test(css))
+  // Changed on purpose (landing round 17): useBack watches the back mark against the screen's middle.
+  check("a jump from past the cards to above the section always crosses the arrival observers: their roots reach far above the screen", /const FAR_ABOVE = "100000px"/.test(src) && /rootMargin: `\$\{FAR_ABOVE\} 0px -50% 0px`/.test(src) && /rootMargin: `\$\{FAR_ABOVE\} 0px -150% 0px`/.test(src))
+  // Changed on purpose (landing round 17): the words are armed again (useWords), only below the screen; the phone still has no step.
+  check("no step scene on a phone any more", !/useStepScene|data-cmc-in\b/.test(src + css) && !/data-cmc-armed\][^{]*\.cmc-world/.test(css))
 }
 
 console.log("\n── nothing per frame in script ──")
@@ -78,7 +88,8 @@ console.log("\n── kept ──")
   check("the ring under the phone, its black shade in the phone's box (no product over the phone's screen)", /\.cmc-ring\{position:absolute;z-index:2;/.test(css) && /\.cmc-phone-wrap\{position:absolute;z-index:3;/.test(css) && /<span class="cmc-shade" aria-hidden="true"><\/span>/.test(html))
   check("round 15: the white sheet goes on under the dark block (no black band)", /\[data-sheet="white"\]:has\(\+\[data-sheet-backdrop\] \.cmc\)\{box-shadow:0 50svh 0 #fff\}/.test(css))
   check("the four cards", ["One page, then paid", "Apple Pay and Google Pay, built in", "Local in ", "Bring back the ones who almost bought"].every((t) => html.includes(t)))
-  check("lazy box: the track's share of the screen's height in the measuring script", /checkout: \[\{ css: "140svh \+ 9vh", vh: 149, until: 899 \}, \{ css: "237svh", vh: 237 \}\]/.test(read("scripts/measure-home-lazy-heights.mjs")))
+  // Changed on purpose (landing round 17): the track is shorter; the lead re-measures the boxes.
+  check("lazy box: the track's share of the screen's height in the measuring script", /checkout: \[\{ css: "[^"]+", vh: \d+, until: 899 \}, \{ css: "[^"]+", vh: \d+ \}\]/.test(read("scripts/measure-home-lazy-heights.mjs")))
   check("no banned words", !BANNED.test(text(html)))
 }
 

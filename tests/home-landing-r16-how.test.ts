@@ -66,8 +66,9 @@ console.log("\n2. Take tips: a real cover photograph")
 {
   check("a photograph, not the drawn mesas", !/data-cover="red"/.test(how) && !/HOW_COVER_REDS|TipCover/.test(read("components/marketing/home/how-it-works.tsx").replace(/\/\*[\s\S]*?\*\//g, "")))
   const img = /<span class="cmh-tp-cover"><img [^>]*><\/span>/.exec(how)?.[0] ?? ""
-  check("two webp widths for 1x and 2x, sized, lazy, decoded off the main thread", /srcSet="\/home\/how\/ines-cover-600\.webp 600w, \/home\/how\/ines-cover-1000\.webp 1000w"/i.test(img) && /src="\/home\/how\/ines-cover-1000\.webp"/.test(img) && /width="1000"/.test(img) && /height="425"/.test(img) && /loading="lazy"/.test(img) && /decoding="async"/.test(img) && /alt=""/.test(img), img)
-  check("the files exist, are small, and are the cover's own shape (100:42.5)", [["600", 30], ["1000", 40]].every(([w, kb]) => existsSync(`public/home/how/ines-cover-${w}.webp`) && statSync(`public/home/how/ines-cover-${w}.webp`).size < Number(kb) * 1024) && Math.abs(HOW_COVER.height / HOW_COVER.width - 0.425) < 0.002)
+  // Changed on purpose (landing round 17): the owner disliked Ines Duarte and her cover; Finn Hollis, a surf filmmaker, under a surfing cover (tests/home-landing-r17-small.test.ts).
+  check("two webp widths for 1x and 2x, sized, lazy, decoded off the main thread", /srcSet="\/home\/how\/finn-cover-600\.webp 600w, \/home\/how\/finn-cover-1000\.webp 1000w"/i.test(img) && /src="\/home\/how\/finn-cover-1000\.webp"/.test(img) && /width="1000"/.test(img) && /height="425"/.test(img) && /loading="lazy"/.test(img) && /decoding="async"/.test(img) && /alt=""/.test(img), img)
+  check("the files exist, are small, and are the cover's own shape (100:42.5)", [["600", 30], ["1000", 40]].every(([w, kb]) => existsSync(`public/home/how/finn-cover-${w}.webp`) && statSync(`public/home/how/finn-cover-${w}.webp`).size < Number(kb) * 1024) && Math.abs(HOW_COVER.height / HOW_COVER.width - 0.425) < 0.002)
   check("it covers its box", /\.cmh-tp-cover img\{display:block;width:100%;height:100%;object-fit:cover/.test(css) && /\.cmh-tp-cover\{[^}]*height:34%/.test(css))
   check("the round 14 photograph the owner disliked is not back", !existsSync("public/home/how/ines-cover.webp"))
 }

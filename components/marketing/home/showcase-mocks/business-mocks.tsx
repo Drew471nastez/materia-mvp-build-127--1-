@@ -3,15 +3,16 @@ import { useEffect, useRef, type CSSProperties } from "react"
 import { Pic, pic, u } from "./frame"
 
 /*
-  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 16).
+  WHAT A STOREFRONT SELLS, AS SMALL SCENES (landing rounds 8 to 17).
   Each kind of thing sold is one scene on its own calm ground: the thing
   itself, photographed, and the Storelib page that sells it, with one short
   moment playing while it is shown.
 
-    Digital product   A cookbook bought, then opening to its first spread
-                      (round 16)
+    Digital download  A PDF bought, then landing in the buyer's email and
+                      downloaded (round 17)
     Physical product  A line of store designs for goods you ship, turning in
-                      perspective by itself and under a drag (round 14)
+                      perspective by itself and under a drag (round 14; on
+                      a phone, round 17, smaller and inside its card)
     Course            Mixing in key, Tomás Reyes's course for new DJs (kept)
     Community         Applied AI Club, under its photograph (round 13: the
                       owner disliked the green banner)
@@ -52,93 +53,112 @@ function Still({ src, w, h, className = "smk-pic" }: { src: string; w: number; h
 
 /* ================================================================ Digital product */
 /*
-  Round 16, the owner asked for another picture of a digital product: the
-  product page with a buyer's library (round 15) read as two screens of UI.
-  It is one thing now, large and calm: Ruth Calder's cookbook, Ancestral
-  Kitchen, closed on a linen ground beside its buy card. Buy is pressed, the
-  button turns into Download PDF, and the book opens to its first spread: a
-  photograph of the soup on the left page, its recipe on the right.
+  Round 17, the owner disliked the cookbook opening (round 16) and asked for
+  a picture that says at a glance what a digital product is: you sell a
+  file, and the buyer has it the moment they pay. So the scene is that, in
+  three beats, left to right (top to bottom on a phone):
 
-  Chosen over a video course player (the Courses card beside it already is
-  one), a sample pack's waveform (a sound drawn as bars is the least real
-  looking of the three) and a grid of covers (round 12's row of covers was
-  disliked): a book opening is a picture anyone reads at a glance, and it is
-  the only scene of the five with a single object at its middle, so it sits
-  well beside the course page, the club and the coach.
+    1  the product card: Ancestral Kitchen, a PDF cookbook, $34. Buy is
+       pressed and turns into Paid.
+    2  the buyer's email comes in beside it, from the seller, worded the way
+       a Storelib receipt is (lib/emails: "Your receipt for ...", "Download
+       now"), with an empty place for the file.
+    3  the file itself, a PDF, lifts off the Buy button and lands in that
+       place; Download now is pressed, a thin bar fills and the file reads
+       Downloaded.
 
-  The opening is three flat layers, not a 3D scene: the cover turns away on
-  its left edge to a quarter turn (edge on, gone), then the left page turns
-  in from a quarter turn on the spine, while the book slides from centred
-  closed to centred open. Each is a CSS animation on transform and opacity
-  with its own perspective(), run once per turn under `.bz-on` and paused
-  off screen (business-carousel.tsx). Without motion the scene stands at its
-  end: the book open, the PDF paid for.
+  One cover, one file, one email, nothing else moving. The flying file is a
+  copy of the one in the email, drawn over the scene and landing exactly on
+  it (both placed in design units), so the hand over is a crossfade between
+  two identical pictures. Each moment is a CSS animation on transform and
+  opacity under `.bz-on` (MOTION), paused off screen by the section; without
+  motion the scene stands at its end: paid, the email in, the file
+  downloaded.
 
-  Pictures: the cover is cut from the Ancestral Kitchen mockup the page
-  already used (public/home/sell-map), the soup is an Unsplash photograph
-  (photo-1476718406336), both re-encoded small in public/home/showcase.
+  Picture: the cover cut from the Ancestral Kitchen mockup (public/home/showcase/dg-kitchen-cover.webp).
 */
-export const DIGITAL_BOOK = {
+export const DIGITAL_FILE = {
   name: "Ancestral Kitchen",
-  kind: "E-book, PDF",
+  kind: "E-book · PDF",
   by: "Ruth Calder",
+  initials: "RC",
   price: "$34",
   pages: 212,
   cover: pic("dg-kitchen-cover"),
-  photo: pic("dg-kitchen-soup"),
-  recipe: "Roasted squash soup",
-  chapter: "Soups",
-  serves: "Serves 4 · 1 hour",
-  about: "80 recipes from whole foods, with a shopping list for every week.",
-  ingredients: ["1 butternut squash", "2 shallots", "1 tbsp cumin seeds", "750 ml stock", "Feta and pumpkin seeds"],
-  method: "Roast the squash until soft and dark at the edges, about 40 minutes.",
+  file: "Ancestral-Kitchen.pdf",
+  size: "PDF · 18 MB",
+  subject: "Your receipt for Ancestral Kitchen",
+  heading: "Thanks for your order",
+  body: "Here is your copy. It is in your library too.",
+  button: "Download now",
 } as const
 
+/** The file as the email shows it; the copy that flies in is the same markup. */
+function FileTile({ fly = false }: { fly?: boolean }) {
+  const f = DIGITAL_FILE
+  return (
+    <span className={fly ? "dl-file dl-fly" : "dl-file"}>
+      <span className="dl-doc">
+        <i>PDF</i>
+      </span>
+      <span className="dl-name">
+        <b>{f.file}</b>
+        <span className="dl-meta">
+          <span className="a">{f.size}</span>
+          <span className="b">
+            <Check /> Downloaded
+          </span>
+        </span>
+      </span>
+      <span className="dl-get">
+        <ArrowDownToLine className="a" />
+        <Check className="b" />
+      </span>
+      <span className="dl-bar">
+        <i />
+      </span>
+    </span>
+  )
+}
+
 export function DigitalScene() {
-  const b = DIGITAL_BOOK
+  const f = DIGITAL_FILE
   return (
     <div className="bs bs-digital">
-      <div className="bk">
-        <div className="bk-page bk-right">
-          <span className="bk-chap">{b.chapter}</span>
-          <b className="bk-title">{b.recipe}</b>
-          <span className="bk-serves">{b.serves}</span>
-          <ul className="bk-ing">
-            {b.ingredients.map((x) => (
-              <li key={x}>{x}</li>
-            ))}
-          </ul>
-          <p className="bk-method">
-            <i>1</i>
-            {b.method}
-          </p>
-          <span className="bk-no">15</span>
-        </div>
-        <div className="bk-page bk-left">
-          <Still src={b.photo} w={560} h={720} />
-        </div>
-        <div className="bk-cover">
-          <Still src={b.cover} w={396} h={510} />
-        </div>
-      </div>
-      <div className="bs-card bk-buy">
-        <span className="bs-kicker">{b.kind}</span>
-        <h4>{b.name}</h4>
-        <span className="bs-by">
-          by {b.by} · {b.pages} pages
+      <div className="bs-card dl-buy">
+        <span className="dl-cover">
+          <Still src={f.cover} w={396} h={510} />
         </span>
-        <span className="bs-price">{b.price}</span>
-        <span className="bs-desc">{b.about}</span>
-        <span className="bk-paid">
-          <CheckCircle2 /> Paid, and in your library
+        <span className="dl-info">
+          <span className="bs-kicker">{f.kind}</span>
+          <h4>{f.name}</h4>
+          <span className="bs-by">
+            by {f.by} · {f.pages} pages
+          </span>
+          <span className="bs-price">{f.price}</span>
         </span>
-        <span className="bs-btn bk-btn">
-          <span className="a">Buy for {b.price}</span>
+        <span className="bs-btn dl-pay">
+          <span className="a">Buy for {f.price}</span>
           <span className="b">
-            <ArrowDownToLine /> Download PDF
+            <CheckCircle2 /> Paid
           </span>
         </span>
       </div>
+      <div className="dl-mail">
+        <span className="dl-from">
+          <i>{f.initials}</i>
+          <span>
+            <b>{f.by}</b>
+            <em>{f.subject}</em>
+          </span>
+          <s>now</s>
+        </span>
+        <b className="dl-head">{f.heading}</b>
+        <span className="dl-body">{f.body}</span>
+        <FileTile />
+        <span className="bs-btn dl-dl">{f.button}</span>
+      </div>
+      <FileTile fly />
     </div>
   )
 }
@@ -200,31 +220,41 @@ const PLACE_Z = [-820, -500, -240, 0, -240, -500, -820]
 const PLACE_R = [0, 38, 28, 0, -28, -38, 0]
 const PLACE_S = [0.84, 0.88, 0.94, 1, 0.94, 0.88, 0.84]
 const PLACE_O = [0, 0.55, 1, 1, 1, 0.55, 0]
-type Scale = { x: number; z: number; w: number }
-/** A computer draws the line at a 336u stage; a phone a little smaller and closer together. */
-const DESK: Scale = { x: 1, z: 1, w: 336 }
-const PHONE: Scale = { x: 0.56, z: 0.7, w: 276 }
+/*
+  Round 17, the owner's phone: the front design ran off the card's left edge and a side one off its right. On a phone
+  the front design is smaller (228u of the card's 360u), and only one design shows on each side, peeking out from
+  behind it the same on both sides; the two further out are gone, a design fading as it leaves for them (opacity 0,
+  then hidden), so whatever the line is doing, nothing stands past the card. The side designs stay solid: see-through
+  ones let the designs behind show through the front one mid turn. A drag moves it a design per side card's distance.
+*/
+export const STORE_PLACE_O_PHONE = [0, 0, 1, 1, 1, 0, 0] as const
+/** x and z: how far the places are spread; w: the stage's width in design units; o: the opacity at each place; drag: design units of finger travel per design. */
+type Scale = { x: number; z: number; w: number; o: readonly number[]; drag: number }
+/** A computer draws the line at a 336u stage; a phone smaller and closer together (round 17). */
+const DESK: Scale = { x: 1, z: 1, w: 336, o: PLACE_O, drag: 300 }
+export const STORE_PHONE: Scale = { x: 0.34, z: 0.7, w: 228, o: STORE_PLACE_O_PHONE, drag: 160 }
+const PHONE = STORE_PHONE
 const n6 = STORE_DESIGNS.length
 /** Distance from the front, wrapped into [-3, 3). */
 const wrapK = (k: number) => ((((k + n6 / 2) % n6) + n6) % n6) - n6 / 2
 /** A card's place at any distance from the front: x and z in design units, turn in degrees, opacity. */
-export function storePlace(k: number) {
+export function storePlace(k: number, o: readonly number[] = PLACE_O) {
   const w = wrapK(k) + 3
   const a = Math.floor(w)
   const b = Math.min(a + 1, 6)
   const f = w - a
   const mix = (t: readonly number[]) => t[a] + (t[b] - t[a]) * f
-  return { x: mix(PLACE_X), z: mix(PLACE_Z), r: mix(PLACE_R), s: mix(PLACE_S), o: mix(PLACE_O) }
+  return { x: mix(PLACE_X), z: mix(PLACE_Z), r: mix(PLACE_R), s: mix(PLACE_S), o: mix(o) }
 }
 const placeCss = (k: number, s: Scale) => {
-  const p = storePlace(k)
+  const p = storePlace(k, s.o)
   return `transform:translate3d(${+(p.x * s.x).toFixed(1)}u,0,${+(p.z * s.z).toFixed(1)}u) rotateY(${p.r}deg) scale(${p.s});opacity:${p.o}`
 }
 /** Which card is drawn over which: the nearer the front, the higher (3 in front, 0 far behind); it changes only half way between two places. */
 export const storeLayer = (k: number) => 3 - Math.round(Math.abs(wrapK(k)))
 /* Each card's resting place before the script takes over (and without it): the line whole, the first design in front. */
 const storeLineCss = (s: Scale) =>
-  STORE_DESIGNS.map((_, i) => `.bt-card:nth-child(${i + 1}){${placeCss(i, s)};z-index:${storeLayer(i)}${storePlace(i).o ? "" : ";visibility:hidden"}}`).join("")
+  STORE_DESIGNS.map((_, i) => `.bt-card:nth-child(${i + 1}){${placeCss(i, s)};z-index:${storeLayer(i)}${storePlace(i, s.o).o ? "" : ";visibility:hidden"}}`).join("")
 const STORE_LINE = storeLineCss(DESK)
 const STORE_LINE_PHONE = storeLineCss(PHONE)
 
@@ -280,7 +310,7 @@ function storeLine(stage: HTMLElement): StoreLine {
     if (w > 0) unit = w / scale.w
   }
   const frame = (k: number) => {
-    const p = storePlace(k)
+    const p = storePlace(k, scale.o)
     return {
       transform: `translate3d(${(p.x * scale.x * unit).toFixed(2)}px,0,${(p.z * scale.z * unit).toFixed(2)}px) rotateY(${p.r.toFixed(2)}deg) scale(${p.s.toFixed(4)})`,
       opacity: +p.o.toFixed(3),
@@ -379,7 +409,7 @@ function storeLine(stage: HTMLElement): StoreLine {
     }
   }
   /** Card positions per pixel of drag: one design per side card's distance, a little more. */
-  const pitch = () => Math.max(1, 262 * scale.x * unit * 1.15)
+  const pitch = () => Math.max(1, scale.drag * unit)
 
   const down = (e: PointerEvent) => {
     if (drag || (e.pointerType === "mouse" && e.button !== 0)) return
@@ -746,16 +776,20 @@ const MOTION = `
 .bz-on .bs-card,.bz-on .bs-com,.bz-on .bs-ccard{animation:bz-rise .8s ${E} .1s backwards}
 .bz-on .bs-coach-pic,.bz-on .bo-main-pic{animation:bz-push 7s cubic-bezier(.25,.6,.3,1) both}
 
-/* digital (round 16): bought, then the book opens. The book fades in where it stands (its transform is the slide). */
-.bz-on .bk{animation:bk-fade .6s ease .1s backwards,bk-slide 1.3s cubic-bezier(.45,0,.2,1) 1.8s both}
-.bz-on .bk-btn{animation:bz-press .36s ease 1.1s both}
-.bz-on .bk-btn>.a{animation:bz-out .3s ease 1.2s both}
-.bz-on .bk-btn>.b{animation:bz-in .4s ${E} 1.35s both}
-.bz-on .bk-paid{animation:bz-up-in .5s ${E} 1.5s both}
-/* The right page waits under the closed cover, drawn only once the cover lifts: a fade of the whole book is not promised to group its 3D layers, so the page showed through the cover as it faded in. */
-.bz-on .bk-right{animation:bk-fade .01s linear 1.8s backwards}
-.bz-on .bk-cover{animation:bk-cover .55s cubic-bezier(.55,0,.9,.55) 1.8s both}
-.bz-on .bk-left{animation:bk-left .8s cubic-bezier(.1,.45,.25,1) 2.35s both}
+
+/* digital (round 17): paid, the email comes in, the file flies into it, then it is downloaded. */
+.bz-on .dl-pay{animation:bz-press .36s ease 1s both}
+.bz-on .dl-pay>.a{animation:bz-out .3s ease 1.1s both}
+.bz-on .dl-pay>.b{animation:bz-in .4s ${E} 1.25s both}
+.bz-on .dl-mail{animation:bz-rise .7s ${E} 1.3s backwards}
+.bz-on .dl-fly{animation:dl-fly 1s cubic-bezier(.5,0,.2,1) 1.7s both}
+.bz-on .dl-mail .dl-file{animation:dl-show .01s linear 2.58s backwards}
+.bz-on .dl-dl{animation:bz-press .36s ease 3.1s both}
+.bz-on .dl-mail .dl-bar{animation:dl-bar 1.4s linear 3.3s both}
+.bz-on .dl-mail .dl-bar i{animation:dl-fill 1.1s cubic-bezier(.4,0,.3,1) 3.4s both}
+.bz-on .dl-mail .dl-file .a{animation:bz-out .3s ease 4.6s both}
+.bz-on .dl-mail .dl-meta .b{animation:bz-in .4s ${E} 4.7s both}
+.bz-on .dl-mail .dl-get .b{animation:bz-tick .4s ${E} 4.7s both}
 
 .bz-on .bp-bar i{animation:bz-play 4.2s linear .6s both}
 .bz-on .bp-play{animation:bz-pop .5s ${E} .3s both}
@@ -774,10 +808,10 @@ const MOTION = `
 .bz-on .bs-coach .bs-press{animation:bz-press .36s ease 3.9s both}
 .bz-on .bs-booked{animation:bz-rise .6s ${E} 4.2s backwards}
 }
-@keyframes bk-fade{from{opacity:0}}
-@keyframes bk-slide{from{transform:translate3d(var(--bk-shift),0,0)}}
-@keyframes bk-cover{0%{opacity:1;transform:rotateY(0deg)}99%{opacity:1}100%{opacity:0;transform:rotateY(-90deg)}}
-@keyframes bk-left{0%{opacity:0;transform:rotateY(90deg)}1%{opacity:1}100%{opacity:1;transform:rotateY(0deg)}}
+@keyframes dl-fly{0%{opacity:0;transform:translate3d(var(--dl-dx),var(--dl-dy),0) scale(.55)}14%{opacity:1}86%{opacity:1;transform:none}100%{opacity:0;transform:none}}
+@keyframes dl-show{from{opacity:0}}
+@keyframes dl-bar{0%{opacity:0}6%{opacity:1}90%{opacity:1}100%{opacity:0}}
+@keyframes dl-fill{from{transform:scaleX(0)}}
 @keyframes bz-rise{from{opacity:0;transform:translate3d(0,18u,0)}}
 @keyframes bz-push{from{transform:scale(1.05)}}
 @keyframes bz-tick{from{opacity:0;transform:scale(.3)}}
@@ -816,34 +850,50 @@ export const BUSINESS_MOCK_CSS =
 .bs-swap .a{opacity:0}
 
 /*
-  digital (round 16): the cookbook and its buy card on a warm linen ground. The book is a box as wide as its open
-  spread, with a perspective for its pages: the right page, the left page and the cover are flat siblings (no
-  preserve-3d), drawn in their order, each turned on its own hinge (the cover on its left edge, the left page on the
-  spine). At rest the book is open and the cover turned away; the moment (MOTION) starts it closed and centred.
+  digital (round 17): the product card on the left, the buyer's email on the right, on a warm linen ground. Everything
+  inside the email is placed in design units, so the file in it and the copy that flies in over the scene
+  (.dl-fly, the same box at the same place) are one picture when they meet.
 */
-.bs-digital{background:#eee9e1}
-.bk{--bk-shift:-140u;position:absolute;left:84u;top:104u;width:560u;height:362u;perspective:1600u}
-.bk-page{position:absolute;top:0;bottom:0;width:50%;background:#fbf8f3;box-shadow:0 0 0 1u rgba(60,45,30,.06),0 26u 44u -26u rgba(60,45,30,.4)}
-.bk-right{right:0;display:flex;flex-direction:column;padding:34u 30u 0 34u;border-radius:0 4u 4u 0;background:linear-gradient(to right,rgba(60,45,30,.1),rgba(60,45,30,0) 9%),#fbf8f3;color:#2b2420}
-.bk-left{left:0;overflow:hidden;border-radius:4u 0 0 4u;transform-origin:100% 50%}
-.bk-left::after{content:"";position:absolute;inset:0;background:linear-gradient(to left,rgba(40,30,20,.2),rgba(40,30,20,0) 10%);pointer-events:none}
-.bk-cover{position:absolute;right:0;top:0;bottom:0;width:50%;overflow:hidden;border-radius:2u 6u 6u 2u;transform-origin:0 50%;transform:rotateY(-90deg);opacity:0;box-shadow:0 0 0 1u rgba(60,45,30,.08),0 26u 44u -24u rgba(60,45,30,.45)}
-.bk-chap{font-size:9.5u;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#9a6b3f}
-.bk-title{margin-top:8u;font-family:Georgia,"Times New Roman",serif;font-size:24u;font-weight:400;line-height:1.1;letter-spacing:-.01em}
-.bk-serves{margin-top:8u;font-size:10.5u;color:#857a70}
-.bk-ing{margin:16u 0 0;padding:0;list-style:none;border-top:1u solid #ebe4da}
-.bk-ing li{padding:6u 0;border-bottom:1u solid #ebe4da;font-size:11u;line-height:1.3;color:#4a403a}
-.bk-method{display:flex;gap:8u;margin:14u 0 0;font-size:11u;line-height:1.5;color:#4a403a}
-.bk-method i{flex:none;font-family:Georgia,serif;font-size:15u;font-style:normal;line-height:1.1;color:#9a6b3f}
-.bk-no{position:absolute;left:0;right:0;bottom:14u;font-size:9.5u;text-align:center;color:#a39a91}
-.bk-buy{left:704u;top:104u;width:320u;height:362u}
-.bk-buy .bs-by{margin-top:6u!important}
-.bk-btn{display:grid;overflow:hidden}
-.bk-btn>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
-.bk-btn>.a{opacity:0}
-.bk-paid{display:flex;align-items:center;gap:7u;margin:auto 0 12u;font-size:13u;font-weight:500;color:#3f3f46}
-.bk-paid svg{width:16u;height:16u;color:#16a34a}
-.bk-paid+.bk-btn{margin-top:0}
+.bs-digital{--dl-dx:-480u;--dl-dy:135u;background:#eee9e1}
+.dl-buy{left:110u;top:64u;width:400u;height:442u}
+.dl-cover{display:grid;place-items:center;height:214u;margin:-28u -28u 0;border-radius:22u 22u 0 0;background:#e4ddd1}
+.dl-cover .smk-pic{width:132u;height:170u;border-radius:3u 5u 5u 3u;box-shadow:0 0 0 1u rgba(60,45,30,.08),0 18u 30u -16u rgba(60,45,30,.55)}
+.dl-info{display:flex;flex-direction:column;margin-top:22u}
+.dl-info .bs-price{margin-top:10u!important}
+.dl-pay{display:grid;overflow:hidden}
+.dl-pay>span{grid-area:1/1;display:flex;align-items:center;gap:8u}
+.dl-pay>.a{opacity:0}
+.dl-pay svg{width:17u;height:17u;color:#4ade80}
+.dl-mail{position:absolute;left:590u;top:115u;width:400u;height:340u;border-radius:22u;background:#fff;box-shadow:0 0 0 1u rgba(16,24,40,.05),0 2u 4u rgba(16,24,40,.04),0 30u 60u -28u rgba(16,24,40,.4)}
+.dl-mail::before{content:"";position:absolute;left:24u;right:24u;top:78u;height:1u;background:#f0ece6}
+.dl-from{position:absolute;left:24u;right:24u;top:22u;display:flex;align-items:center;gap:11u}
+.dl-from>i{display:grid;place-items:center;flex:none;width:36u;height:36u;border-radius:50%;background:#9a6b3f;color:#fff;font-size:12.5u;font-style:normal;font-weight:600;letter-spacing:.02em}
+.dl-from>span{display:grid;min-width:0}
+.dl-from b{font-size:14u;font-weight:600}
+.dl-from em{overflow:hidden;font-size:12.5u;font-style:normal;color:#71717a;white-space:nowrap;text-overflow:ellipsis}
+.dl-from>s{margin-left:auto;align-self:flex-start;font-size:12u;color:#a1a1aa;text-decoration:none}
+.dl-head{position:absolute;left:24u;top:98u;font-size:20u;font-weight:650;letter-spacing:-.02em}
+.dl-body{position:absolute;left:24u;right:24u;top:130u;font-size:13.5u;line-height:1.45;color:#52525b}
+.dl-file{position:absolute;left:24u;top:170u;width:352u;height:74u;display:flex;align-items:center;gap:12u;padding:0 16u;overflow:hidden;border-radius:14u;background:#faf8f5;box-shadow:inset 0 0 0 1u #ebe5dc}
+.dl-fly{left:614u;top:285u;z-index:3;opacity:0;box-shadow:inset 0 0 0 1u #ebe5dc,0 18u 34u -16u rgba(16,24,40,.35)}
+.dl-doc{position:relative;flex:none;width:38u;height:46u;border-radius:5u;background:#fff;box-shadow:inset 0 0 0 1u #e2dcd2}
+.dl-doc::before{content:"";position:absolute;right:0;top:0;width:12u;height:12u;border-radius:0 5u 0 3u;background:linear-gradient(225deg,#faf8f5 50%,#e6dfd4 50%)}
+.dl-doc i{position:absolute;left:5u;bottom:7u;padding:1.5u 4u;border-radius:3u;background:#dc2626;color:#fff;font-size:8.5u;font-style:normal;font-weight:700;letter-spacing:.04em;line-height:1.3}
+.dl-name{display:grid;flex:1;gap:3u;min-width:0}
+.dl-name b{overflow:hidden;font-size:14u;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
+.dl-meta{display:grid;overflow:hidden}
+.dl-meta>span{grid-area:1/1;display:flex;align-items:center;gap:5u;font-size:12.5u;color:#71717a}
+.dl-meta>.b{color:#15803d;font-weight:500}
+.dl-meta svg{width:13u;height:13u}
+.dl-get{display:grid;place-items:center;flex:none;width:36u;height:36u;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1u #e4e4e7}
+.dl-get svg{grid-area:1/1;width:16u;height:16u}
+.dl-get .b{color:#16a34a}
+.dl-file .a{opacity:0}
+.dl-fly .a{opacity:1}
+.dl-fly .b{opacity:0}
+.dl-bar{position:absolute;left:0;right:0;bottom:0;height:3u;opacity:0;background:#ece6dd}
+.dl-bar i{display:block;height:100%;background:#18181b;transform-origin:0 50%}
+.dl-dl{position:absolute;left:24u;right:24u;bottom:24u}
 
 /* physical (round 14): store designs for goods you ship, a line turning in perspective in clean light (round 13's flat grey was too grey). The stage gives the perspective and takes the drag; the cards are flat siblings in the order the script sets (round 14: preserve-3d made the compositor sort a 3D scene every frame; without it a turn drops a quarter as many frames at 1920), each one flat picture with its corners and shadow drawn once. */
 .bs-store{background:radial-gradient(70% 80% at 50% 46%,#fff 0%,#f7f9fb 46%,#e9eef4 100%)}
@@ -972,19 +1022,32 @@ ${STORE_LINE}
   .bs h4{font-size:21u}
   .bs-price{margin-top:8u!important;font-size:20u}
 
-  .bk{--bk-shift:-79u;left:22u;top:22u;width:316u;height:204u;perspective:900u}
-  .bk-right{padding:16u 12u 0 16u}
-  .bk-chap{font-size:6.5u}
-  .bk-title{margin-top:4u;font-size:13u}
-  .bk-serves{margin-top:4u;font-size:7u}
-  .bk-ing{margin-top:8u}
-  .bk-ing li{padding:3u 0;font-size:7u}
-  .bk-method{display:none}
-  .bk-no{bottom:7u;font-size:6.5u}
-  .bk-buy{left:14u;right:14u;top:250u;bottom:14u;width:auto;height:auto}
-  .bk-paid{font-size:12.5u}
 
-  .bt-stage{width:276u;height:345u;margin:-172u 0 0 -138u;perspective:950u}
+  .bs-digital{--dl-dx:0u;--dl-dy:-225u}
+  .dl-buy{top:14u;height:200u}
+  .dl-cover{position:absolute;left:18u;top:18u;width:84u;height:108u;margin:0;border-radius:4u;background:none}
+  .dl-cover .smk-pic{width:100%;height:100%}
+  .dl-info{margin:0 0 0 100u}
+  .dl-buy h4{font-size:19u}
+  .dl-buy .bs-by{font-size:12.5u}
+  .dl-pay{height:40u}
+  .dl-mail{left:14u;right:14u;top:226u;bottom:14u;width:auto;height:auto;border-radius:18u}
+  .dl-mail::before{left:16u;right:16u;top:62u}
+  .dl-from{left:16u;right:16u;top:16u;gap:10u}
+  .dl-from>i{width:32u;height:32u;font-size:11.5u}
+  .dl-from b{font-size:13.5u}
+  .dl-from em{font-size:12u}
+  .dl-head{left:16u;top:74u;font-size:17u}
+  .dl-body{left:16u;right:16u;top:100u;font-size:12.5u;line-height:1.4}
+  .dl-file{left:16u;top:146u;width:296u;height:62u;gap:10u;padding:0 12u 0 14u}
+  .dl-fly{left:30u;top:372u}
+  .dl-doc{width:34u;height:42u}
+  .dl-name b{font-size:13u}
+  .dl-meta>span{font-size:12u}
+  .dl-get{width:32u;height:32u}
+  .dl-dl{left:16u;right:16u;bottom:16u;height:40u}
+
+  .bt-stage{width:228u;height:285u;margin:-148u 0 0 -114u;perspective:950u}
   .bt-card{border-radius:11u}
   ${STORE_LINE_PHONE}
 
