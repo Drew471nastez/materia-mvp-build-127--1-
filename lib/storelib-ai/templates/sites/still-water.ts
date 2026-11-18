@@ -16,7 +16,7 @@ import { collage, collectionGrid, contact, cta, faq, marquee, pageIntro, product
 import type { SiteTemplate } from "../types"
 
 const P = "ai_ms_"
-const SOFT = `.cl__fig, .pr__card-media, .pr__tile-link, .cg__card-media, .pd__shot, .pd__stand, .pi__media, .sp__img { border-radius: 24px; } .cc__btn, .pr__card-add, .ct__send, .pd__add, .pd__buy, .cg__card-add, .ct__field input, .ct__field textarea { border-radius: 999px; } .ct__field textarea { border-radius: 20px; }`
+const SOFT = `.cl__fig, .pr__card-media, .pr__tile-link, .cg__card-media, .pd__shot, .pd__stand, .pi__media, .sp__img { border-radius: 10px; } .cc__btn, .pr__card-add, .ct__send, .pd__add, .pd__buy, .cg__card-add, .ct__field input, .ct__field textarea { border-radius: 10px; } .ct__field textarea { border-radius: 10px; }`
 
 const hero: ComponentDef = {
   type: `${P}hero`,
@@ -49,13 +49,13 @@ const hero: ComponentDef = {
 .sh__text { max-width: 30rem; margin-top: 20px; font-size: 1.125rem; line-height: 1.6; color: var(--s-muted); }
 .sh__text p { margin: 0; }
 .sh__chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 0; padding: 0; list-style: none; }
-.sh__chip { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--s-border); border-radius: 999px; background: var(--s-surface); color: var(--s-text); text-decoration: none; transition: border-color var(--t-motion-hover, 160ms) ease, background-color var(--t-motion-hover, 160ms) ease; }
+.sh__chip { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--s-border); border-radius: 10px; background: var(--s-surface); color: var(--s-text); text-decoration: none; transition: border-color var(--t-motion-hover, 160ms) ease, background-color var(--t-motion-hover, 160ms) ease; }
 .sh__chip:hover { border-color: var(--s-accent); }
 .sh__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-top: 28px; }
-.sh__btn { display: inline-flex; align-items: center; min-height: 54px; padding: 0 28px; border-radius: 999px; background: var(--s-btn); color: var(--s-btn-text); font-weight: 500; text-decoration: none; transition: background-color var(--t-motion-hover, 160ms) ease; }
+.sh__btn { display: inline-flex; align-items: center; min-height: 54px; padding: 0 28px; border-radius: 10px; background: var(--s-btn); color: var(--s-btn-text); font-weight: 500; text-decoration: none; transition: background-color var(--t-motion-hover, 160ms) ease; }
 .sh__btn:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); }
 .sh__link { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-underline-offset: 5px; }
-.sh__frame { position: relative; margin: 0; overflow: hidden; border-radius: 220px 220px 28px 28px; background: var(--s-surface); aspect-ratio: 4 / 5; }
+.sh__frame { position: relative; margin: 0; overflow: hidden; border-radius: 160px 160px 14px 14px; background: var(--s-surface); aspect-ratio: 4 / 5; }
 .sh__img { width: 100%; height: 100%; object-fit: cover; }
 .sh__still { position: absolute; inset: 0; background: radial-gradient(circle at 50% 52%, var(--s-accent) 0 17%, transparent 17.5%), linear-gradient(to bottom, transparent 0 64%, var(--s-border) 64% 65%, var(--s-bg) 65% 100%), var(--s-surface); }
 .sh__note { position: absolute; left: 16px; right: 16px; bottom: 16px; padding: 12px 16px; border-radius: 16px; background: var(--s-bg); color: var(--s-text); font-size: 0.9375rem; line-height: 1.4; }
@@ -121,7 +121,7 @@ const treatments: ComponentDef = {
 .tm__text { max-width: 34rem; color: var(--s-muted); line-height: 1.6; }
 .tm__text p { margin: 0; }
 .tm__list { display: grid; gap: 10px; }
-.tm__item { border-radius: 24px; background: var(--s-surface); }
+.tm__item { border-radius: 10px; background: var(--s-surface); }
 .tm__sum { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; min-height: 64px; padding: 18px 22px; cursor: pointer; list-style: none; }
 .tm__sum::-webkit-details-marker { display: none; }
 .tm__name { ${DISPLAY} font-size: clamp(1.25rem, 1rem + 1.2cqi, 1.75rem); font-weight: 500; letter-spacing: -0.02em; }
@@ -129,8 +129,8 @@ const treatments: ComponentDef = {
 .tm__body { display: grid; gap: 16px; padding: 0 22px 22px; }
 .tm__detail { max-width: 40rem; line-height: 1.65; }
 .tm__detail p { margin: 0 0 8px; }
-.tm__img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 18px; }
-.tm__book { display: inline-flex; align-items: center; min-height: 54px; margin-top: 28px; padding: 0 28px; border-radius: 999px; background: var(--s-btn); color: var(--s-btn-text); text-decoration: none; }
+.tm__img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; }
+.tm__book { display: inline-flex; align-items: center; min-height: 54px; margin-top: 28px; padding: 0 28px; border-radius: 10px; background: var(--s-btn); color: var(--s-btn-text); text-decoration: none; }
 .tm__book:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); }
 @container (min-width: 900px) { .tm__body { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; } }
 ${reveal(".tm", ".tm__item", "ai_ms_treatments_in")}`,
@@ -254,7 +254,7 @@ const rooms = collage({
     { caption: "Products we use", size: "square" },
     { caption: "The garden window", size: "wide" },
   ],
-  skin: `.cl__h { font-weight: 500; letter-spacing: -0.03em; } .cl__cap { border-radius: 999px; } ${SOFT}`,
+  skin: `.cl__h { font-weight: 500; letter-spacing: -0.03em; } .cl__cap { border-radius: 10px; } ${SOFT}`,
 })
 const creed = statement({
   type: `${P}creed`,
@@ -315,7 +315,7 @@ const product = productMain({
     { title: "Using it", text: "<p>Book any treatment and mention the card. It covers the consultation too.</p>" },
     { title: "Questions", text: "<p>Write to us from the contact page.</p>" },
   ],
-  skin: `.pd__title, .pd__stand-word { font-weight: 500; letter-spacing: -0.035em; } .pd__option { border-radius: 18px; } ${SOFT}`,
+  skin: `.pd__title, .pd__stand-word { font-weight: 500; letter-spacing: -0.035em; } .pd__option { border-radius: 10px; } ${SOFT}`,
 })
 const list = collectionGrid({
   type: `${P}list`,
@@ -347,7 +347,7 @@ export const stillWater: SiteTemplate = assemble({
     colors: { background: "#eef2f0", surface: "#e0e8e4", text: "#13211e", muted: "#4c5c57", accent: "#1f5c55", accentText: "#ffffff", border: "#c6d2cd", inverse: { background: "#1d3833", text: "#eef2f0", accent: "#9fd6c9" } },
     fonts: { heading: "Outfit", body: "Albert Sans" },
     typeScale: { base: 17, ratio: 1.333 },
-    radius: { small: 24, medium: 24, large: 28 },
+    radius: { small: 10, medium: 12, large: 16 },
     spacing: { scale: 1.15, sectionY: 112, pageWidth: 1280, gutter: 24 },
     motion: { level: "subtle", tier: "quiet" },
     shadow: "none",

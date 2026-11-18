@@ -122,6 +122,8 @@ export type SlopEvaluator = (input: {
   rendered?: { page: string; html: string; css?: string }[]
   /** Home's sections in order, for the page-level rules (template skeleton). */
   sections?: { type: string }[]
+  /** Round 56: the P1 rules the starting template shipped with: reported, tagged, not counted against the budget. */
+  baseline?: string[]
 }) => Promise<ValidationIssue[]>
 
 /** A page drawn with the template engine (interpretation only) and checked. */

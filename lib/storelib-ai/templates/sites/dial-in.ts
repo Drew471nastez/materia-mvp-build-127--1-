@@ -14,7 +14,7 @@ import { collage, collectionGrid, contact, cta, faq, marquee, pageIntro, product
 import type { SiteTemplate } from "../types"
 
 const P = "ai_cf_"
-const ROUND = `.cl__fig, .pr__card-media, .pr__tile-link, .cg__card-media, .pd__shot, .pd__stand, .pi__media { border-radius: 18px; } .cc__btn, .pr__card-add, .ct__send, .pd__add, .pd__buy, .cg__card-add { border-radius: 999px; }`
+const ROUND = `.cl__fig, .pr__card-media, .pr__tile-link, .cg__card-media, .pd__shot, .pd__stand, .pi__media { border-radius: 12px; } .cc__btn, .pr__card-add, .ct__send, .pd__add, .pd__buy, .cg__card-add { border-radius: 10px; }`
 
 const hero: ComponentDef = {
   type: `${P}hero`,
@@ -52,7 +52,7 @@ const hero: ComponentDef = {
 .ch__text { max-width: 30rem; margin-top: 20px; font-size: 1.1875rem; line-height: 1.5; }
 .ch__text p { margin: 0; }
 .ch__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
-.ch__btn { display: inline-flex; align-items: center; min-height: 54px; padding: 0 26px; border: 2px solid var(--s-btn); border-radius: 999px; background: var(--s-btn); color: var(--s-btn-text); font-weight: 700; text-decoration: none; transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); }
+.ch__btn { display: inline-flex; align-items: center; min-height: 54px; padding: 0 26px; border: 2px solid var(--s-btn); border-radius: 10px; background: var(--s-btn); color: var(--s-btn-text); font-weight: 700; text-decoration: none; transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); }
 .ch__btn--line { background: none; color: var(--s-text); border-color: currentColor; }
 @media (hover: hover) and (pointer: fine) { .ch__btn:hover { transform: rotate(-2deg) translateY(calc(-1 * var(--t-motion-lift, 3px))); } }
 .ch__board { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; padding: 0 0 24px; list-style: none; }
@@ -128,7 +128,7 @@ const board: ComponentDef = {
 .mb__text { max-width: 32rem; color: var(--s-muted); line-height: 1.6; }
 .mb__text p { margin: 0; }
 .mb__cols { display: grid; gap: 36px; }
-.mb__group { margin: 0 0 14px; display: inline-block; padding: 6px 14px; border-radius: 999px; background: var(--s-accent); color: var(--s-bg); font-size: 0.9375rem; font-weight: 800; }
+.mb__group { margin: 0 0 14px; display: inline-block; padding: 6px 14px; border-radius: 10px; background: var(--s-accent); color: var(--s-bg); font-size: 0.9375rem; font-weight: 800; }
 .mb__list { margin: 0; padding: 0; list-style: none; }
 .mb__row { display: grid; grid-template-columns: auto minmax(16px, 1fr) auto; align-items: baseline; gap: 4px 10px; padding: 12px 0; border-bottom: 1px solid var(--s-border); }
 .mb__name { ${DISPLAY} font-size: clamp(1.25rem, 1rem + 1.2cqi, 1.75rem); font-weight: 700; letter-spacing: -0.02em; }
@@ -199,7 +199,7 @@ const sourcing: ComponentDef = {
 .so__in { display: grid; gap: clamp(24px, 4vw, 64px); ${INNER} }
 .so__h { margin: 0; ${DISPLAY} font-size: clamp(2.25rem, 1.2rem + 5cqi, 5rem); line-height: 0.92; letter-spacing: -0.04em; font-weight: 800; max-width: 12ch; }
 .so__list { display: grid; gap: 10px; margin: 0; }
-.so__item { display: grid; gap: 4px; padding: 18px 20px; border-radius: 18px; background: var(--s-surface); }
+.so__item { display: grid; gap: 4px; padding: 18px 20px; border-radius: 12px; background: var(--s-surface); }
 .so__what { font-weight: 800; font-size: 1.125rem; color: var(--s-heading); }
 .so__from { margin: 0; color: var(--s-muted); line-height: 1.5; }
 @container (min-width: 900px) { .so__in { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); } .so__list { grid-template-columns: 1fr 1fr; } }
@@ -240,7 +240,7 @@ const hours: ComponentDef = {
 .hr__address { margin: 0; ${DISPLAY} font-size: clamp(1.375rem, 1rem + 1.6cqi, 2rem); line-height: 1.15; font-weight: 700; }
 .hr__how { margin-top: 12px; max-width: 30rem; color: var(--s-muted); line-height: 1.6; }
 .hr__how p { margin: 0; }
-.hr__map { display: inline-flex; align-items: center; min-height: 48px; margin-top: 16px; padding: 0 20px; border: 2px solid currentColor; border-radius: 999px; color: inherit; font-weight: 700; text-decoration: none; }
+.hr__map { display: inline-flex; align-items: center; min-height: 48px; margin-top: 16px; padding: 0 20px; border: 2px solid currentColor; border-radius: 10px; color: inherit; font-weight: 700; text-decoration: none; }
 .hr__times { margin: 0; border-top: 2px solid var(--s-text); }
 .hr__row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; padding: 16px 0; border-bottom: 1px solid var(--s-border); }
 .hr__row dt { font-weight: 700; }
@@ -325,7 +325,7 @@ const room = collage({
     { caption: "Today's bake", size: "square" },
     { caption: "The long table", size: "wide" },
   ],
-  skin: `.cl__h { font-weight: 800; letter-spacing: -0.04em; } .cl__cap { border-radius: 999px; font-weight: 700; } ${ROUND}`,
+  skin: `.cl__h { font-weight: 800; letter-spacing: -0.04em; } .cl__cap { border-radius: 10px; font-weight: 700; } ${ROUND}`,
 })
 const creed = statement({
   type: `${P}creed`,
@@ -419,7 +419,7 @@ export const dialIn: SiteTemplate = assemble({
     colors: { background: "#123b2d", surface: "#1b4a3a", text: "#f7f1e1", muted: "#c3c9b8", accent: "#ffc93c", accentText: "#123b2d", border: "#3a6655", inverse: { background: "#ffc93c", text: "#123b2d", accent: "#123b2d" } },
     fonts: { heading: "Bricolage Grotesque", body: "Hanken Grotesk" },
     typeScale: { base: 17, ratio: 1.414 },
-    radius: { small: 999, medium: 18, large: 22 },
+    radius: { small: 10, medium: 12, large: 16 },
     spacing: { scale: 1, sectionY: 104, pageWidth: 1360, gutter: 20 },
     motion: { level: "subtle", tier: "balanced" },
     shadow: "md",

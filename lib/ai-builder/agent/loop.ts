@@ -42,7 +42,7 @@ import { addUnique, newCheckpoint, type CriticState, type LoopCheckpoint } from 
 import { describeConcept } from "./concept"
 import { belowTarget, defectLine, type CriticReport, type Defect } from "../visual-critic/types"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
-import { directionsFor, libraryKnowledge, libraryReferences, librarySlop } from "./knowledge"
+import { directionsFor, libraryKnowledge, libraryReferences, librarySlop, templateSlopBaseline } from "./knowledge"
 import { referencesForPrompt } from "@/lib/storelib-ai/references/prompt"
 import type { AgentImage } from "@/lib/sites/agent/attachments"
 import { contractBlock, planDirection } from "./direction"
@@ -717,6 +717,9 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   */
   const settings = scoped ? undefined : await deps.store.readSettings()
   const home = stored.find((p) => p.key === "home")
+  /* Round 56: what the starting template shipped with is reported but not held against the budget (knowledge.ts templateSlopBaseline). */
+  const started = cp.template ? templatesOf(deps).byId(cp.template.id) : null
+  const slopBaseline = started ? (() => { try { return templateSlopBaseline(started) } catch { return [] } })() : []
   if (files.length) {
     issues.push(
       ...(await (deps.slop ?? librarySlop)({
@@ -727,6 +730,7 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
         ...(settings ? { settings } : {}),
         rendered: scoped ? rendered.filter((r) => cp.pagesTouched.includes(r.page)) : rendered,
         ...(!scoped && home ? { sections: home.sections.filter((s) => !s.hidden && !s.group).map((s) => ({ type: s.type })) } : {}),
+        ...(slopBaseline.length ? { baseline: slopBaseline } : {}),
       }).catch(() => [])),
     )
   }
