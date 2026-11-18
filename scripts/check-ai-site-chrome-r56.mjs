@@ -154,7 +154,7 @@ const HELPERS = String.raw`(() => {
   H.bgOf = (el) => { const stack = []; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.backgroundImage && cs.backgroundImage !== "none" && !/^url\(.*\.svg/.test(cs.backgroundImage)) return null; const c = H.rgba(cs.backgroundColor); if (c && c[3] > 0) { stack.push(c); if (c[3] >= 0.999) break } } let out = [255, 255, 255, 1]; for (let i = stack.length - 1; i >= 0; i--) out = H.blend(stack[i], out); return out }
   H.hasOwnText = (el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 0)
   H.label = (el) => { const cls = typeof el.className === "string" ? el.className.split(/\s+/).filter(Boolean).slice(0, 2).join(".") : ""; const t = (el.getAttribute("aria-label") || el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 24); return el.tagName.toLowerCase() + (cls ? "." + cls : "") + (t ? ' "' + t + '"' : "") }
-  H.headerRoot = () => document.querySelector("[data-storelib-theme] [data-chrome] header, [data-storelib-theme] header") || document.querySelector("header")
+  H.headerRoot = () => document.querySelector('[data-storelib-theme] #section-header, [data-storelib-theme] [data-section-type="header"]') || document.querySelector("[data-storelib-theme] [data-chrome] header, [data-storelib-theme] header") || document.querySelector("header")
   H.headerBox = () => { const h = H.headerRoot(); if (!h) return null; let box = h; for (let e = h; e && !e.hasAttribute?.("data-storelib-theme"); e = e.parentElement) { if (e.hasAttribute("data-section-box") || e.hasAttribute("data-section-type")) { box = e; break } } return box }
   H.footerRoot = () => { const all = [...document.querySelectorAll("[data-storelib-theme] footer")]; return all[all.length - 1] || null }
   /* Fixed or top layer panels on screen now (drawers, sheets, popovers). */
@@ -204,8 +204,8 @@ async function measureStatic(tab) {
           const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3
           const r = e.getBoundingClientRect()
           if ((e.matches("a, button") || e.closest("nav")) && r.height > lh * 1.8 && e.getClientRects().length >= 1 && e.textContent.trim().length < 40) {
-            const range = document.createRange(); range.selectNodeContents(e)
-            const lines = new Set([...range.getClientRects()].map((x) => Math.round(x.top)))
+            const lines = new Set()
+            for (const n of e.childNodes) { if (n.nodeType !== 3 || !n.textContent.trim()) continue; const range = document.createRange(); range.selectNodeContents(n); for (const x of range.getClientRects()) lines.add(Math.round(x.top)) }
             if (lines.size > 1) header.wrapped.push(H.label(e))
           }
         }
@@ -254,7 +254,8 @@ async function measureStatic(tab) {
     /* The header's main action: its fill and its words. */
     let cta = null
     if (hd) {
-      const b = [...hd.querySelectorAll("a[data-sl-button], a.hd__cta, a[data-button], a[class*='cta']")].find((e) => H.deepVis(e))
+      const all = [...hd.querySelectorAll("a[data-sl-button], a.hd__cta, a[data-button], a[class*='cta']")].filter((e) => H.deepVis(e) && e.textContent.trim() && !e.closest("[popover], [role=dialog], aside"))
+      const b = all.find((e) => (H.rgba(getComputedStyle(e).backgroundColor) ?? [0, 0, 0, 0])[3] > 0.5) ?? all[0]
       if (b) {
         const cs = getComputedStyle(b)
         const bg = H.bgOf(b), fg = H.rgba(cs.color)
@@ -310,9 +311,18 @@ async function drawerChecks(tab, vw, vh, shot) {
     const r = p.getBoundingClientRect()
     const css = H.cssFor(p)
     const cut = []
+    const hiddenFocusable = []
     for (const e of p.querySelectorAll("a, button, input, select, p, h2, h3, li, span, img")) {
       if (!H.deepVis(e)) continue
       const x = e.getBoundingClientRect()
+      let hiddenByClip = false
+      for (let a = e.parentElement; a && a !== p.parentElement; a = a.parentElement) {
+        const s = getComputedStyle(a)
+        if (!/hidden|clip/.test(s.overflowX)) continue
+        const c = a.getBoundingClientRect()
+        if (x.left >= c.right - 1 || x.right <= c.left + 1) { hiddenByClip = true; break }
+      }
+      if (hiddenByClip) { if (H.focusables(p).includes(e) && !e.closest("[inert]")) hiddenFocusable.push(H.label(e)); continue }
       if (x.right > Math.min(r.right, vw) + 1 || x.left < Math.max(r.left, 0) - 1) cut.push(`${H.label(e)} ${Math.round(x.left)}..${Math.round(x.right)}`)
     }
     const cs = getComputedStyle(p)
@@ -324,9 +334,13 @@ async function drawerChecks(tab, vw, vh, shot) {
       const top = document.elementFromPoint(x, y)
       if (top && !p.contains(top) && !top.contains(p)) through.push(H.label(top))
     }
+    const anchored = (() => { for (let a = p; a && a !== document.body; a = a.parentElement) { const s = getComputedStyle(a); if (s.position === "fixed") return s.bottom === "0px" && s.top !== "auto" || /dvh|svh/.test(H.cssFor(a)) } return false })()
+    const hd = H.headerRoot()
     return {
       rect: { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), height: Math.round(r.height) },
-      dvh: /\b(100dvh|100svh|100lvh|dvh|svh)\b|inset:\s*0(px)?(;| )|top:\s*0(px)?;[\s\S]*bottom:\s*0|height:\s*100%/.test(css),
+      headerBottom: hd ? Math.round(hd.getBoundingClientRect().bottom) : 0,
+      dvh: /\b\d*(dvh|svh)\b/.test(css) || anchored,
+      hiddenFocusable: hiddenFocusable.slice(0, 4),
       safe: /safe-area-inset/.test(css + [...p.querySelectorAll("*")].slice(0, 40).map((e) => H.cssFor(e)).join("\n")),
       cut: cut.slice(0, 6),
       opaque: (bg && bg[3] >= 0.97) || false,
@@ -334,7 +348,9 @@ async function drawerChecks(tab, vw, vh, shot) {
     }
   }, vw, vh)
   const sheet = geo.rect.top > vh * 0.15 && geo.rect.bottom >= vh - 2
-  out.fullHeight = sheet ? geo.rect.bottom >= vh - 2 : geo.rect.top <= 1 && geo.rect.bottom >= vh - 2
+  /* From the top of the screen, or from under a header that stays (its button is the close), down to the bottom. */
+  out.fullHeight = sheet ? geo.rect.bottom >= vh - 2 : (geo.rect.top <= 1 || geo.rect.top <= geo.headerBottom + 1) && geo.rect.bottom >= vh - 2
+  out.hiddenFocusable = geo.hiddenFocusable
   out.dvh = geo.dvh
   out.safeArea = geo.safe
   out.cutOff = geo.cut
@@ -345,13 +361,13 @@ async function drawerChecks(tab, vw, vh, shot) {
   /* Trapped: tab through every focusable and one more each way. */
   const n = await panel.evaluate((p) => window.__H.focusables(p).length)
   let trapped = true
-  for (let i = 0; i < n + 2; i++) {
+  for (let i = 0; i < Math.min(n + 2, 24); i++) {
     await tab.keyboard.press("Tab")
-    if (!(await panel.evaluate((p) => p.contains(document.activeElement)))) { trapped = false; break }
+    if (!(await panel.evaluate((p, b) => p.contains(document.activeElement) || document.activeElement === b, btn))) { trapped = false; break }
   }
   if (trapped) for (let i = 0; i < 2; i++) {
     await tab.keyboard.down("Shift"); await tab.keyboard.press("Tab"); await tab.keyboard.up("Shift")
-    if (!(await panel.evaluate((p) => p.contains(document.activeElement)))) { trapped = false; break }
+    if (!(await panel.evaluate((p, b) => p.contains(document.activeElement) || document.activeElement === b, btn))) { trapped = false; break }
   }
   out.focusTrap = trapped
   /* The page behind does not scroll. */
@@ -384,7 +400,7 @@ async function drawerChecks(tab, vw, vh, shot) {
   /* Language and currency inside the menu. */
   out.selector = await selectorIn(tab, panel, vw, vh)
   /* Close by its button. */
-  const closeBtn = await panel.evaluateHandle((p) => [...p.querySelectorAll("button, [role=button]")].find((b) => window.__H.deepVis(b) && /close|dismiss/i.test(`${b.getAttribute("aria-label") || ""} ${b.textContent || ""}`)) || null)
+  const closeBtn = await panel.evaluateHandle((p, opener) => [...p.querySelectorAll("button, [role=button]")].find((b) => window.__H.deepVis(b) && /close|dismiss/i.test(`${b.getAttribute("aria-label") || ""} ${b.textContent || ""}`)) || (window.__H.deepVis(opener) && /close/i.test(opener.getAttribute("aria-label") || "") ? opener : null), btn)
   if (await closeBtn.evaluate((b) => !!b)) {
     await closeBtn.click().catch(() => undefined)
     await settle(tab, 600)
@@ -477,7 +493,11 @@ async function panelCheck(tab, kind, vw, vh) {
   await btn.evaluate((b) => b.addEventListener("click", (e) => { if (b.tagName === "A") e.preventDefault() }, { once: true }))
   await btn.click().catch(() => undefined)
   await settle(tab, 650)
-  const panel = await openPanelAfter(tab, before)
+  let panel = await openPanelAfter(tab, before)
+  if (!(await panel.evaluate((p) => !!p)) && kind === "search") {
+    /* A search that opens in the header row: its field, shown and focused. */
+    panel = await tab.evaluateHandle(() => { const a = document.activeElement; return a && a.matches("input") && window.__H.deepVis(a) ? (a.closest("form, [role=search], [role=dialog]") || a.parentElement) : null })
+  }
   if (!(await panel.evaluate((p) => !!p))) return { found: true, opens: false }
   const r = await panel.evaluate((p, vw, vh) => {
     const x = p.getBoundingClientRect()
@@ -521,6 +541,7 @@ for (const site of sites) {
       await tab.waitForFunction("window.__ready === true || !!window.__error", { timeout: 20_000 })
       await settle(tab, 500)
       await tab.evaluate(HELPERS)
+      if (process.env.DUMP) writeFileSync(join(OUT, `${site.key}-${vw}.html`), await tab.evaluate(() => document.getElementById("app").outerHTML))
       if (shotOk) await tab.screenshot({ path: join(OUT, `${site.key}-${vw}.jpg`), type: "jpeg", quality: 72 }).catch(() => undefined)
       row.static = await measureStatic(tab)
       row.drawer = await drawerChecks(tab, vw, vh, shotOk ? join(OUT, `${site.key}-${vw}-menu.jpg`) : null)
@@ -567,6 +588,7 @@ export function verdicts(r) {
       add("drawer.dvh-css", d.dvh === true)
       add("drawer.safe-area-css", d.safeArea === true)
       add("drawer.nothing-cut", d.cutOff.length === 0, d.cutOff.join(", "))
+      if (d.hiddenFocusable) add("drawer.no-hidden-focus", d.hiddenFocusable.length === 0, d.hiddenFocusable.join(", "))
       add("drawer.long-scrolls", d.scrolls === null ? null : d.scrolls === true)
       add("drawer.scroll-lock", d.scrollLock === true)
       add("drawer.focus-in", d.focusIn === true)

@@ -595,7 +595,7 @@ function HeaderSearchPanel({
             <button
               type="submit"
               aria-label="Search"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-full transition-colors theme-tint-hover"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center rounded-full transition-colors theme-tint-hover"
               style={{ color: scheme.heading }}
             >
               <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -605,7 +605,7 @@ function HeaderSearchPanel({
             type="button"
             onClick={onClose}
             aria-label="Close search"
-            className="h-9 w-9 shrink-0 self-center flex items-center justify-center rounded-full transition-colors theme-tint-hover"
+            className="h-11 w-11 shrink-0 self-center flex items-center justify-center rounded-full transition-colors theme-tint-hover"
             style={{ color: scheme.heading }}
           >
             <X className="h-5 w-5" strokeWidth={1.8} />
@@ -710,7 +710,7 @@ function CartButton() {
       type="button"
       onClick={() => setOpen(true)}
       aria-label={ready && count > 0 ? `Cart, ${count} item${count === 1 ? "" : "s"}` : "Cart"}
-      className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+      className="relative h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
     >
       <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.8} />
       {ready && count > 0 && (
@@ -897,7 +897,7 @@ function CartDrawerInner({
             onClick={onClose}
             aria-label="Close cart"
             data-drawer-focus=""
-            className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
+            className="theme-tint-hover h-11 w-11 flex items-center justify-center rounded-full transition-colors"
           >
             <X className="h-5 w-5" strokeWidth={2} />
           </button>
@@ -1336,7 +1336,7 @@ function MobileDrawerInner({
               onClick={onClose}
               aria-label="Close menu"
               data-drawer-focus=""
-              className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
+              className="theme-tint-hover h-11 w-11 flex items-center justify-center rounded-full transition-colors"
             >
               <X className="h-5 w-5" strokeWidth={2} />
             </button>
@@ -1510,7 +1510,7 @@ function MobileDrawerInner({
                 href={WISHLIST_PATH}
                 aria-label={wishlistLabel}
                 onClick={handleLinkClick(WISHLIST_PATH)}
-                className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors -ml-2"
+                className="relative h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors -ml-2"
                 style={{ color: scheme.nav_link }}
               >
                 <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} />
@@ -1523,7 +1523,7 @@ function MobileDrawerInner({
                 href={WISHLIST_PATH}
                 aria-label={wishlistLabel}
                 onClick={handleLinkClick(WISHLIST_PATH)}
-                className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors -mr-2"
+                className="relative h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors -mr-2"
                 style={{ color: scheme.nav_link }}
               >
                 <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} />
@@ -2477,7 +2477,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           aria-haspopup="menu"
           aria-expanded={dropdownOpen}
           aria-controls={`${block.id}-menu`}
-          className="text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
+          className="min-h-11 min-w-11 justify-center text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
           style={{ color: navLinkColor }}
           onClick={e => {
             e.stopPropagation()
@@ -2496,7 +2496,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           href={href}
           target={openInNew ? "_blank" : undefined}
           rel={openInNew ? "noopener noreferrer" : undefined}
-          className="text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
+          className="min-h-11 min-w-11 justify-center text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
           style={{ color: navLinkColor }}
           /**
            * Intercepted whenever this header is INSIDE THE EDITOR, not only
@@ -2712,7 +2712,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             aria-label="Search"
             aria-expanded={searchOpen}
             onClick={(e) => { e.stopPropagation(); toggleSearch() }}
-            className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+            className="h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
           >
             <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </button>
@@ -2721,7 +2721,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             href="/search"
             aria-label="Search"
             onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
-            className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+            className="h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
           >
             <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </a>
@@ -2733,7 +2733,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           aria-label={account.label}
           title={account.label}
           onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(account.href, true) } : undefined}
-          className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+          className="h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <User className="h-[18px] w-[18px]" strokeWidth={1.8} />
         </a>
@@ -2743,7 +2743,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           href={WISHLIST_PATH}
           aria-label={wishlistLabel}
           onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(WISHLIST_PATH, true) } : undefined}
-          className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+          className="relative h-11 w-11 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <Heart className="h-[18px] w-[18px]" strokeWidth={1.8} />
           <SavedCount className="-top-0.5 -right-0.5" />
@@ -2824,7 +2824,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       aria-expanded={mobileNavOpen}
       data-menu-button={forDesktop ? "desktop" : "phone"}
       className={cn(
-        "h-9 w-9 items-center justify-center rounded-full theme-tint-hover transition-colors shrink-0",
+        "h-11 w-11 items-center justify-center rounded-full theme-tint-hover transition-colors shrink-0",
         forDesktop
           ? "flex"
           : hasDeviceMode
@@ -2958,7 +2958,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       <a
         href="/"
         aria-label="Go to the home page"
-        className="inline-flex min-w-0 items-center no-underline"
+        className="inline-flex min-h-11 min-w-0 items-center no-underline"
         style={{ color: "inherit" }}
         onClick={(e) => {
           if (!onEditorNavigate) return
