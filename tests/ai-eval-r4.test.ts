@@ -58,16 +58,12 @@ import { CopyWriter, adaptFile, guardProductMedia } from "./_eval/adapt"
 const { check, done, section } = checker()
 
 /** Failures this suite found that belong to other lanes, with why. Key: engine:scenario:check. */
-const KNOWN_GAPS: Record<string, string> = {
-  "agent:consulting:direction.fit": "O5/O2: 'Professional consulting for manufacturers' is classified as the digital-creator story (the local-professional words have 'consultant' but not 'consulting'), and the brief's main action reads 'Book a session'.",
-  "native:consulting:direction.fit": "Same brief as the agent's: the classification is shared (lib/storelib-ai/layout/stories.ts, direction/brief.ts).",
-  "native:fitness:job.partial": "R2 + R3: the native answer's palette puts a lime accent (#d7ff3a) on a light ground. R2's validation takes it (no contrast rule on the theme's palette), R3's review measures the marquee's words at 1.03:1, keeps 14 other patches, but cannot repair a token-level colour (its patches are section settings), so the job ends partial with that gate, honestly.",
-  "native:fitness:browser.desktop": "The same gate, measured by the eval's browser: the marquee's lime words at 1.03:1.",
-  "native:fitness:browser.mobile": "The same gate at 390.",
-  "native:fitness:tokens.coherent": "The same palette: button text 1.03:1 on the lime accent.",
-  "agent:photography:direction.fit": "O2: 'Show the work first, take commission enquiries and sell a few signed prints' reads as objective buy ('Shop now'): the side line about prints outranks the commissions the creator put first.",
-  "native:photography:direction.fit": "Same brief as the agent's (shared O2 reading)."
-}
+/*
+  Changed on purpose (r56): emptied. The consulting and photography readings (lib/storelib-ai/direction/brief.ts:
+  the main action by trade and the creator's words; consultancy words in layout/stories.ts) and the native fitness
+  palette (lib/storelib-ai/palette-contrast.ts, repaired in the native plan before Theme settings) are fixed.
+*/
+const KNOWN_GAPS: Record<string, string> = {}
 
 const sec = (id: string, type: string, settings: Record<string, unknown> = {}): SectionInstance => ({ id, type, name: type, settings, blocks: [] })
 
