@@ -33,6 +33,7 @@ import { CartLineProperties } from "@/components/website-builder/cart-line-prope
 import { cartPathFor, drawerCheckout, drawerCheckoutHref } from "@/lib/website-builder/cart-checkout"
 import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
+import { legibleLabel } from "@/lib/website-builder/button-legible"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { useSiteWishlist } from "../../site-wishlist"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
@@ -1621,6 +1622,28 @@ function MobileDrawerInner({
 // icons — no trigger row, no expanding panel, no state.
 
 
+/** The default preset's primary, which the starting website wrote into the header's button colour. */
+const STARTER_INDIGO = "#6366f1"
+
+/**
+ * The header button's label, readable on its fill (round 56). The fill is the
+ * site's (its scheme's button, or the header's own colour); a label under
+ * 4.5:1 on it, at rest or hovered, becomes the palette colour that reads
+ * (lib/website-builder/button-legible.ts).
+ */
+function legibleHeaderButton(button: ReturnType<typeof schemeButton>, scheme: { bg: string; heading: string; text: string }): ReturnType<typeof schemeButton> {
+  const style = button.style as Record<string, string>
+  const palette = [scheme.bg, scheme.heading, scheme.text]
+  return {
+    ...button,
+    style: {
+      ...style,
+      "--sl-btn-fg": legibleLabel(style["--sl-btn-bg"], style["--sl-btn-fg"], palette),
+      "--sl-btn-hover-fg": legibleLabel(style["--sl-btn-hover-bg"], style["--sl-btn-hover-fg"], palette),
+    } as CSSProperties,
+  }
+}
+
 export function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceMode, wrapperId, onEditorNavigate, canvasRoundedTopPx, insideEditor }: SectionProps) {
   // Treat ANY presence of `onEditorNavigate` as "we're inside the editor",
   // as a safety-net fallback for call sites that haven't yet been updated
@@ -1650,7 +1673,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   */
   const scheme = sectionColors({ ...section, settings: { ...s, color_scheme: schemeKey } }, theme)
   /** The call to action, painted by the header's scheme and its own colours, hover included. */
-  const ctaButton = schemeButton(scheme, "primary", { background: str(s.cta_color), text: str(s.cta_text_color) })
+  /* The starting website's indigo, never chosen by anyone, on a site whose own primary is something else: the site's colours instead (round 56). */
+  const staleIndigo = str(s.cta_color).trim().toLowerCase() === STARTER_INDIGO && str((theme as Record<string, unknown>).primary_color).trim().toLowerCase() !== STARTER_INDIGO
+  const ctaButton = legibleHeaderButton(schemeButton(scheme, "primary", staleIndigo ? {} : { background: str(s.cta_color), text: str(s.cta_text_color) }), scheme)
   /**
    * `header_transparent` is the control the panel offers; `transparent_on_hero`
    * is what it used to be called. Headers saved under the old name are still

@@ -19,9 +19,17 @@ export function EbookShowcaseSection({ section, theme, isEditing, isSelected, on
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 80
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 80
 
+  /*
+    A TILTED COVER IS WIDER THAN ITS BOX. Rotated 6 degrees, a 2:3 cover's
+    outline is about 15% wider than the cover, so a cover as wide as a phone
+    column stuck out past the page (2px at 360, measured in round 56). Tilted,
+    it takes 84% of the column; the outline then fits with room to spare.
+  */
+  const tilted = mockup === "perspective" || mockup === "stack"
   const cover = (
     <div
-      className={`relative w-full max-w-sm mx-auto transition-transform ${
+      data-ebook-cover={tilted ? "tilted" : "flat"}
+      className={`relative ${tilted ? "w-[84%]" : "w-full"} max-w-sm mx-auto transition-transform ${
         mockup === "perspective" ? "rotate-[-6deg]" :
         mockup === "3d" ? "[transform:perspective(800px)_rotateY(-15deg)]" :
         mockup === "stack" ? "rotate-[2deg]" : ""
