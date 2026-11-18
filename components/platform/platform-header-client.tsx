@@ -2432,7 +2432,24 @@ export function PlatformHeaderClient({
                   Storelib, Log in, Sign up). Signed in, the same things as on
                   the buyer pages: Discover and the library as icons, Dashboard
                   only for a seller, and the photo.
+
+                  THE LINKS HOLD STILL ON A RELOAD (onboarding round 5, the
+                  owner: "when I reload the page the menu links move from left
+                  to right"). The links sit between the logo and this group, so
+                  they moved whenever this group changed width: a reload draws
+                  the guest row while the account is read, then the signed in
+                  icons and photo, about 33px narrower. Signed in, an invisible
+                  copy of the guest row now shares the group's one grid cell, so
+                  the group is never narrower than it was while loading and the
+                  links stay where the server drew them
+                  (scripts/check-header-links-still.mjs).
                 */}
+                <div data-header-right="" className="grid items-center justify-items-end [&>*]:[grid-area:1/1]">
+                  {!loading && user ? (
+                    <div data-header-reserve="" aria-hidden className="pointer-events-none">
+                      <GuestHeaderActions withLogin link={guestLink} placeholder chrome={chrome} />
+                    </div>
+                  ) : null}
                 <div className="flex items-center gap-2.5">
                   {loading ? (
                     <GuestHeaderActions withLogin link={guestLink} placeholder chrome={chrome} />
@@ -2476,6 +2493,7 @@ export function PlatformHeaderClient({
                   ) : (
                     <GuestHeaderActions withLogin link={guestLink} chrome={chrome} />
                   )}
+                </div>
                 </div>
               </div>
 

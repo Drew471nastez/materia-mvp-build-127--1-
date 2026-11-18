@@ -74,6 +74,9 @@ const PUBLIC = ""
 export default function Image({ src, alt, fill, priority, preload, sizes, unoptimized, className, style, ...rest }) {
   const url = typeof src === "string" ? (src.startsWith("/") ? PUBLIC + src : src) : ""
   return React.createElement("img", { src: url, alt, className, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%", ...style } : style, ...rest })
+}
+export function getImageProps({ src, alt, width, height }) {
+  return { props: { src: typeof src === "string" ? src : "", alt, width, height } }
 }`,
   /*
     WHO IS LOOKING, from window.__who. The header asks for the user, then

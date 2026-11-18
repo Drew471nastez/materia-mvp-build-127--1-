@@ -474,17 +474,14 @@ export function PlanCards({
   backwards. Only where there is a pointer that hovers, and never under
   reduced motion.
 
-  GET GROW (landing round 17, the owner): on hover or keyboard focus the
-  button itself becomes an outline button. Its purple fill fades to white,
-  the card's own ground; a 1.5px purple line eases in on its inside edge
-  (an inset box shadow, so the button keeps its size and nothing moves);
-  its label turns purple. The disc stays a solid white circle and takes a
-  fine purple hairline on its own edge, so it still reads on the white; no
-  ring round it any more (round 15's ::after is gone). 250ms on an ease out
-  for colour and shadow, no transition under reduced motion. Hover only
-  where a pointer hovers, so a tap on a phone never leaves it stuck white.
-  These rules sit outside Tailwind's layers, so they win over the button's
-  utility classes without !important.
+  GET GROW (onboarding round 5, the owner: "only the white circle should
+  have the outline, not the whole Get Grow button"). On hover or keyboard
+  focus the button stays purple, a shade deeper, and the white disc takes a
+  soft white outline on its own edge; the button itself never gets a line.
+  Keyboard focus also keeps the usual focus ring outside the button. 250ms
+  on an ease out, no transition under reduced motion, hover only where a
+  pointer hovers so a tap never leaves it stuck. These rules sit outside
+  Tailwind's layers, so they win over the button's utility classes.
 */
 const PLAN_BUTTON_CSS = `
 .plan-shine{overflow:hidden;isolation:isolate}
@@ -492,13 +489,13 @@ const PLAN_BUTTON_CSS = `
 @media (hover:hover) and (prefers-reduced-motion:no-preference){
   .plan-shine:hover::before{translate:175% 0;opacity:1;transition:translate 1.6s cubic-bezier(.45,.05,.35,1),opacity .4s ease}
 }
-.plan-grow{box-shadow:inset 0 0 0 1.5px rgba(124,58,237,0),0 1px 2px rgba(76,29,149,.2),0 8px 20px -12px rgba(76,29,149,.55);transition:background-color .25s cubic-bezier(.22,1,.36,1),box-shadow .25s cubic-bezier(.22,1,.36,1),color .25s cubic-bezier(.22,1,.36,1)}
-.plan-grow .plan-disc{box-shadow:0 0 0 1px rgba(124,58,237,0),0 1px 2px rgba(46,16,101,.18);transition:box-shadow .25s cubic-bezier(.22,1,.36,1)}
-.plan-grow:focus-visible{background-color:#fff;color:#7c3aed;box-shadow:inset 0 0 0 1.5px #7c3aed,0 0 0 4px rgba(124,58,237,.18),0 8px 20px -12px rgba(76,29,149,0)}
-.plan-grow:focus-visible .plan-disc{box-shadow:0 0 0 1px rgba(124,58,237,.32),0 1px 2px rgba(46,16,101,0)}
+.plan-grow{transition:background-color .25s cubic-bezier(.22,1,.36,1),box-shadow .25s cubic-bezier(.22,1,.36,1)}
+.plan-grow .plan-disc{box-shadow:0 0 0 0 rgba(255,255,255,0),0 1px 2px rgba(46,16,101,.18);transition:box-shadow .25s cubic-bezier(.22,1,.36,1)}
+.plan-grow:focus-visible{background-color:#6d28d9;box-shadow:0 0 0 4px rgba(124,58,237,.22)}
+.plan-grow:focus-visible .plan-disc{box-shadow:0 0 0 3px rgba(255,255,255,.38),0 1px 2px rgba(46,16,101,.18)}
 @media (hover:hover){
-  .plan-grow:hover{background-color:#fff;color:#7c3aed;box-shadow:inset 0 0 0 1.5px #7c3aed,0 1px 2px rgba(76,29,149,0),0 8px 20px -12px rgba(76,29,149,0)}
-  .plan-grow:hover .plan-disc{box-shadow:0 0 0 1px rgba(124,58,237,.32),0 1px 2px rgba(46,16,101,0)}
+  .plan-grow:hover{background-color:#6d28d9}
+  .plan-grow:hover .plan-disc{box-shadow:0 0 0 3px rgba(255,255,255,.38),0 1px 2px rgba(46,16,101,.18)}
 }
 @media (prefers-reduced-motion:reduce){.plan-grow,.plan-grow .plan-disc{transition:none}}
 `
