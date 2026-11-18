@@ -185,7 +185,6 @@ export function localeChipCss(p: string): string {
 .${p}-loc__chip:hover, .${p}-loc__chip:focus-visible, .${p}-loc:has(:popover-open) .${p}-loc__chip { border-bottom-color: currentColor; }
 .${p}-loc__now:empty { display: none; }
 .${p}-loc__now:empty + .${p}-loc__sep, .${p}-loc__sep:has(+ .${p}-loc__now:empty) { display: none; }
-.${p}-loc__sep { opacity: 0.45; }
 .${p}-loc__caret svg { transition: transform 200ms ease; }
 .${p}-loc:has(:popover-open) .${p}-loc__caret svg { transform: rotate(180deg); }
 .${p}-loc__globe, .${p}-loc__caret, .${p}-loc__tick { display: inline-flex; }
@@ -217,7 +216,7 @@ export function localeChipCss(p: string): string {
 /** Round icon buttons with a press, and a count badge on the bag. */
 export function iconButtonCss(p: string): string {
   return `
-.${p}-ib { position: relative; display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--theme-input-radius, 4px); background: none; color: inherit; font: inherit; text-decoration: none; cursor: pointer; transition: background-color 160ms ease, transform 160ms ease; }
+.${p}-ib { position: relative; display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--theme-input-radius, 4px); background: none; color: inherit; font: inherit; text-decoration: none; cursor: pointer; transition: background-color 160ms ease, transform 160ms ease; }
 .${p}-ib > [data-storelib-icon] { display: inline-flex; }
 .${p}-ib:hover { background: color-mix(in srgb, currentColor 9%, transparent); }
 .${p}-ib:active { transform: scale(0.92); }

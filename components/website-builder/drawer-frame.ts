@@ -248,12 +248,24 @@ export function useFocusTrap(
     if (!open || !enabled) return
     const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
     /* After the frame the panel starts moving on, so the focus ring travels with it. */
-    const frame = requestAnimationFrame(() => {
-      const panel = panelRef.current
-      if (!panel || panel.contains(document.activeElement)) return
-      const first = panel.querySelector<HTMLElement>("[data-drawer-focus]") ?? focusablesIn(panel)[0]
-      first?.focus({ preventScroll: true })
-    })
+    /*
+      And again on the next frames while it does not take (round 56): a panel
+      that becomes visible a frame after it is marked open (a site's own cart
+      panel, shown by its stylesheet) cannot take focus yet, and measured on
+      the kit's cart the focus stayed on the bag button behind it. A few
+      frames at most, and never once focus is in the panel.
+    */
+    let frame = 0
+    const place = (tries: number) => {
+      frame = requestAnimationFrame(() => {
+        const panel = panelRef.current
+        if (!panel || panel.contains(document.activeElement)) return
+        const first = panel.querySelector<HTMLElement>("[data-drawer-focus]") ?? focusablesIn(panel)[0]
+        first?.focus({ preventScroll: true })
+        if (!panel.contains(document.activeElement) && tries < 12) place(tries + 1)
+      })
+    }
+    place(0)
     const ring = (panel: HTMLElement) => {
       const list = focusablesIn(panel)
       if (withOpenerRef.current && opener && opener.isConnected && !panel.contains(opener) && opener.getClientRects().length > 0) list.unshift(opener)

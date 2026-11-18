@@ -118,18 +118,18 @@ await esbuild({
 })
 const probeJs = readFileSync(join(build, "probe.js"), "utf8")
 
+/*
+  The app's site stylesheet compiled from THIS tree every run. The evaluation's
+  shared cache (tmpdir/storelib-eval-site-css) is keyed on app/site.css alone,
+  so a class a component gained since (min-w-11) was missing from it and the
+  page was measured without it.
+*/
 async function siteCss() {
-  const cache = join(tmpdir(), "storelib-eval-site-css", "site.css")
   const src = readFileSync(join(root, "app", "site.css"), "utf8")
-  const stamp = `${src.length}:${readFileSync(join(root, "scripts", "site-css.cjs"), "utf8").length}`
-  if (existsSync(cache) && existsSync(`${cache}.stamp`) && readFileSync(`${cache}.stamp`, "utf8") === stamp) return readFileSync(cache, "utf8")
   const { createRequire } = await import("node:module")
   const req = createRequire(join(root, "package.json"))
   const postcss = (await import("postcss")).default
   const out = await postcss([req(join(root, "scripts", "site-css.cjs"))(), req("@tailwindcss/postcss")()]).process(src, { from: join(root, "app", "site.css") })
-  mkdirSync(join(tmpdir(), "storelib-eval-site-css"), { recursive: true })
-  writeFileSync(cache, out.css)
-  writeFileSync(`${cache}.stamp`, stamp)
   return out.css
 }
 const css = await siteCss()
@@ -282,7 +282,9 @@ async function menuButton(tab) {
     const hd = H.headerBox() || document
     const c = [...hd.querySelectorAll("button, [role=button], a[aria-controls]")].filter((e) => H.deepVis(e) && !e.closest("[popover], [role=dialog], aside"))
     return c.find((e) => /menu|navigation|open nav/i.test(`${e.getAttribute("aria-label") || ""} ${e.textContent || ""}`) && !/close|search|cart|bag|currency|language/i.test(e.getAttribute("aria-label") || "")) ||
-      c.find((e) => e.hasAttribute("popovertarget") && /menu|nav|drawer/.test(e.getAttribute("popovertarget"))) || c.find((e) => e.matches("[data-menu-button], [data-storelib-menu]")) || null
+      c.find((e) => e.hasAttribute("popovertarget") && /menu|nav|drawer/.test(e.getAttribute("popovertarget"))) || c.find((e) => e.matches("[data-menu-button], [data-storelib-menu]")) ||
+      /* A button with its own word ("Index") whose popover holds the site's links. */
+      c.find((e) => { const id = e.getAttribute("popovertarget"); const t = id && document.getElementById(id); return !!t && !/search|cart|bag|loc|currency|language/i.test(id) && t.querySelectorAll("a[href]").length >= 2 }) || null
   })
 }
 
