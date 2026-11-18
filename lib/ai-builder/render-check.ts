@@ -20,8 +20,8 @@
  *   render.broken_link    a link to an address this website does not have
  *   render.placeholder    a link to "#", "" or nowhere that is not a hook
  *   render.anchor         a link to #id where nothing on the page has that id
- *   render.action_mismatch a call to action that asks to book, enquire or get
- *                         in touch and goes into the shop, or one into the
+ *   render.action_mismatch a call to action that asks to get in touch (an
+ *                         enquiry, a call, a quote) and goes into the shop, or one into the
  *                         shop of a store with nothing for sale (round 56,
  *                         actionMismatch)
  *   render.dead_button    a <button> with nothing behind it (no hook, no
@@ -78,7 +78,7 @@ import type { RuntimeCapabilities } from "./runtime-contract"
 import { bindableIds } from "./capabilities"
 import { motionFindings } from "@/lib/storelib-theme/motion-islands"
 import { formProblems } from "./agent/form-fields"
-import { asksToBook, intoShop, requestPage } from "@/lib/website-builder/action-words"
+import { asksToTalk, intoShop, requestPage } from "@/lib/website-builder/action-words"
 import { renderStorelibSection, isStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { checkRenderedSection, checkResponsiveStructure } from "@/lib/storelib-ai/structural"
 import { customTokenVars } from "@/lib/website-builder/theme-css"
@@ -320,7 +320,7 @@ export function linkProblem(
 
 /**
  * A call to action whose words and address disagree (round 56): one that asks
- * to book, enquire or get in touch and goes into the shop (the scripted
+ * to get in touch (an enquiry, a call, a quote) and goes into the shop (the scripted
  * consulting site's "Book an intro call" kept a template's /products), or one
  * into the shop of a store with nothing for sale. An error with a job: the
  * repair turn is told the page that takes the request when the site has one
@@ -334,7 +334,7 @@ export function actionMismatch(text: string, href: string, known: { pages: Set<s
   const sells = !known || known.products.size > 0 || known.productSlugs.size > 0
   const page = known ? requestPage([...known.pages, ...[...(known.extra ?? [])].map((r) => r.replace(/^\//, ""))]) : undefined
   const to = page ? `the site's /${page} page` : "the page that takes the request (a contact page with a form, or a booking page)"
-  if (asksToBook(words, sells)) return `"${words.slice(0, 40)}" asks the visitor to book or get in touch, and it goes to ${path}, the shop. Point it at ${to}.`
+  if (asksToTalk(words)) return `"${words.slice(0, 40)}" asks the visitor to get in touch, and it goes to ${path}, the shop. Point it at ${to}.`
   if (role === "cta" && !sells) return `"${words.slice(0, 40) || "(no words)"}" goes to ${path}, and this store has nothing for sale: the visitor finds an empty shop. Point it at ${to}, or at a page with what the site offers.`
   return null
 }

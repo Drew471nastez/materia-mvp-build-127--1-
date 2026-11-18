@@ -27,7 +27,7 @@
  * as the editor stores it, through sanitizeSections.
  */
 import { pagePath } from "../../site-pages"
-import { asksToBook, intoShop, requestPage } from "../../action-words"
+import { asksToTalk, intoShop, requestPage } from "../../action-words"
 import { sanitizeRichText } from "../../sanitize"
 import { sanitizeSections } from "../../sanitize-sections"
 import { copyProblem } from "../../agent/review"
@@ -396,19 +396,19 @@ function buttonsThatGoNowhere(
       const address = wroteUrl ? settings[partner.id] : partner.default
       if (resolves(partner, address)) {
         /*
-          Round 56: words that ask to book, enquire or get in touch on a button into the shop
+          Round 56: words that ask to get in touch (an enquiry, a call, a quote) on a button into the shop
           (../../action-words.ts). It goes to the site's contact or booking page when it has one;
           with none, it is not drawn and the generator is told.
         */
-        if (partner.role !== "link" || typeof address !== "string" || !intoShop(address) || !asksToBook(words, links.has("/products"))) continue
+        if (partner.role !== "link" || typeof address !== "string" || !intoShop(address) || !asksToTalk(words)) continue
         const page = requestPage([...links].map((l) => l.replace(/^\//, "")))
         if (page) {
           settings[partner.id] = `/${page}`
-          notes.push(`${at}: "${words.slice(0, 40)}" asks to book or get in touch; it goes to /${page}, not ${address}`)
+          notes.push(`${at}: "${words.slice(0, 40)}" asks to get in touch; it goes to /${page}, not ${address}`)
           continue
         }
         settings[t.id] = ""
-        if (wroteText || wroteUrl) issues.push({ path: `${at}.settings.${partner.id}`, message: `"${words.slice(0, 40)}" asks the visitor to book or get in touch, and "${partner.id}" goes to ${address}, the shop; this site has no contact or booking page to send it to, so add one, or give the button words that fit the shop` })
+        if (wroteText || wroteUrl) issues.push({ path: `${at}.settings.${partner.id}`, message: `"${words.slice(0, 40)}" asks the visitor to get in touch, and "${partner.id}" goes to ${address}, the shop; this site has no contact or booking page to send it to, so add one, or give the button words that fit the shop` })
         continue
       }
       settings[t.id] = ""

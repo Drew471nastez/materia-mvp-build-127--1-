@@ -715,6 +715,38 @@ export function useStorefrontHooks({
   }, [scriptRoot])
   useEffect(() => (popDrawer ? lockPageScroll(inCanvas) : undefined), [popDrawer, inCanvas])
   useFocusTrap(!!popDrawer, popDrawerRef, !inCanvas)
+  /*
+    A PRESS OUTSIDE THE DRAWER ONLY CLOSES IT (round 56, r56-d). A popover is
+    not modal: the press that shuts it by light dismiss carries on to whatever
+    is under it. saas-orbit's bottom sheet leaves the header above it in view,
+    and a tap there to close the menu opened the search window over the page
+    (measured at 360 to 414 by scripts/check-ai-site-chrome-r56.mjs: the cart
+    then had nothing to open into). The page under a drawer is still, so the
+    press is taken by the drawer: it closes and nothing else happens, as a
+    phone's own sheets behave.
+  */
+  useEffect(() => {
+    if (!scriptRoot) return
+    const doc = scriptRoot.ownerDocument
+    let armed = false
+    const onDown = (e: PointerEvent) => {
+      const d = popDrawerRef.current
+      /* Only a press on the website itself: in the editor, the panels around the canvas keep every click. */
+      armed = !!d && d.matches(":popover-open") && e.target instanceof Element && !d.contains(e.target) && !!e.target.closest("[data-storelib-theme]")
+    }
+    const onClick = (e: MouseEvent) => {
+      if (!armed) return
+      armed = false
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    doc.addEventListener("pointerdown", onDown, true)
+    doc.addEventListener("click", onClick, true)
+    return () => {
+      doc.removeEventListener("pointerdown", onDown, true)
+      doc.removeEventListener("click", onClick, true)
+    }
+  }, [scriptRoot])
   useEffect(() => {
     if (!ownMenuOpen) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeOwnPanel(cart.setOpen, "menu") }

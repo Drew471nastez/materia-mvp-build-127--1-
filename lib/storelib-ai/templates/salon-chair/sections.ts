@@ -59,8 +59,8 @@ export const header = defineSection({
 .sbn__tool { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 .sbn__wide { display: none; }
 .sbn__count:empty, .sbn__count[data-count="0"] { display: none; }
-.sbn__count { min-width: 1.5em; padding: 0 5px; background: var(--s-accent); color: var(--s-text); text-align: center; font-size: 0.75rem; }
-.sbn__book { position: fixed; z-index: 35; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; min-height: 56px; background: var(--s-accent); color: var(--s-text); ${D} font-size: 1.125rem; text-decoration: none; box-shadow: 0 2px 0 var(--s-text); }
+.sbn__count { min-width: 1.5em; padding: 0 5px; background: var(--s-btn); color: var(--s-btn-text); text-align: center; font-size: 0.75rem; }
+.sbn__book { position: fixed; z-index: 35; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; min-height: 56px; background: var(--s-btn); ${D} color: var(--s-btn-text); font-size: 1.125rem; text-decoration: none; box-shadow: 0 2px 0 var(--s-text); }
 .sbn__sheet { inset: auto 0 0 0; width: 100%; max-width: none; max-height: 90dvh; margin: 0; padding: 16px max(var(--theme-padding-x, 20px), env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(var(--theme-padding-x, 20px), env(safe-area-inset-left)); border: 0; border-top: 2px solid var(--s-text); background: var(--s-bg); color: var(--s-text); overflow-y: auto; }
 .sbn__sheet-head { display: flex; align-items: center; justify-content: space-between; }
 .sbn__sheet-title { margin: 0; ${D} font-size: 1.25rem; }
@@ -76,7 +76,7 @@ ${panelCss("sbn", { cartFrom: "bottom", searchFrom: "top" })}
 ${headerScrollCss("sbn", "sbn__util")}
 @container (max-width: 599px) { .sbn__tools > .sbn-loc { display: none; } }
 .sbn-cart { border-top: 2px solid var(--s-text); }
-.sbn-cart__go { background: var(--s-accent); color: var(--s-text); }
+.sbn-cart__go { background: var(--s-btn); color: var(--s-btn-text); }
 @media (min-width: 960px) {
   .sbn__nav { display: flex; }
   .sbn__wide { display: inline-flex; }
@@ -138,7 +138,7 @@ export const hero = defineSection({
 .sbh__intro { max-width: 42ch; margin-top: 18px; font-size: 1.1875rem; line-height: 1.5; }
 .sbh__intro p { margin: 0; }
 .sbh__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; margin-top: 26px; }
-.sbh__btn { display: inline-flex; align-items: center; min-height: 58px; padding: 0 30px; background: var(--s-accent); color: var(--s-text); ${D} font-size: 1.25rem; text-decoration: none; box-shadow: 0 3px 0 var(--s-text); transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); }
+.sbh__btn { display: inline-flex; align-items: center; min-height: 58px; padding: 0 30px; background: var(--s-btn); ${D} color: var(--s-btn-text); font-size: 1.25rem; text-decoration: none; box-shadow: 0 3px 0 var(--s-text); transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); }
 .sbh__btn:active { transform: translateY(3px); box-shadow: none; }
 .sbh__link { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; color: inherit; font-weight: 600; text-underline-offset: 6px; }
 .sbh__facts { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: 30px 0 0; padding-top: 16px; border-top: 2px solid var(--s-text); }
@@ -321,7 +321,7 @@ export const booking = defineSection({
 .sbk__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 4px 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--s-border); }
 .sbk__name { ${D} font-size: 1.375rem; color: inherit; text-decoration: none; }
 .sbk__price { grid-column: 1; font-variant-numeric: tabular-nums; }
-.sbk__go { grid-column: 2; grid-row: 1 / span 2; display: inline-flex; align-items: center; min-height: 50px; padding: 0 22px; border: 0; background: var(--s-accent); color: var(--s-text); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; box-shadow: 0 2px 0 var(--s-text); }
+.sbk__go { grid-column: 2; grid-row: 1 / span 2; display: inline-flex; align-items: center; min-height: 50px; padding: 0 22px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; box-shadow: 0 2px 0 var(--s-text); }
 .sbk__go:active { transform: translateY(2px); box-shadow: none; }
 @container (min-width: 900px) { .sbk__grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 56px; } }`,
   settings: [
@@ -649,7 +649,7 @@ export const collection = defineSection({
 .sbl__link { display: grid; gap: 6px; color: inherit; text-decoration: none; }
 .sbl__link img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border: 2px solid var(--s-text); }
 .sbl__name { ${D} font-size: 1.1875rem; }
-.sbl__add { margin-top: 8px; min-height: 46px; padding: 0 14px; border: 0; background: var(--s-accent); color: var(--s-text); font: inherit; font-weight: 700; cursor: pointer; }
+.sbl__add { margin-top: 8px; min-height: 46px; padding: 0 14px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-weight: 700; cursor: pointer; }
 .sbl__notes { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 32px 0 0; padding: 14px 0 0; border-top: 2px solid var(--s-text); list-style: none; ${SMALL} }
 @container (min-width: 900px) { .sbl__list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px 20px; } }`,
   settings: [text("heading", "Heading when there is no collection", "Services and shelf"), text("query_label", "Before the search words", "Results for"), text("add_label", "Add button", "Book"), ...motion(), scheme("site"), ...spacing(48, 96)],
