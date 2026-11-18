@@ -57,7 +57,7 @@ async function main() {
     const bridge = read("lib/native-bridge.ts")
     check("the native shell's Log out and nativeLogout forget too", (bridge.match(/forgetDevice\(\)/g) ?? []).length >= 2)
     const sign = read("lib/auth/native-sign-in.ts")
-    check("the phone's Google sheet is signed out (SocialLogin, GoogleAuth, Firebase)", /social\.logout\(\{ provider: "google" \}\)/.test(sign) && /gauth\.signOut\(\)/.test(sign) && /fb\.signOut\(\)/.test(sign))
+    check("the phone's Google sheet is signed out (SocialLogin, GoogleAuth, Firebase)", /social\.logout\(\{ provider: "google" \}\)/.test(sign) && /(?:gauth|googlePlugin)\.signOut\(\)/.test(sign) && /fb\.signOut\(\)/.test(sign))
     for (const f of ["components/marketing/user-nav.tsx", "components/marketing/user-nav-client.tsx", "components/dashboard/sidebar.tsx"])
       check(`${f} logs out through the shared helper`, /await endDeviceSession\("local", createClient\(\)\.auth\)/.test(read(f)) && !/supabase\.auth\.signOut\(/.test(read(f)))
     check("the server's Log out expires an unfinished OAuth carry", /jar\.set\(CARRY_COOKIE, "", \{ path: "\/", maxAge: 0 \}\)/.test(read("app/api/auth/logout/route.ts")))
