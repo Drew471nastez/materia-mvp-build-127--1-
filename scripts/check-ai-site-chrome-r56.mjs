@@ -62,7 +62,7 @@ function makeSites() {
   const tsconfig = `tsconfig.chrome-r56.generated.json`
   const file = join(OUT, "sites.json")
   try {
-    writeFileSync(tsconfig, JSON.stringify({ compilerOptions: { outDir: tmp, rootDir: ".", target: "es2022", module: "esnext", moduleResolution: "bundler", jsx: "react-jsx", skipLibCheck: true, strict: false, noEmitOnError: false, baseUrl: ".", paths: { "@/*": ["./*"] } }, files: ["scripts/ai-site-chrome-r56-sites.ts"] }))
+    writeFileSync(tsconfig, JSON.stringify({ compilerOptions: { outDir: tmp, rootDir: ".", target: "es2022", module: "esnext", moduleResolution: "bundler", jsx: "react-jsx", skipLibCheck: true, strict: true, noEmitOnError: false, baseUrl: ".", paths: { "@/*": ["./*"] } }, files: ["scripts/ai-site-chrome-r56-sites.ts"] }))
     try { execFileSync("pnpm", ["exec", "tsc", "-p", tsconfig], { stdio: "inherit" }) } catch { /* emitted anyway; type errors are tsc's to report */ }
     writeFileSync(join(tmp, "package.json"), '{"type":"module"}\n')
     symlinkSync(join(root, "node_modules"), join(tmp, "node_modules"), "junction")
@@ -79,6 +79,9 @@ let sites = JSON.parse(readFileSync(sitesFile, "utf8"))
 const only = (process.env.SITES ?? "").split(",").filter(Boolean)
 if (only.length) sites = sites.filter((s) => only.some((x) => s.key.includes(x)))
 console.log(`${sites.length} sites: ${sites.map((s) => s.key).join(", ")}`)
+/* The AI look warnings each starting template carries before any adaptation (lib/ai-builder/slop.ts). */
+const slop = Object.fromEntries(sites.filter((s) => s.slop).map((s) => [s.key, s.slop]))
+for (const [k, v] of Object.entries(slop)) console.log(`  ${k}: frame ${v.chrome.warnings} warnings, ${v.chrome.errors} errors; whole site ${v.site.warnings} warnings, ${v.site.errors} errors\n    ${v.chrome.rules.join("\n    ")}`)
 
 /* ── 2. the probe (the live page's React tree) and the app's stylesheet ── */
 
@@ -605,7 +608,7 @@ for (const id of ids) {
   const cells = WIDTHS.map((w) => { const t = table[`${id}@${w}`]; return (t ? `${t.fail}/${t.pass + t.fail}` : "-").padStart(10) })
   console.log(`${id.padEnd(26)}${cells.join("")}`)
 }
-const summary = { at: new Date().toISOString(), sites: sites.map((s) => s.key), widths: WIDTHS, failures, table }
+const summary = { at: new Date().toISOString(), sites: sites.map((s) => s.key), widths: WIDTHS, failures, table, slop: Object.fromEntries(Object.entries(slop).map(([k, v]) => [k, { chrome: v.chrome.warnings, chromeErrors: v.chrome.errors, site: v.site.warnings, siteErrors: v.site.errors, rules: v.chrome.rules }])) }
 writeFileSync(join(OUT, "results.json"), JSON.stringify({ summary, results }, null, 2))
 if (!process.env.OUT || process.env.SAVE_LAST === "1") writeFileSync(join(root, ".ai-site-chrome-r56-last.json"), JSON.stringify(summary, null, 2))
 console.log(`\n${failures} failing checks. ${join(OUT, "results.json")}`)
