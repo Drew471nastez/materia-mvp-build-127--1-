@@ -233,7 +233,7 @@ async function main() {
 
   section("6. The eval's new checks")
   check("palette.contrast and slop.look are eval checks", CHECKS.some((c) => c.id === "palette.contrast") && CHECKS.some((c) => c.id === "slop.look"))
-  const site = (colors: Record<string, string>): EvalSite => ({ engine: "native", engineLabel: "x", scenario: EVAL_SCENARIOS[0], status: "complete", pages: [{ key: "home", sections: [] }], sources: {}, settings: tokensToThemeSettings({ ...tokens, colors: colors as never }, {}), capabilities: null, mode: "theme", notes: [] })
+  const site = (colors: object): EvalSite => ({ engine: "native", engineLabel: "x", scenario: EVAL_SCENARIOS[0], status: "complete", pages: [{ key: "home", sections: [] }], sources: {}, settings: tokensToThemeSettings({ ...tokens, colors: colors as never }, {}), capabilities: null, mode: "theme", notes: [] })
   check("the lime palette fails palette.contrast", checkPalette(site(lime)).status === "fail")
   check("the repaired palette passes it, naming the brand", checkPalette(site(fixed.colors as never)).status === "pass" && /brand #d7ff3a/.test(checkPalette(site(fixed.colors as never)).detail))
   check("a site of Storelib's own sections passes slop.look without judging them", checkSlopLook(site(fixed.colors as never)).status === "pass")
